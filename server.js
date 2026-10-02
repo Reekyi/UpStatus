@@ -1,3 +1,11 @@
+require('dotenv').config();
+const { createClient } = require('@supabase/supabase-js');
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
+
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
