@@ -1,0 +1,4 @@
+UpStatus v2.6.2
+
+Correções: foto de perfil agora atualiza corretamente, tema claro do chat com contraste corrigido, nomes de leitura aparecem imediatamente ao passar o mouse e preview de imagens maior.
+Novidades: seletor de emojis e gravação de áudio de até 30 segundos.

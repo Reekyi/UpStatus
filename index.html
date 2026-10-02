@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UpStatus</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;color:#ecf1fa;background:#10151f;font:14px Segoe UI,Arial,sans-serif}
+.hidden{display:none!important}
+#login{min-height:100vh;background:radial-gradient(circle at top,#1b2942,#10151f 63%);display:grid;place-items:center;padding:20px}
+.login-card{width:min(360px,100%);background:#19212e;padding:28px;border:1px solid #2c384c;border-radius:17px;box-shadow:0 12px 35px #0008}
+h1{font-size:24px;margin:0}.sub{color:#aab6c9;margin:6px 0 23px}
+label{display:block;font-weight:650;margin:14px 0 6px}
+select,input{width:100%;border:1px solid #354258;border-radius:9px;padding:11px;font:inherit;color:#edf2fb;background:#111722}
+button{font:inherit;cursor:pointer;border:0}
+.primary{margin-top:10px;width:100%;background:#4f7dff;color:#fff;font-weight:700;padding:10px;border-radius:9px}
+.hint{margin-top:14px;font-size:12px;color:#9aa8bc}.message{min-height:20px;margin-top:12px;font-weight:600;color:#ff7890}.message.ok{color:#67d99a}
+#bubble{position:fixed;right:24px;bottom:24px;width:62px;height:62px;border-radius:50%;background:#25324a;box-shadow:0 7px 22px #0009;overflow:hidden;padding:0;z-index:20;border:2px solid #566b91}
+#bubble img{width:100%;height:100%;object-fit:cover;transform:scale(1.32)}
+#panel,#historyPanel{position:fixed;right:24px;bottom:102px;width:365px;max-width:calc(100vw - 32px);background:#19212e;border:1px solid #2d3a4e;border-radius:16px;box-shadow:0 16px 42px #000a;padding:19px;z-index:21}
+.panel-head,.top{display:flex;justify-content:space-between;align-items:start}
+.title{font-weight:750;font-size:18px}.you{color:#a9b5c8;margin-top:3px}
+.head-actions{display:flex;gap:6px}.logout,.history-btn,.close-btn{color:#b8c5d9;background:#273247;border-radius:7px;padding:7px 9px;font-size:12px}
+.history-btn{font-size:16px;padding:5px 8px;line-height:1;display:inline-flex;align-items:center;justify-content:center;width:34px;height:30px}.history-icon{font-size:17px;line-height:1}
+.status-line{display:flex;gap:7px;margin:16px 0 13px}
+.status{padding:9px;border-radius:8px;font-size:13px;font-weight:700}
+.online{background:#173f2b;color:#7be1a7}.busy{background:#4d3a13;color:#ffcf61}.away{background:#303949;color:#c7d0df}
+.notice{background:#443617;color:#f4d77a;border-radius:8px;padding:9px;font-size:12px;margin:12px 0}
+.team-title{font-weight:750;margin-top:16px}.member{padding:11px 0;border-bottom:1px solid #2b3545}.member:last-child{border:0}
+.badge{border-radius:14px;padding:3px 7px;font-size:11px;font-weight:700}
+.b-online{background:#173f2b;color:#7be1a7}.b-busy{background:#4d3a13;color:#ffcf61}.b-away{background:#303949;color:#c7d0df}.b-offline{background:#2c3442;color:#aeb9c9}
+.reason,.time{margin-top:4px;color:#b7c2d2}.time{font-size:11px;color:#8390a4}
+#historyPanel{z-index:30;max-height:min(620px,calc(100vh - 40px));overflow:hidden}
+.history-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.history-title{font-size:18px;font-weight:750}.history-list{overflow:auto;max-height:510px;padding-right:4px}
+.history-day{font-size:12px;font-weight:750;color:#8fa0b8;margin:14px 0 7px}
+.history-item{padding:9px 0;border-bottom:1px solid #2b3545}
+.history-item:last-child{border-bottom:0}.history-meta{display:flex;gap:7px;align-items:center}
+.history-status{font-weight:700}.history-reason{font-size:12px;color:#b7c2d2;margin-top:3px}.history-empty{color:#9aa8bc;font-size:13px;padding:15px 0}
+@media(max-width:420px){#bubble{right:16px;bottom:16px}#panel,#historyPanel{right:16px;bottom:92px}}
+</style>
+
+<section id="login">
+  <div class="login-card">
+    <h1>UpStatus</h1>
+    <p class="sub">Entre para controlar somente o seu status de atendimento.</p>
+    <label for="loginName">Seu nome</label>
+    <select id="loginName"><option>Carregando…</option></select>
+    <label for="password">Senha</label>
+    <input id="password" type="password" minlength="6" placeholder="Sua senha">
+    <button class="primary" id="enter">Entrar</button>
+    <div id="loginMessage" class="message"></div>
+    <div class="hint">No primeiro acesso de cada pessoa, a senha informada será cadastrada.</div>
+  </div>
+</section>
+
+<button id="bubble" class="hidden" title="Abrir UpStatus"><img src="/skeleton.gif" alt="Caveirinha dançando"></button>
+
+<section id="panel" class="hidden">
+  <div class="panel-head">
+    <div><div class="title">UpStatus</div><div id="you" class="you"></div></div>
+    <div class="head-actions">
+      <button class="history-btn hidden" id="historyButton" title="Ver histórico" aria-label="Ver histórico"><span class="history-icon">🕘</span></button>
+      <button class="logout" id="logout">Sair</button>
+    </div>
+  </div>
+  <div class="status-line">
+    <button class="status online" data-status="online">● Online</button>
+    <button class="status busy" data-status="busy">● Ocupado</button>
+    <button class="status away" data-status="away">● Ausente</button>
+  </div>
+  <div id="reasonArea" class="hidden">
+    <label for="reason">Motivo de ocupado</label>
+    <select id="reason">
+      <option value="">Selecione um motivo</option>
+      <option>Em treinamento</option>
+      <option>Em aula aberta</option>
+      <option>Ocupado com tarefa</option>
+      <option>Em reunião</option>
+      <option value="other">Outro</option>
+    </select>
+    <input id="customReason" class="hidden" placeholder="Escreva o motivo">
+    <button id="confirmOther" class="primary hidden">Confirmar ocupado</button>
+  </div>
+  <div id="statusMessage" class="message"></div>
+  <div class="notice">Sincronização com o Sale Smartly ativa.</div>
+  <div class="team-title">Equipe</div>
+  <div id="team">Carregando…</div>
+</section>
+
+<section id="historyPanel" class="hidden">
+  <div class="history-head">
+    <div class="history-title">Histórico</div>
+    <div class="head-actions">
+      <button class="close-btn" id="exportHistory" title="Exportar histórico em TXT">Exportar TXT</button>
+      <button class="close-btn" id="closeHistory">Fechar</button>
+    </div>
+  </div>
+  <div id="historyList" class="history-list">Carregando…</div>
+</section>
+
+<script>
+const labels={online:'Online',busy:'Ocupado',away:'Ausente',offline:'Sem status'};
+let me=null;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+const fmtTime=x=>x?new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(new Date(x)):'';
+const fmtDay=x=>x?new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date(x)):'';
+
+async function request(url,body,method='POST'){
+  if(location.protocol==='file:')throw new Error('Abra o UpStatus em http://localhost:3030, não diretamente pelo arquivo.');
+  const r=await fetch(url,{method,headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined});
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.error||'Erro de comunicação.');
+  return d;
+}
+
+async function loadMembers(){
+  try{
+    const d=await request('/api/members',null,'GET');
+    $('#loginName').innerHTML=d.members.map(m=>`<option>${esc(m.name)}</option>`).join('');
+  }catch{
+    $('#loginName').innerHTML='<option>Servidor indisponível</option>';
+  }
+}
+
+async function refresh(){
+  if(!me)return;
+  try{
+    const d=await request('/api/status',null,'GET');
+    $('#team').innerHTML=Object.values(d.members).map(m=>`
+      <div class="member">
+        <div class="top"><b>${esc(m.name)}</b><span class="badge b-${m.status}">${labels[m.status]}</span></div>
+        ${m.reason?`<div class="reason">${esc(m.reason)}</div>`:''}
+        ${m.updatedAt?`<div class="time">Desde ${fmtTime(m.updatedAt)}</div>`:''}
+      </div>`).join('');
+  }catch{$('#team').textContent='Não foi possível atualizar a equipe.'}
+}
+
+function showApp(name,role){
+  me=name;
+  $('#login').classList.add('hidden');
+  $('#bubble').classList.remove('hidden');
+  $('#you').textContent=`Conectado como ${name}`;
+  $('#historyButton').classList.toggle('hidden',role!=='implementation_admin');
+  refresh();
+}
+
+async function login(){
+  const box=$('#loginMessage');box.textContent='';
+  try{
+    const name=$('#loginName').value,password=$('#password').value;
+    const meta=await request('/api/account?name='+encodeURIComponent(name),null,'GET');
+    const d=await request(meta.needsSetup?'/api/setup':'/api/login',{name,password});
+    showApp(d.name,d.role);
+  }catch(e){box.textContent=e.message}
+}
+
+async function save(status,reason=''){
+  const box=$('#statusMessage');box.className='message';box.textContent='Salvando…';
+  try{
+    await request('/api/status',{status,reason});
+    box.className='message ok';box.textContent=`Status: ${labels[status]}.`;
+    $('#reasonArea').classList.add('hidden');
+    refresh();
+  }catch(e){box.textContent=e.message}
+}
+
+
+function exportHistoryTxt(){
+  if(!currentHistory.length){
+    $('#statusMessage').className='message';
+    $('#statusMessage').textContent='Não há movimentações para exportar.';
+    return;
+  }
+  const lines=['UPSTATUS - HISTÓRICO DE MOVIMENTAÇÕES','Exportado em: '+new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'medium'}).format(new Date()),''];
+  let lastDay='';
+  currentHistory.forEach(item=>{
+    const day=fmtDay(item.createdAt);
+    if(day!==lastDay){
+      if(lastDay)lines.push('');
+      lines.push('=== '+day+' ===');
+      lastDay=day;
+    }
+    const reason=item.reason?` | Motivo: ${item.reason}`:'';
+    lines.push(`${fmtTime(item.createdAt)} | ${item.user} | ${labels[item.status]||item.status}${reason}`);
+  });
+  const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const stamp=new Date().toISOString().slice(0,10);
+  a.href=url;
+  a.download=`UpStatus-Historico-${stamp}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+function historyStatus(status){
+  return status==='online'?'🟢':status==='busy'?'🟡':'⚪';
+}
+
+let currentHistory=[];
+
+async function loadHistory(){
+  const d=await request('/api/history?limit=500',null,'GET');
+  currentHistory=d.history||[];
+  return currentHistory;
+}
+
+async function openHistory(){
+  $('#historyPanel').classList.remove('hidden');
+  $('#historyList').textContent='Carregando…';
+  try{
+    const history=await loadHistory();
+    const d={history};
+    if(!d.history.length){$('#historyList').innerHTML='<div class="history-empty">Nenhuma movimentação registrada ainda.</div>';return}
+    let lastDay='';
+    $('#historyList').innerHTML=d.history.map(item=>{
+      const day=fmtDay(item.createdAt);
+      const header=day!==lastDay?`<div class="history-day">${day}</div>`:'';
+      lastDay=day;
+      return `${header}<div class="history-item">
+        <div class="history-meta"><span>${fmtTime(item.createdAt)}</span><b>${esc(item.user)}</b><span class="history-status">${historyStatus(item.status)} ${labels[item.status]}</span></div>
+        ${item.reason?`<div class="history-reason">${esc(item.reason)}</div>`:''}
+      </div>`;
+    }).join('');
+  }catch(e){$('#historyList').textContent=e.message}
+}
+
+$('#enter').onclick=login;
+$('#password').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+$('#reason').onchange=()=>{
+  const other=$('#reason').value==='other';
+  $('#customReason').classList.toggle('hidden',!other);
+  $('#confirmOther').classList.toggle('hidden',!other);
+  if($('#reason').value&&!other)save('busy',$('#reason').value);
+};
+$('#confirmOther').onclick=()=>save('busy',$('#customReason').value);
+$('#bubble').onclick=()=>$('#panel').classList.toggle('hidden');
+$('#historyButton').onclick=openHistory;
+$('#exportHistory').onclick=exportHistoryTxt;
+$('#closeHistory').onclick=()=>$('#historyPanel').classList.add('hidden');
+
+$('#logout').onclick=async()=>{
+  try{await request('/api/logout',{});}catch{}
+  me=null;
+  $('#panel').classList.add('hidden');
+  $('#historyPanel').classList.add('hidden');
+  $('#bubble').classList.add('hidden');
+  $('#login').classList.remove('hidden');
+  $('#password').value='';
+};
+
+document.querySelectorAll('[data-status]').forEach(b=>b.onclick=()=>{
+  const status=b.dataset.status;
+  if(status==='busy'){
+    $('#reasonArea').classList.remove('hidden');
+    $('#reason').focus();
+    $('#statusMessage').className='message';
+    $('#statusMessage').textContent='Escolha o motivo de ocupado.';
+    return;
+  }
+  if(status==='online'){$('#reason').value='';$('#customReason').value=''}
+  save(status,status==='away'?'Ausente':'');
+});
+
+(async()=>{
+  await loadMembers();
+  try{
+    const x=await request('/api/me',null,'GET');
+    if(x.authenticated)showApp(x.name,x.role);
+  }catch{}
+})();
+setInterval(refresh,5000);
+</script>
+</html>
