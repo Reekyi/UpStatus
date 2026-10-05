@@ -405,7 +405,8 @@ Deno.serve(async(req)=>{
     if(path==="/api/setup"&&req.method==="POST")return await login(req,true);
     if(path==="/api/login"&&req.method==="POST")return await login(req,false);
 
-    const ctx=await contextName(req);\n    const name=ctx?.name||null;
+    const ctx=await contextName(req);
+    const name=ctx?.name||null;
     if(path==="/api/me"&&req.method==="GET"){
       const a=name?await account(name):null;
       return response({authenticated:!!name,name:name||null,role:a?.role||null,canViewHistory:a?.role==="implementation_admin",needsSetup:!!a&&!a.password_hash});
@@ -423,6 +424,19 @@ Deno.serve(async(req)=>{
     if(path==="/api/chat/typing")return await typingRoute(req,name);
     if(path==="/api/chat/reaction"&&req.method==="POST")return await reactionRoute(req,name);
     if(path.startsWith("/api/chat/")&&req.method==="DELETE")return await deleteRoute(name,path.slice("/api/chat/".length));
+    if(path==="/api/profiles")return await profileRoute(req,name);
+    if(path==="/api/profile/avatar"&&req.method==="POST")return await profileRoute(req,name);
+    if(path==="/api/chat/image"&&req.method==="POST")return await mediaRoute(req,"image");
+    if(path==="/api/chat/audio"&&req.method==="POST")return await mediaRoute(req,"audio");
+    if(path.startsWith("/api/barui"))return await baruiRoute(req,name);
+    if(path.startsWith("/api/remote-status"))return await remoteRoute(req,name);
+    if(path==="/api/chat/clear"&&req.method==="POST"){
+      if(name!=="Ricardo")return response({error:"Somente Ricardo pode limpar o chat."},403);
+      const {error}=await db.from("messages").delete().gte("created_at","1970-01-01");
+      if(error)throw error;
+      await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🧹 Ricardo limpou o chat.",type:"system",system_type:"chat_clear",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
+      return response({ok:true});
+    }
     return response({error:"Não encontrado."},404);
   }catch(e){
     console.error(e);
