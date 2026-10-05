@@ -10,8 +10,8 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_openInTab
-// @updateURL    http://UpSeller21:3030/upstatus.user.js
-// @downloadURL  http://UpSeller21:3030/upstatus.user.js
+// @updateURL    https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js
+// @downloadURL  https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js
 // @connect      *
 // ==/UserScript==
 (function () {
@@ -19,7 +19,8 @@
 
   var key='upstatus_';
   var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
-  var server=GM_getValue(key+'server','http://UpSeller21:3030').replace(/\/$/,'');
+  var CLOUD_SERVER='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus';
+  var server=CLOUD_SERVER;
   function setupFaviconBadge(){
     try{
       var links=[].slice.call(document.querySelectorAll('link[rel~="icon"]'));var link=links[0]||null;
@@ -35,12 +36,8 @@
   function initFaviconWatcher(){setupFaviconBadge();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initFaviconWatcher,{once:true});else initFaviconWatcher();
 
-  // Migração: versões anteriores salvaram o IP antigo no armazenamento do Tampermonkey.
-  // O servidor agora é acessado pelo hostname fixo, que continua válido mesmo se o DHCP mudar o IP.
-  if(/^https?:\/\/(?:192\.168\.15\.(?:31|42)|localhost|127\.0\.0\.1)(?::3030)?$/i.test(server)){
-    server='http://UpSeller21:3030';
-    GM_setValue(key+'server',server);
-  }
+  // Backend cloud: substitui qualquer endereço antigo salvo no Tampermonkey.
+  GM_setValue(key+'server',CLOUD_SERVER);
   var token=GM_getValue(key+'token','');
   var member=GM_getValue(key+'member','');
   var role=GM_getValue(key+'role','implementation_user');
