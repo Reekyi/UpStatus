@@ -266,12 +266,15 @@ async function chatRoute(req:Request,name:string){
     const hit=rows.find((x:any)=>x.id===String(p.replyTo.id));
     if(hit)replyTo={id:hit.id,user:hit.user,message:hit.message,type:hit.type,imageUrl:hit.imageUrl};
   }
+  const id=randomBytes(8).toString("hex");
+  const createdAt=new Date().toISOString();
+  const mentionList=await mentions(message);
   const {error}=await db.from("messages").insert({
-    id:randomBytes(8).toString("hex"),user_name:name,message,type,system_type:"",
-    created_at:new Date().toISOString(),image_url:imageUrl,mentions:await mentions(message),reply_to:replyTo,reactions:{}
+    id,user_name:name,message,type,system_type:"",
+    created_at:createdAt,image_url:imageUrl,mentions:mentionList,reply_to:replyTo,reactions:{}
   });
   if(error)throw error;
-  return response({ok:true});
+  return response({ok:true,message:{id,user:name,message,type,systemType:"",createdAt,imageUrl,mentions:mentionList,replyTo,reactions:{},readBy:[]}});
 }
 async function readRoute(req:Request,name:string){
   const p:any=await readBody(req);
