@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.12
+// @version      2.7.13
 // @description  UpStatus com status, histórico, chat interno, fotos, menções, atualização e alertas.
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
@@ -261,7 +261,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.7.12';
+  var CURRENT_VERSION='2.7.13';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1217,7 +1217,7 @@
         var r=await api('POST',account.needsSetup?'/api/setup':'/api/login',{name:name,password:password});
         token=r.token;member=r.name;role=r.role||'implementation_user';
         GM_setValue(key+'server',server);GM_setValue(key+'token',token);GM_setValue(key+'member',member);GM_setValue(key+'role',role);
-        img.src=server+'/skeleton.gif';app();refresh();
+        img.src=server+'/skeleton.gif';app();refresh();startRealtime();
       }catch(e){message(e.message,true)}
     };
     card.querySelector('#up-password').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();card.querySelector('#up-enter').click();}});
@@ -1491,7 +1491,7 @@
 
   if(token&&member){
     api('GET','/api/me').then(function(r){
-      if(r.authenticated){role=r.role||role;GM_setValue(key+'role',role);app();refresh()}
+      if(r.authenticated){role=r.role||role;GM_setValue(key+'role',role);app();refresh();startRealtime()}
       else login();
     }).catch(login);
   }else login();
