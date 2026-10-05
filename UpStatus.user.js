@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.2
+// @version      2.7.3
 // @description  UpStatus com status, histórico, chat interno, fotos, menções, atualização e alertas.
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
@@ -1063,10 +1063,14 @@
   function login(){
     card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Servidor</label><input class="up-input" id="up-server"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><button id="up-enter">Entrar</button></div><div class="up-message"></div>';
     card.querySelector('#up-server').value=server;
+    var nameSelect=card.querySelector('#up-name');
+    nameSelect.innerHTML='<option>Ricardo</option><option>Lohan</option><option>Guilherme</option>';
+    if(member)nameSelect.value=member;
     api('GET','/api/members').then(function(r){
-      card.querySelector('#up-name').innerHTML=(r.members||[]).map(function(x){return '<option>'+esc(x.name)+'</option>'}).join('');
-      if(member)card.querySelector('#up-name').value=member;
-    }).catch(function(){card.querySelector('#up-name').innerHTML='<option>Ricardo</option><option>Lohan</option><option>Guilherme</option>'});
+      var names=(r.members||[]).map(function(x){return '<option>'+esc(x.name)+'</option>'}).join('');
+      if(names)nameSelect.innerHTML=names;
+      if(member)nameSelect.value=member;
+    }).catch(function(){});
     card.querySelector('#up-enter').onclick=async function(){
       try{
         server=card.querySelector('#up-server').value.trim().replace(/\/$/,'');
