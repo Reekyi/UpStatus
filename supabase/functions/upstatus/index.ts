@@ -146,6 +146,65 @@ async function chatRows(name:string){
     replyTo:m.reply_to||null,reactions:m.reactions||{},readBy:[]
   }));
 }
+async function stateValue(key:string, fallback:any) {
+  const {data,error}=await db.from("upstatus_state").select("value").eq("state_key",key).maybeSingle();
+  if(error)throw error;
+  return data?.value ?? fallback;
+}
+async function setState(key:string,value:any) {
+  const {error}=await db.from("upstatus_state").upsert({state_key:key,value,updated_at:new Date().toISOString()},{onConflict:"state_key"});
+  if(error)throw error;
+}
+function cookie(req:Request,name:string) {
+  const raw=req.headers.get("cookie")||"";
+  const item=raw.split(";").map(x=>x.trim()).find(x=>x.startsWith(name+"="));
+  return item?decodeURIComponent(item.slice(name.length+1)):"";
+}
+async function luccaState() {
+  return await stateValue("lucca",{online:false,session:null,joinedAt:null,lastSeen:null});
+}
+async function expireLucca() {
+  const s:any=await luccaState();
+  if(!s.online||!s.lastSeen||Date.now()-Date.parse(String(s.lastSeen))<12000)return s;
+  const next={...s,online:false,session:null,lastSeen:new Date().toISOString()};
+  await setState("lucca",next);
+  await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco saiu do chat.",type:"system",system_type:"lucca_leave",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
+  return next;
+}
+async function profileMap() {
+  const {data,error}=await db.from("upstatus_profiles").select("user_name,avatar_url");
+  if(error)throw error;
+  const out:Record<string,string>={};
+  for(const x of data||[])if(x.avatar_url)out[x.user_name]=x.avatar_url;
+  return out;
+}
+function decodeDataUrl(raw:string) {
+  const m=String(raw||"").match(/^data:([^;]+)(?:;[^,]*)?;base64,([\\s\\S]+)$/i);
+  if(!m)throw new Error("Arquivo inválido.");
+  const bin=atob(m[2].replace(/\\s/g,""));
+  return {mime:m[1].toLowerCase(),bytes:Uint8Array.from(bin,c=>c.charCodeAt(0))};
+}
+function ext(mime:string) {
+  return ({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm","audio/webm":"webm","audio/ogg":"ogg","audio/mp4":"m4a","audio/mpeg":"mp3","audio/wav":"wav","audio/x-wav":"wav","audio/x-m4a":"m4a" } as Record<string,string>)[mime]||"";
+}
+async function uploadFile(bucket:string,dataUrl:string,max:number,allowed:Set<string>) {
+  const d=decodeDataUrl(dataUrl);
+  if(!allowed.has(d.mime))throw new Error("Tipo de arquivo não suportado.");
+  if(d.bytes.length>max)throw new Error("Arquivo acima do limite permitido.");
+  const e=ext(d.mime);if(!e)throw new Error("Tipo de arquivo não suportado.");
+  const path=Date.now()+"-"+randomBytes(6).toString("hex")+"."+e;
+  const {error}=await db.storage.from(bucket).upload(path,d.bytes,{contentType:d.mime,upsert:false});
+  if(error)throw error;
+  return {url:db.storage.from(bucket).getPublicUrl(path).data.publicUrl,mime:d.mime};
+}
+async function contextName(req:Request) {
+  const normal=await userFromToken(req);
+  if(normal)return {name:normal,guest:false,joinedAt:0};
+  const s:any=await expireLucca();
+  const c=cookie(req,"lucca_session");
+  if(c&&s.online&&s.session===c)return {name:"Lucca",guest:true,joinedAt:Date.parse(String(s.joinedAt))||Date.now()};
+  return null;
+}
 async function chatRoute(req:Request,name:string){
   if(req.method==="GET"){
     const messages=await chatRows(name);
@@ -167,7 +226,7 @@ async function chatRoute(req:Request,name:string){
     for(const p of profiles||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
     const cutoffTyping=new Date(Date.now()-4500).toISOString();
     const {data:typing}=await db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name);
-    return response({messages,unreadCount,profiles:profileMap,typing:(typing||[]).map((x:any)=>x.user_name),luccaOnline:false});
+    return response({messages,unreadCount,profiles:profileMap,typing:(typing||[]).map((x:any)=>x.user_name),luccaOnline:(await expireLucca()).online===true});
   }
   const p:any=await readBody(req);
   const message=String(p.message||"").trim();
@@ -239,6 +298,97 @@ async function deleteRoute(name:string,id:string){
   return response({ok:true,id});
 }
 
+async function profileRoute(req:Request,name:string) {
+  if(req.method==="GET") return response({profiles:await profileMap()});
+  const p:any=await readBody(req);
+  const saved=await uploadFile("profile-images",String(p.dataUrl||""),2*1024*1024,new Set(["image/png","image/jpeg","image/webp","image/gif"]));
+  await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:saved.url,updated_at:new Date().toISOString()},{onConflict:"user_name"});
+  return response({ok:true,avatarUrl:saved.url});
+}
+async function mediaRoute(req:Request,kind:"image"|"audio") {
+  const p:any=await readBody(req);
+  const max=kind==="audio"?5*1024*1024:25*1024*1024;
+  const allowed=kind==="audio"?new Set(["audio/webm","audio/ogg","audio/mp4","audio/mpeg","audio/wav","audio/x-wav","audio/x-m4a"]):new Set(["image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"]);
+  const saved=await uploadFile("chat-images",String(p.dataUrl||""),max,allowed);
+  return response({ok:true,imageUrl:saved.url,type:saved.mime.startsWith("video/")?"video":kind});
+}
+async function baruiRoute(req:Request,name:string) {
+  const state:any=await stateValue("barui",{});
+  const path=new URL(req.url).pathname;
+  if(req.method==="GET"){
+    const incoming=state[name]||null;
+    const outgoing=Object.entries(state).find(([target,item]:any[])=>item?.sender===name);
+    return response(incoming?{active:true,sender:incoming.sender,startedAt:incoming.startedAt,sequence:incoming.sequence,outgoingActive:!!outgoing,outgoingTarget:outgoing?.[0]||""}:{active:false,outgoingActive:!!outgoing,outgoingTarget:outgoing?.[0]||""});
+  }
+  if(path.endsWith("/stop-incoming")) {
+    delete state[name]; await setState("barui",state); return response({ok:true});
+  }
+  if(!(await admin(name)))return response({error:"Somente administradores podem controlar o BARUI da equipe."},403);
+  const p:any=await readBody(req),target=String(p.target||"");
+  if(target===name||!(await members()).some((x:any)=>x.name===target))return response({error:"Usuário do BARUI inválido."},400);
+  if(p.active)state[target]={sender:name,startedAt:new Date().toISOString(),sequence:Date.now()};
+  else {if(state[target]&&state[target].sender!==name)return response({error:"Somente quem iniciou o BARUI pode pará-lo."},403);delete state[target];}
+  await setState("barui",state); return response({ok:true});
+}
+async function remoteRoute(req:Request,name:string) {
+  const state:any=await stateValue("remote-status",{commands:{},results:{}});
+  state.commands=state.commands||{};state.results=state.results||{};
+  const path=new URL(req.url).pathname;
+  if(req.method==="GET") {
+    if(path.endsWith("/result")) {
+      if(!(await admin(name)))return response({error:"Somente administradores podem consultar resultados."},403);
+      const id=new URL(req.url).searchParams.get("id")||"";
+      const result=state.results[id];
+      if(!result||result.sender!==name)return response({error:"Resultado ainda não disponível."},404);
+      return response({ready:true,result});
+    }
+    return response({pending:!!state.commands[name],command:state.commands[name]||null});
+  }
+  if(path.endsWith("/result")) {
+    const p:any=await readBody(req),cmd=state.commands[name],id=String(p.commandId||"");
+    if(!cmd||cmd.id!==id)return response({error:"Comando não encontrado ou já processado."},404);
+    state.results[id]={commandId:id,sender:cmd.sender,target:name,status:cmd.status,reason:cmd.reason||"",ok:p.ok===true,error:p.ok===true?"":String(p.error||"Falha ao executar o comando."),createdAt:new Date().toISOString()};
+    delete state.commands[name];await setState("remote-status",state);return response({ok:true});
+  }
+  if(!(await admin(name)))return response({error:"Somente administradores podem controlar a fila de outro usuário."},403);
+  const p:any=await readBody(req),target=String(p.target||""),status=String(p.status||""),reason=String(p.reason||"");
+  if(!(await members()).some((x:any)=>x.name===target)||target===name)return response({error:"Usuário alvo inválido."},400);
+  if(!["online","busy","away"].includes(status))return response({error:"Status inválido."},400);
+  if(status!=="online"&&!reason)return response({error:"Informe um motivo."},400);
+  const id=randomBytes(10).toString("hex");
+  state.commands[target]={id,sender:name,target,status,reason:status==="online"?"":reason,createdAt:new Date().toISOString()};
+  await setState("remote-status",state);return response({ok:true,commandId:id});
+}
+async function luccaRoute(req:Request) {
+  const path=new URL(req.url).pathname;
+  if(path==="/api/lucca/login") {
+    const p:any=await readBody(req);
+    const pass=Deno.env.get("LUCCA_PASSWORD")||"";
+    if(!pass||String(p.password||"")!==pass)return response({error:"Senha incorreta."},401);
+    const old:any=await expireLucca();
+    if(old.online)await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco saiu do chat.",type:"system",system_type:"lucca_leave",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
+    const session=randomBytes(32).toString("hex"),joinedAt=new Date().toISOString();
+    await setState("lucca",{online:true,session,joinedAt,lastSeen:joinedAt});
+    await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco entrou no chat.",type:"system",system_type:"lucca_join",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
+    return response({ok:true,name:"Lucca",joinedAt},200,{"Set-Cookie":"lucca_session="+encodeURIComponent(session)+"; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400"});
+  }
+  if(path==="/api/lucca/me") {
+    const s:any=await expireLucca(),c=cookie(req,"lucca_session");
+    return response(c&&s.online&&s.session===c?{authenticated:true,name:"Lucca",joinedAt:s.joinedAt,online:true}:{authenticated:false,name:null,online:!!s.online});
+  }
+  if(path==="/api/lucca/heartbeat") {
+    const s:any=await expireLucca(),c=cookie(req,"lucca_session");
+    if(!c||!s.online||s.session!==c)return response({error:"Sessão do Lucca encerrada."},401);
+    await setState("lucca",{...s,lastSeen:new Date().toISOString()});return response({ok:true,online:true});
+  }
+  if(path==="/api/lucca/logout") {
+    const s:any=await expireLucca(),c=cookie(req,"lucca_session");
+    if(c&&s.online&&s.session===c){await setState("lucca",{...s,online:false,session:null,lastSeen:new Date().toISOString()});await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco saiu do chat.",type:"system",system_type:"lucca_leave",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});}
+    return response({ok:true},200,{"Set-Cookie":"lucca_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"});
+  }
+  return response({error:"Não encontrado."},404);
+}
+
 Deno.serve(async(req)=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:CORS});
   try{
@@ -255,12 +405,12 @@ Deno.serve(async(req)=>{
     if(path==="/api/setup"&&req.method==="POST")return await login(req,true);
     if(path==="/api/login"&&req.method==="POST")return await login(req,false);
 
-    const name=await userFromToken(req);
+    const ctx=await contextName(req);\n    const name=ctx?.name||null;
     if(path==="/api/me"&&req.method==="GET"){
       const a=name?await account(name):null;
       return response({authenticated:!!name,name:name||null,role:a?.role||null,canViewHistory:a?.role==="implementation_admin",needsSetup:!!a&&!a.password_hash});
     }
-    if(!name)return response({error:"Faça login para continuar."},401);
+    if(!ctx)return response({error:"Faça login para continuar."},401);
 
     if(path==="/api/logout"&&req.method==="POST"){
       const t=token(req);if(t)await db.from("upstatus_sessions").delete().eq("token_hash",tokenHash(t));
