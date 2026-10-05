@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.13
+// @version      2.7.14
 // @description  UpStatus com status, histórico, chat interno, fotos, menções, atualização e alertas.
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
@@ -24,6 +24,7 @@
   var server=CLOUD_SERVER;
   var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';
   var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
+  var UP_REALTIME_TOPIC='upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0';
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
   function setupFaviconBadge(){
     try{
@@ -261,7 +262,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.7.13';
+  var CURRENT_VERSION='2.7.14';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -787,12 +788,16 @@
     if(!token||realtimeClient||typeof supabase==='undefined'||!supabase.createClient)return;
     try{
       realtimeClient=supabase.createClient(UP_REALTIME_URL,UP_REALTIME_KEY,{auth:{persistSession:false}});
-      realtimeChannel=realtimeClient.channel('upstatus-live');
+      realtimeChannel=realtimeClient.channel(UP_REALTIME_TOPIC);
       realtimeChannel
-        .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},function(payload){upsertRealtimeMessage(payload&&payload.new);})
-        .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages'},function(payload){upsertRealtimeMessage(payload&&payload.new);})
-        .on('postgres_changes',{event:'DELETE',schema:'public',table:'messages'},function(payload){handleRealtimeDelete(payload&&payload.old);})
-        .on('postgres_changes',{event:'UPDATE',schema:'public',table:'users'},function(){refresh();})
+        .on('broadcast',{event:'db_change'},function(payload){
+          var p=payload&&payload.payload||{};
+          var record=p.record;
+          if(!record)return;
+          if(p.op==='DELETE')handleRealtimeDelete(record);
+          else upsertRealtimeMessage(record);
+        })
+        .on('broadcast',{event:'user_status'},function(){refresh();})
         .subscribe(function(status){
           if(status==='SUBSCRIBED'){realtimeActive=true;if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}return;}
           if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
