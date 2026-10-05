@@ -419,7 +419,7 @@ Deno.serve(async(req)=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:CORS});
   try{
     let path=new URL(req.url).pathname;
-    path=path.replace(/^.*\/upstatus/, "") || "/";
+    path=path.replace(/^\/functions\/v1\/upstatus/, "") || "/";
     if(path.length>1)path=path.replace(/\/$/, "");
 
     if(path==="/upstatus.user.js"&&req.method==="GET")return new Response(userscriptText(),{status:200,headers:{"Content-Type":"text/javascript; charset=utf-8",...CORS,"Cache-Control":"no-store"}});
