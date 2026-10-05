@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.10
+// @version      2.7.11
 // @description  UpStatus com status, histórico, chat interno, fotos, menções, atualização e alertas.
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
@@ -41,7 +41,7 @@
   var token=GM_getValue(key+'token','');
   var member=GM_getValue(key+'member','');
   var role=GM_getValue(key+'role','implementation_user');
-  var chatLoading=false,typingPolling=false,baruiPolling=false,remotePolling=false,refreshing=false,readSentKey='';
+  var chatLoading=false,typingPolling=false,baruiPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
   var UpNativeNotification=(typeof Notification!=='undefined')?Notification:null;
 
   function installPageBridge(){
@@ -257,7 +257,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.7.10';
+  var CURRENT_VERSION='2.7.11';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -767,23 +767,38 @@
     window.__upstatusMembers=names;
   }
   function playLuccaEntrySound(){try{var a=new Audio(server+'/lucca-devil-laugh.wav?'+Date.now());a.volume=.7;var p=a.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}
-  function loadChat(){
+  function loadChat(forceFull){
     if(!token||chatLoading)return;
     chatLoading=true;
-    api('GET','/api/chat').then(function(d){
-      var nextMessages=d.messages||[];
+    var useFast=!forceFull&&chatCache.length>0&&chatFastSince;
+    var route='/api/chat';
+    if(useFast)route='/api/chat?fast=1&since='+encodeURIComponent(new Date(new Date(chatFastSince).getTime()-2000).toISOString());
+    api('GET',route).then(function(d){
+      var incoming=d.messages||[],nextMessages;
+      if(useFast){
+        var byId={};
+        chatCache.forEach(function(m){byId[m.id]=m;});
+        incoming.forEach(function(m){byId[m.id]=m;});
+        nextMessages=Object.keys(byId).map(function(k){return byId[k];}).sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});
+      }else{
+        nextMessages=incoming;
+      }
       updateLuccaPresence(!!d.luccaOnline);
       var latestLuccaJoin=null;
       for(var li=nextMessages.length-1;li>=0;li--){if(nextMessages[li].type==='system'&&nextMessages[li].systemType==='lucca_join'){latestLuccaJoin=nextMessages[li];break;}}
       if(latestLuccaJoin){if(lastLuccaJoinEventId&&latestLuccaJoin.id!==lastLuccaJoinEventId)playLuccaEntrySound();lastLuccaJoinEventId=latestLuccaJoin.id;}
+      var beforeKey=chatDataKey(chatCache);
       chatCache=nextMessages;
       if(d.profiles)profileCache=d.profiles;
-      processChatNotifications(chatCache);
+      processChatNotifications(incoming);
+      var newest=chatCache[chatCache.length-1];
+      if(newest&&newest.createdAt)chatFastSince=newest.createdAt;
       var chatVisible=!chat.classList.contains('hidden')&&!document.hidden;
-      setUnread(chatVisible?0:(d.unreadCount||0));
+      if(!useFast)setUnread(chatVisible?0:(d.unreadCount||0));
+      else if(chatVisible)setUnread(0);
       if(!chat.classList.contains('hidden')){
         var nextKey=chatDataKey(chatCache);
-        if(nextKey!==chatLastRenderKey){
+        if(nextKey!==beforeKey){
           renderChat();
           markVisibleChatRead();
         }
