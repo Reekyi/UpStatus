@@ -454,39 +454,49 @@
     var w=(savedW>=320?savedW:Math.min(defaultW,Math.max(320,window.innerWidth-32)));
     var h=(savedH>=420?savedH:Math.min(defaultH,Math.max(420,window.innerHeight-79)));
     clampPanelSize(panel,w,h);
-    ['n','s','e','w','ne','nw','se','sw'].forEach(function(dir){
-      var hnd=node('div',{className:'up-resize-handle up-resize-'+dir,'dataset':{}});
-      hnd.setAttribute('data-resize',dir);
-      panel.appendChild(hnd);
-      hnd.addEventListener('pointerdown',function(e){
-        if(e.button!==undefined&&e.button!==0)return;
-        e.preventDefault();e.stopPropagation();
-        var startW=panel.offsetWidth,startH=panel.offsetHeight,startX=e.clientX,startY=e.clientY;
-        var moved=false;
-        try{hnd.setPointerCapture(e.pointerId);}catch(_){ }
-        function move(ev){
-          var dx=ev.clientX-startX,dy=ev.clientY-startY;
-          var nextW=startW,nextH=startH;
-          if(dir.indexOf('e')>=0)nextW=startW+dx;
-          if(dir.indexOf('w')>=0)nextW=startW-dx;
-          if(dir.indexOf('s')>=0)nextH=startH+dy;
-          if(dir.indexOf('n')>=0)nextH=startH-dy;
-          if(Math.abs(dx)>2||Math.abs(dy)>2)moved=true;
-          clampPanelSize(panel,nextW,nextH);
-          ev.preventDefault();
+    var resizing=null;
+    function edgeAt(e){
+      var r=panel.getBoundingClientRect(),edge=9;
+      var left=e.clientX-r.left<=edge,right=r.right-e.clientX<=edge,top=e.clientY-r.top<=edge,bottom=r.bottom-e.clientY<=edge;
+      if(top&&left)return 'nw';if(top&&right)return 'ne';if(bottom&&left)return 'sw';if(bottom&&right)return 'se';
+      if(top)return 'n';if(bottom)return 's';if(left)return 'w';if(right)return 'e';return '';
+    }
+    panel.addEventListener('pointermove',function(e){
+      if(resizing)return;
+      var dir=edgeAt(e),cursor={n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize',ne:'nesw-resize',sw:'nesw-resize',nw:'nwse-resize',se:'nwse-resize'}[dir]||'';
+      panel.style.cursor=cursor;
+    },true);
+    panel.addEventListener('pointerleave',function(){if(!resizing)panel.style.cursor='';},true);
+    panel.addEventListener('pointerdown',function(e){
+      if(e.button!==undefined&&e.button!==0)return;
+      var dir=edgeAt(e);if(!dir)return;
+      e.preventDefault();e.stopPropagation();
+      resizing={dir:dir,startW:panel.offsetWidth,startH:panel.offsetHeight,startX:e.clientX,startY:e.clientY};
+      panel.style.cursor={n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize',ne:'nesw-resize',sw:'nesw-resize',nw:'nwse-resize',se:'nwse-resize'}[dir]||'';
+      function move(ev){
+        if(!resizing)return;
+        var dx=ev.clientX-resizing.startX,dy=ev.clientY-resizing.startY,nextW=resizing.startW,nextH=resizing.startH;
+        if(dir.indexOf('e')>=0)nextW=resizing.startW+dx;
+        if(dir.indexOf('w')>=0)nextW=resizing.startW-dx;
+        if(dir.indexOf('s')>=0)nextH=resizing.startH+dy;
+        if(dir.indexOf('n')>=0)nextH=resizing.startH-dy;
+        clampPanelSize(panel,nextW,nextH);
+        ev.preventDefault();
+      }
+      function done(){
+        document.removeEventListener('pointermove',move,true);
+        document.removeEventListener('pointerup',done,true);
+        document.removeEventListener('pointercancel',done,true);
+        if(resizing){
+          GM_setValue(key+'width_'+storageKey,panel.offsetWidth);
+          GM_setValue(key+'height_'+storageKey,panel.offsetHeight);
         }
-        function done(){
-          document.removeEventListener('pointermove',move,true);
-          document.removeEventListener('pointerup',done,true);
-          document.removeEventListener('pointercancel',done,true);
-          try{hnd.releasePointerCapture(e.pointerId);}catch(_){ }
-          if(moved){GM_setValue(key+'width_'+storageKey,panel.offsetWidth);GM_setValue(key+'height_'+storageKey,panel.offsetHeight);}
-        }
-        document.addEventListener('pointermove',move,true);
-        document.addEventListener('pointerup',done,true);
-        document.addEventListener('pointercancel',done,true);
-      },true);
-    });
+        resizing=null;panel.style.cursor='';
+      }
+      document.addEventListener('pointermove',move,true);
+      document.addEventListener('pointerup',done,true);
+      document.addEventListener('pointercancel',done,true);
+    },true);
   }
   function setupResizePersistence(){
     setupPanelResize(card,'card',365,520);
