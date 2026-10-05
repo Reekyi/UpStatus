@@ -392,7 +392,8 @@ async function luccaRoute(req:Request) {
 Deno.serve(async(req)=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:CORS});
   try{
-    const path=new URL(req.url).pathname;
+    let path=new URL(req.url).pathname;
+    path=path.replace(/^\/functions\/v1\/upstatus/, "") || "/";
 
     if(path==="/health"&&req.method==="GET")return response({ok:true,service:"UpStatus",version:VERSION});
     if(path==="/api/members"&&req.method==="GET")return response({members:await members()});
