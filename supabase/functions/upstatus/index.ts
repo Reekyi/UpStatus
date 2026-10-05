@@ -393,7 +393,8 @@ Deno.serve(async(req)=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:CORS});
   try{
     let path=new URL(req.url).pathname;
-    path=path.replace(/^\/functions\/v1\/upstatus/, "") || "/";
+    path=path.replace(/^.*\/upstatus/, "") || "/";
+    if(path.length>1)path=path.replace(/\/$/, "");
 
     if(path==="/health"&&req.method==="GET")return response({ok:true,service:"UpStatus",version:VERSION});
     if(path==="/api/members"&&req.method==="GET")return response({members:await members()});
