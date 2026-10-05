@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.6
+// @version      2.7.7
 // @description  UpStatus com status, histórico, chat interno, fotos, menções, atualização e alertas.
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
@@ -257,7 +257,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.7.6';
+  var CURRENT_VERSION='2.7.7';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1070,7 +1070,33 @@
   function sendChatAudioData(dataUrl){var send=chat.querySelector('.up-chat-send'),record=chat.querySelector('.up-chat-record');if(send)send.disabled=true;if(record)record.disabled=true;var raw=String(dataUrl||'');var match=raw.match(/^data:(audio\/[^;,]+)(?:;[^,]*)?;base64,/i);if(!match){if(send)send.disabled=false;if(record)record.disabled=false;message('Áudio inválido.',true);return;}api('POST','/api/chat/audio',{dataUrl:raw}).then(function(r){return api('POST','/api/chat',{message:'',imageUrl:r.imageUrl,type:'audio',replyTo:chatReplyTo});}).then(function(){chatReplyTo=null;setChatReply(null);stopTypingHeartbeat();return refreshChatAfterSend(null,send);}).catch(function(e){if(send)send.disabled=false;message(e.message,true);}).finally(function(){if(record)record.disabled=false;});
   }
   function clearChatRicardo(){if(member!=='Ricardo')return;if(!confirm('Limpar todo o chat para a equipe?'))return;api('POST','/api/chat/clear',{}).then(function(){chatCache=[];chatLastRenderKey='';return api('GET','/api/chat');}).then(function(d){chatCache=d.messages||[];if(d.profiles)profileCache=d.profiles;renderChat();}).catch(function(e){message(e.message,true);});}
-  function sendChat(){var input=chat.querySelector('.up-chat-input');var text=(input.value||'').trim();if(!text)return;var btn=chat.querySelector('.up-chat-send');btn.disabled=true;api('POST','/api/chat',{message:text,replyTo:chatReplyTo}).then(function(){chatReplyTo=null;setChatReply(null);return refreshChatAfterSend(input,btn)}).catch(function(e){btn.disabled=false;var box=chat.querySelector('.up-chat-list');if(box)box.insertAdjacentHTML('afterbegin','<div class="up-history-empty">'+esc(e.message)+'</div>');});}
+  function sendChat(){
+    var input=chat.querySelector('.up-chat-input'),text=(input.value||'').trim();
+    if(!text)return;
+    var btn=chat.querySelector('.up-chat-send');btn.disabled=true;
+    var tempId='local-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+    var tempReply=chatReplyTo;
+    var optimistic={id:tempId,user:member,message:text,type:'text',systemType:'',createdAt:new Date().toISOString(),imageUrl:'',mentions:[],replyTo:tempReply,reactions:{},readBy:[],optimistic:true};
+    chatCache.push(optimistic);
+    renderChat();
+    input.value='';
+    chatReplyTo=null;setChatReply(null);
+    api('POST','/api/chat',{message:text,replyTo:tempReply}).then(function(r){
+      var created=r&&r.message;
+      if(created){
+        chatCache=chatCache.map(function(m){return m.id===tempId?created:m;});
+        renderChat();
+      }else{
+        chatCache=chatCache.filter(function(m){return m.id!==tempId;});
+        loadChat();
+      }
+    }).catch(function(e){
+      chatCache=chatCache.filter(function(m){return m.id!==tempId;});
+      renderChat();
+      if(input)input.value=text;
+      message(e.message||'Não foi possível enviar a mensagem.',true);
+    }).finally(function(){if(btn)btn.disabled=false;});
+  }
   function fileToDataUrl(file){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var ok=/^(image\/(png|jpe?g|webp|gif)|video\/(mp4|webm))$/i.test(file.type);if(!ok){reject(new Error('Use PNG, JPG, WEBP, GIF, MP4 ou WEBM.'));return;}var max=/^video\//i.test(file.type)?25*1024*1024:5*1024*1024;if(file.size>max){reject(new Error('O arquivo deve ter no máximo '+(max/1024/1024)+' MB.'));return;}var reader=new FileReader();reader.onload=function(){resolve(String(reader.result));};reader.onerror=function(){reject(new Error('Não foi possível ler o arquivo.'));};reader.readAsDataURL(file);});}
   function sendChatMedia(file){var btn=chat.querySelector('.up-chat-send'),photoBtn=chat.querySelector('.up-chat-attach');if(btn)btn.disabled=true;if(photoBtn)photoBtn.disabled=true;fileToDataUrl(file).then(function(dataUrl){return api('POST','/api/chat/image',{dataUrl:dataUrl})}).then(function(r){return api('POST','/api/chat',{message:'',imageUrl:r.imageUrl,type:r.type,replyTo:chatReplyTo})}).then(function(){return refreshChatAfterSend(null,btn)}).catch(function(e){if(btn)btn.disabled=false;message(e.message,true)}).finally(function(){if(photoBtn)photoBtn.disabled=false});}
 
