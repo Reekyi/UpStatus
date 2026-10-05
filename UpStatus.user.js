@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.18
+// @version      2.7.19
 // @description  UpStatus com status, histórico, chat interno, fotos, menções, atualização e alertas.
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
@@ -263,7 +263,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.7.18';
+  var CURRENT_VERSION='2.7.19';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -343,7 +343,7 @@
     '#upstatus-card{position:absolute;bottom:55px;right:0;width:365px;max-width:calc(100vw - 32px);background:#19212e;border:1px solid #354258;border-radius:16px;padding:18px;box-shadow:0 16px 42px #000b}'+
     '#upstatus-history{position:absolute;bottom:55px;right:0;width:365px;max-width:calc(100vw - 32px);height:520px;box-sizing:border-box;background:#19212e;border:1px solid #354258;border-radius:16px;padding:18px;box-shadow:0 16px 42px #000b;overflow:hidden;display:flex;flex-direction:column}'+
     '#upstatus-chat{position:absolute;bottom:55px;right:0;width:365px;max-width:calc(100vw - 32px);height:520px;box-sizing:border-box;background:#19212e;border:1px solid #354258;border-radius:16px;padding:18px;box-shadow:0 16px 42px #000b;overflow:hidden;display:flex;flex-direction:column}'+
-    '#upstatus-card{resize:both;min-width:320px;min-height:420px;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);overflow:auto}#upstatus-history,#upstatus-chat{resize:both;min-width:320px;min-height:420px;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px)}'+
+    '#upstatus-card,#upstatus-history,#upstatus-chat{resize:none;min-width:320px;min-height:420px;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px)}'+
     '#upstatus-card.hidden,#upstatus-history.hidden,#upstatus-chat.hidden,.up-reasons.hidden,.up-select.hidden,.up-input.hidden,.up-confirm.hidden,.up-history-btn.hidden{display:none}'+
     '.up-head,.up-member-top,.up-history-head{display:flex;justify-content:space-between;align-items:center}'+
     '.up-title,.up-history-title{font-size:18px;font-weight:750}'+
@@ -407,7 +407,8 @@
     '.up-theme-btn .up-icon{width:16px;height:16px}'+
     '.up-health-btn{border:0;border-radius:7px;padding:7px 9px;background:#273247;color:#c6d1e1;cursor:pointer;box-sizing:border-box;height:34px;min-width:34px;display:inline-flex;align-items:center;justify-content:center}.up-health-btn:hover{background:#35425a}.up-health-btn .up-icon{width:16px;height:16px}'+
     '#upstatus-root.up-theme-light .up-theme-btn{background:#e8edf4;color:#334155}'+
-    '#upstatus-root.up-theme-light .up-health-btn{background:#e8edf4;color:#334155}'
+    '#upstatus-root.up-theme-light .up-health-btn{background:#e8edf4;color:#334155}'+
+    '.up-resize-handle{position:absolute;z-index:200;touch-action:none}.up-resize-n{left:10px;right:10px;top:-5px;height:10px;cursor:ns-resize}.up-resize-s{left:10px;right:10px;bottom:-5px;height:10px;cursor:ns-resize}.up-resize-e{top:10px;bottom:10px;right:-5px;width:10px;cursor:ew-resize}.up-resize-w{top:10px;bottom:10px;left:-5px;width:10px;cursor:ew-resize}.up-resize-ne{right:-5px;top:-5px;width:14px;height:14px;cursor:nesw-resize}.up-resize-nw{left:-5px;top:-5px;width:14px;height:14px;cursor:nwse-resize}.up-resize-se{right:-5px;bottom:-5px;width:14px;height:14px;cursor:nwse-resize}.up-resize-sw{left:-5px;bottom:-5px;width:14px;height:14px;cursor:nesw-resize}'
   });
 
   var root=node('div',{id:'upstatus-root'});
@@ -436,15 +437,68 @@
   setBubbleStatus('offline');
   root.appendChild(readTooltip);
   document.documentElement.appendChild(root);
+  function panelBounds(panel){
+    var minW=320,minH=420;
+    var maxW=Math.max(minW,Math.min(620,window.innerWidth-32));
+    var maxH=Math.max(minH,Math.min(680,window.innerHeight-79));
+    return {minW:minW,minH:minH,maxW:maxW,maxH:maxH};
+  }
+  function clampPanelSize(panel,w,h){
+    var b=panelBounds(panel);
+    w=Math.max(b.minW,Math.min(b.maxW,Math.round(w)));
+    h=Math.max(b.minH,Math.min(b.maxH,Math.round(h)));
+    panel.style.width=w+'px';panel.style.height=h+'px';
+  }
+  function setupPanelResize(panel,storageKey,defaultW,defaultH){
+    var savedW=parseInt(GM_getValue(key+'width_'+storageKey,''),10),savedH=parseInt(GM_getValue(key+'height_'+storageKey,''),10);
+    var w=(savedW>=320?savedW:Math.min(defaultW,Math.max(320,window.innerWidth-32)));
+    var h=(savedH>=420?savedH:Math.min(defaultH,Math.max(420,window.innerHeight-79)));
+    clampPanelSize(panel,w,h);
+    ['n','s','e','w','ne','nw','se','sw'].forEach(function(dir){
+      var hnd=node('div',{className:'up-resize-handle up-resize-'+dir,'dataset':{}});
+      hnd.setAttribute('data-resize',dir);
+      panel.appendChild(hnd);
+      hnd.addEventListener('pointerdown',function(e){
+        if(e.button!==undefined&&e.button!==0)return;
+        e.preventDefault();e.stopPropagation();
+        var startW=panel.offsetWidth,startH=panel.offsetHeight,startX=e.clientX,startY=e.clientY;
+        var moved=false;
+        try{hnd.setPointerCapture(e.pointerId);}catch(_){ }
+        function move(ev){
+          var dx=ev.clientX-startX,dy=ev.clientY-startY;
+          var nextW=startW,nextH=startH;
+          if(dir.indexOf('e')>=0)nextW=startW+dx;
+          if(dir.indexOf('w')>=0)nextW=startW-dx;
+          if(dir.indexOf('s')>=0)nextH=startH+dy;
+          if(dir.indexOf('n')>=0)nextH=startH-dy;
+          if(Math.abs(dx)>2||Math.abs(dy)>2)moved=true;
+          clampPanelSize(panel,nextW,nextH);
+          ev.preventDefault();
+        }
+        function done(){
+          document.removeEventListener('pointermove',move,true);
+          document.removeEventListener('pointerup',done,true);
+          document.removeEventListener('pointercancel',done,true);
+          try{hnd.releasePointerCapture(e.pointerId);}catch(_){ }
+          if(moved){GM_setValue(key+'width_'+storageKey,panel.offsetWidth);GM_setValue(key+'height_'+storageKey,panel.offsetHeight);}
+        }
+        document.addEventListener('pointermove',move,true);
+        document.addEventListener('pointerup',done,true);
+        document.addEventListener('pointercancel',done,true);
+      },true);
+    });
+  }
   function setupResizePersistence(){
-    var savedW=GM_getValue(key+'width',''),savedH=GM_getValue(key+'height','');
-    if(savedW)savedW=parseInt(savedW,10);if(savedH)savedH=parseInt(savedH,10);
-    if(savedW>=320)card.style.width=savedW+'px';
-    if(savedH>=420)card.style.height=savedH+'px';
-    if(window.ResizeObserver){
-      resizeObserver=new ResizeObserver(function(entries){entries.forEach(function(entry){var w=Math.round(entry.contentRect.width),h=Math.round(entry.contentRect.height);if(w>=320&&h>=420){GM_setValue(key+'width',w);GM_setValue(key+'height',h);}});});
-      resizeObserver.observe(card);
-    }
+    setupPanelResize(card,'card',365,520);
+    setupPanelResize(history,'history',365,520);
+    setupPanelResize(chat,'chat',365,520);
+    setupPanelResize(health,'health',365,520);
+    window.addEventListener('resize',function(){
+      [card,history,chat,health].forEach(function(panel){
+        var w=panel.offsetWidth||365,h=panel.offsetHeight||520;
+        clampPanelSize(panel,w,h);
+      });
+    });
   }
   setupResizePersistence();
 
@@ -1242,9 +1296,12 @@
   function healthLed(ok,kind){return '<span class="up-health-led '+(ok?'ok':kind||'bad')+'"></span>';}
   function openHealth(){
     if(member!=='Ricardo')return;
+    card.classList.add('hidden');
+    history.classList.add('hidden');
+    chat.classList.add('hidden');
     health.innerHTML='<div class="up-health-head"><div><div class="up-health-title">Saúde do sistema</div><div class="up-health-sub">Visão administrativa • Ricardo</div></div><button type="button" class="up-health-close">Fechar</button></div><div class="up-health-list"><div class="up-health-row"><div class="up-health-left">'+healthLed(true)+'<span class="up-health-name">Carregando</span></div><span class="up-health-detail">Consultando…</span></div></div><div class="up-health-footer">Realtime é medido nesta sessão. Os demais testes são feitos pelo backend.</div><button type="button" class="up-health-refresh">Atualizar diagnóstico</button>';
     health.classList.remove('hidden');
-    health.querySelector('.up-health-close').onclick=function(){health.classList.add('hidden');};
+    health.querySelector('.up-health-close').onclick=function(){health.classList.add('hidden');card.classList.remove('hidden');};
     health.querySelector('.up-health-refresh').onclick=function(){loadHealth();};
     loadHealth();
   }
@@ -1606,7 +1663,7 @@
     if(!drag||e.pointerId!==drag.id)return;
     var moved=drag.moved;try{bubble.releasePointerCapture(e.pointerId)}catch(_){}
     drag=null;GM_setValue(key+'right',root.style.right);GM_setValue(key+'bottom',root.style.bottom);
-    if(!moved){if(!history.classList.contains('hidden'))history.classList.add('hidden');if(!chat.classList.contains('hidden'))chat.classList.add('hidden');card.classList.toggle('hidden')}
+    if(!moved){health.classList.add('hidden');if(!history.classList.contains('hidden'))history.classList.add('hidden');if(!chat.classList.contains('hidden'))chat.classList.add('hidden');card.classList.toggle('hidden')}
   });
   bubble.addEventListener('pointercancel',function(){drag=null});
 
