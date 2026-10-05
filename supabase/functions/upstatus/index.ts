@@ -6,6 +6,8 @@ const PROJECT_URL = Deno.env.get("SUPABASE_URL")!;
 const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}");
 const ADMIN_KEY = secretKeys.default || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const db = createClient(PROJECT_URL, ADMIN_KEY, { auth: { persistSession: false } });
+const sessionCache = new Map<string,{name:string,expiresAt:number,checkedAt:number}>();
+let membersCache:{at:number,data:Array<{name:string}>}|null=null;
 
 const VERSION = "2.7.2";
 const CORS = {
@@ -40,13 +42,21 @@ function checkPassword(password:string,saved:string){
 async function userFromToken(req:Request){
   const t=token(req);
   if(!t)return null;
+  const now=Date.now();
+  const cached=sessionCache.get(t);
+  if(cached){
+    if(cached.expiresAt<=now){sessionCache.delete(t);return null;}
+    if(now-cached.checkedAt<30000)return cached.name;
+  }
   const {data}=await db.from("upstatus_sessions").select("user_name,expires_at").eq("token_hash",tokenHash(t)).maybeSingle();
   if(!data)return null;
   if(Date.parse(data.expires_at)<=Date.now()){
     await db.from("upstatus_sessions").delete().eq("token_hash",tokenHash(t));
     return null;
   }
-  return String(data.user_name);
+  const name=String(data.user_name);
+  sessionCache.set(t,{name,expiresAt:Date.parse(data.expires_at),checkedAt:now});
+  return name;
 }
 async function account(name:string){
   const {data,error}=await db.from("users").select("name,password_hash,role,status,reason,updated_at,sync").eq("name",name).maybeSingle();
@@ -58,7 +68,7 @@ async function admin(name:string|null){
   const a=await account(name);
   return a?.role==="implementation_admin";
 }
-async function createSession(name:string){
+async function createSession(name:string,knownAccount?:any){
   const raw=randomBytes(32).toString("hex");
   await db.from("upstatus_sessions").delete().lt("expires_at",new Date().toISOString());
   const {error}=await db.from("upstatus_sessions").insert({
@@ -67,7 +77,8 @@ async function createSession(name:string){
     expires_at:new Date(Date.now()+30*86400000).toISOString()
   });
   if(error)throw error;
-  const a=await account(name);
+  const a=knownAccount||await account(name);
+  sessionCache.set(raw,{name,expiresAt:Date.now()+30*86400000,checkedAt:Date.now()});
   return response({name,role:a?.role||"implementation_user",canViewHistory:a?.role==="implementation_admin",token:raw});
 }
 async function login(req:Request,setup:boolean){
@@ -82,15 +93,19 @@ async function login(req:Request,setup:boolean){
     const role=a.role||(["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin":"implementation_user");
     const {error}=await db.from("users").update({password_hash:passwordHash(password),role}).eq("name",name);
     if(error)throw error;
-    return createSession(name);
+    return createSession(name,{...a,password_hash:undefined,role});
   }
   if(!a.password_hash||!checkPassword(password,String(a.password_hash)))return response({error:"Nome ou senha incorretos."},401);
-  return createSession(name);
+  return createSession(name,a);
 }
 async function members(){
+  const now=Date.now();
+  if(membersCache&&now-membersCache.at<10000)return membersCache.data;
   const {data,error}=await db.from("users").select("name").order("name");
   if(error)throw error;
-  return (data||[]).map((x:any)=>({name:String(x.name)}));
+  const out=(data||[]).map((x:any)=>({name:String(x.name)}));
+  membersCache={at:now,data:out};
+  return out;
 }
 async function statusRoute(req:Request,name:string){
   if(req.method==="GET"){
@@ -208,8 +223,15 @@ async function contextName(req:Request) {
 }
 async function chatRoute(req:Request,name:string){
   if(req.method==="GET"){
-    const messages=await chatRows(name);
-    const {data:read}=await db.from("chat_reads").select("user_name,last_read_at,messages");
+    const cutoffTyping=new Date(Date.now()-4500).toISOString();
+    const [messages,readRes,profileRes,typingRes,luccaStateNow]=await Promise.all([
+      chatRows(name),
+      db.from("chat_reads").select("user_name,last_read_at,messages"),
+      db.from("upstatus_profiles").select("user_name,avatar_url"),
+      db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name),
+      expireLucca()
+    ]);
+    const read=readRes.data;
     const readBy:Record<string,string[]>={};
     for(const row of read||[]){
       const map=row.messages&&typeof row.messages==="object"?row.messages:{};
@@ -222,12 +244,9 @@ async function chatRoute(req:Request,name:string){
     const me=(read||[]).find((x:any)=>x.user_name===name);
     const lastRead=me?.last_read_at?Date.parse(me.last_read_at):0;
     const unreadCount=messages.filter((m:any)=>m.type!=="system"&&m.user!==name&&Date.parse(m.createdAt)>lastRead).length;
-    const {data:profiles}=await db.from("upstatus_profiles").select("user_name,avatar_url");
     const profileMap:Record<string,string>={};
-    for(const p of profiles||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
-    const cutoffTyping=new Date(Date.now()-4500).toISOString();
-    const {data:typing}=await db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name);
-    return response({messages,unreadCount,profiles:profileMap,typing:(typing||[]).map((x:any)=>x.user_name),luccaOnline:(await expireLucca()).online===true});
+    for(const p of profileRes.data||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
+    return response({messages,unreadCount,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
   }
   const p:any=await readBody(req);
   const message=String(p.message||"").trim();
@@ -417,7 +436,7 @@ Deno.serve(async(req)=>{
     if(!ctx)return response({error:"Faça login para continuar."},401);
 
     if(path==="/api/logout"&&req.method==="POST"){
-      const t=token(req);if(t)await db.from("upstatus_sessions").delete().eq("token_hash",tokenHash(t));
+      const t=token(req);if(t){await db.from("upstatus_sessions").delete().eq("token_hash",tokenHash(t));sessionCache.delete(t);}
       return response({ok:true});
     }
     if(path==="/api/status")return await statusRoute(req,name);
