@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.5
+// @version      2.7.6
 // @description  UpStatus com status, histórico, chat interno, fotos, menções, atualização e alertas.
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
@@ -257,7 +257,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.7.5';
+  var CURRENT_VERSION='2.7.6';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -498,7 +498,17 @@
     dot.classList.toggle('show',!!show);
   }
   function openUpdate(){
-    try{if(typeof GM_openInTab==='function'){GM_openInTab(UPDATE_URL,{active:true,insert:true,setParent:true});return}}catch(e){}
+    try{
+      if(typeof GM_openInTab==='function'){
+        var updateTab=GM_openInTab(UPDATE_URL,{active:true,insert:true,setParent:true});
+        if(updateTab){
+          updateTab.onclose=function(){
+            setTimeout(function(){try{location.reload()}catch(e){}},250);
+          };
+        }
+        return;
+      }
+    }catch(e){}
     window.open(UPDATE_URL,'_blank','noopener');
   }
   function versionParts(v){
