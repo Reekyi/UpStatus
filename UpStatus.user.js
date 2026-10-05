@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.16
+// @version      2.7.17
 // @description  UpStatus com status, histórico, chat interno, fotos, menções, atualização e alertas.
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
@@ -263,7 +263,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.7.16';
+  var CURRENT_VERSION='2.7.17';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -288,6 +288,7 @@
     sun:'<circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
     moon:'<path d="M20 15.5A8.5 8.5 0 0 1 8.5 4a8.5 8.5 0 1 0 11.5 11.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
     power:'<path d="M12 3v8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M7.1 6.1a7 7 0 1 0 9.8 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' ,
+    pulse:'<path d="M3 12h4l2-5 4 10 2-5h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>,
     plugoff:'<path d="M9 3v5m6-5v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6.5 8h11v2.5a5.5 5.5 0 0 1-11 0V8Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 16v3m-3 2h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m4 4 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
   }; return '<svg class="up-icon '+(cls||'')+'" viewBox="0 0 24 24" aria-hidden="true">'+(p[name]||p.edit)+'</svg>'}
   function reasonIcon(reason){var r=reasons.find(function(x){return x.value===reason});return '<span class="up-icon-wrap">'+iconSvg(r?r.icon:'edit')+'</span>'}
@@ -363,7 +364,8 @@
     '.up-chat-read-tooltip.show{display:block}'+
     '.up-chat-emoji-menu{position:absolute;right:0;bottom:calc(100% + 8px);z-index:25;width:260px;max-height:190px;overflow:auto;padding:8px;box-sizing:border-box;display:flex;flex-wrap:wrap;gap:4px;background:#182130;border:1px solid #3a475b;border-radius:10px;box-shadow:0 10px 30px #0008}.up-chat-emoji-menu.hidden{display:none}.up-chat-emoji{width:32px;height:32px;border:0;border-radius:7px;background:transparent;color:#fff;font-size:20px;cursor:pointer}.up-chat-emoji:hover{background:#273247}.up-chat-context-menu{position:fixed;z-index:2147483647;display:none;min-width:170px;padding:6px;background:#182130;border:1px solid #40506a;border-radius:10px;box-shadow:0 12px 32px #0009}.up-chat-context-menu.show{display:block}.up-chat-context-action{display:flex;align-items:center;gap:7px;width:100%;border:0;background:transparent;color:#edf2fb;border-radius:7px;padding:8px;text-align:left;cursor:pointer;font:12px Segoe UI,Arial,sans-serif}.up-chat-context-action:hover{background:#273247}.up-chat-context-reaction-row{display:flex;gap:3px;padding:4px 2px 2px;border-top:1px solid #334158;margin-top:4px}.up-chat-quoted{margin-bottom:6px;padding:5px 7px;border-left:3px solid #7aa2ff;background:#202b3d;border-radius:6px;font-size:10px;color:#b8c6d9}.up-chat-quoted b{display:block;color:#8eb2ff;margin-bottom:2px}.up-chat-reactions{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}.up-chat-reaction{border:0;border-radius:10px;background:#202c40;color:#fff;padding:2px 6px;font-size:12px;cursor:pointer}.up-chat-reaction.mine{background:#39558a}.up-chat-reply-bar{display:flex;align-items:center;gap:7px;margin-bottom:6px;padding:7px 9px;border-left:3px solid #4f7dff;background:#202b3d;border-radius:7px;color:#dce5f2}.up-chat-reply-bar.hidden{display:none}.up-chat-reply-copy{flex:1;min-width:0;font-size:11px}.up-chat-reply-copy b{display:block;color:#7fb1ff}.up-chat-reply-close{border:0;background:transparent;color:#aebbd0;cursor:pointer;font-size:17px}'+
     '.up-chat-record{width:38px;height:42px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;padding:0;border:1px solid #3a475b;border-radius:8px;background:#273247;color:#dbe5f5;cursor:pointer;font-size:17px}.up-chat-record.recording{background:#c52f48;color:#fff;animation:uprecord .7s infinite alternate}.up-chat-record:disabled{opacity:.55;cursor:wait}@keyframes uprecord{from{box-shadow:0 0 0 0 #ff334f55}to{box-shadow:0 0 0 7px #ff334f55}}.up-chat-recording-label{position:absolute;left:0;bottom:calc(100% + 8px);padding:6px 9px;border-radius:8px;background:#c52f48;color:#fff;font-size:11px;font-weight:800;display:none}.up-chat-recording-label.show{display:block}.up-chat-audio{display:block;width:240px;max-width:100%;margin-top:6px}'+
-        '#upstatus-root.up-theme-light{color:#1b2430}'+
+        '.up-health{position:absolute;inset:0;z-index:110;background:#182130;color:#edf2fb;padding:14px;box-sizing:border-box;border-radius:16px;display:flex;flex-direction:column;overflow:hidden}.up-health.hidden{display:none}.up-health-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.up-health-title{font-size:15px;font-weight:850}.up-health-sub{font-size:10px;color:#8fa0b8;margin-top:2px}.up-health-close{border:0;border-radius:7px;padding:7px 9px;background:#273247;color:#c6d1e1;cursor:pointer}.up-health-list{overflow:auto;flex:1;min-height:0;margin-top:12px;display:flex;flex-direction:column;gap:7px}.up-health-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border:1px solid #344158;border-radius:9px;background:#111722}.up-health-left{display:flex;align-items:center;gap:8px;min-width:0}.up-health-led{width:8px;height:8px;border-radius:50%;background:#667085;flex:0 0 8px}.up-health-led.ok{background:#3bd17d;box-shadow:0 0 0 3px #3bd17d22}.up-health-led.warn{background:#e7b84b;box-shadow:0 0 0 3px #e7b84b22}.up-health-led.bad{background:#ff5b72;box-shadow:0 0 0 3px #ff5b7222}.up-health-name{font-size:12px;font-weight:750;white-space:nowrap}.up-health-detail{font-size:10px;color:#9eabc0;white-space:nowrap;text-align:right}.up-health-footer{font-size:10px;color:#7f8ca0;margin-top:8px;line-height:1.35}.up-health-members{margin-top:3px;padding-top:6px;border-top:1px solid #303b4d}.up-health-member{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0}.up-health-member b{font-size:11px}.up-health-member span{font-size:10px;color:#9eabc0}.up-health-refresh{margin-top:8px;width:100%;border:0;border-radius:8px;padding:8px;background:#273247;color:#dbe5f5;cursor:pointer;font-weight:700}.up-health-refresh:hover{background:#35425a}'+
+    '#upstatus-root.up-theme-light{color:#1b2430}'+
     '#upstatus-root.up-theme-light #upstatus-card,#upstatus-root.up-theme-light #upstatus-history,#upstatus-root.up-theme-light #upstatus-chat{background:#f7f9fc;border-color:#d7dee9;color:#1b2430;box-shadow:0 16px 42px rgba(0,0,0,.18)}'+
     '#upstatus-root.up-theme-light .up-you,#upstatus-root.up-theme-light .up-reason,#upstatus-root.up-theme-light .up-time,#upstatus-root.up-theme-light .up-history-day,#upstatus-root.up-theme-light .up-history-reason,#upstatus-root.up-theme-light .up-history-empty{color:#64748b}'+
     '#upstatus-root.up-theme-light .up-chat-btn,#upstatus-root.up-theme-light .up-logout,#upstatus-root.up-theme-light .up-history-btn,#upstatus-root.up-theme-light .up-close,#upstatus-root.up-theme-light .up-notification-btn,#upstatus-root.up-theme-light .up-export{background:#e8edf4;color:#334155}'+
@@ -399,10 +401,13 @@
     '#upstatus-root.up-theme-light .up-remote-reason-option:hover,#upstatus-root.up-theme-light .up-remote-reason-option.active{background:#dbeafe}'+
     '#upstatus-root.up-theme-light .up-remote-cancel{background:#e8edf4;color:#334155}'+
     '#upstatus-root.up-theme-light .up-chat-notify-dot{border-color:#f7f9fc}'+
+    '#upstatus-root.up-theme-light .up-health{background:#f7f9fc;color:#1b2430}#upstatus-root.up-theme-light .up-health-sub,#upstatus-root.up-theme-light .up-health-detail,#upstatus-root.up-theme-light .up-health-footer,#upstatus-root.up-theme-light .up-health-member span{color:#64748b}#upstatus-root.up-theme-light .up-health-close,#upstatus-root.up-theme-light .up-health-refresh{background:#e8edf4;color:#334155}#upstatus-root.up-theme-light .up-health-row{background:#fff;border-color:#dbe2ec}#upstatus-root.up-theme-light .up-health-members{border-color:#dbe2ec}'+
     '#upstatus-root.up-theme-light .up-notify-dot,#upstatus-root.up-theme-light .up-update-dot,#upstatus-root.up-theme-light .up-quick-chat-bubble{border-color:#f7f9fc}'+
     '.up-theme-btn{border:0;border-radius:7px;padding:7px 9px;background:#273247;color:#c6d1e1;cursor:pointer;box-sizing:border-box;height:34px;min-width:34px;display:inline-flex;align-items:center;justify-content:center}'+
     '.up-theme-btn .up-icon{width:16px;height:16px}'+
-    '#upstatus-root.up-theme-light .up-theme-btn{background:#e8edf4;color:#334155}'
+    '.up-health-btn{border:0;border-radius:7px;padding:7px 9px;background:#273247;color:#c6d1e1;cursor:pointer;box-sizing:border-box;height:34px;min-width:34px;display:inline-flex;align-items:center;justify-content:center}.up-health-btn:hover{background:#35425a}.up-health-btn .up-icon{width:16px;height:16px}'+
+    '#upstatus-root.up-theme-light .up-theme-btn{background:#e8edf4;color:#334155}'+
+    '#upstatus-root.up-theme-light .up-health-btn{background:#e8edf4;color:#334155}'
   });
 
   var root=node('div',{id:'upstatus-root'});
@@ -417,15 +422,17 @@
   var chatProfileHover=node('div',{className:'up-chat-profile-hover'});
   var readTooltip=node('div',{className:'up-chat-read-tooltip'});
   var profileModal=node('div',{className:'up-chat-profile-modal hidden'});
+  var health=node('section',{id:'upstatus-health',className:'up-health hidden'});
   profileModal.innerHTML='<div class="up-chat-profile-dialog"><img class="up-chat-profile-preview" alt="Sua foto"><div class="up-label">Foto de perfil</div><input class="up-chat-profile-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><div class="up-chat-profile-message"></div><div class="up-chat-profile-actions"><button type="button" class="up-chat-profile-cancel">Cancelar</button><button type="button" class="up-chat-profile-save">Salvar foto</button></div></div>';
   root.appendChild(profileModal);
-  var img=node('img',{className:'up-bubble-avatar',src:'',alt:'UpStatus'});
+  var img=node('img',{className:'up-bubble-avatar',src:'',alt:'Foto de perfil'});
+  img.src=profileFallback();
   root.style.right=GM_getValue(key+'right','24px');
   root.style.bottom=GM_getValue(key+'bottom','24px');
   bubble.innerHTML='<span class="up-notify-dot"></span><span class="up-update-dot"></span>';
   quickChatBubble.innerHTML=iconSvg('chat','up-quick-chat-icon');
   bubble.appendChild(img);
-  root.append(style,bubble,quickChatBubble,card,history,chat,toastStack,baruiIncoming,remoteOverlay,chatProfileHover);
+  root.append(style,bubble,quickChatBubble,card,history,chat,toastStack,baruiIncoming,remoteOverlay,chatProfileHover,health);
   setBubbleStatus('offline');
   root.appendChild(readTooltip);
   document.documentElement.appendChild(root);
@@ -757,7 +764,8 @@
     return api('GET','/api/profiles').then(function(d){profileCache=d.profiles||{};profilesLoadedAt=Date.now();}).catch(function(){});
   }
   function updateBubbleAvatar(force){
-    if(!member||!img)return;
+    if(!img)return;
+    if(!member){img.src=profileFallback();return;}
     hydrateAvatar(img,member);
     if(token)loadProfiles(!!force).then(function(){hydrateAvatar(img,member);});
   }
@@ -1231,7 +1239,46 @@
   profileModal.querySelector('.up-chat-profile-file').onchange=function(){var f=this.files&&this.files[0],msg=profileModal.querySelector('.up-chat-profile-message');if(!f)return;var type=String(f.type||'').toLowerCase(),ext=String(f.name||'').split('.').pop().toLowerCase();var okType=/^image\/(png|jpe?g|webp|gif)$/i.test(type)||['png','jpg','jpeg','webp','gif'].indexOf(ext)>=0;if(!okType){msg.textContent='Use PNG, JPG, WEBP ou GIF.';return;}if(f.size>2*1024*1024){msg.textContent='A foto deve ter no máximo 2 MB.';return;}fileToDataUrlForProfile(f,type,ext).then(function(data){profileModal.querySelector('.up-chat-profile-preview').src=data;msg.textContent='';}).catch(function(e){msg.textContent=e.message;});};
   profileModal.querySelector('.up-chat-profile-save').onclick=function(){var file=profileModal.querySelector('.up-chat-profile-file').files&&profileModal.querySelector('.up-chat-profile-file').files[0],msg=profileModal.querySelector('.up-chat-profile-message'),btn=this;if(!file){msg.textContent='Escolha uma foto.';return;}btn.disabled=true;msg.textContent='Salvando…';fileToDataUrl(file).then(function(data){return api('POST','/api/profile/avatar',{dataUrl:data});}).then(function(r){var ck='profile:'+member;if(mediaBlobCache[ck]){try{URL.revokeObjectURL(mediaBlobCache[ck]);}catch(e){}delete mediaBlobCache[ck];}GM_setValue(key+ck,r.avatarUrl);profileCache[member]=r.avatarUrl;hydrateAvatar(profileModal.querySelector('.up-chat-profile-preview'),member);updateBubbleAvatar(false);closeProfileModal();loadChat();}).catch(function(e){msg.textContent=e.message;}).finally(function(){btn.disabled=false;});};
 
+  function healthLed(ok,kind){return '<span class="up-health-led '+(ok?'ok':kind||'bad')+'"></span>';}
+  function openHealth(){
+    if(member!=='Ricardo')return;
+    health.innerHTML='<div class="up-health-head"><div><div class="up-health-title">Saúde do sistema</div><div class="up-health-sub">Visão administrativa • Ricardo</div></div><button type="button" class="up-health-close">Fechar</button></div><div class="up-health-list"><div class="up-health-row"><div class="up-health-left">'+healthLed(true)+'<span class="up-health-name">Carregando</span></div><span class="up-health-detail">Consultando…</span></div></div><div class="up-health-footer">Realtime é medido nesta sessão. Os demais testes são feitos pelo backend.</div><button type="button" class="up-health-refresh">Atualizar diagnóstico</button>';
+    health.classList.remove('hidden');
+    health.querySelector('.up-health-close').onclick=function(){health.classList.add('hidden');};
+    health.querySelector('.up-health-refresh').onclick=function(){loadHealth();};
+    loadHealth();
+  }
+  function loadHealth(){
+    if(member!=='Ricardo'||health.classList.contains('hidden'))return;
+    var list=health.querySelector('.up-health-list');
+    if(!list)return;
+    list.innerHTML='<div class="up-health-row"><div class="up-health-left">'+healthLed(true)+'<span class="up-health-name">Consultando diagnóstico</span></div><span class="up-health-detail">Aguarde…</span></div>';
+    var started=Date.now();
+    api('GET','/api/health').then(function(d){
+      var apiMs=Date.now()-started;
+      var db=d&&d.db||{};
+      var chatCheck=d&&d.chat||{};
+      var state=d&&d.state||{};
+      var users=d&&d.members||[];
+      var rt=realtimeActive;
+      var rows=[
+        {name:'Servidor',ok:!!(d&&d.ok),detail:(d&&d.version?'v'+esc(d.version)+' • '+apiMs+' ms':'Indisponível')},
+        {name:'Supabase / DB',ok:!!db.ok,detail:db.ok?(db.ms+' ms'):'Erro'},
+        {name:'Chat',ok:!!chatCheck.ok,detail:chatCheck.ok?(chatCheck.ms+' ms'):'Erro'},
+        {name:'BARUI + fila remota',ok:!!state.ok,detail:state.ok?'OK':'Erro'},
+        {name:'Realtime',ok:rt,kind:rt?'':'warn',detail:rt?'Conectado':'Fallback / reconectando'},
+        {name:'Versão local',ok:true,detail:'v'+CURRENT_VERSION}
+      ];
+      list.innerHTML=rows.map(function(r){return '<div class="up-health-row"><div class="up-health-left">'+healthLed(r.ok,r.kind)+'<span class="up-health-name">'+r.name+'</span></div><span class="up-health-detail">'+r.detail+'</span></div>';}).join('')+
+        '<div class="up-health-members"><div class="up-health-sub">Presença das sessões</div>'+users.map(function(m){var connected=m.connected!==false;var ver=m.version?'v'+esc(m.version):'v?';return '<div class="up-health-member"><b>'+esc(m.name)+'</b><span>'+ver+' • '+(connected?'conectado':'desconectado')+'</span></div>';}).join('')+'</div>';
+    }).catch(function(e){
+      list.innerHTML='<div class="up-health-row"><div class="up-health-left">'+healthLed(false)+'<span class="up-health-name">Diagnóstico indisponível</span></div><span class="up-health-detail">'+esc(e.message||'Erro')+'</span></div>';
+    });
+  }
+
   function login(){
+    health.classList.add('hidden');
+    img.src=profileFallback();
     card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Servidor</label><input class="up-input" id="up-server"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><button id="up-enter">Entrar</button></div><div class="up-message"></div>';
     card.querySelector('#up-server').value=server;
     var nameSelect=card.querySelector('#up-name');
@@ -1271,11 +1318,13 @@
 
   function app(){
     api('GET','/api/members').then(function(r){window.__upstatusMembers=(r.members||[]).map(function(x){return x.name});}).catch(function(){});
-    card.innerHTML='<div class="up-head"><div><div class="up-title">UpStatus</div><div class="up-you">Conectado como '+esc(member)+'</div></div><div class="up-actions"><button class="up-chat-btn" title="Chat da equipe" aria-label="Chat da equipe">'+iconSvg('chat')+'</button><button class="up-notification-btn" title="Ativar notificações externas" aria-label="Ativar notificações externas">'+iconSvg('bell')+'</button><button class="up-theme-btn" title="Trocar tema" aria-label="Trocar tema">'+iconSvg(theme==='dark'?'sun':'moon')+'</button><button class="up-history-btn hidden" title="Ver histórico" aria-label="Ver histórico">'+iconSvg('clock')+'</button><button class="up-logout">Sair</button></div></div><div class="up-statuses"><button class="up-status online">'+iconSvg('online')+' Online</button><button class="up-status busy">'+iconSvg('busy')+' Ocupado</button><button class="up-status away">'+iconSvg('away')+' Ausente</button></div><div class="up-reasons hidden"><label class="up-label">Motivo de ocupado</label><div class="up-reason-picker"><button type="button" class="up-reason-trigger"><span class="up-reason-trigger-icon">'+iconSvg('edit')+'</span><span class="up-reason-trigger-text">Selecione um motivo</span></button><div class="up-reason-menu hidden">'+reasons.map(function(x){return '<button type="button" class="up-reason-option" data-value="'+esc(x.value)+'">'+iconSvg(x.icon)+'<span class="up-reason-text">'+esc(x.label)+'</span></button>'}).join('')+'</div></div><select class="up-select hidden"></select><input class="up-input hidden" placeholder="Escreva o motivo"><button class="up-confirm hidden">Confirmar ocupado</button></div><div class="up-message"></div><div class="up-notice">Sincronização com o Sale Smartly ativa.</div><div class="up-team-title">Equipe</div><div class="up-team">Carregando…</div>';
+    card.innerHTML='<div class="up-head"><div><div class="up-title">UpStatus</div><div class="up-you">Conectado como '+esc(member)+'</div></div><div class="up-actions"><button class="up-chat-btn" title="Chat da equipe" aria-label="Chat da equipe">'+iconSvg('chat')+'</button><button class="up-notification-btn" title="Ativar notificações externas" aria-label="Ativar notificações externas">'+iconSvg('bell')+'</button><button class="up-theme-btn" title="Trocar tema" aria-label="Trocar tema">'+iconSvg(theme==='dark'?'sun':'moon')+'</button><button class="up-history-btn hidden" title="Ver histórico" aria-label="Ver histórico">'+iconSvg('clock')+'</button><button class="up-health-btn hidden" title="Saúde do sistema" aria-label="Saúde do sistema">'+iconSvg('pulse')+'</button><button class="up-logout">Sair</button></div></div><div class="up-statuses"><button class="up-status online">'+iconSvg('online')+' Online</button><button class="up-status busy">'+iconSvg('busy')+' Ocupado</button><button class="up-status away">'+iconSvg('away')+' Ausente</button></div><div class="up-reasons hidden"><label class="up-label">Motivo de ocupado</label><div class="up-reason-picker"><button type="button" class="up-reason-trigger"><span class="up-reason-trigger-icon">'+iconSvg('edit')+'</span><span class="up-reason-trigger-text">Selecione um motivo</span></button><div class="up-reason-menu hidden">'+reasons.map(function(x){return '<button type="button" class="up-reason-option" data-value="'+esc(x.value)+'">'+iconSvg(x.icon)+'<span class="up-reason-text">'+esc(x.label)+'</span></button>'}).join('')+'</div></div><select class="up-select hidden"></select><input class="up-input hidden" placeholder="Escreva o motivo"><button class="up-confirm hidden">Confirmar ocupado</button></div><div class="up-message"></div><div class="up-notice">Sincronização com o Sale Smartly ativa.</div><div class="up-team-title">Equipe</div><div class="up-team">Carregando…</div>';
     history.innerHTML='<div class="up-history-head"><div class="up-history-title">Histórico</div><div class="up-actions"><button class="up-export" title="Exportar histórico">'+iconSvg('download')+' TXT</button><button class="up-close">Fechar</button></div></div><div class="up-history-list">Carregando…</div>';
 
     var box=card.querySelector('.up-reasons'),select=box.querySelector('select'),custom=box.querySelector('input'),confirm=box.querySelector('button.up-confirm'),trigger=box.querySelector('.up-reason-trigger'),menu=box.querySelector('.up-reason-menu');
     var historyBtn=card.querySelector('.up-history-btn');
+    var healthBtn=card.querySelector('.up-health-btn');
+    if(member==='Ricardo')healthBtn.classList.remove('hidden');
     if(role==='implementation_admin'){
       historyBtn.classList.remove('hidden');
       historyBtn.onclick=function(e){e.stopPropagation();openHistory()};
@@ -1288,9 +1337,10 @@
     box.querySelectorAll('.up-reason-option').forEach(function(opt){opt.onclick=function(){var value=opt.getAttribute('data-value');var r=reasons.find(function(x){return x.value===value});trigger.innerHTML=iconSvg(r?r.icon:'edit')+'<span class="up-reason-trigger-text">'+esc(r?r.label:value)+'</span>';menu.classList.add('hidden');custom.classList.toggle('hidden',value!=='Outro');confirm.classList.toggle('hidden',value!=='Outro');if(value&&value!=='Outro')save('busy',value);else if(value==='Outro')custom.focus();}});
     confirm.onclick=function(){save('busy',custom.value)};
     document.addEventListener('click',function(e){if(box&&!box.contains(e.target))menu.classList.add('hidden')});
-    card.querySelector('.up-logout').onclick=function(){stopRealtime();token='';member='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');history.classList.add('hidden');login()};
+    card.querySelector('.up-logout').onclick=function(){stopRealtime();token='';member='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');history.classList.add('hidden');health.classList.add('hidden');img.src=profileFallback();login()};
     history.querySelector('.up-close').onclick=function(){history.classList.add('hidden')};
     history.querySelector('.up-export').onclick=function(){exportHistoryTxt()};
+    if(healthBtn)healthBtn.onclick=function(e){e.stopPropagation();openHealth()};
     card.querySelector('.up-chat-btn').onclick=function(e){e.stopPropagation();openChat()};
     quickChatBubble.onclick=function(e){e.stopPropagation();openChat()};
     card.querySelector('.up-notification-btn').onclick=function(e){e.stopPropagation();requestExternalNotifications()};
@@ -1431,6 +1481,7 @@
 
   function openHistory(){
     if(role!=='implementation_admin')return;
+    health.classList.add('hidden');
     history.classList.remove('hidden');
     history.querySelector('.up-history-list').textContent='Carregando…';
     api('GET','/api/history?limit=200').then(function(d){
@@ -1534,6 +1585,7 @@
       card.classList.add('hidden');
       history.classList.add('hidden');
       chat.classList.add('hidden');
+      health.classList.add('hidden');
     }
   },true);
   bubble.addEventListener('pointerdown',function(e){
