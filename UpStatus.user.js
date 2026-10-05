@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.3
+// @version      2.7.4
 // @description  UpStatus com status, histórico, chat interno, fotos, menções, atualização e alertas.
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
@@ -41,6 +41,7 @@
   var token=GM_getValue(key+'token','');
   var member=GM_getValue(key+'member','');
   var role=GM_getValue(key+'role','implementation_user');
+  var chatLoading=false,typingPolling=false,baruiPolling=false,remotePolling=false,refreshing=false,readSentKey='';
   var UpNativeNotification=(typeof Notification!=='undefined')?Notification:null;
 
   function installPageBridge(){
@@ -290,7 +291,13 @@
     return new Promise(function(resolve,reject){
       GM_xmlhttpRequest({
         method:method,
-        url:server+route,
+        url:(function(){
+          var u=server+route;
+          if(/^https:\/\/[^/]+\.supabase\.co\/functions\/v1\/upstatus$/i.test(server)){
+            u+=(u.indexOf('?')>=0?'&':'?')+'forceFunctionRegion=us-west-2';
+          }
+          return u;
+        })(),
         headers:Object.assign({'Content-Type':'application/json'},token?{'X-UpStatus-Token':token}:{}),
         data:data?JSON.stringify(data):undefined,
         onload:function(r){
@@ -532,7 +539,7 @@
         setUpdateAvailable(false,'');
         if(u)u.textContent=' • Você está atualizado.';
       }
-    }).catch(function(){});
+    }).catch(function(){}).finally(function(){remotePolling=false;});
   }
   function mentionNames(text){
     var found=[];
@@ -746,7 +753,8 @@
   }
   function playLuccaEntrySound(){try{var a=new Audio(server+'/lucca-devil-laugh.wav?'+Date.now());a.volume=.7;var p=a.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}
   function loadChat(){
-    if(!token)return;
+    if(!token||chatLoading)return;
+    chatLoading=true;
     api('GET','/api/chat').then(function(d){
       var nextMessages=d.messages||[];
       updateLuccaPresence(!!d.luccaOnline);
@@ -760,12 +768,13 @@
       setUnread(chatVisible?0:(d.unreadCount||0));
       if(!chat.classList.contains('hidden')){
         var nextKey=chatDataKey(chatCache);
-        if(nextKey!==chatLastRenderKey)renderChat();
+        if(nextKey!==chatLastRenderKey){
+          renderChat();
+          markVisibleChatRead();
+        }
         updateTypingIndicator(d.typing||[]);
-        markVisibleChatRead();
       }
-    }).catch(function(){});
-    loadProfiles();
+    }).catch(function(){}).finally(function(){chatLoading=false;});
   }
   function updateTypingIndicator(names){
     var box=chat.querySelector('.up-chat-typing');if(!box)return;
@@ -778,11 +787,11 @@
     var img=box.querySelector('[data-typing-avatar]');if(img)hydrateAvatar(img,first);
   }
   function sendTypingState(active){if(!token||!member)return Promise.resolve();return api('POST','/api/chat/typing',{typing:!!active}).catch(function(){});}
-  function pollChatTyping(){if(!token||chat.classList.contains('hidden'))return;api('GET','/api/chat/typing').then(function(d){updateTypingIndicator(d.typing||[]);}).catch(function(){});}
+  function pollChatTyping(){if(!token||chat.classList.contains('hidden')||typingPolling)return;typingPolling=true;api('GET','/api/chat/typing').then(function(d){updateTypingIndicator(d.typing||[]);}).catch(function(){}).finally(function(){typingPolling=false;});}
   function stopTypingHeartbeat(){if(typingHeartbeat){clearInterval(typingHeartbeat);typingHeartbeat=null;}if(typingStopTimer){clearTimeout(typingStopTimer);typingStopTimer=null;}sendTypingState(false);}
   function startTypingHeartbeat(){if(typingHeartbeat)return;sendTypingState(true);typingHeartbeat=setInterval(function(){var input=chat.querySelector('.up-chat-input');if(!input||chat.classList.contains('hidden')||!String(input.value||'').trim()){stopTypingHeartbeat();return;}sendTypingState(true);},1500);}
   function handleTypingInput(){var input=chat.querySelector('.up-chat-input');if(!input)return;if(String(input.value||'').trim()){startTypingHeartbeat();if(typingStopTimer)clearTimeout(typingStopTimer);typingStopTimer=setTimeout(function(){stopTypingHeartbeat();},4500);}else stopTypingHeartbeat();}
-  function markVisibleChatRead(){if(!token||chat.classList.contains('hidden'))return;var ids=chatCache.filter(function(m){return m.user!==member;}).map(function(m){return m.id;});if(!ids.length)return;api('POST','/api/chat/read',{messageIds:ids}).then(function(){setUnread(0);}).catch(function(){});}
+  function markVisibleChatRead(){if(!token||chat.classList.contains('hidden'))return;var ids=chatCache.filter(function(m){return m.user!==member;}).map(function(m){return m.id;});if(!ids.length)return;var k=ids.join(',');if(k===readSentKey)return;api('POST','/api/chat/read',{messageIds:ids}).then(function(){readSentKey=k;setUnread(0);}).catch(function(){});}
 
 
   function replyPreview(m){
@@ -944,7 +953,8 @@
     updateBaruiTitle(false);
   }
   function pollBarui(){
-    if(!token)return;
+    if(!token||baruiPolling)return;
+    baruiPolling=true;
     api('GET','/api/barui').then(function(d){
       var active=!!d.active;
       if(active){
@@ -966,7 +976,7 @@
       updateBaruiTitle(active);
       baruiOutgoing=d.outgoingActive?{active:true,target:d.outgoingTarget||''}:{active:false,target:''};
       updateOutgoingBaruiUI();
-    }).catch(function(){});
+    }).catch(function(){}).finally(function(){baruiPolling=false;});
   }
   function sendBaruiTo(target){
     if(!target||target===member)return;
@@ -1021,7 +1031,7 @@
     pollChatTyping();
     api('POST','/api/chat/read',{messageIds:chatCache.filter(function(m){return m.user!==member;}).map(function(m){return m.id;})}).then(function(){setUnread(0);}).catch(function(){});
   }
-  function refreshChatAfterSend(input,btn){if(input)input.value='';return api('POST','/api/chat/read',{messageIds:chatCache.filter(function(m){return m.user!==member;}).map(function(m){return m.id;})}).then(function(){setUnread(0);return api('GET','/api/chat')}).then(function(d){chatCache=d.messages||[];if(d.profiles)profileCache=d.profiles;renderChat();if(btn)btn.disabled=false;});}
+  function refreshChatAfterSend(input,btn){if(input)input.value='';if(btn)btn.disabled=false;loadChat();return Promise.resolve();}
   function setupEmojiPicker(btn,menu,input){
     if(!btn||!menu||!input)return;
     var emojis='😀 😃 😄 😁 😆 😅 😂 🙂 🙃 😉 😊 😍 🥰 😘 😎 🤔 😐 😑 😶 🙄 😏 😴 🤣 😭 😡 🤯 😱 🤝 👍 👎 👌 ✌️ 🙏 👏 💪 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💯 🔥 🎉 🚀 ✅ ❌ ⭐ 🤡 🤖 👀 🫡'.split(' ');
@@ -1176,7 +1186,8 @@
     });
   }
   function pollRemoteStatus(){
-    if(!token)return;
+    if(!token||remotePolling)return;
+    remotePolling=true;
     api('GET','/api/remote-status').then(function(d){
       if(!d.pending||!d.command)return;
       var c=d.command;
@@ -1198,7 +1209,8 @@
   }
 
   function refresh(){
-    if(!token||!member)return;
+    if(!token||!member||refreshing)return;
+    refreshing=true;
     api('GET','/api/status').then(function(d){
       var team=card.querySelector('.up-team');if(!team)return;
       window.__upstatusTeam=d.members||{};
@@ -1217,7 +1229,7 @@
       team.querySelectorAll('.up-member-power').forEach(function(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();openRemoteControl(btn.getAttribute('data-target'));};});
       updateOutgoingBaruiUI();
       setBubbleStatus(currentStatus);
-    }).catch(function(e){message(e.message,true)});
+    }).catch(function(e){message(e.message,true)}).finally(function(){refreshing=false});
     loadChat();
   }
 
@@ -1359,9 +1371,9 @@
 
   setInterval(refresh,5000);
   document.addEventListener('keydown',function(e){if(e.key==='Escape')closeChatLightbox();});
-  setInterval(loadChat,5000);
-  setInterval(pollChatTyping,1000);
-  setInterval(pollBarui,1000);
-  setInterval(pollRemoteStatus,1000);
+  setInterval(loadChat,2000);
+  setInterval(pollChatTyping,1200);
+  setInterval(pollBarui,1500);
+  setInterval(pollRemoteStatus,1500);
   setInterval(checkUpdate,60000);
 })();
