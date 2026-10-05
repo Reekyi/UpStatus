@@ -417,7 +417,8 @@ Deno.serve(async(req)=>{
     path=path.replace(/^.*\/upstatus/, "") || "/";
     if(path.length>1)path=path.replace(/\/$/, "");
 
-    if(path==="/upstatus.user.js"&&req.method==="GET")return new Response(USERSCRIPT,{status:200,headers:{"Content-Type":"text/javascript; charset=utf-8",...CORS,"Cache-Control":"no-store"}});\n    if(path==="/health"&&req.method==="GET")return response({ok:true,service:"UpStatus",version:VERSION});
+    if(path==="/upstatus.user.js"&&req.method==="GET")return new Response(USERSCRIPT,{status:200,headers:{"Content-Type":"text/javascript; charset=utf-8",...CORS,"Cache-Control":"no-store"}});
+    if(path==="/health"&&req.method==="GET")return response({ok:true,service:"UpStatus",version:VERSION});
     if(path==="/api/members"&&req.method==="GET")return response({members:await members()});
     if(path==="/api/update-info"&&req.method==="GET")return response({version:VERSION,updateUrl:"/upstatus.user.js"});
     if(path==="/api/account"&&req.method==="GET"){
