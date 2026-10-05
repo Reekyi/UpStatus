@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.14
+// @version      2.7.15
 // @description  UpStatus com status, histórico, chat interno, fotos, menções, atualização e alertas.
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
@@ -47,6 +47,7 @@
   var member=GM_getValue(key+'member','');
   var role=GM_getValue(key+'role','implementation_user');
   var chatLoading=false,typingPolling=false,baruiPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
+  var remoteResultCache={},remoteResultWaiters={};
   var UpNativeNotification=(typeof Notification!=='undefined')?Notification:null;
 
   function installPageBridge(){
@@ -262,7 +263,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.7.14';
+  var CURRENT_VERSION='2.7.15';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -331,8 +332,8 @@
         '.up-main-alert{animation:upAlertShake .45s ease-in-out 1}'+
     '.up-main-alert.up-barui-alert{animation:upAlertShake .35s ease-in-out infinite}'+
     '@keyframes upAlertShake{0%,100%{transform:translateX(0) rotate(0)}20%{transform:translateX(-4px) rotate(-3deg)}40%{transform:translateX(4px) rotate(3deg)}60%{transform:translateX(-3px) rotate(-2deg)}80%{transform:translateX(3px) rotate(2deg)}}'+
-'#upstatus-bubble{position:relative;width:42px;height:42px;border:2px solid #6b7688;border-radius:50%;background:#5b6574;overflow:visible;padding:0;box-shadow:0 5px 16px #0009;cursor:grab;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;touch-action:none;line-height:1;transition:background .18s,border-color .18s}'+
-    '#upstatus-bubble img{display:none}'+
+'#upstatus-bubble{position:relative;width:42px;height:42px;border:3px solid #6b7688;border-radius:50%;background:#5b6574;overflow:visible;padding:0;box-shadow:0 5px 16px #0009;cursor:grab;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;touch-action:none;line-height:1;transition:background .18s,border-color .18s}'+
+    '#upstatus-bubble .up-bubble-avatar{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover;box-sizing:border-box;pointer-events:none}'+
     '#upstatus-bubble .up-bubble-icon{width:22px;height:22px;color:#fff}'+
     '.up-notify-dot{position:absolute;right:-10px;top:-10px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#ff334f;border:2px solid #19212e;display:none;align-items:center;justify-content:center;box-sizing:border-box;color:#fff;font:800 10px/1 Segoe UI,Arial,sans-serif}.up-notify-dot.show{display:block}.up-quick-chat-bubble{position:absolute;left:-7px;top:-7px;width:22px;height:22px;border:2px solid #19212e;border-radius:50%;background:#687384;color:#fff;box-sizing:border-box;padding:0;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px #0008;cursor:pointer;z-index:5;transition:background .18s,border-color .18s,transform .18s}.up-quick-chat-bubble:hover{background:#7a8799;border-color:#253149;transform:scale(1.08)}.up-quick-chat-bubble.lucca-active{background:#c52f48;border-color:#ff667b;animation:upLuccaPulse .8s infinite alternate}.up-quick-chat-bubble.lucca-active:hover{background:#d63b52;border-color:#ff8292}@keyframes upLuccaPulse{from{box-shadow:0 4px 10px #0008,0 0 0 0 #ff334f66}to{box-shadow:0 4px 10px #0008,0 0 0 7px #ff334f33}}.up-quick-chat-icon{width:12px;height:12px}.up-update-dot{position:absolute;right:-8px;top:-8px;width:22px;height:22px;border-radius:50%;background:#4f7dff;border:2px solid #19212e;display:none;align-items:center;justify-content:center;font-size:12px;line-height:1;box-sizing:border-box}.up-update-dot.show{display:flex}'+
     '.up-barui-incoming{position:absolute;right:52px;bottom:0;width:315px;z-index:90;pointer-events:auto}.up-barui-incoming.hidden{display:none}.up-barui-incoming-card{position:relative;box-sizing:border-box;padding:13px 12px 11px;border:2px solid #ff3d58;border-radius:14px;background:rgba(75,12,25,.94);color:#fff;box-shadow:0 0 0 3px rgba(255,45,72,.14),0 10px 30px rgba(0,0,0,.35);animation:upbaruiAlert .62s infinite alternate}.up-barui-incoming-title{font-size:13px;font-weight:900;letter-spacing:.2px;line-height:1.2;text-transform:uppercase}.up-barui-incoming-sub{font-size:11px;color:#ffd6dc;margin-top:4px}.up-barui-incoming-actions{display:flex;gap:7px;margin-top:10px}.up-barui-incoming-actions button{flex:1;border:0;border-radius:8px;padding:8px 9px;font:800 12px Segoe UI,Arial,sans-serif;cursor:pointer}.up-barui-attend{background:#fff;color:#b51f39}.up-barui-stop{background:#8d1f32;color:#fff}.up-barui-incoming.shake{animation:upbaruiAlert .62s infinite alternate}.up-toast-stack{position:absolute;right:52px;bottom:0;width:300px;display:flex;flex-direction:column-reverse;gap:7px;pointer-events:none}.up-toast{position:relative;pointer-events:auto;box-sizing:border-box;width:100%;padding:9px 28px 9px 11px;border:1px solid rgba(90,105,130,.45);border-radius:12px;background:rgba(25,33,46,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.22);color:#e7edf7;animation:uptoastIn .16s ease-out}.up-toast-name{font-size:11px;font-weight:750;color:#aebbd0;line-height:1.15;margin-bottom:3px}.up-toast-text{font-size:12px;line-height:1.35;white-space:pre-wrap;word-break:break-word}.up-toast-close{position:absolute;right:7px;top:6px;width:18px;height:18px;border:0;border-radius:50%;background:transparent;color:#9aa8bc;font-size:14px;line-height:18px;padding:0;cursor:pointer}.up-toast-close:hover{background:rgba(127,145,170,.16);color:#edf2fb}@keyframes uptoastIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}@media(prefers-color-scheme:light){.up-toast{background:rgba(255,255,255,.82);border-color:rgba(60,75,95,.22);color:#1d2735;box-shadow:0 8px 24px rgba(0,0,0,.14)}.up-toast-name{color:#526176}.up-toast-close{color:#718096}.up-toast-close:hover{background:rgba(80,95,115,.1);color:#263345}}'+
@@ -416,10 +417,10 @@
   var profileModal=node('div',{className:'up-chat-profile-modal hidden'});
   profileModal.innerHTML='<div class="up-chat-profile-dialog"><img class="up-chat-profile-preview" alt="Sua foto"><div class="up-label">Foto de perfil</div><input class="up-chat-profile-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><div class="up-chat-profile-message"></div><div class="up-chat-profile-actions"><button type="button" class="up-chat-profile-cancel">Cancelar</button><button type="button" class="up-chat-profile-save">Salvar foto</button></div></div>';
   root.appendChild(profileModal);
-  var img=node('img',{src:server+'/skeleton.gif',alt:'UpStatus'});
+  var img=node('img',{className:'up-bubble-avatar',src:'',alt:'UpStatus'});
   root.style.right=GM_getValue(key+'right','24px');
   root.style.bottom=GM_getValue(key+'bottom','24px');
-  bubble.innerHTML=iconSvg('online','up-bubble-icon')+'<span class="up-notify-dot"></span><span class="up-update-dot"></span>';
+  bubble.innerHTML='<span class="up-notify-dot"></span><span class="up-update-dot"></span>';
   quickChatBubble.innerHTML=iconSvg('chat','up-quick-chat-icon');
   bubble.appendChild(img);
   root.append(style,bubble,quickChatBubble,card,history,chat,toastStack,baruiIncoming,remoteOverlay,chatProfileHover);
@@ -444,8 +445,6 @@
     var borders={online:'#79e3a8',busy:'#ffd36a',away:'#aeb8c7',offline:'#8b95a4'};
     bubble.style.background=colors[currentStatus]||colors.offline;
     bubble.style.borderColor=borders[currentStatus]||borders.offline;
-    var bi=bubble.querySelector('.up-bubble-icon');
-    if(bi)bi.outerHTML=iconSvg(currentStatus==='online'?'online':currentStatus==='busy'?'busy':'away','up-bubble-icon');
   }
   function unlockAudio(){
     try{
@@ -755,8 +754,13 @@
     if(!force && Date.now()-profilesLoadedAt<30000)return Promise.resolve();
     return api('GET','/api/profiles').then(function(d){profileCache=d.profiles||{};profilesLoadedAt=Date.now();}).catch(function(){});
   }
+  function updateBubbleAvatar(force){
+    if(!member||!img)return;
+    hydrateAvatar(img,member);
+    if(token)loadProfiles(!!force).then(function(){hydrateAvatar(img,member);});
+  }
   function profileFallback(){return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="32" fill="#273247"/><circle cx="32" cy="24" r="11" fill="#9aa8bc"/><path d="M12 56c3-13 11-19 20-19s17 6 20 19" fill="#9aa8bc"/></svg>');}
-  function hydrateAvatar(img,name){var route=profileCache[name];if(!route){img.src=profileFallback();return;}var cacheKey='profile:'+name;var cachedRoute=GM_getValue(key+cacheKey,'');if(cachedRoute!==route){if(mediaBlobCache[cacheKey]){try{URL.revokeObjectURL(mediaBlobCache[cacheKey]);}catch(e){}delete mediaBlobCache[cacheKey];}GM_setValue(key+cacheKey,route);}loadBlobUrl(route,cacheKey).then(function(url){img.src=url;}).catch(function(){img.src=profileFallback();});}
+  function hydrateAvatar(img,name){var cacheKey='profile:'+name;var route=profileCache[name]||GM_getValue(key+cacheKey,'');if(!route){img.src=profileFallback();return;}var cachedRoute=GM_getValue(key+cacheKey,'');if(cachedRoute!==route){if(mediaBlobCache[cacheKey]){try{URL.revokeObjectURL(mediaBlobCache[cacheKey]);}catch(e){}delete mediaBlobCache[cacheKey];}GM_setValue(key+cacheKey,route);}loadBlobUrl(route,cacheKey).then(function(url){img.src=url;}).catch(function(){img.src=profileFallback();});}
 
   function chatDataKey(messages){return (messages||[]).map(function(m){return [m.id,m.createdAt,m.message,m.type,m.systemType||'',m.imageUrl,JSON.stringify(m.replyTo||null),JSON.stringify(m.reactions||{}),JSON.stringify(m.readBy||[])].join('~');}).join('|');}
   function realtimeMessage(record){
@@ -798,6 +802,18 @@
           else upsertRealtimeMessage(record);
         })
         .on('broadcast',{event:'user_status'},function(){refresh();})
+        .on('broadcast',{event:'remote_command'},function(payload){
+          var c=payload&&payload.payload&&payload.payload.command;
+          if(c&&c.target===member)executeRemoteCommand(c);
+        })
+        .on('broadcast',{event:'remote_result'},function(payload){
+          var r=payload&&payload.payload&&payload.payload.result;
+          if(r&&r.commandId&&r.sender===member){
+            remoteResultCache[String(r.commandId)]=r;
+            var waiter=remoteResultWaiters[String(r.commandId)];
+            if(waiter)waiter(r);
+          }
+        })
         .subscribe(function(status){
           if(status==='SUBSCRIBED'){realtimeActive=true;if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}return;}
           if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
@@ -1200,7 +1216,7 @@
   function closeProfileModal(){profileModal.classList.add('hidden');}
   profileModal.querySelector('.up-chat-profile-cancel').onclick=function(){closeProfileModal();};profileModal.onclick=function(e){if(e.target===profileModal)closeProfileModal();};
   profileModal.querySelector('.up-chat-profile-file').onchange=function(){var f=this.files&&this.files[0],msg=profileModal.querySelector('.up-chat-profile-message');if(!f)return;var type=String(f.type||'').toLowerCase(),ext=String(f.name||'').split('.').pop().toLowerCase();var okType=/^image\/(png|jpe?g|webp|gif)$/i.test(type)||['png','jpg','jpeg','webp','gif'].indexOf(ext)>=0;if(!okType){msg.textContent='Use PNG, JPG, WEBP ou GIF.';return;}if(f.size>2*1024*1024){msg.textContent='A foto deve ter no máximo 2 MB.';return;}fileToDataUrlForProfile(f,type,ext).then(function(data){profileModal.querySelector('.up-chat-profile-preview').src=data;msg.textContent='';}).catch(function(e){msg.textContent=e.message;});};
-  profileModal.querySelector('.up-chat-profile-save').onclick=function(){var file=profileModal.querySelector('.up-chat-profile-file').files&&profileModal.querySelector('.up-chat-profile-file').files[0],msg=profileModal.querySelector('.up-chat-profile-message'),btn=this;if(!file){msg.textContent='Escolha uma foto.';return;}btn.disabled=true;msg.textContent='Salvando…';fileToDataUrl(file).then(function(data){return api('POST','/api/profile/avatar',{dataUrl:data});}).then(function(r){var ck='profile:'+member;if(mediaBlobCache[ck]){try{URL.revokeObjectURL(mediaBlobCache[ck]);}catch(e){}delete mediaBlobCache[ck];}GM_setValue(key+ck,r.avatarUrl);profileCache[member]=r.avatarUrl;hydrateAvatar(profileModal.querySelector('.up-chat-profile-preview'),member);closeProfileModal();loadChat();}).catch(function(e){msg.textContent=e.message;}).finally(function(){btn.disabled=false;});};
+  profileModal.querySelector('.up-chat-profile-save').onclick=function(){var file=profileModal.querySelector('.up-chat-profile-file').files&&profileModal.querySelector('.up-chat-profile-file').files[0],msg=profileModal.querySelector('.up-chat-profile-message'),btn=this;if(!file){msg.textContent='Escolha uma foto.';return;}btn.disabled=true;msg.textContent='Salvando…';fileToDataUrl(file).then(function(data){return api('POST','/api/profile/avatar',{dataUrl:data});}).then(function(r){var ck='profile:'+member;if(mediaBlobCache[ck]){try{URL.revokeObjectURL(mediaBlobCache[ck]);}catch(e){}delete mediaBlobCache[ck];}GM_setValue(key+ck,r.avatarUrl);profileCache[member]=r.avatarUrl;hydrateAvatar(profileModal.querySelector('.up-chat-profile-preview'),member);updateBubbleAvatar(false);closeProfileModal();loadChat();}).catch(function(e){msg.textContent=e.message;}).finally(function(){btn.disabled=false;});};
 
   function login(){
     card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Servidor</label><input class="up-input" id="up-server"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><button id="up-enter">Entrar</button></div><div class="up-message"></div>';
@@ -1222,7 +1238,7 @@
         var r=await api('POST',account.needsSetup?'/api/setup':'/api/login',{name:name,password:password});
         token=r.token;member=r.name;role=r.role||'implementation_user';
         GM_setValue(key+'server',server);GM_setValue(key+'token',token);GM_setValue(key+'member',member);GM_setValue(key+'role',role);
-        img.src=server+'/skeleton.gif';app();refresh();startRealtime();
+        img.src=profileFallback();app();refresh();startRealtime();updateBubbleAvatar(true);
       }catch(e){message(e.message,true)}
     };
     card.querySelector('#up-password').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();card.querySelector('#up-enter').click();}});
@@ -1302,44 +1318,77 @@
     };
     if(dStatus)dStatus.disabled=false;
   }
-  function waitRemoteResult(commandId,target,msg,confirm,started){
-    var t=started||Date.now();
-    api('GET','/api/remote-status/result?id='+encodeURIComponent(commandId)).then(function(d){
-      if(d&&d.ready&&d.result){
-        if(d.result.ok){msg.style.color='#9ce5b8';msg.textContent='Fila de '+target+' atualizada com sucesso.';setTimeout(function(){closeRemoteControl();refresh();},700);}
-        else{msg.style.color='#ff9aaa';msg.textContent='Falha: '+(d.result.error||'não foi possível alterar a fila.');if(confirm)confirm.disabled=false;}
-        return;
-      }
-      if(Date.now()-t>=15000){msg.style.color='#ff9aaa';msg.textContent='Tempo esgotado. '+target+' não confirmou a alteração.';if(confirm)confirm.disabled=false;return;}
-      setTimeout(function(){waitRemoteResult(commandId,target,msg,confirm,t);},1000);
-    }).catch(function(){
-      if(Date.now()-t>=15000){msg.style.color='#ff9aaa';msg.textContent='Tempo esgotado. Não foi possível confirmar a alteração.';if(confirm)confirm.disabled=false;return;}
-      setTimeout(function(){waitRemoteResult(commandId,target,msg,confirm,t);},1000);
-    });
+  function applyRemoteResult(commandId,target,msg,confirm,result){
+    if(result&&result.ok){
+      msg.style.color='#9ce5b8';msg.textContent='Fila de '+target+' atualizada com sucesso.';
+      delete remoteResultCache[commandId];
+      setTimeout(function(){closeRemoteControl();refresh();},700);
+    }else{
+      msg.style.color='#ff9aaa';msg.textContent='Falha: '+((result&&result.error)||'não foi possível alterar a fila.');
+      if(confirm)confirm.disabled=false;
+      delete remoteResultCache[commandId];
+    }
   }
+  function waitRemoteResult(commandId,target,msg,confirm,started){
+    var t=started||Date.now(),id=String(commandId);
+    var cached=remoteResultCache[id];
+    if(cached){applyRemoteResult(id,target,msg,confirm,cached);return;}
+    var settled=false;
+    function finish(result){
+      if(settled)return;
+      settled=true;
+      if(remoteResultWaiters[id]===finish)delete remoteResultWaiters[id];
+      applyRemoteResult(id,target,msg,confirm,result);
+    }
+    remoteResultWaiters[id]=finish;
+    function poll(){
+      if(settled)return;
+      api('GET','/api/remote-status/result?id='+encodeURIComponent(id)).then(function(d){
+        if(d&&d.ready&&d.result){finish(d.result);return;}
+        if(Date.now()-t>=25000){
+          if(remoteResultWaiters[id]===finish)delete remoteResultWaiters[id];
+          settled=true;
+          msg.style.color='#ff9aaa';msg.textContent='Tempo esgotado. '+target+' não confirmou a alteração.';if(confirm)confirm.disabled=false;
+          return;
+        }
+        setTimeout(poll,700);
+      }).catch(function(){
+        if(Date.now()-t>=25000){
+          if(remoteResultWaiters[id]===finish)delete remoteResultWaiters[id];
+          settled=true;
+          msg.style.color='#ff9aaa';msg.textContent='Tempo esgotado. Não foi possível confirmar a alteração.';if(confirm)confirm.disabled=false;
+          return;
+        }
+        setTimeout(poll,700);
+      });
+    }
+    poll();
+  }
+  function executeRemoteCommand(c){
+    if(!c||!c.id||c.target!==member||remotePending[c.id])return;
+    remotePending[c.id]=true;
+    (async function(){
+      var ok=false,error='';
+      try{
+        await syncSaleSmartly(c.status);
+        await api('POST','/api/status',{status:c.status,reason:c.reason||'',actor:c.sender||'',target:member});
+        ok=true;
+        if(location.hostname==='app.salesmartly.com')setTimeout(function(){location.reload()},250);
+      }catch(e){error=e.message||'Falha ao sincronizar o Sale Smartly.';}
+      try{await api('POST','/api/remote-status/result',{commandId:c.id,ok:ok,error:error});}catch(_){ }
+      delete remotePending[c.id];
+      if(!ok)message('Comando remoto de '+c.sender+' falhou: '+error,true);else refresh();
+    })();
+  }
+
   function pollRemoteStatus(){
     if(!token||remotePolling)return;
     remotePolling=true;
     api('GET','/api/remote-status').then(function(d){
       if(!d.pending||!d.command)return;
-      var c=d.command;
-      if(remotePending[c.id])return;
-      remotePending[c.id]=true;
-      (async function(){
-        var ok=false,error='';
-        try{
-          await syncSaleSmartly(c.status);
-          await api('POST','/api/status',{status:c.status,reason:c.reason||'',actor:c.sender||'',target:member});
-          ok=true;
-          if(location.hostname==='app.salesmartly.com')setTimeout(function(){location.reload()},250);
-        }catch(e){error=e.message||'Falha ao sincronizar o Sale Smartly.';}
-        try{await api('POST','/api/remote-status/result',{commandId:c.id,ok:ok,error:error});}catch(_){ }
-        delete remotePending[c.id];
-        if(!ok)message('Comando remoto de '+c.sender+' falhou: '+error,true);else refresh();
-      })();
-    }).catch(function(){});
+      executeRemoteCommand(d.command);
+    }).catch(function(){}).finally(function(){remotePolling=false});
   }
-
   function refresh(){
     if(!token||!member||refreshing)return;
     refreshing=true;
@@ -1496,7 +1545,7 @@
 
   if(token&&member){
     api('GET','/api/me').then(function(r){
-      if(r.authenticated){role=r.role||role;GM_setValue(key+'role',role);app();refresh();startRealtime()}
+      if(r.authenticated){role=r.role||role;GM_setValue(key+'role',role);app();refresh();startRealtime();updateBubbleAvatar(true)}
       else login();
     }).catch(login);
   }else login();
