@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.7
+// @version      2.7.8
 // @description  UpStatus com status, histórico, chat interno, fotos, menções, atualização e alertas.
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
@@ -257,7 +257,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.7.7';
+  var CURRENT_VERSION='2.7.8';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -744,7 +744,12 @@
     var key=cacheKey||route;if(mediaBlobCache[key])return Promise.resolve(mediaBlobCache[key]);
     return new Promise(function(resolve,reject){GM_xmlhttpRequest({method:'GET',url:absoluteServerUrl(route),responseType:'blob',onload:function(r){if(r.status>=400){reject(new Error('Arquivo não encontrado.'));return;}try{var u=URL.createObjectURL(r.response);mediaBlobCache[key]=u;resolve(u);}catch(e){reject(e);}},onerror:function(){reject(new Error('Não foi possível carregar o arquivo.'));}});});
   }
-  function loadProfiles(){return api('GET','/api/profiles').then(function(d){profileCache=d.profiles||{};}).catch(function(){});}
+  var profilesLoadedAt=0;
+  function loadProfiles(force){
+    if(!token)return Promise.resolve();
+    if(!force && Date.now()-profilesLoadedAt<30000)return Promise.resolve();
+    return api('GET','/api/profiles').then(function(d){profileCache=d.profiles||{};profilesLoadedAt=Date.now();}).catch(function(){});
+  }
   function profileFallback(){return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="32" fill="#273247"/><circle cx="32" cy="24" r="11" fill="#9aa8bc"/><path d="M12 56c3-13 11-19 20-19s17 6 20 19" fill="#9aa8bc"/></svg>');}
   function hydrateAvatar(img,name){var route=profileCache[name];if(!route){img.src=profileFallback();return;}var cacheKey='profile:'+name;var cachedRoute=GM_getValue(key+cacheKey,'');if(cachedRoute!==route){if(mediaBlobCache[cacheKey]){try{URL.revokeObjectURL(mediaBlobCache[cacheKey]);}catch(e){}delete mediaBlobCache[cacheKey];}GM_setValue(key+cacheKey,route);}loadBlobUrl(route,cacheKey).then(function(url){img.src=url;}).catch(function(){img.src=profileFallback();});}
 
@@ -1097,13 +1102,14 @@
       message(e.message||'Não foi possível enviar a mensagem.',true);
     }).finally(function(){if(btn)btn.disabled=false;});
   }
-  function fileToDataUrl(file){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var ok=/^(image\/(png|jpe?g|webp|gif)|video\/(mp4|webm))$/i.test(file.type);if(!ok){reject(new Error('Use PNG, JPG, WEBP, GIF, MP4 ou WEBM.'));return;}var max=/^video\//i.test(file.type)?25*1024*1024:5*1024*1024;if(file.size>max){reject(new Error('O arquivo deve ter no máximo '+(max/1024/1024)+' MB.'));return;}var reader=new FileReader();reader.onload=function(){resolve(String(reader.result));};reader.onerror=function(){reject(new Error('Não foi possível ler o arquivo.'));};reader.readAsDataURL(file);});}
+  function fileToDataUrl(file){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var type=String(file.type||'').toLowerCase(),ext=String(file.name||'').split('.').pop().toLowerCase();var ok=/^(image\/(png|jpe?g|webp|gif)|video\/(mp4|webm))$/i.test(type)||['png','jpg','jpeg','webp','gif','mp4','webm'].indexOf(ext)>=0;if(!ok){reject(new Error('Use PNG, JPG, WEBP, GIF, MP4 ou WEBM.'));return;}var max=/^video\//i.test(type)||['mp4','webm'].indexOf(ext)>=0?25*1024*1024:5*1024*1024;if(file.size>max){reject(new Error('O arquivo deve ter no máximo '+(max/1024/1024)+' MB.'));return;}var reader=new FileReader();reader.onload=function(){resolve(String(reader.result));};reader.onerror=function(){reject(new Error('Não foi possível ler o arquivo.'));};reader.readAsDataURL(file);});}
+  function fileToDataUrlForProfile(file,type,ext){return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){var data=String(reader.result||'');if(!/^data:image\/(png|jpeg|webp|gif);base64,/i.test(data)){reject(new Error('Não foi possível identificar a imagem.'));return;}resolve(data.replace(/^data:application\/octet-stream;base64,/i,'data:image/'+(ext==='jpg'||ext==='jpeg'?'jpeg':ext)+';base64,'));};reader.onerror=function(){reject(new Error('Não foi possível ler a foto.'));};reader.readAsDataURL(file);});}
   function sendChatMedia(file){var btn=chat.querySelector('.up-chat-send'),photoBtn=chat.querySelector('.up-chat-attach');if(btn)btn.disabled=true;if(photoBtn)photoBtn.disabled=true;fileToDataUrl(file).then(function(dataUrl){return api('POST','/api/chat/image',{dataUrl:dataUrl})}).then(function(r){return api('POST','/api/chat',{message:'',imageUrl:r.imageUrl,type:r.type,replyTo:chatReplyTo})}).then(function(){return refreshChatAfterSend(null,btn)}).catch(function(e){if(btn)btn.disabled=false;message(e.message,true)}).finally(function(){if(photoBtn)photoBtn.disabled=false});}
 
   function openProfileModal(){var file=profileModal.querySelector('.up-chat-profile-file'),preview=profileModal.querySelector('.up-chat-profile-preview'),msg=profileModal.querySelector('.up-chat-profile-message');msg.textContent='';file.value='';hydrateAvatar(preview,member);profileModal.classList.remove('hidden');}
   function closeProfileModal(){profileModal.classList.add('hidden');}
   profileModal.querySelector('.up-chat-profile-cancel').onclick=function(){closeProfileModal();};profileModal.onclick=function(e){if(e.target===profileModal)closeProfileModal();};
-  profileModal.querySelector('.up-chat-profile-file').onchange=function(){var f=this.files&&this.files[0],msg=profileModal.querySelector('.up-chat-profile-message');if(!f)return;if(!/^image\/(png|jpe?g|webp|gif)$/i.test(f.type)||f.size>2*1024*1024){msg.textContent='Use PNG, JPG, WEBP ou GIF, até 2 MB.';return;}fileToDataUrl(f).then(function(data){profileModal.querySelector('.up-chat-profile-preview').src=data;msg.textContent='';}).catch(function(e){msg.textContent=e.message;});};
+  profileModal.querySelector('.up-chat-profile-file').onchange=function(){var f=this.files&&this.files[0],msg=profileModal.querySelector('.up-chat-profile-message');if(!f)return;var type=String(f.type||'').toLowerCase(),ext=String(f.name||'').split('.').pop().toLowerCase();var okType=/^image\/(png|jpe?g|webp|gif)$/i.test(type)||['png','jpg','jpeg','webp','gif'].indexOf(ext)>=0;if(!okType){msg.textContent='Use PNG, JPG, WEBP ou GIF.';return;}if(f.size>2*1024*1024){msg.textContent='A foto deve ter no máximo 2 MB.';return;}fileToDataUrlForProfile(f,type,ext).then(function(data){profileModal.querySelector('.up-chat-profile-preview').src=data;msg.textContent='';}).catch(function(e){msg.textContent=e.message;});};
   profileModal.querySelector('.up-chat-profile-save').onclick=function(){var file=profileModal.querySelector('.up-chat-profile-file').files&&profileModal.querySelector('.up-chat-profile-file').files[0],msg=profileModal.querySelector('.up-chat-profile-message'),btn=this;if(!file){msg.textContent='Escolha uma foto.';return;}btn.disabled=true;msg.textContent='Salvando…';fileToDataUrl(file).then(function(data){return api('POST','/api/profile/avatar',{dataUrl:data});}).then(function(r){var ck='profile:'+member;if(mediaBlobCache[ck]){try{URL.revokeObjectURL(mediaBlobCache[ck]);}catch(e){}delete mediaBlobCache[ck];}GM_setValue(key+ck,r.avatarUrl);profileCache[member]=r.avatarUrl;hydrateAvatar(profileModal.querySelector('.up-chat-profile-preview'),member);closeProfileModal();loadChat();}).catch(function(e){msg.textContent=e.message;}).finally(function(){btn.disabled=false;});};
 
   function login(){
@@ -1407,9 +1413,9 @@
 
   setInterval(refresh,5000);
   document.addEventListener('keydown',function(e){if(e.key==='Escape')closeChatLightbox();});
-  setInterval(loadChat,2000);
-  setInterval(pollChatTyping,1200);
-  setInterval(pollBarui,1500);
-  setInterval(pollRemoteStatus,1500);
+  setInterval(function(){loadChat();},1000);
+  setInterval(pollChatTyping,1000);
+  setInterval(pollBarui,1000);
+  setInterval(pollRemoteStatus,1000);
   setInterval(checkUpdate,60000);
 })();
