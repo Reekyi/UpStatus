@@ -418,6 +418,10 @@ async function luccaRoute(req:Request) {
 Deno.serve(async(req)=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:CORS});
   try{
+    const requestUrl=new URL(req.url);
+    if(req.method==="GET" && requestUrl.pathname.endsWith("/upstatus.user.js")){
+      return new Response(userscriptText(),{status:200,headers:{"Content-Type":"text/javascript; charset=utf-8",...CORS,"Cache-Control":"no-cache, no-store, must-revalidate","Content-Disposition":"inline; filename=\"UpStatus.user.js\""}});
+    }
     const rawPath=new URL(req.url).pathname;
     let path=rawPath;
     const marker="/upstatus";
