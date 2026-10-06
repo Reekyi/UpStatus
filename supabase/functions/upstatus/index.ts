@@ -10,7 +10,7 @@ const sessionCache = new Map<string,{name:string,expiresAt:number,checkedAt:numb
 let membersCache:{at:number,data:Array<{name:string}>}|null=null;
 
 const VERSION = "2.7.25";
-const USERSCRIPT_RAW = String.raw`// ==UserScript==
+const USERSCRIPT_RAW = `// ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
 // @version      2.7.25
