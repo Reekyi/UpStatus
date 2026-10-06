@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.0.3
+// @version      3.0.4
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -266,7 +266,7 @@
   var baruiCallDrag={active:false,x:0,y:0,offsetX:0,offsetY:0};
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.3';
+  var CURRENT_VERSION='3.0.4';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -859,31 +859,47 @@
   function profileFallback(){return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="32" fill="#273247"/><circle cx="32" cy="24" r="11" fill="#9aa8bc"/><path d="M12 56c3-13 11-19 20-19s17 6 20 19" fill="#9aa8bc"/></svg>');}
   function hydrateAvatar(img,name){var cacheKey='profile:'+name;var route=profileCache[name]||GM_getValue(key+cacheKey,'');if(!route){img.src=profileFallback();return;}var cachedRoute=GM_getValue(key+cacheKey,'');if(cachedRoute!==route){if(mediaBlobCache[cacheKey]){try{URL.revokeObjectURL(mediaBlobCache[cacheKey]);}catch(e){}delete mediaBlobCache[cacheKey];}GM_setValue(key+cacheKey,route);}loadBlobUrl(route,cacheKey).then(function(url){img.src=url;}).catch(function(){img.src=profileFallback();});}
 
-  function chatDataKey(messages){return (messages||[]).map(function(m){return [m.id,m.createdAt,m.message,m.type,m.systemType||'',m.imageUrl,JSON.stringify(m.replyTo||null),JSON.stringify(m.reactions||{}),JSON.stringify(m.readBy||[])].join('~');}).join('|');}
-  function realtimeMessage(record){
+  function chatDataKey(messages){return (messages||[]).map(function(m){return [m.id,m.user||'',m.createdAt,m.message,m.type,m.systemType||'',m.imageUrl,JSON.stringify(m.replyTo||null),JSON.stringify(m.reactions||{}),JSON.stringify(m.readBy||[])].join('~');}).join('|');}
+  function normalizeChatMessage(record){
     if(!record||!record.id)return null;
+    var rawUser=record.user_name!=null?record.user_name:record.user;
     return {
-      id:String(record.id),user:String(record.user_name||''),message:String(record.message||''),type:String(record.type||'text'),
-      systemType:String(record.system_type||''),createdAt:record.created_at||new Date().toISOString(),imageUrl:String(record.image_url||''),
-      mentions:Array.isArray(record.mentions)?record.mentions:[],replyTo:record.reply_to||null,reactions:record.reactions||{},readBy:[]
+      id:String(record.id),user:String(rawUser||''),message:String(record.message||''),type:String(record.type||'text'),
+      systemType:String(record.system_type!=null?record.system_type:(record.systemType||'')),createdAt:record.created_at||record.createdAt||new Date().toISOString(),
+      imageUrl:String(record.image_url!=null?record.image_url:(record.imageUrl||'')),mentions:Array.isArray(record.mentions)?record.mentions:[],
+      replyTo:record.reply_to!=null?record.reply_to:(record.replyTo||null),reactions:record.reactions||{},readBy:Array.isArray(record.readBy)?record.readBy:[]
     };
   }
+  function mergeChatMessage(existing,incoming){
+    if(!incoming)return existing||null;
+    var merged=Object.assign({},existing||{},incoming);
+    if(!incoming.user&&existing&&existing.user)merged.user=existing.user;
+    if(existing&&existing.readBy&&(!incoming.readBy||!incoming.readBy.length))merged.readBy=existing.readBy;
+    if(existing&&existing.optimistic&&!incoming.optimistic)delete merged.optimistic;
+    return merged;
+  }
+  function realtimeMessage(record){return normalizeChatMessage(record);}
   function upsertRealtimeMessage(record){
     var m=realtimeMessage(record);if(!m)return;
     var idx=chatCache.findIndex(function(x){return String(x.id)===m.id;});
     if(idx<0){
       idx=chatCache.findIndex(function(x){
-        if(!x.optimistic||x.user!==m.user||x.message!==m.message||x.type!==m.type)return false;
+        if(!x.optimistic)return false;
+        if(m.user&&x.user!==m.user)return false;
+        if(x.message!==m.message||x.type!==m.type)return false;
         if(JSON.stringify(x.replyTo||null)!==JSON.stringify(m.replyTo||null))return false;
         if(String(x.imageUrl||'')!==String(m.imageUrl||''))return false;
         var t1=Date.parse(x.createdAt)||0,t2=Date.parse(m.createdAt)||0;
         return Math.abs(t2-t1)<15000;
       });
-      if(idx>=0){chatCache[idx]=Object.assign({},chatCache[idx],m);delete chatCache[idx].optimistic;}
-    }else{
-      chatCache[idx]=Object.assign({},chatCache[idx],m);
     }
-    if(idx<0){chatCache.push(m);chatCache.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});}
+    if(idx>=0){
+      chatCache[idx]=mergeChatMessage(chatCache[idx],m);
+      delete chatCache[idx].optimistic;
+    }else{
+      chatCache.push(m);
+      chatCache.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});
+    }
     if(m.systemType==='lucca_join')updateLuccaPresence(true);
     if(m.systemType==='lucca_leave')updateLuccaPresence(false);
     if(idx<0)processChatNotifications([m]);
@@ -1008,10 +1024,16 @@
       if(useFast){
         var byId={};
         chatCache.forEach(function(m){byId[m.id]=m;});
-        incoming.forEach(function(m){byId[m.id]=m;});
+        incoming.forEach(function(m){
+          var id=String(m.id);
+          byId[id]=mergeChatMessage(byId[id],m);
+        });
         nextMessages=Object.keys(byId).map(function(k){return byId[k];}).sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});
       }else{
-        nextMessages=incoming;
+        nextMessages=incoming.map(function(m){
+          var existing=chatCache.find(function(x){return String(x.id)===String(m.id);});
+          return mergeChatMessage(existing,m);
+        });
       }
       updateLuccaPresence(!!d.luccaOnline);
       var latestLuccaJoin=null;
@@ -1455,15 +1477,19 @@ async function startBaruiCaller(target,sequence){
     input.value='';
     chatReplyTo=null;setChatReply(null);
     api('POST','/api/chat',{message:text,replyTo:tempReply}).then(function(r){
-      var created=r&&r.message;
+      var created=normalizeChatMessage(r&&r.message);
       if(created){
         clearChatDraft();
+        var optimisticIndex=chatCache.findIndex(function(m){return m.id===tempId;});
+        if(optimisticIndex>=0)chatCache[optimisticIndex]=mergeChatMessage(chatCache[optimisticIndex],created);
+        else chatCache.push(created);
+        chatCache=chatCache.filter(function(m){return m.id!==tempId;});
+        chatCache.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});
         sendRealtimeEvent('chat_fast',{message:created});
-        chatCache=chatCache.map(function(m){return m.id===tempId?created:m;});
         renderChat();
       }else{
         chatCache=chatCache.filter(function(m){return m.id!==tempId;});
-        loadChat();
+        loadChat(true);
       }
     }).catch(function(e){
       chatCache=chatCache.filter(function(m){return m.id!==tempId;});
