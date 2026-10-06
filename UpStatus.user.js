@@ -115,7 +115,7 @@
       }catch(e){}
       // Silencia SOMENTE o áudio de notificação do Sale Smartly.
       // Não mexer em outros <audio>/<video> nem em Web Audio, pois o UpStatus
-      // usa Web Audio para seus próprios alertas (menção e BARUI).
+      // usa Web Audio para seus próprios alertas (menção).
       try{
         var mediaPlay=HTMLMediaElement.prototype.play;
         function isSaleNoticeAudio(el){
@@ -807,32 +807,21 @@
     return server+'/upstatus-icon.svg';
   }
   function showExternalNotification(type,data){
-    if(type==='chat' && !shouldNotifyForChat())return;
-    if(type==='chat'&&(!isTeamChatMessage(data)||!shouldNotifyForChat()))return;
+    if(type!=='chat')return;
+    if(!isTeamChatMessage(data)||!shouldNotifyForChat())return;
     if(!shouldShowExternalNotification())return;
-    var id=data&&data.id||data&&data.sequence||Date.now();
+    var id=data&&data.id||Date.now();
     if(wasExternalNotificationShown(type,id))return;
     markExternalNotificationShown(type,id);
     try{
-      var isBarui=type==='barui';
-      var title=isBarui?'BARUI - UpStatus':'UpStatus - Chat da equipe';
-      var body=isBarui
-        ?String(data.sender||'Alguém')+' está chamando você.'
-        :String(data.user||'Alguém')+' enviou uma mensagem no chat.';
-      var n=new UpNativeNotification(title,{body:body,icon:upStatusNotificationIcon(),badge:upStatusNotificationIcon(),tag:'upstatus-'+type+'-'+String(id),renotify:true,requireInteraction:isBarui});
-      n.onclick=function(){
-        try{window.focus()}catch(e){}
-        try{if(type==='chat')openChat();}catch(e){}
-        try{n.close();}catch(e){}
-      };
+      var title='UpStatus - Chat da equipe';
+      var body=String(data.user||'Alguém')+' enviou uma mensagem no chat.';
+      var n=new UpNativeNotification(title,{body:body,icon:upStatusNotificationIcon(),badge:upStatusNotificationIcon(),tag:'upstatus-'+type+'-'+String(id),renotify:true});
+      n.onclick=function(){try{window.focus()}catch(e){};try{openChat();}catch(e){};try{n.close();}catch(e){}};
     }catch(e){
-      // Se o navegador recusar o ícone externo, tenta novamente sem o ícone.
       try{
-        var isBarui2=type==='barui';
-        var title2=isBarui2?'BARUI - UpStatus':'UpStatus - Chat da equipe';
-        var body2=isBarui2?String(data.sender||'Alguém')+' está chamando você.':String(data.user||'Alguém')+' enviou uma mensagem no chat.';
-        var n2=new UpNativeNotification(title2,{body:body2,tag:'upstatus-'+type+'-'+String(id),renotify:true,requireInteraction:isBarui2});
-        n2.onclick=function(){try{window.focus()}catch(e){};try{if(type==='chat')openChat()}catch(e){};try{n2.close()}catch(e){}};
+        var n2=new UpNativeNotification('UpStatus - Chat da equipe',{body:String(data.user||'Alguém')+' enviou uma mensagem no chat.',tag:'upstatus-'+type+'-'+String(id),renotify:true});
+        n2.onclick=function(){try{window.focus()}catch(e){};try{openChat()}catch(e){};try{n2.close()}catch(e){}};
       }catch(ignore){}
     }
   }
@@ -865,10 +854,7 @@
     if(newMention)playMentionAlert();
   }
 
-  document.addEventListener('UPSTATUS_EXTERNAL_NOTIFICATION_CLICK',function(e){
-    try{window.focus()}catch(err){}
-    try{var d=e.detail||{};if(d.type==='barui'){bubble.classList.add('up-barui-active');}else{openChat();}}catch(err){}
-  });
+  document.addEventListener('UPSTATUS_EXTERNAL_NOTIFICATION_CLICK',function(e){try{window.focus()}catch(err){};try{openChat();}catch(err){}});
 
   function absoluteServerUrl(route){return /^https?:\/\//i.test(route||'')?route:server+String(route||'');}
   function loadBlobUrl(route,cacheKey){
@@ -1314,7 +1300,6 @@
     input.addEventListener('input',function(){renderMentionMenu();handleTypingInput();});input.addEventListener('click',renderMentionMenu);input.addEventListener('keyup',renderMentionMenu);input.addEventListener('keydown',function(e){if(e.key.length===1||e.key==='Backspace'||e.key==='Delete')startTypingHeartbeat();});input.addEventListener('focus',function(){if(String(input.value||'').trim())startTypingHeartbeat();});input.addEventListener('blur',function(){if(typingStopTimer)clearTimeout(typingStopTimer);typingStopTimer=setTimeout(function(){stopTypingHeartbeat();},1200);});
     input.addEventListener('keydown',function(e){if(e.key==='Escape'){var menu=chat.querySelector('.up-mention-menu');if(menu)menu.classList.add('hidden');return;}if(e.key==='Enter'&&!e.shiftKey){var menu=chat.querySelector('.up-mention-menu');if(menu&&!menu.classList.contains('hidden')){var first=menu.querySelector('.up-mention-option');if(first){e.preventDefault();applyMention(first.getAttribute('data-name'));return;}}e.preventDefault();sendChat();}});
     if(chatCache.length)renderChat();
-    stopLocalBarui();
     updateLuccaPresence(luccaOnline);
     loadChat();
     pollChatTyping();
