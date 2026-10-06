@@ -1874,10 +1874,7 @@
       if(!editable&&token&&member){
         e.preventDefault();
         if(chat.classList.contains('hidden'))openChat();
-        else{
-          var input=chat.querySelector('.up-chat-input');
-          if(input)input.focus();
-        }
+        else closeChatLightbox();
       }
     }
   });
