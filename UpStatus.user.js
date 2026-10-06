@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.9.9
+// @version      3.0.0
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -1355,6 +1355,13 @@ async function startBaruiCaller(target,sequence){
   }
   function playBaruiAlert(){playMentionAlert();}
   function stopLocalBarui(){
+    if(baruiCall.active&&baruiCall.answered){
+      baruiState={active:false,sequence:0,target:'',sender:'',startedAt:0};
+      hideIncomingBarui();
+      updateBaruiTitle(false);
+      updateBaruiCallUI(baruiCall.connectedAt?'connected':'connecting');
+      return;
+    }
     if(baruiCall.active)closeBaruiCall(false,'barui_stopped');
     baruiState={active:false,sequence:0,target:'',sender:'',startedAt:0};
     hideIncomingBarui();
