@@ -514,11 +514,16 @@ async function luccaRoute(req:Request) {
     const pass=Deno.env.get("LUCCA_PASSWORD")||"";
     if(!pass||String(p.password||"")!==pass)return response({error:"Senha incorreta."},401);
     const old:any=await expireLucca();
-    if(old.online)await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco saiu do chat.",type:"system",system_type:"lucca_leave",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
     const session=randomBytes(32).toString("hex"),joinedAt=new Date().toISOString();
-    await db.from("messages").delete().eq("user_name","Lucca");
     await setState("lucca",{online:true,session,joinedAt,lastSeen:joinedAt});
-    await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco entrou no chat.",type:"system",system_type:"lucca_join",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
+    const background=async()=>{
+      try{
+        if(old.online)await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco saiu do chat.",type:"system",system_type:"lucca_leave",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
+        await db.from("messages").delete().eq("user_name","Lucca");
+        await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco entrou no chat.",type:"system",system_type:"lucca_join",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
+      }catch(e){console.error("Lucca login background cleanup failed",e);}
+    };
+    EdgeRuntime.waitUntil(background());
     return response({ok:true,name:"Lucca",joinedAt,token:session},200,{"Set-Cookie":"lucca_session="+encodeURIComponent(session)+"; HttpOnly; SameSite=Lax; Secure; Path=/; Max-Age=86400"});
   }
   if(path==="/api/lucca/me") {
