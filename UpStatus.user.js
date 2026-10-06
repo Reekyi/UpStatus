@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.9.4
+// @version      2.9.5
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -265,7 +265,7 @@
   var baruiCall={active:false,role:'',target:'',sequence:0,pc:null,localStream:null,remoteStream:null,audio:null,connectedAt:0,timer:null,muted:false,answered:false,pendingIce:[]};
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.9.4';
+  var CURRENT_VERSION='2.9.5';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1240,8 +1240,8 @@
   function addBaruiLocalStream(pc,stream){stream.getTracks().forEach(function(track){pc.addTrack(track,stream);});baruiCall.localStream=stream;}
   function flushBaruiIce(){var pc=baruiCall.pc;if(!pc||!pc.remoteDescription)return;baruiCall.pendingIce.splice(0).forEach(function(c){pc.addIceCandidate(c).catch(function(){});});}
   async function prepareBaruiMedia(){if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Microfone indisponível neste contexto do navegador.');return await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});}
-  async function acceptBaruiCall(){if(!baruiCall.active||baruiCall.role!=='receiver')return;var c=baruiCall;try{baruiCall.answered=true;baruiLastBeep=Date.now();updateBaruiCallUI('connecting');c.pc=createBaruiPeer();if(!c.pc)throw new Error('Não foi possível criar a conexão.');var stream=await prepareBaruiMedia();if(!baruiCall.active){stream.getTracks().forEach(function(t){t.stop()});return;}addBaruiLocalStream(c.pc,stream);sendRealtimeEvent('barui_call',{type:'accept',target:c.target,sender:member,sequence:c.sequence});baruiIncoming.classList.add('hidden');}catch(e){message(e&&e.message?e.message:'Não foi possível acessar o microfone.',true);sendRealtimeEvent('barui_call',{type:'reject',target:c.target,sender:member,sequence:c.sequence});stopIncomingBarui();closeBaruiCall(false,'microphone_error');}}
-  async function startBaruiCaller(target,sequence){
+  async function acceptBaruiCall(){if(!baruiCall.active||baruiCall.role!=='receiver'||baruiCall.answered)return;var c=baruiCall,stream=null;try{updateBaruiCallUI('connecting');c.pc=createBaruiPeer();if(!c.pc)throw new Error('Não foi possível criar a conexão.');stream=await prepareBaruiMedia();if(!baruiCall.active){stream.getTracks().forEach(function(t){t.stop()});return;}addBaruiLocalStream(c.pc,stream);baruiCall.answered=true;baruiLastBeep=Date.now();sendRealtimeEvent('barui_call',{type:'accept',target:c.target,sender:member,sequence:c.sequence});baruiIncoming.classList.add('hidden');}catch(e){if(stream&&!baruiCall.localStream)try{stream.getTracks().forEach(function(t){t.stop()})}catch(_e){}try{if(c.pc)c.pc.close()}catch(_e){}c.pc=null;c.answered=false;updateBaruiCallUI('ringing');var n=e&&e.name?String(e.name):'',msg=n==='NotAllowedError'?'Acesso ao microfone foi negado. Libere o microfone para atender.':n==='NotFoundError'?'Nenhum microfone disponível neste navegador.':e&&e.message?e.message:'Não foi possível atender a chamada.';message(msg,true);}} 
+async function startBaruiCaller(target,sequence){
     if(!baruiCall.active||baruiCall.role!=='caller')return;
     try{
       baruiCall.answered=true;
