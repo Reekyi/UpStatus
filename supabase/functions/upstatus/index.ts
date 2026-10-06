@@ -240,6 +240,11 @@ function cookie(req:Request,name:string) {
   const item=raw.split(";").map(x=>x.trim()).find(x=>x.startsWith(name+"="));
   return item?decodeURIComponent(item.slice(name.length+1)):"";
 }
+function luccaToken(req:Request) {
+  const auth=req.headers.get("authorization")||"";
+  if(/^Bearer\s+/i.test(auth))return auth.replace(/^Bearer\s+/i,"").trim();
+  return cookie(req,"lucca_session");
+}
 async function luccaState() {
   return await stateValue("lucca",{online:false,session:null,joinedAt:null,lastSeen:null});
 }
@@ -303,7 +308,7 @@ async function contextName(req:Request) {
   const normal=await userFromToken(req);
   if(normal)return {name:normal,guest:false,joinedAt:0};
   const s:any=await expireLucca();
-  const c=cookie(req,"lucca_session");
+  const c=luccaToken(req);
   if(c&&s.online&&s.session===c)return {name:"Lucca",guest:true,joinedAt:Date.parse(String(s.joinedAt))||Date.now()};
   return null;
 }
@@ -506,10 +511,10 @@ async function luccaRoute(req:Request) {
     const session=randomBytes(32).toString("hex"),joinedAt=new Date().toISOString();
     await setState("lucca",{online:true,session,joinedAt,lastSeen:joinedAt});
     await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco entrou no chat.",type:"system",system_type:"lucca_join",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
-    return response({ok:true,name:"Lucca",joinedAt},200,{"Set-Cookie":"lucca_session="+encodeURIComponent(session)+"; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400"});
+    return response({ok:true,name:"Lucca",joinedAt,token:session},200,{"Set-Cookie":"lucca_session="+encodeURIComponent(session)+"; HttpOnly; SameSite=Lax; Secure; Path=/; Max-Age=86400"});
   }
   if(path==="/api/lucca/me") {
-    const s:any=await expireLucca(),c=cookie(req,"lucca_session");
+    const s:any=await expireLucca(),c=luccaToken(req);
     return response(c&&s.online&&s.session===c?{authenticated:true,name:"Lucca",joinedAt:s.joinedAt,online:true}:{authenticated:false,name:null,online:!!s.online});
   }
   if(path==="/api/lucca/heartbeat") {
@@ -520,7 +525,7 @@ async function luccaRoute(req:Request) {
   if(path==="/api/lucca/logout") {
     const s:any=await expireLucca(),c=cookie(req,"lucca_session");
     if(c&&s.online&&s.session===c){await setState("lucca",{...s,online:false,session:null,lastSeen:new Date().toISOString()});await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco saiu do chat.",type:"system",system_type:"lucca_leave",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});}
-    return response({ok:true},200,{"Set-Cookie":"lucca_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"});
+    return response({ok:true},200,{"Set-Cookie":"lucca_session=; HttpOnly; SameSite=Lax; Secure; Path=/; Max-Age=0"});
   }
   return response({error:"Não encontrado."},404);
 }
