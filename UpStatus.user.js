@@ -25,6 +25,9 @@
   var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
   var UP_REALTIME_TOPIC='upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0';
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
+  // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
+  // Mantido isolado do chat, status e demais recursos do UpStatus.
+  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,overlay:null,callId:'',peer:'',role:'',pendingOffer:null,pendingCandidates:[],active:false,connected:false,muted:false,timer:null};
   var chatPresence={};
   function setupFaviconBadge(){
     try{
@@ -930,6 +933,133 @@
     if(!realtimeActive||!realtimeChannel)return false;
     try{realtimeChannel.send({type:'broadcast',event:event,payload:payload||{}});return true;}catch(e){return false;}
   }
+  function callEnsureOverlay(){
+    if(upCall.overlay&&upCall.overlay.isConnected)return upCall.overlay;
+    var o=document.createElement('div');
+    o.id='upstatus-call-overlay';
+    o.style.cssText='position:fixed;right:24px;bottom:82px;z-index:2147483647;width:320px;max-width:calc(100vw - 48px);box-sizing:border-box;background:#19212e;border:1px solid #354258;border-radius:16px;padding:18px;color:#edf2fb;font:14px Segoe UI,Arial,sans-serif;box-shadow:0 16px 42px #000b;display:none;';
+    o.innerHTML='<div style="font-size:16px;font-weight:800;margin-bottom:6px" data-call-title>Chamada</div><div style="font-size:13px;color:#aeb9c9;min-height:20px" data-call-status></div><div style="display:flex;gap:8px;margin-top:16px" data-call-actions></div><audio data-call-audio autoplay></audio>';
+    (document.body||document.documentElement).appendChild(o);
+    upCall.overlay=o;
+    upCall.audio=o.querySelector('[data-call-audio]');
+    return o;
+  }
+  function callRender(title,status,buttons){
+    var o=callEnsureOverlay();
+    o.querySelector('[data-call-title]').textContent=title||'Chamada';
+    o.querySelector('[data-call-status]').textContent=status||'';
+    var a=o.querySelector('[data-call-actions]');a.innerHTML='';
+    (buttons||[]).forEach(function(b){
+      var x=document.createElement('button');x.type='button';x.textContent=b.label;x.onclick=b.onClick;
+      x.style.cssText='flex:1;border:1px solid #3d4a60;border-radius:10px;padding:9px 10px;background:'+(b.danger?'#9e3347':'#263246')+';color:#fff;font-weight:700;cursor:pointer;';
+      a.appendChild(x);
+    });
+    o.style.display='block';
+  }
+  function callHideOverlay(){if(upCall.overlay)upCall.overlay.style.display='none';}
+  function callNewId(){return String(member||'user')+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);}
+  function callSend(type,extra){
+    var p=Object.assign({type:type,callId:upCall.callId,from:member,to:upCall.peer},extra||{});
+    return sendRealtimeEvent('call_signal',p);
+  }
+  function callStopStream(){
+    if(upCall.localStream){try{upCall.localStream.getTracks().forEach(function(t){t.stop();});}catch(e){ }upCall.localStream=null;}
+  }
+  function callCleanup(sendHangup){
+    if(sendHangup&&upCall.peer&&upCall.callId)callSend('hangup');
+    if(upCall.timer){clearTimeout(upCall.timer);upCall.timer=null;}
+    if(upCall.pc){try{upCall.pc.onicecandidate=null;upCall.pc.ontrack=null;upCall.pc.close();}catch(e){ }upCall.pc=null;}
+    callStopStream();
+    if(upCall.audio){try{upCall.audio.pause();upCall.audio.srcObject=null;}catch(e){ }}
+    upCall.remoteStream=null;upCall.callId='';upCall.peer='';upCall.role='';upCall.pendingOffer=null;upCall.pendingCandidates=[];upCall.active=false;upCall.connected=false;upCall.muted=false;
+    callHideOverlay();
+  }
+  function callFail(message){
+    callRender('Chamada',message,[{label:'Fechar',onClick:function(){callCleanup(false);}}]);
+  }
+  function callCreatePeer(){
+    if(upCall.pc)return upCall.pc;
+    if(typeof RTCPeerConnection==='undefined')throw new Error('WebRTC não está disponível neste navegador.');
+    var pc=new RTCPeerConnection();
+    upCall.pc=pc;
+    pc.onicecandidate=function(e){if(e.candidate&&upCall.active)callSend('ice', {candidate:e.candidate});};
+    pc.ontrack=function(e){
+      upCall.remoteStream=e.streams&&e.streams[0]?e.streams[0]:null;
+      if(upCall.audio&&upCall.remoteStream){upCall.audio.srcObject=upCall.remoteStream;var p=upCall.audio.play();if(p&&p.catch)p.catch(function(){});}
+    };
+    pc.onconnectionstatechange=function(){
+      var st=pc.connectionState;
+      if(st==='connected'){upCall.connected=true;callRender(upCall.peer,'Conectado',[{label:'Desligar',danger:true,onClick:function(){callCleanup(true);}}]);}
+      else if(st==='failed'){callFail('A conexão de áudio falhou.');}
+      else if(st==='disconnected'&&upCall.active){callRender(upCall.peer,'Conexão perdida',[{label:'Desligar',danger:true,onClick:function(){callCleanup(true);}}]);}
+    };
+    if(upCall.localStream)upCall.localStream.getTracks().forEach(function(t){pc.addTrack(t,upCall.localStream);});
+    return pc;
+  }
+  async function callGetMicrophone(){
+    if(upCall.localStream)return upCall.localStream;
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('O navegador não liberou acesso ao microfone.');
+    upCall.localStream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    return upCall.localStream;
+  }
+  async function callAddQueuedCandidates(){
+    if(!upCall.pc||!upCall.pc.remoteDescription)return;
+    var q=upCall.pendingCandidates.splice(0);
+    for(var i=0;i<q.length;i++){try{await upCall.pc.addIceCandidate(q[i]);}catch(e){}}
+  }
+  async function startOutgoingCall(target){
+    if(!target||target===member)return;
+    if(upCall.active){message('Você já está em uma chamada.',true);return;}
+    upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.active=true;upCall.connected=false;
+    callRender(target,'Chamando…',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true);}}]);
+    upCall.timer=setTimeout(function(){if(upCall.active&&!upCall.connected){callFail('Sem resposta.');callSend('hangup');}},30000);
+    try{
+      await callGetMicrophone();
+      var pc=callCreatePeer();
+      var offer=await pc.createOffer({offerToReceiveAudio:true});
+      await pc.setLocalDescription(offer);
+      callSend('offer',{sdp:pc.localDescription});
+    }catch(e){callFail(e.message||'Não foi possível iniciar a chamada.');}
+  }
+  function receiveCallSignal(p){
+    if(!p||!p.type||!p.callId||!p.from||p.to!==member||p.from===member)return;
+    if(p.type==='offer'){
+      if(upCall.active){sendRealtimeEvent('call_signal',{type:'busy',callId:p.callId,from:member,to:p.from});return;}
+      upCall.callId=p.callId;upCall.peer=p.from;upCall.role='callee';upCall.active=true;upCall.connected=false;upCall.pendingOffer=p.sdp;upCall.pendingCandidates=[];
+      callRender(p.from,'Chamada recebida',[{label:'Recusar',danger:true,onClick:function(){callCleanup(true);}},{label:'Atender',onClick:function(){acceptIncomingCall();}}]);
+      return;
+    }
+    if(p.callId!==upCall.callId||p.from!==upCall.peer)return;
+    if(p.type==='answer'&&upCall.role==='caller'&&upCall.pc){upCall.pc.setRemoteDescription(new RTCSessionDescription(p.sdp)).then(callAddQueuedCandidates).catch(function(){callFail('Resposta de chamada inválida.');});return;}
+    if(p.type==='ice'&&p.candidate){
+      if(upCall.pc&&upCall.pc.remoteDescription)upCall.pc.addIceCandidate(p.candidate).catch(function(){});
+      else upCall.pendingCandidates.push(p.candidate);
+      return;
+    }
+    if(p.type==='reject'||p.type==='busy'){callFail(p.type==='busy'?'O usuário está em outra chamada.':'Chamada recusada.');return;}
+    if(p.type==='hangup'){callRender('Chamada encerrada','A outra pessoa encerrou a chamada.',[{label:'Fechar',onClick:function(){callCleanup(false);}}]);}
+  }
+  async function acceptIncomingCall(){
+    if(!upCall.active||upCall.role!=='callee'||!upCall.pendingOffer)return;
+    try{
+      await callGetMicrophone();
+      var pc=callCreatePeer();
+      await pc.setRemoteDescription(new RTCSessionDescription(upCall.pendingOffer));
+      await callAddQueuedCandidates();
+      var answer=await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      upCall.pendingOffer=null;
+      callSend('answer',{sdp:pc.localDescription});
+      callRender(upCall.peer,'Conectando…',[{label:'Desligar',danger:true,onClick:function(){callCleanup(true);}}]);
+    }catch(e){callFail(e.message||'Não foi possível atender a chamada.');}
+  }
+  function toggleCallMute(){
+    if(!upCall.localStream)return;
+    upCall.muted=!upCall.muted;
+    upCall.localStream.getAudioTracks().forEach(function(t){t.enabled=!upCall.muted;});
+    callRender(upCall.peer,upCall.connected?'Conectado':'Conectando…',[{label:upCall.muted?'Ativar microfone':'Silenciar',onClick:toggleCallMute},{label:'Desligar',danger:true,onClick:function(){callCleanup(true);}}]);
+  }
+
   function handleRealtimeChatFast(payload){
     var m=payload&&payload.message;
     if(!m||!m.id)return;
@@ -957,6 +1087,7 @@
           var c=payload&&payload.payload&&payload.payload.command;
           if(c&&c.target===member)executeRemoteCommand(c);
         })
+        .on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{});})
         .on('broadcast',{event:'remote_result'},function(payload){
           var r=payload&&payload.payload&&payload.payload.result;
           if(r&&r.commandId&&r.sender===member){
@@ -1652,7 +1783,7 @@
         a.addEventListener('mousemove',positionChatProfileHover);
         a.addEventListener('mouseleave',hideChatProfileHover);
       });
-      team.querySelectorAll('.up-member-barui').forEach(function(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();message('A chamada está sendo reconstruída.');};});
+      team.querySelectorAll('.up-member-barui').forEach(function(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();startOutgoingCall(btn.getAttribute('data-target'));};});
       team.querySelectorAll('.up-member-power').forEach(function(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();openRemoteControl(btn.getAttribute('data-target'));};});
       setBubbleStatus(currentStatus);
     }).catch(function(e){message(e.message,true)}).finally(function(){refreshing=false});
