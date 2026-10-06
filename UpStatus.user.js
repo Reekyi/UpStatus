@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.9.7
+// @version      2.9.8
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -266,7 +266,7 @@
   var baruiCallDrag={active:false,x:0,y:0,offsetX:0,offsetY:0};
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.9.7';
+  var CURRENT_VERSION='2.9.8';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1244,7 +1244,34 @@
   function addBaruiLocalStream(pc,stream){stream.getTracks().forEach(function(track){pc.addTrack(track,stream);});baruiCall.localStream=stream;}
   function flushBaruiIce(){var pc=baruiCall.pc;if(!pc||!pc.remoteDescription)return;baruiCall.pendingIce.splice(0).forEach(function(c){pc.addIceCandidate(c).catch(function(){});});}
   async function prepareBaruiMedia(){if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Microfone indisponível neste contexto do navegador.');return await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});}
-  async function acceptBaruiCall(){if(!baruiCall.active||baruiCall.role!=='receiver'||baruiCall.answered)return;var c=baruiCall,stream=null;try{updateBaruiCallUI('connecting');c.pc=createBaruiPeer();if(!c.pc)throw new Error('Não foi possível criar a conexão.');stream=await prepareBaruiMedia();if(!baruiCall.active){stream.getTracks().forEach(function(t){t.stop()});return;}addBaruiLocalStream(c.pc,stream);baruiCall.answered=true;baruiLastBeep=Date.now();sendRealtimeEvent('barui_call',{type:'accept',target:c.target,sender:member,sequence:c.sequence});baruiIncoming.classList.add('hidden');}catch(e){if(stream&&!baruiCall.localStream)try{stream.getTracks().forEach(function(t){t.stop()})}catch(_e){}try{if(c.pc)c.pc.close()}catch(_e){}c.pc=null;c.answered=false;updateBaruiCallUI('ringing');var n=e&&e.name?String(e.name):'',msg=n==='NotAllowedError'?'Acesso ao microfone foi negado. Libere o microfone para atender.':n==='NotFoundError'?'Nenhum microfone disponível neste navegador.':e&&e.message?e.message:'Não foi possível atender a chamada.';message(msg,true);}} 
+  async function acceptBaruiCall(){
+    if(!baruiCall.active||baruiCall.role!=='receiver'||baruiCall.answered)return;
+    var c=baruiCall,stream=null;
+    try{
+      baruiCall.answered=true;
+      baruiLastBeep=Date.now();
+      updateBaruiCallUI('connecting');
+      c.pc=createBaruiPeer();
+      if(!c.pc)throw new Error('Não foi possível criar a conexão.');
+      stream=await prepareBaruiMedia();
+      if(!baruiCall.active){
+        stream.getTracks().forEach(function(t){t.stop()});
+        return;
+      }
+      addBaruiLocalStream(c.pc,stream);
+      sendRealtimeEvent('barui_call',{type:'accept',target:c.target,sender:member,sequence:c.sequence});
+      stopIncomingBarui();
+    }catch(e){
+      if(stream&&!baruiCall.localStream)try{stream.getTracks().forEach(function(t){t.stop()})}catch(_e){}
+      try{if(c.pc)c.pc.close()}catch(_e){}
+      c.pc=null;
+      baruiCall.answered=false;
+      var n=e&&e.name?String(e.name):'';
+      var msg=n==='NotAllowedError'?'Acesso ao microfone foi negado. Libere o microfone para atender.':n==='NotFoundError'?'Nenhum microfone disponível neste navegador.':e&&e.message?e.message:'Não foi possível atender a chamada.';
+      updateBaruiCallUI('ringing');
+      message(msg,true);
+    }
+  } 
 async function startBaruiCaller(target,sequence){
     if(!baruiCall.active||baruiCall.role!=='caller')return;
     try{
@@ -1277,7 +1304,14 @@ async function startBaruiCaller(target,sequence){
   }
   function stopIncomingBarui(){
     if(!baruiState.active)return;
-    api('POST','/api/barui/stop-incoming',{}).then(function(r){sendRealtimeEvent('barui_event',{target:member,active:false,sender:member,sequence:r&&r.sequence||baruiState.sequence});stopLocalBarui();}).catch(function(e){message(e.message,true)});
+    var sequence=baruiState.sequence;
+    api('POST','/api/barui/stop-incoming',{}).then(function(r){
+      sendRealtimeEvent('barui_event',{target:member,active:false,sender:member,sequence:r&&r.sequence||sequence});
+      baruiState={active:false,sequence:0,target:'',sender:'',startedAt:0};
+      hideIncomingBarui();
+      updateBaruiTitle(false);
+      if(!(baruiCall.active&&baruiCall.answered))closeBaruiCall(false,'barui_stopped');
+    }).catch(function(e){message(e.message,true)});
   }
   function showIncomingBarui(sender){
     var name=String(sender||'Alguém'),seq=Number(baruiState.sequence)||Date.now();
@@ -1335,25 +1369,20 @@ async function startBaruiCaller(target,sequence){
     if(!target||target===member)return;
     var btn=card.querySelector('.up-member-barui[data-target="'+CSS.escape(target)+'"]');
     if(btn)btn.disabled=true;
+    var stopOld=baruiOutgoing.active&&baruiOutgoing.target&&baruiOutgoing.target!==target
+      ?api('POST','/api/barui',{target:baruiOutgoing.target,active:false})
+      :Promise.resolve();
     try{
-      showBaruiCallUI('calling',target,Date.now());
-      var stream=await prepareBaruiMedia();
-      if(!baruiCall.active){
-        stream.getTracks().forEach(function(t){t.stop()});
-        return;
-      }
-      baruiCall.localStream=stream;
-      var stopOld=baruiOutgoing.active&&baruiOutgoing.target&&baruiOutgoing.target!==target
-        ?api('POST','/api/barui',{target:baruiOutgoing.target,active:false})
-        :Promise.resolve();
       var r=await stopOld.then(function(){return api('POST','/api/barui',{target:target,active:true});});
-      baruiCall.sequence=Number(r&&r.sequence)||baruiCall.sequence;
-      sendRealtimeEvent('barui_event',{target:target,active:true,sender:member,startedAt:r&&r.startedAt,sequence:r&&r.sequence});
+      var sequence=Number(r&&r.sequence)||Date.now();
+      showBaruiCallUI('calling',target,sequence);
+      baruiCall.sequence=sequence;
+      sendRealtimeEvent('barui_event',{target:target,active:true,sender:member,startedAt:r&&r.startedAt,sequence:sequence});
       baruiOutgoing={active:true,target:target};
       updateOutgoingBaruiUI();
     }catch(e){
-      if(baruiCall.active)closeBaruiCall(false,'microphone_error');
-      message(e&&e.message?e.message:'Não foi possível iniciar a chamada. Verifique o acesso ao microfone.',true);
+      if(baruiCall.active)closeBaruiCall(false,'call_start_error');
+      message(e&&e.message?e.message:'Não foi possível iniciar a chamada.',true);
     }finally{
       if(btn)btn.disabled=false;
     }
