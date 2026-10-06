@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.35
+// @version      2.8.0
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -264,7 +264,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.7.35';
+  var CURRENT_VERSION='2.8.0';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -436,7 +436,7 @@
     '#upstatus-root.up-theme-light .up-member-actions .up-member-barui,#upstatus-root.up-theme-light .up-member-actions .up-member-power{background:#edf2f7;color:#334155;border:1px solid #d6dfe9}'+
     '#upstatus-root.up-theme-light .up-member-actions .up-badge.b-online{background:#dff7ea;color:#137044}.up-theme-light .up-member-actions .up-badge.b-busy{background:#ffe5e9;color:#b4233c}.up-theme-light .up-member-actions .up-badge.b-away{background:#e9eef5;color:#475569}'
   });
-
+  style.textContent += '.up-chat-bubble{position:relative;padding-bottom:8px}.up-chat-own-meta{display:inline-flex;align-items:center;gap:2px;margin-left:6px;vertical-align:baseline;line-height:10px;font-size:10px;float:right;position:relative;top:2px}.up-chat-read{font-size:10px;line-height:10px;letter-spacing:-1px}.up-chat-reactions{clear:both}.up-chat-profile-hover-since{font-size:9px;color:#718096;margin-top:1px}.up-health-ping{font-variant-numeric:tabular-nums;font-weight:700;color:#8fa0b8}.up-health-ping.good{color:#75dba0}.up-health-ping.warn{color:#e7c56a}.up-health-ping.bad{color:#ff8499}.up-health-ping.pending{color:#7f8ea4}.up-health-member{display:flex;align-items:center;justify-content:space-between;gap:8px}.up-health-member .up-health-ping{margin-left:auto}';
   var root=node('div',{id:'upstatus-root'});
   var bubble=node('button',{id:'upstatus-bubble',title:'Abrir UpStatus'});
   var quickChatBubble=node('button',{className:'up-quick-chat-bubble',title:'Abrir Chat da equipe',type:'button','aria-label':'Abrir Chat da equipe'});
@@ -905,6 +905,8 @@
         })
         .on('broadcast',{event:'user_status'},function(){refresh();})
         .on('broadcast',{event:'chat_presence'},function(payload){var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();if(!chat.classList.contains('hidden'))renderChat();})
+        .on('broadcast',{event:'health_ping'},function(payload){handleHealthPing(payload&&payload.payload||{});})
+        .on('broadcast',{event:'health_pong'},function(payload){handleHealthPong(payload&&payload.payload||{});})
         .on('broadcast',{event:'remote_command'},function(payload){
           var c=payload&&payload.payload&&payload.payload.command;
           if(c&&c.target===member)executeRemoteCommand(c);
@@ -1011,7 +1013,11 @@
   function pollChatTyping(){if(!token||chat.classList.contains('hidden')||typingPolling)return;typingPolling=true;api('GET','/api/chat/typing').then(function(d){updateTypingIndicator(d.typing||[]);}).catch(function(){}).finally(function(){typingPolling=false;});}
   function stopTypingHeartbeat(){if(typingHeartbeat){clearInterval(typingHeartbeat);typingHeartbeat=null;}if(typingStopTimer){clearTimeout(typingStopTimer);typingStopTimer=null;}sendTypingState(false);}
   function startTypingHeartbeat(){if(typingHeartbeat)return;sendTypingState(true);typingHeartbeat=setInterval(function(){var input=chat.querySelector('.up-chat-input');if(!input||chat.classList.contains('hidden')||!String(input.value||'').trim()){stopTypingHeartbeat();return;}sendTypingState(true);},1500);}
-  function handleTypingInput(){var input=chat.querySelector('.up-chat-input');if(!input)return;if(String(input.value||'').trim()){startTypingHeartbeat();if(typingStopTimer)clearTimeout(typingStopTimer);typingStopTimer=setTimeout(function(){stopTypingHeartbeat();},4500);}else stopTypingHeartbeat();}
+  function chatDraftKey(){return key+'chat_draft_'+String(member||'').toLowerCase();}
+  function saveChatDraft(input){input=input||chat.querySelector('.up-chat-input');if(!input||!member)return;try{GM_setValue(chatDraftKey(),String(input.value||''));}catch(e){}}
+  function restoreChatDraft(input){if(!input||!member)return;try{var draft=String(GM_getValue(chatDraftKey(),'')||'');if(draft&&!String(input.value||'')){input.value=draft;input.setSelectionRange(input.value.length,input.value.length);}}catch(e){}}
+  function clearChatDraft(){if(!member)return;try{GM_setValue(chatDraftKey(),'');}catch(e){}}
+  function handleTypingInput(){var input=chat.querySelector('.up-chat-input');if(!input)return;saveChatDraft(input);if(String(input.value||'').trim()){startTypingHeartbeat();if(typingStopTimer)clearTimeout(typingStopTimer);typingStopTimer=setTimeout(function(){stopTypingHeartbeat();},4500);}else stopTypingHeartbeat();}
   function markVisibleChatRead(){if(!token||chat.classList.contains('hidden'))return;var ids=chatCache.filter(function(m){return m.user!==member;}).map(function(m){return m.id;});if(!ids.length)return;var k=ids.join(',');if(k===readSentKey)return;api('POST','/api/chat/read',{messageIds:ids}).then(function(){readSentKey=k;setUnread(0);}).catch(function(){});}
 
 
@@ -1028,7 +1034,11 @@
   function showChatProfileHover(img,name,e){
     var route=profileCache[name]||'';
     var src=route?mediaBlobCache['profile:'+name]:'';
-     var presence=profilePresenceState(name);var presenceLabel=presence==='chat'?'No bate-papo':presence==='active'?'UpStatus Ativo':'Offline';chatProfileHover.innerHTML='<img alt=""><div class="up-chat-profile-hover-name">'+esc(name)+'</div><div class="up-chat-profile-hover-role">'+presenceLabel+'</div>';
+     var person=profilePresencePerson(name);
+     var presence=profilePresenceState(name,person);
+     var presenceLabel=presence==='chat'?'No bate-papo':presence==='active'?'UpStatus Ativo':'Offline';
+     var offlineSince=presence==='offline'&&person&&person.seenAt?fmtTime(person.seenAt):'';
+     chatProfileHover.innerHTML='<img alt=""><div class="up-chat-profile-hover-name">'+esc(name)+'</div><div class="up-chat-profile-hover-role">'+presenceLabel+'</div>'+(offlineSince?'<div class="up-chat-profile-hover-since">desde '+esc(offlineSince)+'</div>':'');
     var previewImg=chatProfileHover.querySelector('img');
     previewImg.className=chatAvatarPresence(name);
     previewImg.src=src||profileFallback();
@@ -1055,6 +1065,10 @@
      if(person&&person.connected!==false)return 'active';
      return 'offline';
    }
+   function profilePresencePerson(name){
+     var team=window.__upstatusTeam||{};
+     return team[name]||Object.keys(team).map(function(k){return team[k];}).find(function(x){return x&&x.name===name;})||null;
+   }
    function chatAvatarPresence(name){
      var state=profilePresenceState(name);
      return state==='chat'?'up-chat-presence-active':state==='active'?'up-chat-presence-idle':'up-chat-presence-offline';
@@ -1080,7 +1094,7 @@
       else if(m.message)body='<div class="up-chat-text">'+renderChatText(m.message)+'</div>';
       var readers=Array.isArray(m.readBy)?m.readBy.filter(function(n){return n!==member;}):[],title=readers.length?'Lido por: '+readers.join(', '):'Não lido ainda',tick=own?'<span class="up-chat-read '+(readers.length?'read':'')+'" data-readers="'+esc(title)+'">✓✓</span>':'';
       var meta=groupStart?'<div class="up-chat-meta"><b>'+esc(m.user)+'</b><span>'+fmtTime(m.createdAt)+'</span></div>':'';
-      var bubble='<div class="up-chat-bubble">'+replyPreview(m)+meta+body+(own?'<div class="up-chat-own-meta">'+tick+'</div>':'')+'<div class="up-chat-reactions">'+renderReactions(m)+'</div></div>';
+      var bubble='<div class="up-chat-bubble">'+replyPreview(m)+meta+body+(own?'<span class="up-chat-own-meta">'+tick+'</span>':'')+'<div class="up-chat-reactions">'+renderReactions(m)+'</div></div>';
       html+='<div class="up-chat-item '+(own?'own ':'')+(m.user==='Lucca'?'lucca ':'')+(groupStart?'group-start ':'')+(groupEnd?'group-end ':'')+(!groupStart&&!groupEnd?'group-middle ':'')+'" data-message-id="'+esc(m.id)+'">'+avatar+bubble+(own?'<button type="button" class="up-delete-action hidden">'+iconSvg('trash')+'</button>':'')+'</div>';
     });
     list.innerHTML=html;
@@ -1256,12 +1270,13 @@
     chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><button type="button" class="up-chat-profile-btn" title="Alterar foto de perfil"><img alt="Minha foto"></button><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">●</span> 0 online · 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'<button class="up-chat-back" type="button">← Voltar</button></div></div><div class="up-chat-lucca-alert hidden">🔴 ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregando…</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">×</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando <span class="up-chat-recording-time">0:00</span> • clique novamente para enviar</div><div class="up-chat-input-wrap"><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">'+iconSvg('photo')+'</button><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">🎙</button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" hidden></div></div><div class="up-chat-lightbox hidden"><button type="button" class="up-chat-lightbox-close" aria-label="Fechar">×</button><img alt="Imagem ampliada"></div>';
     var profileBtn=chat.querySelector('.up-chat-profile-btn');if(profileBtn){hydrateAvatar(profileBtn.querySelector('img'),member);profileBtn.onclick=function(e){e.stopPropagation();openProfileModal();};profileBtn.addEventListener('mouseenter',function(e){showChatProfileHover(profileBtn.querySelector('img'),member,e);});profileBtn.addEventListener('mousemove',positionChatProfileHover);profileBtn.addEventListener('mouseleave',hideChatProfileHover);}
     var input=chat.querySelector('.up-chat-input'),photoBtn=chat.querySelector('.up-chat-attach'),photoFile=chat.querySelector('.up-chat-file'),emojiBtn=chat.querySelector('.up-chat-emoji-btn'),emojiMenu=chat.querySelector('.up-chat-emoji-menu'),recordBtn=chat.querySelector('.up-chat-record');
+    restoreChatDraft(input);
     photoBtn.onclick=function(e){e.stopPropagation();photoFile.click()};
     photoFile.addEventListener('change',function(){if(photoFile.files&&photoFile.files[0])sendChatMedia(photoFile.files[0])});
     setupEmojiPicker(emojiBtn,emojiMenu,input);
     if(recordBtn)recordBtn.onclick=function(e){e.stopPropagation();toggleAudioRecording(recordBtn);};
     input.addEventListener('paste',function(e){var items=e.clipboardData&&e.clipboardData.items?Array.from(e.clipboardData.items):[];var item=items.find(function(x){return x.kind==='file'&&/^image\//i.test(x.type)});if(item){var file=item.getAsFile();if(file){e.preventDefault();sendChatMedia(file);}}});
-    chat.querySelector('.up-chat-reply-close').onclick=function(e){e.stopPropagation();setChatReply(null);};document.addEventListener('click',function(e){var menu=chat.querySelector('.up-chat-context-menu');if(menu&&menu.classList.contains('show')&&!menu.contains(e.target))hideChatContextMenu();});chat.querySelector('.up-chat-back').onclick=function(e){e.stopPropagation();hideChatContextMenu();stopTypingHeartbeat();chat.classList.add('hidden');card.classList.remove('hidden');broadcastChatPresence(false);refresh();};
+    chat.querySelector('.up-chat-reply-close').onclick=function(e){e.stopPropagation();setChatReply(null);};document.addEventListener('click',function(e){var menu=chat.querySelector('.up-chat-context-menu');if(menu&&menu.classList.contains('show')&&!menu.contains(e.target))hideChatContextMenu();});chat.querySelector('.up-chat-back').onclick=function(e){e.stopPropagation();saveChatDraft();hideChatContextMenu();stopTypingHeartbeat();chat.classList.add('hidden');card.classList.remove('hidden');broadcastChatPresence(false);refresh();};
     var clearBtn=chat.querySelector('.up-chat-clear');if(clearBtn)clearBtn.onclick=clearChatRicardo;
     var lightbox=chat.querySelector('.up-chat-lightbox');if(lightbox){lightbox.querySelector('.up-chat-lightbox-close').onclick=closeChatLightbox;lightbox.onclick=function(e){if(e.target===lightbox)closeChatLightbox();}}
     chat.querySelector('.up-chat-send').onclick=function(e){e.stopPropagation();sendChat()};
@@ -1317,6 +1332,7 @@
     api('POST','/api/chat',{message:text,replyTo:tempReply}).then(function(r){
       var created=r&&r.message;
       if(created){
+        clearChatDraft();
         chatCache=chatCache.map(function(m){return m.id===tempId?created:m;});
         renderChat();
       }else{
@@ -1349,31 +1365,61 @@
   profileModal.querySelector('.up-chat-profile-file').onchange=function(){var f=this.files&&this.files[0],msg=profileModal.querySelector('.up-chat-profile-message');if(!f)return;var type=String(f.type||'').toLowerCase(),ext=String(f.name||'').split('.').pop().toLowerCase();var okType=/^image\/(png|jpe?g|webp|gif)$/i.test(type)||['png','jpg','jpeg','webp','gif'].indexOf(ext)>=0;if(!okType){msg.textContent='Use PNG, JPG, WEBP ou GIF.';return;}if(f.size>2*1024*1024){msg.textContent='A foto deve ter no máximo 2 MB.';return;}fileToDataUrlForProfile(f,type,ext).then(function(data){profileModal.querySelector('.up-chat-profile-preview').src=data;msg.textContent='';}).catch(function(e){msg.textContent=e.message;});};
   profileModal.querySelector('.up-chat-profile-save').onclick=function(){var file=profileModal.querySelector('.up-chat-profile-file').files&&profileModal.querySelector('.up-chat-profile-file').files[0],msg=profileModal.querySelector('.up-chat-profile-message'),btn=this;if(!file){msg.textContent='Escolha uma foto.';return;}btn.disabled=true;msg.textContent='Salvando…';fileToDataUrl(file).then(function(data){return api('POST','/api/profile/avatar',{dataUrl:data});}).then(function(r){var ck='profile:'+member;if(mediaBlobCache[ck]){try{URL.revokeObjectURL(mediaBlobCache[ck]);}catch(e){}delete mediaBlobCache[ck];}GM_setValue(key+ck,r.avatarUrl);profileCache[member]=r.avatarUrl;hydrateAvatar(profileModal.querySelector('.up-chat-profile-preview'),member);updateBubbleAvatar(false);closeProfileModal();loadChat();}).catch(function(e){msg.textContent=e.message;}).finally(function(){btn.disabled=false;});};
 
+  var healthPingPending={},healthPingResults={};
+  function canViewHealth(){return ['Ricardo','Lohan','Guilherme'].indexOf(member)>=0;}
   function healthLed(ok,kind){return '<span class="up-health-led '+(ok?'ok':kind||'bad')+'"></span>';}
+  function healthPingLabel(name){
+    if(name===member)return '<span class="up-health-ping good">local</span>';
+    var p=healthPingResults[name];
+    if(p==null)return '<span class="up-health-ping pending">testando…</span>';
+    if(p<120)return '<span class="up-health-ping good">'+Math.round(p)+' ms</span>';
+    if(p<250)return '<span class="up-health-ping warn">'+Math.round(p)+' ms</span>';
+    return '<span class="up-health-ping bad">'+Math.round(p)+' ms</span>';
+  }
+  function requestHealthPings(users){
+    if(!realtimeActive||!realtimeChannel)return;
+    (users||[]).filter(function(m){return m&&m.connected!==false;}).forEach(function(m){
+      if(m.name===member){healthPingResults[m.name]=0;return;}
+      var id=member+'|'+m.name+'|'+Date.now()+'|'+Math.random().toString(36).slice(2);
+      healthPingPending[id]={name:m.name,startedAt:performance.now()};
+      try{realtimeChannel.send({type:'broadcast',event:'health_ping',payload:{id:id,target:m.name,sender:member,createdAt:Date.now()}});}catch(e){delete healthPingPending[id];}
+      setTimeout(function(){
+        var p=healthPingPending[id];if(!p)return;delete healthPingPending[id];
+        if(health.classList.contains('hidden'))return;
+        healthPingResults[p.name]=null;
+        var el=health.querySelector('[data-health-ping="'+CSS.escape(p.name)+'"]');if(el)el.innerHTML=healthPingLabel(p.name);
+      },2500);
+    });
+  }
+  function handleHealthPing(payload){
+    if(!payload||payload.target!==member||!realtimeActive||!realtimeChannel)return;
+    try{realtimeChannel.send({type:'broadcast',event:'health_pong',payload:{id:payload.id,target:payload.sender,sender:member,createdAt:Date.now()}});}catch(e){}
+  }
+  function handleHealthPong(payload){
+    if(!payload||payload.target!==member||!payload.id)return;
+    var p=healthPingPending[payload.id];if(!p)return;delete healthPingPending[payload.id];
+    healthPingResults[p.name]=Math.max(0,performance.now()-p.startedAt);
+    if(health.classList.contains('hidden'))return;
+    var el=health.querySelector('[data-health-ping="'+CSS.escape(p.name)+'"]');if(el)el.innerHTML=healthPingLabel(p.name);
+  }
   function openHealth(){
-    if(member!=='Ricardo')return;
+    if(!canViewHealth())return;
     card.classList.add('hidden');
     history.classList.add('hidden');
     chat.classList.add('hidden');
-    health.innerHTML='<div class="up-health-head"><div><div class="up-health-title">Saúde do sistema</div><div class="up-health-sub">Visão administrativa • Ricardo</div></div><button type="button" class="up-health-close">Fechar</button></div><div class="up-health-list"><div class="up-health-row"><div class="up-health-left">'+healthLed(true)+'<span class="up-health-name">Verificando o sistema</span></div><span class="up-health-detail">Aguarde…</span></div></div><div class="up-health-footer">Verde: funcionando. Amarelo: reconectando. Vermelho: precisa de atenção.</div><button type="button" class="up-health-refresh">Atualizar agora</button>';
+    health.innerHTML='<div class="up-health-head"><div><div class="up-health-title">Saúde do sistema</div><div class="up-health-sub">Equipe de Implementação • '+esc(member)+'</div></div><button type="button" class="up-health-close">Fechar</button></div><div class="up-health-list"><div class="up-health-row"><div class="up-health-left">'+healthLed(true)+'<span class="up-health-name">Verificando o sistema</span></div><span class="up-health-detail">Aguarde…</span></div></div><div class="up-health-footer">Verde: funcionando. Amarelo: reconectando. Vermelho: precisa de atenção.</div><button type="button" class="up-health-refresh">Atualizar agora</button>';
     health.classList.remove('hidden');
     health.querySelector('.up-health-close').onclick=function(){health.classList.add('hidden');card.classList.remove('hidden');};
     health.querySelector('.up-health-refresh').onclick=function(){loadHealth();};
     loadHealth();
   }
   function loadHealth(){
-    if(member!=='Ricardo'||health.classList.contains('hidden'))return;
-    var list=health.querySelector('.up-health-list');
-    if(!list)return;
+    if(!canViewHealth()||health.classList.contains('hidden'))return;
+    var list=health.querySelector('.up-health-list');if(!list)return;
     list.innerHTML='<div class="up-health-row"><div class="up-health-left">'+healthLed(true)+'<span class="up-health-name">Consultando diagnóstico</span></div><span class="up-health-detail">Aguarde…</span></div>';
     var started=Date.now();
     api('GET','/api/health').then(function(d){
-      var apiMs=Date.now()-started;
-      var db=d&&d.db||{};
-      var chatCheck=d&&d.chat||{};
-      var state=d&&d.state||{};
-      var users=d&&d.members||[];
-      var rt=realtimeActive;
+      var apiMs=Date.now()-started,db=d&&d.db||{},chatCheck=d&&d.chat||{},state=d&&d.state||{},users=d&&d.members||[],rt=realtimeActive;
       var rows=[
         {name:'Sistema UpStatus',ok:!!(d&&d.ok),detail:(d&&d.version?'Funcionando • '+apiMs+' ms':'Indisponível')},
         {name:'Banco de dados',ok:!!db.ok,detail:db.ok?('Respondendo • '+db.ms+' ms'):'Sem resposta'},
@@ -1382,8 +1428,13 @@
         {name:'Atualização em tempo real',ok:rt,kind:rt?'':'warn',detail:rt?'Ativa':'Reconectando'},
         {name:'Sua versão',ok:true,detail:'v'+CURRENT_VERSION}
       ];
+      healthPingResults={};
       list.innerHTML=rows.map(function(r){return '<div class="up-health-row"><div class="up-health-left">'+healthLed(r.ok,r.kind)+'<span class="up-health-name">'+r.name+'</span></div><span class="up-health-detail">'+r.detail+'</span></div>';}).join('')+
-        '<div class="up-health-members"><div class="up-health-sub">Equipe conectada</div>'+users.map(function(m){var connected=m.connected!==false;var ver=m.version?'v'+esc(m.version):'v?';return '<div class="up-health-member"><b>'+esc(m.name)+'</b><span>'+ver+' • '+(connected?'conectado':'desconectado')+'</span></div>';}).join('')+'</div>';
+        '<div class="up-health-members"><div class="up-health-sub">Equipe conectada</div>'+users.map(function(m){
+          var connected=m.connected!==false,ver=m.version?'v'+esc(m.version):'v?',seen=m.seenAt?' • visto '+fmtTime(m.seenAt):'';
+          return '<div class="up-health-member"><b>'+esc(m.name)+'</b><span>'+ver+' • '+(connected?'conectado':'desconectado')+seen+' <span data-health-ping="'+esc(m.name)+'">'+healthPingLabel(m.name)+'</span></span></div>';
+        }).join('')+'</div>';
+      requestHealthPings(users);
     }).catch(function(e){
       list.innerHTML='<div class="up-health-row"><div class="up-health-left">'+healthLed(false)+'<span class="up-health-name">Diagnóstico indisponível</span></div><span class="up-health-detail">'+esc(e.message||'Erro')+'</span></div>';
     });
@@ -1438,7 +1489,7 @@
 
   function app(){
     api('GET','/api/members').then(function(r){window.__upstatusMembers=(r.members||[]).map(function(x){return x.name});}).catch(function(){});
-    card.innerHTML='<div class="up-head"><div class="up-head-identity"><button type="button" class="up-head-avatar up-head-avatar-btn" title="Alterar foto de perfil" aria-label="Alterar foto de perfil"><img class="up-head-avatar-img" alt=""></button><div><div class="up-title">UpStatus</div><div class="up-you">Conectado como '+esc(member)+'</div></div></div><div class="up-actions"><button class="up-chat-btn" title="Chat da equipe" aria-label="Chat da equipe">'+iconSvg('chat')+'</button><button class="up-history-btn hidden" title="Ver histórico" aria-label="Ver histórico">'+iconSvg('clock')+'</button><button class="up-settings-btn" title="Configurações" aria-label="Configurações">'+iconSvg('gear')+'</button><div class="up-settings-menu hidden"><button type="button" class="up-settings-notifications"></button><button type="button" class="up-settings-theme"></button>'+(member==='Ricardo'?'<button type="button" class="up-settings-health">'+iconSvg('pulse')+'<span>Saúde do sistema</span></button>':'')+'</div><button class="up-logout">Sair</button></div></div><div class="up-statuses"><button class="up-status online">'+iconSvg('online')+' Online</button><button class="up-status busy">'+iconSvg('busy')+' Ocupado</button><button class="up-status away">'+iconSvg('away')+' Ausente</button></div><div class="up-reasons hidden"><label class="up-label">Motivo de ocupado</label><div class="up-reason-picker"><button type="button" class="up-reason-trigger"><span class="up-reason-trigger-icon">'+iconSvg('edit')+'</span><span class="up-reason-trigger-text">Selecione um motivo</span></button><div class="up-reason-menu hidden">'+reasons.map(function(x){return '<button type="button" class="up-reason-option" data-value="'+esc(x.value)+'">'+iconSvg(x.icon)+'<span class="up-reason-text">'+esc(x.label)+'</span></button>'}).join('')+'</div></div><select class="up-select hidden"></select><input class="up-input hidden" placeholder="Escreva o motivo"><button class="up-confirm hidden">Confirmar ocupado</button></div><div class="up-message"></div><div class="up-notice">'+iconSvg('pulse')+'<span>Sincronização com o Sale Smartly ativa.</span><span class="up-notice-ok">✓</span></div><div class="up-team-title-row"><div class="up-team-title">Equipe</div><span class="up-team-count"></span></div><div class="up-team">Carregando…</div>';
+    card.innerHTML='<div class="up-head"><div class="up-head-identity"><button type="button" class="up-head-avatar up-head-avatar-btn" title="Alterar foto de perfil" aria-label="Alterar foto de perfil"><img class="up-head-avatar-img" alt=""></button><div><div class="up-title">UpStatus</div><div class="up-you">Conectado como '+esc(member)+'</div></div></div><div class="up-actions"><button class="up-chat-btn" title="Chat da equipe" aria-label="Chat da equipe">'+iconSvg('chat')+'</button><button class="up-history-btn hidden" title="Ver histórico" aria-label="Ver histórico">'+iconSvg('clock')+'</button><button class="up-settings-btn" title="Configurações" aria-label="Configurações">'+iconSvg('gear')+'</button><div class="up-settings-menu hidden"><button type="button" class="up-settings-notifications"></button><button type="button" class="up-settings-theme"></button>'+'<button type="button" class="up-settings-health">'+iconSvg('pulse')+'<span>Saúde do sistema</span></button>'+'</div><button class="up-logout">Sair</button></div></div><div class="up-statuses"><button class="up-status online">'+iconSvg('online')+' Online</button><button class="up-status busy">'+iconSvg('busy')+' Ocupado</button><button class="up-status away">'+iconSvg('away')+' Ausente</button></div><div class="up-reasons hidden"><label class="up-label">Motivo de ocupado</label><div class="up-reason-picker"><button type="button" class="up-reason-trigger"><span class="up-reason-trigger-icon">'+iconSvg('edit')+'</span><span class="up-reason-trigger-text">Selecione um motivo</span></button><div class="up-reason-menu hidden">'+reasons.map(function(x){return '<button type="button" class="up-reason-option" data-value="'+esc(x.value)+'">'+iconSvg(x.icon)+'<span class="up-reason-text">'+esc(x.label)+'</span></button>'}).join('')+'</div></div><select class="up-select hidden"></select><input class="up-input hidden" placeholder="Escreva o motivo"><button class="up-confirm hidden">Confirmar ocupado</button></div><div class="up-message"></div><div class="up-notice">'+iconSvg('pulse')+'<span>Sincronização com o Sale Smartly ativa.</span><span class="up-notice-ok">✓</span></div><div class="up-team-title-row"><div class="up-team-title">Equipe</div><span class="up-team-count"></span></div><div class="up-team">Carregando…</div>';
     history.innerHTML='<div class="up-history-head"><div class="up-history-title">Histórico</div><div class="up-actions"><button class="up-export" title="Exportar histórico">'+iconSvg('download')+' TXT</button><button class="up-close">Fechar</button></div></div><div class="up-history-list">Carregando…</div>';
 
     var box=card.querySelector('.up-reasons'),select=box.querySelector('select'),custom=box.querySelector('input'),confirm=box.querySelector('button.up-confirm'),trigger=box.querySelector('.up-reason-trigger'),menu=box.querySelector('.up-reason-menu');
@@ -1711,10 +1762,12 @@
   var drag=null;
   document.addEventListener('pointerdown',function(e){
     if(!root.contains(e.target)){
+      if(!chat.classList.contains('hidden'))saveChatDraft();
       card.classList.add('hidden');
       history.classList.add('hidden');
       chat.classList.add('hidden');
       health.classList.add('hidden');
+      broadcastChatPresence(false);
     }
   },true);
   bubble.addEventListener('pointerdown',function(e){
@@ -1748,7 +1801,18 @@
 
   setInterval(refresh,5000);
   setInterval(function(){if(member){broadcastChatPresence(!chat.classList.contains('hidden'));Object.keys(chatPresence).forEach(function(name){if(chatPresence[name]&&chatPresence[name]<Date.now())delete chatPresence[name];});if(!chat.classList.contains('hidden'))renderChat();}},10000);
-  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeChatLightbox();});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape')closeChatLightbox();
+    if(e.shiftKey&&(e.key==='c'||e.key==='C')){
+      var t=e.target,tag=t&&t.tagName?String(t.tagName).toLowerCase():'';
+      var editable=!!(t&&(t.isContentEditable||tag==='input'||tag==='textarea'||tag==='select'));
+      if(!editable&&token&&member){
+        e.preventDefault();
+        if(chat.classList.contains('hidden'))openChat();
+        else{var input=chat.querySelector('.up-chat-input');if(input)input.focus();}
+      }
+    }
+  });
   setInterval(function(){loadChat();},1000);
   setInterval(pollChatTyping,1000);
   setInterval(pollBarui,1000);
