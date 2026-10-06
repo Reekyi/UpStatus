@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.8.4
+// @version      2.8.5
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -264,7 +264,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.8.4';
+  var CURRENT_VERSION='2.8.5';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1296,15 +1296,20 @@
   }
 
   function closeChat(){
-    if(chat.classList.contains('hidden'))return;
-    saveChatDraft();
-    hideChatContextMenu();
-    stopTypingHeartbeat();
+    if(!chat.classList.contains('hidden')){
+      saveChatDraft();
+      hideChatContextMenu();
+      stopTypingHeartbeat();
+      broadcastChatPresence(false);
+    }
     chat.classList.add('hidden');
-    card.classList.remove('hidden');
-    broadcastChatPresence(false);
-    refresh();
+    card.classList.add('hidden');
+    history.classList.add('hidden');
+    health.classList.add('hidden');
+    remoteOverlay.classList.add('hidden');
+    stopHealthMonitor();
   }
+
   function openChat(){
     if(!token)return;
     chatReplyTo=null;chatContextMessageId=null;
@@ -1877,7 +1882,7 @@
   setInterval(refresh,5000);
   setInterval(function(){if(member){broadcastChatPresence(!chat.classList.contains('hidden'));Object.keys(chatPresence).forEach(function(name){if(chatPresence[name]&&chatPresence[name]<Date.now())delete chatPresence[name];});if(!chat.classList.contains('hidden'))renderChat();}},10000);
   document.addEventListener('keydown',function(e){
-    if(e.key==='Escape')closeChatLightbox();
+    if(e.key==='Escape'){e.preventDefault();closeChat();}
     if(e.shiftKey&&(e.key==='c'||e.key==='C')){
       var t=e.target,tag=t&&t.tagName?String(t.tagName).toLowerCase():'';
       var editable=!!(t&&(t.isContentEditable||tag==='input'||tag==='textarea'||tag==='select'));
