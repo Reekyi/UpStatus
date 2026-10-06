@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.0.5
+// @version      3.0.6
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -267,7 +267,7 @@
   var baruiCallDrag={active:false,x:0,y:0,offsetX:0,offsetY:0};
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.5';
+  var CURRENT_VERSION='3.0.6';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -440,6 +440,7 @@
     '#upstatus-root.up-theme-light .up-member-actions .up-member-barui,#upstatus-root.up-theme-light .up-member-actions .up-member-power{background:#edf2f7;color:#334155;border:1px solid #d6dfe9}'+
     '#upstatus-root.up-theme-light .up-member-actions .up-badge.b-online{background:#dff7ea;color:#137044}.up-theme-light .up-member-actions .up-badge.b-busy{background:#ffe5e9;color:#b4233c}.up-theme-light .up-member-actions .up-badge.b-away{background:#e9eef5;color:#475569}'
   });
+  style.textContent += '.up-patch-link{display:block;margin-top:3px;font-size:10px;color:#7f9dca;text-decoration:none;cursor:pointer;width:max-content}.up-patch-link:hover{text-decoration:underline;color:#a9c7ff}.up-patch-modal{position:fixed;inset:0;z-index:2147483647;background:rgba(4,8,14,.62);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}.up-patch-dialog{width:min(430px,calc(100vw - 40px));max-height:min(560px,calc(100vh - 40px));overflow:auto;box-sizing:border-box;border:1px solid #33445c;border-radius:16px;background:linear-gradient(145deg,#172131,#101722);color:#edf2fb;box-shadow:0 18px 55px rgba(0,0,0,.5);padding:18px}.up-patch-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.up-patch-title{font-size:15px;font-weight:800}.up-patch-close{border:0;background:#273247;color:#c6d1e1;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:16px}.up-patch-close:hover{background:#35425a}.up-patch-version{margin-top:14px;padding-top:13px;border-top:1px solid #29374b}.up-patch-version:first-of-type{margin-top:0;padding-top:0;border-top:0}.up-patch-version-title{font-size:12px;font-weight:800;color:#dbe5f5}.up-patch-list{margin:7px 0 0;padding-left:17px;color:#9eacc0;font-size:11px;line-height:1.55}.up-patch-list li{margin:2px 0}.up-theme-light .up-patch-link{color:#356fe8}.up-theme-light .up-patch-link:hover{color:#245fc4}.up-theme-light .up-patch-modal{background:rgba(15,23,42,.35)}.up-theme-light .up-patch-dialog{background:#fff;border-color:#d7dee9;color:#1e293b;box-shadow:0 18px 55px rgba(0,0,0,.2)}.up-theme-light .up-patch-close{background:#eef2f7;color:#334155}.up-theme-light .up-patch-close:hover{background:#e2e8f0}.up-theme-light .up-patch-version{border-color:#e2e8f0}.up-theme-light .up-patch-version-title{color:#1e293b}.up-theme-light .up-patch-list{color:#64748b}';
   style.textContent += '.up-barui-call{position:absolute;right:12px;bottom:12px;width:292px;z-index:95;pointer-events:auto}.up-barui-call.hidden{display:none}.up-barui-call-card{box-sizing:border-box;min-height:62px;padding:7px 8px;border:1px solid #3f5270;border-radius:16px;background:linear-gradient(145deg,rgba(21,30,44,.98),rgba(12,18,29,.98));color:#fff;box-shadow:0 10px 28px rgba(0,0,0,.38),0 0 0 1px rgba(79,125,255,.1);display:flex;align-items:center;gap:7px}.up-barui-call-drag{width:14px;flex:0 0 14px;height:34px;display:flex;align-items:center;justify-content:center;color:#6f819c;font-size:17px;font-weight:900;line-height:1;cursor:grab;user-select:none;touch-action:none}.up-barui-call-drag:active{cursor:grabbing}.up-barui-call-top{display:flex;align-items:center;gap:7px;min-width:0;flex:1}.up-barui-call-avatar{width:34px;height:34px;flex:0 0 34px;border-radius:50%;object-fit:cover;border:1px solid #4f7dff;box-shadow:0 0 0 3px rgba(79,125,255,.1)}.up-barui-call-person{min-width:0;flex:1}.up-barui-call-name{font-size:11px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.up-barui-call-state{font-size:9px;color:#8fa2bd;margin-top:2px;white-space:nowrap}.up-barui-call-state.connected{color:#69d69a}.up-barui-call-time{min-width:39px;text-align:center;font:800 12px/1 Segoe UI,Arial,sans-serif;font-variant-numeric:tabular-nums;color:#edf3ff}.up-barui-call-actions{display:flex;justify-content:flex-end;align-items:center;gap:5px;flex:0 0 auto}.up-barui-call-btn{width:29px;height:29px;border:0;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;box-shadow:0 3px 8px rgba(0,0,0,.22);transition:transform .15s,filter .15s,background .15s}.up-barui-call-btn:hover{transform:translateY(-1px);filter:brightness(1.08)}.up-barui-call-mic{background:#27364d;color:#e8eef8}.up-barui-call-mic.active{background:#7a2940;color:#fff}.up-barui-call-end{background:#ef4050;color:#fff;width:32px;height:32px}.up-barui-call-incoming{display:flex;gap:4px;flex:0 0 auto}.up-barui-call-incoming button{border:0;border-radius:999px;padding:6px 9px;font:800 9px Segoe UI,Arial,sans-serif;cursor:pointer;white-space:nowrap}.up-barui-call-answer{background:#27c979;color:#071b12}.up-barui-call-reject{background:#3b2630;color:#ffb8c1}.up-barui-call-ringing{display:none}.up-barui-call-card.ringing{animation:upbaruiCallPulse 1.15s infinite alternate}@keyframes upbaruiCallPulse{from{box-shadow:0 10px 28px rgba(0,0,0,.38),0 0 0 1px rgba(255,61,88,.1)}to{box-shadow:0 10px 28px rgba(0,0,0,.38),0 0 0 3px rgba(255,61,88,.16)}}';
   style.textContent += '.up-chat-bubble{position:relative;padding-bottom:8px}.up-chat-own-meta{display:inline-flex;align-items:center;gap:2px;margin-left:6px;vertical-align:baseline;line-height:10px;font-size:10px;float:right;position:relative;top:2px}.up-chat-read{font-size:10px;line-height:10px;letter-spacing:-1px}.up-chat-reactions{clear:both}.up-chat-profile-hover-since{font-size:9px;color:#718096;margin-top:1px}.up-health-ping{font-variant-numeric:tabular-nums;font-weight:700;color:#8fa0b8}.up-health-ping.good{color:#75dba0}.up-health-ping.warn{color:#e7c56a}.up-health-ping.bad{color:#ff8499}.up-health-ping.pending{color:#7f8ea4}.up-health-member{display:flex;align-items:center;justify-content:space-between;gap:8px}.up-health-member .up-health-ping{margin-left:auto}';
   var root=node('div',{id:'upstatus-root'});
@@ -627,6 +628,19 @@
     }catch(e){}
     window.open(UPDATE_URL,'_blank','noopener');
   }
+  function openPatchNotes(){
+    var existing=root.querySelector('.up-patch-modal');
+    if(existing)existing.remove();
+    var modal=node('div',{className:'up-patch-modal'});
+    modal.innerHTML='<div class="up-patch-dialog" role="dialog" aria-modal="true" aria-label="O que há de novo?"><div class="up-patch-head"><div class="up-patch-title">O que há de novo?</div><button type="button" class="up-patch-close" aria-label="Fechar">×</button></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.6</div><ul class="up-patch-list"><li>Adicionado o Patch Notes do UpStatus.</li><li>Novidades das últimas versões reunidas em um só lugar.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.5</div><ul class="up-patch-list"><li>Chat corrigido e mais estável.</li><li>Correção de mensagens duplicadas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.4</div><ul class="up-patch-list"><li>Correção da identificação do autor das mensagens.</li><li>Melhorias na sincronização do chat.</li></ul></div></div>';
+    root.appendChild(modal);
+    var close=modal.querySelector('.up-patch-close');
+    function closePatch(){modal.remove();}
+    close.onclick=closePatch;
+    modal.addEventListener('click',function(e){if(e.target===modal)closePatch();});
+    document.addEventListener('keydown',function escPatch(e){if(e.key==='Escape'){closePatch();document.removeEventListener('keydown',escPatch);}});
+  }
+
   function versionParts(v){
     return String(v||'0').replace(/^v/i,'').split('.').map(function(n){
       var x=parseInt(n,10);
@@ -1613,7 +1627,7 @@ async function startBaruiCaller(target,sequence){
   function login(){
     health.classList.add('hidden');
     img.src=profileFallback();
-    var loginMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';lastMember=loginMember;card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><button id="up-enter">Entrar</button></div><div class="up-update up-login-update">Versão v'+CURRENT_VERSION+' <button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button><span class="up-update-status"></span></div><div class="up-message"></div>';
+    var loginMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';lastMember=loginMember;card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><button id="up-enter">Entrar</button></div><div class="up-update up-login-update"><div><span>Versão v'+CURRENT_VERSION+'</span><a href="#" class="up-patch-link">O que há de novo?</a></div><div><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div><span class="up-update-status"></span></div><div class="up-message"></div>';
     var nameSelect=card.querySelector('#up-name');
     function setLoginMembers(names){
       var list=(names||[]).filter(Boolean);
@@ -1642,6 +1656,7 @@ async function startBaruiCaller(target,sequence){
     };
     card.querySelector('#up-password').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();card.querySelector('#up-enter').click();}});
     card.querySelector('.up-update-check').onclick=checkUpdate;
+    card.querySelector('.up-patch-link').onclick=function(e){e.preventDefault();openPatchNotes();};
     checkUpdate();
   }
 
@@ -1688,8 +1703,9 @@ async function startBaruiCaller(target,sequence){
     updateNotificationPermissionUI();
     applyTheme();
     updateOutgoingBaruiUI();
-    card.insertAdjacentHTML('beforeend','<div class="up-update"><div class="up-update-version">'+iconSvg('update')+'<div><b>Versão v'+CURRENT_VERSION+'</b><span class="up-update-status"></span></div></div><div class="up-update-actions"><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div></div>');
+    card.insertAdjacentHTML('beforeend','<div class="up-update"><div class="up-update-version">'+iconSvg('update')+'<div><b>Versão v'+CURRENT_VERSION+'</b><a href="#" class="up-patch-link">O que há de novo?</a><span class="up-update-status"></span></div></div><div class="up-update-actions"><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div></div>');
     card.querySelector('.up-update-check').onclick=checkUpdate;
+    card.querySelector('.up-patch-link').onclick=function(e){e.preventDefault();openPatchNotes();};
     checkUpdate();
   }
 
