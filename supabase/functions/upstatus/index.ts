@@ -124,7 +124,7 @@ async function healthRoute(req:Request,name:string){
   const chatMs=Date.now()-chatStarted;
 
   const stateStarted=Date.now();
-  const stateQ=await db.from("upstatus_state").select("state_key").in("state_key",["barui","remote-status"]);
+  const stateQ=await db.from("upstatus_state").select("state_key").in("state_key"["remote-status"]);
   const stateOk=!stateQ.error;
   const stateMs=Date.now()-stateStarted;
 
@@ -444,36 +444,7 @@ async function mediaRoute(req:Request,kind:"image"|"audio") {
   const saved=await uploadFile("chat-images",String(p.dataUrl||""),max,allowed);
   return response({ok:true,imageUrl:saved.url,type:saved.mime.startsWith("video/")?"video":kind});
 }
-async function baruiRoute(req:Request,name:string) {
-  const state:any=await stateValue("barui",{});
-  const path=new URL(req.url).pathname;
-  if(req.method==="GET"){
-    const incoming=state[name]||null;
-    const outgoing=Object.entries(state).find(([target,item]:any[])=>item?.sender===name);
-    return response(incoming?{active:true,sender:incoming.sender,startedAt:incoming.startedAt,sequence:incoming.sequence,outgoingActive:!!outgoing,outgoingTarget:outgoing?.[0]||""}:{active:false,outgoingActive:!!outgoing,outgoingTarget:outgoing?.[0]||""});
-  }
-  if(path.endsWith("/stop-incoming")) {
-    const old=state[name]||null;
-    delete state[name];
-    await setState("barui",state);
-    return response({ok:true,target:name,active:false,sender:name,sequence:old?.sequence||0});
-  }
-  if(!(await admin(name)))return response({error:"Somente administradores podem controlar o BARUI da equipe."},403);
-  const p:any=await readBody(req),target=String(p.target||"");
-  if(target===name||!(await members()).some((x:any)=>x.name===target))return response({error:"Usuário do BARUI inválido."},400);
-  if(p.active){
-    const entry={sender:name,startedAt:new Date().toISOString(),sequence:Date.now()};
-    state[target]=entry;
-    await setState("barui",state);
-    return response({ok:true,target,active:true,...entry});
-  } else {
-    const old=state[target];
-    if(old&&old.sender!==name)return response({error:"Somente quem iniciou o BARUI pode pará-lo."},403);
-    delete state[target];
-    await setState("barui",state);
-    return response({ok:true,target,active:false,sender:name,sequence:old?.sequence||0});
-  }
-}
+
 async function remoteRoute(req:Request,name:string) {
   const state:any=await stateValue("remote-status",{commands:{},results:{}});
   state.commands=state.commands||{};state.results=state.results||{};
@@ -607,7 +578,6 @@ Deno.serve(async(req)=>{
     if(path==="/api/profile/avatar"&&req.method==="POST")return await profileRoute(req,name);
     if(path==="/api/chat/image"&&req.method==="POST")return await mediaRoute(req,"image");
     if(path==="/api/chat/audio"&&req.method==="POST")return await mediaRoute(req,"audio");
-    if(path.startsWith("/api/barui"))return await baruiRoute(req,name);
     if(path.startsWith("/api/remote-status"))return await remoteRoute(req,name);
     if(path==="/api/chat/clear"&&req.method==="POST"){
       if(name!=="Ricardo")return response({error:"Somente Ricardo pode limpar o chat."},403);
