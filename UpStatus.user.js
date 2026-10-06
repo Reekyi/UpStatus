@@ -1265,7 +1265,6 @@
     input.addEventListener('input',function(){renderMentionMenu();handleTypingInput();});input.addEventListener('click',renderMentionMenu);input.addEventListener('keyup',renderMentionMenu);input.addEventListener('keydown',function(e){if(e.key.length===1||e.key==='Backspace'||e.key==='Delete')startTypingHeartbeat();});input.addEventListener('focus',function(){if(String(input.value||'').trim())startTypingHeartbeat();});input.addEventListener('blur',function(){if(typingStopTimer)clearTimeout(typingStopTimer);typingStopTimer=setTimeout(function(){stopTypingHeartbeat();},1200);});
     input.addEventListener('keydown',function(e){if(e.key==='Escape'){var menu=chat.querySelector('.up-mention-menu');if(menu)menu.classList.add('hidden');return;}if(e.key==='Enter'&&!e.shiftKey){var menu=chat.querySelector('.up-mention-menu');if(menu&&!menu.classList.contains('hidden')){var first=menu.querySelector('.up-mention-option');if(first){e.preventDefault();applyMention(first.getAttribute('data-name'));return;}}e.preventDefault();sendChat();}});
     if(chatCache.length)renderChat();
-    stopLocalBarui();
     updateLuccaPresence(luccaOnline);
     loadChat();
     pollChatTyping();
@@ -1516,7 +1515,6 @@
     quickChatBubble.onclick=function(e){e.stopPropagation();openChat()};
     updateNotificationPermissionUI();
     applyTheme();
-    updateOutgoingBaruiUI();
     card.insertAdjacentHTML('beforeend','<div class="up-update"><div class="up-update-version">'+iconSvg('update')+'<div><b>Versão v'+CURRENT_VERSION+'</b><a href="#" class="up-patch-link">O que há de novo?</a><span class="up-update-status"></span></div></div><div class="up-update-actions"><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div></div>');
     card.querySelector('.up-update-check').onclick=checkUpdate;
     card.querySelector('.up-patch-link').onclick=function(e){e.preventDefault();openPatchNotes();};
@@ -1638,7 +1636,7 @@
         var m=d.members[k],presence=profilePresenceState(m.name,m);
         if(m.name===member)currentStatus=m.status;
         var controls=(role==='implementation_admin'&&m.name!==member)
-          ? '<button type="button" class="up-member-barui" data-target="'+esc(m.name)+'" title="Enviar BARUI para '+esc(m.name)+'" aria-label="Enviar BARUI para '+esc(m.name)+'">'+iconSvg('phone')+'</button><button type="button" class="up-member-power" data-target="'+esc(m.name)+'" title="Controlar fila de '+esc(m.name)+'" aria-label="Controlar fila de '+esc(m.name)+'">'+iconSvg('power')+'</button>'
+          ? '<button type="button" class="up-member-barui" data-target="'+esc(m.name)+'" title="Ligação rápida (em reconstrução) para '+esc(m.name)+'" aria-label="Ligação rápida (em reconstrução) para '+esc(m.name)+'">'+iconSvg('phone')+'</button><button type="button" class="up-member-power" data-target="'+esc(m.name)+'" title="Controlar fila de '+esc(m.name)+'" aria-label="Controlar fila de '+esc(m.name)+'">'+iconSvg('power')+'</button>'
           : '';
         var version=m.version?'<span class="up-member-version">v'+esc(m.version)+'</span>':'<span class="up-member-version">v?</span>';
         var sub=[];
@@ -1656,7 +1654,6 @@
       });
       team.querySelectorAll('.up-member-barui').forEach(function(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();message('A chamada está sendo reconstruída.');};});
       team.querySelectorAll('.up-member-power').forEach(function(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();openRemoteControl(btn.getAttribute('data-target'));};});
-      updateOutgoingBaruiUI();
       setBubbleStatus(currentStatus);
     }).catch(function(e){message(e.message,true)}).finally(function(){refreshing=false});
     loadChat();
