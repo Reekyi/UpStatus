@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.0.7
+// @version      3.0.8
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -90,7 +90,21 @@
           try{
             var d=ev.detail||{};
             if(!window.__upstatusNativeNotification || window.__upstatusNativeNotification.permission!=='granted')return;
+            if(d.type==='chat'){
+              var chatEl=document.getElementById('upstatus-chat');
+              if(chatEl&&!chatEl.classList.contains('hidden')&&document.visibilityState==='visible')return;
+            }
             var n=new window.__upstatusNativeNotification(d.title||'UpStatus',d.options||{});
+            if(d.type==='chat'){
+              try{window.__upstatusActiveExternalNotifications=window.__upstatusActiveExternalNotifications||[];window.__upstatusActiveExternalNotifications.push(n);}catch(e){}
+              n.onclose=function(){
+                try{
+                  var list=window.__upstatusActiveExternalNotifications||[];
+                  var i=list.indexOf(n);
+                  if(i>=0)list.splice(i,1);
+                }catch(e){}
+              };
+            }
             n.onclick=function(){
               try{window.focus();}catch(e){}
               try{document.dispatchEvent(new CustomEvent('UPSTATUS_EXTERNAL_NOTIFICATION_CLICK',{detail:{type:d.type||'',id:d.id||''}}));}catch(e){}
@@ -267,7 +281,7 @@
   var baruiCallDrag={active:false,x:0,y:0,offsetX:0,offsetY:0};
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.7';
+  var CURRENT_VERSION='3.0.8';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -632,7 +646,7 @@
     var existing=root.querySelector('.up-patch-modal');
     if(existing)existing.remove();
     var modal=node('div',{className:'up-patch-modal'});
-    modal.innerHTML='<div class="up-patch-dialog" role="dialog" aria-modal="true" aria-label="O que há de novo?"><div class="up-patch-head"><div class="up-patch-title">O que há de novo?</div><button type="button" class="up-patch-close" aria-label="Fechar">×</button></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.7</div><ul class="up-patch-list"><li>Corrigido o botão "← Voltar" do chat para retornar ao dashboard.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.6</div><ul class="up-patch-list"><li>Adicionado o Patch Notes do UpStatus.</li><li>Novidades das últimas versões reunidas em um só lugar.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.5</div><ul class="up-patch-list"><li>Chat corrigido e mais estável.</li><li>Correção de mensagens duplicadas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.4</div><ul class="up-patch-list"><li>Correção da identificação do autor das mensagens.</li><li>Melhorias na sincronização do chat.</li></ul></div></div>';
+    modal.innerHTML='<div class="up-patch-dialog" role="dialog" aria-modal="true" aria-label="O que há de novo?"><div class="up-patch-head"><div class="up-patch-title">O que há de novo?</div><button type="button" class="up-patch-close" aria-label="Fechar">×</button></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.8</div><ul class="up-patch-list"><li>Notificações do chat agora respeitam o estado do chat e da aba, evitando alertas do Windows quando o chat já está aberto e visível.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.7</div><ul class="up-patch-list"><li>Corrigido o botão "← Voltar" do chat para retornar ao dashboard.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.6</div><ul class="up-patch-list"><li>Adicionado o Patch Notes do UpStatus.</li><li>Novidades das últimas versões reunidas em um só lugar.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.5</div><ul class="up-patch-list"><li>Chat corrigido e mais estável.</li><li>Correção de mensagens duplicadas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.4</div><ul class="up-patch-list"><li>Correção da identificação do autor das mensagens.</li><li>Melhorias na sincronização do chat.</li></ul></div></div>';
     root.appendChild(modal);
     var close=modal.querySelector('.up-patch-close');
     function closePatch(){modal.remove();}
@@ -760,8 +774,20 @@
     }catch(e){message('Não foi possível ativar as notificações.',true)}
   }
   function shouldNotifyForChat(){
-    return chat.classList.contains('hidden') || document.hidden;
+    return chat.classList.contains('hidden') || document.visibilityState!=='visible';
   }
+  function closePendingChatExternalNotifications(){
+    try{
+      var list=window.__upstatusActiveExternalNotifications||[];
+      for(var i=list.length-1;i>=0;i--){try{list[i].close();}catch(e){}}
+    }catch(e){}
+  }
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='visible'&&!chat.classList.contains('hidden')){
+      closePendingChatExternalNotifications();
+      setUnread(0);
+    }
+  });
   function shouldShowExternalNotification(){
     return notificationsEnabled && !!UpNativeNotification && UpNativeNotification.permission==='granted';
   }
