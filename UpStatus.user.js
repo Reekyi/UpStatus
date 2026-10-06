@@ -1349,12 +1349,23 @@
         {urls:'stun:stun.cloudflare.com:3478'}
       ]
     });
+    pc.__upstatusRecoveryTimer=null;
+    pc.__upstatusRecoveryTried=false;
     pc.onicecandidate=function(e){
-      if(!e.candidate)return;
-      sendRealtimeEvent('barui_call',{
-        type:'ice',target:baruiCall.target,sender:member,sequence:baruiCall.sequence,
-        candidate:e.candidate.toJSON?e.candidate.toJSON():e.candidate
-      });
+      if(!baruiCall.active||!e)return;
+      if(e.candidate){
+        sendRealtimeEvent('barui_call',{
+          type:'ice',target:baruiCall.target,sender:member,sequence:baruiCall.sequence,
+          candidate:e.candidate.toJSON?e.candidate.toJSON():e.candidate
+        });
+      }else{
+        sendRealtimeEvent('barui_call',{
+          type:'ice-complete',target:baruiCall.target,sender:member,sequence:baruiCall.sequence
+        });
+      }
+    };
+    pc.onicecandidateerror=function(e){
+      baruiCallLog('iceCandidateError',e&&e.errorCode,e&&e.errorText,e&&e.url);
     };
     pc.ontrack=function(e){
       var stream=e.streams&&e.streams[0]?e.streams[0]:null;
@@ -1362,18 +1373,54 @@
       baruiCall.remoteStream=stream;
       baruiCall.audio.srcObject=stream;
       baruiCallLog('remote track received');
-      var p=baruiCall.audio.play();if(p&&p.catch)p.catch(function(e){baruiCallLog('audio.play blocked',e&&e.name);});
+      var p=baruiCall.audio.play();
+      if(p&&p.catch)p.catch(function(err){baruiCallLog('audio.play blocked',err&&err.name);});
     };
-    pc.oniceconnectionstatechange=function(){baruiCallLog('iceConnectionState',pc.iceConnectionState);};
+    pc.oniceconnectionstatechange=function(){
+      var st=pc.iceConnectionState;
+      baruiCallLog('iceConnectionState',st);
+      if(st==='connected'||st==='completed'){
+        if(pc.__upstatusRecoveryTimer){clearTimeout(pc.__upstatusRecoveryTimer);pc.__upstatusRecoveryTimer=null;}
+      }else if(st==='disconnected'&&baruiCall.active){
+        if(pc.__upstatusRecoveryTimer)clearTimeout(pc.__upstatusRecoveryTimer);
+        pc.__upstatusRecoveryTimer=setTimeout(function(){
+          pc.__upstatusRecoveryTimer=null;
+          if(!baruiCall.active||baruiCall.pc!==pc)return;
+          if(pc.iceConnectionState==='disconnected'&&!pc.__upstatusRecoveryTried){
+            pc.__upstatusRecoveryTried=true;
+            baruiCallLog('ice restart after disconnected');
+            try{
+              pc.restartIce();
+              if(baruiCall.role==='caller')startBaruiCaller(baruiCall.target,baruiCall.sequence,true);
+            }catch(err){baruiCallLog('ice restart failed',err&&err.message);}
+          }else if(pc.iceConnectionState==='failed'&&baruiCall.active){
+            endBaruiCall(true,'connection_failed');
+          }
+        },3500);
+      }else if(st==='failed'&&baruiCall.active){
+        if(!pc.__upstatusRecoveryTried){
+          pc.__upstatusRecoveryTried=true;
+          try{
+            pc.restartIce();
+            if(baruiCall.role==='caller')startBaruiCaller(baruiCall.target,baruiCall.sequence,true);
+          }catch(err){endBaruiCall(true,'connection_failed');}
+        }else{
+          endBaruiCall(true,'connection_failed');
+        }
+      }
+    };
     pc.onconnectionstatechange=function(){
-      var st=pc.connectionState;baruiCallLog('connectionState',st);
+      var st=pc.connectionState;
+      baruiCallLog('connectionState',st);
       if(st==='connected'){
         if(!baruiCall.connectedAt)baruiCall.connectedAt=Date.now();
         clearBaruiCallTimer();
         baruiCall.timer=setInterval(function(){if(baruiCall.active)updateBaruiCallUI('connected');},500);
         updateBaruiCallUI('connected');
-      }else if(st==='failed'&&baruiCall.active){
-        endBaruiCall(true,'connection_failed');
+      }else if(st==='disconnected'&&baruiCall.active){
+        updateBaruiCallUI('connecting');
+      }else if(st==='failed'&&baruiCall.active&&pc.iceConnectionState!=='failed'){
+        updateBaruiCallUI('connecting');
       }
     };
     pc.onsignalingstatechange=function(){baruiCallLog('signalingState',pc.signalingState);};
@@ -1383,32 +1430,23 @@
     stream.getTracks().forEach(function(track){pc.addTrack(track,stream);});
     baruiCall.localStream=stream;
   }
-  async function waitBaruiIceGathering(pc){
-    if(pc.iceGatheringState==='complete')return;
-    await new Promise(function(resolve){
-      var done=false;
-      function finish(){if(done)return;done=true;pc.removeEventListener('icegatheringstatechange',finish);resolve();}
-      pc.addEventListener('icegatheringstatechange',function(){if(pc.iceGatheringState==='complete')finish();});
-      setTimeout(finish,5000);
-    });
-  }
   async function setBaruiRemoteDescription(desc){
     await baruiCall.pc.setRemoteDescription(desc);
     var pending=baruiCall.pendingIce.splice(0);
-    for(var i=0;i<pending.length;i++){try{await baruiCall.pc.addIceCandidate(pending[i]);}catch(e){baruiCallLog('queued ICE failed',e&&e.message);}}
+    for(var i=0;i<pending.length;i++){
+      try{await baruiCall.pc.addIceCandidate(pending[i]);}
+      catch(e){baruiCallLog('queued ICE failed',e&&e.message);}
+    }
   }
   async function addBaruiIceCandidate(candidate){
-    if(!baruiCall.pc)return;
+    if(!candidate||!baruiCall.pc)return;
     if(baruiCall.pc.remoteDescription){
-      try{await baruiCall.pc.addIceCandidate(candidate);}catch(e){baruiCallLog('ICE failed',e&&e.message);}
+      try{await baruiCall.pc.addIceCandidate(candidate);}
+      catch(e){baruiCallLog('ICE failed',e&&e.message);}
     }else{
       baruiCall.pendingIce.push(candidate);
       baruiCallLog('ICE queued');
     }
-  }
-  async function prepareBaruiMedia(){
-    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Microfone indisponível neste contexto do navegador.');
-    return await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
   }
   async function acceptBaruiCall(){
     if(!baruiCall.active||baruiCall.role!=='receiver'||baruiCall.answered)return;
@@ -1433,7 +1471,7 @@
       message(msg,true);
     }
   }
-  async function startBaruiCaller(target,sequence){
+  async function startBaruiCaller(target,sequence,iceRestart){
     if(!baruiCall.active||baruiCall.role!=='caller')return;
     try{
       baruiCallLog('start caller',target,sequence);
@@ -1442,9 +1480,8 @@
       var stream=c.localStream;if(!stream)stream=await prepareBaruiMedia();
       if(!baruiCall.active){if(!c.localStream&&stream)stream.getTracks().forEach(function(t){t.stop()});return;}
       if(!c.localStream)addBaruiLocalStream(c.pc,stream);
-      var offer=await c.pc.createOffer({offerToReceiveAudio:true});
+      var offer=await c.pc.createOffer({offerToReceiveAudio:true,iceRestart:!!iceRestart});
       await c.pc.setLocalDescription(offer);
-      await waitBaruiIceGathering(c.pc);
       baruiCallLog('offer ready',c.pc.iceGatheringState);
       sendRealtimeEvent('barui_call',{type:'offer',target:target,sender:member,sequence:sequence,sdp:c.pc.localDescription});
     }catch(e){
@@ -1466,7 +1503,6 @@
         await setBaruiRemoteDescription(payload.sdp);
         var answer=await baruiCall.pc.createAnswer({offerToReceiveAudio:true});
         await baruiCall.pc.setLocalDescription(answer);
-        await waitBaruiIceGathering(baruiCall.pc);
         sendRealtimeEvent('barui_call',{type:'answer',target:payload.sender,sender:member,sequence:baruiCall.sequence,sdp:baruiCall.pc.localDescription});
         baruiCallLog('answer sent');
       }catch(e){
