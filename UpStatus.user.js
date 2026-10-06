@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.29
+// @version      2.7.30
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -264,7 +264,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.7.29';
+  var CURRENT_VERSION='2.7.30';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1383,7 +1383,7 @@
     var loginMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';lastMember=loginMember;card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Seu nome</label><div class="up-login-fixed" id="up-name">'+esc(loginMember)+'</div><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><button id="up-enter">Entrar</button></div><div class="up-update up-login-update">Versão v'+CURRENT_VERSION+' <button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button><span class="up-update-status"></span></div><div class="up-message"></div>';
     card.querySelector('#up-enter').onclick=async function(){
       try{
-        server=card.querySelector('#up-server').value.trim().replace(/\/$/,'');
+        server=CLOUD_SERVER;
         var name=loginMember;
         var password=card.querySelector('#up-password').value;
         var account=await api('GET','/api/account?name='+encodeURIComponent(name));
