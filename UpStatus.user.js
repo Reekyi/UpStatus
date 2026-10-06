@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.0.11
+// @version      3.0.12
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -281,7 +281,7 @@
   var baruiCallDrag={active:false,x:0,y:0,offsetX:0,offsetY:0};
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.11';
+  var CURRENT_VERSION='3.0.12';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1426,6 +1426,7 @@
     pc.onsignalingstatechange=function(){baruiCallLog('signalingState',pc.signalingState);};
     return pc;
   }
+  async function prepareBaruiMedia(){if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Microfone indisponível neste contexto do navegador.');return await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});}
   function addBaruiLocalStream(pc,stream){
     stream.getTracks().forEach(function(track){pc.addTrack(track,stream);});
     baruiCall.localStream=stream;
