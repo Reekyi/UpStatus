@@ -1022,6 +1022,14 @@
     var route='/api/chat';
     if(useFast)route='/api/chat?fast=1&since='+encodeURIComponent(new Date(new Date(chatFastSince).getTime()-2000).toISOString());
     api('GET',route).then(function(d){
+      if(d&&d.me){
+        var authoritativeMember=String(d.me||'').trim();
+        if(authoritativeMember&&authoritativeMember!==member){
+          member=authoritativeMember;
+          lastMember=authoritativeMember;
+          try{GM_setValue(key+'member',authoritativeMember);GM_setValue(key+'last_member',authoritativeMember);}catch(e){}
+        }
+      }
       var incoming=d.messages||[],nextMessages;
       if(useFast){
         var byId={};
@@ -1277,7 +1285,9 @@
       if(!baruiCall.active){stream.getTracks().forEach(function(t){t.stop()});return;}
       addBaruiLocalStream(c.pc,stream);
       sendBaruiCallSignal({type:'accept',target:c.target,sender:member,sequence:c.sequence});
-      acknowledgeIncomingBarui();
+      // O estado de entrada continua ativo durante a chamada. Só encerramos
+      // /api/barui/stop-incoming quando a ligação realmente terminar.
+      updateBaruiTitle(true);
     }catch(e){
       if(stream&&!baruiCall.localStream)try{stream.getTracks().forEach(function(t){t.stop()})}catch(_e){}
       try{if(c.pc)c.pc.close()}catch(_e){}
@@ -1356,9 +1366,9 @@ async function startBaruiCaller(target,sequence){
   function playBaruiAlert(){playMentionAlert();}
   function stopLocalBarui(){
     if(baruiCall.active&&baruiCall.answered){
-      baruiState={active:false,sequence:0,target:'',sender:'',startedAt:0};
-      hideIncomingBarui();
-      updateBaruiTitle(false);
+      // Nunca derrubar uma chamada WebRTC já atendida só porque o estado
+      // de toque do BARUI mudou no backend.
+      updateBaruiTitle(true);
       updateBaruiCallUI(baruiCall.connectedAt?'connected':'connecting');
       return;
     }
@@ -1381,9 +1391,12 @@ async function startBaruiCaller(target,sequence){
           showIncomingBarui(d.sender||baruiState.sender||'Alguém');
           if(Date.now()-baruiLastBeep>=1200){playBaruiAlert();baruiLastBeep=Date.now();}
         }
-      }else if(baruiState.active){baruiState={active:false,sequence:0,target:'',sender:'',startedAt:0};hideIncomingBarui();}
+      }else if(baruiState.active&&!(baruiCall.active&&baruiCall.answered)){
+        baruiState={active:false,sequence:0,target:'',sender:'',startedAt:0};
+        hideIncomingBarui();
+      }
       if(active&&Date.now()-baruiState.startedAt>=30000&&baruiCall.role==='receiver'&&!baruiCall.answered){stopIncomingBarui();return;}
-      updateBaruiTitle(active);baruiOutgoing=d.outgoingActive?{active:true,target:d.outgoingTarget||''}:{active:false,target:''};updateOutgoingBaruiUI();
+      updateBaruiTitle(active||!!(baruiCall.active&&baruiCall.answered));baruiOutgoing=d.outgoingActive?{active:true,target:d.outgoingTarget||''}:{active:false,target:''};updateOutgoingBaruiUI();
     }).catch(function(){}).finally(function(){baruiPolling=false;});
   }
   async function sendBaruiTo(target){
