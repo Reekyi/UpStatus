@@ -322,12 +322,15 @@ async function chatRoute(req:Request,name:string){
     if(fast){
       const effectiveSince=since&&!Number.isNaN(since.getTime())?new Date(since.getTime()-2000).toISOString():"";
       const cutoffTyping=new Date(Date.now()-4500).toISOString();
-      const [messages,typingRes,luccaStateNow]=await Promise.all([
+      const [messages,profileRes,typingRes,luccaStateNow]=await Promise.all([
         chatRows(name,effectiveSince),
+        db.from("upstatus_profiles").select("user_name,avatar_url"),
         db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name),
         expireLucca()
       ]);
-      return response({messages,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
+      const profileMap:Record<string,string>={};
+      for(const p of profileRes.data||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
+      return response({messages,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
     }
     const cutoffTyping=new Date(Date.now()-4500).toISOString();
     const [messages,readRes,profileRes,typingRes,luccaStateNow]=await Promise.all([
