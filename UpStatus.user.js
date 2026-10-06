@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.0.2
+// @version      3.0.3
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -45,7 +45,6 @@
   GM_setValue(key+'server',CLOUD_SERVER);
   var token=GM_getValue(key+'token','');
   var member=GM_getValue(key+'member','');
-  var sessionMember=GM_getValue(key+'session_member','');
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
   var chatLoading=false,typingPolling=false,baruiPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
@@ -261,15 +260,13 @@
   var lastLuccaJoinEventId='';
   var baruiState={active:false,sequence:0,target:'',sender:'',startedAt:0};
   var baruiOutgoing={active:false,target:''};
-  var baruiSignalPolling=false;
-  var baruiSignalSeen={};
   var baruiLastBeep=0;
   var baruiExternalNotifiedSequence=0;
   var baruiCall={active:false,role:'',target:'',sequence:0,pc:null,localStream:null,remoteStream:null,audio:null,connectedAt:0,timer:null,muted:false,answered:false,pendingIce:[]};
   var baruiCallDrag={active:false,x:0,y:0,offsetX:0,offsetY:0};
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.2';
+  var CURRENT_VERSION='3.0.3';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -442,7 +439,7 @@
     '#upstatus-root.up-theme-light .up-member-actions .up-member-barui,#upstatus-root.up-theme-light .up-member-actions .up-member-power{background:#edf2f7;color:#334155;border:1px solid #d6dfe9}'+
     '#upstatus-root.up-theme-light .up-member-actions .up-badge.b-online{background:#dff7ea;color:#137044}.up-theme-light .up-member-actions .up-badge.b-busy{background:#ffe5e9;color:#b4233c}.up-theme-light .up-member-actions .up-badge.b-away{background:#e9eef5;color:#475569}'
   });
-  style.textContent += '.up-barui-call{position:fixed;right:18px;bottom:18px;width:292px;z-index:95;pointer-events:auto}.up-barui-call.hidden{display:none}.up-barui-call-card{box-sizing:border-box;min-height:62px;padding:7px 8px;border:1px solid #3f5270;border-radius:16px;background:linear-gradient(145deg,rgba(21,30,44,.98),rgba(12,18,29,.98));color:#fff;box-shadow:0 10px 28px rgba(0,0,0,.38),0 0 0 1px rgba(79,125,255,.1);display:flex;align-items:center;gap:7px}.up-barui-call-drag{width:14px;flex:0 0 14px;height:34px;display:flex;align-items:center;justify-content:center;color:#6f819c;font-size:17px;font-weight:900;line-height:1;cursor:grab;user-select:none;touch-action:none}.up-barui-call-drag:active{cursor:grabbing}.up-barui-call-top{display:flex;align-items:center;gap:7px;min-width:0;flex:1}.up-barui-call-avatar{width:34px;height:34px;flex:0 0 34px;border-radius:50%;object-fit:cover;border:1px solid #4f7dff;box-shadow:0 0 0 3px rgba(79,125,255,.1)}.up-barui-call-person{min-width:0;flex:1}.up-barui-call-name{font-size:11px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.up-barui-call-state{font-size:9px;color:#8fa2bd;margin-top:2px;white-space:nowrap}.up-barui-call-state.connected{color:#69d69a}.up-barui-call-time{min-width:39px;text-align:center;font:800 12px/1 Segoe UI,Arial,sans-serif;font-variant-numeric:tabular-nums;color:#edf3ff}.up-barui-call-actions{display:flex;justify-content:flex-end;align-items:center;gap:5px;flex:0 0 auto}.up-barui-call-btn{width:29px;height:29px;border:0;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;box-shadow:0 3px 8px rgba(0,0,0,.22);transition:transform .15s,filter .15s,background .15s}.up-barui-call-btn:hover{transform:translateY(-1px);filter:brightness(1.08)}.up-barui-call-mic{background:#27364d;color:#e8eef8}.up-barui-call-mic.active{background:#7a2940;color:#fff}.up-barui-call-end{background:#ef4050;color:#fff;width:32px;height:32px}.up-barui-call-incoming{display:flex;gap:4px;flex:0 0 auto}.up-barui-call-incoming button{border:0;border-radius:999px;padding:6px 9px;font:800 9px Segoe UI,Arial,sans-serif;cursor:pointer;white-space:nowrap}.up-barui-call-answer{background:#27c979;color:#071b12}.up-barui-call-reject{background:#3b2630;color:#ffb8c1}.up-barui-call-ringing{display:none}.up-barui-call-card.ringing{animation:upbaruiCallPulse 1.15s infinite alternate}@keyframes upbaruiCallPulse{from{box-shadow:0 10px 28px rgba(0,0,0,.38),0 0 0 1px rgba(255,61,88,.1)}to{box-shadow:0 10px 28px rgba(0,0,0,.38),0 0 0 3px rgba(255,61,88,.16)}}';
+  style.textContent += '.up-barui-call{position:absolute;right:12px;bottom:12px;width:292px;z-index:95;pointer-events:auto}.up-barui-call.hidden{display:none}.up-barui-call-card{box-sizing:border-box;min-height:62px;padding:7px 8px;border:1px solid #3f5270;border-radius:16px;background:linear-gradient(145deg,rgba(21,30,44,.98),rgba(12,18,29,.98));color:#fff;box-shadow:0 10px 28px rgba(0,0,0,.38),0 0 0 1px rgba(79,125,255,.1);display:flex;align-items:center;gap:7px}.up-barui-call-drag{width:14px;flex:0 0 14px;height:34px;display:flex;align-items:center;justify-content:center;color:#6f819c;font-size:17px;font-weight:900;line-height:1;cursor:grab;user-select:none;touch-action:none}.up-barui-call-drag:active{cursor:grabbing}.up-barui-call-top{display:flex;align-items:center;gap:7px;min-width:0;flex:1}.up-barui-call-avatar{width:34px;height:34px;flex:0 0 34px;border-radius:50%;object-fit:cover;border:1px solid #4f7dff;box-shadow:0 0 0 3px rgba(79,125,255,.1)}.up-barui-call-person{min-width:0;flex:1}.up-barui-call-name{font-size:11px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.up-barui-call-state{font-size:9px;color:#8fa2bd;margin-top:2px;white-space:nowrap}.up-barui-call-state.connected{color:#69d69a}.up-barui-call-time{min-width:39px;text-align:center;font:800 12px/1 Segoe UI,Arial,sans-serif;font-variant-numeric:tabular-nums;color:#edf3ff}.up-barui-call-actions{display:flex;justify-content:flex-end;align-items:center;gap:5px;flex:0 0 auto}.up-barui-call-btn{width:29px;height:29px;border:0;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;box-shadow:0 3px 8px rgba(0,0,0,.22);transition:transform .15s,filter .15s,background .15s}.up-barui-call-btn:hover{transform:translateY(-1px);filter:brightness(1.08)}.up-barui-call-mic{background:#27364d;color:#e8eef8}.up-barui-call-mic.active{background:#7a2940;color:#fff}.up-barui-call-end{background:#ef4050;color:#fff;width:32px;height:32px}.up-barui-call-incoming{display:flex;gap:4px;flex:0 0 auto}.up-barui-call-incoming button{border:0;border-radius:999px;padding:6px 9px;font:800 9px Segoe UI,Arial,sans-serif;cursor:pointer;white-space:nowrap}.up-barui-call-answer{background:#27c979;color:#071b12}.up-barui-call-reject{background:#3b2630;color:#ffb8c1}.up-barui-call-ringing{display:none}.up-barui-call-card.ringing{animation:upbaruiCallPulse 1.15s infinite alternate}@keyframes upbaruiCallPulse{from{box-shadow:0 10px 28px rgba(0,0,0,.38),0 0 0 1px rgba(255,61,88,.1)}to{box-shadow:0 10px 28px rgba(0,0,0,.38),0 0 0 3px rgba(255,61,88,.16)}}';
   style.textContent += '.up-chat-bubble{position:relative;padding-bottom:8px}.up-chat-own-meta{display:inline-flex;align-items:center;gap:2px;margin-left:6px;vertical-align:baseline;line-height:10px;font-size:10px;float:right;position:relative;top:2px}.up-chat-read{font-size:10px;line-height:10px;letter-spacing:-1px}.up-chat-reactions{clear:both}.up-chat-profile-hover-since{font-size:9px;color:#718096;margin-top:1px}.up-health-ping{font-variant-numeric:tabular-nums;font-weight:700;color:#8fa0b8}.up-health-ping.good{color:#75dba0}.up-health-ping.warn{color:#e7c56a}.up-health-ping.bad{color:#ff8499}.up-health-ping.pending{color:#7f8ea4}.up-health-member{display:flex;align-items:center;justify-content:space-between;gap:8px}.up-health-member .up-health-ping{margin-left:auto}';
   var root=node('div',{id:'upstatus-root'});
   var bubble=node('button',{id:'upstatus-bubble',title:'Abrir UpStatus'});
@@ -903,26 +900,6 @@
     if(!realtimeActive||!realtimeChannel)return false;
     try{realtimeChannel.send({type:'broadcast',event:event,payload:payload||{}});return true;}catch(e){return false;}
   }
-  function sendBaruiCallSignal(payload){
-    var p=Object.assign({},payload||{});
-    p.signalId=p.signalId||member+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,10);
-    sendRealtimeEvent('barui_call',p);
-    api('POST','/api/barui/signal',p).catch(function(){});
-    return p.signalId;
-  }
-  function markBaruiSignalSeen(id){
-    if(!id)return true;
-    if(baruiSignalSeen[id])return false;
-    baruiSignalSeen[id]=Date.now();
-    var keys=Object.keys(baruiSignalSeen);
-    if(keys.length>300){keys.sort(function(a,b){return baruiSignalSeen[a]-baruiSignalSeen[b];});keys.slice(0,100).forEach(function(k){delete baruiSignalSeen[k];});}
-    return true;
-  }
-  function pollBaruiSignals(){
-    if(!token||baruiSignalPolling)return;
-    baruiSignalPolling=true;
-    api('GET','/api/barui/signals').then(function(d){(d&&Array.isArray(d.signals)?d.signals:[]).forEach(function(signal){handleBaruiCallSignal(signal);});}).catch(function(){}).finally(function(){baruiSignalPolling=false;});
-  }
   function handleRealtimeChatFast(payload){
     var m=payload&&payload.message;
     if(!m||!m.id)return;
@@ -935,19 +912,23 @@
       var startedAt=Date.parse(payload.startedAt)||Date.now();
       if(!baruiState.active||baruiState.sequence!==seq){
         baruiState={active:true,sequence:seq,target:member,sender:payload.sender||'Alguém',startedAt:startedAt};
-        if(!(baruiCall.active&&baruiCall.answered)){playBaruiAlert();baruiLastBeep=Date.now();showIncomingBarui(payload.sender||'Alguém');}
-        if(baruiExternalNotifiedSequence!==seq){baruiExternalNotifiedSequence=seq;showExternalNotification('barui',{sequence:seq,sender:payload.sender||'Alguém'});}
+        playBaruiAlert();baruiLastBeep=Date.now();
+        showIncomingBarui(payload.sender||'Alguém');
+        if(baruiExternalNotifiedSequence!==seq){
+          baruiExternalNotifiedSequence=seq;
+          showExternalNotification('barui',{sequence:seq,sender:payload.sender||'Alguém'});
+        }
       }
       updateBaruiTitle(true);
-    }else if(baruiState.active&&(!seq||seq===baruiState.sequence)){
-      baruiState={active:false,sequence:0,target:'',sender:'',startedAt:0};hideIncomingBarui();updateBaruiTitle(false);
+    }else if(baruiState.active&&(!seq||seq===baruiState.sequence)&&!(baruiCall.active&&baruiCall.answered)){
+      stopLocalBarui();
     }
   }
     function startRealtime(){
     if(!token||realtimeClient||typeof supabase==='undefined'||!supabase.createClient)return;
     try{
       realtimeClient=supabase.createClient(UP_REALTIME_URL,UP_REALTIME_KEY,{auth:{persistSession:false}});
-      realtimeChannel=realtimeClient.channel(UP_REALTIME_TOPIC,{config:{broadcast:{self:true,ack:true}}});
+      realtimeChannel=realtimeClient.channel(UP_REALTIME_TOPIC);
       realtimeChannel
         .on('broadcast',{event:'db_change'},function(payload){
           var p=payload&&payload.payload||{};
@@ -1023,25 +1004,6 @@
     var route='/api/chat';
     if(useFast)route='/api/chat?fast=1&since='+encodeURIComponent(new Date(new Date(chatFastSince).getTime()-2000).toISOString());
     api('GET',route).then(function(d){
-      if(d&&d.me){
-        var authoritativeMember=String(d.me||'').trim();
-        if(authoritativeMember&&authoritativeMember!==member){
-          token='';
-          member='';
-          sessionMember='';
-          role='implementation_user';
-          try{
-            GM_setValue(key+'token','');
-            GM_setValue(key+'member','');
-            GM_setValue(key+'session_member','');
-            GM_setValue(key+'role','');
-          }catch(e){}
-          stopRealtime();
-          if(!chat.classList.contains('hidden'))chat.classList.add('hidden');
-          login();
-          throw new Error('Sessão de outro usuário detectada. Faça login novamente.');
-        }
-      }
       var incoming=d.messages||[],nextMessages;
       if(useFast){
         var byId={};
@@ -1255,15 +1217,7 @@
     if(!sameCall||!baruiCallOverlay.querySelector('.up-barui-call-card')){
       baruiCallOverlay.innerHTML='<div class="up-barui-call-card '+(state==='ringing'?'ringing':'')+'"><div class="up-barui-call-drag" title="Arrastar">⋮</div><div class="up-barui-call-top"><img class="up-barui-call-avatar" alt="Foto"><div class="up-barui-call-person"><div class="up-barui-call-name">'+esc(name)+'</div><div class="up-barui-call-state"></div></div></div><div class="up-barui-call-time">00:00</div><div class="up-barui-call-actions"><button type="button" class="up-barui-call-btn up-barui-call-mic" title="Mutar microfone">🎙️</button><button type="button" class="up-barui-call-btn up-barui-call-end" title="Desligar">☎</button></div><div class="up-barui-call-incoming"><button type="button" class="up-barui-call-answer">Atender</button><button type="button" class="up-barui-call-reject">Recusar</button></div><div class="up-barui-call-ringing">Ligação rápida do UpStatus</div></div>';
       if(!sameCall){
-        baruiCallOverlay.style.left='';baruiCallOverlay.style.top='';baruiCallOverlay.style.right='auto';baruiCallOverlay.style.bottom='auto';
         baruiCall={active:true,role:role,target:name,sequence:seq,pc:null,localStream:null,remoteStream:null,audio:baruiCallAudio,connectedAt:0,timer:null,muted:false,answered:false,pendingIce:[]};
-        requestAnimationFrame(function(){
-          if(!baruiCall.active)return;
-          var bubbleRect=bubble.getBoundingClientRect(),w=baruiCallOverlay.offsetWidth,h=baruiCallOverlay.offsetHeight;
-          var x=Math.round(bubbleRect.left-w-10),y=Math.round(bubbleRect.top+(bubbleRect.height-h)/2);
-          x=Math.max(8,Math.min(window.innerWidth-w-8,x));y=Math.max(8,Math.min(window.innerHeight-h-8,y));
-          baruiCallOverlay.style.left=x+'px';baruiCallOverlay.style.top=y+'px';
-        });
       }
       var img=baruiCallOverlay.querySelector('.up-barui-call-avatar');if(img)hydrateAvatar(img,name);
       var mic=baruiCallOverlay.querySelector('.up-barui-call-mic');if(mic)mic.onclick=function(e){e.preventDefault();e.stopPropagation();toggleBaruiCallMute();};
@@ -1272,42 +1226,24 @@
       var reject=baruiCallOverlay.querySelector('.up-barui-call-reject');if(reject)reject.onclick=function(e){e.preventDefault();e.stopPropagation();rejectBaruiCall();};
       var drag=baruiCallOverlay.querySelector('.up-barui-call-drag');
       if(drag)drag.onpointerdown=function(e){e.preventDefault();e.stopPropagation();var rect=baruiCallOverlay.getBoundingClientRect();baruiCallDrag.active=true;baruiCallDrag.offsetX=e.clientX-rect.left;baruiCallDrag.offsetY=e.clientY-rect.top;try{drag.setPointerCapture(e.pointerId)}catch(_e){}};
-      if(drag)drag.onpointermove=function(e){if(!baruiCallDrag.active)return;e.preventDefault();var x=e.clientX-baruiCallDrag.offsetX,y=e.clientY-baruiCallDrag.offsetY,maxX=Math.max(8,window.innerWidth-baruiCallOverlay.offsetWidth-8),maxY=Math.max(8,window.innerHeight-baruiCallOverlay.offsetHeight-8);x=Math.max(8,Math.min(maxX,x));y=Math.max(8,Math.min(maxY,y));baruiCallOverlay.style.left=x+'px';baruiCallOverlay.style.top=y+'px';baruiCallOverlay.style.right='auto';baruiCallOverlay.style.bottom='auto';};
+      if(drag)drag.onpointermove=function(e){if(!baruiCallDrag.active)return;e.preventDefault();var rootRect=root.getBoundingClientRect(),x=e.clientX-rootRect.left-baruiCallDrag.offsetX,y=e.clientY-rootRect.top-baruiCallDrag.offsetY,maxX=Math.max(8,rootRect.width-baruiCallOverlay.offsetWidth-8),maxY=Math.max(8,rootRect.height-baruiCallOverlay.offsetHeight-8);x=Math.max(8,Math.min(maxX,x));y=Math.max(8,Math.min(maxY,y));baruiCallOverlay.style.left=x+'px';baruiCallOverlay.style.top=y+'px';baruiCallOverlay.style.right='auto';baruiCallOverlay.style.bottom='auto';};
       if(drag)drag.onpointerup=function(e){baruiCallDrag.active=false;try{drag.releasePointerCapture(e.pointerId)}catch(_e){}};
       if(drag)drag.onpointercancel=function(){baruiCallDrag.active=false;};
+    }else if(seq&&baruiCall.sequence!==seq&&state!=='connecting'&&state!=='connected'){
+      baruiCall.sequence=seq;
     }
     updateBaruiCallUI(state);
   }
   function clearBaruiCallTimer(){if(baruiCall.timer){clearInterval(baruiCall.timer);baruiCall.timer=null;}}
-  function closeBaruiCall(notify,reason){var c=baruiCall;if(notify&&c.active&&c.target&&c.sequence)sendBaruiCallSignal({type:'end',target:c.target,sender:member,sequence:c.sequence,reason:reason||'ended'});clearBaruiCallTimer();try{if(c.localStream)c.localStream.getTracks().forEach(function(t){try{t.stop()}catch(e){}});}catch(e){}try{if(c.pc)c.pc.close();}catch(e){}try{if(c.audio){c.audio.pause();c.audio.srcObject=null;}}catch(e){}baruiCall={active:false,role:'',target:'',sequence:0,pc:null,localStream:null,remoteStream:null,audio:baruiCallAudio,connectedAt:0,timer:null,muted:false,answered:false,pendingIce:[]};baruiCallOverlay.classList.add('hidden');baruiCallOverlay.innerHTML='';baruiCallOverlay.appendChild(baruiCallAudio);}
+  function closeBaruiCall(notify,reason){var c=baruiCall;if(notify&&c.active&&c.target&&c.sequence)sendRealtimeEvent('barui_call',{type:'end',target:c.target,sender:member,sequence:c.sequence,reason:reason||'ended'});clearBaruiCallTimer();try{if(c.localStream)c.localStream.getTracks().forEach(function(t){try{t.stop()}catch(e){}});}catch(e){}try{if(c.pc)c.pc.close();}catch(e){}try{if(c.audio){c.audio.pause();c.audio.srcObject=null;}}catch(e){}baruiCall={active:false,role:'',target:'',sequence:0,pc:null,localStream:null,remoteStream:null,audio:baruiCallAudio,connectedAt:0,timer:null,muted:false,answered:false,pendingIce:[]};baruiCallOverlay.classList.add('hidden');baruiCallOverlay.innerHTML='';baruiCallOverlay.appendChild(baruiCallAudio);}
   function endBaruiCall(notify,reason){var c=baruiCall;closeBaruiCall(notify,reason||'ended');if(c.active&&c.target){if(c.role==='caller')api('POST','/api/barui',{target:c.target,active:false}).catch(function(){});else api('POST','/api/barui/stop-incoming',{}).catch(function(){})}}
-  function rejectBaruiCall(){if(!baruiCall.active)return;var c=baruiCall;sendBaruiCallSignal({type:'reject',target:c.target,sender:member,sequence:c.sequence});stopIncomingBarui();closeBaruiCall(false,'rejected');}
+  function rejectBaruiCall(){if(!baruiCall.active)return;var c=baruiCall;sendRealtimeEvent('barui_call',{type:'reject',target:c.target,sender:member,sequence:c.sequence});stopIncomingBarui();closeBaruiCall(false,'rejected');}
   function toggleBaruiCallMute(){if(!baruiCall.localStream)return;var track=baruiCall.localStream.getAudioTracks()[0];if(!track)return;baruiCall.muted=!track.enabled;track.enabled=!baruiCall.muted;updateBaruiCallUI(baruiCall.connectedAt?'connected':'connecting');}
-  function createBaruiPeer(){if(typeof RTCPeerConnection==='undefined'){message('Seu navegador não suporta chamadas de voz.',true);return null;}var pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}]});pc.onicecandidate=function(e){if(e.candidate)sendBaruiCallSignal({type:'ice',target:baruiCall.target,sender:member,sequence:baruiCall.sequence,candidate:e.candidate.toJSON?e.candidate.toJSON():e.candidate});};pc.ontrack=function(e){var stream=e.streams&&e.streams[0]?e.streams[0]:null;if(!stream)return;baruiCall.remoteStream=stream;baruiCall.audio.srcObject=stream;var p=baruiCall.audio.play();if(p&&p.catch)p.catch(function(){});};pc.onconnectionstatechange=function(){var st=pc.connectionState;if(st==='connected'){if(!baruiCall.connectedAt)baruiCall.connectedAt=Date.now();clearBaruiCallTimer();baruiCall.timer=setInterval(function(){if(baruiCall.active)updateBaruiCallUI('connected');},500);updateBaruiCallUI('connected');}else if(st==='failed'&&baruiCall.active){endBaruiCall(true,'connection_failed');}};return pc;}
+  function createBaruiPeer(){if(typeof RTCPeerConnection==='undefined'){message('Seu navegador não suporta chamadas de voz.',true);return null;}var pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}]});pc.onicecandidate=function(e){if(e.candidate)sendRealtimeEvent('barui_call',{type:'ice',target:baruiCall.target,sender:member,sequence:baruiCall.sequence,candidate:e.candidate.toJSON?e.candidate.toJSON():e.candidate});};pc.ontrack=function(e){var stream=e.streams&&e.streams[0]?e.streams[0]:null;if(!stream)return;baruiCall.remoteStream=stream;baruiCall.audio.srcObject=stream;var p=baruiCall.audio.play();if(p&&p.catch)p.catch(function(){});};pc.onconnectionstatechange=function(){var st=pc.connectionState;if(st==='connected'){if(!baruiCall.connectedAt)baruiCall.connectedAt=Date.now();clearBaruiCallTimer();baruiCall.timer=setInterval(function(){if(baruiCall.active)updateBaruiCallUI('connected');},500);updateBaruiCallUI('connected');}else if(st==='failed'&&baruiCall.active){endBaruiCall(true,'connection_failed');}};return pc;}
   function addBaruiLocalStream(pc,stream){stream.getTracks().forEach(function(track){pc.addTrack(track,stream);});baruiCall.localStream=stream;}
   function flushBaruiIce(){var pc=baruiCall.pc;if(!pc||!pc.remoteDescription)return;baruiCall.pendingIce.splice(0).forEach(function(c){pc.addIceCandidate(c).catch(function(){});});}
   async function prepareBaruiMedia(){if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Microfone indisponível neste contexto do navegador.');return await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});}
-  async function acceptBaruiCall(){
-    if(!baruiCall.active||baruiCall.role!=='receiver'||baruiCall.answered)return;
-    var c=baruiCall,stream=null;
-    try{
-      baruiCall.answered=true;baruiLastBeep=Date.now();updateBaruiCallUI('connecting');
-      c.pc=createBaruiPeer();if(!c.pc)throw new Error('Não foi possível criar a conexão.');
-      stream=await prepareBaruiMedia();
-      if(!baruiCall.active){stream.getTracks().forEach(function(t){t.stop()});return;}
-      addBaruiLocalStream(c.pc,stream);
-      sendBaruiCallSignal({type:'accept',target:c.target,sender:member,sequence:c.sequence});
-      // O estado de entrada continua ativo durante a chamada. Só encerramos
-      // /api/barui/stop-incoming quando a ligação realmente terminar.
-      updateBaruiTitle(true);
-    }catch(e){
-      if(stream&&!baruiCall.localStream)try{stream.getTracks().forEach(function(t){t.stop()})}catch(_e){}
-      try{if(c.pc)c.pc.close()}catch(_e){}
-      c.pc=null;baruiCall.answered=false;
-      var n=e&&e.name?String(e.name):'',msg=n==='NotAllowedError'?'Acesso ao microfone foi negado. Libere o microfone para atender.':n==='NotFoundError'?'Nenhum microfone disponível neste navegador.':e&&e.message?e.message:'Não foi possível atender a chamada.';
-      updateBaruiCallUI('ringing');message(msg,true);
-    }
-  } 
+  async function acceptBaruiCall(){if(!baruiCall.active||baruiCall.role!=='receiver'||baruiCall.answered)return;var c=baruiCall,stream=null;try{updateBaruiCallUI('connecting');c.pc=createBaruiPeer();if(!c.pc)throw new Error('Não foi possível criar a conexão.');stream=await prepareBaruiMedia();if(!baruiCall.active){stream.getTracks().forEach(function(t){t.stop()});return;}addBaruiLocalStream(c.pc,stream);baruiCall.answered=true;baruiLastBeep=Date.now();sendRealtimeEvent('barui_call',{type:'accept',target:c.target,sender:member,sequence:c.sequence});baruiIncoming.classList.add('hidden');}catch(e){if(stream&&!baruiCall.localStream)try{stream.getTracks().forEach(function(t){t.stop()})}catch(_e){}try{if(c.pc)c.pc.close()}catch(_e){}c.pc=null;c.answered=false;updateBaruiCallUI('ringing');var n=e&&e.name?String(e.name):'',msg=n==='NotAllowedError'?'Acesso ao microfone foi negado. Libere o microfone para atender.':n==='NotFoundError'?'Nenhum microfone disponível neste navegador.':e&&e.message?e.message:'Não foi possível atender a chamada.';message(msg,true);}} 
 async function startBaruiCaller(target,sequence){
     if(!baruiCall.active||baruiCall.role!=='caller')return;
     try{
@@ -1326,35 +1262,21 @@ async function startBaruiCaller(target,sequence){
       else stream.getTracks().forEach(function(track){c.pc.addTrack(track,stream);});
       var offer=await c.pc.createOffer();
       await c.pc.setLocalDescription(offer);
-      sendBaruiCallSignal({type:'offer',target:target,sender:member,sequence:sequence,sdp:c.pc.localDescription});
+      sendRealtimeEvent('barui_call',{type:'offer',target:target,sender:member,sequence:sequence,sdp:c.pc.localDescription});
     }catch(e){
       message(e&&e.message?e.message:'Não foi possível iniciar a chamada.',true);
       endBaruiCall(true,'negotiation_error');
       api('POST','/api/barui',{target:target,active:false}).catch(function(){});
     }
   }
-    async function handleBaruiCallSignal(payload){if(!payload||payload.target!==member)return;if(payload.signalId&&!markBaruiSignalSeen(payload.signalId))return;if(!baruiCall.active&&payload.type!=='end'&&payload.type!=='reject')return;if(payload.sequence&&baruiCall.sequence&&Number(payload.sequence)!==Number(baruiCall.sequence))return;if(payload.type==='accept'&&baruiCall.role==='caller'){startBaruiCaller(payload.sender,Number(payload.sequence)||baruiCall.sequence);return;}if(payload.type==='offer'&&baruiCall.role==='receiver'){try{if(!baruiCall.pc){baruiCall.pc=createBaruiPeer();if(!baruiCall.pc)throw new Error('Conexão indisponível.');}await baruiCall.pc.setRemoteDescription(payload.sdp);flushBaruiIce();var answer=await baruiCall.pc.createAnswer();await baruiCall.pc.setLocalDescription(answer);sendBaruiCallSignal({type:'answer',target:payload.sender,sender:member,sequence:baruiCall.sequence,sdp:baruiCall.pc.localDescription});}catch(e){endBaruiCall(true,'negotiation_error');}return;}if(payload.type==='answer'&&baruiCall.role==='caller'&&baruiCall.pc){try{await baruiCall.pc.setRemoteDescription(payload.sdp);flushBaruiIce();}catch(e){endBaruiCall(true,'negotiation_error');}return;}if(payload.type==='ice'){if(!baruiCall.pc)return;if(baruiCall.pc.remoteDescription)baruiCall.pc.addIceCandidate(payload.candidate).catch(function(){});else baruiCall.pendingIce.push(payload.candidate);return;}if(payload.type==='reject'||payload.type==='end'){closeBaruiCall(false,payload.reason||payload.type);if(baruiState.active)stopLocalBarui();}}
+    async function handleBaruiCallSignal(payload){if(!payload||payload.target!==member)return;if(!baruiCall.active&&payload.type!=='end'&&payload.type!=='reject')return;if(payload.sequence&&baruiCall.sequence&&Number(payload.sequence)!==Number(baruiCall.sequence))return;if(payload.type==='accept'&&baruiCall.role==='caller'){startBaruiCaller(payload.sender,Number(payload.sequence)||baruiCall.sequence);return;}if(payload.type==='offer'&&baruiCall.role==='receiver'){try{if(!baruiCall.pc){baruiCall.pc=createBaruiPeer();if(!baruiCall.pc)throw new Error('Conexão indisponível.');}await baruiCall.pc.setRemoteDescription(payload.sdp);flushBaruiIce();var answer=await baruiCall.pc.createAnswer();await baruiCall.pc.setLocalDescription(answer);sendRealtimeEvent('barui_call',{type:'answer',target:payload.sender,sender:member,sequence:baruiCall.sequence,sdp:baruiCall.pc.localDescription});}catch(e){endBaruiCall(true,'negotiation_error');}return;}if(payload.type==='answer'&&baruiCall.role==='caller'&&baruiCall.pc){try{await baruiCall.pc.setRemoteDescription(payload.sdp);flushBaruiIce();}catch(e){endBaruiCall(true,'negotiation_error');}return;}if(payload.type==='ice'){if(!baruiCall.pc)return;if(baruiCall.pc.remoteDescription)baruiCall.pc.addIceCandidate(payload.candidate).catch(function(){});else baruiCall.pendingIce.push(payload.candidate);return;}if(payload.type==='reject'||payload.type==='end'){closeBaruiCall(false,payload.reason||payload.type);if(baruiState.active)stopLocalBarui();}}
   function hideIncomingBarui(){
     baruiIncoming.classList.add('hidden');
     baruiIncoming.innerHTML='';
   }
-  function acknowledgeIncomingBarui(){
-    if(!baruiState.active)return;
-    var sequence=baruiState.sequence;
-    api('POST','/api/barui/stop-incoming',{}).then(function(r){
-      sendRealtimeEvent('barui_event',{target:member,active:false,sender:member,sequence:r&&r.sequence||sequence});
-      if(baruiState.sequence===sequence)baruiState={active:false,sequence:0,target:'',sender:'',startedAt:0};
-      hideIncomingBarui();updateBaruiTitle(false);
-    }).catch(function(){});
-  }
   function stopIncomingBarui(){
     if(!baruiState.active)return;
-    var sequence=baruiState.sequence;
-    api('POST','/api/barui/stop-incoming',{}).then(function(r){
-      sendRealtimeEvent('barui_event',{target:member,active:false,sender:member,sequence:r&&r.sequence||sequence});
-      if(baruiState.sequence===sequence)baruiState={active:false,sequence:0,target:'',sender:'',startedAt:0};
-      hideIncomingBarui();updateBaruiTitle(false);
-    }).catch(function(e){message(e.message,true)});
+    api('POST','/api/barui/stop-incoming',{}).then(function(r){sendRealtimeEvent('barui_event',{target:member,active:false,sender:member,sequence:r&&r.sequence||baruiState.sequence});stopLocalBarui();}).catch(function(e){message(e.message,true)});
   }
   function showIncomingBarui(sender){
     var name=String(sender||'Alguém'),seq=Number(baruiState.sequence)||Date.now();
@@ -1377,13 +1299,6 @@ async function startBaruiCaller(target,sequence){
   }
   function playBaruiAlert(){playMentionAlert();}
   function stopLocalBarui(){
-    if(baruiCall.active&&baruiCall.answered){
-      // Nunca derrubar uma chamada WebRTC já atendida só porque o estado
-      // de toque do BARUI mudou no backend.
-      updateBaruiTitle(true);
-      updateBaruiCallUI(baruiCall.connectedAt?'connected':'connecting');
-      return;
-    }
     if(baruiCall.active)closeBaruiCall(false,'barui_stopped');
     baruiState={active:false,sequence:0,target:'',sender:'',startedAt:0};
     hideIncomingBarui();
@@ -1397,38 +1312,47 @@ async function startBaruiCaller(target,sequence){
       if(active){
         if(!baruiState.active||baruiState.sequence!==d.sequence){
           baruiState={active:true,sequence:d.sequence,target:member,sender:d.sender,startedAt:Date.parse(d.startedAt)||Date.now()};
-          if(!(baruiCall.active&&baruiCall.answered)){playBaruiAlert();baruiLastBeep=Date.now();showIncomingBarui(d.sender||'Alguém');}
-          if(baruiExternalNotifiedSequence!==d.sequence){baruiExternalNotifiedSequence=d.sequence;showExternalNotification('barui',{sequence:d.sequence,sender:d.sender||'Alguém'});}
-        }else if(!(baruiCall.active&&baruiCall.answered)){
-          showIncomingBarui(d.sender||baruiState.sender||'Alguém');
-          if(Date.now()-baruiLastBeep>=1200){playBaruiAlert();baruiLastBeep=Date.now();}
+          playBaruiAlert();baruiLastBeep=Date.now();
+          showIncomingBarui(d.sender||'Alguém');
+          if(baruiExternalNotifiedSequence!==d.sequence){
+            baruiExternalNotifiedSequence=d.sequence;
+            showExternalNotification('barui',{sequence:d.sequence,sender:d.sender||'Alguém'});
+          }
         }
-      }else if(baruiState.active&&!(baruiCall.active&&baruiCall.answered)){
-        baruiState={active:false,sequence:0,target:'',sender:'',startedAt:0};
-        hideIncomingBarui();
-      }
-      if(active&&Date.now()-baruiState.startedAt>=30000&&baruiCall.role==='receiver'&&!baruiCall.answered){stopIncomingBarui();return;}
-      updateBaruiTitle(active||!!(baruiCall.active&&baruiCall.answered));baruiOutgoing=d.outgoingActive?{active:true,target:d.outgoingTarget||''}:{active:false,target:''};updateOutgoingBaruiUI();
+        else {
+          showIncomingBarui(d.sender||baruiState.sender||'Alguém');
+          if(!baruiCall.active||!baruiCall.answered){if(Date.now()-baruiLastBeep>=1200){playBaruiAlert();baruiLastBeep=Date.now();}}
+        }
+      }else if(baruiState.active){stopLocalBarui();}
+      if(active&&Date.now()-baruiState.startedAt>=30000&&baruiCall.role==='receiver'&&!baruiCall.answered){stopLocalBarui();return;}
+      updateBaruiTitle(active);
+      baruiOutgoing=d.outgoingActive?{active:true,target:d.outgoingTarget||''}:{active:false,target:''};
+      updateOutgoingBaruiUI();
     }).catch(function(){}).finally(function(){baruiPolling=false;});
   }
   async function sendBaruiTo(target){
     if(!target||target===member)return;
     var btn=card.querySelector('.up-member-barui[data-target="'+CSS.escape(target)+'"]');
     if(btn)btn.disabled=true;
-    var stopOld=baruiOutgoing.active&&baruiOutgoing.target&&baruiOutgoing.target!==target
-      ?api('POST','/api/barui',{target:baruiOutgoing.target,active:false})
-      :Promise.resolve();
     try{
+      showBaruiCallUI('calling',target,Date.now());
+      var stream=await prepareBaruiMedia();
+      if(!baruiCall.active){
+        stream.getTracks().forEach(function(t){t.stop()});
+        return;
+      }
+      baruiCall.localStream=stream;
+      var stopOld=baruiOutgoing.active&&baruiOutgoing.target&&baruiOutgoing.target!==target
+        ?api('POST','/api/barui',{target:baruiOutgoing.target,active:false})
+        :Promise.resolve();
       var r=await stopOld.then(function(){return api('POST','/api/barui',{target:target,active:true});});
-      var sequence=Number(r&&r.sequence)||Date.now();
-      showBaruiCallUI('calling',target,sequence);
-      baruiCall.sequence=sequence;
-      sendRealtimeEvent('barui_event',{target:target,active:true,sender:member,startedAt:r&&r.startedAt,sequence:sequence});
+      baruiCall.sequence=Number(r&&r.sequence)||baruiCall.sequence;
+      sendRealtimeEvent('barui_event',{target:target,active:true,sender:member,startedAt:r&&r.startedAt,sequence:r&&r.sequence});
       baruiOutgoing={active:true,target:target};
       updateOutgoingBaruiUI();
     }catch(e){
-      if(baruiCall.active)closeBaruiCall(false,'call_start_error');
-      message(e&&e.message?e.message:'Não foi possível iniciar a chamada.',true);
+      if(baruiCall.active)closeBaruiCall(false,'microphone_error');
+      message(e&&e.message?e.message:'Não foi possível iniciar a chamada. Verifique o acesso ao microfone.',true);
     }finally{
       if(btn)btn.disabled=false;
     }
@@ -1678,7 +1602,7 @@ async function startBaruiCaller(target,sequence){
         var account=await api('GET','/api/account?name='+encodeURIComponent(name));
         var r=await api('POST',account.needsSetup?'/api/setup':'/api/login',{name:name,password:password});
         token=r.token;member=r.name;role=r.role||'implementation_user';lastMember=member;
-        GM_setValue(key+'server',CLOUD_SERVER);GM_setValue(key+'token',token);GM_setValue(key+'member',member);GM_setValue(key+'session_member',member);GM_setValue(key+'last_member',member);GM_setValue(key+'role',role);GM_setValue(passwordKey(name),password);
+        GM_setValue(key+'server',CLOUD_SERVER);GM_setValue(key+'token',token);GM_setValue(key+'member',member);GM_setValue(key+'last_member',member);GM_setValue(key+'role',role);GM_setValue(passwordKey(name),password);
         img.src=profileFallback();app();refresh();startRealtime();updateBubbleAvatar(true);
       }catch(e){message(e.message,true)}
     };
@@ -1720,7 +1644,7 @@ async function startBaruiCaller(target,sequence){
     box.querySelectorAll('.up-reason-option').forEach(function(opt){opt.onclick=function(){var value=opt.getAttribute('data-value');var r=reasons.find(function(x){return x.value===value});trigger.innerHTML=iconSvg(r?r.icon:'edit')+'<span class="up-reason-trigger-text">'+esc(r?r.label:value)+'</span>';menu.classList.add('hidden');custom.classList.toggle('hidden',value!=='Outro');confirm.classList.toggle('hidden',value!=='Outro');if(value&&value!=='Outro')save('busy',value);else if(value==='Outro')custom.focus();}});
     confirm.onclick=function(){save('busy',custom.value)};
     document.addEventListener('click',function(e){if(box&&!box.contains(e.target))menu.classList.add('hidden')});
-    card.querySelector('.up-logout').onclick=function(){broadcastChatPresence(false);stopRealtime();token='';member='';sessionMember='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'session_member','');GM_setValue(key+'role','');history.classList.add('hidden');health.classList.add('hidden');img.src=profileFallback();login()};
+    card.querySelector('.up-logout').onclick=function(){broadcastChatPresence(false);stopRealtime();token='';member='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');history.classList.add('hidden');health.classList.add('hidden');img.src=profileFallback();login()};
     history.querySelector('.up-close').onclick=function(){history.classList.add('hidden')};
     history.querySelector('.up-export').onclick=function(){exportHistoryTxt()};
     if(settingsBtn)settingsBtn.onclick=function(e){e.stopPropagation();settingsMenu.classList.toggle('hidden');};
@@ -2028,21 +1952,9 @@ async function startBaruiCaller(target,sequence){
 
   if(token&&member){
     api('GET','/api/me').then(function(r){
-      if(!r.authenticated){token='';member='';sessionMember='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'session_member','');GM_setValue(key+'role','');login();return;}
-      var authenticatedMember=String(r.name||'').trim();
-      // A sessão precisa estar vinculada ao usuário que fez o login.
-      // Nunca trocar silenciosamente Ricardo por Guilherme (ou vice-versa)
-      // só porque existe um token antigo ainda válido no Tampermonkey.
-      if(!sessionMember||authenticatedMember!==sessionMember||authenticatedMember!==member){
-        token='';member='';sessionMember='';role='implementation_user';
-        GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'session_member','');GM_setValue(key+'role','');
-        login();
-        return;
-      }
-      member=authenticatedMember;lastMember=authenticatedMember;role=r.role||role;
-      GM_setValue(key+'member',member);GM_setValue(key+'session_member',member);GM_setValue(key+'last_member',member);GM_setValue(key+'role',role);
-      app();refresh();startRealtime();updateBubbleAvatar(true);
-    }).catch(function(){login();});
+      if(r.authenticated){role=r.role||role;GM_setValue(key+'role',role);app();refresh();startRealtime();updateBubbleAvatar(true)}
+      else login();
+    }).catch(login);
   }else login();
 
   setInterval(refresh,5000);
@@ -2062,7 +1974,6 @@ async function startBaruiCaller(target,sequence){
   setInterval(function(){loadChat();},3000);
   setInterval(pollChatTyping,1000);
   setInterval(pollBarui,5000);
-  setInterval(pollBaruiSignals,400);
   setInterval(pollRemoteStatus,5000);
   setInterval(checkUpdate,60000);
 })();
