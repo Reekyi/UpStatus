@@ -281,7 +281,7 @@
   var baruiCallDrag={active:false,x:0,y:0,offsetX:0,offsetY:0};
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.9';
+  var CURRENT_VERSION='3.0.10';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
