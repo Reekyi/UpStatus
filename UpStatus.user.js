@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.0.8
+// @version      3.0.9
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -49,7 +49,7 @@
   var role=GM_getValue(key+'role','implementation_user');
   var chatLoading=false,typingPolling=false,baruiPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
   var remoteResultCache={},remoteResultWaiters={};
-  var UpNativeNotification=(typeof Notification!=='undefined')?Notification:null;
+  var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
 
   function installPageBridge(){
     if(document.documentElement && document.getElementById('upstatus-page-bridge')) return;
@@ -281,7 +281,7 @@
   var baruiCallDrag={active:false,x:0,y:0,offsetX:0,offsetY:0};
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.8';
+  var CURRENT_VERSION='3.0.9';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
