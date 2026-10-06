@@ -937,13 +937,17 @@
     if(upCall.overlay&&upCall.overlay.isConnected)return upCall.overlay;
     var o=document.createElement('div');
     o.id='upstatus-call-overlay';
-    o.style.cssText='position:absolute;left:auto;right:50px;bottom:0;z-index:2147483647;width:280px;height:58px;box-sizing:border-box;background:rgba(25,33,46,.97);border:1px solid #3a4860;border-radius:14px;padding:8px 10px;color:#edf2fb;font:13px Segoe UI,Arial,sans-serif;box-shadow:0 10px 28px #0009;display:none;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);';
-    o.innerHTML='<div style="display:flex;align-items:center;gap:8px;height:100%">'+
+    o.style.cssText='position:absolute;left:auto;right:50px;bottom:-3px;z-index:2147483647;width:300px;height:64px;box-sizing:border-box;background:linear-gradient(135deg,rgba(27,36,51,.98),rgba(18,25,37,.98));border:1px solid rgba(105,125,155,.32);border-radius:16px;padding:8px 9px 8px 12px;color:#edf2fb;font:13px Segoe UI,Arial,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.04);display:none;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);';
+    o.innerHTML='<div style="display:flex;align-items:center;gap:10px;height:100%">'+
       '<div style="min-width:0;flex:1;overflow:hidden">'+
-        '<div style="font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-call-title>Chamada</div>'+
-        '<div style="font-size:10.5px;color:#91a0b5;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-call-status></div>'+
+        '<div style="display:flex;align-items:center;gap:6px;min-width:0">'+
+          '<span style="width:7px;height:7px;border-radius:50%;background:#5fd38b;box-shadow:0 0 8px rgba(95,211,139,.45);flex:0 0 auto" data-call-dot></span>'+
+          '<div style="font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-call-title>Chamada</div>'+
+        '</div>'+
+        '<div style="font-size:10px;color:#8797ae;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-call-status></div>'+
       '</div>'+
-      '<div style="display:flex;align-items:center;gap:5px;flex:0 0 auto" data-call-actions></div>'+
+      '<div style="display:none;align-items:center;justify-content:center;min-width:64px" data-call-time></div>'+
+      '<div style="display:flex;align-items:center;gap:6px;flex:0 0 auto" data-call-actions></div>'+
       '<audio data-call-audio autoplay></audio>'+
     '</div>';
     root.appendChild(o);
@@ -952,7 +956,7 @@
     return o;
   }
   function callPositionOverlay(){
-    var o=callEnsureOverlay(),r=root.getBoundingClientRect(),w=280,gap=8;
+    var o=callEnsureOverlay(),r=root.getBoundingClientRect(),w=300,gap=8;
     var canLeft=r.left>=w+gap;
     var canRight=window.innerWidth-r.right>=w+gap;
     if(canLeft||!canRight){o.style.right='50px';o.style.left='auto';}
@@ -965,31 +969,48 @@
       if(!upCall.startedAt)return;
       var s=Math.max(0,Math.floor((Date.now()-upCall.startedAt)/1000));
       var el=upCall.overlay&&upCall.overlay.querySelector('[data-call-time]');
-      if(el)el.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+      if(el)el.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
     }
     upCall.counterTimer=setInterval(tick,1000);
     tick();
+  }
+  function callIcon(type){
+    var paths={
+      phone:'<path d="M7.7 3.8l2.1 2.1c.45.45.45 1.18.02 1.64l-1.2 1.3c1.02 2.02 2.63 3.63 4.65 4.65l1.3-1.2c.46-.43 1.19-.43 1.64.02l2.1 2.1c.46.46.46 1.2-.01 1.66l-.92.92c-.64.64-1.56.91-2.45.71-5.98-1.35-10.8-6.17-12.15-12.15-.2-.89.07-1.81.71-2.45l.92-.92c.46-.47 1.2-.47 1.66-.01z"/>',
+      hangup:'<path d="M3.6 11.2c2.22-2.02 4.9-3.04 8.4-3.04s6.18 1.02 8.4 3.04"/><path d="M7.1 10.15l-1.25 3.1"/><path d="M16.9 10.15l1.25 3.1"/><path d="M8.25 10.1l.45 3.35"/><path d="M15.75 10.1l-.45 3.35"/>',
+      mic:'<rect x="8" y="3.5" width="8" height="10.5" rx="4"/><path d="M5.5 10.5a6.5 6.5 0 0 0 13 0"/><path d="M12 17v3.5M8.5 20.5h7"/>',
+      micOff:'<path d="M8 4v7.5a4 4 0 0 0 6.35 3.23M16 10.5V4a4 4 0 0 0-7.22-2.4"/><path d="M5.5 10.5a6.5 6.5 0 0 0 11.07 4.6M12 17v3.5M8.5 20.5h7M4 4l16 16"/>',
+      close:'<path d="M6 6l12 12M18 6L6 18"/>'
+    };
+    return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(paths[type]||paths.close)+'</svg>';
   }
   function callRender(title,status,buttons){
     var o=callEnsureOverlay();
     callPositionOverlay();
     o.querySelector('[data-call-title]').textContent=title||'Chamada';
     o.querySelector('[data-call-status]').textContent=status||'';
-    var a=o.querySelector('[data-call-actions]');a.innerHTML='';
+    var dot=o.querySelector('[data-call-dot]');
+    var time=o.querySelector('[data-call-time]');
+    var a=o.querySelector('[data-call-actions]');
+    a.innerHTML='';
+    time.style.display=upCall.connected?'flex':'none';
+    time.style.cssText='display:'+(upCall.connected?'flex':'none')+';align-items:center;justify-content:center;min-width:72px;color:#f3f7fd;font:800 21px/1 Segoe UI,Arial,sans-serif;letter-spacing:.3px;text-shadow:0 1px 10px rgba(255,255,255,.08);';
+    if(dot)dot.style.background=upCall.connected?'#5fd38b':(status==='Chamada recebida'?'#70a7ff':'#e7b75a');
     (buttons||[]).forEach(function(b){
-      var x=document.createElement('button');x.type='button';x.textContent=b.label;x.onclick=b.onClick;
-      x.style.cssText='height:34px;min-width:34px;border:1px solid '+(b.danger?'#b4475b':'#40516b')+';border-radius:9px;padding:0 9px;background:'+(b.danger?'#8f3044':'#243249')+';color:#fff;font:700 11px Segoe UI,Arial,sans-serif;cursor:pointer;white-space:nowrap;';
-      if(b.muted)x.style.background='#45566f';
+      var x=document.createElement('button');
+      x.type='button';
+      x.setAttribute('aria-label',b.label||'Ação');
+      x.title=b.label||'Ação';
+      x.innerHTML=callIcon(b.icon||(b.danger?'hangup':'close'));
+      x.onclick=b.onClick;
+      x.style.cssText='width:38px;height:38px;display:flex;align-items:center;justify-content:center;border:1px solid '+(b.danger?'rgba(255,103,124,.34)':'rgba(118,142,174,.28)')+';border-radius:11px;padding:0;background:'+(b.danger?'linear-gradient(145deg,#b33b52,#8f2e42)':'rgba(45,60,82,.9)')+';color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.22);transition:transform .12s ease,filter .12s ease,background .12s ease;';
+      if(b.icon==='phone')x.style.background='linear-gradient(145deg,#2fae6a,#238754)';
+      if(b.muted)x.style.background='linear-gradient(145deg,#55677f,#3d4c61)';
+      x.onmouseenter=function(){x.style.filter='brightness(1.12)';x.style.transform='translateY(-1px)';};
+      x.onmouseleave=function(){x.style.filter='';x.style.transform='';};
       a.appendChild(x);
     });
-    if(upCall.connected){
-      var t=document.createElement('span');
-      t.setAttribute('data-call-time','');
-      t.style.cssText='font:700 11px/1 Segoe UI,Arial,sans-serif;color:#b9c8db;min-width:34px;text-align:center;';
-      t.textContent='0:00';
-      a.insertBefore(t,a.firstChild);
-      if(!upCall.startedAt)callStartCounter();
-    }
+    if(upCall.connected&&!upCall.startedAt)callStartCounter();
     o.style.display='block';
   }
   function callHideOverlay(){if(upCall.overlay)upCall.overlay.style.display='none';}
