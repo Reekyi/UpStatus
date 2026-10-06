@@ -153,7 +153,10 @@ async function healthRoute(req:Request,name:string){
 async function statusRoute(req:Request,name:string){
   if(req.method==="GET"){
     const now=new Date().toISOString();
-    await db.from("users").update({client_seen_at:now,client_version:VERSION}).eq("name",name);
+    const clientVersion=(req.headers.get("x-upstatus-version")||"").trim();
+    const presenceUpdate:Record<string,unknown>={client_seen_at:now};
+    if(clientVersion)presenceUpdate.client_version=clientVersion;
+    await db.from("users").update(presenceUpdate).eq("name",name);
     const {data,error}=await db.from("users").select("name,status,reason,updated_at,sync,client_version,client_seen_at").order("name");
     if(error)throw error;
     const members:Record<string,unknown>={};
