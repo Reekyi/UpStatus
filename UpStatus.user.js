@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.26
+// @version      2.7.27
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -263,7 +263,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.7.26';
+  var CURRENT_VERSION='2.7.27';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -379,7 +379,7 @@
     '#upstatus-root.up-theme-light .up-reason-option,#upstatus-root.up-theme-light .up-mention-option{color:#1e293b;background:#f8fafc;border-color:#cbd5e1}'+
     '#upstatus-root.up-theme-light .up-mention-option.up-mention-all{background:#ede9fe;border-color:#a78bfa;color:#4c1d95}'+
     '#upstatus-root.up-theme-light .up-chat-mention{color:#2563eb;background:#dbeafe;border-radius:4px;padding:0 2px}'+
-    '#upstatus-root.up-theme-light .up-status-icon.online{color:#168a4d}#upstatus-root.up-theme-light .up-status-icon.busy{color:#c52f48}#upstatus-root.up-theme-light .up-status-icon.away{color:#475569}'+
+    '#upstatus-root.up-theme-light .up-status-icon.online{color:#168a4d}#upstatus-root.up-theme-light .up-status-icon.busy{color:#c52f48}#upstatus-root.up-theme-light .up-status-icon.away{color:#475569}#upstatus-root.up-theme-light .up-statuses-title{color:#64748b}#upstatus-root.up-theme-light .up-status.online{background:#d9f3e4;color:#168a4d}#upstatus-root.up-theme-light .up-status.busy{background:#f6dce1;color:#b4233d}#upstatus-root.up-theme-light .up-status.away{background:#e4e8ee;color:#475569}'+
     '#upstatus-root.up-theme-light .up-login label,#upstatus-root.up-theme-light .up-label,#upstatus-root.up-theme-light .up-team-title{color:#172033}'+
     '#upstatus-root.up-theme-light .up-login input:-webkit-autofill,#upstatus-root.up-theme-light .up-login input:-webkit-autofill:hover,#upstatus-root.up-theme-light .up-login input:-webkit-autofill:focus{-webkit-text-fill-color:#1e293b;-webkit-box-shadow:0 0 0 1000px #fff inset;box-shadow:0 0 0 1000px #fff inset;border-color:#cbd5e1}'+
     '#upstatus-root.up-theme-light .up-login input:-moz-autofill{box-shadow:0 0 0 1000px #fff inset;color:#1e293b}'+
@@ -415,7 +415,7 @@
     '.up-theme-btn .up-icon{width:16px;height:16px}'+
     '.up-health-btn{border:0;border-radius:7px;padding:7px 9px;background:#273247;color:#c6d1e1;cursor:pointer;box-sizing:border-box;height:34px;min-width:34px;display:inline-flex;align-items:center;justify-content:center}.up-health-btn:hover{background:#35425a}.up-health-btn .up-icon{width:16px;height:16px}'+
     '#upstatus-root.up-theme-light .up-settings-menu{background:#fff;border-color:#d7dee9;box-shadow:0 12px 30px rgba(0,0,0,.16)}'+
-    '#upstatus-root.up-theme-light .up-settings-menu button:hover{background:#e8edf4}'+
+    '#upstatus-root.up-theme-light .up-settings-menu button{color:#1e293b}#upstatus-root.up-theme-light .up-settings-menu button .up-icon{color:#1e293b}#upstatus-root.up-theme-light .up-settings-menu button:hover{background:#e8edf4}'+
     '#upstatus-root.up-theme-light .up-settings-btn{background:#e8edf4;color:#334155}'+
     '.up-resize-handle{position:absolute;z-index:200;touch-action:none}.up-resize-n{left:10px;right:10px;top:-5px;height:10px;cursor:ns-resize}.up-resize-s{left:10px;right:10px;bottom:-5px;height:10px;cursor:ns-resize}.up-resize-e{top:10px;bottom:10px;right:-5px;width:10px;cursor:ew-resize}.up-resize-w{top:10px;bottom:10px;left:-5px;width:10px;cursor:ew-resize}.up-resize-ne{right:-5px;top:-5px;width:14px;height:14px;cursor:nesw-resize}.up-resize-nw{left:-5px;top:-5px;width:14px;height:14px;cursor:nwse-resize}.up-resize-se{right:-5px;bottom:-5px;width:14px;height:14px;cursor:nwse-resize}.up-resize-sw{left:-5px;bottom:-5px;width:14px;height:14px;cursor:nesw-resize}'+
     '#upstatus-card{background:linear-gradient(145deg,#1b2535 0%,#151d2a 100%);border-color:#34445c;box-shadow:0 20px 50px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.035)}'+
@@ -1025,7 +1025,7 @@
   function showChatProfileHover(img,name,e){
     var route=profileCache[name]||'';
     var src=route?mediaBlobCache['profile:'+name]:'';
-     var presence=profilePresenceState(name);var presenceLabel=presence==='chat'?'Chat aberto':presence==='active'?'Sale Smartly ativo':'Offline';chatProfileHover.innerHTML='<img alt=""><div class="up-chat-profile-hover-name">'+esc(name)+'</div><div class="up-chat-profile-hover-role">'+presenceLabel+'</div>';
+     var presence=profilePresenceState(name);var presenceLabel=presence==='chat'?'No bate-papo':presence==='active'?'UpStatus Ativo':'Offline';chatProfileHover.innerHTML='<img alt=""><div class="up-chat-profile-hover-name">'+esc(name)+'</div><div class="up-chat-profile-hover-role">'+presenceLabel+'</div>';
     var previewImg=chatProfileHover.querySelector('img');
     previewImg.className=chatAvatarPresence(name);
     previewImg.src=src||profileFallback();
@@ -1420,13 +1420,13 @@
 
   function app(){
     api('GET','/api/members').then(function(r){window.__upstatusMembers=(r.members||[]).map(function(x){return x.name});}).catch(function(){});
-    card.innerHTML='<div class="up-head"><div class="up-head-identity"><div class="up-head-avatar"><img class="up-head-avatar-img" alt=""></div><div><div class="up-title">UpStatus</div><div class="up-you">Conectado como '+esc(member)+'</div></div></div><div class="up-actions"><button class="up-chat-btn" title="Chat da equipe" aria-label="Chat da equipe">'+iconSvg('chat')+'</button><button class="up-history-btn hidden" title="Ver histórico" aria-label="Ver histórico">'+iconSvg('clock')+'</button><button class="up-settings-btn" title="Configurações" aria-label="Configurações">'+iconSvg('gear')+'</button><div class="up-settings-menu hidden"><button type="button" class="up-settings-notifications"></button><button type="button" class="up-settings-theme"></button>'+(member==='Ricardo'?'<button type="button" class="up-settings-health">'+iconSvg('pulse')+'<span>Saúde do sistema</span></button>':'')+'</div><button class="up-logout">Sair</button></div></div><div class="up-statuses"><button class="up-status online">'+iconSvg('online')+' Online</button><button class="up-status busy">'+iconSvg('busy')+' Ocupado</button><button class="up-status away">'+iconSvg('away')+' Ausente</button></div><div class="up-reasons hidden"><label class="up-label">Motivo de ocupado</label><div class="up-reason-picker"><button type="button" class="up-reason-trigger"><span class="up-reason-trigger-icon">'+iconSvg('edit')+'</span><span class="up-reason-trigger-text">Selecione um motivo</span></button><div class="up-reason-menu hidden">'+reasons.map(function(x){return '<button type="button" class="up-reason-option" data-value="'+esc(x.value)+'">'+iconSvg(x.icon)+'<span class="up-reason-text">'+esc(x.label)+'</span></button>'}).join('')+'</div></div><select class="up-select hidden"></select><input class="up-input hidden" placeholder="Escreva o motivo"><button class="up-confirm hidden">Confirmar ocupado</button></div><div class="up-message"></div><div class="up-notice">'+iconSvg('pulse')+'<span>Sincronização com o Sale Smartly ativa.</span><span class="up-notice-ok">✓</span></div><div class="up-team-title-row"><div class="up-team-title">Equipe</div><span class="up-team-count"></span></div><div class="up-team">Carregando…</div>';
+    card.innerHTML='<div class="up-head"><div class="up-head-identity"><button type="button" class="up-head-avatar up-head-avatar-btn" title="Alterar foto de perfil" aria-label="Alterar foto de perfil"><img class="up-head-avatar-img" alt=""></button><div><div class="up-title">UpStatus</div><div class="up-you">Conectado como '+esc(member)+'</div></div></div><div class="up-actions"><button class="up-chat-btn" title="Chat da equipe" aria-label="Chat da equipe">'+iconSvg('chat')+'</button><button class="up-history-btn hidden" title="Ver histórico" aria-label="Ver histórico">'+iconSvg('clock')+'</button><button class="up-settings-btn" title="Configurações" aria-label="Configurações">'+iconSvg('gear')+'</button><div class="up-settings-menu hidden"><button type="button" class="up-settings-notifications"></button><button type="button" class="up-settings-theme"></button>'+(member==='Ricardo'?'<button type="button" class="up-settings-health">'+iconSvg('pulse')+'<span>Saúde do sistema</span></button>':'')+'</div><button class="up-logout">Sair</button></div></div><div class="up-statuses-title">Fila Sale Smartly</div><div class="up-statuses"><button class="up-status online">'+iconSvg('online')+' Online</button><button class="up-status busy">'+iconSvg('busy')+' Ocupado</button><button class="up-status away">'+iconSvg('away')+' Ausente</button></div><div class="up-reasons hidden"><label class="up-label">Motivo de ocupado</label><div class="up-reason-picker"><button type="button" class="up-reason-trigger"><span class="up-reason-trigger-icon">'+iconSvg('edit')+'</span><span class="up-reason-trigger-text">Selecione um motivo</span></button><div class="up-reason-menu hidden">'+reasons.map(function(x){return '<button type="button" class="up-reason-option" data-value="'+esc(x.value)+'">'+iconSvg(x.icon)+'<span class="up-reason-text">'+esc(x.label)+'</span></button>'}).join('')+'</div></div><select class="up-select hidden"></select><input class="up-input hidden" placeholder="Escreva o motivo"><button class="up-confirm hidden">Confirmar ocupado</button></div><div class="up-message"></div><div class="up-notice">'+iconSvg('pulse')+'<span>Sincronização com o Sale Smartly ativa.</span><span class="up-notice-ok">✓</span></div><div class="up-team-title-row"><div class="up-team-title">Equipe</div><span class="up-team-count"></span></div><div class="up-team">Carregando…</div>';
     history.innerHTML='<div class="up-history-head"><div class="up-history-title">Histórico</div><div class="up-actions"><button class="up-export" title="Exportar histórico">'+iconSvg('download')+' TXT</button><button class="up-close">Fechar</button></div></div><div class="up-history-list">Carregando…</div>';
 
     var box=card.querySelector('.up-reasons'),select=box.querySelector('select'),custom=box.querySelector('input'),confirm=box.querySelector('button.up-confirm'),trigger=box.querySelector('.up-reason-trigger'),menu=box.querySelector('.up-reason-menu');
     var historyBtn=card.querySelector('.up-history-btn');
     var settingsBtn=card.querySelector('.up-settings-btn'),settingsMenu=card.querySelector('.up-settings-menu');
-    var headAvatar=card.querySelector('.up-head-avatar-img');if(headAvatar)hydrateAvatar(headAvatar,member);
+    var headAvatar=card.querySelector('.up-head-avatar-img');var headAvatarBtn=card.querySelector('.up-head-avatar-btn');if(headAvatar)hydrateAvatar(headAvatar,member);if(headAvatarBtn){headAvatarBtn.onclick=function(e){e.stopPropagation();openProfileModal();};headAvatarBtn.addEventListener('mouseenter',function(e){showChatProfileHover(headAvatar,member,e);});headAvatarBtn.addEventListener('mousemove',positionChatProfileHover);headAvatarBtn.addEventListener('mouseleave',hideChatProfileHover);}
     if(role==='implementation_admin'){
       historyBtn.classList.remove('hidden');
       historyBtn.onclick=function(e){e.stopPropagation();openHistory()};
@@ -1571,8 +1571,8 @@
         var sub=[];
         if(m.reason)sub.push(reasonIcon(m.reason)+' '+esc(reasonLabel(m.reason)));
         if(m.updatedAt)sub.push('Desde '+fmtTime(m.updatedAt));
-        var presenceTitle=presence==='chat'?'Chat aberto':presence==='active'?'Sale Smartly ativo':'Offline';
-        return '<div class="up-member"><div class="up-member-main"><img class="up-member-avatar presence-'+presence+'" data-member-avatar="'+esc(m.name)+'" data-presence-name="'+esc(m.name)+'" title="'+presenceTitle+'" alt=""><div class="up-member-info"><div class="up-member-top"><b>'+esc(m.name)+'</b>'+version+'</div><div class="up-member-sub">'+(sub.length?sub.join(' <span class="up-member-separator">•</span> '):'Sem atualização registrada')+'</div></div></div><div class="up-member-actions">'+controls+'<span class="up-badge b-'+m.status+'" title="Status da fila do Sale Smartly">Fila: '+labels[m.status]+'</span></div></div>';
+        var presenceTitle=presence==='chat'?'No bate-papo':presence==='active'?'UpStatus Ativo':'Offline';
+        return '<div class="up-member"><div class="up-member-main"><img class="up-member-avatar presence-'+presence+'" data-member-avatar="'+esc(m.name)+'" data-presence-name="'+esc(m.name)+'" title="'+presenceTitle+'" alt=""><div class="up-member-info"><div class="up-member-top"><b>'+esc(m.name)+'</b>'+version+'</div><div class="up-member-sub">'+(sub.length?sub.join(' <span class="up-member-separator">•</span> '):'Sem atualização registrada')+'</div></div></div><div class="up-member-actions">'+controls+'<span class="up-badge b-'+m.status+'" title="Status da fila do Sale Smartly">'+labels[m.status]+'</span></div></div>';
       }).join('');
       team.querySelectorAll('.up-member-avatar').forEach(function(a){
         hydrateAvatar(a,a.getAttribute('data-member-avatar')||'');
