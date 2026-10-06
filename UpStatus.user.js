@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.30
+// @version      2.7.31
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -264,7 +264,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.7.30';
+  var CURRENT_VERSION='2.7.31';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1380,7 +1380,18 @@
   function login(){
     health.classList.add('hidden');
     img.src=profileFallback();
-    var loginMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';lastMember=loginMember;card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Seu nome</label><div class="up-login-fixed" id="up-name">'+esc(loginMember)+'</div><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><button id="up-enter">Entrar</button></div><div class="up-update up-login-update">Versão v'+CURRENT_VERSION+' <button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button><span class="up-update-status"></span></div><div class="up-message"></div>';
+    var loginMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';lastMember=loginMember;card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><button id="up-enter">Entrar</button></div><div class="up-update up-login-update">Versão v'+CURRENT_VERSION+' <button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button><span class="up-update-status"></span></div><div class="up-message"></div>';
+    var nameSelect=card.querySelector('#up-name');
+    function setLoginMembers(names){
+      var list=(names||[]).filter(Boolean);
+      if(!list.length)list=['Ricardo','Lohan','Guilherme'];
+      nameSelect.innerHTML=list.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
+      if(list.indexOf(loginMember)<0)loginMember=list[0];
+      nameSelect.value=loginMember;
+    }
+    setLoginMembers(['Ricardo','Lohan','Guilherme']);
+    nameSelect.onchange=function(){loginMember=nameSelect.value;lastMember=loginMember;GM_setValue(key+'last_member',loginMember);};
+    api('GET','/api/members').then(function(r){setLoginMembers((r.members||[]).map(function(x){return x.name;}));}).catch(function(){});
     card.querySelector('#up-enter').onclick=async function(){
       try{
         server=CLOUD_SERVER;
