@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.0.6
+// @version      3.0.7
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -267,7 +267,7 @@
   var baruiCallDrag={active:false,x:0,y:0,offsetX:0,offsetY:0};
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.6';
+  var CURRENT_VERSION='3.0.7';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -632,7 +632,7 @@
     var existing=root.querySelector('.up-patch-modal');
     if(existing)existing.remove();
     var modal=node('div',{className:'up-patch-modal'});
-    modal.innerHTML='<div class="up-patch-dialog" role="dialog" aria-modal="true" aria-label="O que há de novo?"><div class="up-patch-head"><div class="up-patch-title">O que há de novo?</div><button type="button" class="up-patch-close" aria-label="Fechar">×</button></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.6</div><ul class="up-patch-list"><li>Adicionado o Patch Notes do UpStatus.</li><li>Novidades das últimas versões reunidas em um só lugar.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.5</div><ul class="up-patch-list"><li>Chat corrigido e mais estável.</li><li>Correção de mensagens duplicadas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.4</div><ul class="up-patch-list"><li>Correção da identificação do autor das mensagens.</li><li>Melhorias na sincronização do chat.</li></ul></div></div>';
+    modal.innerHTML='<div class="up-patch-dialog" role="dialog" aria-modal="true" aria-label="O que há de novo?"><div class="up-patch-head"><div class="up-patch-title">O que há de novo?</div><button type="button" class="up-patch-close" aria-label="Fechar">×</button></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.7</div><ul class="up-patch-list"><li>Corrigido o botão "← Voltar" do chat para retornar ao dashboard.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.6</div><ul class="up-patch-list"><li>Adicionado o Patch Notes do UpStatus.</li><li>Novidades das últimas versões reunidas em um só lugar.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.5</div><ul class="up-patch-list"><li>Chat corrigido e mais estável.</li><li>Correção de mensagens duplicadas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.4</div><ul class="up-patch-list"><li>Correção da identificação do autor das mensagens.</li><li>Melhorias na sincronização do chat.</li></ul></div></div>';
     root.appendChild(modal);
     var close=modal.querySelector('.up-patch-close');
     function closePatch(){modal.remove();}
@@ -1416,7 +1416,7 @@ async function startBaruiCaller(target,sequence){
     sendBaruiTo(target);
   }
 
-  function closeChat(){
+  function closeChat(showDashboard){
     if(!chat.classList.contains('hidden')){
       saveChatDraft();
       hideChatContextMenu();
@@ -1425,6 +1425,7 @@ async function startBaruiCaller(target,sequence){
     }
     chat.classList.add('hidden');
     card.classList.add('hidden');
+    if(showDashboard)card.classList.remove('hidden');
     history.classList.add('hidden');
     health.classList.add('hidden');
     remoteOverlay.classList.add('hidden');
@@ -1444,7 +1445,7 @@ async function startBaruiCaller(target,sequence){
     setupEmojiPicker(emojiBtn,emojiMenu,input);
     if(recordBtn)recordBtn.onclick=function(e){e.stopPropagation();toggleAudioRecording(recordBtn);};
     input.addEventListener('paste',function(e){var items=e.clipboardData&&e.clipboardData.items?Array.from(e.clipboardData.items):[];var item=items.find(function(x){return x.kind==='file'&&/^image\//i.test(x.type)});if(item){var file=item.getAsFile();if(file){e.preventDefault();sendChatMedia(file);}}});
-    chat.querySelector('.up-chat-reply-close').onclick=function(e){e.stopPropagation();setChatReply(null);};document.addEventListener('click',function(e){var menu=chat.querySelector('.up-chat-context-menu');if(menu&&menu.classList.contains('show')&&!menu.contains(e.target))hideChatContextMenu();});chat.querySelector('.up-chat-back').onclick=function(e){e.stopPropagation();closeChat();};
+    chat.querySelector('.up-chat-reply-close').onclick=function(e){e.stopPropagation();setChatReply(null);};document.addEventListener('click',function(e){var menu=chat.querySelector('.up-chat-context-menu');if(menu&&menu.classList.contains('show')&&!menu.contains(e.target))hideChatContextMenu();});chat.querySelector('.up-chat-back').onclick=function(e){e.stopPropagation();closeChat(true);};
     var clearBtn=chat.querySelector('.up-chat-clear');if(clearBtn)clearBtn.onclick=clearChatRicardo;
     var lightbox=chat.querySelector('.up-chat-lightbox');if(lightbox){lightbox.querySelector('.up-chat-lightbox-close').onclick=closeChatLightbox;lightbox.onclick=function(e){if(e.target===lightbox)closeChatLightbox();}}
     chat.querySelector('.up-chat-send').onclick=function(e){e.stopPropagation();sendChat()};
