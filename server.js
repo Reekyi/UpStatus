@@ -24,7 +24,6 @@ const HISTORY_FILE = path.join(ROOT, 'history-data.json');
 const USERS_FILE = path.join(ROOT, 'users.json');
 const CHAT_FILE = path.join(ROOT, 'chat-data.json');
 const CHAT_READ_FILE = path.join(ROOT, 'chat-read.json');
-const BARUI_FILE = path.join(ROOT, 'barui-data.json');
 const REMOTE_STATUS_FILE = path.join(ROOT, 'remote-status-data.json');
 const CHAT_IMAGES_DIR = path.join(ROOT, 'chat-images');
 const PROFILE_FILE = path.join(ROOT, 'profile-data.json');
@@ -285,14 +284,9 @@ function writeChatRead(data) {
   fs.writeFileSync(CHAT_READ_FILE, JSON.stringify(data, null, 2), 'utf8');
 }
 
-function readBarui() {
-  const data = readJson(BARUI_FILE, {});
-  return data && typeof data === 'object' ? data : {};
-}
 
-function writeBarui(data) {
-  fs.writeFileSync(BARUI_FILE, JSON.stringify(data, null, 2), 'utf8');
-}
+
+
 
 
 function readRemoteStatus() {
@@ -785,50 +779,6 @@ function requestHandler(req, res) {
     return send(res, 200, { ready: true, result });
   }
 
-  if (req.method === 'GET' && url.pathname === '/api/barui') {
-    const name = currentUser(req);
-    if (!name) return send(res, 401, { error: 'Faça login para usar o BARUI.' });
-    const data = readBarui();
-    let incoming = data[name];
-    if (incoming) {
-      const startedAt = Date.parse(incoming.startedAt) || 0;
-      const current = readData().members[name];
-      const statusChangedAfter = current && current.updatedAt && Date.parse(current.updatedAt) > startedAt;
-      const expired = !startedAt || Date.now() - startedAt >= 30000;
-      if (expired || statusChangedAfter) { delete data[name]; incoming = null; writeBarui(data); }
-    }
-    const outgoingEntry = Object.entries(data).find(([target, item]) => item && item.sender === name);
-    return send(res, 200, incoming ? { active: true, sender: incoming.sender, startedAt: incoming.startedAt, sequence: incoming.sequence, outgoingActive: !!outgoingEntry, outgoingTarget: outgoingEntry ? outgoingEntry[0] : '' } : { active: false, outgoingActive: !!outgoingEntry, outgoingTarget: outgoingEntry ? outgoingEntry[0] : '' });
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/barui/stop-incoming') {
-    const name = currentUser(req);
-    if (!name) return send(res, 401, { error: 'Faça login para usar o BARUI.' });
-    const data = readBarui();
-    if (data[name]) { delete data[name]; writeBarui(data); }
-    return send(res, 200, { ok: true });
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/barui') {
-    return bodyJson(req, (err, payload) => {
-      if (err) return send(res, 400, { error: err.message });
-      const sender = currentUser(req);
-      if (!sender) return send(res, 401, { error: 'Faça login para usar o BARUI.' });
-      if (!isAdmin(req)) return send(res, 403, { error: 'Somente administradores podem enviar BARUI para a equipe.' });
-      const target = String(payload.target || '').trim();
-      if (!teamNames().includes(target) || target === sender) return send(res, 400, { error: 'Usuário do BARUI inválido.' });
-      const data = readBarui();
-      if (payload.active) {
-        data[target] = { sender, startedAt: new Date().toISOString(), sequence: Date.now() };
-      } else {
-        if (data[target] && data[target].sender !== sender) return send(res, 403, { error: 'Somente quem iniciou o BARUI pode pará-lo.' });
-        delete data[target];
-      }
-      writeBarui(data);
-      return send(res, 200, { ok: true });
-    });
-  }
-
   if (req.method === 'GET' && url.pathname === '/api/status') {
     if (!currentUser(req)) return send(res, 401, { error: 'Faça login para visualizar a equipe.' });
     return send(res, 200, readData());
@@ -914,11 +864,6 @@ function requestHandler(req, res) {
 
         writeData(data);
         writeHistory(history);
-        const barui = readBarui();
-        if (barui[name]) {
-          delete barui[name];
-          writeBarui(barui);
-        }
       }
 
       return send(res, 200, data.members[name]);
