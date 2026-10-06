@@ -946,7 +946,7 @@
       '<div style="display:flex;align-items:center;gap:5px;flex:0 0 auto" data-call-actions></div>'+
       '<audio data-call-audio autoplay></audio>'+
     '</div>';
-    (document.body||document.documentElement).appendChild(o);
+    root.appendChild(o);
     upCall.overlay=o;
     upCall.audio=o.querySelector('[data-call-audio]');
     return o;
