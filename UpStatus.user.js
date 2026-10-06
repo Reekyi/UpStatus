@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.8.3
+// @version      2.8.4
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -264,7 +264,7 @@
   var baruiExternalNotifiedSequence=0;
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.8.3';
+  var CURRENT_VERSION='2.8.4';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1295,6 +1295,16 @@
     sendBaruiTo(target);
   }
 
+  function closeChat(){
+    if(chat.classList.contains('hidden'))return;
+    saveChatDraft();
+    hideChatContextMenu();
+    stopTypingHeartbeat();
+    chat.classList.add('hidden');
+    card.classList.remove('hidden');
+    broadcastChatPresence(false);
+    refresh();
+  }
   function openChat(){
     if(!token)return;
     chatReplyTo=null;chatContextMessageId=null;
@@ -1308,7 +1318,7 @@
     setupEmojiPicker(emojiBtn,emojiMenu,input);
     if(recordBtn)recordBtn.onclick=function(e){e.stopPropagation();toggleAudioRecording(recordBtn);};
     input.addEventListener('paste',function(e){var items=e.clipboardData&&e.clipboardData.items?Array.from(e.clipboardData.items):[];var item=items.find(function(x){return x.kind==='file'&&/^image\//i.test(x.type)});if(item){var file=item.getAsFile();if(file){e.preventDefault();sendChatMedia(file);}}});
-    chat.querySelector('.up-chat-reply-close').onclick=function(e){e.stopPropagation();setChatReply(null);};document.addEventListener('click',function(e){var menu=chat.querySelector('.up-chat-context-menu');if(menu&&menu.classList.contains('show')&&!menu.contains(e.target))hideChatContextMenu();});chat.querySelector('.up-chat-back').onclick=function(e){e.stopPropagation();saveChatDraft();hideChatContextMenu();stopTypingHeartbeat();chat.classList.add('hidden');card.classList.remove('hidden');broadcastChatPresence(false);refresh();};
+    chat.querySelector('.up-chat-reply-close').onclick=function(e){e.stopPropagation();setChatReply(null);};document.addEventListener('click',function(e){var menu=chat.querySelector('.up-chat-context-menu');if(menu&&menu.classList.contains('show')&&!menu.contains(e.target))hideChatContextMenu();});chat.querySelector('.up-chat-back').onclick=function(e){e.stopPropagation();closeChat();};
     var clearBtn=chat.querySelector('.up-chat-clear');if(clearBtn)clearBtn.onclick=clearChatRicardo;
     var lightbox=chat.querySelector('.up-chat-lightbox');if(lightbox){lightbox.querySelector('.up-chat-lightbox-close').onclick=closeChatLightbox;lightbox.onclick=function(e){if(e.target===lightbox)closeChatLightbox();}}
     chat.querySelector('.up-chat-send').onclick=function(e){e.stopPropagation();sendChat()};
@@ -1874,7 +1884,7 @@
       if(!editable&&token&&member){
         e.preventDefault();
         if(chat.classList.contains('hidden'))openChat();
-        else closeChatLightbox();
+        else closeChat();
       }
     }
   });
