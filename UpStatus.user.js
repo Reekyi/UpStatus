@@ -1,7 +1,6 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      2.7.25
 // @version      2.7.26
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
