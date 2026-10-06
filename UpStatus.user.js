@@ -268,7 +268,7 @@
   var baruiCallDrag={active:false,x:0,y:0,offsetX:0,offsetY:0};
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='2.9.9';
+  var CURRENT_VERSION='3.0.0';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -2003,7 +2003,7 @@ async function startBaruiCaller(target,sequence){
 
   if(token&&member){
     api('GET','/api/me').then(function(r){
-      if(r.authenticated){role=r.role||role;GM_setValue(key+'role',role);app();refresh();startRealtime();updateBubbleAvatar(true)}
+      if(r.authenticated){member=String(r.name||member);lastMember=member;role=r.role||role;GM_setValue(key+'member',member);GM_setValue(key+'last_member',member);GM_setValue(key+'role',role);app();refresh();startRealtime();updateBubbleAvatar(true)}
       else login();
     }).catch(login);
   }else login();
