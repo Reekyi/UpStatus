@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.0.1
+// @version      3.0.2
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -45,6 +45,7 @@
   GM_setValue(key+'server',CLOUD_SERVER);
   var token=GM_getValue(key+'token','');
   var member=GM_getValue(key+'member','');
+  var sessionMember=GM_getValue(key+'session_member','');
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
   var chatLoading=false,typingPolling=false,baruiPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
@@ -268,7 +269,7 @@
   var baruiCallDrag={active:false,x:0,y:0,offsetX:0,offsetY:0};
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.1';
+  var CURRENT_VERSION='3.0.2';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1025,9 +1026,20 @@
       if(d&&d.me){
         var authoritativeMember=String(d.me||'').trim();
         if(authoritativeMember&&authoritativeMember!==member){
-          member=authoritativeMember;
-          lastMember=authoritativeMember;
-          try{GM_setValue(key+'member',authoritativeMember);GM_setValue(key+'last_member',authoritativeMember);}catch(e){}
+          token='';
+          member='';
+          sessionMember='';
+          role='implementation_user';
+          try{
+            GM_setValue(key+'token','');
+            GM_setValue(key+'member','');
+            GM_setValue(key+'session_member','');
+            GM_setValue(key+'role','');
+          }catch(e){}
+          stopRealtime();
+          if(!chat.classList.contains('hidden'))chat.classList.add('hidden');
+          login();
+          throw new Error('Sessão de outro usuário detectada. Faça login novamente.');
         }
       }
       var incoming=d.messages||[],nextMessages;
@@ -1666,7 +1678,7 @@ async function startBaruiCaller(target,sequence){
         var account=await api('GET','/api/account?name='+encodeURIComponent(name));
         var r=await api('POST',account.needsSetup?'/api/setup':'/api/login',{name:name,password:password});
         token=r.token;member=r.name;role=r.role||'implementation_user';lastMember=member;
-        GM_setValue(key+'server',CLOUD_SERVER);GM_setValue(key+'token',token);GM_setValue(key+'member',member);GM_setValue(key+'last_member',member);GM_setValue(key+'role',role);GM_setValue(passwordKey(name),password);
+        GM_setValue(key+'server',CLOUD_SERVER);GM_setValue(key+'token',token);GM_setValue(key+'member',member);GM_setValue(key+'session_member',member);GM_setValue(key+'last_member',member);GM_setValue(key+'role',role);GM_setValue(passwordKey(name),password);
         img.src=profileFallback();app();refresh();startRealtime();updateBubbleAvatar(true);
       }catch(e){message(e.message,true)}
     };
@@ -1708,7 +1720,7 @@ async function startBaruiCaller(target,sequence){
     box.querySelectorAll('.up-reason-option').forEach(function(opt){opt.onclick=function(){var value=opt.getAttribute('data-value');var r=reasons.find(function(x){return x.value===value});trigger.innerHTML=iconSvg(r?r.icon:'edit')+'<span class="up-reason-trigger-text">'+esc(r?r.label:value)+'</span>';menu.classList.add('hidden');custom.classList.toggle('hidden',value!=='Outro');confirm.classList.toggle('hidden',value!=='Outro');if(value&&value!=='Outro')save('busy',value);else if(value==='Outro')custom.focus();}});
     confirm.onclick=function(){save('busy',custom.value)};
     document.addEventListener('click',function(e){if(box&&!box.contains(e.target))menu.classList.add('hidden')});
-    card.querySelector('.up-logout').onclick=function(){broadcastChatPresence(false);stopRealtime();token='';member='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');history.classList.add('hidden');health.classList.add('hidden');img.src=profileFallback();login()};
+    card.querySelector('.up-logout').onclick=function(){broadcastChatPresence(false);stopRealtime();token='';member='';sessionMember='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'session_member','');GM_setValue(key+'role','');history.classList.add('hidden');health.classList.add('hidden');img.src=profileFallback();login()};
     history.querySelector('.up-close').onclick=function(){history.classList.add('hidden')};
     history.querySelector('.up-export').onclick=function(){exportHistoryTxt()};
     if(settingsBtn)settingsBtn.onclick=function(e){e.stopPropagation();settingsMenu.classList.toggle('hidden');};
@@ -2016,9 +2028,21 @@ async function startBaruiCaller(target,sequence){
 
   if(token&&member){
     api('GET','/api/me').then(function(r){
-      if(r.authenticated){member=String(r.name||member);lastMember=member;role=r.role||role;GM_setValue(key+'member',member);GM_setValue(key+'last_member',member);GM_setValue(key+'role',role);app();refresh();startRealtime();updateBubbleAvatar(true)}
-      else login();
-    }).catch(login);
+      if(!r.authenticated){token='';member='';sessionMember='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'session_member','');GM_setValue(key+'role','');login();return;}
+      var authenticatedMember=String(r.name||'').trim();
+      // A sessão precisa estar vinculada ao usuário que fez o login.
+      // Nunca trocar silenciosamente Ricardo por Guilherme (ou vice-versa)
+      // só porque existe um token antigo ainda válido no Tampermonkey.
+      if(!sessionMember||authenticatedMember!==sessionMember||authenticatedMember!==member){
+        token='';member='';sessionMember='';role='implementation_user';
+        GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'session_member','');GM_setValue(key+'role','');
+        login();
+        return;
+      }
+      member=authenticatedMember;lastMember=authenticatedMember;role=r.role||role;
+      GM_setValue(key+'member',member);GM_setValue(key+'session_member',member);GM_setValue(key+'last_member',member);GM_setValue(key+'role',role);
+      app();refresh();startRealtime();updateBubbleAvatar(true);
+    }).catch(function(){login();});
   }else login();
 
   setInterval(refresh,5000);
