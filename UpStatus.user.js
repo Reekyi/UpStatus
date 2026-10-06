@@ -27,7 +27,7 @@
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
   // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
   // Mantido isolado do chat, status e demais recursos do UpStatus.
-  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,overlay:null,callId:'',peer:'',role:'',pendingOffer:null,pendingCandidates:[],active:false,connected:false,muted:false,timer:null};
+  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,overlay:null,callId:'',peer:'',role:'',pendingOffer:null,pendingCandidates:[],active:false,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0};
   var chatPresence={};
   function setupFaviconBadge(){
     try{
@@ -937,23 +937,59 @@
     if(upCall.overlay&&upCall.overlay.isConnected)return upCall.overlay;
     var o=document.createElement('div');
     o.id='upstatus-call-overlay';
-    o.style.cssText='position:fixed;right:24px;bottom:82px;z-index:2147483647;width:320px;max-width:calc(100vw - 48px);box-sizing:border-box;background:#19212e;border:1px solid #354258;border-radius:16px;padding:18px;color:#edf2fb;font:14px Segoe UI,Arial,sans-serif;box-shadow:0 16px 42px #000b;display:none;';
-    o.innerHTML='<div style="font-size:16px;font-weight:800;margin-bottom:6px" data-call-title>Chamada</div><div style="font-size:13px;color:#aeb9c9;min-height:20px" data-call-status></div><div style="display:flex;gap:8px;margin-top:16px" data-call-actions></div><audio data-call-audio autoplay></audio>';
+    o.style.cssText='position:absolute;left:auto;right:50px;bottom:0;z-index:2147483647;width:280px;height:58px;box-sizing:border-box;background:rgba(25,33,46,.97);border:1px solid #3a4860;border-radius:14px;padding:8px 10px;color:#edf2fb;font:13px Segoe UI,Arial,sans-serif;box-shadow:0 10px 28px #0009;display:none;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);';
+    o.innerHTML='<div style="display:flex;align-items:center;gap:8px;height:100%">'+
+      '<div style="min-width:0;flex:1;overflow:hidden">'+
+        '<div style="font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-call-title>Chamada</div>'+
+        '<div style="font-size:10.5px;color:#91a0b5;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-call-status></div>'+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:5px;flex:0 0 auto" data-call-actions></div>'+
+      '<audio data-call-audio autoplay></audio>'+
+    '</div>';
     (document.body||document.documentElement).appendChild(o);
     upCall.overlay=o;
     upCall.audio=o.querySelector('[data-call-audio]');
     return o;
   }
+  function callPositionOverlay(){
+    var o=callEnsureOverlay(),r=root.getBoundingClientRect(),w=280,gap=8;
+    var canLeft=r.left>=w+gap;
+    var canRight=window.innerWidth-r.right>=w+gap;
+    if(canLeft||!canRight){o.style.right='50px';o.style.left='auto';}
+    else{o.style.left='50px';o.style.right='auto';}
+  }
+  function callStartCounter(){
+    if(upCall.counterTimer)clearInterval(upCall.counterTimer);
+    upCall.startedAt=Date.now();
+    function tick(){
+      if(!upCall.startedAt)return;
+      var s=Math.max(0,Math.floor((Date.now()-upCall.startedAt)/1000));
+      var el=upCall.overlay&&upCall.overlay.querySelector('[data-call-time]');
+      if(el)el.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+    }
+    upCall.counterTimer=setInterval(tick,1000);
+    tick();
+  }
   function callRender(title,status,buttons){
     var o=callEnsureOverlay();
+    callPositionOverlay();
     o.querySelector('[data-call-title]').textContent=title||'Chamada';
     o.querySelector('[data-call-status]').textContent=status||'';
     var a=o.querySelector('[data-call-actions]');a.innerHTML='';
     (buttons||[]).forEach(function(b){
       var x=document.createElement('button');x.type='button';x.textContent=b.label;x.onclick=b.onClick;
-      x.style.cssText='flex:1;border:1px solid #3d4a60;border-radius:10px;padding:9px 10px;background:'+(b.danger?'#9e3347':'#263246')+';color:#fff;font-weight:700;cursor:pointer;';
+      x.style.cssText='height:34px;min-width:34px;border:1px solid '+(b.danger?'#b4475b':'#40516b')+';border-radius:9px;padding:0 9px;background:'+(b.danger?'#8f3044':'#243249')+';color:#fff;font:700 11px Segoe UI,Arial,sans-serif;cursor:pointer;white-space:nowrap;';
+      if(b.muted)x.style.background='#45566f';
       a.appendChild(x);
     });
+    if(upCall.connected){
+      var t=document.createElement('span');
+      t.setAttribute('data-call-time','');
+      t.style.cssText='font:700 11px/1 Segoe UI,Arial,sans-serif;color:#b9c8db;min-width:34px;text-align:center;';
+      t.textContent='0:00';
+      a.insertBefore(t,a.firstChild);
+      if(!upCall.startedAt)callStartCounter();
+    }
     o.style.display='block';
   }
   function callHideOverlay(){if(upCall.overlay)upCall.overlay.style.display='none';}
@@ -963,19 +999,21 @@
     return sendRealtimeEvent('call_signal',p);
   }
   function callStopStream(){
-    if(upCall.localStream){try{upCall.localStream.getTracks().forEach(function(t){t.stop();});}catch(e){ }upCall.localStream=null;}
+    if(upCall.localStream){try{upCall.localStream.getTracks().forEach(function(t){t.stop();});}catch(e){}upCall.localStream=null;}
   }
   function callCleanup(sendHangup){
     if(sendHangup&&upCall.peer&&upCall.callId)callSend('hangup');
     if(upCall.timer){clearTimeout(upCall.timer);upCall.timer=null;}
-    if(upCall.pc){try{upCall.pc.onicecandidate=null;upCall.pc.ontrack=null;upCall.pc.close();}catch(e){ }upCall.pc=null;}
+    if(upCall.counterTimer){clearInterval(upCall.counterTimer);upCall.counterTimer=null;}
+    if(upCall.pc){try{upCall.pc.onicecandidate=null;upCall.pc.ontrack=null;upCall.pc.close();}catch(e){}upCall.pc=null;}
     callStopStream();
-    if(upCall.audio){try{upCall.audio.pause();upCall.audio.srcObject=null;}catch(e){ }}
-    upCall.remoteStream=null;upCall.callId='';upCall.peer='';upCall.role='';upCall.pendingOffer=null;upCall.pendingCandidates=[];upCall.active=false;upCall.connected=false;upCall.muted=false;
+    if(upCall.audio){try{upCall.audio.pause();upCall.audio.srcObject=null;}catch(e){}}
+    upCall.remoteStream=null;upCall.callId='';upCall.peer='';upCall.role='';upCall.pendingOffer=null;upCall.pendingCandidates=[];upCall.active=false;upCall.connected=false;upCall.muted=false;upCall.startedAt=0;
     callHideOverlay();
   }
   function callFail(message){
     if(upCall.timer){clearTimeout(upCall.timer);upCall.timer=null;}
+    if(upCall.counterTimer){clearInterval(upCall.counterTimer);upCall.counterTimer=null;}
     callRender('Chamada',message,[{label:'Fechar',onClick:function(){callCleanup(false);}}]);
   }
   function callCreatePeer(){
@@ -983,15 +1021,18 @@
     if(typeof RTCPeerConnection==='undefined')throw new Error('WebRTC não está disponível neste navegador.');
     var pc=new RTCPeerConnection();
     upCall.pc=pc;
-    pc.onicecandidate=function(e){if(e.candidate&&upCall.active)callSend('ice', {candidate:e.candidate});};
+    pc.onicecandidate=function(e){if(e.candidate&&upCall.active)callSend('ice',{candidate:e.candidate});};
     pc.ontrack=function(e){
       upCall.remoteStream=e.streams&&e.streams[0]?e.streams[0]:null;
       if(upCall.audio&&upCall.remoteStream){upCall.audio.srcObject=upCall.remoteStream;var p=upCall.audio.play();if(p&&p.catch)p.catch(function(){});}
     };
     pc.onconnectionstatechange=function(){
       var st=pc.connectionState;
-      if(st==='connected'){upCall.connected=true;callRender(upCall.peer,'Conectado',[{label:'Desligar',danger:true,onClick:function(){callCleanup(true);}}]);}
-      else if(st==='failed'){callFail('A conexão de áudio falhou.');}
+      if(st==='connected'){
+        upCall.connected=true;
+        callRender(upCall.peer,'Conectado',[{label:upCall.muted?'Ativar mic':'Mutar',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',danger:true,onClick:function(){callCleanup(true);}}]);
+        if(!upCall.startedAt)callStartCounter();
+      }else if(st==='failed'){callFail('A conexão de áudio falhou.');}
       else if(st==='disconnected'&&upCall.active){callRender(upCall.peer,'Conexão perdida',[{label:'Desligar',danger:true,onClick:function(){callCleanup(true);}}]);}
     };
     if(upCall.localStream)upCall.localStream.getTracks().forEach(function(t){pc.addTrack(t,upCall.localStream);});
@@ -1011,7 +1052,7 @@
   async function startOutgoingCall(target){
     if(!target||target===member)return;
     if(upCall.active){message('Você já está em uma chamada.',true);return;}
-    upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.active=true;upCall.connected=false;
+    upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.active=true;upCall.connected=false;upCall.startedAt=0;
     callRender(target,'Chamando…',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true);}}]);
     upCall.timer=setTimeout(function(){if(upCall.active&&!upCall.connected){callFail('Sem resposta.');callSend('hangup');}},30000);
     try{
@@ -1026,8 +1067,8 @@
     if(!p||!p.type||!p.callId||!p.from||p.to!==member||p.from===member)return;
     if(p.type==='offer'){
       if(upCall.active){sendRealtimeEvent('call_signal',{type:'busy',callId:p.callId,from:member,to:p.from});return;}
-      upCall.callId=p.callId;upCall.peer=p.from;upCall.role='callee';upCall.active=true;upCall.connected=false;upCall.pendingOffer=p.sdp;upCall.pendingCandidates=[];
-      callRender(p.from,'Chamada recebida',[{label:'Recusar',danger:true,onClick:function(){callSend('reject');callCleanup(false);}},{label:'Atender',onClick:function(){acceptIncomingCall();}}]);
+      upCall.callId=p.callId;upCall.peer=p.from;upCall.role='callee';upCall.active=true;upCall.connected=false;upCall.pendingOffer=p.sdp;upCall.pendingCandidates=[];upCall.startedAt=0;
+      callRender(p.from,'Chamada recebida',[{label:'Atender',onClick:function(){acceptIncomingCall();}},{label:'Desligar',danger:true,onClick:function(){callSend('reject');callCleanup(false);}}]);
       return;
     }
     if(p.callId!==upCall.callId||p.from!==upCall.peer)return;
@@ -1058,7 +1099,7 @@
     if(!upCall.localStream)return;
     upCall.muted=!upCall.muted;
     upCall.localStream.getAudioTracks().forEach(function(t){t.enabled=!upCall.muted;});
-    callRender(upCall.peer,upCall.connected?'Conectado':'Conectando…',[{label:upCall.muted?'Ativar microfone':'Silenciar',onClick:toggleCallMute},{label:'Desligar',danger:true,onClick:function(){callCleanup(true);}}]);
+    callRender(upCall.peer,upCall.connected?'Conectado':'Conectando…',[{label:upCall.muted?'Ativar mic':'Mutar',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',danger:true,onClick:function(){callCleanup(true);}}]);
   }
 
   function handleRealtimeChatFast(payload){
