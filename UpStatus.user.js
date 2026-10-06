@@ -311,7 +311,7 @@
           }
           return u;
         })(),
-        headers:Object.assign({'Content-Type':'application/json'},token?{'X-UpStatus-Token':token}:{}),
+        headers:Object.assign({'Content-Type':'application/json','X-UpStatus-Version':CURRENT_VERSION},token?{'X-UpStatus-Token':token}:{}),
         data:data?JSON.stringify(data):undefined,
         onload:function(r){
           var x;
