@@ -703,11 +703,6 @@ function requestHandler(req, res) {
       });
       read[name] = entry;
       writeChatRead(read);
-      const barui = readBarui();
-      if (barui[name]) {
-        delete barui[name];
-        writeBarui(barui);
-      }
       return send(res, 200, { ok: true });
     });
   }
