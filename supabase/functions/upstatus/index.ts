@@ -501,7 +501,13 @@ async function remoteRoute(req:Request,name:string) {
   return response({ok:true,commandId:id,command:state.commands[target]});
 }
 async function luccaRoute(req:Request) {
-  const path=new URL(req.url).pathname;
+  const rawPath=new URL(req.url).pathname;
+  let path=rawPath;
+  const marker="/upstatus";
+  const markerAt=path.lastIndexOf(marker);
+  if(markerAt>=0)path=path.slice(markerAt+marker.length);
+  if(!path)path="/";
+  if(path.length>1)path=path.replace(/\/$/,"");
   if(path==="/api/lucca/login") {
     const p:any=await readBody(req);
     const pass=Deno.env.get("LUCCA_PASSWORD")||"";
@@ -518,12 +524,12 @@ async function luccaRoute(req:Request) {
     return response(c&&s.online&&s.session===c?{authenticated:true,name:"Lucca",joinedAt:s.joinedAt,online:true}:{authenticated:false,name:null,online:!!s.online});
   }
   if(path==="/api/lucca/heartbeat") {
-    const s:any=await expireLucca(),c=cookie(req,"lucca_session");
+    const s:any=await expireLucca(),c=luccaToken(req);
     if(!c||!s.online||s.session!==c)return response({error:"Sessão do Lucca encerrada."},401);
     await setState("lucca",{...s,lastSeen:new Date().toISOString()});return response({ok:true,online:true});
   }
   if(path==="/api/lucca/logout") {
-    const s:any=await expireLucca(),c=cookie(req,"lucca_session");
+    const s:any=await expireLucca(),c=luccaToken(req);
     if(c&&s.online&&s.session===c){await setState("lucca",{...s,online:false,session:null,lastSeen:new Date().toISOString()});await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco saiu do chat.",type:"system",system_type:"lucca_leave",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});}
     return response({ok:true},200,{"Set-Cookie":"lucca_session=; HttpOnly; SameSite=Lax; Secure; Path=/; Max-Age=0"});
   }
