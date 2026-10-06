@@ -28,7 +28,56 @@ body{min-height:100vh;display:flex;align-items:center;justify-content:center;pad
 .up-chat-system-event span{padding:6px 10px;border-radius:999px;background:#252e3c;border:1px solid #3a475b;color:#aebbd0;font-size:10px;font-weight:800;text-align:center}
 .up-chat-system-event.join span{background:#351724;border-color:#7c2a3e;color:#ff9aaa}
 @media(max-width:600px){body{padding:0}#guest-shell{width:100%;height:100vh;min-height:0}#guest-chat{border-radius:0;border-left:0;border-right:0}}
-</style>
+<style id="lucca-chat-parity">
+#guest-chat .up-chat-list{height:auto;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;margin-top:12px;margin-right:-18px;margin-left:-5px;padding-right:18px;padding-left:5px;scrollbar-width:thin;scrollbar-color:rgba(139,149,164,.35) transparent}
+#guest-chat .up-chat-list::-webkit-scrollbar{width:6px}
+#guest-chat .up-chat-list::-webkit-scrollbar-track{background:transparent}
+#guest-chat .up-chat-list::-webkit-scrollbar-thumb{background:rgba(139,149,164,.30);border-radius:999px}
+#guest-chat .up-chat-list::-webkit-scrollbar-thumb:hover{background:rgba(139,149,164,.50)}
+#guest-chat .up-chat-date-divider{display:flex;align-items:center;gap:9px;margin:14px 0 8px;color:#8fa0b8;font-size:10px;font-weight:800;letter-spacing:.15px}
+#guest-chat .up-chat-date-divider:before,#guest-chat .up-chat-date-divider:after{content:"";height:1px;flex:1;background:#334158}
+#guest-chat .up-chat-date-divider span{padding:5px 10px;border:1px solid #334158;border-radius:999px;background:#182130;white-space:nowrap}
+#guest-chat .up-chat-item.group-middle .up-chat-bubble{border-radius:4px 12px 12px 4px;padding-top:5px;padding-bottom:5px}
+#guest-chat .up-chat-item.own.group-middle .up-chat-bubble{border-radius:12px 4px 4px 12px}
+#guest-chat .up-chat-item.group-end{padding-bottom:7px}
+#guest-chat .up-chat-item.group-start{padding-top:7px}
+#guest-chat .up-chat-item.group-middle{padding-top:1px;padding-bottom:1px}
+#guest-chat .up-chat-avatar.avatar-hidden{visibility:hidden}
+#guest-chat .up-chat-audio-player{display:flex;align-items:center;gap:8px;min-width:220px;max-width:100%;margin-top:6px;padding:7px 8px;border-radius:10px;background:rgba(8,14,24,.28);border:1px solid rgba(255,255,255,.08);box-sizing:border-box}
+#guest-chat .up-chat-audio-play{width:30px;height:30px;flex:0 0 30px;border:0;border-radius:50%;background:#fff;color:#3159bd;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px}
+#guest-chat .up-chat-audio-wave{height:22px;flex:1;display:flex;align-items:center;gap:2px;overflow:hidden}
+#guest-chat .up-chat-audio-wave span{width:3px;min-height:4px;border-radius:3px;background:#a9c2ff;opacity:.75}
+#guest-chat .up-chat-audio-time{font-size:10px;color:#dbe5f5;font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
+#guest-chat .up-chat-audio-volume{border:0;background:transparent;color:#dbe5f5;cursor:pointer;padding:2px}
+#guest-chat .up-chat-compose{position:relative;display:flex;align-items:stretch;gap:6px}
+#guest-chat .up-chat-input-wrap{position:relative;flex:1 1 auto;min-width:0}
+#guest-chat .up-chat-compose .up-chat-input{display:block;width:100%;box-sizing:border-box;min-width:0;padding-right:48px}
+#guest-chat .up-chat-input{height:42px;min-height:42px;max-height:90px;resize:vertical;padding:8px;border-radius:8px;border:1px solid #3a475b;background:#111722;color:#edf2fb;font:13px Segoe UI,Arial,sans-serif}
+#guest-chat .up-chat-tools{display:flex;align-items:stretch;gap:6px;flex:0 0 auto;margin-top:0}
+#guest-chat .up-chat-emoji-btn,#guest-chat .up-chat-attach,#guest-chat .up-chat-record{width:38px;height:42px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;padding:0;border:1px solid #3a475b;border-radius:8px;background:#273247;color:#dbe5f5;cursor:pointer}
+#guest-chat .up-chat-emoji-btn .up-icon,#guest-chat .up-chat-attach .up-icon{width:17px;height:17px}
+#guest-chat .up-chat-emoji-btn:hover,#guest-chat .up-chat-attach:hover,#guest-chat .up-chat-record:hover{background:#35425a}
+#guest-chat .up-chat-send{position:absolute;right:7px;bottom:7px;margin:0;width:28px;height:28px;border:0;border-radius:50%;padding:0;background:#4f7dff;color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;z-index:2}
+#guest-chat .up-chat-send:hover{background:#6b92ff;transform:translateY(-1px)}
+#guest-chat .up-chat-send .up-icon{width:15px;height:15px}
+#guest-chat .up-chat-send:disabled,#guest-chat .up-chat-record:disabled,#guest-chat .up-chat-attach:disabled{opacity:.55;cursor:wait}
+#guest-chat .up-chat-emoji-menu{position:absolute;right:0;bottom:calc(100% + 8px);z-index:25;width:260px;max-height:190px;overflow:auto;padding:8px;box-sizing:border-box;display:flex;flex-wrap:wrap;gap:4px;background:#182130;border:1px solid #3a475b;border-radius:10px;box-shadow:0 10px 30px #0008}
+#guest-chat .up-chat-emoji-menu.hidden{display:none}
+#guest-chat .up-chat-emoji{width:32px;height:32px;border:0;border-radius:7px;background:transparent;color:#fff;font-size:20px;cursor:pointer}
+#guest-chat .up-chat-emoji:hover{background:#273247}
+#guest-chat .up-chat-reply-bar{display:flex;align-items:center;gap:7px;margin-bottom:6px;padding:7px 9px;border-left:3px solid #4f7dff;background:#202b3d;border-radius:7px;color:#dce5f2}
+#guest-chat .up-chat-reply-bar.hidden{display:none}
+#guest-chat .up-chat-reply-copy{flex:1;min-width:0;font-size:11px}
+#guest-chat .up-chat-reply-copy b{display:block;color:#7fb1ff}
+#guest-chat .up-chat-reply-close{border:0;background:transparent;color:#aebbd0;cursor:pointer;font-size:17px}
+#guest-chat .up-chat-reactions{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
+#guest-chat .up-chat-reaction{border:0;border-radius:10px;background:#202c40;color:#fff;padding:2px 6px;font-size:12px;cursor:pointer}
+#guest-chat .up-chat-mention{color:#7fb1ff;font-weight:750}
+#guest-chat .up-chat-record.recording{background:#c52f48;color:#fff;animation:uprecordGuest .7s infinite alternate}
+@keyframes uprecordGuest{from{box-shadow:0 0 0 0 #ff334f55}to{box-shadow:0 0 0 7px #ff334f55}}
+#guest-chat .up-chat-recording-label{position:absolute;left:0;bottom:calc(100% + 8px);padding:6px 9px;border-radius:8px;background:#c52f48;color:#fff;font-size:11px;font-weight:800;display:none}
+#guest-chat .up-chat-recording-label.show{display:block}
+</style></style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
@@ -59,10 +108,17 @@ body{min-height:100vh;display:flex;align-items:center;justify-content:center;pad
       <div class="up-mention-menu hidden"></div>
       <div class="up-chat-emoji-menu hidden"></div>
       <div class="up-chat-recording-label">Gravando <span class="up-chat-recording-time">0:00</span> • clique novamente para enviar</div>
-      <textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea>
-      <div class="up-chat-tools"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">😀</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">📷</button><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">🎙</button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" hidden></div>
-    </div>
-    <button class="up-chat-send">Enviar</button><div class="up-chat-lightbox hidden"><button type="button" class="up-chat-lightbox-close" aria-label="Fechar">×</button><img alt="Imagem ampliada"></div>
+      <div class="up-chat-input-wrap">
+        <textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea>
+        <button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem"><svg class="up-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 21 3l-6.5 18-3.1-7.4L3 11.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m11.4 13.6 4.8-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="up-chat-tools">
+        <button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis"><svg class="up-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/><path d="M8.5 14c1 1.35 2.17 2 3.5 2s2.5-.65 3.5-2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+        <button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo"><svg class="up-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><path d="m5 17 4-4 3 3 2-2 5 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+        <button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">🎙</button>
+        <input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" hidden>
+      </div>
+    </div><div class="up-chat-lightbox hidden"><button type="button" class="up-chat-lightbox-close" aria-label="Fechar">×</button><img alt="Imagem ampliada"></div>
   </div>
 </section>
 
@@ -80,7 +136,7 @@ var profileHover=document.querySelector('.up-chat-profile-hover'), readTooltip=d
 var members=['Ricardo','Lohan','Guilherme','Lucca'];
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]})}
 function fmtTime(x){return x?new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(new Date(x)):''}
-function api(route,opts){opts=opts||{};var method=String(opts.method||'GET').toUpperCase();var target=(route.indexOf('http')===0?route:'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus'+route);if(method==='GET'){target+=(target.indexOf('?')>=0?'&':'?')+'_lucca_nc='+Date.now()+'_'+Math.random().toString(36).slice(2)}var headers=Object.assign({'Content-Type':'application/json'},opts.headers||{}),token=localStorage.getItem('upstatus_lucca_token')||'';if(token)headers.Authorization='Bearer '+token;var base={credentials:'omit',cache:'no-store',headers:headers};return fetch(target,Object.assign(base,opts,{headers:headers})).then(async function(r){var d=await r.json().catch(function(){return {}});if(!r.ok)throw new Error(d.error||'Erro de comunicação.');return d;})}
+function api(route,opts){opts=opts||{};var method=String(opts.method||'GET').toUpperCase();var target=(route.indexOf('http')===0?route:'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus'+route);if(/^https:\/\/dlfvkawaiqduhlazsszm\.supabase\.co\/functions\/v1\/upstatus/i.test(target))target+=(target.indexOf('?')>=0?'&':'?')+'forceFunctionRegion=us-west-2';if(method==='GET'){target+=(target.indexOf('?')>=0?'&':'?')+'_lucca_nc='+Date.now()+'_'+Math.random().toString(36).slice(2)}var headers=Object.assign({'Content-Type':'application/json'},opts.headers||{}),token=localStorage.getItem('upstatus_lucca_token')||'';if(token)headers.Authorization='Bearer '+token;var base={credentials:'omit',cache:'no-store',headers:headers};return fetch(target,Object.assign(base,opts,{headers:headers})).then(async function(r){var d=await r.json().catch(function(){return {}});if(!r.ok)throw new Error(d.error||'Erro de comunicação.');return d;})}
 function profileFallback(){return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="32" fill="#273247"/><circle cx="32" cy="24" r="11" fill="#9aa8bc"/><path d="M12 56c3-13 11-19 20-19s17 6 20 19" fill="#9aa8bc"/></svg>')}
 function loadBlob(route,key){key=key||route;if(mediaBlobCache[key])return Promise.resolve(mediaBlobCache[key]);var target=route.indexOf('http')===0?route:'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus'+route,headers={},token=localStorage.getItem('upstatus_lucca_token')||'';if(token)headers.Authorization='Bearer '+token;return fetch(target,{credentials:'omit',cache:'no-store',headers:headers}).then(function(r){if(!r.ok)throw new Error('Arquivo não encontrado.');return r.blob()}).then(function(b){var u=URL.createObjectURL(b);mediaBlobCache[key]=u;return u})}
 function hydrateAvatar(img,name){var route=profileCache[name];if(!route){img.src=profileFallback();return}loadBlob(route,'profile:'+name).then(function(u){img.src=u}).catch(function(){img.src=profileFallback()})}
