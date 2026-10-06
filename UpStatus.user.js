@@ -975,6 +975,7 @@
     callHideOverlay();
   }
   function callFail(message){
+    if(upCall.timer){clearTimeout(upCall.timer);upCall.timer=null;}
     callRender('Chamada',message,[{label:'Fechar',onClick:function(){callCleanup(false);}}]);
   }
   function callCreatePeer(){
@@ -1026,7 +1027,7 @@
     if(p.type==='offer'){
       if(upCall.active){sendRealtimeEvent('call_signal',{type:'busy',callId:p.callId,from:member,to:p.from});return;}
       upCall.callId=p.callId;upCall.peer=p.from;upCall.role='callee';upCall.active=true;upCall.connected=false;upCall.pendingOffer=p.sdp;upCall.pendingCandidates=[];
-      callRender(p.from,'Chamada recebida',[{label:'Recusar',danger:true,onClick:function(){callCleanup(true);}},{label:'Atender',onClick:function(){acceptIncomingCall();}}]);
+      callRender(p.from,'Chamada recebida',[{label:'Recusar',danger:true,onClick:function(){callSend('reject');callCleanup(false);}},{label:'Atender',onClick:function(){acceptIncomingCall();}}]);
       return;
     }
     if(p.callId!==upCall.callId||p.from!==upCall.peer)return;
