@@ -904,7 +904,7 @@
           else upsertRealtimeMessage(record);
         })
         .on('broadcast',{event:'user_status'},function(){refresh();})
-        .on('broadcast',{event:'chat_presence'},function(payload){var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;if(!chat.classList.contains('hidden'))renderChat();})
+        .on('broadcast',{event:'chat_presence'},function(payload){var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();if(!chat.classList.contains('hidden'))renderChat();})
         .on('broadcast',{event:'remote_command'},function(payload){
           var c=payload&&payload.payload&&payload.payload.command;
           if(c&&c.target===member)executeRemoteCommand(c);
@@ -1577,6 +1577,7 @@
     api('GET','/api/status').then(function(d){
       var team=card.querySelector('.up-team');if(!team)return;
       window.__upstatusTeam=d.members||{};
+      updateChatHeaderPresence();
       var memberNames=Object.keys(d.members);memberNames.sort(function(a,b){if(a===member)return 1;if(b===member)return -1;return a.localeCompare(b,'pt-BR');});
       var teamCount=card.querySelector('.up-team-count');if(teamCount)teamCount.textContent=memberNames.length+' '+(memberNames.length===1?'membro':'membros');
       team.innerHTML=memberNames.map(function(k){
