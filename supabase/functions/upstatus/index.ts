@@ -322,7 +322,7 @@ async function chatRoute(req:Request,name:string){
         db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name),
         expireLucca()
       ]);
-      return response({messages,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
+      return response({me:name,messages,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
     }
     const cutoffTyping=new Date(Date.now()-4500).toISOString();
     const [messages,readRes,profileRes,typingRes,luccaStateNow]=await Promise.all([
@@ -347,7 +347,7 @@ async function chatRoute(req:Request,name:string){
     const unreadCount=messages.filter((m:any)=>m.type!=="system"&&m.user!==name&&Date.parse(m.createdAt)>lastRead).length;
     const profileMap:Record<string,string>={};
     for(const p of profileRes.data||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
-    return response({messages,unreadCount,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
+    return response({me:name,messages,unreadCount,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
   }
   const p:any=await readBody(req);
   const message=String(p.message||"").trim();
