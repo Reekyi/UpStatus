@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.0.12
+// @version      3.0.13
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -274,7 +274,7 @@
   var luccaOnline=false;
   var lastLuccaJoinEventId='';
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.12';
+  var CURRENT_VERSION='3.0.13';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1276,7 +1276,7 @@
   
     
   function positionReadTooltip(e){var x=(e.clientX||0)+12,y=(e.clientY||0)+12;var w=readTooltip.offsetWidth,h=readTooltip.offsetHeight;if(x+w>window.innerWidth-8)x=Math.max(8,(e.clientX||0)-w-12);if(y+h>window.innerHeight-8)y=Math.max(8,(e.clientY||0)-h-12);readTooltip.style.left=x+'px';readTooltip.style.top=y+'px';}
-  function toggleBarui(target){if(!target||target===member)return;message('Ligação rápida está em reconstrução. O botão permanece aqui, mas o motor antigo foi removido.',false);}
+  function toggleBarui(target){if(!target||target===member)return;message('A ligação rápida está sendo reconstruída do zero. O botão permanece aqui, mas o sistema antigo foi removido.',false);}
 
   function closeChat(showDashboard){
     if(!chat.classList.contains('hidden')){
@@ -1686,7 +1686,7 @@
         var m=d.members[k],presence=profilePresenceState(m.name,m);
         if(m.name===member)currentStatus=m.status;
         var controls=(role==='implementation_admin'&&m.name!==member)
-          ? '<button type="button" class="up-member-barui" data-target="'+esc(m.name)+'" title="Enviar BARUI para '+esc(m.name)+'" aria-label="Enviar BARUI para '+esc(m.name)+'">'+iconSvg('phone')+'</button><button type="button" class="up-member-power" data-target="'+esc(m.name)+'" title="Controlar fila de '+esc(m.name)+'" aria-label="Controlar fila de '+esc(m.name)+'">'+iconSvg('power')+'</button>'
+          ? '<button type="button" class="up-member-barui" data-target="'+esc(m.name)+'" title="Ligação rápida (em reconstrução) para '+esc(m.name)+'" aria-label="Ligação rápida (em reconstrução) para '+esc(m.name)+'">'+iconSvg('phone')+'</button><button type="button" class="up-member-power" data-target="'+esc(m.name)+'" title="Controlar fila de '+esc(m.name)+'" aria-label="Controlar fila de '+esc(m.name)+'">'+iconSvg('power')+'</button>'
           : '';
         var version=m.version?'<span class="up-member-version">v'+esc(m.version)+'</span>':'<span class="up-member-version">v?</span>';
         var sub=[];
@@ -1884,7 +1884,6 @@
   });
   setInterval(function(){loadChat();},3000);
   setInterval(pollChatTyping,1000);
-  setInterval(pollBarui,5000);
   setInterval(pollRemoteStatus,5000);
   setInterval(checkUpdate,60000);
 })();
