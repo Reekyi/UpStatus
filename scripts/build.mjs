@@ -82,4 +82,3 @@ fs.writeFileSync(path.join(dist,"build-manifest.json"),JSON.stringify({
   productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION
 },null,2)+"\n","utf8");
 console.log("Built UpStatus "+baseVersion+" / TEST "+fullVersion);
-\n
