@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.0.15
+// @version      3.0.16
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -278,7 +278,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.15';
+  var CURRENT_VERSION='3.0.16';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1051,6 +1051,33 @@
       callConfigureRingtones();
     }
   });
+  var CALL_RINGTONE_URLS={caller:'https://raw.githubusercontent.com/Reekyi/UpStatus/master/assets/ringtones/chamando.mp3',callee:'https://raw.githubusercontent.com/Reekyi/UpStatus/master/assets/ringtones/recebendo.mp3'};
+  var callRingtoneFetches={caller:null,callee:null};
+  function callGetRingtoneData(roleKey){
+    var storageKey='upstatus_call_ringtone_'+roleKey;
+    try{var existing=localStorage.getItem(storageKey)||'';if(existing)return Promise.resolve(existing);}catch(e){}
+    if(callRingtoneFetches[roleKey])return callRingtoneFetches[roleKey];
+    var url=CALL_RINGTONE_URLS[roleKey];
+    if(!url||typeof GM_xmlhttpRequest!=='function')return Promise.resolve('');
+    callRingtoneFetches[roleKey]=new Promise(function(resolve,reject){
+      GM_xmlhttpRequest({method:'GET',url:url,responseType:'blob',timeout:15000,
+        onload:function(r){
+          if(r.status<200||r.status>=300)return reject(new Error('Ringtone HTTP '+r.status));
+          var fr=new FileReader();
+          fr.onload=function(){
+            var data=String(fr.result||'');
+            if(data){try{localStorage.setItem(storageKey,data);}catch(e){}}
+            resolve(data);
+          };
+          fr.onerror=reject;
+          fr.readAsDataURL(r.response);
+        },
+        onerror:reject,onabort:reject,ontimeout:reject
+      });
+    }).catch(function(){callRingtoneFetches[roleKey]=null;return '';});
+    return callRingtoneFetches[roleKey];
+  }
+
   function callStartRingtone(){
     callStopRingtone();
     try{
@@ -1059,11 +1086,18 @@
       var roleKey=upCall.role==='caller'?'caller':'callee';
       var data=null;
       try{data=localStorage.getItem('upstatus_call_ringtone_'+roleKey)||'';}catch(e){}
-      if(!data)return;
       upCall.ringtoneCtx=ctx;
       var loadId=(upCall.ringtoneLoadId||0)+1;
       upCall.ringtoneLoadId=loadId;
-      fetch(data).then(function(r){return r.arrayBuffer();}).then(function(buf){return ctx.decodeAudioData(buf);}).then(function(decoded){
+      var dataPromise=data?Promise.resolve(data):callGetRingtoneData(roleKey);
+      dataPromise.then(function(value){
+        if(upCall.ringtoneLoadId!==loadId||!upCall.active||upCall.connected)return null;
+        if(!value)return null;
+        return fetch(value).then(function(r){return r.arrayBuffer();});
+      }).then(function(buf){
+        if(!buf)return null;
+        return ctx.decodeAudioData(buf);
+      }).then(function(decoded){
         if(!upCall.active||upCall.connected||upCall.ringtoneLoadId!==loadId)return;
         var source=ctx.createBufferSource(),gain=ctx.createGain();
         source.buffer=decoded;
