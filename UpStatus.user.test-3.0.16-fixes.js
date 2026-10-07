@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly [TESTE]
 // @namespace    upseller
-// @version      3.0.16-test.5
+// @version      3.0.16-test.6
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -1734,8 +1734,14 @@
       var created=normalizeChatMessage(r&&r.message);
       if(created){
         clearChatDraft();
-        reconcileSentChatMessage(tempId,created);
-        sendRealtimeEvent('chat_fast',{message:created});
+        try{
+          reconcileSentChatMessage(tempId,created);
+        }catch(reconcileError){
+          try{console.error('[UpStatus Chat] Mensagem enviada, mas falhou a reconciliação visual:',reconcileError);}catch(_){}
+          chatCache=chatCache.filter(function(m){return String(m.id)!==String(tempId);});
+          loadChat(true);
+        }
+        try{sendRealtimeEvent('chat_fast',{message:created});}catch(_){}
       }else{
         chatCache=chatCache.filter(function(m){return m.id!==tempId;});
         loadChat(true);
