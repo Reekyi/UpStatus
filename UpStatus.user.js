@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.0.21
+// @version      3.0.23
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -323,7 +323,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.20';
+  var CURRENT_VERSION='3.0.23';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1137,23 +1137,21 @@
   });
   // Cache dos ringtones padrão: força a renovação apenas dos arquivos padrão da versão anterior.
   // Ringtones personalizados continuam preservados.
-  var CALL_RINGTONE_CACHE_VERSION='3.0.21';
+  var CALL_RINGTONE_CACHE_VERSION='3.0.22';
   var CALL_RINGTONE_LEGACY_B64_LENGTHS={caller:351271,callee:419262};
   function callRefreshLegacyDefaultRingtoneCache(){
     try{
-      var roles=['caller','callee'];
-      roles.forEach(function(roleKey){
-        var storageKey='upstatus_call_ringtone_'+roleKey;
-        var data=localStorage.getItem(storageKey)||'';
-        if(!data)return;
-        var expected=CALL_RINGTONE_LEGACY_B64_LENGTHS[roleKey];
-        if(expected&&data.length===expected)localStorage.removeItem(storageKey);
-      });
-      localStorage.setItem('upstatus_call_ringtone_cache_version',CALL_RINGTONE_CACHE_VERSION);
+      var current=localStorage.getItem('upstatus_call_ringtone_cache_version')||'';
+      if(current!==CALL_RINGTONE_CACHE_VERSION){
+        ['caller','callee'].forEach(function(roleKey){
+          try{localStorage.removeItem('upstatus_call_ringtone_'+roleKey);}catch(e){}
+        });
+        localStorage.setItem('upstatus_call_ringtone_cache_version',CALL_RINGTONE_CACHE_VERSION);
+      }
     }catch(e){}
   }
   callRefreshLegacyDefaultRingtoneCache();
-  var CALL_RINGTONE_URLS={caller:'https://raw.githubusercontent.com/Reekyi/UpStatus/master/assets/ringtones/chamando.mp3',callee:'https://raw.githubusercontent.com/Reekyi/UpStatus/master/assets/ringtones/recebendo.mp3'};
+  var CALL_RINGTONE_URLS={caller:'https://raw.githubusercontent.com/Reekyi/UpStatus/master/assets/ringtones/chamando.mp3?v=3.0.22',callee:'https://raw.githubusercontent.com/Reekyi/UpStatus/master/assets/ringtones/recebendo.mp3?v=3.0.22'};
   var callRingtoneFetches={caller:null,callee:null};
   function callGetRingtoneData(roleKey){
     var storageKey='upstatus_call_ringtone_'+roleKey;
@@ -1655,6 +1653,20 @@
     list.querySelectorAll('.up-chat-photo').forEach(function(img){img.addEventListener('click',function(){openChatLightbox(img.src);});});
     list.querySelectorAll('.up-chat-read').forEach(function(tick){tick.addEventListener('mouseenter',function(e){readTooltip.textContent=tick.getAttribute('data-readers')||'Não lido ainda';readTooltip.classList.add('show');positionReadTooltip(e);});tick.addEventListener('mousemove',positionReadTooltip);tick.addEventListener('mouseleave',function(){readTooltip.classList.remove('show');});});
     list.querySelectorAll('.up-chat-item').forEach(function(item){item.addEventListener('contextmenu',function(e){e.preventDefault();e.stopPropagation();var id=item.getAttribute('data-message-id');var msg=chatCache.find(function(x){return x.id===id;});if(msg)openChatContextMenu(e,msg);});});
+    if(!window.__upstatusChatContextCaptureBound){
+      window.__upstatusChatContextCaptureBound=true;
+      document.addEventListener('contextmenu',function(e){
+        try{
+          var item=e.target&&e.target.closest?e.target.closest('.up-chat-item'):null;
+          if(!item||!chat.contains(item))return;
+          e.preventDefault();
+          e.stopPropagation();
+          var id=item.getAttribute('data-message-id');
+          var msg=chatCache.find(function(x){return x.id===id;});
+          if(msg)openChatContextMenu(e,msg);
+        }catch(err){}
+      },true);
+    }
     list.querySelectorAll('.up-chat-reaction').forEach(function(btn){btn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var item=btn.closest('.up-chat-item'),id=item&&item.getAttribute('data-message-id'),em=btn.getAttribute('data-reaction');if(id&&em)toggleChatReaction(id,em);});});
     list.querySelectorAll('.up-chat-item.own').forEach(function(item){var del=item.querySelector('.up-delete-action');if(del)del.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var id=item.getAttribute('data-message-id');if(!id)return;del.disabled=true;api('DELETE','/api/chat/'+encodeURIComponent(id)).then(function(){chatCache=chatCache.filter(function(m){return m.id!==id;});renderChat();}).catch(function(err){del.disabled=false;message(err.message,true);});});});
     list.onclick=function(e){if(e.target.closest&&e.target.closest('.up-delete-action'))return;list.querySelectorAll('.up-delete-action').forEach(function(b){b.classList.add('hidden')});};
