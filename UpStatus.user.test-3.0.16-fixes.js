@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly [TESTE]
 // @namespace    upseller
-// @version      3.0.16-test.7
+// @version      3.0.16-test.8
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -276,7 +276,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.16-test.7';
+  var CURRENT_VERSION='3.0.16-test.8';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1714,31 +1714,28 @@
   function sendChatAudioData(dataUrl){var send=chat.querySelector('.up-chat-send'),record=chat.querySelector('.up-chat-record');if(send)send.disabled=true;if(record)record.disabled=true;var raw=String(dataUrl||'');var match=raw.match(/^data:(audio\/[^;,]+)(?:;[^,]*)?;base64,/i);if(!match){if(send)send.disabled=false;if(record)record.disabled=false;message('Áudio inválido.',true);return;}api('POST','/api/chat/audio',{dataUrl:raw}).then(function(r){return api('POST','/api/chat',{message:'',imageUrl:r.imageUrl,type:'audio',replyTo:chatReplyTo});}).then(function(){chatReplyTo=null;setChatReply(null);stopTypingHeartbeat();return refreshChatAfterSend(null,send);}).catch(function(e){if(send)send.disabled=false;message(e.message,true);}).finally(function(){if(record)record.disabled=false;});
   }
   function clearChatRicardo(){if(member!=='Ricardo')return;if(!confirm('Limpar todo o chat para a equipe?'))return;api('POST','/api/chat/clear',{}).then(function(){chatCache=[];chatLastRenderKey='';return api('GET','/api/chat');}).then(function(d){chatCache=d.messages||[];if(d.profiles)profileCache=d.profiles;renderChat();}).catch(function(e){message(e.message,true);});}
-  function scrollChatToBottom(){
+  function scrollChatToBottom(force){
     var list=chat.querySelector('.up-chat-list');
     if(!list)return;
     function apply(){
       try{
-        var last=list.lastElementChild;
-        if(last&&last.scrollIntoView){
-          last.scrollIntoView({block:'end',inline:'nearest',behavior:'auto'});
-        }else{
-          list.scrollTop=list.scrollHeight;
-        }
+        if(force===false)return;
+        list.scrollTop=0;
         list.scrollTop=list.scrollHeight;
-      }catch(e){
-        try{list.scrollTop=list.scrollHeight;}catch(_){}
-      }
+        if(list.scrollTop<list.scrollHeight){
+          var max=Math.max(0,list.scrollHeight-list.clientHeight);
+          list.scrollTop=max;
+        }
+        if(list.lastElementChild&&list.lastElementChild.scrollIntoView){
+          list.lastElementChild.scrollIntoView({block:'end',inline:'nearest'});
+        }
+      }catch(e){}
     }
-    apply();
-    requestAnimationFrame(function(){
-      apply();
-      requestAnimationFrame(function(){
-        apply();
-      });
-    });
-    setTimeout(apply,80);
-    setTimeout(apply,180);
+    requestAnimationFrame(apply);
+    setTimeout(apply,0);
+    setTimeout(apply,50);
+    setTimeout(apply,150);
+    setTimeout(apply,300);
   }
   function sendChat(){
     var input=chat.querySelector('.up-chat-input'),text=input?(input.value||'').trim():'';
@@ -1752,7 +1749,7 @@
     clearChatDraft();
     chatReplyTo=null;
     setChatReply(null);
-    try{renderChat();scrollChatToBottom();}catch(renderError){try{console.error('[UpStatus Chat] Falha ao renderizar envio otimista:',renderError);}catch(_){}}
+    try{renderChat();scrollChatToBottom(true);}catch(renderError){try{console.error('[UpStatus Chat] Falha ao renderizar envio otimista:',renderError);}catch(_){}}
     api('POST','/api/chat',{message:text,replyTo:tempReply}).then(function(r){
       var created=normalizeChatMessage(r&&r.message);
       if(created){
