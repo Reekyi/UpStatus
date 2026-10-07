@@ -615,6 +615,26 @@
     dot.title=show?('Nova versão disponível: v'+version):'Sem atualização';
     dot.classList.toggle('show',!!show);
   }
+  function showAutomaticUpdatePrompt(version){
+    var v=String(version||'').trim();
+    if(!v)return;
+    var seenKey='upstatus_update_prompt_'+v;
+    try{
+      if(sessionStorage.getItem(seenKey)==='1')return;
+      sessionStorage.setItem(seenKey,'1');
+    }catch(e){}
+    var existing=root.querySelector('.up-auto-update');
+    if(existing)existing.remove();
+    var modal=node('div',{className:'up-auto-update'});
+    modal.style.cssText='position:fixed;inset:0;background:#0008;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+    modal.innerHTML='<div style="width:360px;max-width:100%;background:#19212e;border:1px solid #43506a;border-radius:16px;padding:22px;box-sizing:border-box;box-shadow:0 20px 60px #000b;color:#edf2fb;font-family:Segoe UI,Arial,sans-serif"><div style="font-size:18px;font-weight:800;margin-bottom:8px">Nova versão disponível</div><div style="font-size:14px;line-height:1.5;color:#b9c3d3;margin-bottom:18px">O UpStatus encontrou a versão <b>v'+esc(v)+'</b>. Atualize agora para receber as últimas melhorias.</div><div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="up-auto-update-later" style="border:1px solid #43506a;background:#273246;color:#dce4f2;border-radius:9px;padding:9px 13px;cursor:pointer">Depois</button><button type="button" class="up-auto-update-now" style="border:0;background:#4f7dff;color:#fff;border-radius:9px;padding:9px 14px;font-weight:700;cursor:pointer">Atualizar agora</button></div></div>';
+    root.appendChild(modal);
+    var close=function(){if(modal.parentNode)modal.remove();};
+    modal.querySelector('.up-auto-update-later').onclick=close;
+    modal.querySelector('.up-auto-update-now').onclick=function(){openUpdate();close();};
+    modal.addEventListener('click',function(e){if(e.target===modal)close();});
+  }
+
   function openUpdate(){
     try{
       if(typeof GM_openInTab==='function'){
@@ -667,6 +687,7 @@
       manuals.forEach(function(manual){manual.onclick=openUpdate;manual.disabled=cmp<=0;manual.title=cmp>0?'Atualizar para v'+remote:'Você já está na versão mais recente';});
       if(remote&&cmp>0){
         setUpdateAvailable(true,remote);
+        showAutomaticUpdatePrompt(remote);
         statuses.forEach(function(status){status.innerHTML=' • Nova versão: <b>v'+esc(remote)+'</b>';});
       }else if(remote&&cmp<0){
         setUpdateAvailable(false,'');
