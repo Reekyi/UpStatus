@@ -1025,24 +1025,37 @@
         if(!upCall.active||upCall.connected){callStopRingtone();return;}
         try{
           var now=ctx.currentTime;
-          function note(freq,start,duration,peak){
+          function ringPair(start,duration,peak){
+            var freqs=[620,880];
+            freqs.forEach(function(freq,index){
+              var osc=ctx.createOscillator(),gain=ctx.createGain();
+              osc.type=index===0?'sine':'triangle';
+              osc.frequency.value=freq;
+              gain.gain.setValueAtTime(0.0001,start);
+              gain.gain.exponentialRampToValueAtTime(peak*(index===0?1:0.72),start+0.018);
+              gain.gain.setValueAtTime(peak*(index===0?1:0.72),start+duration-0.055);
+              gain.gain.exponentialRampToValueAtTime(0.0001,start+duration);
+              osc.connect(gain);gain.connect(ctx.destination);
+              osc.start(start);osc.stop(start+duration+0.025);
+            });
+          }
+          function ping(start,freq,peak){
             var osc=ctx.createOscillator(),gain=ctx.createGain();
             osc.type='sine';
             osc.frequency.value=freq;
             gain.gain.setValueAtTime(0.0001,start);
-            gain.gain.exponentialRampToValueAtTime(peak,start+0.018);
-            gain.gain.exponentialRampToValueAtTime(0.0001,start+duration);
+            gain.gain.exponentialRampToValueAtTime(peak,start+0.012);
+            gain.gain.exponentialRampToValueAtTime(0.0001,start+0.19);
             osc.connect(gain);gain.connect(ctx.destination);
-            osc.start(start);osc.stop(start+duration+0.02);
+            osc.start(start);osc.stop(start+0.21);
           }
-          note(880,now,0.24,0.14);
-          note(660,now,0.24,0.11);
-          note(880,now+0.30,0.24,0.14);
-          note(660,now+0.30,0.24,0.11);
+          ringPair(now,0.34,0.20);
+          ringPair(now+0.43,0.34,0.20);
+          ping(now+0.88,1046.5,0.10);
         }catch(e){}
       }
       tone();
-      upCall.ringtoneTimer=setInterval(tone,1250);
+      upCall.ringtoneTimer=setInterval(tone,1800);
       if(ctx.state==='suspended'){var p=ctx.resume();if(p&&p.catch)p.catch(function(){});}
     }catch(e){}
   }
