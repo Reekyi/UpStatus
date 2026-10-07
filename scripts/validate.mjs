@@ -43,4 +43,3 @@ assert(decodeHex(testFn)===testUser,"test embedded userscript does not match bui
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
-\n
