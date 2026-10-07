@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly [TESTE]
 // @namespace    upseller
-// @version      3.0.17-test.4
+// @version      3.0.17-test.5
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -277,7 +277,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.17-test.4';
+  var CURRENT_VERSION='3.0.17-test.5';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1040,12 +1040,16 @@
     upCall.ringtoneAllowed=false;
     if(upCall.ringtoneTimer){clearInterval(upCall.ringtoneTimer);upCall.ringtoneTimer=null;}
     upCall.ringtoneLoadId=(upCall.ringtoneLoadId||0)+1;
-    if(upCall.ringtoneSource){
-      try{upCall.ringtoneSource.stop(0);}catch(e){}
-      try{upCall.ringtoneSource.disconnect();}catch(e){}
-      upCall.ringtoneSource=null;
+    var source=upCall.ringtoneSource;
+    var gain=upCall.ringtoneGain;
+    upCall.ringtoneSource=null;
+    upCall.ringtoneGain=null;
+    try{if(gain)gain.gain.setValueAtTime(0,gain.context.currentTime);}catch(e){}
+    if(source){
+      try{source.stop(0);}catch(e){}
+      try{source.disconnect();}catch(e){}
     }
-    if(upCall.ringtoneGain){try{upCall.ringtoneGain.disconnect();}catch(e){}upCall.ringtoneGain=null;}
+    if(gain){try{gain.disconnect();}catch(e){}}
     upCall.ringtoneCtx=null;
   }
   function callConfigureRingtones(){
@@ -1313,6 +1317,7 @@
       var answer=await pc.createAnswer();
       await pc.setLocalDescription(answer);
       upCall.pendingOffer=null;
+      callStopRingtone();
       callSend('answer',{sdp:pc.localDescription});
       callRender(upCall.peer,'Conectando…',[{label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}]);
     }catch(e){callFail(e.message||'Não foi possível atender a chamada.');}
