@@ -2416,4 +2416,4 @@
   setInterval(function(){loadChat();},3000);
   setInterval(pollChatTyping,1000);  setInterval(pollRemoteStatus,5000);
   setInterval(checkUpdate,60000);
-})();\n
+})();
