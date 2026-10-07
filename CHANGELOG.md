@@ -10,6 +10,7 @@
 - Extracted the Edge Function into a generated source template.
 - Added reproducible build and validation scripts.
 - Isolated TEST storage, Realtime signaling, and ringtone coordination.
-- Added validation, TEST deployment, and manual production workflows.
+- Added validation, manual TEST deployment, and manual production workflows.
+- Automatic TEST deployment is intentionally paused until GitHub Actions Supabase secrets are configured.
 - Production runtime was not modified by the pipeline refactor.
 \n
