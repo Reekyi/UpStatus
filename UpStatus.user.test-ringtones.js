@@ -1626,16 +1626,20 @@
   function clearChatRicardo(){if(member!=='Ricardo')return;if(!confirm('Limpar todo o chat para a equipe?'))return;api('POST','/api/chat/clear',{}).then(function(){chatCache=[];chatLastRenderKey='';return api('GET','/api/chat');}).then(function(d){chatCache=d.messages||[];if(d.profiles)profileCache=d.profiles;renderChat();}).catch(function(e){message(e.message,true);});}
   function sendChat(){
     if(chatSending)return;
-    var input=chat.querySelector('.up-chat-input'),text=(input.value||'').trim();
-    if(!text)return;
-    var btn=chat.querySelector('.up-chat-send');chatSending=true;btn.disabled=true;
+    var input=chat.querySelector('.up-chat-input'),text=input?(input.value||'').trim():'';
+    if(!input||!text)return;
+    var btn=chat.querySelector('.up-chat-send');
+    chatSending=true;
+    if(btn)btn.disabled=true;
     var tempId='local-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
     var tempReply=chatReplyTo;
     var optimistic={id:tempId,user:member,message:text,type:'text',systemType:'',createdAt:new Date().toISOString(),imageUrl:'',mentions:[],replyTo:tempReply,reactions:{},readBy:[],optimistic:true};
     chatCache.push(optimistic);
-    renderChat();
     input.value='';
-    chatReplyTo=null;setChatReply(null);
+    clearChatDraft();
+    chatReplyTo=null;
+    setChatReply(null);
+    try{renderChat();}catch(renderError){try{console.error('[UpStatus Chat] Falha ao renderizar envio otimista:',renderError);}catch(_){}}
     api('POST','/api/chat',{message:text,replyTo:tempReply}).then(function(r){
       var created=normalizeChatMessage(r&&r.message);
       if(created){
@@ -1646,17 +1650,21 @@
         chatCache=chatCache.filter(function(m){return m.id!==tempId;});
         chatCache.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});
         sendRealtimeEvent('chat_fast',{message:created});
-        renderChat();
+        try{renderChat();}catch(renderError){try{console.error('[UpStatus Chat] Falha ao renderizar mensagem enviada:',renderError);}catch(_){}}
       }else{
         chatCache=chatCache.filter(function(m){return m.id!==tempId;});
         loadChat(true);
       }
     }).catch(function(e){
       chatCache=chatCache.filter(function(m){return m.id!==tempId;});
-      renderChat();
+      try{renderChat();}catch(renderError){try{console.error('[UpStatus Chat] Falha ao renderizar erro de envio:',renderError);}catch(_){}}
       if(input)input.value=text;
+      saveChatDraft(input);
       message(e.message||'Não foi possível enviar a mensagem.',true);
-    }).finally(function(){chatSending=false;if(btn)btn.disabled=false;});
+    }).finally(function(){
+      chatSending=false;
+      if(btn)btn.disabled=false;
+    });
   }
   function fileMimeFromExt(ext){return ({png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',gif:'image/gif',mp4:'video/mp4',webm:'video/webm'})[ext]||'';}
   function resolveFileMime(file,allowVideo){
