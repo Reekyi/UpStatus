@@ -59,14 +59,14 @@ explicit approval
 manual production workflow
 ```
 
-The beta workflow deploys only `upstatus-test`. The production workflow deploys only `upstatus`.
+The TEST workflow deploys only `upstatus-test` and is manual until the required Supabase Actions secrets are configured. After adding the secrets, the push trigger to `develop` can be enabled. The production workflow deploys only `upstatus`.
 
 ## Required GitHub Actions secrets
 
 - `SUPABASE_ACCESS_TOKEN`
 - `SUPABASE_PROJECT_ID` = `dlfvkawaiqduhlazsszm`
 
-The production workflow also targets the `production` GitHub Environment. Configure required reviewers there for an additional approval gate.
+The production workflow also targets the `production` GitHub Environment. Configure required reviewers there for an additional approval gate. The repository connector cannot create Actions secrets, so `SUPABASE_ACCESS_TOKEN` must be added in GitHub before CI deployment is enabled.
 
 ## TEST isolation
 
