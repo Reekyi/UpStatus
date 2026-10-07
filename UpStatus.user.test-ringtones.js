@@ -937,16 +937,16 @@
     if(upCall.overlay&&upCall.overlay.isConnected)return upCall.overlay;
     var o=document.createElement('div');
     o.id='upstatus-call-overlay';
-    o.style.cssText='position:absolute;left:auto;right:50px;bottom:-3px;z-index:2147483647;width:300px;height:64px;box-sizing:border-box;background:linear-gradient(135deg,rgba(27,36,51,.98),rgba(18,25,37,.98));border:1px solid rgba(105,125,155,.32);border-radius:16px;padding:8px 9px 8px 12px;color:#edf2fb;font:13px Segoe UI,Arial,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.04);display:none;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);';
-    o.innerHTML='<div style="display:flex;align-items:center;gap:10px;height:100%">'+
+    o.style.cssText='position:absolute;left:auto;right:48px;bottom:-2px;z-index:2147483647;width:260px;height:46px;box-sizing:border-box;background:linear-gradient(135deg,rgba(27,36,51,.98),rgba(18,25,37,.98));border:1px solid rgba(105,125,155,.32);border-radius:14px;padding:6px 8px 6px 10px;color:#edf2fb;font:12px Segoe UI,Arial,sans-serif;cursor:default;box-shadow:0 12px 30px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.04);display:none;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);';
+    o.innerHTML='<div style="display:flex;align-items:center;gap:8px;height:100%">'+
       '<div style="min-width:0;flex:1;overflow:hidden">'+
         '<div style="display:flex;align-items:center;gap:6px;min-width:0">'+
           '<span style="width:7px;height:7px;border-radius:50%;background:#5fd38b;box-shadow:0 0 8px rgba(95,211,139,.45);flex:0 0 auto" data-call-dot></span>'+
-          '<div style="font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-call-title>Chamada</div>'+
+          '<div style="font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-call-title>Chamada</div>'+
         '</div>'+
-        '<div style="font-size:10px;color:#8797ae;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-call-status></div>'+
+        '<div style="font-size:9px;color:#8797ae;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-call-status></div>'+
       '</div>'+
-      '<div style="display:none;align-items:center;justify-content:center;min-width:64px" data-call-time></div>'+
+      '<div style="display:none;align-items:center;justify-content:center;min-width:54px" data-call-time></div>'+
       '<div style="display:flex;align-items:center;gap:6px;flex:0 0 auto" data-call-actions></div>'+
       '<audio data-call-audio autoplay></audio>'+
     '</div>';
@@ -1077,11 +1077,10 @@
   }
 
   function callPositionOverlay(){
-    var o=callEnsureOverlay(),r=root.getBoundingClientRect(),w=300,gap=6;
-    var canLeft=r.left>=w+gap;
-    var canRight=window.innerWidth-r.right>=w+gap;
-    if(canLeft||!canRight){o.style.right='48px';o.style.left='auto';o.style.bottom='0';}
-    else{o.style.left='48px';o.style.right='auto';o.style.bottom='0';}
+    var o=callEnsureOverlay();
+    o.style.left='auto';
+    o.style.right='48px';
+    o.style.bottom='-2px';
   }
   function callStartCounter(){
     if(upCall.counterTimer)clearInterval(upCall.counterTimer);
@@ -1115,7 +1114,7 @@
     var a=o.querySelector('[data-call-actions]');
     a.innerHTML='';
     time.style.display=upCall.connected?'flex':'none';
-    time.style.cssText='display:'+(upCall.connected?'flex':'none')+';align-items:center;justify-content:center;min-width:72px;color:#f3f7fd;font:800 21px/1 Segoe UI,Arial,sans-serif;letter-spacing:.3px;text-shadow:0 1px 10px rgba(255,255,255,.08);';
+    time.style.cssText='display:'+(upCall.connected?'flex':'none')+';align-items:center;justify-content:center;min-width:54px;color:#f3f7fd;font:800 17px/1 Segoe UI,Arial,sans-serif;letter-spacing:.3px;text-shadow:0 1px 10px rgba(255,255,255,.08);';
     if(dot)dot.style.background=upCall.connected?'#5fd38b':(status==='Chamada recebida'?'#70a7ff':'#e7b75a');
     (buttons||[]).forEach(function(b){
       var x=document.createElement('button');
@@ -1124,7 +1123,7 @@
       x.title=b.label||'Ação';
       x.innerHTML=callIcon(b.icon||(b.danger?'hangup':'close'));
       x.onclick=b.onClick;
-      x.style.cssText='width:38px;height:38px;display:flex;align-items:center;justify-content:center;border:1px solid '+(b.danger?'rgba(255,103,124,.34)':'rgba(118,142,174,.28)')+';border-radius:11px;padding:0;background:'+(b.danger?'linear-gradient(145deg,#b33b52,#8f2e42)':'rgba(45,60,82,.9)')+';color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.22);transition:transform .12s ease,filter .12s ease,background .12s ease;';
+      x.style.cssText='width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid '+(b.danger?'rgba(255,103,124,.34)':'rgba(118,142,174,.28)')+';border-radius:10px;padding:0;background:'+(b.danger?'linear-gradient(145deg,#b33b52,#8f2e42)':'rgba(45,60,82,.9)')+';color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.22);transition:transform .12s ease,filter .12s ease,background .12s ease;';
       if(b.icon==='phone')x.style.background='linear-gradient(145deg,#2fae6a,#238754)';
       if(b.muted)x.style.background='linear-gradient(145deg,#55677f,#3d4c61)';
       x.onmouseenter=function(){x.style.filter='brightness(1.12)';x.style.transform='translateY(-1px)';};
