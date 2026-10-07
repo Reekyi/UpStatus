@@ -1158,6 +1158,7 @@
   function callFail(message){
     if(upCall.timer){clearTimeout(upCall.timer);upCall.timer=null;}
     if(upCall.counterTimer){clearInterval(upCall.counterTimer);upCall.counterTimer=null;}
+    callStopRingtone();
     callRender('Chamada',message,[{label:'Fechar',onClick:function(){callCleanup(false);}}]);
   }
   function callCreatePeer(){
