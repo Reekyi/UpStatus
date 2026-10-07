@@ -1717,10 +1717,28 @@
   function scrollChatToBottom(){
     var list=chat.querySelector('.up-chat-list');
     if(!list)return;
-    function apply(){try{list.scrollTop=list.scrollHeight;}catch(e){}}
+    function apply(){
+      try{
+        var last=list.lastElementChild;
+        if(last&&last.scrollIntoView){
+          last.scrollIntoView({block:'end',inline:'nearest',behavior:'auto'});
+        }else{
+          list.scrollTop=list.scrollHeight;
+        }
+        list.scrollTop=list.scrollHeight;
+      }catch(e){
+        try{list.scrollTop=list.scrollHeight;}catch(_){}
+      }
+    }
     apply();
-    requestAnimationFrame(function(){apply();requestAnimationFrame(apply);});
+    requestAnimationFrame(function(){
+      apply();
+      requestAnimationFrame(function(){
+        apply();
+      });
+    });
     setTimeout(apply,80);
+    setTimeout(apply,180);
   }
   function sendChat(){
     var input=chat.querySelector('.up-chat-input'),text=input?(input.value||'').trim():'';
