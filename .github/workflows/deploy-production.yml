@@ -1,0 +1,31 @@
+name: UpStatus Deploy PRODUCTION
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - name: Checkout approved release ref
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Reject pre-release builds
+        run: |
+          node -e "const r=require('./release.json'); if(r.preRelease) { console.error('Production requires release.json.preRelease to be empty.'); process.exit(1); }"
+      - name: Validate stable build
+        run: node scripts/validate.mjs
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        with:
+          version: latest
+      - name: Deploy PRODUCTION only
+        run: supabase functions deploy upstatus --project-ref "$SUPABASE_PROJECT_ID" --use-api
