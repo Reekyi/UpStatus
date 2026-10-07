@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         UpStatus - Sale Smartly
+// @name         UpStatus - Sale Smartly [TESTE]
 // @namespace    upseller
 // @version      3.0.16-test.1
 // @match        *://*.salesmartly.com/*
