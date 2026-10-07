@@ -1025,37 +1025,32 @@
         if(!upCall.active||upCall.connected){callStopRingtone();return;}
         try{
           var now=ctx.currentTime;
-          function ringPair(start,duration,peak){
-            var freqs=[620,880];
-            freqs.forEach(function(freq,index){
-              var osc=ctx.createOscillator(),gain=ctx.createGain();
-              osc.type=index===0?'sine':'triangle';
-              osc.frequency.value=freq;
-              gain.gain.setValueAtTime(0.0001,start);
-              gain.gain.exponentialRampToValueAtTime(peak*(index===0?1:0.72),start+0.018);
-              gain.gain.setValueAtTime(peak*(index===0?1:0.72),start+duration-0.055);
-              gain.gain.exponentialRampToValueAtTime(0.0001,start+duration);
-              osc.connect(gain);gain.connect(ctx.destination);
-              osc.start(start);osc.stop(start+duration+0.025);
-            });
-          }
-          function ping(start,freq,peak){
+          function bell(start,duration,peak){
             var osc=ctx.createOscillator(),gain=ctx.createGain();
+            var warmth=ctx.createOscillator(),warmGain=ctx.createGain();
             osc.type='sine';
-            osc.frequency.value=freq;
+            osc.frequency.value=525;
+            warmth.type='triangle';
+            warmth.frequency.value=790;
             gain.gain.setValueAtTime(0.0001,start);
-            gain.gain.exponentialRampToValueAtTime(peak,start+0.012);
-            gain.gain.exponentialRampToValueAtTime(0.0001,start+0.19);
+            gain.gain.exponentialRampToValueAtTime(peak,start+0.045);
+            gain.gain.setValueAtTime(peak,start+duration-0.10);
+            gain.gain.exponentialRampToValueAtTime(0.0001,start+duration);
+            warmGain.gain.setValueAtTime(0.0001,start);
+            warmGain.gain.exponentialRampToValueAtTime(peak*0.28,start+0.05);
+            warmGain.gain.setValueAtTime(peak*0.28,start+duration-0.10);
+            warmGain.gain.exponentialRampToValueAtTime(0.0001,start+duration);
             osc.connect(gain);gain.connect(ctx.destination);
-            osc.start(start);osc.stop(start+0.21);
+            warmth.connect(warmGain);warmGain.connect(ctx.destination);
+            osc.start(start);warmth.start(start);
+            osc.stop(start+duration+0.03);warmth.stop(start+duration+0.03);
           }
-          ringPair(now,0.34,0.20);
-          ringPair(now+0.43,0.34,0.20);
-          ping(now+0.88,1046.5,0.10);
+          bell(now,0.48,0.17);
+          bell(now+0.60,0.48,0.17);
         }catch(e){}
       }
       tone();
-      upCall.ringtoneTimer=setInterval(tone,1800);
+      upCall.ringtoneTimer=setInterval(tone,2400);
       if(ctx.state==='suspended'){var p=ctx.resume();if(p&&p.catch)p.catch(function(){});}
     }catch(e){}
   }
