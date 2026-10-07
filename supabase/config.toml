@@ -10,3 +10,6 @@ allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "image/gif", "vid
 public = true
 file_size_limit = "2MB"
 allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "image/gif"]
+
+[functions.upstatus-test]
+verify_jwt = false
