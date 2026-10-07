@@ -1024,18 +1024,25 @@
       function tone(){
         if(!upCall.active||upCall.connected){callStopRingtone();return;}
         try{
-          var osc=ctx.createOscillator(),gain=ctx.createGain();
-          osc.type='sine';
-          osc.frequency.value=740;
-          gain.gain.setValueAtTime(0.0001,ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.055,ctx.currentTime+0.03);
-          gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.34);
-          osc.connect(gain);gain.connect(ctx.destination);
-          osc.start();osc.stop(ctx.currentTime+0.36);
+          var now=ctx.currentTime;
+          function note(freq,start,duration,peak){
+            var osc=ctx.createOscillator(),gain=ctx.createGain();
+            osc.type='sine';
+            osc.frequency.value=freq;
+            gain.gain.setValueAtTime(0.0001,start);
+            gain.gain.exponentialRampToValueAtTime(peak,start+0.018);
+            gain.gain.exponentialRampToValueAtTime(0.0001,start+duration);
+            osc.connect(gain);gain.connect(ctx.destination);
+            osc.start(start);osc.stop(start+duration+0.02);
+          }
+          note(880,now,0.24,0.14);
+          note(660,now,0.24,0.11);
+          note(880,now+0.30,0.24,0.14);
+          note(660,now+0.30,0.24,0.11);
         }catch(e){}
       }
       tone();
-      upCall.ringtoneTimer=setInterval(tone,1100);
+      upCall.ringtoneTimer=setInterval(tone,1250);
       if(ctx.state==='suspended'){var p=ctx.resume();if(p&&p.catch)p.catch(function(){});}
     }catch(e){}
   }
