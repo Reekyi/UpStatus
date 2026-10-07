@@ -276,7 +276,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.16-test.4';
+  var CURRENT_VERSION='3.0.16-test.6';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
