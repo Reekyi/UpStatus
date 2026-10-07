@@ -276,7 +276,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.16-test.1';
+  var CURRENT_VERSION='3.0.16-test.3';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1652,6 +1652,24 @@
     markVisibleChatRead();
   }
   function refreshChatAfterSend(input,btn){if(input)input.value='';if(btn)btn.disabled=false;loadChat();return Promise.resolve();}
+
+  function reconcileSentChatMessage(tempId,created){
+    var idx=chatCache.findIndex(function(m){return String(m.id)===String(tempId);});
+    if(idx<0){chatCache.push(created);chatCache.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});renderChat();return;}
+    var previous=idx>0?chatCache[idx-1]:null;
+    var sameDay=!!previous&&chatDateKey(previous.createdAt)===chatDateKey(created.createdAt);
+    var structuralSafe=idx===chatCache.length-1&&sameDay;
+    chatCache[idx]=mergeChatMessage(chatCache[idx],created);
+    chatCache[idx].id=created.id;
+    if(!structuralSafe){
+      chatCache.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});
+      renderChat();
+      return;
+    }
+    var item=chat.querySelector('.up-chat-item[data-message-id="'+CSS.escape(String(tempId))+'"]');
+    if(item)item.setAttribute('data-message-id',String(created.id));
+    chatLastRenderKey=chatDataKey(chatCache);
+  }
   function setupEmojiPicker(btn,menu,input){
     if(!btn||!menu||!input)return;
     var emojis='😀 😃 😄 😁 😆 😅 😂 🙂 🙃 😉 😊 😍 🥰 😘 😎 🤔 😐 😑 😶 🙄 😏 😴 🤣 😭 😡 🤯 😱 🤝 👍 👎 👌 ✌️ 🙏 👏 💪 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💯 🔥 🎉 🚀 ✅ ❌ ⭐ 🤡 🤖 👀 🫡'.split(' ');
@@ -1700,13 +1718,8 @@
       var created=normalizeChatMessage(r&&r.message);
       if(created){
         clearChatDraft();
-        var optimisticIndex=chatCache.findIndex(function(m){return m.id===tempId;});
-        if(optimisticIndex>=0)chatCache[optimisticIndex]=mergeChatMessage(chatCache[optimisticIndex],created);
-        else chatCache.push(created);
-        chatCache=chatCache.filter(function(m){return m.id!==tempId;});
-        chatCache.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});
+        reconcileSentChatMessage(tempId,created);
         sendRealtimeEvent('chat_fast',{message:created});
-        try{renderChat();}catch(renderError){try{console.error('[UpStatus Chat] Falha ao renderizar mensagem enviada:',renderError);}catch(_){}}
       }else{
         chatCache=chatCache.filter(function(m){return m.id!==tempId;});
         loadChat(true);
