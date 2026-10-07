@@ -276,7 +276,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.16-test.6';
+  var CURRENT_VERSION='3.0.16-test.7';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1714,14 +1714,18 @@
   function sendChatAudioData(dataUrl){var send=chat.querySelector('.up-chat-send'),record=chat.querySelector('.up-chat-record');if(send)send.disabled=true;if(record)record.disabled=true;var raw=String(dataUrl||'');var match=raw.match(/^data:(audio\/[^;,]+)(?:;[^,]*)?;base64,/i);if(!match){if(send)send.disabled=false;if(record)record.disabled=false;message('Áudio inválido.',true);return;}api('POST','/api/chat/audio',{dataUrl:raw}).then(function(r){return api('POST','/api/chat',{message:'',imageUrl:r.imageUrl,type:'audio',replyTo:chatReplyTo});}).then(function(){chatReplyTo=null;setChatReply(null);stopTypingHeartbeat();return refreshChatAfterSend(null,send);}).catch(function(e){if(send)send.disabled=false;message(e.message,true);}).finally(function(){if(record)record.disabled=false;});
   }
   function clearChatRicardo(){if(member!=='Ricardo')return;if(!confirm('Limpar todo o chat para a equipe?'))return;api('POST','/api/chat/clear',{}).then(function(){chatCache=[];chatLastRenderKey='';return api('GET','/api/chat');}).then(function(d){chatCache=d.messages||[];if(d.profiles)profileCache=d.profiles;renderChat();}).catch(function(e){message(e.message,true);});}
-  function scrollChatToBottom(){var list=chat.querySelector('.up-chat-list');if(!list)return;requestAnimationFrame(function(){list.scrollTop=list.scrollHeight;});}
+  function scrollChatToBottom(){
+    var list=chat.querySelector('.up-chat-list');
+    if(!list)return;
+    function apply(){try{list.scrollTop=list.scrollHeight;}catch(e){}}
+    apply();
+    requestAnimationFrame(function(){apply();requestAnimationFrame(apply);});
+    setTimeout(apply,80);
+  }
   function sendChat(){
-    if(chatSending)return;
     var input=chat.querySelector('.up-chat-input'),text=input?(input.value||'').trim():'';
     if(!input||!text)return;
     var btn=chat.querySelector('.up-chat-send');
-    chatSending=true;
-    if(btn)btn.disabled=true;
     var tempId='local-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
     var tempReply=chatReplyTo;
     var optimistic={id:tempId,user:member,message:text,type:'text',systemType:'',createdAt:new Date().toISOString(),imageUrl:'',mentions:[],replyTo:tempReply,reactions:{},readBy:[],optimistic:true};
@@ -1754,7 +1758,6 @@
       saveChatDraft(input);
       message(e.message||'Não foi possível enviar a mensagem.',true);
     }).finally(function(){
-      chatSending=false;
       if(btn)btn.disabled=false;
     });
   }
