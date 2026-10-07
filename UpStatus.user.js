@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.0.19
+// @version      3.0.20
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -30,6 +30,48 @@
   var upCall={pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,overlay:null,callId:'',peer:'',role:'',pendingOffer:null,pendingCandidates:[],active:false,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0,ringtoneTimer:null,ringtoneCtx:null,ringtoneAllowed:false};;
   // Controle global do ringtone: evita áudio órfão quando há mais de uma instância do userscript na página.
   var upRingtoneGlobal=window.__upstatusRingtoneGlobal||(window.__upstatusRingtoneGlobal={generation:0,sources:[],gains:[]});
+  // Coordenação do ringtone entre instâncias/contextos do UpStatus.
+  // A chamada real pode ser recebida por mais de um contexto da mesma página.
+  var UP_RINGTONE_CHANNEL='upstatus-call-ringtone-stop-v1';
+  var upCallInstanceId='up-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
+  var upRingtoneChannel=null;
+  var upRingtoneStorageKey='upstatus_call_ringtone_stop_bus';
+  function callHandleRemoteRingtoneStop(payload){
+    try{
+      var p=payload&&payload.detail?payload.detail:payload;
+      if(!p||p.type!=='stop'||!p.callId)return;
+      if(String(p.instanceId||'')===upCallInstanceId)return;
+      if(!upCall.callId||String(p.callId)!==String(upCall.callId))return;
+      callStopRingtone(false);
+    }catch(e){}
+  }
+  function callInitRingtoneChannel(){
+    if(upRingtoneChannel||typeof BroadcastChannel==='undefined')return;
+    try{
+      upRingtoneChannel=new BroadcastChannel(UP_RINGTONE_CHANNEL);
+      upRingtoneChannel.onmessage=function(e){callHandleRemoteRingtoneStop(e&&e.data);};
+    }catch(e){upRingtoneChannel=null;}
+  }
+  function callBroadcastRingtoneStop(callId,reason){
+    if(!callId)return;
+    var payload={type:'stop',callId:String(callId),reason:String(reason||'lifecycle'),instanceId:upCallInstanceId,at:Date.now()};
+    try{
+      document.dispatchEvent(new CustomEvent('UPSTATUS_RINGTONE_STOP',{detail:payload}));
+    }catch(e){}
+    try{
+      if(!upRingtoneChannel)callInitRingtoneChannel();
+      if(upRingtoneChannel)upRingtoneChannel.postMessage(payload);
+    }catch(e){}
+    try{
+      localStorage.setItem(upRingtoneStorageKey,JSON.stringify(payload));
+    }catch(e){}
+  }
+  document.addEventListener('UPSTATUS_RINGTONE_STOP',function(e){callHandleRemoteRingtoneStop(e);});
+  window.addEventListener('storage',function(e){
+    if(e.key!==upRingtoneStorageKey||!e.newValue)return;
+    try{callHandleRemoteRingtoneStop(JSON.parse(e.newValue));}catch(err){}
+  });
+  callInitRingtoneChannel();
   var chatPresence={};
   function setupFaviconBadge(){
     try{
@@ -281,7 +323,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.19';
+  var CURRENT_VERSION='3.0.20';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1031,7 +1073,8 @@
       if(p&&p.catch)p.catch(function(){});
     }
   }
-  function callStopRingtone(){
+  function callStopRingtone(broadcast){
+    var callId=upCall.callId;
     upCall.ringtoneAllowed=false;
     if(upCall.ringtoneTimer){clearInterval(upCall.ringtoneTimer);upCall.ringtoneTimer=null;}
     upCall.ringtoneLoadId=(upCall.ringtoneLoadId||0)+1;
@@ -1059,6 +1102,7 @@
       upRingtoneGlobal.gains=[];
     }catch(e){}
     upCall.ringtoneCtx=null;
+    if(broadcast!==false&&callId)callBroadcastRingtoneStop(callId,'local-stop');
   }
   function callConfigureRingtones(){
     var roles=[{key:'caller',label:'CHAMANDO: selecione chamando.mp3'},{key:'callee',label:'RECEBENDO: selecione recebendo.mp3'}];
@@ -1116,7 +1160,7 @@
   }
 
   function callStartRingtone(){
-    callStopRingtone();
+    callStopRingtone(false);
     upCall.ringtoneAllowed=true;
     try{
       var ctx=callEnsureAudioContext();
@@ -1313,6 +1357,7 @@
       else upCall.pendingCandidates.push(p.candidate);
       return;
     }
+    if(p.type==='ringtone_stop'){callStopRingtone(false);return;}
     if(p.type==='reject'||p.type==='busy'){callFail(p.type==='busy'?'O usuário está em outra chamada.':'Chamada recusada.');return;}
     if(p.type==='hangup'){callCleanup(false);return;}
   }
