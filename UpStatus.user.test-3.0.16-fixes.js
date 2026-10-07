@@ -1669,6 +1669,12 @@
       if(chatSandboxPreviousNode){chat=chatSandboxPreviousNode;chat.classList.add('hidden');}
       if(chatSandboxPanel){
         chatSandboxPanelHidden.forEach(function(el){if(el)el.style.display=el.__upTestSandboxDisplay||'';});
+        chatSandboxPanel.style.width=chatSandboxPanel.__upTestSandboxWidth||'';
+        chatSandboxPanel.style.maxHeight=chatSandboxPanel.__upTestSandboxMaxHeight||'';
+        chatSandboxPanel.style.overflow=chatSandboxPanel.__upTestSandboxOverflow||'';
+        delete chatSandboxPanel.__upTestSandboxWidth;
+        delete chatSandboxPanel.__upTestSandboxMaxHeight;
+        delete chatSandboxPanel.__upTestSandboxOverflow;
       }
       chatSandboxMode=false;chatSandboxOverlay=null;chatSandboxPreviousNode=null;chatSandboxPanel=null;chatSandboxPanelHidden=[];
       chatCache=[];chatReplyTo=null;chatContextMessageId=null;
@@ -2034,6 +2040,9 @@
     sandboxChat.style.cssText='position:relative!important;right:auto!important;bottom:auto!important;left:auto!important;width:100%!important;max-width:none!important;height:100%!important;box-sizing:border-box!important;margin:0!important;';
     host.appendChild(sandboxChat);
     chatSandboxMode=true;chatSandboxOverlay=overlay;chatSandboxPreviousNode=previous;chatSandboxPanel=panel;
+    chatSandboxPanel.__upTestSandboxWidth=panel.style.width;
+    chatSandboxPanel.__upTestSandboxMaxHeight=panel.style.maxHeight;
+    chatSandboxPanel.__upTestSandboxOverflow=panel.style.overflow;
     chatSandboxPanelHidden=[];
     Array.from(panel.children).forEach(function(el){
       if(el!==panel.firstElementChild){
@@ -2356,7 +2365,8 @@
   }
   document.addEventListener('pointerdown',function(e){
     callUnlockAudio();
-    if(!root.contains(e.target)){
+    var inTestPanel=!!(e.target&&e.target.closest&&e.target.closest('.up-test-overlay'));
+    if(!root.contains(e.target)&&!inTestPanel){
       if(!chat.classList.contains('hidden'))saveChatDraft();
       card.classList.add('hidden');
       history.classList.add('hidden');
