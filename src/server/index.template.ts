@@ -607,4 +607,4 @@ Deno.serve(async(req)=>{
     console.error(e);
     return response({error:e instanceof Error?e.message:"Erro interno."},500);
   }
-});\n
+});
