@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.0.18
+// @version      3.0.19
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -27,7 +27,9 @@
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
   // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
   // Mantido isolado do chat, status e demais recursos do UpStatus.
-  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,overlay:null,callId:'',peer:'',role:'',pendingOffer:null,pendingCandidates:[],active:false,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0,ringtoneTimer:null,ringtoneCtx:null,ringtoneAllowed:false};
+  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,overlay:null,callId:'',peer:'',role:'',pendingOffer:null,pendingCandidates:[],active:false,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0,ringtoneTimer:null,ringtoneCtx:null,ringtoneAllowed:false};;
+  // Controle global do ringtone: evita áudio órfão quando há mais de uma instância do userscript na página.
+  var upRingtoneGlobal=window.__upstatusRingtoneGlobal||(window.__upstatusRingtoneGlobal={generation:0,sources:[],gains:[]});
   var chatPresence={};
   function setupFaviconBadge(){
     try{
@@ -279,7 +281,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.18';
+  var CURRENT_VERSION='3.0.19';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -635,7 +637,7 @@
     var existing=root.querySelector('.up-patch-modal');
     if(existing)existing.remove();
     var modal=node('div',{className:'up-patch-modal'});
-    modal.innerHTML='<div class="up-patch-dialog" role="dialog" aria-modal="true" aria-label="O que há de novo?"><div class="up-patch-head"><div class="up-patch-title">O que há de novo?</div><button type="button" class="up-patch-close" aria-label="Fechar">×</button></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.18</div><ul class="up-patch-list"><li>Corrigido o toque de chamada no usuário que recebe a ligação: o ringtone agora é encerrado de forma determinística ao atender.</li></ul><div class="up-patch-version-title">v3.0.17</div><ul class="up-patch-list"><li>Chat mais fluido ao enviar mensagens, com redução do flicker causado por redesenhos completos.</li><li>Mensagens enviadas agora são reconciliadas com o servidor sem reconstruir o chat inteiro quando não é necessário.</li><li>Corrigido o envio duplicado ao manter a tecla Enter pressionada.</li><li>Corrigido o reaparecimento do texto na caixa de mensagem após um envio já aceito pelo servidor.</li><li>Permite enviar mensagens consecutivas sem bloquear o envio enquanto a anterior é processada.</li><li>Melhorada a estabilidade do chat, incluindo preservação da posição de leitura e comportamento do scroll durante novas mensagens.</li><li>O chat agora evita acumular listeners de menu de contexto e seletor de emojis ao ser reaberto.</li><li>Chamadas de áudio consolidadas com WebRTC e Supabase Realtime para sinalização entre os usuários.</li><li>Mini-player de chamadas com mute, cronômetro, estados de conexão, controles de áudio e encerramento da ligação.</li><li>Melhorias no áudio e nos toques de chamada, com distribuição automática dos toques padrão e preservação de toques personalizados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.16</div><ul class="up-patch-list"><li>Toques padrão de chamada agora são distribuídos automaticamente pelo GitHub.</li><li>Toques são armazenados localmente e personalizados continuam preservados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.15</div><ul class="up-patch-list"><li>Corrigido o redesenho excessivo do chat que causava flicker.</li><li>Melhorado o controle de mensagens não lidas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.14</div><ul class="up-patch-list"><li>Adicionado o sistema de chamadas WebRTC com áudio.</li><li>Adicionado mini-player de chamadas, mute, timer e controles de ligação.</li><li>Melhorado o áudio e os toques de chamada.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.8</div><ul class="up-patch-list"><li>Notificações do chat agora respeitam o estado do chat e da aba.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.7</div><ul class="up-patch-list"><li>Corrigido o botão "← Voltar" do chat.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.6</div><ul class="up-patch-list"><li>Adicionado o Patch Notes do UpStatus.</li><li>Novidades das versões reunidas em um só lugar.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.5</div><ul class="up-patch-list"><li>Chat corrigido e mais estável.</li><li>Correção de mensagens duplicadas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.4</div><ul class="up-patch-list"><li>Correção da identificação do autor das mensagens.</li><li>Melhorias na sincronização do chat.</li></ul></div></div>';
+    modal.innerHTML='<div class="up-patch-dialog" role="dialog" aria-modal="true" aria-label="O que há de novo?"><div class="up-patch-head"><div class="up-patch-title">O que há de novo?</div><button type="button" class="up-patch-close" aria-label="Fechar">×</button></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.19</div><ul class="up-patch-list"><li>Corrigido o ringtone órfão em chamadas recebidas, incluindo instâncias duplicadas do userscript e carregamentos assíncronos pendentes.</li></ul><div class="up-patch-version-title">v3.0.18</div><ul class="up-patch-list"><li>Corrigido o toque de chamada no usuário que recebe a ligação: o ringtone agora é encerrado de forma determinística ao atender.</li></ul><div class="up-patch-version-title">v3.0.17</div><ul class="up-patch-list"><li>Chat mais fluido ao enviar mensagens, com redução do flicker causado por redesenhos completos.</li><li>Mensagens enviadas agora são reconciliadas com o servidor sem reconstruir o chat inteiro quando não é necessário.</li><li>Corrigido o envio duplicado ao manter a tecla Enter pressionada.</li><li>Corrigido o reaparecimento do texto na caixa de mensagem após um envio já aceito pelo servidor.</li><li>Permite enviar mensagens consecutivas sem bloquear o envio enquanto a anterior é processada.</li><li>Melhorada a estabilidade do chat, incluindo preservação da posição de leitura e comportamento do scroll durante novas mensagens.</li><li>O chat agora evita acumular listeners de menu de contexto e seletor de emojis ao ser reaberto.</li><li>Chamadas de áudio consolidadas com WebRTC e Supabase Realtime para sinalização entre os usuários.</li><li>Mini-player de chamadas com mute, cronômetro, estados de conexão, controles de áudio e encerramento da ligação.</li><li>Melhorias no áudio e nos toques de chamada, com distribuição automática dos toques padrão e preservação de toques personalizados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.16</div><ul class="up-patch-list"><li>Toques padrão de chamada agora são distribuídos automaticamente pelo GitHub.</li><li>Toques são armazenados localmente e personalizados continuam preservados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.15</div><ul class="up-patch-list"><li>Corrigido o redesenho excessivo do chat que causava flicker.</li><li>Melhorado o controle de mensagens não lidas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.14</div><ul class="up-patch-list"><li>Adicionado o sistema de chamadas WebRTC com áudio.</li><li>Adicionado mini-player de chamadas, mute, timer e controles de ligação.</li><li>Melhorado o áudio e os toques de chamada.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.8</div><ul class="up-patch-list"><li>Notificações do chat agora respeitam o estado do chat e da aba.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.7</div><ul class="up-patch-list"><li>Corrigido o botão "← Voltar" do chat.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.6</div><ul class="up-patch-list"><li>Adicionado o Patch Notes do UpStatus.</li><li>Novidades das versões reunidas em um só lugar.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.5</div><ul class="up-patch-list"><li>Chat corrigido e mais estável.</li><li>Correção de mensagens duplicadas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.4</div><ul class="up-patch-list"><li>Correção da identificação do autor das mensagens.</li><li>Melhorias na sincronização do chat.</li></ul></div></div>';
     root.appendChild(modal);
     var close=modal.querySelector('.up-patch-close');
     function closePatch(){modal.remove();}
@@ -1033,6 +1035,7 @@
     upCall.ringtoneAllowed=false;
     if(upCall.ringtoneTimer){clearInterval(upCall.ringtoneTimer);upCall.ringtoneTimer=null;}
     upCall.ringtoneLoadId=(upCall.ringtoneLoadId||0)+1;
+    try{upRingtoneGlobal.generation=(upRingtoneGlobal.generation||0)+1;}catch(e){}
     var source=upCall.ringtoneSource;
     var gain=upCall.ringtoneGain;
     upCall.ringtoneSource=null;
@@ -1043,6 +1046,18 @@
       try{source.disconnect();}catch(e){}
     }
     if(gain){try{gain.disconnect();}catch(e){}}
+    try{
+      (upRingtoneGlobal.sources||[]).slice().forEach(function(src){
+        try{src.stop(0);}catch(e){}
+        try{src.disconnect();}catch(e){}
+      });
+      (upRingtoneGlobal.gains||[]).slice().forEach(function(g){
+        try{g.gain.setValueAtTime(0,g.context.currentTime);}catch(e){}
+        try{g.disconnect();}catch(e){}
+      });
+      upRingtoneGlobal.sources=[];
+      upRingtoneGlobal.gains=[];
+    }catch(e){}
     upCall.ringtoneCtx=null;
   }
   function callConfigureRingtones(){
@@ -1112,16 +1127,18 @@
       upCall.ringtoneCtx=ctx;
       var loadId=(upCall.ringtoneLoadId||0)+1;
       upCall.ringtoneLoadId=loadId;
+      var globalGeneration=(upRingtoneGlobal.generation||0)+1;
+      upRingtoneGlobal.generation=globalGeneration;
       var dataPromise=data?Promise.resolve(data):callGetRingtoneData(roleKey);
       dataPromise.then(function(value){
-        if(upCall.ringtoneLoadId!==loadId||!upCall.active||upCall.connected||!upCall.ringtoneAllowed)return null;
+        if(upCall.ringtoneLoadId!==loadId||globalGeneration!==upRingtoneGlobal.generation||!upCall.active||upCall.connected||!upCall.ringtoneAllowed)return null;
         if(!value)return null;
         return fetch(value).then(function(r){return r.arrayBuffer();});
       }).then(function(buf){
         if(!buf)return null;
         return ctx.decodeAudioData(buf);
       }).then(function(decoded){
-        if(!upCall.active||upCall.connected||upCall.ringtoneLoadId!==loadId||!upCall.ringtoneAllowed)return;
+        if(!upCall.active||upCall.connected||upCall.ringtoneLoadId!==loadId||globalGeneration!==upRingtoneGlobal.generation||!upCall.ringtoneAllowed)return;
         var source=ctx.createBufferSource(),gain=ctx.createGain();
         source.buffer=decoded;
         source.loop=true;
@@ -1129,6 +1146,7 @@
         source.connect(gain);gain.connect(ctx.destination);
         upCall.ringtoneSource=source;
         upCall.ringtoneGain=gain;
+        try{upRingtoneGlobal.sources.push(source);upRingtoneGlobal.gains.push(gain);}catch(e){}
         source.start(0);
       }).catch(function(){});
     }catch(e){}
