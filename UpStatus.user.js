@@ -956,11 +956,11 @@
     return o;
   }
   function callPositionOverlay(){
-    var o=callEnsureOverlay(),r=root.getBoundingClientRect(),w=300,gap=8;
+    var o=callEnsureOverlay(),r=root.getBoundingClientRect(),w=300,gap=6;
     var canLeft=r.left>=w+gap;
     var canRight=window.innerWidth-r.right>=w+gap;
-    if(canLeft||!canRight){o.style.right='50px';o.style.left='auto';}
-    else{o.style.left='50px';o.style.right='auto';}
+    if(canLeft||!canRight){o.style.right='48px';o.style.left='auto';o.style.bottom='0';}
+    else{o.style.left='48px';o.style.right='auto';o.style.bottom='0';}
   }
   function callStartCounter(){
     if(upCall.counterTimer)clearInterval(upCall.counterTimer);
@@ -1051,10 +1051,10 @@
       var st=pc.connectionState;
       if(st==='connected'){
         upCall.connected=true;
-        callRender(upCall.peer,'Conectado',[{label:upCall.muted?'Ativar mic':'Mutar',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',danger:true,onClick:function(){callCleanup(true);}}]);
+        callRender(upCall.peer,'Conectado',[{label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}]);
         if(!upCall.startedAt)callStartCounter();
-      }else if(st==='failed'){callFail('A conexão de áudio falhou.');}
-      else if(st==='disconnected'&&upCall.active){callRender(upCall.peer,'Conexão perdida',[{label:'Desligar',danger:true,onClick:function(){callCleanup(true);}}]);}
+      }else if(st==='failed'){callCleanup(false);}
+      else if(st==='disconnected'&&upCall.active){callCleanup(false);}
     };
     if(upCall.localStream)upCall.localStream.getTracks().forEach(function(t){pc.addTrack(t,upCall.localStream);});
     return pc;
@@ -1089,7 +1089,7 @@
     if(p.type==='offer'){
       if(upCall.active){sendRealtimeEvent('call_signal',{type:'busy',callId:p.callId,from:member,to:p.from});return;}
       upCall.callId=p.callId;upCall.peer=p.from;upCall.role='callee';upCall.active=true;upCall.connected=false;upCall.pendingOffer=p.sdp;upCall.pendingCandidates=[];upCall.startedAt=0;
-      callRender(p.from,'Chamada recebida',[{label:'Atender',onClick:function(){acceptIncomingCall();}},{label:'Desligar',danger:true,onClick:function(){callSend('reject');callCleanup(false);}}]);
+      callRender(p.from,'Chamada recebida',[{label:'Atender',icon:'phone',onClick:function(){acceptIncomingCall();}},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callSend('reject');callCleanup(false);}}]);
       return;
     }
     if(p.callId!==upCall.callId||p.from!==upCall.peer)return;
@@ -1100,7 +1100,7 @@
       return;
     }
     if(p.type==='reject'||p.type==='busy'){callFail(p.type==='busy'?'O usuário está em outra chamada.':'Chamada recusada.');return;}
-    if(p.type==='hangup'){callRender('Chamada encerrada','A outra pessoa encerrou a chamada.',[{label:'Fechar',onClick:function(){callCleanup(false);}}]);}
+    if(p.type==='hangup'){callCleanup(false);return;}
   }
   async function acceptIncomingCall(){
     if(!upCall.active||upCall.role!=='callee'||!upCall.pendingOffer)return;
@@ -1113,14 +1113,14 @@
       await pc.setLocalDescription(answer);
       upCall.pendingOffer=null;
       callSend('answer',{sdp:pc.localDescription});
-      callRender(upCall.peer,'Conectando…',[{label:'Desligar',danger:true,onClick:function(){callCleanup(true);}}]);
+      callRender(upCall.peer,'Conectando…',[{label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}]);
     }catch(e){callFail(e.message||'Não foi possível atender a chamada.');}
   }
   function toggleCallMute(){
     if(!upCall.localStream)return;
     upCall.muted=!upCall.muted;
     upCall.localStream.getAudioTracks().forEach(function(t){t.enabled=!upCall.muted;});
-    callRender(upCall.peer,upCall.connected?'Conectado':'Conectando…',[{label:upCall.muted?'Ativar mic':'Mutar',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',danger:true,onClick:function(){callCleanup(true);}}]);
+    callRender(upCall.peer,upCall.connected?'Conectado':'Conectando…',[{label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}]);
   }
 
   function handleRealtimeChatFast(payload){
