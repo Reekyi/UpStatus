@@ -27,7 +27,7 @@
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
   // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
   // Mantido isolado do chat, status e demais recursos do UpStatus.
-  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,overlay:null,callId:'',peer:'',role:'',pendingOffer:null,pendingCandidates:[],active:false,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0};
+  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,overlay:null,callId:'',peer:'',role:'',pendingOffer:null,pendingCandidates:[],active:false,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0,ringtoneTimer:null,ringtoneCtx:null};
   var chatPresence={};
   function setupFaviconBadge(){
     try{
@@ -959,7 +959,29 @@
     upCall.audio.volume=1;
     return o;
   }
+  function callEnsureAudioContext(){
+    try{
+      var C=window.AudioContext||window.webkitAudioContext;
+      if(!C)return null;
+      if(!upCall.audioCtx||upCall.audioCtx.state==='closed'){
+        upCall.audioCtx=new C();
+        upCall.audioGain=upCall.audioCtx.createGain();
+        upCall.audioGain.gain.value=1;
+        upCall.audioGain.connect(upCall.audioCtx.destination);
+      }
+      if(upCall.audioCtx.state==='suspended'){
+        var p=upCall.audioCtx.resume();
+        if(p&&p.catch)p.catch(function(){});
+      }
+      return upCall.audioCtx;
+    }catch(e){return null;}
+  }
+  function callUnlockAudio(){
+    var ctx=callEnsureAudioContext();
+    if(ctx&&ctx.state==='suspended'){try{ctx.resume();}catch(e){}}
+  }
   function callPrimeAudio(){
+    callEnsureAudioContext();
     var o=callEnsureOverlay();
     if(!upCall.audio)return;
     try{
@@ -969,16 +991,35 @@
       if(p&&p.catch)p.catch(function(){});
     }catch(e){}
   }
+  function callAttachRemoteAudio(stream){
+    if(!stream)return;
+    var ctx=callEnsureAudioContext();
+    if(ctx&&upCall.audioGain){
+      try{
+        if(upCall.audioSource){try{upCall.audioSource.disconnect();}catch(e){}}
+        upCall.audioSource=ctx.createMediaStreamSource(stream);
+        upCall.audioSource.connect(upCall.audioGain);
+        if(upCall.audio){upCall.audio.srcObject=stream;upCall.audio.muted=true;}
+        return;
+      }catch(e){}
+    }
+    if(upCall.audio){
+      upCall.audio.muted=false;
+      upCall.audio.volume=1;
+      upCall.audio.srcObject=stream;
+      var p=upCall.audio.play();
+      if(p&&p.catch)p.catch(function(){});
+    }
+  }
   function callStopRingtone(){
     if(upCall.ringtoneTimer){clearInterval(upCall.ringtoneTimer);upCall.ringtoneTimer=null;}
-    if(upCall.ringtoneCtx){try{upCall.ringtoneCtx.close();}catch(e){}upCall.ringtoneCtx=null;}
+    upCall.ringtoneCtx=null;
   }
   function callStartRingtone(){
     callStopRingtone();
     try{
-      var C=window.AudioContext||window.webkitAudioContext;
-      if(!C)return;
-      var ctx=new C();
+      var ctx=callEnsureAudioContext();
+      if(!ctx)return;
       upCall.ringtoneCtx=ctx;
       function tone(){
         if(!upCall.active||upCall.connected){callStopRingtone();return;}
@@ -1073,7 +1114,8 @@
     callStopRingtone();
     if(upCall.pc){try{upCall.pc.onicecandidate=null;upCall.pc.ontrack=null;upCall.pc.close();}catch(e){}upCall.pc=null;}
     callStopStream();
-    if(upCall.audio){try{upCall.audio.pause();upCall.audio.srcObject=null;}catch(e){}}
+    if(upCall.audio){try{upCall.audio.pause();upCall.audio.srcObject=null;upCall.audio.muted=false;}catch(e){}}
+    if(upCall.audioSource){try{upCall.audioSource.disconnect();}catch(e){}upCall.audioSource=null;}
     upCall.remoteStream=null;upCall.callId='';upCall.peer='';upCall.role='';upCall.pendingOffer=null;upCall.pendingCandidates=[];upCall.active=false;upCall.connected=false;upCall.muted=false;upCall.startedAt=0;
     callHideOverlay();
   }
@@ -1090,7 +1132,7 @@
     pc.onicecandidate=function(e){if(e.candidate&&upCall.active)callSend('ice',{candidate:e.candidate});};
     pc.ontrack=function(e){
       upCall.remoteStream=e.streams&&e.streams[0]?e.streams[0]:null;
-      if(upCall.audio&&upCall.remoteStream){upCall.audio.srcObject=upCall.remoteStream;upCall.audio.muted=false;upCall.audio.volume=1;var p=upCall.audio.play();if(p&&p.catch)p.catch(function(){callPrimeAudio();});}
+      if(upCall.remoteStream)callAttachRemoteAudio(upCall.remoteStream);
     };
     pc.onconnectionstatechange=function(){
       var st=pc.connectionState;
@@ -1098,6 +1140,7 @@
         upCall.connected=true;
         callStopRingtone();
         callPrimeAudio();
+        if(upCall.remoteStream)callAttachRemoteAudio(upCall.remoteStream);
         callRender(upCall.peer,'Conectado',[{label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}]);
         if(!upCall.startedAt)callStartCounter();
       }else if(st==='failed'){callCleanup(false);}
@@ -2025,6 +2068,7 @@
     refresh();
   }
   document.addEventListener('pointerdown',function(e){
+    callUnlockAudio();
     if(!root.contains(e.target)){
       if(!chat.classList.contains('hidden'))saveChatDraft();
       card.classList.add('hidden');
