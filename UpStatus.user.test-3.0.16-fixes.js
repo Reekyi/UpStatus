@@ -722,6 +722,7 @@
   var chatLastRenderKey="";
   var chatDocumentClickBound=false;
   var chatEmojiDocumentClickBound=false;
+  var chatContextDocumentBound=false;
   function removeToast(id){
     var item=toastItems.find(function(x){return x.id===id});
     if(!item)return;
@@ -1591,13 +1592,24 @@
     var canDelete=m.user===member;
     menu.innerHTML=(canReply?'<button type="button" class="up-chat-context-action" data-action="reply">↩ Responder</button>':'')+(canDelete?'<button type="button" class="up-chat-context-action up-chat-context-delete" data-action="delete">🗑 Excluir mensagem</button>':'')+'<div class="up-chat-context-reaction-row">'+quick.map(function(em){return '<button type="button" class="up-chat-reaction" data-context-reaction="'+esc(em)+'">'+em+'</button>';}).join('')+'</div>';
     menu.classList.add('show');
+    menu.oncontextmenu=function(e){e.preventDefault();e.stopPropagation();};
+    menu.onmousedown=function(e){e.stopPropagation();};
+    menu.onclick=function(e){e.stopPropagation();};
     var x=Math.min(window.innerWidth-menu.offsetWidth-8,Math.max(8,e.clientX||8)),y=Math.min(window.innerHeight-menu.offsetHeight-8,Math.max(8,e.clientY||8));menu.style.left=x+'px';menu.style.top=y+'px';
     var reply=menu.querySelector('[data-action="reply"]');if(reply)reply.onclick=function(){setChatReply(m);hideChatContextMenu();};
     var del=menu.querySelector('[data-action="delete"]');if(del)del.onclick=function(){hideChatContextMenu();if(!confirm('Excluir esta mensagem?'))return;del.disabled=true;api('DELETE','/api/chat/'+encodeURIComponent(m.id)).then(function(){chatCache=chatCache.filter(function(x){return x.id!==m.id;});renderChat();}).catch(function(err){message(err.message,true);});};
     menu.querySelectorAll('[data-context-reaction]').forEach(function(btn){btn.onclick=function(){toggleChatReaction(m.id,btn.getAttribute('data-context-reaction'));hideChatContextMenu();};});
   }
   function hideChatContextMenu(){var menu=chat.querySelector('.up-chat-context-menu');if(menu)menu.classList.remove('show');chatContextMessageId=null;}
-  function toggleChatReaction(id,emoji){api('POST','/api/chat/reaction',{messageId:id,emoji:emoji}).then(function(){return api('GET','/api/chat')}).then(function(d){chatCache=d.messages||[];renderChat();}).catch(function(e){message(e.message,true);});}
+  function toggleChatReaction(id,emoji){
+    if(chatSandboxMode){
+      var m=chatCache.find(function(x){return String(x.id)===String(id);});if(!m)return;
+      m.reactions=m.reactions||{};var list=Array.isArray(m.reactions[emoji])?m.reactions[emoji].slice():[];var who=member||'Ricardo';var idx=list.indexOf(who);
+      if(idx>=0)list.splice(idx,1);else list.push(who);
+      if(list.length)m.reactions[emoji]=list;else delete m.reactions[emoji];renderChat();return;
+    }
+    api('POST','/api/chat/reaction',{messageId:id,emoji:emoji}).then(function(){return api('GET','/api/chat')}).then(function(d){chatCache=d.messages||[];renderChat();}).catch(function(e){message(e.message,true);});
+  }
   function setChatReply(m){chatReplyTo=m?{id:m.id,user:m.user,message:m.message||((m.type==='image'||m.type==='video'||m.type==='audio')?'Anexo':'')} : null;var bar=chat.querySelector('.up-chat-reply-bar'),copy=bar&&bar.querySelector('.up-chat-reply-copy');if(bar&&copy){if(chatReplyTo){copy.innerHTML='<b>Respondendo a '+esc(chatReplyTo.user)+'</b>'+esc(chatReplyTo.message.slice(0,120));bar.classList.remove('hidden');}else{bar.classList.add('hidden');copy.textContent='';}}var input=chat.querySelector('.up-chat-input');if(input)input.focus();}
   function mentionState(input){
     if(!input)return null;
@@ -1643,6 +1655,15 @@
     });
   }
   function closeChat(showDashboard){
+    if(chatSandboxMode){
+      try{hideChatContextMenu();stopTypingHeartbeat();}catch(e){}
+      if(chatSandboxOverlay&&chatSandboxOverlay.parentNode)chatSandboxOverlay.remove();
+      if(chatSandboxPreviousNode){chat=chatSandboxPreviousNode;chat.classList.add('hidden');}
+      chatSandboxMode=false;chatSandboxOverlay=null;chatSandboxPreviousNode=null;
+      chatCache=[];chatReplyTo=null;chatContextMessageId=null;
+      card.classList.remove('hidden');
+      return;
+    }
     if(!chat.classList.contains('hidden')){
       saveChatDraft();
       hideChatContextMenu();
@@ -1662,7 +1683,7 @@
     if(!token)return;
     chatReplyTo=null;chatContextMessageId=null;
     setUnread(0);
-    chat.classList.remove('hidden');card.classList.add('hidden');history.classList.add('hidden');broadcastChatPresence(true);refresh();
+    chat.classList.remove('hidden');card.classList.add('hidden');history.classList.add('hidden');if(!chatSandboxMode){broadcastChatPresence(true);refresh();}
     chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><button type="button" class="up-chat-profile-btn" title="Alterar foto de perfil"><img alt="Minha foto"></button><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">●</span> 0 online · 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'<button class="up-chat-back" type="button">← Voltar</button></div></div><div class="up-chat-lucca-alert hidden">🔴 ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregando…</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">×</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando <span class="up-chat-recording-time">0:00</span> • clique novamente para enviar</div><div class="up-chat-input-wrap"><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">'+iconSvg('photo')+'</button><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">🎙</button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" hidden></div></div><div class="up-chat-lightbox hidden"><button type="button" class="up-chat-lightbox-close" aria-label="Fechar">×</button><img alt="Imagem ampliada"></div>';
     var profileBtn=chat.querySelector('.up-chat-profile-btn');if(profileBtn){hydrateAvatar(profileBtn.querySelector('img'),member);profileBtn.onclick=function(e){e.stopPropagation();openProfileModal();};profileBtn.addEventListener('mouseenter',function(e){showChatProfileHover(profileBtn.querySelector('img'),member,e);});profileBtn.addEventListener('mousemove',positionChatProfileHover);profileBtn.addEventListener('mouseleave',hideChatProfileHover);}
     var input=chat.querySelector('.up-chat-input'),photoBtn=chat.querySelector('.up-chat-attach'),photoFile=chat.querySelector('.up-chat-file'),emojiBtn=chat.querySelector('.up-chat-emoji-btn'),emojiMenu=chat.querySelector('.up-chat-emoji-menu'),recordBtn=chat.querySelector('.up-chat-record');
@@ -1673,6 +1694,19 @@
     if(recordBtn)recordBtn.onclick=function(e){e.stopPropagation();toggleAudioRecording(recordBtn);};
     input.addEventListener('paste',function(e){var items=e.clipboardData&&e.clipboardData.items?Array.from(e.clipboardData.items):[];var item=items.find(function(x){return x.kind==='file'&&/^image\//i.test(x.type)});if(item){var file=item.getAsFile();if(file){e.preventDefault();sendChatMedia(file);}}});
     chat.querySelector('.up-chat-reply-close').onclick=function(e){e.stopPropagation();setChatReply(null);};
+    if(!chatContextDocumentBound){
+      chatContextDocumentBound=true;
+      document.addEventListener('contextmenu',function(e){
+        if(!chat||chat.classList.contains('hidden'))return;
+        var item=e.target&&e.target.closest?e.target.closest('.up-chat-item'):null;
+        if(!item||!chat.contains(item))return;
+        var id=item.getAttribute('data-message-id');
+        var msg=chatCache.find(function(x){return String(x.id)===String(id);});
+        if(!msg)return;
+        e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+        openChatContextMenu(e,msg);
+      },true);
+    }
     if(!chatDocumentClickBound){
       chatDocumentClickBound=true;
       document.addEventListener('click',function(e){
@@ -1688,9 +1722,7 @@
     input.addEventListener('keydown',function(e){if(e.key==='Escape'){var menu=chat.querySelector('.up-mention-menu');if(menu)menu.classList.add('hidden');return;}if(e.key==='Enter'&&!e.shiftKey){if(e.repeat){e.preventDefault();return;}var menu=chat.querySelector('.up-mention-menu');if(menu&&!menu.classList.contains('hidden')){var first=menu.querySelector('.up-mention-option');if(first){e.preventDefault();applyMention(first.getAttribute('data-name'));return;}}e.preventDefault();sendChat();}});
     if(chatCache.length)renderChat();
     updateLuccaPresence(luccaOnline);
-    loadChat();
-    pollChatTyping();
-    markVisibleChatRead();
+    if(!chatSandboxMode){loadChat();pollChatTyping();markVisibleChatRead();}
   }
   function refreshChatAfterSend(input,btn){if(input)input.value='';if(btn)btn.disabled=false;loadChat();return Promise.resolve();}
 
@@ -1762,6 +1794,11 @@
   }
   function sendChat(){
     var input=chat.querySelector('.up-chat-input'),text=input?(input.value||'').trim():'';
+    if(chatSandboxMode){
+      if(!input||!text)return;
+      var sandboxMsg={id:'sandbox-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),user:member||'Ricardo',message:text,type:'text',systemType:'',createdAt:new Date().toISOString(),imageUrl:'',mentions:[],replyTo:chatReplyTo,reactions:{},readBy:[]};
+      chatCache.push(sandboxMsg);input.value='';chatForceScrollBottom=true;clearChatDraft();chatReplyTo=null;setChatReply(null);renderChat();scrollChatToBottom(true);return;
+    }
     if(!input||!text)return;
     var btn=chat.querySelector('.up-chat-send');
     var tempId='local-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
@@ -1954,6 +1991,9 @@
 
   var upTestLoop={caller:null,callee:null,stream:null,audio:null,connected:false};
   var upTestMode=false;
+  var chatSandboxMode=false;
+  var chatSandboxOverlay=null;
+  var chatSandboxPreviousNode=null;
   function closeTestPanel(){var el=document.querySelector('.up-test-overlay');if(el)el.remove();}
   function testCleanupLoop(){try{if(upTestLoop.caller)upTestLoop.caller.close();}catch(e){}try{if(upTestLoop.callee)upTestLoop.callee.close();}catch(e){}try{if(upTestLoop.stream)upTestLoop.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}if(upTestLoop.audio){try{upTestLoop.audio.srcObject=null;}catch(e){}}upTestLoop={caller:null,callee:null,stream:null,audio:null,connected:false};}
   function testStopCall(){if(upTestMode){upTestMode=false;callCleanup(false);}testCleanupLoop();}
@@ -1961,73 +2001,29 @@
   function testAcceptIncoming(){if(!upTestMode)return;callStopRingtone();upCall.connected=true;callRender('Teste','Conectado (teste)',[{label:'Mutar',icon:'mic',onClick:function(){message('Mute visual do teste acionado.');}},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){testStopCall();}}]);}
   function testRingtone(roleKey){if(upCall.active&&!upTestMode){message('Finalize a chamada real antes de testar o toque.',true);return;}testStopCall();upTestMode=true;upCall.callId='ring-'+Date.now();upCall.peer='Teste';upCall.role=roleKey==='caller'?'caller':'callee';upCall.active=true;upCall.connected=false;callStartRingtone();setTimeout(function(){if(upTestMode)testStopCall();},8000);}
   async function testLoopback(){if(upCall.active&&!upTestMode){message('Finalize a chamada real antes de iniciar o loopback.',true);return;}testStopCall();var status=document.querySelector('.up-test-status');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Microfone indisponível neste navegador.');upTestLoop.stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});upTestLoop.caller=new RTCPeerConnection();upTestLoop.callee=new RTCPeerConnection();upTestLoop.caller.onicecandidate=function(e){if(e.candidate)upTestLoop.callee.addIceCandidate(e.candidate).catch(function(){});};upTestLoop.callee.onicecandidate=function(e){if(e.candidate)upTestLoop.caller.addIceCandidate(e.candidate).catch(function(){});};upTestLoop.callee.ontrack=function(e){var audio=document.querySelector('.up-test-audio');if(audio){audio.srcObject=e.streams[0];upTestLoop.audio=audio;audio.play().catch(function(){});}};upTestLoop.stream.getTracks().forEach(function(t){upTestLoop.caller.addTrack(t,upTestLoop.stream);});var offer=await upTestLoop.caller.createOffer({offerToReceiveAudio:true});await upTestLoop.caller.setLocalDescription(offer);await upTestLoop.callee.setRemoteDescription(offer);var answer=await upTestLoop.callee.createAnswer();await upTestLoop.callee.setLocalDescription(answer);await upTestLoop.caller.setRemoteDescription(answer);upTestLoop.connected=true;if(status)status.textContent='Loopback WebRTC conectado. Sua voz deve voltar pelo áudio do teste.';}catch(e){testCleanupLoop();if(status)status.textContent=e.message||'Falha no teste WebRTC.';}}
-  var upChatSandbox={messages:[],replyTo:null,nextId:1,root:null,list:null,input:null,status:null};
-  function chatSandboxSeed(){
-    var now=Date.now();
-    upChatSandbox.messages=[
-      {id:'s1',user:'Lohan',message:'Teste do Chat Sandbox. Role para cima e veja se as mensagens novas preservam sua leitura.',createdAt:new Date(now-1000*60*8).toISOString()},
-      {id:'s2',user:'Guilherme',message:'Mensagem antiga para criar volume de rolagem.',createdAt:new Date(now-1000*60*7).toISOString()},
-      {id:'s3',user:'Ricardo',message:'Use este painel para testar envio, Enter, reply, emoji e comportamento do scroll.',createdAt:new Date(now-1000*60*6).toISOString()}
-    ];
-    upChatSandbox.nextId=4;
-  }
-  function chatSandboxTime(iso){
-    var d=new Date(iso);return isNaN(d.getTime())?'':d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  }
-  function chatSandboxRender(forceBottom){
-    var s=upChatSandbox,l=s.list;if(!l)return;
-    var atBottom=(l.scrollHeight-l.scrollTop-l.clientHeight)<28,oldTop=l.scrollTop;
-    l.innerHTML=s.messages.map(function(m){
-      var own=m.user===member;
-      var reply=m.replyTo?'<div class="up-sandbox-reply"><b>'+esc(m.replyTo.user)+'</b> '+esc(m.replyTo.message||'')+'</div>':'';
-      return '<div class="up-sandbox-msg '+(own?'own':'')+'" data-id="'+esc(m.id)+'"><div class="up-sandbox-name">'+esc(m.user)+' <span>'+chatSandboxTime(m.createdAt)+'</span></div>'+reply+'<div class="up-sandbox-bubble">'+esc(m.message)+'</div><button class="up-sandbox-reply-btn" type="button">Responder</button></div>';
-    }).join('');
-    Array.from(l.querySelectorAll('.up-sandbox-reply-btn')).forEach(function(btn){
-      btn.onclick=function(){
-        var item=btn.closest('.up-sandbox-msg'),id=item&&item.getAttribute('data-id'),m=s.messages.find(function(x){return String(x.id)===String(id);});
-        if(!m)return;
-        s.replyTo=m;
-        var bar=s.root.querySelector('.up-sandbox-replybar');
-        if(bar){bar.innerHTML='<b>Respondendo a '+esc(m.user)+'</b> '+esc(m.message.slice(0,100))+' <button type="button">×</button>';bar.classList.remove('hidden');bar.querySelector('button').onclick=function(){s.replyTo=null;bar.classList.add('hidden');};}
-        s.input.focus();
-      };
-    });
-    requestAnimationFrame(function(){if(forceBottom)l.scrollTop=l.scrollHeight;else l.scrollTop=atBottom?l.scrollHeight:oldTop;});
-    s.status.textContent=forceBottom?'Envio: scroll levado ao final.':'Renderização: posição de leitura preservada.';
-  }
-  function chatSandboxSend(){
-    var s=upChatSandbox,text=(s.input.value||'').trim();if(!text)return;
-    var msg={id:'sandbox-'+Date.now()+'-'+s.nextId++,user:member||'Ricardo',message:text,createdAt:new Date().toISOString(),replyTo:s.replyTo};
-    s.messages.push(msg);s.input.value='';s.replyTo=null;
-    var bar=s.root.querySelector('.up-sandbox-replybar');if(bar)bar.classList.add('hidden');
-    chatSandboxRender(true);s.input.focus();
-  }
-  function chatSandboxIncoming(){
-    var s=upChatSandbox;
-    s.messages.push({id:'sandbox-in-'+Date.now()+'-'+s.nextId++,user:['Lohan','Guilherme'][Math.floor(Math.random()*2)],message:'Nova mensagem recebida sem forçar o scroll para baixo.',createdAt:new Date().toISOString()});
-    chatSandboxRender(false);
-  }
-  function chatSandboxFill(){
-    var s=upChatSandbox;
-    for(var i=0;i<18;i++)s.messages.push({id:'fill-'+s.nextId++,user:i%2?'Lohan':'Guilherme',message:'Mensagem de teste '+(i+1)+' para criar histórico e testar rolagem.',createdAt:new Date(Date.now()-1000*(i+20)).toISOString()});
-    s.messages.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});
-    chatSandboxRender(true);
-  }
-  function chatSandboxReset(){chatSandboxSeed();upChatSandbox.replyTo=null;chatSandboxRender(true);upChatSandbox.status.textContent='Sandbox resetado. Nenhuma chamada ao servidor é feita.';}
   function openChatSandbox(){
+    if(!token){message('Faça login antes de abrir o Chat Sandbox.',true);return;}
+    closeChat(true);
     var old=document.querySelector('.up-chat-sandbox-overlay');if(old)old.remove();
-    chatSandboxSeed();
-    var o=document.createElement('div');o.className='up-chat-sandbox-overlay';o.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(4,8,14,.72);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;';
-    o.innerHTML='<div style="width:min(760px,calc(100vw - 28px));height:min(720px,calc(100vh - 36px));display:flex;flex-direction:column;background:#19212e;border:1px solid #3d5272;border-radius:16px;box-shadow:0 22px 70px #000b;overflow:hidden;color:#edf2fb;font-family:Segoe UI,Arial,sans-serif"><div style="padding:14px 16px;border-bottom:1px solid #354258;display:flex;align-items:center;justify-content:space-between;gap:10px"><div><div style="font-size:17px;font-weight:800">Chat Sandbox</div><div style="font-size:11px;color:#91a2ba;margin-top:3px">Clone local do bate-papo • sem servidor</div></div><button class="up-sandbox-close" style="border:0;background:#273247;color:#dbe5f5;border-radius:8px;width:30px;height:30px;cursor:pointer">×</button></div><div class="up-sandbox-tools" style="padding:9px 12px;border-bottom:1px solid #2d394c;display:flex;gap:7px;flex-wrap:wrap"><button class="up-sandbox-incoming">Simular recebida</button><button class="up-sandbox-fill">Encher histórico</button><button class="up-sandbox-reset">Resetar</button></div><div class="up-sandbox-list" style="flex:1;min-height:0;overflow-y:scroll;overflow-x:hidden;padding:14px 18px;scroll-behavior:auto"></div><div class="up-sandbox-status" style="padding:6px 14px;border-top:1px solid #2d394c;color:#91a2ba;font-size:10px">Sandbox local.</div><div class="up-sandbox-compose" style="padding:10px 12px;border-top:1px solid #354258"><div class="up-sandbox-replybar hidden" style="padding:7px 9px;margin-bottom:7px;border-radius:8px;background:#202d40;color:#b8c8df;font-size:11px"></div><div style="display:flex;gap:7px;align-items:flex-end"><textarea class="up-sandbox-input" maxlength="1000" placeholder="Digite uma mensagem" style="flex:1;resize:none;min-height:42px;max-height:110px;border:1px solid #3a4a62;border-radius:10px;background:#111a27;color:#edf2fb;padding:10px;box-sizing:border-box;font:13px Segoe UI,Arial,sans-serif"></textarea><button class="up-sandbox-send" style="border:0;border-radius:10px;background:#4f7dff;color:#fff;padding:10px 14px;cursor:pointer;font-weight:700">Enviar</button></div><div style="font-size:10px;color:#71839d;margin-top:6px">Enter envia • Shift+Enter quebra linha • mensagens recebidas não devem puxar o scroll</div></div></div>';
-    document.body.appendChild(o);
-    var s=upChatSandbox;s.root=o;s.list=o.querySelector('.up-sandbox-list');s.input=o.querySelector('.up-sandbox-input');s.status=o.querySelector('.up-sandbox-status');
-    o.querySelector('.up-sandbox-close').onclick=function(){o.remove();s.root=null;s.list=null;s.input=null;s.status=null;};
-    o.querySelector('.up-sandbox-incoming').onclick=chatSandboxIncoming;
-    o.querySelector('.up-sandbox-fill').onclick=chatSandboxFill;
-    o.querySelector('.up-sandbox-reset').onclick=chatSandboxReset;
-    o.querySelector('.up-sandbox-send').onclick=chatSandboxSend;
-    s.input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(!e.repeat)chatSandboxSend();}});
-    chatSandboxRender(true);
+    var previous=chat;
+    var overlay=document.createElement('div');overlay.className='up-chat-sandbox-overlay';
+    overlay.style.cssText='position:fixed;inset:0;z-index:2147483646;background:rgba(4,8,14,.72);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);display:flex;align-items:flex-start;justify-content:center;padding:28px;box-sizing:border-box;';
+    var host=document.createElement('div');host.style.cssText='position:relative;width:min(365px,calc(100vw - 32px));height:520px;max-height:calc(100vh - 56px);';
+    overlay.appendChild(host);document.body.appendChild(overlay);
+    var sandboxChat=document.createElement('section');sandboxChat.id='upstatus-chat';sandboxChat.className='hidden';sandboxChat.style.cssText='position:relative!important;right:auto!important;bottom:auto!important;width:100%!important;max-width:none!important;height:100%!important;';
+    host.appendChild(sandboxChat);
+    chatSandboxMode=true;chatSandboxOverlay=overlay;chatSandboxPreviousNode=previous;chat=sandboxChat;
+    chatCache=[
+      {id:'sandbox-1',user:'Lohan',message:'Mensagem de teste do Chat Sandbox. Clique com o botão direito nesta mensagem.',type:'text',systemType:'',createdAt:new Date(Date.now()-420000).toISOString(),imageUrl:'',mentions:[],replyTo:null,reactions:{},readBy:[]},
+      {id:'sandbox-2',user:'Guilherme',message:'Teste reação, responder, exclusão e rolagem. A interface é a mesma do chat real.',type:'text',systemType:'',createdAt:new Date(Date.now()-240000).toISOString(),imageUrl:'',mentions:[],replyTo:null,reactions:{'👍':['Guilherme']},readBy:[]},
+      {id:'sandbox-3',user:member||'Ricardo',message:'Esta mensagem é sua. Clique com o botão direito para testar a exclusão.',type:'text',systemType:'',createdAt:new Date(Date.now()-120000).toISOString(),imageUrl:'',mentions:[],replyTo:null,reactions:{},readBy:[]}
+    ];
+    openChat();
+    overlay.addEventListener('click',function(e){if(e.target===overlay)closeChat(false);});
+    var title=sandboxChat.querySelector('.up-history-title');if(title)title.textContent='Chat Sandbox';
+    var info=sandboxChat.querySelector('.up-chat-header-info');if(info)info.innerHTML='<span class="chat-online-dot">●</span> Ambiente de teste local';
+    var back=sandboxChat.querySelector('.up-chat-back');if(back)back.textContent='← Fechar teste';
+    var clear=sandboxChat.querySelector('.up-chat-clear');if(clear){clear.title='Limpar Sandbox';clear.onclick=function(){chatCache=[];renderChat();};}
   }
 
   function openTestPanel(){if(member!=='Ricardo')return;closeTestPanel();var o=document.createElement('div');o.className='up-test-overlay';o.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(4,8,14,.68);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;';o.innerHTML='<div style="width:min(430px,calc(100vw - 28px));max-height:calc(100vh - 36px);overflow:auto;background:linear-gradient(145deg,#182334,#101722);border:1px solid #3d5272;border-radius:16px;box-shadow:0 22px 70px #000b;padding:18px;color:#edf2fb;font-family:Segoe UI,Arial,sans-serif;box-sizing:border-box"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-size:17px;font-weight:800">Painel de testes</div><div style="font-size:11px;color:#91a2ba;margin-top:3px">Somente Ricardo • build '+esc(CURRENT_VERSION)+'</div></div><button class="up-test-close" style="border:0;background:#273247;color:#dbe5f5;border-radius:8px;width:30px;height:30px;cursor:pointer">×</button></div><div style="margin-top:14px;font-size:11px;color:#8fa0b8">Chamadas e áudio</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px"><button class="up-test-incoming">Simular chamada recebida</button><button class="up-test-stop">Encerrar teste</button><button class="up-test-ring-caller">Toque: chamando</button><button class="up-test-ring-callee">Toque: recebendo</button><button class="up-test-loop" style="grid-column:1/-1">Testar WebRTC local (loopback)</button><button class="up-test-chat" style="grid-column:1/-1">Abrir Chat Sandbox</button></div><audio class="up-test-audio" autoplay playsinline controls style="width:100%;margin-top:9px;display:block"></audio><div class="up-test-status" style="margin-top:10px;padding:9px 10px;border:1px solid #2f4058;border-radius:9px;background:#111a27;color:#a9bad0;font-size:11px">Pronto para testar.</div><div style="margin-top:12px;font-size:10px;color:#74869f">O painel não altera o fluxo normal das chamadas. Os testes locais podem ser encerrados a qualquer momento.</div></div>';document.body.appendChild(o);o.querySelector('.up-test-close').onclick=function(){testStopCall();closeTestPanel();};o.querySelector('.up-test-incoming').onclick=testSimulateIncoming;o.querySelector('.up-test-stop').onclick=testStopCall;o.querySelector('.up-test-ring-caller').onclick=function(){testRingtone('caller');};o.querySelector('.up-test-ring-callee').onclick=function(){testRingtone('callee');};o.querySelector('.up-test-loop').onclick=testLoopback;o.querySelector('.up-test-chat').onclick=openChatSandbox;o.addEventListener('click',function(e){if(e.target===o){testStopCall();closeTestPanel();}});}
