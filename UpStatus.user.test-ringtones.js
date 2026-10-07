@@ -352,7 +352,7 @@
   var style=node('style',{textContent:
     '#upstatus-root{position:fixed;right:24px;bottom:24px;z-index:2147483647;font:14px Segoe UI,Arial,sans-serif;color:#edf2fb}'+
         '.up-main-alert{animation:upAlertShake .45s ease-in-out 1}'+
-    '@keyframes upAlertShake{0%,100%{transform:translateX(0) rotate(0)}20%{transform:translateX(-4px) rotate(-3deg)}40%{transform:translateX(4px) rotate(3deg)}60%{transform:translateX(-3px) rotate(-2deg)}80%{transform:translateX(3px) rotate(2deg)}}'+
+    '@keyframes upAlertShake{0%,100%{transform:translateX(0) rotate(0)}20%{transform:translateX(-4px) rotate(-3deg)}40%{transform:translateX(4px) rotate(3deg)}60%{transform:translateX(-3px) rotate(-2deg)}80%{transform:translateX(3px) rotate(2deg)}}.up-toast-stack{position:absolute;right:52px;bottom:0;width:300px;display:flex;flex-direction:column;gap:7px;pointer-events:none}.up-toast{position:relative;pointer-events:auto;box-sizing:border-box;width:100%;padding:9px 28px 9px 11px;border:1px solid rgba(90,105,130,.45);border-radius:12px;background:rgba(25,33,46,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.22);color:#e7edf7;animation:uptoastIn .16s ease-out}.up-toast-name{font-size:11px;font-weight:750;color:#aebbd0;line-height:1.15;margin-bottom:3px}.up-toast-text{font-size:12px;line-height:1.35;white-space:pre-wrap;word-break:break-word}.up-toast-close{position:absolute;right:7px;top:6px;width:18px;height:18px;border:0;border-radius:50%;background:transparent;color:#9aa8bc;font-size:14px;line-height:18px;padding:0;cursor:pointer}.up-toast-close:hover{background:rgba(127,145,170,.16);color:#edf2fb}@keyframes uptoastIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}'+
 '#upstatus-bubble{position:relative;width:42px;height:42px;border:3px solid #6b7688;border-radius:50%;background:#5b6574;overflow:visible;padding:0;box-shadow:0 5px 16px #0009;cursor:grab;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;touch-action:none;line-height:1;transition:background .18s,border-color .18s}'+
     '#upstatus-bubble .up-bubble-avatar{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover;box-sizing:border-box;pointer-events:none}'+
     '#upstatus-bubble .up-bubble-icon{width:22px;height:22px;color:#fff}'+
@@ -695,6 +695,7 @@
     return safe;
   }
   var toastItems=[];
+  var pendingChatToast=null;
   var typingHeartbeat=null;
   var typingStopTimer=null;
   var chatLastRenderKey="";
@@ -707,11 +708,11 @@
   }
   function showChatToast(m){
     if(!m||!m.id||m.type==='system'||m.user===member||!shouldNotifyForChat())return;
+    if(upCall&&upCall.active){pendingChatToast=m;return;}
     if(!shouldNotifyForChat())return;
+    pendingChatToast=null;
+    toastItems.slice().forEach(function(x){removeToast(x.id);});
     if(bubble){bubble.classList.remove('up-main-alert');void bubble.offsetWidth;bubble.classList.add('up-main-alert');setTimeout(function(){bubble.classList.remove('up-main-alert')},700);}
-
-    if(toastItems.find(function(x){return x.id===m.id}))return;
-    while(toastItems.length>=3)removeToast(toastItems[0].id);
     var el=node('div',{className:'up-toast'});
     var toastText=(m.type==='image'||m.imageUrl)?'foto':(m.message||'');
     el.innerHTML='<button type="button" class="up-toast-close" aria-label="Fechar">×</button><div class="up-toast-name">'+esc(m.user)+'</div><div class="up-toast-text">'+esc(toastText)+'</div>';
@@ -1105,6 +1106,7 @@
     return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(paths[type]||paths.close)+'</svg>';
   }
   function callRender(title,status,buttons){
+    if(toastStack)toastStack.style.display='none';
     var o=callEnsureOverlay();
     callPositionOverlay();
     o.querySelector('[data-call-title]').textContent=title||'Chamada';
@@ -1133,7 +1135,15 @@
     if(upCall.connected&&!upCall.startedAt)callStartCounter();
     o.style.display='block';
   }
-  function callHideOverlay(){if(upCall.overlay)upCall.overlay.style.display='none';}
+  function callHideOverlay(){
+    if(upCall.overlay)upCall.overlay.style.display='none';
+    if(toastStack)toastStack.style.display='';
+    if(pendingChatToast){
+      var pending=pendingChatToast;
+      pendingChatToast=null;
+      setTimeout(function(){if(!upCall.active)showChatToast(pending);},0);
+    }
+  }
   function callNewId(){return String(member||'user')+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);}
   function callSend(type,extra){
     var p=Object.assign({type:type,callId:upCall.callId,from:member,to:upCall.peer},extra||{});
