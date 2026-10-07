@@ -1102,7 +1102,10 @@
       upRingtoneGlobal.gains=[];
     }catch(e){}
     upCall.ringtoneCtx=null;
-    if(broadcast!==false&&callId)callBroadcastRingtoneStop(callId,'local-stop');
+    if(broadcast!==false&&callId){
+      callBroadcastRingtoneStop(callId,'local-stop');
+      try{if(upCall.peer&&upCall.active)callSend('ringtone_stop');}catch(e){}
+    }
   }
   function callConfigureRingtones(){
     var roles=[{key:'caller',label:'CHAMANDO: selecione chamando.mp3'},{key:'callee',label:'RECEBENDO: selecione recebendo.mp3'}];
