@@ -1667,7 +1667,10 @@
       try{hideChatContextMenu();stopTypingHeartbeat();}catch(e){}
       if(chatSandboxOverlay&&chatSandboxOverlay.parentNode)chatSandboxOverlay.remove();
       if(chatSandboxPreviousNode){chat=chatSandboxPreviousNode;chat.classList.add('hidden');}
-      chatSandboxMode=false;chatSandboxOverlay=null;chatSandboxPreviousNode=null;
+      if(chatSandboxPanel){
+        chatSandboxPanelHidden.forEach(function(el){if(el)el.style.display=el.__upTestSandboxDisplay||'';});
+      }
+      chatSandboxMode=false;chatSandboxOverlay=null;chatSandboxPreviousNode=null;chatSandboxPanel=null;chatSandboxPanelHidden=[];
       chatCache=[];chatReplyTo=null;chatContextMessageId=null;
       card.classList.remove('hidden');
       return;
@@ -2002,6 +2005,8 @@
   var chatSandboxMode=false;
   var chatSandboxOverlay=null;
   var chatSandboxPreviousNode=null;
+  var chatSandboxPanel=null;
+  var chatSandboxPanelHidden=[];
   function closeTestPanel(){var el=document.querySelector('.up-test-overlay');if(el)el.remove();}
   function testCleanupLoop(){try{if(upTestLoop.caller)upTestLoop.caller.close();}catch(e){}try{if(upTestLoop.callee)upTestLoop.callee.close();}catch(e){}try{if(upTestLoop.stream)upTestLoop.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}if(upTestLoop.audio){try{upTestLoop.audio.srcObject=null;}catch(e){}}upTestLoop={caller:null,callee:null,stream:null,audio:null,connected:false};}
   function testStopCall(){if(upTestMode){upTestMode=false;callCleanup(false);}testCleanupLoop();}
@@ -2011,26 +2016,46 @@
   async function testLoopback(){if(upCall.active&&!upTestMode){message('Finalize a chamada real antes de iniciar o loopback.',true);return;}testStopCall();var status=document.querySelector('.up-test-status');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Microfone indisponível neste navegador.');upTestLoop.stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});upTestLoop.caller=new RTCPeerConnection();upTestLoop.callee=new RTCPeerConnection();upTestLoop.caller.onicecandidate=function(e){if(e.candidate)upTestLoop.callee.addIceCandidate(e.candidate).catch(function(){});};upTestLoop.callee.onicecandidate=function(e){if(e.candidate)upTestLoop.caller.addIceCandidate(e.candidate).catch(function(){});};upTestLoop.callee.ontrack=function(e){var audio=document.querySelector('.up-test-audio');if(audio){audio.srcObject=e.streams[0];upTestLoop.audio=audio;audio.play().catch(function(){});}};upTestLoop.stream.getTracks().forEach(function(t){upTestLoop.caller.addTrack(t,upTestLoop.stream);});var offer=await upTestLoop.caller.createOffer({offerToReceiveAudio:true});await upTestLoop.caller.setLocalDescription(offer);await upTestLoop.callee.setRemoteDescription(offer);var answer=await upTestLoop.callee.createAnswer();await upTestLoop.callee.setLocalDescription(answer);await upTestLoop.caller.setRemoteDescription(answer);upTestLoop.connected=true;if(status)status.textContent='Loopback WebRTC conectado. Sua voz deve voltar pelo áudio do teste.';}catch(e){testCleanupLoop();if(status)status.textContent=e.message||'Falha no teste WebRTC.';}}
   function openChatSandbox(){
     if(!token){message('Faça login antes de abrir o Chat Sandbox.',true);return;}
-    closeChat(true);
+    if(chatSandboxMode)return;
+    var panel=document.querySelector('.up-test-overlay > div');
+    if(!panel)return;
     var old=document.querySelector('.up-chat-sandbox-overlay');if(old)old.remove();
+    closeChat(true);
     var previous=chat;
-    var overlay=document.createElement('div');overlay.className='up-chat-sandbox-overlay';
-    overlay.style.cssText='position:fixed;inset:0;z-index:2147483646;background:rgba(4,8,14,.72);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);display:flex;align-items:flex-start;justify-content:center;padding:28px;box-sizing:border-box;';
-    var host=document.createElement('div');host.style.cssText='position:relative;width:min(365px,calc(100vw - 32px));height:520px;max-height:calc(100vh - 56px);';
-    overlay.appendChild(host);document.body.appendChild(overlay);
-    var sandboxChat=document.createElement('section');sandboxChat.id='upstatus-chat';sandboxChat.className='hidden';sandboxChat.style.cssText='position:relative!important;right:auto!important;bottom:auto!important;width:100%!important;max-width:none!important;height:100%!important;';
+    var overlay=document.createElement('div');
+    overlay.className='up-chat-sandbox-overlay';
+    overlay.style.cssText='position:relative;width:100%;height:520px;box-sizing:border-box;margin-top:12px;';
+    var host=document.createElement('div');
+    host.style.cssText='position:relative;width:100%;height:520px;max-height:calc(100vh - 130px);';
+    overlay.appendChild(host);
+    var sandboxChat=document.createElement('section');
+    sandboxChat.id='upstatus-chat';
+    sandboxChat.className='hidden';
+    sandboxChat.style.cssText='position:relative!important;right:auto!important;bottom:auto!important;left:auto!important;width:100%!important;max-width:none!important;height:100%!important;box-sizing:border-box!important;margin:0!important;';
     host.appendChild(sandboxChat);
-    chatSandboxMode=true;chatSandboxOverlay=overlay;chatSandboxPreviousNode=previous;chat=sandboxChat;
+    chatSandboxMode=true;chatSandboxOverlay=overlay;chatSandboxPreviousNode=previous;chatSandboxPanel=panel;
+    chatSandboxPanelHidden=[];
+    Array.from(panel.children).forEach(function(el){
+      if(el!==panel.firstElementChild){
+        el.__upTestSandboxDisplay=el.style.display;
+        chatSandboxPanelHidden.push(el);
+        el.style.display='none';
+      }
+    });
+    panel.style.width='min(430px,calc(100vw - 28px))';
+    panel.style.maxHeight='calc(100vh - 36px)';
+    panel.style.overflow='hidden';
+    panel.appendChild(overlay);
+    chat=sandboxChat;
     chatCache=[
       {id:'sandbox-1',user:'Lohan',message:'Mensagem de teste do Chat Sandbox. Clique com o botão direito nesta mensagem.',type:'text',systemType:'',createdAt:new Date(Date.now()-420000).toISOString(),imageUrl:'',mentions:[],replyTo:null,reactions:{},readBy:[]},
       {id:'sandbox-2',user:'Guilherme',message:'Teste reação, responder, exclusão e rolagem. A interface é a mesma do chat real.',type:'text',systemType:'',createdAt:new Date(Date.now()-240000).toISOString(),imageUrl:'',mentions:[],replyTo:null,reactions:{'👍':['Guilherme']},readBy:[]},
       {id:'sandbox-3',user:member||'Ricardo',message:'Esta mensagem é sua. Clique com o botão direito para testar a exclusão.',type:'text',systemType:'',createdAt:new Date(Date.now()-120000).toISOString(),imageUrl:'',mentions:[],replyTo:null,reactions:{},readBy:[]}
     ];
     openChat();
-    overlay.addEventListener('click',function(e){if(e.target===overlay)closeChat(false);});
     var title=sandboxChat.querySelector('.up-history-title');if(title)title.textContent='Chat Sandbox';
     var info=sandboxChat.querySelector('.up-chat-header-info');if(info)info.innerHTML='<span class="chat-online-dot">●</span> Ambiente de teste local';
-    var back=sandboxChat.querySelector('.up-chat-back');if(back)back.textContent='← Fechar teste';
+    var back=sandboxChat.querySelector('.up-chat-back');if(back)back.textContent='← Voltar aos testes';
     var clear=sandboxChat.querySelector('.up-chat-clear');if(clear){clear.title='Limpar Sandbox';clear.onclick=function(){chatCache=[];renderChat();};}
   }
 
