@@ -15,3 +15,8 @@ barui-data.json
 chat-images/
 profile-images/
 .env
+
+# Generated deployment artifacts
+supabase/functions/upstatus/
+supabase/functions/upstatus-test/
+dist/
