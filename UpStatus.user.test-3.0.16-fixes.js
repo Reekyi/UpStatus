@@ -1961,7 +1961,76 @@
   function testAcceptIncoming(){if(!upTestMode)return;callStopRingtone();upCall.connected=true;callRender('Teste','Conectado (teste)',[{label:'Mutar',icon:'mic',onClick:function(){message('Mute visual do teste acionado.');}},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){testStopCall();}}]);}
   function testRingtone(roleKey){if(upCall.active&&!upTestMode){message('Finalize a chamada real antes de testar o toque.',true);return;}testStopCall();upTestMode=true;upCall.callId='ring-'+Date.now();upCall.peer='Teste';upCall.role=roleKey==='caller'?'caller':'callee';upCall.active=true;upCall.connected=false;callStartRingtone();setTimeout(function(){if(upTestMode)testStopCall();},8000);}
   async function testLoopback(){if(upCall.active&&!upTestMode){message('Finalize a chamada real antes de iniciar o loopback.',true);return;}testStopCall();var status=document.querySelector('.up-test-status');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Microfone indisponível neste navegador.');upTestLoop.stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});upTestLoop.caller=new RTCPeerConnection();upTestLoop.callee=new RTCPeerConnection();upTestLoop.caller.onicecandidate=function(e){if(e.candidate)upTestLoop.callee.addIceCandidate(e.candidate).catch(function(){});};upTestLoop.callee.onicecandidate=function(e){if(e.candidate)upTestLoop.caller.addIceCandidate(e.candidate).catch(function(){});};upTestLoop.callee.ontrack=function(e){var audio=document.querySelector('.up-test-audio');if(audio){audio.srcObject=e.streams[0];upTestLoop.audio=audio;audio.play().catch(function(){});}};upTestLoop.stream.getTracks().forEach(function(t){upTestLoop.caller.addTrack(t,upTestLoop.stream);});var offer=await upTestLoop.caller.createOffer({offerToReceiveAudio:true});await upTestLoop.caller.setLocalDescription(offer);await upTestLoop.callee.setRemoteDescription(offer);var answer=await upTestLoop.callee.createAnswer();await upTestLoop.callee.setLocalDescription(answer);await upTestLoop.caller.setRemoteDescription(answer);upTestLoop.connected=true;if(status)status.textContent='Loopback WebRTC conectado. Sua voz deve voltar pelo áudio do teste.';}catch(e){testCleanupLoop();if(status)status.textContent=e.message||'Falha no teste WebRTC.';}}
-  function openTestPanel(){if(member!=='Ricardo')return;closeTestPanel();var o=document.createElement('div');o.className='up-test-overlay';o.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(4,8,14,.68);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;';o.innerHTML='<div style="width:min(430px,calc(100vw - 28px));max-height:calc(100vh - 36px);overflow:auto;background:linear-gradient(145deg,#182334,#101722);border:1px solid #3d5272;border-radius:16px;box-shadow:0 22px 70px #000b;padding:18px;color:#edf2fb;font-family:Segoe UI,Arial,sans-serif;box-sizing:border-box"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-size:17px;font-weight:800">Painel de testes</div><div style="font-size:11px;color:#91a2ba;margin-top:3px">Somente Ricardo • build '+esc(CURRENT_VERSION)+'</div></div><button class="up-test-close" style="border:0;background:#273247;color:#dbe5f5;border-radius:8px;width:30px;height:30px;cursor:pointer">×</button></div><div style="margin-top:14px;font-size:11px;color:#8fa0b8">Chamadas e áudio</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px"><button class="up-test-incoming">Simular chamada recebida</button><button class="up-test-stop">Encerrar teste</button><button class="up-test-ring-caller">Toque: chamando</button><button class="up-test-ring-callee">Toque: recebendo</button><button class="up-test-loop" style="grid-column:1/-1">Testar WebRTC local (loopback)</button></div><audio class="up-test-audio" autoplay playsinline controls style="width:100%;margin-top:9px;display:block"></audio><div class="up-test-status" style="margin-top:10px;padding:9px 10px;border:1px solid #2f4058;border-radius:9px;background:#111a27;color:#a9bad0;font-size:11px">Pronto para testar.</div><div style="margin-top:12px;font-size:10px;color:#74869f">O painel não altera o fluxo normal das chamadas. Os testes locais podem ser encerrados a qualquer momento.</div></div>';document.body.appendChild(o);o.querySelector('.up-test-close').onclick=function(){testStopCall();closeTestPanel();};o.querySelector('.up-test-incoming').onclick=testSimulateIncoming;o.querySelector('.up-test-stop').onclick=testStopCall;o.querySelector('.up-test-ring-caller').onclick=function(){testRingtone('caller');};o.querySelector('.up-test-ring-callee').onclick=function(){testRingtone('callee');};o.querySelector('.up-test-loop').onclick=testLoopback;o.addEventListener('click',function(e){if(e.target===o){testStopCall();closeTestPanel();}});}
+  var upChatSandbox={messages:[],replyTo:null,nextId:1,root:null,list:null,input:null,status:null};
+  function chatSandboxSeed(){
+    var now=Date.now();
+    upChatSandbox.messages=[
+      {id:'s1',user:'Lohan',message:'Teste do Chat Sandbox. Role para cima e veja se as mensagens novas preservam sua leitura.',createdAt:new Date(now-1000*60*8).toISOString()},
+      {id:'s2',user:'Guilherme',message:'Mensagem antiga para criar volume de rolagem.',createdAt:new Date(now-1000*60*7).toISOString()},
+      {id:'s3',user:'Ricardo',message:'Use este painel para testar envio, Enter, reply, emoji e comportamento do scroll.',createdAt:new Date(now-1000*60*6).toISOString()}
+    ];
+    upChatSandbox.nextId=4;
+  }
+  function chatSandboxTime(iso){
+    var d=new Date(iso);return isNaN(d.getTime())?'':d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+  function chatSandboxRender(forceBottom){
+    var s=upChatSandbox,l=s.list;if(!l)return;
+    var atBottom=(l.scrollHeight-l.scrollTop-l.clientHeight)<28,oldTop=l.scrollTop;
+    l.innerHTML=s.messages.map(function(m){
+      var own=m.user===member;
+      var reply=m.replyTo?'<div class="up-sandbox-reply"><b>'+esc(m.replyTo.user)+'</b> '+esc(m.replyTo.message||'')+'</div>':'';
+      return '<div class="up-sandbox-msg '+(own?'own':'')+'" data-id="'+esc(m.id)+'"><div class="up-sandbox-name">'+esc(m.user)+' <span>'+chatSandboxTime(m.createdAt)+'</span></div>'+reply+'<div class="up-sandbox-bubble">'+esc(m.message)+'</div><button class="up-sandbox-reply-btn" type="button">Responder</button></div>';
+    }).join('');
+    Array.from(l.querySelectorAll('.up-sandbox-reply-btn')).forEach(function(btn){
+      btn.onclick=function(){
+        var item=btn.closest('.up-sandbox-msg'),id=item&&item.getAttribute('data-id'),m=s.messages.find(function(x){return String(x.id)===String(id);});
+        if(!m)return;
+        s.replyTo=m;
+        var bar=s.root.querySelector('.up-sandbox-replybar');
+        if(bar){bar.innerHTML='<b>Respondendo a '+esc(m.user)+'</b> '+esc(m.message.slice(0,100))+' <button type="button">×</button>';bar.classList.remove('hidden');bar.querySelector('button').onclick=function(){s.replyTo=null;bar.classList.add('hidden');};}
+        s.input.focus();
+      };
+    });
+    requestAnimationFrame(function(){if(forceBottom)l.scrollTop=l.scrollHeight;else l.scrollTop=atBottom?l.scrollHeight:oldTop;});
+    s.status.textContent=forceBottom?'Envio: scroll levado ao final.':'Renderização: posição de leitura preservada.';
+  }
+  function chatSandboxSend(){
+    var s=upChatSandbox,text=(s.input.value||'').trim();if(!text)return;
+    var msg={id:'sandbox-'+Date.now()+'-'+s.nextId++,user:member||'Ricardo',message:text,createdAt:new Date().toISOString(),replyTo:s.replyTo};
+    s.messages.push(msg);s.input.value='';s.replyTo=null;
+    var bar=s.root.querySelector('.up-sandbox-replybar');if(bar)bar.classList.add('hidden');
+    chatSandboxRender(true);s.input.focus();
+  }
+  function chatSandboxIncoming(){
+    var s=upChatSandbox;
+    s.messages.push({id:'sandbox-in-'+Date.now()+'-'+s.nextId++,user:['Lohan','Guilherme'][Math.floor(Math.random()*2)],message:'Nova mensagem recebida sem forçar o scroll para baixo.',createdAt:new Date().toISOString()});
+    chatSandboxRender(false);
+  }
+  function chatSandboxFill(){
+    var s=upChatSandbox;
+    for(var i=0;i<18;i++)s.messages.push({id:'fill-'+s.nextId++,user:i%2?'Lohan':'Guilherme',message:'Mensagem de teste '+(i+1)+' para criar histórico e testar rolagem.',createdAt:new Date(Date.now()-1000*(i+20)).toISOString()});
+    s.messages.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});
+    chatSandboxRender(true);
+  }
+  function chatSandboxReset(){chatSandboxSeed();upChatSandbox.replyTo=null;chatSandboxRender(true);upChatSandbox.status.textContent='Sandbox resetado. Nenhuma chamada ao servidor é feita.';}
+  function openChatSandbox(){
+    var old=document.querySelector('.up-chat-sandbox-overlay');if(old)old.remove();
+    chatSandboxSeed();
+    var o=document.createElement('div');o.className='up-chat-sandbox-overlay';o.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(4,8,14,.72);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;';
+    o.innerHTML='<div style="width:min(760px,calc(100vw - 28px));height:min(720px,calc(100vh - 36px));display:flex;flex-direction:column;background:#19212e;border:1px solid #3d5272;border-radius:16px;box-shadow:0 22px 70px #000b;overflow:hidden;color:#edf2fb;font-family:Segoe UI,Arial,sans-serif"><div style="padding:14px 16px;border-bottom:1px solid #354258;display:flex;align-items:center;justify-content:space-between;gap:10px"><div><div style="font-size:17px;font-weight:800">Chat Sandbox</div><div style="font-size:11px;color:#91a2ba;margin-top:3px">Clone local do bate-papo • sem servidor</div></div><button class="up-sandbox-close" style="border:0;background:#273247;color:#dbe5f5;border-radius:8px;width:30px;height:30px;cursor:pointer">×</button></div><div class="up-sandbox-tools" style="padding:9px 12px;border-bottom:1px solid #2d394c;display:flex;gap:7px;flex-wrap:wrap"><button class="up-sandbox-incoming">Simular recebida</button><button class="up-sandbox-fill">Encher histórico</button><button class="up-sandbox-reset">Resetar</button></div><div class="up-sandbox-list" style="flex:1;min-height:0;overflow-y:scroll;overflow-x:hidden;padding:14px 18px;scroll-behavior:auto"></div><div class="up-sandbox-status" style="padding:6px 14px;border-top:1px solid #2d394c;color:#91a2ba;font-size:10px">Sandbox local.</div><div class="up-sandbox-compose" style="padding:10px 12px;border-top:1px solid #354258"><div class="up-sandbox-replybar hidden" style="padding:7px 9px;margin-bottom:7px;border-radius:8px;background:#202d40;color:#b8c8df;font-size:11px"></div><div style="display:flex;gap:7px;align-items:flex-end"><textarea class="up-sandbox-input" maxlength="1000" placeholder="Digite uma mensagem" style="flex:1;resize:none;min-height:42px;max-height:110px;border:1px solid #3a4a62;border-radius:10px;background:#111a27;color:#edf2fb;padding:10px;box-sizing:border-box;font:13px Segoe UI,Arial,sans-serif"></textarea><button class="up-sandbox-send" style="border:0;border-radius:10px;background:#4f7dff;color:#fff;padding:10px 14px;cursor:pointer;font-weight:700">Enviar</button></div><div style="font-size:10px;color:#71839d;margin-top:6px">Enter envia • Shift+Enter quebra linha • mensagens recebidas não devem puxar o scroll</div></div></div>';
+    document.body.appendChild(o);
+    var s=upChatSandbox;s.root=o;s.list=o.querySelector('.up-sandbox-list');s.input=o.querySelector('.up-sandbox-input');s.status=o.querySelector('.up-sandbox-status');
+    o.querySelector('.up-sandbox-close').onclick=function(){o.remove();s.root=null;s.list=null;s.input=null;s.status=null;};
+    o.querySelector('.up-sandbox-incoming').onclick=chatSandboxIncoming;
+    o.querySelector('.up-sandbox-fill').onclick=chatSandboxFill;
+    o.querySelector('.up-sandbox-reset').onclick=chatSandboxReset;
+    o.querySelector('.up-sandbox-send').onclick=chatSandboxSend;
+    s.input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(!e.repeat)chatSandboxSend();}});
+    chatSandboxRender(true);
+  }
+
+  function openTestPanel(){if(member!=='Ricardo')return;closeTestPanel();var o=document.createElement('div');o.className='up-test-overlay';o.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(4,8,14,.68);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;';o.innerHTML='<div style="width:min(430px,calc(100vw - 28px));max-height:calc(100vh - 36px);overflow:auto;background:linear-gradient(145deg,#182334,#101722);border:1px solid #3d5272;border-radius:16px;box-shadow:0 22px 70px #000b;padding:18px;color:#edf2fb;font-family:Segoe UI,Arial,sans-serif;box-sizing:border-box"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-size:17px;font-weight:800">Painel de testes</div><div style="font-size:11px;color:#91a2ba;margin-top:3px">Somente Ricardo • build '+esc(CURRENT_VERSION)+'</div></div><button class="up-test-close" style="border:0;background:#273247;color:#dbe5f5;border-radius:8px;width:30px;height:30px;cursor:pointer">×</button></div><div style="margin-top:14px;font-size:11px;color:#8fa0b8">Chamadas e áudio</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px"><button class="up-test-incoming">Simular chamada recebida</button><button class="up-test-stop">Encerrar teste</button><button class="up-test-ring-caller">Toque: chamando</button><button class="up-test-ring-callee">Toque: recebendo</button><button class="up-test-loop" style="grid-column:1/-1">Testar WebRTC local (loopback)</button><button class="up-test-chat" style="grid-column:1/-1">Abrir Chat Sandbox</button></div><audio class="up-test-audio" autoplay playsinline controls style="width:100%;margin-top:9px;display:block"></audio><div class="up-test-status" style="margin-top:10px;padding:9px 10px;border:1px solid #2f4058;border-radius:9px;background:#111a27;color:#a9bad0;font-size:11px">Pronto para testar.</div><div style="margin-top:12px;font-size:10px;color:#74869f">O painel não altera o fluxo normal das chamadas. Os testes locais podem ser encerrados a qualquer momento.</div></div>';document.body.appendChild(o);o.querySelector('.up-test-close').onclick=function(){testStopCall();closeTestPanel();};o.querySelector('.up-test-incoming').onclick=testSimulateIncoming;o.querySelector('.up-test-stop').onclick=testStopCall;o.querySelector('.up-test-ring-caller').onclick=function(){testRingtone('caller');};o.querySelector('.up-test-ring-callee').onclick=function(){testRingtone('callee');};o.querySelector('.up-test-loop').onclick=testLoopback;o.querySelector('.up-test-chat').onclick=openChatSandbox;o.addEventListener('click',function(e){if(e.target===o){testStopCall();closeTestPanel();}});}
 
   function app(){
     api('GET','/api/members').then(function(r){window.__upstatusMembers=(r.members||[]).map(function(x){return x.name});}).catch(function(){});
