@@ -21,6 +21,12 @@
 ### 3.0.27-beta.2
 - Corrigido o encoding UTF-8 do userscript para restaurar acentos e emojis corretamente.
 
+### 3.0.27-beta.4
+- Reformulada a mini dock da chamada em grupo para ficar mais compacta e discreta.
+- Adicionado avatar único do participante ativo, alternando automaticamente conforme a voz detectada.
+- Adicionado destaque dinâmico do falante com escala e brilho proporcionais ao nível de áudio.
+- Mantidos os controles de microfone, adição de participante, saída e contador da chamada.
+
 ### 3.0.27-beta.3
 - Reforçado o envio de sinalização WebRTC pelo Supabase Realtime.
 - Ativada confirmação de broadcast e diagnóstico explícito de falhas do canal.
