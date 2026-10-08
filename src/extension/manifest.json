@@ -11,6 +11,12 @@
   "content_scripts": [
     {
       "matches": ["https://*.salesmartly.com/*", "https://salesmartly.com/*"],
+      "js": ["content/page-bridge.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://*.salesmartly.com/*", "https://salesmartly.com/*"],
       "js": ["content/sale-smartly.js"],
       "run_at": "document_start"
     }
