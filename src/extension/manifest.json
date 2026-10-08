@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "UpStatus",
+  "version": "3.1.0",
+  "description": "UpStatus WebExtension foundation.",
+  "permissions": [],
+  "host_permissions": ["https://*.salesmartly.com/*", "https://salesmartly.com/*"],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.salesmartly.com/*", "https://salesmartly.com/*"],
+      "js": ["content/sale-smartly.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_title": "UpStatus"
+  }
+}
