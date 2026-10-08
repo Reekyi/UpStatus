@@ -46,7 +46,7 @@
     });
   });
 
-  window.addEventListener("UPSTATUS_EXTENSION_SESSION", (event) => {
+  document.addEventListener("UPSTATUS_EXTENSION_SESSION", (event) => {
     const session = event?.detail || null;
 
     if (!session || !session.hya) return;
