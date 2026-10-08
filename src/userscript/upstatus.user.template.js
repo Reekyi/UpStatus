@@ -3,10 +3,10 @@
 // @namespace    __UPSTATUS_NAMESPACE__
 // @version      __UPSTATUS_VERSION__
 // @match        *://*.salesmartly.com/*
- // @match        *://salesmartly.com/*
- // @match        *://*/*
- // @noframes
- // @run-at       document-start
+// @match        *://salesmartly.com/*
+// @match        *://*/*
+// @noframes
+// @run-at       document-start
 // @require      https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
