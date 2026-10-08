@@ -20,3 +20,7 @@
 
 ### 3.0.27-beta.2
 - Corrigido o encoding UTF-8 do userscript para restaurar acentos e emojis corretamente.
+
+### 3.0.27-beta.3
+- Reforçado o envio de sinalização WebRTC pelo Supabase Realtime.
+- Ativada confirmação de broadcast e diagnóstico explícito de falhas do canal.
