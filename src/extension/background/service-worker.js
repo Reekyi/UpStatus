@@ -1,4 +1,5 @@
 const ports = new Set();
+const sessions = new Map();
 
 function broadcast(message, senderPort) {
   for (const port of ports) {
@@ -26,6 +27,29 @@ chrome.runtime.onConnect.addListener((port) => {
       port.postMessage({
         type: "PONG",
         requestId: message.requestId || null
+      });
+      return;
+    }
+
+    if (message.type === "SESSION_UPDATE") {
+      const session = message.session || null;
+
+      if (!session || !session.hya) return;
+
+      sessions.set(port, session);
+
+      port.postMessage({
+        type: "SESSION_ACK",
+        session
+      });
+
+      return;
+    }
+
+    if (message.type === "SESSION_GET") {
+      port.postMessage({
+        type: "SESSION_ACK",
+        session: sessions.get(port) || null
       });
       return;
     }
