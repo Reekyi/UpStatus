@@ -1,3 +1,10 @@
+## 3.0.27-beta.4
+- Corrige a assinatura Realtime da beta para compartilhar o canal de chat e chamadas da produção.
+- Mantém escuta temporária do antigo canal TEST para compatibilidade com sessões beta anteriores.
+- Evita notificações falsas após F5 quando a primeira leitura do chat retorna vazia.
+- Ignora eventos de follower anteriores ao carregamento da aba, evitando replay de notificações após F5.
+- Corrige o tooltip de "Lido por" para acompanhar o cursor e permanecer dentro da tela.
+
 # Changelog
 
 ## 3.0.27-beta.3
