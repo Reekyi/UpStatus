@@ -2,6 +2,11 @@
 
 ## 2026-10-07
 
+## 3.0.27-beta.7
+- Otimizado o carregamento das formas de onda do chat.
+- A forma de onda de cada áudio é calculada uma vez e reutilizada nas renderizações seguintes, evitando que os áudios antigos aparentem recarregar ao enviar uma nova mensagem.
+- Não altera a lógica de chamadas WebRTC, chamadas em grupo ou sinalização de chamadas.
+
 ## 3.0.27-beta.6
 - Corrigido o áudio enviado pelo próprio usuário para aparecer imediatamente no chat, sem depender do eco do Realtime.
 - Barra de áudio agora gera uma forma de onda baseada no volume real do arquivo, substituindo a barra fixa.
