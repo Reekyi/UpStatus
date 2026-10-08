@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  // Captura o botÃ£o direito do chat no inÃ­cio da pÃ¡gina, antes de listeners do Sale Smartly.
+  // Captura o botão direito do chat no início da página, antes de listeners do Sale Smartly.
   if(!window.__upstatusChatContextEarlyCapture){
     window.__upstatusChatContextEarlyCapture=true;
     document.addEventListener('contextmenu',function(e){
@@ -44,7 +44,7 @@
   var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
   var UP_REALTIME_TOPIC='__UPSTATUS_REALTIME_TOPIC__';
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
-  // Novo motor de chamadas: WebRTC para Ã¡udio + Supabase Realtime somente para sinalizaÃ§Ã£o.
+  // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
   // Mantido isolado do chat, status e demais recursos do UpStatus.
   var upCall={
     pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,
@@ -53,10 +53,10 @@
     waitingForConnection:false,notice:'',ringtoneTimer:null,ringtoneCtx:null,ringtoneAllowed:false,
     ringtoneLoadId:0,ringtoneSource:null,ringtoneGain:null
   };
-  // Controle global do ringtone: evita Ã¡udio Ã³rfÃ£o quando hÃ¡ mais de uma instÃ¢ncia do userscript na pÃ¡gina.
+  // Controle global do ringtone: evita áudio órfão quando há mais de uma instância do userscript na página.
   var upRingtoneGlobal=window.__upstatusRingtoneGlobal||(window.__upstatusRingtoneGlobal={generation:0,sources:[],gains:[]});
-  // CoordenaÃ§Ã£o do ringtone entre instÃ¢ncias/contextos do UpStatus.
-  // A chamada real pode ser recebida por mais de um contexto da mesma pÃ¡gina.
+  // Coordenação do ringtone entre instâncias/contextos do UpStatus.
+  // A chamada real pode ser recebida por mais de um contexto da mesma página.
   var UP_RINGTONE_CHANNEL='__UPSTATUS_RINGTONE_CHANNEL__';
   var upCallInstanceId='up-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
   var upRingtoneChannel=null;
@@ -113,7 +113,7 @@
   function initFaviconWatcher(){setupFaviconBadge();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initFaviconWatcher,{once:true});else initFaviconWatcher();
 
-  // Backend cloud: substitui qualquer endereÃ§o antigo salvo no Tampermonkey.
+  // Backend cloud: substitui qualquer endereço antigo salvo no Tampermonkey.
   GM_setValue(key+'server',CLOUD_SERVER);
   var token=GM_getValue(key+'token','');
   var member=GM_getValue(key+'member','');
@@ -131,9 +131,9 @@
     s.textContent=`(function(){
       if(window.__upstatusBridgeInstalled)return;
       window.__upstatusBridgeInstalled=true;
-      // Silencia SOMENTE as notificaÃ§Ãµes nativas do prÃ³prio Sale Smartly.
-      // O UpStatus cria suas notificaÃ§Ãµes pelo evento UPSTATUS_EXTERNAL_NOTIFICATION,
-      // usando a Notification nativa salva aqui, entÃ£o elas continuam aparecendo.
+      // Silencia SOMENTE as notificações nativas do próprio Sale Smartly.
+      // O UpStatus cria suas notificações pelo evento UPSTATUS_EXTERNAL_NOTIFICATION,
+      // usando a Notification nativa salva aqui, então elas continuam aparecendo.
       try{
         var NativeNotification=window.Notification;
         if(NativeNotification && !window.__upstatusNativeNotification){
@@ -186,9 +186,9 @@
           }catch(e){}
         });
       }catch(e){}
-      // Silencia SOMENTE o Ã¡udio de notificaÃ§Ã£o do Sale Smartly.
-      // NÃ£o mexer em outros <audio>/<video> nem em Web Audio, pois o UpStatus
-      // usa Web Audio para seus prÃ³prios alertas de menÃ§Ã£o.
+      // Silencia SOMENTE o áudio de notificação do Sale Smartly.
+      // Não mexer em outros <audio>/<video> nem em Web Audio, pois o UpStatus
+      // usa Web Audio para seus próprios alertas de menção.
       try{
         var mediaPlay=HTMLMediaElement.prototype.play;
         function isSaleNoticeAudio(el){
@@ -285,7 +285,7 @@
           }
         }
         if(!hya){
-          document.dispatchEvent(new CustomEvent('UPSTATUS_RESULT',{detail:{ok:false,error:'A sessÃ£o do Sale Smartly ainda nÃ£o forneceu o identificador da API (_hya_). Aguarde a pÃ¡gina carregar e tente novamente.'}}));
+          document.dispatchEvent(new CustomEvent('UPSTATUS_RESULT',{detail:{ok:false,error:'A sessão do Sale Smartly ainda não forneceu o identificador da API (_hya_). Aguarde a página carregar e tente novamente.'}}));
           return;
         }
         try{
@@ -326,7 +326,7 @@
   installPageBridge();
 
   var labels={online:'Online',busy:'Ocupado',away:'Ausente',offline:'Sem status'};
-  var reasons=[{value:'Em treinamento',label:'Em treinamento',icon:'training'},{value:'Em aula aberta',label:'Em aula aberta',icon:'book'},{value:'Ocupado com tarefa',label:'Ocupado com tarefa',icon:'tools'},{value:'Em reuniÃ£o',label:'Em reuniÃ£o',icon:'meeting'},{value:'AlmoÃ§ando',label:'AlmoÃ§ando',icon:'lunch'},{value:'Outro',label:'Outro',icon:'edit'}];
+  var reasons=[{value:'Em treinamento',label:'Em treinamento',icon:'training'},{value:'Em aula aberta',label:'Em aula aberta',icon:'book'},{value:'Ocupado com tarefa',label:'Ocupado com tarefa',icon:'tools'},{value:'Em reunião',label:'Em reunião',icon:'meeting'},{value:'Almoçando',label:'Almoçando',icon:'lunch'},{value:'Outro',label:'Outro',icon:'edit'}];
   var historyCache=[];
   var chatCache=[];
   var chatSending=false;
@@ -400,11 +400,11 @@
         data:data?JSON.stringify(data):undefined,
         onload:function(r){
           var x;
-          try{x=JSON.parse(r.responseText)}catch(e){reject(new Error('Resposta invÃ¡lida do servidor.'));return}
-          if(r.status>=400||x.error){reject(new Error(x.error||'Erro de comunicaÃ§Ã£o.'));return}
+          try{x=JSON.parse(r.responseText)}catch(e){reject(new Error('Resposta inválida do servidor.'));return}
+          if(r.status>=400||x.error){reject(new Error(x.error||'Erro de comunicação.'));return}
           resolve(x);
         },
-        onerror:function(){reject(new Error('NÃ£o foi possÃ­vel conectar ao servidor UpStatus.'))}
+        onerror:function(){reject(new Error('Não foi possível conectar ao servidor UpStatus.'))}
       });
     });
   }
@@ -536,7 +536,7 @@
   img.src=profileFallback();
   root.style.right=GM_getValue(key+'right','24px');
   root.style.bottom=GM_getValue(key+'bottom','24px');
-  bubble.innerHTML='<span class="up-notify-dot"></span><span class="up-update-dot" role="button" tabindex="0" aria-label="Instalar atualizaÃ§Ã£o"></span>';
+  bubble.innerHTML='<span class="up-notify-dot"></span><span class="up-update-dot" role="button" tabindex="0" aria-label="Instalar atualização"></span>';
   quickChatBubble.innerHTML=iconSvg('chat','up-quick-chat-icon');
   bubble.appendChild(img);
   root.append(style,bubble,quickChatBubble,card,history,chat,toastStack,remoteOverlay,chatProfileHover,health);
@@ -677,13 +677,13 @@
     var chatDot=card.querySelector('.up-chat-btn .up-chat-notify-dot');
     if(chatDot){chatDot.classList.toggle('show',chatUnread>0);chatDot.textContent=chatUnread>99?'99+':String(chatUnread||'');}
     var bubbleDot=bubble.querySelector('.up-notify-dot');
-    if(bubbleDot){bubbleDot.classList.toggle('show',chatUnread>0);bubbleDot.textContent=chatUnread>99?'99+':String(chatUnread||'');bubbleDot.title=chatUnread>0?(chatUnread+' mensagem(ns) nÃ£o lida(s) no chat'):'Sem mensagens nÃ£o lidas';}
+    if(bubbleDot){bubbleDot.classList.toggle('show',chatUnread>0);bubbleDot.textContent=chatUnread>99?'99+':String(chatUnread||'');bubbleDot.title=chatUnread>0?(chatUnread+' mensagem(ns) não lida(s) no chat'):'Sem mensagens não lidas';}
   }
   function setUpdateAvailable(show,version){
     var dot=bubble.querySelector('.up-update-dot');
     if(!dot)return;
     dot.textContent='';dot.innerHTML=show?iconSvg('update'):'';
-    dot.title=show?('Nova versÃ£o disponÃ­vel: v'+version):'Sem atualizaÃ§Ã£o';
+    dot.title=show?('Nova versão disponível: v'+version):'Sem atualização';
     dot.classList.toggle('show',!!show);
   }
   function openUpdate(){
@@ -704,7 +704,7 @@
     var existing=root.querySelector('.up-patch-modal');
     if(existing)existing.remove();
     var modal=node('div',{className:'up-patch-modal'});
-    modal.innerHTML='<div class="up-patch-dialog" role="dialog" aria-modal="true" aria-label="O que hÃ¡ de novo?"><div class="up-patch-head"><div class="up-patch-title">O que hÃ¡ de novo?</div><button type="button" class="up-patch-close" aria-label="Fechar">Ã</button></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.26</div><ul class="up-patch-list"><li>Corrigida a compatibilidade dos Ã¡udios gravados no Firefox com a reproduÃ§Ã£o no Chrome.</li><li>O gravador agora prioriza Ogg/Opus quando disponÃ­vel e mantÃ©m WebM/Opus como fallback.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.25</div><ul class="up-patch-list"><li>Corrigido o clique direito nas mensagens do chat, restaurando as opÃ§Ãµes de responder, reagir e excluir a prÃ³pria mensagem.</li><li>Corrigida a captura do menu de contexto para impedir que o menu nativo do navegador seja aberto sobre as mensagens do UpStatus.</li><li>Emojis do chat corrigidos para manter a renderizaÃ§Ã£o correta mesmo em ambientes com problemas de codificaÃ§Ã£o.</li><li>BotÃ£o de gravaÃ§Ã£o de Ã¡udio restaurado com o Ã­cone ðï¸.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.24</div><ul class="up-patch-list"><li>CorreÃ§Ãµes de renderizaÃ§Ã£o dos emojis do chat.</li><li>Restaurado o Ã­cone do botÃ£o de gravaÃ§Ã£o de Ã¡udio.</li><li>Melhorias leves no menu de contexto do chat.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.21</div><ul class="up-patch-list"><li>Atualizados os toques padrÃ£o de chamada e renovado o cache do Ã¡udio antigo para garantir que todos os usuÃ¡rios recebam a nova versÃ£o.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.19</div><ul class="up-patch-list"><li>Corrigido o ringtone Ã³rfÃ£o em chamadas recebidas, incluindo instÃ¢ncias duplicadas do userscript e carregamentos assÃ­ncronos pendentes.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.18</div><ul class="up-patch-list"><li>Corrigido o toque de chamada no usuÃ¡rio que recebe a ligaÃ§Ã£o: o ringtone agora Ã© encerrado de forma determinÃ­stica ao atender.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.17</div><ul class="up-patch-list"><li>Chat mais fluido ao enviar mensagens, com reduÃ§Ã£o do flicker causado por redesenhos completos.</li><li>Mensagens enviadas agora sÃ£o reconciliadas com o servidor sem reconstruir o chat inteiro quando nÃ£o Ã© necessÃ¡rio.</li><li>Corrigido o envio duplicado ao manter a tecla Enter pressionada.</li><li>Corrigido o reaparecimento do texto na caixa de mensagem apÃ³s um envio jÃ¡ aceito pelo servidor.</li><li>Permite enviar mensagens consecutivas sem bloquear o envio enquanto a anterior Ã© processada.</li><li>Melhorada a estabilidade do chat, incluindo preservaÃ§Ã£o da posiÃ§Ã£o de leitura e comportamento do scroll durante novas mensagens.</li><li>O chat agora evita acumular listeners de menu de contexto e seletor de emojis ao ser reaberto.</li><li>Chamadas de Ã¡udio consolidadas com WebRTC e Supabase Realtime para sinalizaÃ§Ã£o entre os usuÃ¡rios.</li><li>Mini-player de chamadas com mute, cronÃ´metro, estados de conexÃ£o, controles de Ã¡udio e encerramento da ligaÃ§Ã£o.</li><li>Melhorias no Ã¡udio e nos toques de chamada, com distribuiÃ§Ã£o automÃ¡tica dos toques padrÃ£o e preservaÃ§Ã£o de toques personalizados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.16</div><ul class="up-patch-list"><li>Toques padrÃ£o de chamada agora sÃ£o distribuÃ­dos automaticamente pelo GitHub.</li><li>Toques sÃ£o armazenados localmente e personalizados continuam preservados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.15</div><ul class="up-patch-list"><li>Corrigido o redesenho excessivo do chat que causava flicker.</li><li>Melhorado o controle de mensagens nÃ£o lidas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.14</div><ul class="up-patch-list"><li>Adicionado o sistema de chamadas WebRTC com Ã¡udio.</li><li>Adicionado mini-player de chamadas, mute, timer e controles de ligaÃ§Ã£o.</li><li>Melhorado o Ã¡udio e os toques de chamada.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.8</div><ul class="up-patch-list"><li>NotificaÃ§Ãµes do chat agora respeitam o estado do chat e da aba.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.7</div><ul class="up-patch-list"><li>Corrigido o botÃ£o "â Voltar" do chat.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.6</div><ul class="up-patch-list"><li>Adicionado o Patch Notes do UpStatus.</li><li>Novidades das versÃµes reunidas em um sÃ³ lugar.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.5</div><ul class="up-patch-list"><li>Chat corrigido e mais estÃ¡vel.</li><li>CorreÃ§Ã£o de mensagens duplicadas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.4</div><ul class="up-patch-list"><li>CorreÃ§Ã£o da identificaÃ§Ã£o do autor das mensagens.</li><li>Melhorias na sincronizaÃ§Ã£o do chat.</li></ul></div></div>';
+    modal.innerHTML='<div class="up-patch-dialog" role="dialog" aria-modal="true" aria-label="O que há de novo?"><div class="up-patch-head"><div class="up-patch-title">O que há de novo?</div><button type="button" class="up-patch-close" aria-label="Fechar">×</button></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.26</div><ul class="up-patch-list"><li>Corrigida a compatibilidade dos áudios gravados no Firefox com a reprodução no Chrome.</li><li>O gravador agora prioriza Ogg/Opus quando disponível e mantém WebM/Opus como fallback.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.25</div><ul class="up-patch-list"><li>Corrigido o clique direito nas mensagens do chat, restaurando as opções de responder, reagir e excluir a própria mensagem.</li><li>Corrigida a captura do menu de contexto para impedir que o menu nativo do navegador seja aberto sobre as mensagens do UpStatus.</li><li>Emojis do chat corrigidos para manter a renderização correta mesmo em ambientes com problemas de codificação.</li><li>Botão de gravação de áudio restaurado com o ícone 🎙️.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.24</div><ul class="up-patch-list"><li>Correções de renderização dos emojis do chat.</li><li>Restaurado o ícone do botão de gravação de áudio.</li><li>Melhorias leves no menu de contexto do chat.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.21</div><ul class="up-patch-list"><li>Atualizados os toques padrão de chamada e renovado o cache do áudio antigo para garantir que todos os usuários recebam a nova versão.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.19</div><ul class="up-patch-list"><li>Corrigido o ringtone órfão em chamadas recebidas, incluindo instâncias duplicadas do userscript e carregamentos assíncronos pendentes.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.18</div><ul class="up-patch-list"><li>Corrigido o toque de chamada no usuário que recebe a ligação: o ringtone agora é encerrado de forma determinística ao atender.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.17</div><ul class="up-patch-list"><li>Chat mais fluido ao enviar mensagens, com redução do flicker causado por redesenhos completos.</li><li>Mensagens enviadas agora são reconciliadas com o servidor sem reconstruir o chat inteiro quando não é necessário.</li><li>Corrigido o envio duplicado ao manter a tecla Enter pressionada.</li><li>Corrigido o reaparecimento do texto na caixa de mensagem após um envio já aceito pelo servidor.</li><li>Permite enviar mensagens consecutivas sem bloquear o envio enquanto a anterior é processada.</li><li>Melhorada a estabilidade do chat, incluindo preservação da posição de leitura e comportamento do scroll durante novas mensagens.</li><li>O chat agora evita acumular listeners de menu de contexto e seletor de emojis ao ser reaberto.</li><li>Chamadas de áudio consolidadas com WebRTC e Supabase Realtime para sinalização entre os usuários.</li><li>Mini-player de chamadas com mute, cronômetro, estados de conexão, controles de áudio e encerramento da ligação.</li><li>Melhorias no áudio e nos toques de chamada, com distribuição automática dos toques padrão e preservação de toques personalizados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.16</div><ul class="up-patch-list"><li>Toques padrão de chamada agora são distribuídos automaticamente pelo GitHub.</li><li>Toques são armazenados localmente e personalizados continuam preservados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.15</div><ul class="up-patch-list"><li>Corrigido o redesenho excessivo do chat que causava flicker.</li><li>Melhorado o controle de mensagens não lidas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.14</div><ul class="up-patch-list"><li>Adicionado o sistema de chamadas WebRTC com áudio.</li><li>Adicionado mini-player de chamadas, mute, timer e controles de ligação.</li><li>Melhorado o áudio e os toques de chamada.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.8</div><ul class="up-patch-list"><li>Notificações do chat agora respeitam o estado do chat e da aba.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.7</div><ul class="up-patch-list"><li>Corrigido o botão "← Voltar" do chat.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.6</div><ul class="up-patch-list"><li>Adicionado o Patch Notes do UpStatus.</li><li>Novidades das versões reunidas em um só lugar.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.5</div><ul class="up-patch-list"><li>Chat corrigido e mais estável.</li><li>Correção de mensagens duplicadas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.4</div><ul class="up-patch-list"><li>Correção da identificação do autor das mensagens.</li><li>Melhorias na sincronização do chat.</li></ul></div></div>';
     root.appendChild(modal);
     var close=modal.querySelector('.up-patch-close');
     function closePatch(){modal.remove();}
@@ -735,7 +735,7 @@
     var existing=root.querySelector('.up-update-prompt');
     if(existing)existing.remove();
     var modal=node('div',{className:'up-update-prompt'});
-    modal.innerHTML='<div class="up-update-prompt-box"><div class="up-update-prompt-title">Nova versÃ£o disponÃ­vel</div><div class="up-update-prompt-text">O UpStatus <b>v'+esc(version)+'</b> jÃ¡ estÃ¡ disponÃ­vel.</div><div class="up-update-prompt-actions"><button type="button" class="up-update-prompt-later">Depois</button><button type="button" class="up-update-prompt-now">Atualizar agora</button></div></div>';
+    modal.innerHTML='<div class="up-update-prompt-box"><div class="up-update-prompt-title">Nova versão disponível</div><div class="up-update-prompt-text">O UpStatus <b>v'+esc(version)+'</b> já está disponível.</div><div class="up-update-prompt-actions"><button type="button" class="up-update-prompt-later">Depois</button><button type="button" class="up-update-prompt-now">Atualizar agora</button></div></div>';
     root.appendChild(modal);
     modal.querySelector('.up-update-prompt-later').onclick=function(){modal.remove();};
     modal.querySelector('.up-update-prompt-now').onclick=function(){modal.remove();openUpdate();};
@@ -747,17 +747,17 @@
       var remote=d&&d.version?String(d.version):'';
       var cmp=compareVersions(remote,CURRENT_VERSION);
 
-      manuals.forEach(function(manual){manual.onclick=openUpdate;manual.disabled=cmp<=0;manual.title=cmp>0?'Atualizar para v'+remote:'VocÃª jÃ¡ estÃ¡ na versÃ£o mais recente';});
+      manuals.forEach(function(manual){manual.onclick=openUpdate;manual.disabled=cmp<=0;manual.title=cmp>0?'Atualizar para v'+remote:'Você já está na versão mais recente';});
       if(remote&&cmp>0){
         setUpdateAvailable(true,remote);
-        statuses.forEach(function(status){status.innerHTML=' â¢ Nova versÃ£o: <b>v'+esc(remote)+'</b>';});
+        statuses.forEach(function(status){status.innerHTML=' • Nova versão: <b>v'+esc(remote)+'</b>';});
         showUpdatePrompt(remote);
       }else if(remote&&cmp<0){
         setUpdateAvailable(false,'');
-        statuses.forEach(function(status){status.textContent=' â¢ Servidor estÃ¡ em v'+esc(remote)+'; vocÃª estÃ¡ em v'+CURRENT_VERSION+'.';});
+        statuses.forEach(function(status){status.textContent=' • Servidor está em v'+esc(remote)+'; você está em v'+CURRENT_VERSION+'.';});
       }else{
         setUpdateAvailable(false,'');
-        statuses.forEach(function(status){status.textContent=' â¢ VocÃª estÃ¡ atualizado.';});
+        statuses.forEach(function(status){status.textContent=' • Você está atualizado.';});
       }
     }).catch(function(){}).finally(function(){remotePolling=false;});
   }
@@ -801,7 +801,7 @@
     if(bubble){bubble.classList.remove('up-main-alert');void bubble.offsetWidth;bubble.classList.add('up-main-alert');setTimeout(function(){bubble.classList.remove('up-main-alert')},700);}
     var el=node('div',{className:'up-toast'});
     var toastText=(m.type==='image'||m.imageUrl)?'foto':(m.message||'');
-    el.innerHTML='<button type="button" class="up-toast-close" aria-label="Fechar">Ã</button><div class="up-toast-name">'+esc(m.user)+'</div><div class="up-toast-text">'+esc(toastText)+'</div>';
+    el.innerHTML='<button type="button" class="up-toast-close" aria-label="Fechar">×</button><div class="up-toast-name">'+esc(m.user)+'</div><div class="up-toast-text">'+esc(toastText)+'</div>';
     el.querySelector('.up-toast-close').onclick=function(e){e.stopPropagation();removeToast(m.id)};
     el.addEventListener('click',function(e){
       if(e.target&&e.target.closest&&e.target.closest('.up-toast-close'))return;
@@ -822,20 +822,20 @@
     if(!btn)return;
     var p=externalNotificationsSupported()?UpNativeNotification.permission:'unsupported';
     externalNotifPermission=p;btn.classList.remove('enabled','denied');
-    if(!notificationsEnabled){btn.classList.add('denied');btn.innerHTML=iconSvg('bell')+'<span>NotificaÃ§Ãµes desligadas</span>';return;}
-    if(p==='granted'){btn.classList.add('enabled');btn.innerHTML=iconSvg('bell')+'<span>NotificaÃ§Ãµes ligadas</span>';}
-    else if(p==='denied'){btn.classList.add('denied');btn.innerHTML=iconSvg('bell')+'<span>NotificaÃ§Ãµes bloqueadas</span>';}
-    else btn.innerHTML=iconSvg('bell')+'<span>Ligar notificaÃ§Ãµes</span>';
+    if(!notificationsEnabled){btn.classList.add('denied');btn.innerHTML=iconSvg('bell')+'<span>Notificações desligadas</span>';return;}
+    if(p==='granted'){btn.classList.add('enabled');btn.innerHTML=iconSvg('bell')+'<span>Notificações ligadas</span>';}
+    else if(p==='denied'){btn.classList.add('denied');btn.innerHTML=iconSvg('bell')+'<span>Notificações bloqueadas</span>';}
+    else btn.innerHTML=iconSvg('bell')+'<span>Ligar notificações</span>';
   }
   function toggleNotifications(){
-    if(notificationsEnabled){notificationsEnabled=false;GM_setValue(key+'notifications_enabled',false);updateNotificationPermissionUI();message('NotificaÃ§Ãµes desligadas.');return;}
+    if(notificationsEnabled){notificationsEnabled=false;GM_setValue(key+'notifications_enabled',false);updateNotificationPermissionUI();message('Notificações desligadas.');return;}
     notificationsEnabled=true;GM_setValue(key+'notifications_enabled',true);
     if(externalNotificationsSupported()&&UpNativeNotification.permission==='default'){requestExternalNotifications();return;}
     updateNotificationPermissionUI();
   }
   async function requestExternalNotifications(){
     if(!externalNotificationsSupported()){
-      message('Este navegador nÃ£o oferece notificaÃ§Ãµes externas.',true);
+      message('Este navegador não oferece notificações externas.',true);
       return;
     }
     try{
@@ -843,9 +843,9 @@
       if(p==='default')p=await UpNativeNotification.requestPermission();
       externalNotifPermission=p;
       updateNotificationPermissionUI();
-      if(p==='granted')message('NotificaÃ§Ãµes externas ativadas.');
-      else if(p==='denied')message('NotificaÃ§Ãµes foram bloqueadas pelo navegador.',true);
-    }catch(e){message('NÃ£o foi possÃ­vel ativar as notificaÃ§Ãµes.',true)}
+      if(p==='granted')message('Notificações externas ativadas.');
+      else if(p==='denied')message('Notificações foram bloqueadas pelo navegador.',true);
+    }catch(e){message('Não foi possível ativar as notificações.',true)}
   }
   function shouldNotifyForChat(){
     return chat.classList.contains('hidden') || document.visibilityState!=='visible';
@@ -899,12 +899,12 @@
     markExternalNotificationShown(type,id);
     try{
       var title='UpStatus - Chat da equipe';
-      var body=String(data.user||'AlguÃ©m')+' enviou uma mensagem no chat.';
+      var body=String(data.user||'Alguém')+' enviou uma mensagem no chat.';
       var n=new UpNativeNotification(title,{body:body,icon:upStatusNotificationIcon(),badge:upStatusNotificationIcon(),tag:'upstatus-'+type+'-'+String(id),renotify:true});
       n.onclick=function(){try{window.focus()}catch(e){};try{openChat();}catch(e){};try{n.close();}catch(e){}};
     }catch(e){
       try{
-        var n2=new UpNativeNotification('UpStatus - Chat da equipe',{body:String(data.user||'AlguÃ©m')+' enviou uma mensagem no chat.',tag:'upstatus-'+type+'-'+String(id),renotify:true});
+        var n2=new UpNativeNotification('UpStatus - Chat da equipe',{body:String(data.user||'Alguém')+' enviou uma mensagem no chat.',tag:'upstatus-'+type+'-'+String(id),renotify:true});
         n2.onclick=function(){try{window.focus()}catch(e){};try{openChat()}catch(e){};try{n2.close()}catch(e){}};
       }catch(ignore){}
     }
@@ -946,7 +946,7 @@
   function absoluteServerUrl(route){return /^https?:\/\//i.test(route||'')?route:server+String(route||'');}
   function loadBlobUrl(route,cacheKey){
     var key=cacheKey||route;if(mediaBlobCache[key])return Promise.resolve(mediaBlobCache[key]);
-    return new Promise(function(resolve,reject){GM_xmlhttpRequest({method:'GET',url:absoluteServerUrl(route),responseType:'blob',onload:function(r){if(r.status>=400){reject(new Error('Arquivo nÃ£o encontrado.'));return;}try{var u=URL.createObjectURL(r.response);mediaBlobCache[key]=u;resolve(u);}catch(e){reject(e);}},onerror:function(){reject(new Error('NÃ£o foi possÃ­vel carregar o arquivo.'));}});});
+    return new Promise(function(resolve,reject){GM_xmlhttpRequest({method:'GET',url:absoluteServerUrl(route),responseType:'blob',onload:function(r){if(r.status>=400){reject(new Error('Arquivo não encontrado.'));return;}try{var u=URL.createObjectURL(r.response);mediaBlobCache[key]=u;resolve(u);}catch(e){reject(e);}},onerror:function(){reject(new Error('Não foi possível carregar o arquivo.'));}});});
   }
   var profilesLoadedAt=0;
   function loadProfiles(force){
@@ -1718,7 +1718,7 @@
     var box=chat.querySelector('.up-chat-typing');if(!box)return;
     var active=(Array.isArray(names)?names:[]).filter(function(n){return n&&n!==member;});
     if(!active.length){box.classList.add('hidden');box.innerHTML='';return;}
-    var shown=active.slice(0,2),label=shown.join(' e ')+(active.length>2?' e mais alguÃ©m':'');
+    var shown=active.slice(0,2),label=shown.join(' e ')+(active.length>2?' e mais alguém':'');
     var first=shown[0];
     box.innerHTML='<img class="up-chat-typing-avatar" data-typing-avatar="'+esc(first)+'" alt="'+esc(first)+'"><div class="up-chat-typing-dots"><i></i><i></i><i></i></div><span>'+esc(label)+' digitando</span>';
     box.classList.remove('hidden');
@@ -1790,8 +1790,8 @@
    }
   function chatDateKey(iso){var d=new Date(iso);return isNaN(d.getTime())?'':d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate();}
   function chatDateLabel(iso){var d=new Date(iso);if(isNaN(d.getTime()))return '';var now=new Date();var yesterday=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1);if(d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth()&&d.getDate()===now.getDate())return 'Hoje, '+d.toLocaleDateString('pt-BR',{day:'2-digit',month:'long'});if(d.getFullYear()===yesterday.getFullYear()&&d.getMonth()===yesterday.getMonth()&&d.getDate()===yesterday.getDate())return 'Ontem, '+d.toLocaleDateString('pt-BR',{day:'2-digit',month:'long'});return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});}
-  function updateChatHeaderPresence(){var el=chat.querySelector('.up-chat-header-info');if(!el)return;var team=window.__upstatusTeam||{};var names=Object.keys(team);var online=names.filter(function(n){return team[n]&&team[n].connected!==false;}).length;var inChat=names.filter(function(n){return chatPresence[n]&&chatPresence[n]>Date.now();}).length;el.innerHTML='<span class="chat-online-dot">â</span> '+online+' online Â· '+inChat+' no bate-papo';}
-  function setupChatAudioPlayer(el,url){if(!el||!url)return;var audio=new Audio(url);audio.preload='metadata';audio.volume=.85;var play=el.querySelector('.up-chat-audio-play'),time=el.querySelector('.up-chat-audio-time'),wave=el.querySelector('.up-chat-audio-wave'),vol=el.querySelector('.up-chat-audio-volume'),duration=0;function fmt(s){s=Number(s);if(!isFinite(s)||s<0)return'--:--';s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}function setDuration(v){v=Number(v);if(isFinite(v)&&v>0){duration=v;time.textContent=fmt(audio.currentTime)+' / '+fmt(duration);return true}return false}function resolveDuration(){if(setDuration(audio.duration))return;try{var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;fetch(url).then(function(r){return r.arrayBuffer()}).then(function(buf){var ctx=new AC();return ctx.decodeAudioData(buf).then(function(decoded){setDuration(decoded.duration);try{ctx.close()}catch(e){}})}).catch(function(){})}catch(e){}}function draw(){if(!wave)return;wave.innerHTML='';for(var i=0;i<34;i++){var h=5+((i*17)%17);var s=document.createElement('span');s.style.height=h+'px';wave.appendChild(s);}}draw();play.onclick=function(e){e.preventDefault();if(audio.paused){audio.play().then(function(){play.textContent='ââ';}).catch(function(){})}else{audio.pause();play.textContent='â¶'}};audio.addEventListener('loadedmetadata',resolveDuration);audio.addEventListener('durationchange',resolveDuration);audio.addEventListener('timeupdate',function(){var d=duration||audio.duration;time.textContent=fmt(audio.currentTime)+(isFinite(d)&&d>0?' / '+fmt(d):'');var spans=wave?wave.querySelectorAll('span'):[];var pct=isFinite(d)&&d>0?Math.min(1,audio.currentTime/d):0;spans.forEach(function(s,i){s.style.opacity=i/spans.length<=pct?'1':'.35';});});audio.addEventListener('ended',function(){play.textContent='â¶';time.textContent=fmt(duration||audio.duration);});if(vol)vol.onclick=function(){audio.muted=!audio.muted;vol.innerHTML=iconSvg('sound');vol.style.opacity=audio.muted?'.45':'1';};el._upAudio=audio;resolveDuration();}
+  function updateChatHeaderPresence(){var el=chat.querySelector('.up-chat-header-info');if(!el)return;var team=window.__upstatusTeam||{};var names=Object.keys(team);var online=names.filter(function(n){return team[n]&&team[n].connected!==false;}).length;var inChat=names.filter(function(n){return chatPresence[n]&&chatPresence[n]>Date.now();}).length;el.innerHTML='<span class="chat-online-dot">●</span> '+online+' online · '+inChat+' no bate-papo';}
+  function setupChatAudioPlayer(el,url){if(!el||!url)return;var audio=new Audio(url);audio.preload='metadata';audio.volume=.85;var play=el.querySelector('.up-chat-audio-play'),time=el.querySelector('.up-chat-audio-time'),wave=el.querySelector('.up-chat-audio-wave'),vol=el.querySelector('.up-chat-audio-volume'),duration=0;function fmt(s){s=Number(s);if(!isFinite(s)||s<0)return'--:--';s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}function setDuration(v){v=Number(v);if(isFinite(v)&&v>0){duration=v;time.textContent=fmt(audio.currentTime)+' / '+fmt(duration);return true}return false}function resolveDuration(){if(setDuration(audio.duration))return;try{var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;fetch(url).then(function(r){return r.arrayBuffer()}).then(function(buf){var ctx=new AC();return ctx.decodeAudioData(buf).then(function(decoded){setDuration(decoded.duration);try{ctx.close()}catch(e){}})}).catch(function(){})}catch(e){}}function draw(){if(!wave)return;wave.innerHTML='';for(var i=0;i<34;i++){var h=5+((i*17)%17);var s=document.createElement('span');s.style.height=h+'px';wave.appendChild(s);}}draw();play.onclick=function(e){e.preventDefault();if(audio.paused){audio.play().then(function(){play.textContent='❚❚';}).catch(function(){})}else{audio.pause();play.textContent='▶'}};audio.addEventListener('loadedmetadata',resolveDuration);audio.addEventListener('durationchange',resolveDuration);audio.addEventListener('timeupdate',function(){var d=duration||audio.duration;time.textContent=fmt(audio.currentTime)+(isFinite(d)&&d>0?' / '+fmt(d):'');var spans=wave?wave.querySelectorAll('span'):[];var pct=isFinite(d)&&d>0?Math.min(1,audio.currentTime/d):0;spans.forEach(function(s,i){s.style.opacity=i/spans.length<=pct?'1':'.35';});});audio.addEventListener('ended',function(){play.textContent='▶';time.textContent=fmt(duration||audio.duration);});if(vol)vol.onclick=function(){audio.muted=!audio.muted;vol.innerHTML=iconSvg('sound');vol.style.opacity=audio.muted?'.45':'1';};el._upAudio=audio;resolveDuration();}
   function dedupeChatCache(){
     var byId={};
     (chatCache||[]).forEach(function(m){if(!m||m.id==null)return;var id=String(m.id);byId[id]=mergeChatMessage(byId[id],m);});
@@ -1809,7 +1809,7 @@
     }
     var wasAtBottom=(list.scrollHeight-list.scrollTop-list.clientHeight)<28;var previousScrollTop=list.scrollTop;
     updateChatHeaderPresence();
-    if(!chatCache.length){list.innerHTML='<div class="up-history-empty">Nenhuma mensagem nas Ãºltimas 48 horas.</div>';return;}
+    if(!chatCache.length){list.innerHTML='<div class="up-history-empty">Nenhuma mensagem nas últimas 48 horas.</div>';return;}
     var html='',lastDate='';
     chatCache.forEach(function(m,idx){
       var day=chatDateKey(m.createdAt);if(day&&day!==lastDate){html+='<div class="up-chat-date-divider"><span>'+esc(chatDateLabel(m.createdAt))+'</span></div>';lastDate=day;}
@@ -1818,9 +1818,9 @@
       var samePrev=!!prev&&prev.type!=='system'&&prev.user===m.user&&chatDateKey(prev.createdAt)===day,sameNext=!!next&&next.type!=='system'&&next.user===m.user&&chatDateKey(next.createdAt)===day;
       var groupStart=!samePrev,groupEnd=!sameNext;
       var avatar='<img class="up-chat-avatar '+chatAvatarPresence(m.user)+(groupEnd?'':' avatar-hidden')+'" data-avatar-name="'+esc(m.user)+'" alt="'+esc(m.user)+'">',body='';
-      if(m.imageUrl){if(m.type==='video')body='<video class="up-chat-media up-chat-media-video" data-media-route="'+esc(m.imageUrl)+'" controls preload="metadata"></video>';else if(m.type==='audio')body='<div class="up-chat-audio-player" data-media-route="'+esc(m.imageUrl)+'"><button type="button" class="up-chat-audio-play" aria-label="Reproduzir Ã¡udio">â¶</button><div class="up-chat-audio-wave"></div><span class="up-chat-audio-time">0:00</span><button type="button" class="up-chat-audio-volume" aria-label="Volume">'+iconSvg('sound')+'</button></div>';else body='<img class="up-chat-photo" data-media-route="'+esc(m.imageUrl)+'" alt="Imagem enviada por '+esc(m.user)+'" loading="lazy">';}
+      if(m.imageUrl){if(m.type==='video')body='<video class="up-chat-media up-chat-media-video" data-media-route="'+esc(m.imageUrl)+'" controls preload="metadata"></video>';else if(m.type==='audio')body='<div class="up-chat-audio-player" data-media-route="'+esc(m.imageUrl)+'"><button type="button" class="up-chat-audio-play" aria-label="Reproduzir áudio">▶</button><div class="up-chat-audio-wave"></div><span class="up-chat-audio-time">0:00</span><button type="button" class="up-chat-audio-volume" aria-label="Volume">'+iconSvg('sound')+'</button></div>';else body='<img class="up-chat-photo" data-media-route="'+esc(m.imageUrl)+'" alt="Imagem enviada por '+esc(m.user)+'" loading="lazy">';}
       else if(m.message)body='<div class="up-chat-text">'+renderChatText(m.message)+'</div>';
-      var readers=Array.isArray(m.readBy)?m.readBy.filter(function(n){return n!==member;}):[],title=readers.length?'Lido por: '+readers.join(', '):'NÃ£o lido ainda',tick=own?'<span class="up-chat-read '+(readers.length?'read':'')+'" data-readers="'+esc(title)+'">ââ</span>':'';
+      var readers=Array.isArray(m.readBy)?m.readBy.filter(function(n){return n!==member;}):[],title=readers.length?'Lido por: '+readers.join(', '):'Não lido ainda',tick=own?'<span class="up-chat-read '+(readers.length?'read':'')+'" data-readers="'+esc(title)+'">✓✓</span>':'';
       var meta=groupStart?'<div class="up-chat-meta"><b>'+esc(m.user)+'</b><span>'+fmtTime(m.createdAt)+'</span></div>':'';
       var bubble='<div class="up-chat-bubble">'+replyPreview(m)+meta+body+(own?'<span class="up-chat-own-meta">'+tick+'</span>':'')+'<div class="up-chat-reactions">'+renderReactions(m)+'</div></div>';
       html+='<div class="up-chat-item '+(own?'own ':'')+(m.user==='Lucca'?'lucca ':'')+(groupStart?'group-start ':'')+(groupEnd?'group-end ':'')+(!groupStart&&!groupEnd?'group-middle ':'')+'" data-message-id="'+esc(m.id)+'">'+avatar+bubble+(own?'<button type="button" class="up-delete-action hidden">'+iconSvg('trash')+'</button>':'')+'</div>';
@@ -1830,7 +1830,7 @@
     list.querySelectorAll('[data-avatar-name]').forEach(function(img){var name=img.getAttribute('data-avatar-name')||'';img.addEventListener('mouseenter',function(e){showChatProfileHover(img,name,e);});img.addEventListener('mousemove',positionChatProfileHover);img.addEventListener('mouseleave',hideChatProfileHover);});
     list.querySelectorAll('[data-media-route]').forEach(function(el){var route=el.getAttribute('data-media-route')||'',key='chat:'+route;loadBlobUrl(route,key).then(function(url){if(el.classList.contains('up-chat-audio-player'))setupChatAudioPlayer(el,url);else el.src=url;}).catch(function(){});if(!el.classList.contains('up-chat-audio-player'))el.addEventListener('load',function(){if(wasAtBottom)requestAnimationFrame(function(){list.scrollTop=list.scrollHeight;});});});
     list.querySelectorAll('.up-chat-photo').forEach(function(img){img.addEventListener('click',function(){openChatLightbox(img.src);});});
-    list.querySelectorAll('.up-chat-read').forEach(function(tick){tick.addEventListener('mouseenter',function(e){readTooltip.textContent=tick.getAttribute('data-readers')||'NÃ£o lido ainda';readTooltip.classList.add('show');positionReadTooltip(e);});tick.addEventListener('mousemove',positionReadTooltip);tick.addEventListener('mouseleave',function(){readTooltip.classList.remove('show');});});
+    list.querySelectorAll('.up-chat-read').forEach(function(tick){tick.addEventListener('mouseenter',function(e){readTooltip.textContent=tick.getAttribute('data-readers')||'Não lido ainda';readTooltip.classList.add('show');positionReadTooltip(e);});tick.addEventListener('mousemove',positionReadTooltip);tick.addEventListener('mouseleave',function(){readTooltip.classList.remove('show');});});
     list.querySelectorAll('.up-chat-item').forEach(function(item){item.addEventListener('contextmenu',function(e){e.preventDefault();e.stopPropagation();var id=item.getAttribute('data-message-id');var msg=chatCache.find(function(x){return x.id===id;});if(msg)openChatContextMenu(e,msg);});});
     
     
@@ -1849,9 +1849,9 @@
     var menu=chat.querySelector('.up-chat-context-menu');if(!menu)return;
     chatContextMessageId=m.id;
     var canReply=m.user!==member;
-    var quick=['ð','â¤ï¸','ð','ð¡','ð®','ð'];
+    var quick=['😂','❤️','👍','😡','😮','👏'];
     var canDelete=m.user===member;
-    menu.innerHTML=(canReply?'<button type="button" class="up-chat-context-action" data-action="reply">â© Responder</button>':'')+(canDelete?'<button type="button" class="up-chat-context-action up-chat-context-delete" data-action="delete">ð Excluir mensagem</button>':'')+'<div class="up-chat-context-reaction-row">'+quick.map(function(em){return '<button type="button" class="up-chat-reaction" data-context-reaction="'+esc(em)+'">'+em+'</button>';}).join('')+'</div>';
+    menu.innerHTML=(canReply?'<button type="button" class="up-chat-context-action" data-action="reply">↩ Responder</button>':'')+(canDelete?'<button type="button" class="up-chat-context-action up-chat-context-delete" data-action="delete">🗑 Excluir mensagem</button>':'')+'<div class="up-chat-context-reaction-row">'+quick.map(function(em){return '<button type="button" class="up-chat-reaction" data-context-reaction="'+esc(em)+'">'+em+'</button>';}).join('')+'</div>';
     menu.classList.add('show');
     var x=Math.min(window.innerWidth-menu.offsetWidth-8,Math.max(8,e.clientX||8)),y=Math.min(window.innerHeight-menu.offsetHeight-8,Math.max(8,e.clientY||8));menu.style.left=x+'px';menu.style.top=y+'px';
     var reply=menu.querySelector('[data-action="reply"]');if(reply)reply.onclick=function(){setChatReply(m);hideChatContextMenu();};
@@ -1925,7 +1925,7 @@
     chatReplyTo=null;chatContextMessageId=null;
     setUnread(0);
     chat.classList.remove('hidden');card.classList.add('hidden');history.classList.add('hidden');broadcastChatPresence(true);refresh();
-    chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><button type="button" class="up-chat-profile-btn" title="Alterar foto de perfil"><img alt="Minha foto"></button><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">â</span> 0 online Â· 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'<button class="up-chat-back" type="button">â Voltar</button></div></div><div class="up-chat-lucca-alert hidden">ð´ ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregandoâ¦</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">Ã</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando <span class="up-chat-recording-time">0:00</span> â¢ clique novamente para enviar</div><div class="up-chat-input-wrap"><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vÃ­deo" aria-label="Enviar foto, GIF ou vÃ­deo">'+iconSvg('photo')+'</button><button type="button" class="up-chat-record" title="Gravar Ã¡udio (atÃ© 30 segundos)" aria-label="Gravar Ã¡udio">ðï¸</button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" hidden></div></div><div class="up-chat-lightbox hidden"><button type="button" class="up-chat-lightbox-close" aria-label="Fechar">Ã</button><img alt="Imagem ampliada"></div>';
+    chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><button type="button" class="up-chat-profile-btn" title="Alterar foto de perfil"><img alt="Minha foto"></button><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">●</span> 0 online · 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'<button class="up-chat-back" type="button">← Voltar</button></div></div><div class="up-chat-lucca-alert hidden">🔴 ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregando…</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">×</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando <span class="up-chat-recording-time">0:00</span> • clique novamente para enviar</div><div class="up-chat-input-wrap"><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">'+iconSvg('photo')+'</button><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">🎙️</button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" hidden></div></div><div class="up-chat-lightbox hidden"><button type="button" class="up-chat-lightbox-close" aria-label="Fechar">×</button><img alt="Imagem ampliada"></div>';
     var profileBtn=chat.querySelector('.up-chat-profile-btn');if(profileBtn){hydrateAvatar(profileBtn.querySelector('img'),member);profileBtn.onclick=function(e){e.stopPropagation();openProfileModal();};profileBtn.addEventListener('mouseenter',function(e){showChatProfileHover(profileBtn.querySelector('img'),member,e);});profileBtn.addEventListener('mousemove',positionChatProfileHover);profileBtn.addEventListener('mouseleave',hideChatProfileHover);}
     var input=chat.querySelector('.up-chat-input'),photoBtn=chat.querySelector('.up-chat-attach'),photoFile=chat.querySelector('.up-chat-file'),emojiBtn=chat.querySelector('.up-chat-emoji-btn'),emojiMenu=chat.querySelector('.up-chat-emoji-menu'),recordBtn=chat.querySelector('.up-chat-record');
     restoreChatDraft(input);
@@ -1992,19 +1992,19 @@
   function finishAudioRecording(rec){try{if(rec&&rec.stream)rec.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}clearInterval(recordingTimer);recordingTimer=null;updateRecordingUi(chat.querySelector('.up-chat-record'),false);mediaRecorder=null;}
   function toggleAudioRecording(btn){
     if(mediaRecorder&&mediaRecorder.state==='recording'){stopAudioRecording(true);return;}
-    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||typeof MediaRecorder==='undefined'){message('Seu navegador nÃ£o suporta gravaÃ§Ã£o de Ã¡udio.',true);return;}
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||typeof MediaRecorder==='undefined'){message('Seu navegador não suporta gravação de áudio.',true);return;}
     navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}}).then(function(stream){
       recordingChunks=[];recordingStartedAt=Date.now();var mime='';
       ['audio/ogg;codecs=opus','audio/webm;codecs=opus','audio/webm','audio/mp4','audio/mpeg'].some(function(x){if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(x)){mime=x;return true;}return false;});
       var options=mime?{mimeType:mime,audioBitsPerSecond:128000}:{};
       var rec=new MediaRecorder(stream,options);mediaRecorder=rec;rec.__sendOnStop=true;rec.__mime=mime;
       rec.ondataavailable=function(e){if(e.data&&e.data.size)recordingChunks.push(e.data);};
-      rec.onerror=function(){finishAudioRecording(rec);recordingChunks=[];message('NÃ£o foi possÃ­vel gravar o Ã¡udio.',true);};
-      rec.onstop=function(){var shouldSend=!!rec.__sendOnStop;var mimeType=rec.mimeType||mime||'audio/webm';var chunks=recordingChunks.slice();recordingChunks=[];finishAudioRecording(rec);if(!shouldSend||!chunks.length)return;var blob=new Blob(chunks,{type:mimeType});if(blob.size>5*1024*1024){message('O Ã¡udio ficou maior que 5 MB.',true);return;}var reader=new FileReader();reader.onload=function(){sendChatAudioData(String(reader.result));};reader.onerror=function(){message('NÃ£o foi possÃ­vel preparar o Ã¡udio.',true);};reader.readAsDataURL(blob);};
+      rec.onerror=function(){finishAudioRecording(rec);recordingChunks=[];message('Não foi possível gravar o áudio.',true);};
+      rec.onstop=function(){var shouldSend=!!rec.__sendOnStop;var mimeType=rec.mimeType||mime||'audio/webm';var chunks=recordingChunks.slice();recordingChunks=[];finishAudioRecording(rec);if(!shouldSend||!chunks.length)return;var blob=new Blob(chunks,{type:mimeType});if(blob.size>5*1024*1024){message('O áudio ficou maior que 5 MB.',true);return;}var reader=new FileReader();reader.onload=function(){sendChatAudioData(String(reader.result));};reader.onerror=function(){message('Não foi possível preparar o áudio.',true);};reader.readAsDataURL(blob);};
       rec.start(250);updateRecordingUi(btn,true);recordingTimer=setInterval(function(){var elapsed=Math.floor((Date.now()-recordingStartedAt)/1000),time=chat.querySelector('.up-chat-recording-time');if(time)time.textContent='0:'+String(Math.min(elapsed,30)).padStart(2,'0');if(elapsed>=30)stopAudioRecording(true);},250);
-    }).catch(function(e){message(e.name==='NotAllowedError'?'Permita o uso do microfone para gravar Ã¡udio.':'NÃ£o foi possÃ­vel acessar o microfone.',true);});
+    }).catch(function(e){message(e.name==='NotAllowedError'?'Permita o uso do microfone para gravar áudio.':'Não foi possível acessar o microfone.',true);});
   }
-  function sendChatAudioData(dataUrl){var send=chat.querySelector('.up-chat-send'),record=chat.querySelector('.up-chat-record');if(send)send.disabled=true;if(record)record.disabled=true;var raw=String(dataUrl||'');var match=raw.match(/^data:(audio\/[^;,]+)(?:;[^,]*)?;base64,/i);if(!match){if(send)send.disabled=false;if(record)record.disabled=false;message('Ãudio invÃ¡lido.',true);return;}api('POST','/api/chat/audio',{dataUrl:raw}).then(function(r){return api('POST','/api/chat',{message:'',imageUrl:r.imageUrl,type:'audio',replyTo:chatReplyTo});}).then(function(){chatReplyTo=null;setChatReply(null);stopTypingHeartbeat();return refreshChatAfterSend(null,send);}).catch(function(e){if(send)send.disabled=false;message(e.message,true);}).finally(function(){if(record)record.disabled=false;});
+  function sendChatAudioData(dataUrl){var send=chat.querySelector('.up-chat-send'),record=chat.querySelector('.up-chat-record');if(send)send.disabled=true;if(record)record.disabled=true;var raw=String(dataUrl||'');var match=raw.match(/^data:(audio\/[^;,]+)(?:;[^,]*)?;base64,/i);if(!match){if(send)send.disabled=false;if(record)record.disabled=false;message('Áudio inválido.',true);return;}api('POST','/api/chat/audio',{dataUrl:raw}).then(function(r){return api('POST','/api/chat',{message:'',imageUrl:r.imageUrl,type:'audio',replyTo:chatReplyTo});}).then(function(){chatReplyTo=null;setChatReply(null);stopTypingHeartbeat();return refreshChatAfterSend(null,send);}).catch(function(e){if(send)send.disabled=false;message(e.message,true);}).finally(function(){if(record)record.disabled=false;});
   }
   function clearChatRicardo(){if(member!=='Ricardo')return;if(!confirm('Limpar todo o chat para a equipe?'))return;api('POST','/api/chat/clear',{}).then(function(){chatCache=[];chatLastRenderKey='';return api('GET','/api/chat');}).then(function(d){chatCache=d.messages||[];if(d.profiles)profileCache=d.profiles;renderChat();}).catch(function(e){message(e.message,true);});}
   function scrollChatToBottom(force){
@@ -2043,7 +2043,7 @@
         try{
           reconcileSentChatMessage(tempId,created);
         }catch(reconcileError){
-          try{console.error('[UpStatus Chat] Mensagem enviada, mas falhou a reconciliaÃ§Ã£o visual:',reconcileError);}catch(_){}
+          try{console.error('[UpStatus Chat] Mensagem enviada, mas falhou a reconciliação visual:',reconcileError);}catch(_){}
           chatCache=chatCache.filter(function(m){return String(m.id)!==String(tempId);});
           loadChat(true);
         }
@@ -2057,7 +2057,7 @@
       try{renderChat();}catch(renderError){try{console.error('[UpStatus Chat] Falha ao renderizar erro de envio:',renderError);}catch(_){}}
       if(input)input.value=text;
       saveChatDraft(input);
-      message(e.message||'NÃ£o foi possÃ­vel enviar a mensagem.',true);
+      message(e.message||'Não foi possível enviar a mensagem.',true);
     }).finally(function(){
       if(btn)btn.disabled=false;
     });
@@ -2071,15 +2071,15 @@
     var ok=allowVideo?/^(image\/(png|jpe?g|webp|gif)|video\/(mp4|webm))$/i.test(mime):/^image\/(png|jpe?g|webp|gif)$/i.test(mime);
     return {mime:mime,ext:ext,ok:ok};
   }
-  function fileToDataUrl(file){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Use PNG, JPG, WEBP, GIF, MP4 ou WEBM.'));return;}var max=/^video\//i.test(info.mime)?25*1024*1024:5*1024*1024;if(file.size>max){reject(new Error('O arquivo deve ter no mÃ¡ximo '+(max/1024/1024)+' MB.'));return;}var reader=new FileReader();reader.onload=function(){var data=reader.result;if(!(data instanceof ArrayBuffer)){resolve(String(data));return;}var bytes=new Uint8Array(data),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+info.mime+';base64,'+btoa(bin));};reader.onerror=function(){reject(new Error('NÃ£o foi possÃ­vel ler o arquivo.'));};reader.readAsArrayBuffer(file);});}
-  function fileToDataUrlForProfile(file,type,ext){var info=resolveFileMime(file,false),mime=info.ok?info.mime:fileMimeFromExt(ext);if(!/^image\//i.test(mime)){return Promise.reject(new Error('Use PNG, JPG, WEBP ou GIF.'));}return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){try{var bytes=new Uint8Array(reader.result),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+mime+';base64,'+btoa(bin));}catch(e){reject(new Error('NÃ£o foi possÃ­vel preparar a foto.'));}};reader.onerror=function(){reject(new Error('NÃ£o foi possÃ­vel ler a foto.'));};reader.readAsArrayBuffer(file);});}
+  function fileToDataUrl(file){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Use PNG, JPG, WEBP, GIF, MP4 ou WEBM.'));return;}var max=/^video\//i.test(info.mime)?25*1024*1024:5*1024*1024;if(file.size>max){reject(new Error('O arquivo deve ter no máximo '+(max/1024/1024)+' MB.'));return;}var reader=new FileReader();reader.onload=function(){var data=reader.result;if(!(data instanceof ArrayBuffer)){resolve(String(data));return;}var bytes=new Uint8Array(data),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+info.mime+';base64,'+btoa(bin));};reader.onerror=function(){reject(new Error('Não foi possível ler o arquivo.'));};reader.readAsArrayBuffer(file);});}
+  function fileToDataUrlForProfile(file,type,ext){var info=resolveFileMime(file,false),mime=info.ok?info.mime:fileMimeFromExt(ext);if(!/^image\//i.test(mime)){return Promise.reject(new Error('Use PNG, JPG, WEBP ou GIF.'));}return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){try{var bytes=new Uint8Array(reader.result),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+mime+';base64,'+btoa(bin));}catch(e){reject(new Error('Não foi possível preparar a foto.'));}};reader.onerror=function(){reject(new Error('Não foi possível ler a foto.'));};reader.readAsArrayBuffer(file);});}
   function sendChatMedia(file){var btn=chat.querySelector('.up-chat-send'),photoBtn=chat.querySelector('.up-chat-attach');if(btn)btn.disabled=true;if(photoBtn)photoBtn.disabled=true;fileToDataUrl(file).then(function(dataUrl){return api('POST','/api/chat/image',{dataUrl:dataUrl})}).then(function(r){return api('POST','/api/chat',{message:'',imageUrl:r.imageUrl,type:r.type,replyTo:chatReplyTo})}).then(function(r){if(r&&r.message)sendRealtimeEvent('chat_fast',{message:r.message});return refreshChatAfterSend(null,btn)}).catch(function(e){if(btn)btn.disabled=false;message(e.message,true)}).finally(function(){if(photoBtn)photoBtn.disabled=false});}
 
   function openProfileModal(){var file=profileModal.querySelector('.up-chat-profile-file'),preview=profileModal.querySelector('.up-chat-profile-preview'),msg=profileModal.querySelector('.up-chat-profile-message');msg.textContent='';file.value='';hydrateAvatar(preview,member);profileModal.classList.remove('hidden');}
   function closeProfileModal(){profileModal.classList.add('hidden');}
   profileModal.querySelector('.up-chat-profile-cancel').onclick=function(){closeProfileModal();};profileModal.onclick=function(e){if(e.target===profileModal)closeProfileModal();};
-  profileModal.querySelector('.up-chat-profile-file').onchange=function(){var f=this.files&&this.files[0],msg=profileModal.querySelector('.up-chat-profile-message');if(!f)return;var type=String(f.type||'').toLowerCase(),ext=String(f.name||'').split('.').pop().toLowerCase();var okType=/^image\/(png|jpe?g|webp|gif)$/i.test(type)||['png','jpg','jpeg','webp','gif'].indexOf(ext)>=0;if(!okType){msg.textContent='Use PNG, JPG, WEBP ou GIF.';return;}if(f.size>2*1024*1024){msg.textContent='A foto deve ter no mÃ¡ximo 2 MB.';return;}fileToDataUrlForProfile(f,type,ext).then(function(data){profileModal.querySelector('.up-chat-profile-preview').src=data;msg.textContent='';}).catch(function(e){msg.textContent=e.message;});};
-  profileModal.querySelector('.up-chat-profile-save').onclick=function(){var file=profileModal.querySelector('.up-chat-profile-file').files&&profileModal.querySelector('.up-chat-profile-file').files[0],msg=profileModal.querySelector('.up-chat-profile-message'),btn=this;if(!file){msg.textContent='Escolha uma foto.';return;}btn.disabled=true;msg.textContent='Salvandoâ¦';fileToDataUrl(file).then(function(data){return api('POST','/api/profile/avatar',{dataUrl:data});}).then(function(r){var ck='profile:'+member;if(mediaBlobCache[ck]){try{URL.revokeObjectURL(mediaBlobCache[ck]);}catch(e){}delete mediaBlobCache[ck];}GM_setValue(key+ck,r.avatarUrl);profileCache[member]=r.avatarUrl;hydrateAvatar(profileModal.querySelector('.up-chat-profile-preview'),member);updateBubbleAvatar(false);closeProfileModal();loadChat();}).catch(function(e){msg.textContent=e.message;}).finally(function(){btn.disabled=false;});};
+  profileModal.querySelector('.up-chat-profile-file').onchange=function(){var f=this.files&&this.files[0],msg=profileModal.querySelector('.up-chat-profile-message');if(!f)return;var type=String(f.type||'').toLowerCase(),ext=String(f.name||'').split('.').pop().toLowerCase();var okType=/^image\/(png|jpe?g|webp|gif)$/i.test(type)||['png','jpg','jpeg','webp','gif'].indexOf(ext)>=0;if(!okType){msg.textContent='Use PNG, JPG, WEBP ou GIF.';return;}if(f.size>2*1024*1024){msg.textContent='A foto deve ter no máximo 2 MB.';return;}fileToDataUrlForProfile(f,type,ext).then(function(data){profileModal.querySelector('.up-chat-profile-preview').src=data;msg.textContent='';}).catch(function(e){msg.textContent=e.message;});};
+  profileModal.querySelector('.up-chat-profile-save').onclick=function(){var file=profileModal.querySelector('.up-chat-profile-file').files&&profileModal.querySelector('.up-chat-profile-file').files[0],msg=profileModal.querySelector('.up-chat-profile-message'),btn=this;if(!file){msg.textContent='Escolha uma foto.';return;}btn.disabled=true;msg.textContent='Salvando…';fileToDataUrl(file).then(function(data){return api('POST','/api/profile/avatar',{dataUrl:data});}).then(function(r){var ck='profile:'+member;if(mediaBlobCache[ck]){try{URL.revokeObjectURL(mediaBlobCache[ck]);}catch(e){}delete mediaBlobCache[ck];}GM_setValue(key+ck,r.avatarUrl);profileCache[member]=r.avatarUrl;hydrateAvatar(profileModal.querySelector('.up-chat-profile-preview'),member);updateBubbleAvatar(false);closeProfileModal();loadChat();}).catch(function(e){msg.textContent=e.message;}).finally(function(){btn.disabled=false;});};
 
   var healthPingPending={},healthPingResults={},healthRefreshTimer=null,healthLoading=false;
   function canViewHealth(){return ['Ricardo','Lohan','Guilherme'].indexOf(member)>=0;}
@@ -2087,7 +2087,7 @@
   function healthPingLabel(name){
     if(name===member)return '<span class="up-health-ping good">local</span>';
     var p=healthPingResults[name];
-    if(p==null)return '<span class="up-health-ping pending">testandoâ¦</span>';
+    if(p==null)return '<span class="up-health-ping pending">testando…</span>';
     if(p<120)return '<span class="up-health-ping good">'+Math.round(p)+' ms</span>';
     if(p<250)return '<span class="up-health-ping warn">'+Math.round(p)+' ms</span>';
     return '<span class="up-health-ping bad">'+Math.round(p)+' ms</span>';
@@ -2123,7 +2123,7 @@
     card.classList.add('hidden');
     history.classList.add('hidden');
     chat.classList.add('hidden');
-    health.innerHTML='<div class="up-health-head"><div><div class="up-health-title">SaÃºde do sistema</div><div class="up-health-sub">Equipe de ImplementaÃ§Ã£o â¢ '+esc(member)+'</div></div><button type="button" class="up-health-close">Fechar</button></div><div class="up-health-list"><div class="up-health-row"><div class="up-health-left">'+healthLed(true)+'<span class="up-health-name">Verificando o sistema</span></div><span class="up-health-detail">Aguardeâ¦</span></div></div><div class="up-health-footer">Verde: funcionando. Amarelo: reconectando. Vermelho: precisa de atenÃ§Ã£o.</div><button type="button" class="up-health-refresh">Atualizar agora</button>';
+    health.innerHTML='<div class="up-health-head"><div><div class="up-health-title">Saúde do sistema</div><div class="up-health-sub">Equipe de Implementação • '+esc(member)+'</div></div><button type="button" class="up-health-close">Fechar</button></div><div class="up-health-list"><div class="up-health-row"><div class="up-health-left">'+healthLed(true)+'<span class="up-health-name">Verificando o sistema</span></div><span class="up-health-detail">Aguarde…</span></div></div><div class="up-health-footer">Verde: funcionando. Amarelo: reconectando. Vermelho: precisa de atenção.</div><button type="button" class="up-health-refresh">Atualizar agora</button>';
     health.classList.remove('hidden');
     health.querySelector('.up-health-close').onclick=function(){stopHealthMonitor();health.classList.add('hidden');card.classList.remove('hidden');};
     health.querySelector('.up-health-refresh').onclick=function(){loadHealth(true);};
@@ -2142,34 +2142,34 @@
     if(!canViewHealth()||health.classList.contains('hidden')||healthLoading)return;
     healthLoading=true;
     var list=health.querySelector('.up-health-list');if(!list){healthLoading=false;return;}
-    if(initial||!list.querySelector('.up-health-row'))list.innerHTML='<div class="up-health-row"><div class="up-health-left">'+healthLed(true)+'<span class="up-health-name">Consultando diagnÃ³stico</span></div><span class="up-health-detail">Aguardeâ¦</span></div>';
+    if(initial||!list.querySelector('.up-health-row'))list.innerHTML='<div class="up-health-row"><div class="up-health-left">'+healthLed(true)+'<span class="up-health-name">Consultando diagnóstico</span></div><span class="up-health-detail">Aguarde…</span></div>';
     var started=Date.now();
     api('GET','/api/health').then(function(d){
       var apiMs=Date.now()-started,db=d&&d.db||{},chatCheck=d&&d.chat||{},state=d&&d.state||{},users=d&&d.members||[],rt=realtimeActive;
       var rows=[
-        {name:'Sistema UpStatus',ok:!!(d&&d.ok),detail:(d&&d.version?'Funcionando â¢ '+apiMs+' ms':'IndisponÃ­vel')},
-        {name:'Banco de dados',ok:!!db.ok,detail:db.ok?('Respondendo â¢ '+db.ms+' ms'):'Sem resposta'},
-        {name:'Chat da equipe',ok:!!chatCheck.ok,detail:chatCheck.ok?('Pronto â¢ '+chatCheck.ms+' ms'):'Com erro'},
+        {name:'Sistema UpStatus',ok:!!(d&&d.ok),detail:(d&&d.version?'Funcionando • '+apiMs+' ms':'Indisponível')},
+        {name:'Banco de dados',ok:!!db.ok,detail:db.ok?('Respondendo • '+db.ms+' ms'):'Sem resposta'},
+        {name:'Chat da equipe',ok:!!chatCheck.ok,detail:chatCheck.ok?('Pronto • '+chatCheck.ms+' ms'):'Com erro'},
         {name:'Alertas e comandos',ok:!!state.ok,detail:state.ok?'Funcionando':'Com erro'},
-        {name:'AtualizaÃ§Ã£o em tempo real',ok:rt,kind:rt?'':'warn',detail:rt?'Ativa':'Reconectando'},
-        {name:'Sua versÃ£o',ok:true,detail:'v'+CURRENT_VERSION}
+        {name:'Atualização em tempo real',ok:rt,kind:rt?'':'warn',detail:rt?'Ativa':'Reconectando'},
+        {name:'Sua versão',ok:true,detail:'v'+CURRENT_VERSION}
       ];
       healthPingResults={};
       list.innerHTML=rows.map(function(r){return '<div class="up-health-row" data-health-key="'+esc(r.name)+'"><div class="up-health-left">'+healthLed(r.ok,r.kind)+'<span class="up-health-name">'+r.name+'</span></div><span class="up-health-detail">'+r.detail+'</span></div>';}).join('')+
         '<div class="up-health-members"><div class="up-health-sub">Equipe conectada</div>'+users.map(function(m){
-          var connected=m.connected!==false,ver=m.version?'v'+esc(m.version):'v?',seen=m.seenAt?' â¢ visto '+fmtTime(m.seenAt):'';
-          return '<div class="up-health-member"><b>'+esc(m.name)+'</b><span>'+ver+' â¢ '+(connected?'conectado':'desconectado')+seen+' <span data-health-ping="'+esc(m.name)+'">'+healthPingLabel(m.name)+'</span></span></div>';
+          var connected=m.connected!==false,ver=m.version?'v'+esc(m.version):'v?',seen=m.seenAt?' • visto '+fmtTime(m.seenAt):'';
+          return '<div class="up-health-member"><b>'+esc(m.name)+'</b><span>'+ver+' • '+(connected?'conectado':'desconectado')+seen+' <span data-health-ping="'+esc(m.name)+'">'+healthPingLabel(m.name)+'</span></span></div>';
         }).join('')+'</div>';
       requestHealthPings(users);
     }).catch(function(e){
-      list.innerHTML='<div class="up-health-row"><div class="up-health-left">'+healthLed(false)+'<span class="up-health-name">DiagnÃ³stico indisponÃ­vel</span></div><span class="up-health-detail">'+esc(e.message||'Erro')+'</span></div>';
+      list.innerHTML='<div class="up-health-row"><div class="up-health-left">'+healthLed(false)+'<span class="up-health-name">Diagnóstico indisponível</span></div><span class="up-health-detail">'+esc(e.message||'Erro')+'</span></div>';
     }).finally(function(){healthLoading=false;});
   }
 
   function login(){
     health.classList.add('hidden');
     img.src=profileFallback();
-    var loginMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';lastMember=loginMember;card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><button id="up-enter">Entrar</button></div><div class="up-update up-login-update"><div><span>VersÃ£o v'+CURRENT_VERSION+'</span><a href="#" class="up-patch-link">O que hÃ¡ de novo?</a></div><div><button type="button" class="up-update-check">Verificar atualizaÃ§Ã£o</button><button type="button" class="up-update-now">Atualizar</button></div><span class="up-update-status"></span></div><div class="up-message"></div>';
+    var loginMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';lastMember=loginMember;card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><button id="up-enter">Entrar</button></div><div class="up-update up-login-update"><div><span>Versão v'+CURRENT_VERSION+'</span><a href="#" class="up-patch-link">O que há de novo?</a></div><div><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div><span class="up-update-status"></span></div><div class="up-message"></div>';
     var nameSelect=card.querySelector('#up-name');
     function setLoginMembers(names){
       var list=(names||[]).filter(Boolean);
@@ -2240,13 +2240,13 @@
     testStopCall();upTestMode=true;upCall.callId='ring-'+Date.now();upCall.peer='Teste';upCall.role=roleKey==='caller'?'caller':'callee';upCall.participants=[member,'Teste'];upCall.active=true;upCall.connected=false;
     callStartRingtone();setTimeout(function(){if(upTestMode)testStopCall();},8000);
   }
-  async function testLoopback(){if(upCall.active&&!upTestMode){message('Finalize a chamada real antes de iniciar o loopback.',true);return;}testStopCall();var status=document.querySelector('.up-test-status');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Microfone indisponÃ­vel neste navegador.');upTestLoop.stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});upTestLoop.caller=new RTCPeerConnection();upTestLoop.callee=new RTCPeerConnection();upTestLoop.caller.onicecandidate=function(e){if(e.candidate)upTestLoop.callee.addIceCandidate(e.candidate).catch(function(){});};upTestLoop.callee.onicecandidate=function(e){if(e.candidate)upTestLoop.caller.addIceCandidate(e.candidate).catch(function(){});};upTestLoop.callee.ontrack=function(e){var audio=document.querySelector('.up-test-audio');if(audio){audio.srcObject=e.streams[0];upTestLoop.audio=audio;audio.play().catch(function(){});}};upTestLoop.stream.getTracks().forEach(function(t){upTestLoop.caller.addTrack(t,upTestLoop.stream);});var offer=await upTestLoop.caller.createOffer({offerToReceiveAudio:true});await upTestLoop.caller.setLocalDescription(offer);await upTestLoop.callee.setRemoteDescription(offer);var answer=await upTestLoop.callee.createAnswer();await upTestLoop.callee.setLocalDescription(answer);await upTestLoop.caller.setRemoteDescription(answer);upTestLoop.connected=true;if(status)status.textContent='Loopback WebRTC conectado. Sua voz deve voltar pelo Ã¡udio do teste.';}catch(e){testCleanupLoop();if(status)status.textContent=e.message||'Falha no teste WebRTC.';}}
-  function openTestPanel(){if(member!=='Ricardo')return;closeTestPanel();var o=document.createElement('div');o.className='up-test-overlay';o.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(4,8,14,.68);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;';o.innerHTML='<div style="width:min(430px,calc(100vw - 28px));max-height:calc(100vh - 36px);overflow:auto;background:linear-gradient(145deg,#182334,#101722);border:1px solid #3d5272;border-radius:16px;box-shadow:0 22px 70px #000b;padding:18px;color:#edf2fb;font-family:Segoe UI,Arial,sans-serif;box-sizing:border-box"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-size:17px;font-weight:800">Painel de testes</div><div style="font-size:11px;color:#91a2ba;margin-top:3px">Somente Ricardo â¢ build '+esc(CURRENT_VERSION)+'</div></div><button class="up-test-close" style="border:0;background:#273247;color:#dbe5f5;border-radius:8px;width:30px;height:30px;cursor:pointer">Ã</button></div><div style="margin-top:14px;font-size:11px;color:#8fa0b8">Chamadas e Ã¡udio</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px"><button class="up-test-incoming">Simular chamada recebida</button><button class="up-test-stop">Encerrar teste</button><button class="up-test-ring-caller">Toque: chamando</button><button class="up-test-ring-callee">Toque: recebendo</button><button class="up-test-loop" style="grid-column:1/-1">Testar WebRTC local (loopback)</button></div><audio class="up-test-audio" autoplay playsinline controls style="width:100%;margin-top:9px;display:block"></audio><div class="up-test-status" style="margin-top:10px;padding:9px 10px;border:1px solid #2f4058;border-radius:9px;background:#111a27;color:#a9bad0;font-size:11px">Pronto para testar.</div><div style="margin-top:12px;font-size:10px;color:#74869f">O painel nÃ£o altera o fluxo normal das chamadas. Os testes locais podem ser encerrados a qualquer momento.</div></div>';document.body.appendChild(o);o.querySelector('.up-test-close').onclick=function(){testStopCall();closeTestPanel();};o.querySelector('.up-test-incoming').onclick=testSimulateIncoming;o.querySelector('.up-test-stop').onclick=testStopCall;o.querySelector('.up-test-ring-caller').onclick=function(){testRingtone('caller');};o.querySelector('.up-test-ring-callee').onclick=function(){testRingtone('callee');};o.querySelector('.up-test-loop').onclick=testLoopback;o.addEventListener('click',function(e){if(e.target===o){testStopCall();closeTestPanel();}});}
+  async function testLoopback(){if(upCall.active&&!upTestMode){message('Finalize a chamada real antes de iniciar o loopback.',true);return;}testStopCall();var status=document.querySelector('.up-test-status');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Microfone indisponível neste navegador.');upTestLoop.stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});upTestLoop.caller=new RTCPeerConnection();upTestLoop.callee=new RTCPeerConnection();upTestLoop.caller.onicecandidate=function(e){if(e.candidate)upTestLoop.callee.addIceCandidate(e.candidate).catch(function(){});};upTestLoop.callee.onicecandidate=function(e){if(e.candidate)upTestLoop.caller.addIceCandidate(e.candidate).catch(function(){});};upTestLoop.callee.ontrack=function(e){var audio=document.querySelector('.up-test-audio');if(audio){audio.srcObject=e.streams[0];upTestLoop.audio=audio;audio.play().catch(function(){});}};upTestLoop.stream.getTracks().forEach(function(t){upTestLoop.caller.addTrack(t,upTestLoop.stream);});var offer=await upTestLoop.caller.createOffer({offerToReceiveAudio:true});await upTestLoop.caller.setLocalDescription(offer);await upTestLoop.callee.setRemoteDescription(offer);var answer=await upTestLoop.callee.createAnswer();await upTestLoop.callee.setLocalDescription(answer);await upTestLoop.caller.setRemoteDescription(answer);upTestLoop.connected=true;if(status)status.textContent='Loopback WebRTC conectado. Sua voz deve voltar pelo áudio do teste.';}catch(e){testCleanupLoop();if(status)status.textContent=e.message||'Falha no teste WebRTC.';}}
+  function openTestPanel(){if(member!=='Ricardo')return;closeTestPanel();var o=document.createElement('div');o.className='up-test-overlay';o.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(4,8,14,.68);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;';o.innerHTML='<div style="width:min(430px,calc(100vw - 28px));max-height:calc(100vh - 36px);overflow:auto;background:linear-gradient(145deg,#182334,#101722);border:1px solid #3d5272;border-radius:16px;box-shadow:0 22px 70px #000b;padding:18px;color:#edf2fb;font-family:Segoe UI,Arial,sans-serif;box-sizing:border-box"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-size:17px;font-weight:800">Painel de testes</div><div style="font-size:11px;color:#91a2ba;margin-top:3px">Somente Ricardo • build '+esc(CURRENT_VERSION)+'</div></div><button class="up-test-close" style="border:0;background:#273247;color:#dbe5f5;border-radius:8px;width:30px;height:30px;cursor:pointer">×</button></div><div style="margin-top:14px;font-size:11px;color:#8fa0b8">Chamadas e áudio</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px"><button class="up-test-incoming">Simular chamada recebida</button><button class="up-test-stop">Encerrar teste</button><button class="up-test-ring-caller">Toque: chamando</button><button class="up-test-ring-callee">Toque: recebendo</button><button class="up-test-loop" style="grid-column:1/-1">Testar WebRTC local (loopback)</button></div><audio class="up-test-audio" autoplay playsinline controls style="width:100%;margin-top:9px;display:block"></audio><div class="up-test-status" style="margin-top:10px;padding:9px 10px;border:1px solid #2f4058;border-radius:9px;background:#111a27;color:#a9bad0;font-size:11px">Pronto para testar.</div><div style="margin-top:12px;font-size:10px;color:#74869f">O painel não altera o fluxo normal das chamadas. Os testes locais podem ser encerrados a qualquer momento.</div></div>';document.body.appendChild(o);o.querySelector('.up-test-close').onclick=function(){testStopCall();closeTestPanel();};o.querySelector('.up-test-incoming').onclick=testSimulateIncoming;o.querySelector('.up-test-stop').onclick=testStopCall;o.querySelector('.up-test-ring-caller').onclick=function(){testRingtone('caller');};o.querySelector('.up-test-ring-callee').onclick=function(){testRingtone('callee');};o.querySelector('.up-test-loop').onclick=testLoopback;o.addEventListener('click',function(e){if(e.target===o){testStopCall();closeTestPanel();}});}
 
   function app(){
     api('GET','/api/members').then(function(r){window.__upstatusMembers=(r.members||[]).map(function(x){return x.name});}).catch(function(){});
-    card.innerHTML='<div class="up-head"><div class="up-head-identity"><button type="button" class="up-head-avatar up-head-avatar-btn" title="Alterar foto de perfil" aria-label="Alterar foto de perfil"><img class="up-head-avatar-img" alt=""></button><div><div class="up-title">UpStatus</div><div class="up-you">Conectado como '+esc(member)+'</div></div></div><div class="up-actions"><button class="up-chat-btn" title="Chat da equipe" aria-label="Chat da equipe">'+iconSvg('chat')+'</button><button class="up-history-btn hidden" title="Ver histÃ³rico" aria-label="Ver histÃ³rico">'+iconSvg('clock')+'</button><button class="up-settings-btn" title="ConfiguraÃ§Ãµes" aria-label="ConfiguraÃ§Ãµes">'+iconSvg('gear')+'</button><div class="up-settings-menu hidden"><button type="button" class="up-settings-notifications"></button><button type="button" class="up-settings-theme"></button>'+'<button type="button" class="up-settings-health">'+iconSvg('pulse')+'<span>SaÃºde do sistema</span></button>'+(member==='Ricardo'&&role==='implementation_admin'?'<button type="button" class="up-settings-test">'+iconSvg('tools')+'<span>Painel de testes</span></button>':'')+'</div><button class="up-logout">Sair</button></div></div><div class="up-statuses"><button class="up-status online">'+iconSvg('online')+' Online</button><button class="up-status busy">'+iconSvg('busy')+' Ocupado</button><button class="up-status away">'+iconSvg('away')+' Ausente</button></div><div class="up-reasons hidden"><label class="up-label">Motivo de ocupado</label><div class="up-reason-picker"><button type="button" class="up-reason-trigger"><span class="up-reason-trigger-icon">'+iconSvg('edit')+'</span><span class="up-reason-trigger-text">Selecione um motivo</span></button><div class="up-reason-menu hidden">'+reasons.map(function(x){return '<button type="button" class="up-reason-option" data-value="'+esc(x.value)+'">'+iconSvg(x.icon)+'<span class="up-reason-text">'+esc(x.label)+'</span></button>'}).join('')+'</div></div><select class="up-select hidden"></select><input class="up-input hidden" placeholder="Escreva o motivo"><button class="up-confirm hidden">Confirmar ocupado</button></div><div class="up-message"></div><div class="up-notice">'+iconSvg('pulse')+'<span>SincronizaÃ§Ã£o com o Sale Smartly ativa.</span><span class="up-notice-ok">â</span></div><div class="up-team-title-row"><div class="up-team-title">Equipe</div><span class="up-team-count"></span></div><div class="up-team">Carregandoâ¦</div>';
-    history.innerHTML='<div class="up-history-head"><div class="up-history-title">HistÃ³rico</div><div class="up-actions"><button class="up-export" title="Exportar histÃ³rico">'+iconSvg('download')+' TXT</button><button class="up-close">Fechar</button></div></div><div class="up-history-list">Carregandoâ¦</div>';
+    card.innerHTML='<div class="up-head"><div class="up-head-identity"><button type="button" class="up-head-avatar up-head-avatar-btn" title="Alterar foto de perfil" aria-label="Alterar foto de perfil"><img class="up-head-avatar-img" alt=""></button><div><div class="up-title">UpStatus</div><div class="up-you">Conectado como '+esc(member)+'</div></div></div><div class="up-actions"><button class="up-chat-btn" title="Chat da equipe" aria-label="Chat da equipe">'+iconSvg('chat')+'</button><button class="up-history-btn hidden" title="Ver histórico" aria-label="Ver histórico">'+iconSvg('clock')+'</button><button class="up-settings-btn" title="Configurações" aria-label="Configurações">'+iconSvg('gear')+'</button><div class="up-settings-menu hidden"><button type="button" class="up-settings-notifications"></button><button type="button" class="up-settings-theme"></button>'+'<button type="button" class="up-settings-health">'+iconSvg('pulse')+'<span>Saúde do sistema</span></button>'+(member==='Ricardo'&&role==='implementation_admin'?'<button type="button" class="up-settings-test">'+iconSvg('tools')+'<span>Painel de testes</span></button>':'')+'</div><button class="up-logout">Sair</button></div></div><div class="up-statuses"><button class="up-status online">'+iconSvg('online')+' Online</button><button class="up-status busy">'+iconSvg('busy')+' Ocupado</button><button class="up-status away">'+iconSvg('away')+' Ausente</button></div><div class="up-reasons hidden"><label class="up-label">Motivo de ocupado</label><div class="up-reason-picker"><button type="button" class="up-reason-trigger"><span class="up-reason-trigger-icon">'+iconSvg('edit')+'</span><span class="up-reason-trigger-text">Selecione um motivo</span></button><div class="up-reason-menu hidden">'+reasons.map(function(x){return '<button type="button" class="up-reason-option" data-value="'+esc(x.value)+'">'+iconSvg(x.icon)+'<span class="up-reason-text">'+esc(x.label)+'</span></button>'}).join('')+'</div></div><select class="up-select hidden"></select><input class="up-input hidden" placeholder="Escreva o motivo"><button class="up-confirm hidden">Confirmar ocupado</button></div><div class="up-message"></div><div class="up-notice">'+iconSvg('pulse')+'<span>Sincronização com o Sale Smartly ativa.</span><span class="up-notice-ok">✓</span></div><div class="up-team-title-row"><div class="up-team-title">Equipe</div><span class="up-team-count"></span></div><div class="up-team">Carregando…</div>';
+    history.innerHTML='<div class="up-history-head"><div class="up-history-title">Histórico</div><div class="up-actions"><button class="up-export" title="Exportar histórico">'+iconSvg('download')+' TXT</button><button class="up-close">Fechar</button></div></div><div class="up-history-list">Carregando…</div>';
 
     var box=card.querySelector('.up-reasons'),select=box.querySelector('select'),custom=box.querySelector('input'),confirm=box.querySelector('button.up-confirm'),trigger=box.querySelector('.up-reason-trigger'),menu=box.querySelector('.up-reason-menu');
     var historyBtn=card.querySelector('.up-history-btn');
@@ -2273,7 +2273,7 @@
     quickChatBubble.onclick=function(e){e.stopPropagation();openChat()};
     updateNotificationPermissionUI();
     applyTheme();
-    card.insertAdjacentHTML('beforeend','<div class="up-update"><div class="up-update-version">'+iconSvg('update')+'<div><b>VersÃ£o v'+CURRENT_VERSION+'</b><a href="#" class="up-patch-link">O que hÃ¡ de novo?</a><span class="up-update-status"></span></div></div><div class="up-update-actions"><button type="button" class="up-update-check">Verificar atualizaÃ§Ã£o</button><button type="button" class="up-update-now">Atualizar</button></div></div>');
+    card.insertAdjacentHTML('beforeend','<div class="up-update"><div class="up-update-version">'+iconSvg('update')+'<div><b>Versão v'+CURRENT_VERSION+'</b><a href="#" class="up-patch-link">O que há de novo?</a><span class="up-update-status"></span></div></div><div class="up-update-actions"><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div></div>');
     card.querySelector('.up-update-check').onclick=checkUpdate;
     card.querySelector('.up-patch-link').onclick=function(e){e.preventDefault();openPatchNotes();};
     checkUpdate();
@@ -2289,7 +2289,7 @@
     var current=(window.__upstatusTeam||{})[target]||{};
     var selected=current.status==='busy'?'busy':current.status==='away'?'away':'online';
     var selectedReason=current.reason||'';
-    remoteOverlay.innerHTML='<div class="up-remote-dialog"><div class="up-remote-title">Controlar fila de '+esc(target)+'</div><div class="up-remote-sub">A alteraÃ§Ã£o serÃ¡ executada pela sessÃ£o do prÃ³prio usuÃ¡rio.</div><div class="up-remote-statuses"><button type="button" class="up-remote-status '+(selected==='online'?'active':'')+'" data-status="online">Online</button><button type="button" class="up-remote-status '+(selected==='busy'?'active':'')+'" data-status="busy">Ocupado</button><button type="button" class="up-remote-status '+(selected==='away'?'active':'')+'" data-status="away">Ausente</button></div><div class="up-remote-reason '+(selected==='busy'?'':'hidden')+'"><div class="up-label">Motivo de ocupado</div><div class="up-remote-reason-menu">'+reasons.map(function(r){return '<button type="button" class="up-remote-reason-option '+(selectedReason===r.value?'active':'')+'" data-reason="'+esc(r.value)+'">'+iconSvg(r.icon)+'<span class="up-reason-text">'+esc(r.label)+'</span></button>';}).join('')+'</div></div><div class="up-remote-message"></div><div class="up-remote-actions"><button type="button" class="up-remote-cancel">Cancelar</button><button type="button" class="up-remote-confirm">Aplicar</button></div></div>';
+    remoteOverlay.innerHTML='<div class="up-remote-dialog"><div class="up-remote-title">Controlar fila de '+esc(target)+'</div><div class="up-remote-sub">A alteração será executada pela sessão do próprio usuário.</div><div class="up-remote-statuses"><button type="button" class="up-remote-status '+(selected==='online'?'active':'')+'" data-status="online">Online</button><button type="button" class="up-remote-status '+(selected==='busy'?'active':'')+'" data-status="busy">Ocupado</button><button type="button" class="up-remote-status '+(selected==='away'?'active':'')+'" data-status="away">Ausente</button></div><div class="up-remote-reason '+(selected==='busy'?'':'hidden')+'"><div class="up-label">Motivo de ocupado</div><div class="up-remote-reason-menu">'+reasons.map(function(r){return '<button type="button" class="up-remote-reason-option '+(selectedReason===r.value?'active':'')+'" data-reason="'+esc(r.value)+'">'+iconSvg(r.icon)+'<span class="up-reason-text">'+esc(r.label)+'</span></button>';}).join('')+'</div></div><div class="up-remote-message"></div><div class="up-remote-actions"><button type="button" class="up-remote-cancel">Cancelar</button><button type="button" class="up-remote-confirm">Aplicar</button></div></div>';
     remoteOverlay.classList.remove('hidden');
     remoteOverlay.onclick=function(e){if(e.target===remoteOverlay)closeRemoteControl();};
     var dialog=remoteOverlay.querySelector('.up-remote-dialog'), reasonBox=remoteOverlay.querySelector('.up-remote-reason'), msg=remoteOverlay.querySelector('.up-remote-message');
@@ -2298,13 +2298,13 @@
     dialog.querySelector('.up-remote-cancel').onclick=closeRemoteControl;
     dialog.querySelector('.up-remote-confirm').onclick=function(){
       if(selected==='busy'&&!selectedReason){msg.textContent='Escolha o motivo de ocupado.';return;}
-      var confirm=dialog.querySelector('.up-remote-confirm');confirm.disabled=true;msg.textContent='Enviando comandoâ¦';
+      var confirm=dialog.querySelector('.up-remote-confirm');confirm.disabled=true;msg.textContent='Enviando comando…';
       api('POST','/api/remote-status',{target:target,status:selected,reason:selected==='busy'?selectedReason:selected==='away'?'Ausente':''}).then(function(r){
-        if(!r.commandId)throw new Error('O servidor nÃ£o confirmou o comando.');
-        msg.textContent='Aguardando '+target+' executarâ¦';
+        if(!r.commandId)throw new Error('O servidor não confirmou o comando.');
+        msg.textContent='Aguardando '+target+' executar…';
         if(r.command)sendRealtimeEvent('remote_command',{command:r.command});
         waitRemoteResult(r.commandId,target,msg,confirm);
-      }).catch(function(e){msg.textContent=e.message||'NÃ£o foi possÃ­vel enviar o comando.';confirm.disabled=false;});
+      }).catch(function(e){msg.textContent=e.message||'Não foi possível enviar o comando.';confirm.disabled=false;});
     };
     if(dStatus)dStatus.disabled=false;
   }
@@ -2314,7 +2314,7 @@
       delete remoteResultCache[commandId];
       setTimeout(function(){closeRemoteControl();refresh();},700);
     }else{
-      msg.style.color='#ff9aaa';msg.textContent='Falha: '+((result&&result.error)||'nÃ£o foi possÃ­vel alterar a fila.');
+      msg.style.color='#ff9aaa';msg.textContent='Falha: '+((result&&result.error)||'não foi possível alterar a fila.');
       if(confirm)confirm.disabled=false;
       delete remoteResultCache[commandId];
     }
@@ -2338,7 +2338,7 @@
         if(Date.now()-t>=25000){
           if(remoteResultWaiters[id]===finish)delete remoteResultWaiters[id];
           settled=true;
-          msg.style.color='#ff9aaa';msg.textContent='Tempo esgotado. '+target+' nÃ£o confirmou a alteraÃ§Ã£o.';if(confirm)confirm.disabled=false;
+          msg.style.color='#ff9aaa';msg.textContent='Tempo esgotado. '+target+' não confirmou a alteração.';if(confirm)confirm.disabled=false;
           return;
         }
         setTimeout(poll,1500);
@@ -2346,7 +2346,7 @@
         if(Date.now()-t>=25000){
           if(remoteResultWaiters[id]===finish)delete remoteResultWaiters[id];
           settled=true;
-          msg.style.color='#ff9aaa';msg.textContent='Tempo esgotado. NÃ£o foi possÃ­vel confirmar a alteraÃ§Ã£o.';if(confirm)confirm.disabled=false;
+          msg.style.color='#ff9aaa';msg.textContent='Tempo esgotado. Não foi possível confirmar a alteração.';if(confirm)confirm.disabled=false;
           return;
         }
         setTimeout(poll,1500);
@@ -2401,7 +2401,7 @@
         if(m.reason)sub.push(reasonIcon(m.reason)+' '+esc(reasonLabel(m.reason)));
         if(m.updatedAt)sub.push('Desde '+fmtTime(m.updatedAt));
         var presenceTitle=presence==='chat'?'No bate-papo':presence==='active'?'UpStatus Ativo':'Offline';
-        return '<div class="up-member"><div class="up-member-main"><img class="up-member-avatar presence-'+presence+'" data-member-avatar="'+esc(m.name)+'" data-presence-name="'+esc(m.name)+'" title="'+presenceTitle+'" alt=""><div class="up-member-info"><div class="up-member-top"><b>'+esc(m.name)+'</b>'+version+'</div><div class="up-member-sub">'+(sub.length?sub.join(' <span class="up-member-separator">â¢</span> '):'Sem atualizaÃ§Ã£o registrada')+'</div></div></div><div class="up-member-actions">'+controls+'<span class="up-badge b-'+m.status+'" title="Status da fila do Sale Smartly">'+labels[m.status]+'</span></div></div>';
+        return '<div class="up-member"><div class="up-member-main"><img class="up-member-avatar presence-'+presence+'" data-member-avatar="'+esc(m.name)+'" data-presence-name="'+esc(m.name)+'" title="'+presenceTitle+'" alt=""><div class="up-member-info"><div class="up-member-top"><b>'+esc(m.name)+'</b>'+version+'</div><div class="up-member-sub">'+(sub.length?sub.join(' <span class="up-member-separator">•</span> '):'Sem atualização registrada')+'</div></div></div><div class="up-member-actions">'+controls+'<span class="up-badge b-'+m.status+'" title="Status da fila do Sale Smartly">'+labels[m.status]+'</span></div></div>';
       }).join('');
       team.querySelectorAll('.up-member-avatar').forEach(function(a){
         hydrateAvatar(a,a.getAttribute('data-member-avatar')||'');
@@ -2421,18 +2421,18 @@
     if(role!=='implementation_admin')return;
     health.classList.add('hidden');
     history.classList.remove('hidden');
-    history.querySelector('.up-history-list').textContent='Carregandoâ¦';
+    history.querySelector('.up-history-list').textContent='Carregando…';
     api('GET','/api/history?limit=200').then(function(d){
       historyCache=d.history||[];
       if(!historyCache.length){
-        history.querySelector('.up-history-list').innerHTML='<div class="up-history-empty">Nenhuma movimentaÃ§Ã£o registrada ainda.</div>';
+        history.querySelector('.up-history-list').innerHTML='<div class="up-history-empty">Nenhuma movimentação registrada ainda.</div>';
         return;
       }
       var lastDay='';
       history.querySelector('.up-history-list').innerHTML=historyCache.map(function(item){
         var day=fmtDay(item.createdAt),header='';
         if(day!==lastDay){header='<div class="up-history-day">'+day+'</div>';lastDay=day}
-        var who=(item.actor&&item.target&&item.actor!==item.target)?'<b>'+esc(item.actor)+'</b><span>â</span><b>'+esc(item.target)+'</b>':'<b>'+esc(item.user||item.target||item.actor||'')+'</b>';return header+'<div class="up-history-item"><div class="up-history-meta"><span>'+fmtTime(item.createdAt)+'</span>'+who+'<span class="up-history-status '+(item.status==='online'?'online':item.status==='busy'?'busy':'away')+'"><i class="up-history-status-dot"></i>'+labels[item.status]+'</span></div>'+
+        var who=(item.actor&&item.target&&item.actor!==item.target)?'<b>'+esc(item.actor)+'</b><span>→</span><b>'+esc(item.target)+'</b>':'<b>'+esc(item.user||item.target||item.actor||'')+'</b>';return header+'<div class="up-history-item"><div class="up-history-meta"><span>'+fmtTime(item.createdAt)+'</span>'+who+'<span class="up-history-status '+(item.status==='online'?'online':item.status==='busy'?'busy':'away')+'"><i class="up-history-status-dot"></i>'+labels[item.status]+'</span></div>'+
           (item.reason?'<div class="up-history-reason">'+reasonIcon(item.reason)+' '+esc(reasonLabel(item.reason))+'</div>':'')+'</div>';
       }).join('');
     }).catch(function(e){historyCache=[];history.querySelector('.up-history-list').textContent=e.message});
@@ -2440,10 +2440,10 @@
 
   function exportHistoryTxt(){
     if(role!=='implementation_admin'||!historyCache.length){
-      message('Abra o histÃ³rico e carregue as movimentaÃ§Ãµes antes de exportar.',true);
+      message('Abra o histórico e carregue as movimentações antes de exportar.',true);
       return;
     }
-    var lines=['UPSTATUS - HISTÃRICO DE MOVIMENTAÃÃES','Exportado em: '+new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'medium'}).format(new Date()),''];
+    var lines=['UPSTATUS - HISTÓRICO DE MOVIMENTAÇÕES','Exportado em: '+new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'medium'}).format(new Date()),''];
     var lastDay='';
     historyCache.forEach(function(item){
       var day=fmtDay(item.createdAt);
@@ -2462,7 +2462,7 @@
 
   function isTransientSaleStatusError(err){
     var t=String(err&&err.message||err||'').toLowerCase();
-    return t.indexOf('switching status')>=0 || t.indexOf('please try later')>=0 || t.indexOf('è¯·ç¨ååè¯')>=0 || t.indexOf('æ­£å¨åæ¢ç¶æ')>=0 || t.indexOf('ç¨æ·æ­£å¨åæ¢ç¶æ')>=0;
+    return t.indexOf('switching status')>=0 || t.indexOf('please try later')>=0 || t.indexOf('请稍后再试')>=0 || t.indexOf('正在切换状态')>=0 || t.indexOf('用户正在切换状态')>=0;
   }
 
   function syncSaleSmartlyOnce(status,timeoutMs){
@@ -2475,7 +2475,7 @@
         document.removeEventListener('UPSTATUS_RESULT',done);
         clearTimeout(timer);
         var d=e.detail||{};
-        if(d.ok)resolve();else reject(new Error(d.error||'NÃ£o foi possÃ­vel sincronizar o Sale Smartly.'));
+        if(d.ok)resolve();else reject(new Error(d.error||'Não foi possível sincronizar o Sale Smartly.'));
       }
       document.addEventListener('UPSTATUS_RESULT',done);
       document.dispatchEvent(new CustomEvent('UPSTATUS_SET',{detail:{status:map[status]}}));
@@ -2501,13 +2501,13 @@
         if(!isTransientSaleStatusError(e) || attempt===delays.length-1)throw e;
       }
     }
-    throw lastError||new Error('NÃ£o foi possÃ­vel sincronizar o Sale Smartly.');
+    throw lastError||new Error('Não foi possível sincronizar o Sale Smartly.');
   }
 
   async function save(status,why){
     try{
       if(status==='busy'&&!why.trim())throw new Error('Escreva o motivo.');
-      message('Sincronizando com Sale Smartlyâ¦');
+      message('Sincronizando com Sale Smartly…');
       await syncSaleSmartly(status);
       await api('POST','/api/status',{status:status,reason:why});
       message('Status atualizado.');
