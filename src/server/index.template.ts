@@ -322,12 +322,22 @@ async function chatRoute(req:Request,name:string){
     if(fast){
       const effectiveSince=since&&!Number.isNaN(since.getTime())?new Date(since.getTime()-2000).toISOString():"";
       const cutoffTyping=new Date(Date.now()-4500).toISOString();
-      const [messages,profileRes,typingRes,luccaStateNow]=await Promise.all([
+      const [messages,readRes,profileRes,typingRes,luccaStateNow]=await Promise.all([
         chatRows(name,effectiveSince),
+        db.from("chat_reads").select("user_name,messages"),
         db.from("upstatus_profiles").select("user_name,avatar_url"),
         db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name),
         expireLucca()
       ]);
+      const readBy:Record<string,string[]>={};
+      for(const row of readRes.data||[]){
+        const map=row.messages&&typeof row.messages==="object"?row.messages:{};
+        for(const [id,names] of Object.entries(map))for(const n of Array.isArray(names)?names as string[]:[]){
+          if(!readBy[id])readBy[id]=[];
+          if(!readBy[id].includes(n))readBy[id].push(n);
+        }
+      }
+      for(const m of messages)m.readBy=readBy[m.id]||[];
       const profileMap:Record<string,string>={};
       for(const p of profileRes.data||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
       return response({messages,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
@@ -352,7 +362,7 @@ async function chatRoute(req:Request,name:string){
     for(const m of messages)m.readBy=readBy[m.id]||[];
     const me=(read||[]).find((x:any)=>x.user_name===name);
     const lastRead=me?.last_read_at?Date.parse(me.last_read_at):0;
-    const unreadCount=messages.filter((m:any)=>m.type!=="system"&&m.user!==name&&Date.parse(m.createdAt)>lastRead).length;
+    const unreadCount=messages.filter((m:any)=>m.type!=="system"&&m.user!==name&&!(readBy[m.id]||[]).includes(name)).length;
     const profileMap:Record<string,string>={};
     for(const p of profileRes.data||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
     return response({messages,unreadCount,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
