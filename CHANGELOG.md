@@ -13,4 +13,7 @@
 - Added validation, manual TEST deployment, and manual production workflows.
 - Automatic TEST deployment is intentionally paused until GitHub Actions Supabase secrets are configured.
 - Production runtime was not modified by the pipeline refactor.
-\n
+
+### 3.0.27-beta.1
+- Iniciada a nova linha de desenvolvimento para chamadas em grupo.
+- Preparado o primeiro ciclo beta para evoluir o motor de chamadas WebRTC sem alterar a produção.
