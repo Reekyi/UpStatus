@@ -1017,8 +1017,12 @@
     if(chatCache.length!==before&&!chat.classList.contains('hidden'))renderChat();
   }
   function sendRealtimeEvent(event,payload){
-    if(!realtimeActive||!realtimeChannel)return false;
-    try{realtimeChannel.send({type:'broadcast',event:event,payload:payload||{}});return true;}catch(e){return false;}
+    if(!realtimeActive||!realtimeChannel){try{console.warn('[UpStatus Realtime] envio ignorado: canal não está SUBSCRIBED.',event);}catch(e){}return false;}
+    try{
+      var result=realtimeChannel.send({type:'broadcast',event:event,payload:payload||{}});
+      if(result&&typeof result.then==='function')result.then(function(status){if(status==='error'){try{console.error('[UpStatus Realtime] broadcast rejeitado:',event);}catch(e){}}}).catch(function(err){try{console.error('[UpStatus Realtime] broadcast falhou:',event,err);}catch(e){}});
+      return true;
+    }catch(e){try{console.error('[UpStatus Realtime] broadcast exception:',event,e);}catch(_){}return false;}
   }
   function callEnsureOverlay(){
     if(upCall.overlay&&upCall.overlay.isConnected)return upCall.overlay;
@@ -1600,7 +1604,7 @@
     if(!token||realtimeClient||typeof supabase==='undefined'||!supabase.createClient)return;
     try{
       realtimeClient=supabase.createClient(UP_REALTIME_URL,UP_REALTIME_KEY,{auth:{persistSession:false}});
-      realtimeChannel=realtimeClient.channel(UP_REALTIME_TOPIC);
+      realtimeChannel=realtimeClient.channel(UP_REALTIME_TOPIC,{config:{broadcast:{ack:true}}});
       realtimeChannel
         .on('broadcast',{event:'db_change'},function(payload){
           var p=payload&&payload.payload||{};
@@ -1628,9 +1632,10 @@
             if(waiter)waiter(r);
           }
         })
-        .subscribe(function(status){
+        .subscribe(function(status,err){
           if(status==='SUBSCRIBED'){realtimeActive=true;if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}broadcastChatPresence(!chat.classList.contains('hidden'));return;}
           if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+            try{console.error('[UpStatus Realtime]',status,err||'');}catch(e){}
             realtimeActive=false;
             try{if(realtimeChannel)realtimeChannel.unsubscribe();}catch(e){}
             realtimeChannel=null;realtimeClient=null;
