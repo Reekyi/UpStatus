@@ -2720,10 +2720,11 @@
     }
     if(document.visibilityState!=='visible'){
       externalExpanded=false;
+      closeUpStatusPanel();
       setCompactMode(true,true);
       return;
     }
-    if(!externalExpanded&&!upCall.active&&card.classList.contains('hidden')&&chat.classList.contains('hidden')&&history.classList.contains('hidden')&&health.classList.contains('hidden')){
+    if(!externalExpanded&&!upCall.active){
       setCompactMode(true,true);
     }
   });
@@ -2759,7 +2760,15 @@
     var moved=drag.moved;try{bubble.releasePointerCapture(e.pointerId)}catch(_){}
     drag=null;GM_setValue(key+'right',root.style.right);GM_setValue(key+'bottom',root.style.bottom);
     if(!moved){
-      if(!isSalesSmartlyPage){externalExpanded=true;setCompactMode(false,true);}
+      if(!isSalesSmartlyPage){
+        var anyPanelOpen=!card.classList.contains('hidden')||!chat.classList.contains('hidden')||!history.classList.contains('hidden')||!health.classList.contains('hidden');
+        if(anyPanelOpen){
+          closeUpStatusPanel();
+          return;
+        }
+        externalExpanded=true;
+        setCompactMode(false,true);
+      }
       stopHealthMonitor();health.classList.add('hidden');
       if(!history.classList.contains('hidden'))history.classList.add('hidden');
       if(!chat.classList.contains('hidden')){chat.classList.add('hidden');broadcastChatPresence(false);}
