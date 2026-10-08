@@ -9,21 +9,32 @@
   let cpl = "";
   let clientType = "";
 
+  function currentSession() {
+    if (!hya) return null;
+
+    return {
+      hya,
+      projectId,
+      cpl,
+      clientType,
+      capturedAt: Date.now()
+    };
+  }
+
   function emitSession() {
-    if (!hya) return;
+    const session = currentSession();
+    if (!session) return;
 
     document.dispatchEvent(
       new CustomEvent("UPSTATUS_EXTENSION_SESSION", {
-        detail: {
-          hya,
-          projectId,
-          cpl,
-          clientType,
-          capturedAt: Date.now()
-        }
+        detail: session
       })
     );
   }
+
+  document.addEventListener("UPSTATUS_EXTENSION_SESSION_REQUEST", () => {
+    emitSession();
+  });
 
   function capture(raw, init) {
     try {
