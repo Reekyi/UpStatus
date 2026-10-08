@@ -66,10 +66,14 @@
           e.preventDefault();
           upWriteBus('open_upstatus');
           if(!isSalesSmartlyPage){
-            try{
-              GM_openInTab('https://app.salesmartly.com/next/chat',{active:true,insert:true,setParent:true});
-            }catch(err){
-              try{window.open('https://app.salesmartly.com/next/chat','_blank');}catch(e2){}
+            var leader=upReadLeader();
+            var leaderAlive=!!(leader&&leader.id&&Date.now()-Number(leader.at||0)<=UP_LEADER_TTL);
+            if(!leaderAlive){
+              try{
+                GM_openInTab('https://app.salesmartly.com/next/chat',{active:true,insert:true,setParent:true});
+              }catch(err){
+                try{window.open('https://app.salesmartly.com/next/chat','_blank');}catch(e2){}
+              }
             }
           }
         }
