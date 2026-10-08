@@ -1028,22 +1028,146 @@
     if(upCall.overlay&&upCall.overlay.isConnected)return upCall.overlay;
     var o=document.createElement('div');
     o.id='upstatus-call-overlay';
-    o.style.cssText='position:absolute;left:auto;right:48px;bottom:-2px;z-index:2147483647;width:310px;min-height:46px;box-sizing:border-box;background:linear-gradient(135deg,rgba(27,36,51,.98),rgba(18,25,37,.98));border:1px solid rgba(105,125,155,.32);border-radius:14px;padding:6px 8px 6px 10px;color:#edf2fb;font:12px Segoe UI,Arial,sans-serif;cursor:default;box-shadow:0 12px 30px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.04);display:none;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);overflow:visible;';
+    o.style.cssText='position:absolute;left:auto;right:48px;bottom:-2px;z-index:2147483647;width:270px;min-height:46px;box-sizing:border-box;background:linear-gradient(135deg,rgba(27,36,51,.98),rgba(18,25,37,.98));border:1px solid rgba(105,125,155,.32);border-radius:14px;padding:6px 8px 6px 10px;color:#edf2fb;font:12px Segoe UI,Arial,sans-serif;cursor:default;box-shadow:0 12px 30px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.04);display:none;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);overflow:visible;';
     o.innerHTML='<div style="display:flex;align-items:center;gap:8px;min-height:34px">'+
+      '<span style="width:7px;height:7px;border-radius:50%;background:#5fd38b;box-shadow:0 0 8px rgba(95,211,139,.45);flex:0 0 auto;transition:transform .08s ease,box-shadow .08s ease" data-call-dot></span>'+
       '<div style="min-width:0;flex:1;overflow:hidden">'+
-        '<div style="display:flex;align-items:center;gap:6px;min-width:0">'+
-          '<span style="width:7px;height:7px;border-radius:50%;background:#5fd38b;box-shadow:0 0 8px rgba(95,211,139,.45);flex:0 0 auto" data-call-dot></span>'+
-          '<div style="font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-call-title>Chamada</div>'+
-        '</div>'+
+        '<div style="font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-call-title>Chamada</div>'+
         '<div style="font-size:9px;color:#8797ae;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-call-status></div>'+
       '</div>'+
-      '<div style="display:none;align-items:center;justify-content:center;min-width:54px" data-call-time></div>'+
+      '<div style="display:none;align-items:center;justify-content:center;min-width:54px;color:#f3f7fd;font:800 15px/1 Segoe UI,Arial,sans-serif;letter-spacing:.3px;text-shadow:0 1px 10px rgba(255,255,255,.08)" data-call-time></div>'+
       '<div style="display:flex;align-items:center;gap:6px;flex:0 0 auto" data-call-actions></div>'+
       '<div data-call-audios style="display:none"></div>'+
     '</div>';
     root.appendChild(o);
     upCall.overlay=o;
     return o;
+  }
+  function callSpeakerRms(analyser,data){
+    if(!analyser)return 0;
+    try{
+      if(!data||data.length!==analyser.fftSize)data=new Uint8Array(analyser.fftSize);
+      analyser.getByteTimeDomainData(data);
+      var sum=0;
+      for(var i=0;i<data.length;i++){var v=(data[i]-128)/128;sum+=v*v;}
+      return Math.sqrt(sum/data.length);
+    }catch(e){return 0;}
+  }
+  function callSetupLocalSpeakerDetector(){
+    if(!upCall.localStream)return;
+    var ctx=callEnsureAudioContext();
+    if(!ctx)return;
+    try{
+      if(upCall.localSpeakerSource){try{upCall.localSpeakerSource.disconnect();}catch(e){}}
+      if(upCall.localSpeakerAnalyser){try{upCall.localSpeakerAnalyser.disconnect();}catch(e){}}
+      upCall.localSpeakerSource=ctx.createMediaStreamSource(upCall.localStream);
+      upCall.localSpeakerAnalyser=ctx.createAnalyser();
+      upCall.localSpeakerAnalyser.fftSize=256;
+      upCall.localSpeakerAnalyser.smoothingTimeConstant=.72;
+      upCall.localSpeakerData=new Uint8Array(upCall.localSpeakerAnalyser.fftSize);
+      upCall.localSpeakerSource.connect(upCall.localSpeakerAnalyser);
+    }catch(e){
+      upCall.localSpeakerSource=null;upCall.localSpeakerAnalyser=null;upCall.localSpeakerData=null;
+    }
+  }
+  function callSetupPeerSpeakerDetector(peerName,stream){
+    if(!peerName||!stream)return;
+    var p=upCall.peers[peerName],ctx=callEnsureAudioContext();
+    if(!p||!ctx)return;
+    try{
+      if(p.speakerAnalyser){try{p.speakerAnalyser.disconnect();}catch(e){}}
+      p.speakerAnalyser=ctx.createAnalyser();
+      p.speakerAnalyser.fftSize=256;
+      p.speakerAnalyser.smoothingTimeConstant=.72;
+      p.speakerData=new Uint8Array(p.speakerAnalyser.fftSize);
+      if(p.audioSource)p.audioSource.connect(p.speakerAnalyser);
+    }catch(e){
+      p.speakerAnalyser=null;p.speakerData=null;
+    }
+  }
+  function callApplySpeakerVisual(){
+    var o=upCall.overlay;if(!o||!upCall.connected)return;
+    var dot=o.querySelector('[data-call-dot]'),title=o.querySelector('[data-call-title]'),status=o.querySelector('[data-call-status]');
+    if(!dot||!title||!status)return;
+    var name=upCall.speakerName||member||'Chamada';
+    title.textContent=name;
+    var n=Array.isArray(upCall.participants)?upCall.participants.length:0;
+    status.textContent=String(n||2)+' '+((n||2)===1?'participante':'participantes')+(upCall.notice?' • '+upCall.notice:'');
+    var level=Math.max(0,Math.min(1,Number(upCall.speakerLevel)||0));
+    var scale=1+Math.min(.075,level*.22);
+    var glow=Math.round(18+level*24);
+    dot.style.transform='scale('+scale.toFixed(3)+')';
+    dot.style.boxShadow='0 0 '+glow+'px rgba(84,156,255,'+(0.28+level*.45).toFixed(2)+'),0 0 0 '+Math.max(1,Math.round(2+level*4))+'px rgba(84,156,255,'+(0.12+level*.2).toFixed(2)+')';
+    dot.style.border='1px solid rgba(135,190,255,.72)';
+    dot.style.background='rgba(24,34,50,.96)';
+    var imgEl=dot.querySelector('[data-call-speaker-avatar]');
+    if(!imgEl){
+      dot.innerHTML='<img data-call-speaker-avatar alt="" style="display:block;width:100%;height:100%;border-radius:50%;object-fit:cover;pointer-events:none;">';
+      imgEl=dot.querySelector('[data-call-speaker-avatar]');
+    }
+    if(imgEl.getAttribute('data-name')!==name){
+      imgEl.setAttribute('data-name',name);
+      try{hydrateAvatar(imgEl,name);}catch(e){imgEl.src=profileFallback();}
+    }
+  }
+  function callSetActiveSpeaker(name,level){
+    if(!name||!upCall.connected)return;
+    var changed=upCall.speakerName!==name;
+    upCall.speakerName=name;
+    upCall.speakerLevel=Math.max(0,Math.min(1,Number(level)||0));
+    if(changed)upCall.speakerLastSwitch=Date.now();
+    callApplySpeakerVisual();
+  }
+  function callStartSpeakerDetection(){
+    if(upCall.speakerTimer)return;
+    if(!upCall.localSpeakerAnalyser)callSetupLocalSpeakerDetector();
+    upCall.speakerTimer=setInterval(function(){
+      if(!upCall.active||!upCall.connected)return;
+      var candidates=[];
+      if(!upCall.muted&&upCall.localSpeakerAnalyser){
+        candidates.push({name:member,level:callSpeakerRms(upCall.localSpeakerAnalyser,upCall.localSpeakerData)});
+      }
+      Object.keys(upCall.peers).forEach(function(name){
+        var p=upCall.peers[name];
+        if(!p||!p.connected||!p.speakerAnalyser)return;
+        candidates.push({name:name,level:callSpeakerRms(p.speakerAnalyser,p.speakerData)});
+      });
+      if(!candidates.length)return;
+      candidates.sort(function(a,b){return b.level-a.level;});
+      var best=candidates[0],now=Date.now(),threshold=.028;
+      var current=candidates.find(function(x){return x.name===upCall.speakerName;});
+      var currentLevel=current?current.level:0;
+      if(best.level<threshold){
+        upCall.speakerLevel=Math.max(0,currentLevel*.82);
+        callApplySpeakerVisual();
+        return;
+      }
+      if(best.name===upCall.speakerName){
+        upCall.speakerCandidate='';
+        upCall.speakerCandidateSince=0;
+        upCall.speakerLevel=best.level;
+        callApplySpeakerVisual();
+        return;
+      }
+      if(best.name!==upCall.speakerCandidate){
+        upCall.speakerCandidate=best.name;
+        upCall.speakerCandidateSince=now;
+        return;
+      }
+      var candidateAge=now-(upCall.speakerCandidateSince||now);
+      if(candidateAge>=150 && (best.level>Math.max(threshold,currentLevel*1.12) || now-(upCall.speakerLastSwitch||0)>700)){
+        upCall.speakerCandidate='';
+        upCall.speakerCandidateSince=0;
+        callSetActiveSpeaker(best.name,best.level);
+      }
+    },80);
+  }
+  function callStopSpeakerDetection(){
+    if(upCall.speakerTimer){clearInterval(upCall.speakerTimer);upCall.speakerTimer=null;}
+    upCall.speakerName='';upCall.speakerLevel=0;upCall.speakerCandidate='';upCall.speakerCandidateSince=0;upCall.speakerLastSwitch=0;
+    if(upCall.localSpeakerSource){try{upCall.localSpeakerSource.disconnect();}catch(e){}}
+    if(upCall.localSpeakerAnalyser){try{upCall.localSpeakerAnalyser.disconnect();}catch(e){}}
+    upCall.localSpeakerSource=null;upCall.localSpeakerAnalyser=null;upCall.localSpeakerData=null;
   }
   function callEnsureAudioContext(){
     try{
@@ -1084,6 +1208,8 @@
         p.audioGain.gain.value=1;
         p.audioSource.connect(p.audioGain);
         p.audioGain.connect(ctx.destination);
+        callSetupPeerSpeakerDetector(peerName,stream);
+        callStartSpeakerDetection();
         return;
       }catch(e){}
     }
@@ -1295,12 +1421,25 @@
   function callRender(title,status,buttons){
     if(toastStack)toastStack.style.display='none';
     var o=callEnsureOverlay();callCloseParticipantPicker();callPositionOverlay();
-    o.querySelector('[data-call-title]').textContent=title||callNames(' + ')||'Chamada';
-    o.querySelector('[data-call-status]').textContent=status||'';
+    var titleEl=o.querySelector('[data-call-title]'),statusEl=o.querySelector('[data-call-status]');
     var dot=o.querySelector('[data-call-dot]'),time=o.querySelector('[data-call-time]'),a=o.querySelector('[data-call-actions]');
     a.innerHTML='';
-    time.style.cssText='display:'+(upCall.connected?'flex':'none')+';align-items:center;justify-content:center;min-width:54px;color:#f3f7fd;font:800 17px/1 Segoe UI,Arial,sans-serif;letter-spacing:.3px;text-shadow:0 1px 10px rgba(255,255,255,.08);';
-    if(dot)dot.style.background=upCall.connected?'#5fd38b':(status==='Chamada recebida'?'#70a7ff':'#e7b75a');
+    o.style.width=upCall.connected?'270px':'310px';
+    o.style.minHeight=upCall.connected?'48px':'46px';
+    o.style.padding=upCall.connected?'5px 7px':'6px 8px 6px 10px';
+    titleEl.textContent=upCall.connected?(upCall.speakerName||title||'Chamada'):(title||callNames(' + ')||'Chamada');
+    statusEl.textContent=upCall.connected?callConnectedLabel():(status||'');
+    time.style.cssText='display:'+(upCall.connected?'flex':'none')+';align-items:center;justify-content:center;min-width:54px;color:#f3f7fd;font:800 15px/1 Segoe UI,Arial,sans-serif;letter-spacing:.3px;text-shadow:0 1px 10px rgba(255,255,255,.08);';
+    if(dot){
+      if(upCall.connected){
+        dot.style.width='30px';dot.style.height='30px';dot.style.borderRadius='50%';dot.style.flex='0 0 auto';
+        dot.style.background='rgba(24,34,50,.96)';dot.style.border='1px solid rgba(135,190,255,.72)';
+      }else{
+        dot.innerHTML='';
+        dot.style.width='7px';dot.style.height='7px';dot.style.border='0';dot.style.background=status==='Chamada recebida'?'#70a7ff':'#e7b75a';
+        dot.style.boxShadow='0 0 8px rgba(95,211,139,.45)';dot.style.transform='scale(1)';
+      }
+    }
     var added=false;
     (buttons||[]).forEach(function(b){
       if(upCall.connected&&!upTestMode&&b.danger&&!added){
@@ -1323,6 +1462,7 @@
     });
     if(upCall.connected&&!upCall.startedAt)callStartCounter();
     o.style.display='block';
+    if(upCall.connected)callApplySpeakerVisual();
   }
   function callHideOverlay(){
     if(upCall.overlay)upCall.overlay.style.display='none';
@@ -1357,7 +1497,10 @@
     if(p.pc){try{p.pc.onicecandidate=null;p.pc.ontrack=null;p.pc.onconnectionstatechange=null;p.pc.close();}catch(e){}p.pc=null;}
     if(p.audioSource){try{p.audioSource.disconnect();}catch(e){}p.audioSource=null;}
     if(p.audioGain){try{p.audioGain.disconnect();}catch(e){}p.audioGain=null;}
+    if(p.speakerAnalyser){try{p.speakerAnalyser.disconnect();}catch(e){}p.speakerAnalyser=null;}
+    p.speakerData=null;
     if(p.audio){try{p.audio.pause();}catch(e){}try{p.audio.srcObject=null;}catch(e){}try{p.audio.remove();}catch(e){}p.audio=null;}
+    if(upCall.speakerName===name){upCall.speakerName=member||'';upCall.speakerLevel=0;}
     delete upCall.peers[name];
     if(forgetParticipant){
       upCall.participants=upCall.participants.filter(function(n){return n!==name;});
@@ -1379,9 +1522,10 @@
     if(upCall.timer){clearTimeout(upCall.timer);upCall.timer=null;}
     if(upCall.counterTimer){clearInterval(upCall.counterTimer);upCall.counterTimer=null;}
     callStopRingtone();
+    callStopSpeakerDetection();
     Object.keys(upCall.peers).slice().forEach(function(name){callRemovePeer(name,false);});
     callStopStream();
-    upCall.callId='';upCall.peer='';upCall.role='';upCall.initiator='';upCall.participants=[];upCall.pendingInvites={};upCall.pendingOffers={};upCall.pendingInvite=null;upCall.peers={};upCall.localStream=null;upCall.remoteStream=null;upCall.audio=null;upCall.active=false;upCall.connected=false;upCall.muted=false;upCall.startedAt=0;upCall.waitingForConnection=false;upCall.notice='';
+    upCall.callId='';upCall.peer='';upCall.role='';upCall.initiator='';upCall.participants=[];upCall.pendingInvites={};upCall.pendingOffers={};upCall.pendingInvite=null;upCall.peers={};upCall.localStream=null;upCall.remoteStream=null;upCall.audio=null;upCall.active=false;upCall.connected=false;upCall.muted=false;upCall.startedAt=0;upCall.waitingForConnection=false;upCall.notice='';upCall.speakerName='';upCall.speakerLevel=0;
     callHideOverlay();
   }
   function callFail(msg){
@@ -1394,12 +1538,13 @@
     if(upCall.localStream)return upCall.localStream;
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('O navegador n\u00e3o liberou acesso ao microfone.');
     upCall.localStream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    callSetupLocalSpeakerDetector();
     return upCall.localStream;
   }
   function callGetPeer(name){
     if(!name||name===member)return null;
     var p=upCall.peers[name];
-    if(!p){p={name:name,pc:null,remoteStream:null,audio:null,audioSource:null,audioGain:null,pendingCandidates:[],connected:false,offerSent:false,disconnectTimer:null};upCall.peers[name]=p;}
+    if(!p){p={name:name,pc:null,remoteStream:null,audio:null,audioSource:null,audioGain:null,speakerAnalyser:null,speakerData:null,pendingCandidates:[],connected:false,offerSent:false,disconnectTimer:null};upCall.peers[name]=p;}
     return p;
   }
   async function callCreatePeer(name){
@@ -1452,10 +1597,13 @@
   }
   function callRenderConnected(){
     if(!upCall.active)return;
-    callRender(callNames(' + ')||'Chamada',callConnectedLabel(),[
+    if(!upCall.speakerName)upCall.speakerName=member||((upCall.participants||[])[0]||'Chamada');
+    callRender('Chamada em grupo',callConnectedLabel(),[
       {label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},
       {label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}
     ]);
+    callStartSpeakerDetection();
+    callApplySpeakerVisual();
   }
   async function startOutgoingCall(target){
     if(!target||target===member)return;
