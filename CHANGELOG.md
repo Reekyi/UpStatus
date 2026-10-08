@@ -2,6 +2,11 @@
 
 ## 2026-10-07
 
+## 3.0.27-beta.5
+- Corrigido o envio de áudio no chat para o próprio remetente.
+- Após o servidor criar a mensagem de áudio, o remetente recebe a mesma mensagem pelo canal rápido do chat e a exibe imediatamente.
+- Não altera a lógica de chamadas WebRTC, chamadas em grupo ou sinalização de chamadas.
+
 ### Release pipeline v1
 - Established `3.0.26` as the production baseline.
 - Added `develop` as the TEST/integration branch.
