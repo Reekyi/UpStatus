@@ -28,6 +28,9 @@
   var UP_LEADER_KEY='upstatus_leader_lock_beta1_v1';
   var UP_BUS_KEY='upstatus_cross_tab_bus_v1';
   var UP_LEADER_TTL=7000;
+  var UP_LEADER_URL='https://app.salesmartly.com/next/chat';
+  var UP_LEADER_WINDOW_NAME='upstatus_leader_window_v1';
+  var UP_FOLLOWER_NOTICE_TTL=12000;
   var upIsLeader=false;
   var upLeaderHeartbeat=null;
   var upFollowerWatch=null;
@@ -36,6 +39,51 @@
   }
   function upWriteBus(type,payload){
     try{GM_setValue(UP_BUS_KEY,JSON.stringify({id:upTabId,type:type,payload:payload||{},at:Date.now()}));}catch(e){}
+  }
+  var upFollowerNoticeItems=[];
+  var upFollowerNoticeSeen={};
+  function upEnsureFollowerNoticeRoot(){
+    var root=document.getElementById('upstatus-follower-notices');
+    if(root)return root;
+    root=document.createElement('div');
+    root.id='upstatus-follower-notices';
+    root.style.cssText='position:fixed;right:18px;top:18px;z-index:2147483647;display:flex;flex-direction:column;gap:10px;width:min(360px,calc(100vw - 36px));font-family:Segoe UI,Arial,sans-serif;pointer-events:none;';
+    (document.body||document.documentElement).appendChild(root);
+    return root;
+  }
+  function upOpenLeaderFromFollower(){
+    upWriteBus('open_upstatus');
+    var w=null;
+    try{w=window.open(UP_LEADER_URL,UP_LEADER_WINDOW_NAME);if(w&&typeof w.focus==='function')w.focus();}catch(e){}
+    if(!w){try{GM_openInTab(UP_LEADER_URL,{active:true,insert:true,setParent:true});}catch(e){try{window.open(UP_LEADER_URL,'_blank');}catch(_){}}}
+  }
+  function upShowFollowerNotification(payload){
+    if(!payload||!payload.type||!payload.id)return;
+    if(Date.now()-Number(payload.at||0)>UP_FOLLOWER_NOTICE_TTL)return;
+    var dedupe=String(payload.type)+':'+String(payload.id);
+    if(upFollowerNoticeSeen[dedupe])return;
+    upFollowerNoticeSeen[dedupe]=Date.now();
+    var root=upEnsureFollowerNoticeRoot(),el=document.createElement('button');
+    el.type='button';
+    el.style.cssText='pointer-events:auto;display:flex;align-items:center;gap:11px;width:100%;padding:12px 14px;border:1px solid rgba(255,255,255,.14);border-radius:14px;background:linear-gradient(135deg,rgba(23,31,44,.97),rgba(12,18,28,.97));color:#edf3fb;box-shadow:0 14px 34px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.05);text-align:left;cursor:pointer;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);';
+    var icon=payload.type==='call'?'☎':'●';
+    var title=payload.type==='call'?String(payload.sender||'Alguém')+' está te ligando':String(payload.sender||'Alguém')+' enviou uma mensagem';
+    var sub=payload.type==='call'?'Clique para atender no UpStatus':String(payload.preview||'Nova mensagem no chat');
+    var safeTitle=String(title).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    var safeSub=String(sub).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    el.innerHTML='<span style="width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:rgba(95,211,139,.13);color:#7ee2a5;font-size:17px;flex:0 0 auto">'+icon+'</span><span style="min-width:0;flex:1"><b style="display:block;font-size:12px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+safeTitle+'</b><span style="display:block;margin-top:3px;color:#9eacc0;font-size:10px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+safeSub+'</span></span><span style="color:#708097;font-size:14px">›</span>';
+    var item={el:el,timer:null};
+    item.timer=setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);upFollowerNoticeItems=upFollowerNoticeItems.filter(function(x){return x!==item;});},payload.type==='call'?15000:9000);
+    el.onclick=function(e){e.preventDefault();clearTimeout(item.timer);if(el.parentNode)el.parentNode.removeChild(el);upFollowerNoticeItems=upFollowerNoticeItems.filter(function(x){return x!==item;});upOpenLeaderFromFollower();};
+    root.appendChild(el);upFollowerNoticeItems.push(item);
+  }
+  function upHandleFollowerBus(raw){
+    if(!raw)return;
+    try{
+      var msg=typeof raw==='string'?JSON.parse(raw):raw;
+      if(!msg||msg.id===upTabId||msg.type!=='follower_notification')return;
+      upShowFollowerNotification(msg.payload||{});
+    }catch(e){}
   }
   function upHandleBus(raw){
     if(!upIsLeader||!raw)return;
@@ -49,7 +97,7 @@
     }catch(e){}
   }
   function upStartFollower(){
-    try{GM_addValueChangeListener(UP_BUS_KEY,function(_,__,newValue){upHandleBus(newValue);});}catch(e){}
+    try{GM_addValueChangeListener(UP_BUS_KEY,function(_,__,newValue){upHandleBus(newValue);upHandleFollowerBus(newValue);});}catch(e){}
     if(isSalesSmartlyPage){
       upFollowerWatch=setInterval(function(){
         var lock=upReadLeader();
@@ -70,9 +118,9 @@
             var leaderAlive=!!(leader&&leader.id&&Date.now()-Number(leader.at||0)<=UP_LEADER_TTL);
             if(!leaderAlive){
               try{
-                GM_openInTab('https://app.salesmartly.com/next/chat',{active:true,insert:true,setParent:true});
+                GM_openInTab(UP_LEADER_URL,{active:true,insert:true,setParent:true});
               }catch(err){
-                try{window.open('https://app.salesmartly.com/next/chat','_blank');}catch(e2){}
+                try{window.open(UP_LEADER_URL,'_blank');}catch(e2){}
               }
             }
           }
@@ -91,6 +139,7 @@
     var verify=upReadLeader();
     if(!verify||verify.id!==upTabId){upStartFollower();return false;}
     upIsLeader=true;
+    try{window.name=UP_LEADER_WINDOW_NAME;}catch(e){}
     upLeaderHeartbeat=setInterval(function(){
       try{GM_setValue(UP_LEADER_KEY,{id:upTabId,at:Date.now(),host:location.hostname});}catch(e){}
     },2000);
@@ -215,7 +264,7 @@
   var chatLoading=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
   var chatForceScrollBottom=false;
   var remoteResultCache={},remoteResultWaiters={};
-  var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
+  var UpNativeNotification=null;
 
   function installPageBridge(){
     if(document.documentElement && document.getElementById('upstatus-page-bridge')) return;
@@ -911,7 +960,7 @@
   function externalNotificationsSupported(){
     return !!UpNativeNotification;
   }
-  var notificationsEnabled=GM_getValue(key+'notifications_enabled',true)!==false;
+  var notificationsEnabled=false;
   function updateNotificationPermissionUI(){
     var btn=card.querySelector('.up-settings-notifications');
     if(!btn)return;
@@ -923,10 +972,10 @@
     else btn.innerHTML=iconSvg('bell')+'<span>Ligar notificações</span>';
   }
   function toggleNotifications(){
-    if(notificationsEnabled){notificationsEnabled=false;GM_setValue(key+'notifications_enabled',false);updateNotificationPermissionUI();message('Notificações desligadas.');return;}
-    notificationsEnabled=true;GM_setValue(key+'notifications_enabled',true);
-    if(externalNotificationsSupported()&&UpNativeNotification.permission==='default'){requestExternalNotifications();return;}
+    notificationsEnabled=false;
+    try{GM_setValue(key+'notifications_enabled',false);}catch(e){}
     updateNotificationPermissionUI();
+    message('Notificações do Windows estão desativadas.');
   }
   async function requestExternalNotifications(){
     if(!externalNotificationsSupported()){
@@ -985,24 +1034,11 @@
   function upStatusNotificationIcon(){
     return server+'/upstatus-icon.svg';
   }
-  function showExternalNotification(type,data){
-    if(type!=='chat')return;
-    if(!isTeamChatMessage(data)||!shouldNotifyForChat())return;
-    if(!shouldShowExternalNotification())return;
-    var id=data&&data.id||Date.now();
-    if(wasExternalNotificationShown(type,id))return;
-    markExternalNotificationShown(type,id);
-    try{
-      var title='UpStatus - Chat da equipe';
-      var body=String(data.user||'Alguém')+' enviou uma mensagem no chat.';
-      var n=new UpNativeNotification(title,{body:body,icon:upStatusNotificationIcon(),badge:upStatusNotificationIcon(),tag:'upstatus-'+type+'-'+String(id),renotify:true});
-      n.onclick=function(){try{window.focus()}catch(e){};try{openChat();}catch(e){};try{n.close();}catch(e){}};
-    }catch(e){
-      try{
-        var n2=new UpNativeNotification('UpStatus - Chat da equipe',{body:String(data.user||'Alguém')+' enviou uma mensagem no chat.',tag:'upstatus-'+type+'-'+String(id),renotify:true});
-        n2.onclick=function(){try{window.focus()}catch(e){};try{openChat()}catch(e){};try{n2.close()}catch(e){}};
-      }catch(ignore){}
-    }
+  function showExternalNotification(){ return; }
+  function broadcastFollowerNotification(type,data){
+    if(!upIsLeader||!data)return;
+    var payload={type:type,id:String(data.id||data.callId||Date.now()),sender:String(data.sender||data.user||'Alguém'),preview:String(data.preview||''),at:Date.now()};
+    upWriteBus('follower_notification',payload);
   }
 
   function processChatNotifications(messages){
@@ -1022,6 +1058,7 @@
           showChatToast(m);
           if(isTeamChatMessage(m))showExternalNotification('chat',m);
         }
+        if(m.user!==member&&isTeamChatMessage(m))broadcastFollowerNotification('message',{id:m.id,user:m.user,preview:String(m.message||'Nova mensagem').slice(0,120)});
       }
     });
     mentions.forEach(function(m){
@@ -1751,6 +1788,7 @@
         if(upCall.participants.indexOf(member)<0)upCall.participants.push(member);
         upCall.pendingOffers={};upCall.pendingOffers[p.from]=p.sdp;upCall.pendingInvite=null;upCall.peers={};
         upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=false;
+        broadcastFollowerNotification('call',{callId:p.callId,sender:p.from,preview:'Chamada recebida'});
         callStartRingtone();
         callRender(p.from,'Chamada recebida',[{label:'Atender',icon:'phone',onClick:function(){callAcceptIncomingCall();}},{label:'Recusar',icon:'hangup',danger:true,onClick:function(){callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}]);
         return;
@@ -1774,6 +1812,7 @@
       callMergeParticipants(p.participants||[p.from]);
       upCall.pendingInvite={callId:p.callId,from:p.from,participants:upCall.participants.slice()};
       upCall.pendingOffers={};upCall.peers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;
+      broadcastFollowerNotification('call',{callId:p.callId,sender:p.from,preview:'Convite para chamada em grupo'});
       callStartRingtone();
       var inviteNames=Array.isArray(p.participants)?p.participants.filter(function(n){return n&&n!==member;}).join(', '):p.from;
       callRender('Convite para chamada em grupo','Participantes: '+inviteNames,[
@@ -1982,6 +2021,17 @@
   function clearChatDraft(){if(!member)return;try{GM_setValue(chatDraftKey(),'');}catch(e){}}
   function handleTypingInput(){var input=chat.querySelector('.up-chat-input');if(!input)return;saveChatDraft(input);if(String(input.value||'').trim()){startTypingHeartbeat();if(typingStopTimer)clearTimeout(typingStopTimer);typingStopTimer=setTimeout(function(){stopTypingHeartbeat();},4500);}else stopTypingHeartbeat();}
   function markVisibleChatRead(){if(!token||chat.classList.contains('hidden'))return;var ids=chatCache.filter(function(m){return m.user!==member;}).map(function(m){return m.id;});setUnread(0);if(!ids.length)return;var k=ids.join(',');if(k===readSentKey)return;api('POST','/api/chat/read',{messageIds:ids}).then(function(){readSentKey=k;setUnread(0);if(realtimeActive&&realtimeChannel){try{realtimeChannel.send({type:'broadcast',event:'chat_read',payload:{reader:member,messageIds:ids}});}catch(e){}}}).catch(function(){});}
+  var chatReadRefreshPending=false;
+  function refreshChatReadReceipts(){
+    if(!token||chatReadRefreshPending)return;
+    chatReadRefreshPending=true;
+    api('GET','/api/chat?fast=1&since='+encodeURIComponent(new Date(Date.now()-60000).toISOString())).then(function(d){
+      var incoming=d.messages||[],changed=false,byId={};
+      incoming.forEach(function(m){byId[String(m.id)]=m;});
+      chatCache.forEach(function(m){var fresh=byId[String(m.id)];if(!fresh)return;var next=Array.isArray(fresh.readBy)?fresh.readBy:[];if(JSON.stringify(m.readBy||[])!==JSON.stringify(next)){m.readBy=next.slice();changed=true;}});
+      if(changed&&!chat.classList.contains('hidden'))renderChat();
+    }).catch(function(){}).finally(function(){chatReadRefreshPending=false;});
+  }
 
 
   function replyPreview(m){
@@ -2839,6 +2889,7 @@
     }
   });
   setInterval(function(){loadChat();},3000);
+  setInterval(refreshChatReadReceipts,8000);
   setInterval(pollChatTyping,1000);  setInterval(pollRemoteStatus,5000);
   setInterval(checkUpdate,60000);
 })();
