@@ -1,6 +1,16 @@
 # Changelog
 
-## 2026-10-07
+## 2026-10-08
+
+## 3.0.27
+- Chamadas em grupo com múltiplas conexões WebRTC e convite de participantes.
+- Mini dock de chamada mais compacta, com avatar do participante ativo e destaque dinâmico conforme a voz detectada.
+- Melhorias de estabilidade na sinalização WebRTC pelo Supabase Realtime.
+- Chat com envio de áudio exibido imediatamente para o próprio remetente.
+- Formas de onda dos áudios do chat calculadas a partir do volume real e reutilizadas entre renderizações.
+- Correções de encoding UTF-8 para acentos e emojis.
+- Produção permanece isolada do ambiente TEST durante o desenvolvimento.
+
 
 ## 3.0.27-beta.7
 - Otimizado o carregamento das formas de onda do chat.
