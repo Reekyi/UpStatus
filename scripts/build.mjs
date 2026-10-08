@@ -18,6 +18,7 @@ const PROD_FUNCTION="upstatus";
 const TEST_FUNCTION="upstatus-test";
 const PROD_TOPIC="upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0";
 const TEST_TOPIC=PROD_TOPIC;
+const TEST_LEGACY_TOPIC="upstatus-test-live-20261007-v1";
 const PROD_RINGTONE_CHANNEL="upstatus-call-ringtone-stop-v1";
 const TEST_RINGTONE_CHANNEL="upstatus-test-call-ringtone-stop-v1";
 const PROD_RINGTONE_STORAGE="upstatus_call_ringtone_stop_bus";
@@ -49,6 +50,7 @@ function renderUser({version,test}){
     "__UPSTATUS_STORAGE_PREFIX__":prefix,
     "__UPSTATUS_CLOUD_SERVER__":cloud,
     "__UPSTATUS_REALTIME_TOPIC__":topic,
+    "__UPSTATUS_REALTIME_LEGACY_TOPIC__":test?TEST_LEGACY_TOPIC:"",
     "__UPSTATUS_RINGTONE_CHANNEL__":ringtoneChannel,
     "__UPSTATUS_RINGTONE_STORAGE_KEY__":ringtoneStorage
   });
