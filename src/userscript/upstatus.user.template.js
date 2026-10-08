@@ -25,8 +25,8 @@
   // somente um seguidor invisível, sem bolinha, painel, Realtime ou WebRTC.
   var isSalesSmartlyPage=/^([^.]+\.)*salesmartly\.com$/i.test(location.hostname);
   var upTabId='up-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
-  var UP_LEADER_KEY='__UPSTATUS_LEADER_LOCK_BETA1__';
-  var UP_BUS_KEY='__UPSTATUS_CROSS_TAB_BUS__';
+  var UP_LEADER_KEY='upstatus_leader_lock_beta1_v1';
+  var UP_BUS_KEY='upstatus_cross_tab_bus_v1';
   var UP_LEADER_TTL=7000;
   var upIsLeader=false;
   var upLeaderHeartbeat=null;
