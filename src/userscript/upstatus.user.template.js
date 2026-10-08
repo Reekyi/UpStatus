@@ -116,7 +116,9 @@
   function setFaviconBadge(show){try{if(faviconState.link)faviconState.link.href=show?faviconBadgeHref():faviconState.originalHref;}catch(e){}}
   function updateFaviconNotification(count){var show=Number(count)>0;if(!show){if(faviconState.blinkTimer){clearInterval(faviconState.blinkTimer);faviconState.blinkTimer=null;}faviconState.on=false;setFaviconBadge(false);return;}if(faviconState.blinkTimer)return;faviconState.on=true;setFaviconBadge(true);faviconState.blinkTimer=setInterval(function(){faviconState.on=!faviconState.on;setFaviconBadge(faviconState.on);},700);}
   function initFaviconWatcher(){setupFaviconBadge();}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initFaviconWatcher,{once:true});else initFaviconWatcher();
+  if(isSalesSmartlyPage){
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initFaviconWatcher,{once:true});else initFaviconWatcher();
+  }
 
   // Backend cloud: substitui qualquer endereço antigo salvo no Tampermonkey.
   GM_setValue(key+'server',CLOUD_SERVER);
@@ -328,7 +330,7 @@
     s.remove();
   }
 
-  installPageBridge();
+  if(isSalesSmartlyPage) installPageBridge();
 
   var labels={online:'Online',busy:'Ocupado',away:'Ausente',offline:'Sem status'};
   var reasons=[{value:'Em treinamento',label:'Em treinamento',icon:'training'},{value:'Em aula aberta',label:'Em aula aberta',icon:'book'},{value:'Ocupado com tarefa',label:'Ocupado com tarefa',icon:'tools'},{value:'Em reunião',label:'Em reunião',icon:'meeting'},{value:'Almoçando',label:'Almoçando',icon:'lunch'},{value:'Outro',label:'Outro',icon:'edit'}];
