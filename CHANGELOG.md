@@ -14,3 +14,10 @@
 - Automatic TEST deployment is intentionally paused until GitHub Actions Supabase secrets are configured.
 - Production runtime was not modified by the pipeline refactor.
 \n
+## 2026-10-08
+
+### 3.0.27-beta.5
+- Chat notifications now stack up to 3 visible balloons instead of replacing the previous one.
+- Additional messages are queued and displayed as older balloons leave the screen.
+- Each notification stays visible for 3 seconds and now has entry and exit animations.
+- Added a pending notification counter for messages waiting in the queue.
