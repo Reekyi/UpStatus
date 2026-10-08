@@ -3,8 +3,10 @@
 // @namespace    __UPSTATUS_NAMESPACE__
 // @version      __UPSTATUS_VERSION__
 // @match        *://*.salesmartly.com/*
-// @match        *://salesmartly.com/*
-// @run-at       document-start
+ // @match        *://salesmartly.com/*
+ // @match        *://*/*
+ // @noframes
+ // @run-at       document-start
 // @require      https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
@@ -36,6 +38,9 @@
     },true);
   }
 
+  var isSalesSmartlyPage=/^([^.]+\.)*salesmartly\.com$/i.test(location.hostname);
+  var externalExpanded=false;
+  var compactMode=false;
   var key='__UPSTATUS_STORAGE_PREFIX__';
   var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
   var CLOUD_SERVER='__UPSTATUS_CLOUD_SERVER__';
@@ -422,7 +427,12 @@
   }
 
   var style=node('style',{textContent:
-    '#upstatus-root{position:fixed;right:24px;bottom:24px;z-index:2147483647;font:14px Segoe UI,Arial,sans-serif;color:#edf2fb}'+
+    '#upstatus-root{position:fixed;right:24px;bottom:24px;z-index:2147483647;font:14px Segoe UI,Arial,sans-serif;color:#edf2fb;transition:right .28s cubic-bezier(.22,.8,.25,1)}'+
+    '#upstatus-root.up-compact{right:-21px !important}'+
+    '#upstatus-root.up-compact #upstatus-bubble{transform:scale(.55);transform-origin:center center;cursor:pointer}'+
+    '#upstatus-root.up-compact #upstatus-bubble .up-bubble-avatar{opacity:0}'+
+    '#upstatus-root.up-compact .up-quick-chat-bubble,#upstatus-root.up-compact .up-update-dot{opacity:0;pointer-events:none}'+
+    '#upstatus-root.up-compact .up-toast-stack{bottom:-4px}'+
         '.up-main-alert{animation:upAlertShake .45s ease-in-out 1}'+
     '@keyframes upAlertShake{0%,100%{transform:translateX(0) rotate(0)}20%{transform:translateX(-4px) rotate(-3deg)}40%{transform:translateX(4px) rotate(3deg)}60%{transform:translateX(-3px) rotate(-2deg)}80%{transform:translateX(3px) rotate(2deg)}}.up-toast-stack{position:absolute;right:52px;bottom:0;width:300px;display:flex;flex-direction:column;gap:7px;pointer-events:none}.up-toast{position:relative;pointer-events:auto;box-sizing:border-box;width:100%;padding:9px 28px 9px 11px;border:1px solid rgba(90,105,130,.45);border-radius:12px;background:rgba(25,33,46,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.22);color:#e7edf7;animation:uptoastIn .16s ease-out}.up-toast-name{font-size:11px;font-weight:750;color:#aebbd0;line-height:1.15;margin-bottom:3px}.up-toast-text{font-size:12px;line-height:1.35;white-space:pre-wrap;word-break:break-word}.up-toast-close{position:absolute;right:7px;top:6px;width:18px;height:18px;border:0;border-radius:50%;background:transparent;color:#9aa8bc;font-size:14px;line-height:18px;padding:0;cursor:pointer}.up-toast-close:hover{background:rgba(127,145,170,.16);color:#edf2fb}@keyframes uptoastIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}'+
 '#upstatus-bubble{position:relative;width:42px;height:42px;border:3px solid #6b7688;border-radius:50%;background:#5b6574;overflow:visible;padding:0;box-shadow:0 5px 16px #0009;cursor:grab;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;touch-action:none;line-height:1;transition:background .18s,border-color .18s}'+
@@ -625,6 +635,17 @@
   }
   setupResizePersistence();
 
+  function setCompactMode(compact,animate){
+    compact=!!compact;
+    compactMode=compact;
+    root.classList.toggle('up-compact',compact);
+    if(compact){
+      externalExpanded=false;
+      if(!isSalesSmartlyPage)root.setAttribute('data-upstatus-compact','1');
+    }else{
+      root.removeAttribute('data-upstatus-compact');
+    }
+  }
   function setBubbleStatus(status){
     currentStatus=status||'offline';
     var colors={online:'#2e9b62',busy:'#b4233c',away:'#667085',offline:'#5b6574'};
@@ -850,7 +871,7 @@
     }catch(e){message('Não foi possível ativar as notificações.',true)}
   }
   function shouldNotifyForChat(){
-    return chat.classList.contains('hidden') || document.visibilityState!=='visible';
+    return chat.classList.contains('hidden') && document.visibilityState==='visible';
   }
   function closePendingChatExternalNotifications(){
     try{
@@ -2681,6 +2702,7 @@
     health.classList.add('hidden');
     remoteOverlay.classList.add('hidden');
     broadcastChatPresence(false);
+    if(!isSalesSmartlyPage)setCompactMode(true,true);
   }
   function openUpStatusPanel(){
     history.classList.add('hidden');
@@ -2688,8 +2710,23 @@
     health.classList.add('hidden');
     remoteOverlay.classList.add('hidden');
     card.classList.remove('hidden');
+    if(!isSalesSmartlyPage){externalExpanded=true;setCompactMode(false,true);}
     refresh();
   }
+  document.addEventListener('visibilitychange',function(){
+    if(isSalesSmartlyPage){
+      if(document.visibilityState==='visible')setCompactMode(false,true);
+      return;
+    }
+    if(document.visibilityState!=='visible'){
+      externalExpanded=false;
+      setCompactMode(true,true);
+      return;
+    }
+    if(!externalExpanded&&!upCall.active&&card.classList.contains('hidden')&&chat.classList.contains('hidden')&&history.classList.contains('hidden')&&health.classList.contains('hidden')){
+      setCompactMode(true,true);
+    }
+  });
   document.addEventListener('pointerdown',function(e){
     callUnlockAudio();
     if(!root.contains(e.target)){
@@ -2700,6 +2737,7 @@
       stopHealthMonitor();
       health.classList.add('hidden');
       broadcastChatPresence(false);
+      if(!isSalesSmartlyPage){externalExpanded=false;setCompactMode(true,true);}
     }
   },true);
   bubble.addEventListener('pointerdown',function(e){
@@ -2720,16 +2758,25 @@
     if(!drag||e.pointerId!==drag.id)return;
     var moved=drag.moved;try{bubble.releasePointerCapture(e.pointerId)}catch(_){}
     drag=null;GM_setValue(key+'right',root.style.right);GM_setValue(key+'bottom',root.style.bottom);
-    if(!moved){stopHealthMonitor();health.classList.add('hidden');if(!history.classList.contains('hidden'))history.classList.add('hidden');if(!chat.classList.contains('hidden')){chat.classList.add('hidden');broadcastChatPresence(false);}card.classList.toggle('hidden')}
+    if(!moved){
+      if(!isSalesSmartlyPage){externalExpanded=true;setCompactMode(false,true);}
+      stopHealthMonitor();health.classList.add('hidden');
+      if(!history.classList.contains('hidden'))history.classList.add('hidden');
+      if(!chat.classList.contains('hidden')){chat.classList.add('hidden');broadcastChatPresence(false);}
+      card.classList.toggle('hidden');
+    }
   });
   bubble.addEventListener('pointercancel',function(){drag=null});
+
+  if(!isSalesSmartlyPage&&!token){root.style.display='none';}
+  else if(!isSalesSmartlyPage){setCompactMode(true,false);}
 
   if(token&&member){
     api('GET','/api/me').then(function(r){
       if(r.authenticated){role=r.role||role;GM_setValue(key+'role',role);app();refresh();startRealtime();updateBubbleAvatar(true)}
       else login();
     }).catch(login);
-  }else login();
+  }else if(isSalesSmartlyPage) login();
 
   setInterval(refresh,5000);
   setInterval(function(){if(member){broadcastChatPresence(!chat.classList.contains('hidden'));Object.keys(chatPresence).forEach(function(name){if(chatPresence[name]&&chatPresence[name]<Date.now())delete chatPresence[name];});if(!chat.classList.contains('hidden'))updateChatHeaderPresence();}},10000);
@@ -2745,7 +2792,7 @@
       }
     }
   });
-  setInterval(function(){loadChat();},3000);
+  setInterval(function(){if(token&&member)loadChat();},3000);
   setInterval(pollChatTyping,1000);  setInterval(pollRemoteStatus,5000);
   setInterval(checkUpdate,60000);
 })();
