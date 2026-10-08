@@ -2,6 +2,16 @@
 
 ## 2026-10-08
 
+## 3.0.28-beta.2
+- Corrige a inicialização do UpStatus fora do Sale Smartly.
+- Cada aba compatível cria sua própria instância do UpStatus, sem depender da instância visual do Sale Smartly.
+- A sessão salva pelo Tampermonkey é sincronizada entre as abas para que novas abas reconheçam o usuário já autenticado.
+- Mantém o modo compacto fora do Sale Smartly.
+- Adiciona fallback de correspondência para páginas HTTP/HTTPS.
+- Não altera a arquitetura WebRTC, sinalização, Realtime ou ringtone.
+
+## 2026-10-08
+
 ## 3.0.28-beta.1
 - UpStatus passa a poder ser executado também fora do Sale Smartly.
 - Fora do Sale Smartly, a bolinha entra em modo compacto e fica parcialmente escondida na lateral direita.
