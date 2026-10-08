@@ -2,6 +2,13 @@
 
 ## 2026-10-08
 
+## 3.0.27-beta.1
+- Reiniciada a linha beta diretamente a partir da produção 3.0.27.
+- Apenas uma instância completa do UpStatus permanece ativa por vez, preferencialmente em uma aba do Sale Smartly.
+- Outras abas usam um seguidor invisível, sem painel ou bolinha persistente.
+- O atalho Shift+C em qualquer aba envia o comando para a instância líder abrir o UpStatus.
+- Não altera a lógica de chamadas, chat ou Supabase Realtime nesta primeira beta limpa.
+
 ## 3.0.27
 - Chamadas em grupo com múltiplas conexões WebRTC e convite de participantes.
 - Mini dock de chamada mais compacta, com avatar do participante ativo e destaque dinâmico conforme a voz detectada.
