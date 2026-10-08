@@ -2,6 +2,12 @@
 
 ## 2026-10-07
 
+## 3.0.27-beta.6
+- Corrigido o áudio enviado pelo próprio usuário para aparecer imediatamente no chat, sem depender do eco do Realtime.
+- Barra de áudio agora gera uma forma de onda baseada no volume real do arquivo, substituindo a barra fixa.
+- Durante a reprodução, o progresso continua sendo destacado sobre a forma de onda.
+- Não altera a lógica de chamadas WebRTC, chamadas em grupo ou sinalização de chamadas.
+
 ## 3.0.27-beta.5
 - Corrigido o envio de áudio no chat para o próprio remetente.
 - Após o servidor criar a mensagem de áudio, o remetente recebe a mesma mensagem pelo canal rápido do chat e a exibe imediatamente.
