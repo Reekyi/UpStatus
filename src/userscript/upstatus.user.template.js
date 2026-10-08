@@ -776,6 +776,7 @@
   var toastQueuedItems=[];
   var toastNotificationCount=0;
   var pendingChatToast=null;
+  var pendingChatToasts=[];
   var typingHeartbeat=null;
   var typingStopTimer=null;
   var chatLastRenderKey="";
@@ -783,7 +784,7 @@
   var chatEmojiDocumentClickBound=false;
 
   function updateToastNotificationCount(){
-    var total=toastQueuedItems.length;
+    var total=toastItems.length+toastQueuedItems.length+pendingChatToasts.length;
     toastNotificationCount=total;
     var countBadge=toastStack&&toastStack.querySelector('.up-toast-count');
     if(countBadge){
@@ -827,12 +828,28 @@
     requestAnimationFrame(function(){if(el)el.classList.remove('up-toast-enter');});
   }
 
+  function flushPendingChatToasts(){
+    if(!pendingChatToasts.length)return;
+    var pending=pendingChatToasts.splice(0,pendingChatToasts.length);
+    pending.forEach(function(m){
+      if(toastItems.length<3)renderToastItem(m);
+      else toastQueuedItems.push(m);
+    });
+    updateToastNotificationCount();
+  }
+
   function showChatToast(m){
     if(!m||!m.id||m.type==='system'||m.user===member||!shouldNotifyForChat())return;
-    if(upCall&&upCall.active){pendingChatToast=m;return;}
+    if(upCall&&upCall.active){
+      pendingChatToasts.push(m);
+      pendingChatToast=m;
+      updateToastNotificationCount();
+      return;
+    }
     pendingChatToast=null;
     if(bubble){bubble.classList.remove('up-main-alert');void bubble.offsetWidth;bubble.classList.add('up-main-alert');setTimeout(function(){bubble.classList.remove('up-main-alert')},700);}
-    if(toastItems.length<3)renderToastItem(m);else toastQueuedItems.push(m);
+    if(toastItems.length<3)renderToastItem(m);
+    else toastQueuedItems.push(m);
     updateToastNotificationCount();
   }
 
