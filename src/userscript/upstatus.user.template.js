@@ -67,9 +67,9 @@
           upWriteBus('open_upstatus');
           if(!isSalesSmartlyPage){
             try{
-              GM_openInTab('https://salesmartly.com/',{active:true,insert:true,setParent:true});
+              GM_openInTab('https://app.salesmartly.com/next/chat',{active:true,insert:true,setParent:true});
             }catch(err){
-              try{window.open('https://salesmartly.com/','_blank');}catch(e2){}
+              try{window.open('https://app.salesmartly.com/next/chat','_blank');}catch(e2){}
             }
           }
         }
