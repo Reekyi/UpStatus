@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.27-beta.3
+- Corrigido o canal Realtime da TEST para compartilhar o mesmo canal de chat e sinalização de chamadas da produção.
+- Mantida a separação do ambiente TEST para armazenamento, autenticação e endpoint da Edge Function.
+- Permite testar chat e chamadas entre usuários da versão oficial e da beta.
+
+
 ## 3.0.27-beta.2
 - Corrigido o estado de mensagens não lidas para considerar os registros reais de leitura, evitando alertas falsos após abrir ou recarregar o Sale Smartly.
 - Corrigida a atualização dos leitores das mensagens, incluindo sincronização periódica dos recibos de leitura.
