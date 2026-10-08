@@ -25,7 +25,7 @@
   // somente um seguidor invisível, sem bolinha, painel, Realtime ou WebRTC.
   var isSalesSmartlyPage=/^([^.]+\\.)*salesmartly\\.com$/i.test(location.hostname);
   var upTabId='up-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
-  var UP_LEADER_KEY='__UPSTATUS_LEADER_LOCK__';
+  var UP_LEADER_KEY='__UPSTATUS_LEADER_LOCK_BETA1__';
   var UP_BUS_KEY='__UPSTATUS_CROSS_TAB_BUS__';
   var UP_LEADER_TTL=7000;
   var upIsLeader=false;
@@ -68,7 +68,8 @@
   }
   function upTryBecomeLeader(){
     var current=upReadLeader();
-    if(current&&current.id&&current.id!==upTabId&&Date.now()-Number(current.at||0)<=UP_LEADER_TTL){
+    var currentIsSales=!!(current&&/([^.]+\\.)*salesmartly\\.com$/i.test(String(current.host||'')));
+    if(current&&current.id&&current.id!==upTabId&&currentIsSales&&Date.now()-Number(current.at||0)<=UP_LEADER_TTL){
       upStartFollower();
       return false;
     }
