@@ -17,3 +17,6 @@
 ### 3.0.27-beta.1
 - Iniciada a nova linha de desenvolvimento para chamadas em grupo.
 - Preparado o primeiro ciclo beta para evoluir o motor de chamadas WebRTC sem alterar a produção.
+
+### 3.0.27-beta.2
+- Corrigido o encoding UTF-8 do userscript para restaurar acentos e emojis corretamente.
