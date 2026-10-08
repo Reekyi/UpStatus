@@ -62,7 +62,17 @@
       if(e.shiftKey&&(e.key==='c'||e.key==='C')){
         var t=e.target,tag=t&&t.tagName?String(t.tagName).toLowerCase():'';
         var editable=!!(t&&(t.isContentEditable||tag==='input'||tag==='textarea'||tag==='select'));
-        if(!editable){e.preventDefault();upWriteBus('open_upstatus');}
+        if(!editable){
+          e.preventDefault();
+          upWriteBus('open_upstatus');
+          if(!isSalesSmartlyPage){
+            try{
+              GM_openInTab('https://salesmartly.com/',{active:true,insert:true,setParent:true});
+            }catch(err){
+              try{window.open('https://salesmartly.com/','_blank');}catch(e2){}
+            }
+          }
+        }
       }
     },true);
   }
