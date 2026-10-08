@@ -4,11 +4,14 @@
 // @version      __UPSTATUS_VERSION__
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
+// @match        *://*/*
+// @noframes
 // @run-at       document-start
 // @require      https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_addValueChangeListener
 // @grant        GM_openInTab
 // @updateURL    __UPSTATUS_UPDATE_URL__
 // @downloadURL  __UPSTATUS_DOWNLOAD_URL__
@@ -16,6 +19,81 @@
 // ==/UserScript==
 (function () {
   'use strict';
+
+  // Arquitetura beta 1: uma única instância completa do UpStatus por vez.
+  // O líder é preferencialmente uma aba do Sale Smartly. Outras abas carregam
+  // somente um seguidor invisível, sem bolinha, painel, Realtime ou WebRTC.
+  var isSalesSmartlyPage=/^([^.]+\\.)*salesmartly\\.com$/i.test(location.hostname);
+  var upTabId='up-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
+  var UP_LEADER_KEY='__UPSTATUS_LEADER_LOCK__';
+  var UP_BUS_KEY='__UPSTATUS_CROSS_TAB_BUS__';
+  var UP_LEADER_TTL=7000;
+  var upIsLeader=false;
+  var upLeaderHeartbeat=null;
+  var upFollowerWatch=null;
+  function upReadLeader(){
+    try{return GM_getValue(UP_LEADER_KEY,null);}catch(e){return null;}
+  }
+  function upWriteBus(type,payload){
+    try{GM_setValue(UP_BUS_KEY,JSON.stringify({id:upTabId,type:type,payload:payload||{},at:Date.now()}));}catch(e){}
+  }
+  function upHandleBus(raw){
+    if(!upIsLeader||!raw)return;
+    try{
+      var msg=typeof raw==='string'?JSON.parse(raw):raw;
+      if(!msg||msg.id===upTabId||!msg.type)return;
+      if(msg.type==='open_upstatus'){
+        try{window.focus();}catch(e){}
+        setTimeout(function(){try{openUpStatusPanel();}catch(e){}},0);
+      }
+    }catch(e){}
+  }
+  function upStartFollower(){
+    try{GM_addValueChangeListener(UP_BUS_KEY,function(_,__,newValue){upHandleBus(newValue);});}catch(e){}
+    if(isSalesSmartlyPage){
+      upFollowerWatch=setInterval(function(){
+        var lock=upReadLeader();
+        if(!lock||!lock.id||Date.now()-Number(lock.at||0)>UP_LEADER_TTL){
+          try{location.reload();}catch(e){}
+        }
+      },2500);
+    }
+    document.addEventListener('keydown',function(e){
+      if(e.shiftKey&&(e.key==='c'||e.key==='C')){
+        var t=e.target,tag=t&&t.tagName?String(t.tagName).toLowerCase():'';
+        var editable=!!(t&&(t.isContentEditable||tag==='input'||tag==='textarea'||tag==='select'));
+        if(!editable){e.preventDefault();upWriteBus('open_upstatus');}
+      }
+    },true);
+  }
+  function upTryBecomeLeader(){
+    var current=upReadLeader();
+    if(current&&current.id&&current.id!==upTabId&&Date.now()-Number(current.at||0)<=UP_LEADER_TTL){
+      upStartFollower();
+      return false;
+    }
+    try{GM_setValue(UP_LEADER_KEY,{id:upTabId,at:Date.now(),host:location.hostname});}catch(e){upStartFollower();return false;}
+    var verify=upReadLeader();
+    if(!verify||verify.id!==upTabId){upStartFollower();return false;}
+    upIsLeader=true;
+    upLeaderHeartbeat=setInterval(function(){
+      try{GM_setValue(UP_LEADER_KEY,{id:upTabId,at:Date.now(),host:location.hostname});}catch(e){}
+    },2000);
+    try{GM_addValueChangeListener(UP_BUS_KEY,function(_,__,newValue){upHandleBus(newValue);});}catch(e){}
+    window.addEventListener('beforeunload',function(){
+      try{
+        var lock=upReadLeader();
+        if(lock&&lock.id===upTabId)GM_setValue(UP_LEADER_KEY,{id:'',at:0,host:''});
+      }catch(e){}
+      if(upLeaderHeartbeat)clearInterval(upLeaderHeartbeat);
+    });
+    return true;
+  }
+  if(!isSalesSmartlyPage){
+    upStartFollower();
+    return;
+  }
+  if(!upTryBecomeLeader())return;
 
   // Captura o botão direito do chat no início da página, antes de listeners do Sale Smartly.
   if(!window.__upstatusChatContextEarlyCapture){
