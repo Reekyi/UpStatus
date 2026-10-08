@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0.27-beta.2
+- Corrigido o estado de mensagens não lidas para considerar os registros reais de leitura, evitando alertas falsos após abrir ou recarregar o Sale Smartly.
+- Corrigida a atualização dos leitores das mensagens, incluindo sincronização periódica dos recibos de leitura.
+- Adicionadas notificações leves nas abas seguidoras para novas mensagens e chamadas, sem duplicar o UpStatus completo.
+- Clique na notificação tenta reutilizar a aba líder existente pelo nome do contexto do navegador e usa nova aba somente como fallback.
+- Desativadas as notificações nativas do Windows do UpStatus.
+- Mantido o comportamento da aba líder no Sale Smartly.
+
+
 ## 2026-10-08
 
 ## 3.0.27-beta.1
