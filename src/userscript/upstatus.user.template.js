@@ -5,6 +5,8 @@
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @match        *://*/*
+// @include      http://*/*
+// @include      https://*/*
 // @noframes
 // @run-at       document-start
 // @require      https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js
@@ -2779,15 +2781,56 @@
   });
   bubble.addEventListener('pointercancel',function(){drag=null});
 
-  if(!isSalesSmartlyPage&&!token){root.style.display='none';}
-  else if(!isSalesSmartlyPage){setCompactMode(true,false);}
+  if(!isSalesSmartlyPage){setCompactMode(true,false);}
+
+  function hydrateSharedSession(newToken,newMember,newRole){
+    token=String(newToken||'');
+    member=String(newMember||'');
+    if(newRole)role=newRole;
+    if(token&&member){
+      api('GET','/api/me').then(function(r){
+        if(r.authenticated){
+          role=r.role||role;
+          GM_setValue(key+'role',role);
+          app();
+          refresh();
+          startRealtime();
+          updateBubbleAvatar(true);
+          if(!isSalesSmartlyPage)setCompactMode(true,true);
+        }else if(isSalesSmartlyPage){
+          login();
+        }else{
+          setCompactMode(true,true);
+        }
+      }).catch(function(){
+        if(isSalesSmartlyPage)login();
+        else setCompactMode(true,true);
+      });
+    }else if(isSalesSmartlyPage){
+      login();
+    }else{
+      setCompactMode(true,true);
+    }
+  }
 
   if(token&&member){
-    api('GET','/api/me').then(function(r){
-      if(r.authenticated){role=r.role||role;GM_setValue(key+'role',role);app();refresh();startRealtime();updateBubbleAvatar(true)}
-      else login();
-    }).catch(login);
-  }else if(isSalesSmartlyPage) login();
+    hydrateSharedSession(token,member,role);
+  }else{
+    hydrateSharedSession('', '', role);
+  }
+
+  if(typeof GM_addValueChangeListener==='function'){
+    GM_addValueChangeListener(key+'token',function(_k,_old,newToken){
+      var newMember=GM_getValue(key+'member','');
+      var newRole=GM_getValue(key+'role',role);
+      hydrateSharedSession(newToken,newMember,newRole);
+    });
+    GM_addValueChangeListener(key+'member',function(_k,_old,newMember){
+      var newToken=GM_getValue(key+'token','');
+      var newRole=GM_getValue(key+'role',role);
+      if(newToken)hydrateSharedSession(newToken,newMember,newRole);
+    });
+  }
 
   setInterval(refresh,5000);
   setInterval(function(){if(member){broadcastChatPresence(!chat.classList.contains('hidden'));Object.keys(chatPresence).forEach(function(name){if(chatPresence[name]&&chatPresence[name]<Date.now())delete chatPresence[name];});if(!chat.classList.contains('hidden'))updateChatHeaderPresence();}},10000);
