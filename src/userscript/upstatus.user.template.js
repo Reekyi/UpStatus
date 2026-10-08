@@ -42,6 +42,7 @@
   }
   var upFollowerNoticeItems=[];
   var upFollowerNoticeSeen={};
+  var upFollowerBusStartedAt=Date.now();
   function upEnsureFollowerNoticeRoot(){
     var root=document.getElementById('upstatus-follower-notices');
     if(root)return root;
@@ -82,6 +83,7 @@
     try{
       var msg=typeof raw==='string'?JSON.parse(raw):raw;
       if(!msg||msg.id===upTabId||msg.type!=='follower_notification')return;
+      if(Number(msg.at||0)<upFollowerBusStartedAt-1000)return;
       upShowFollowerNotification(msg.payload||{});
     }catch(e){}
   }
@@ -185,7 +187,8 @@
   var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';
   var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
   var UP_REALTIME_TOPIC='__UPSTATUS_REALTIME_TOPIC__';
-  var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
+  var UP_REALTIME_LEGACY_TOPIC='__UPSTATUS_REALTIME_LEGACY_TOPIC__';
+  var realtimeClient=null,realtimeChannel=null,realtimeChannels=[],realtimeActive=false,realtimeRetryTimer=null;
   // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
   // Mantido isolado do chat, status e demais recursos do UpStatus.
   var upCall={
@@ -1042,9 +1045,14 @@
   }
 
   function processChatNotifications(messages){
-    var mentions=(messages||[]).filter(function(m){return m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0;});
+    var list=Array.isArray(messages)?messages:[];
+    var mentions=list.filter(function(m){return m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0;});
     if(!chatInitialized){
-      (messages||[]).forEach(function(m){seenMentionIds[m.id]=true;});
+      // O primeiro carregamento é apenas a linha de base. Se a API responder
+      // vazia por um instante durante um F5, não podemos transformar as
+      // mensagens antigas no próximo poll em "novas" notificações.
+      if(!list.length)return;
+      list.forEach(function(m){seenMentionIds[m.id]=true;});
       mentions.forEach(function(m){seenMentionIds['mention:'+m.id]=true;});
       chatInitialized=true;
       return;
@@ -1886,46 +1894,68 @@
     if(!token||realtimeClient||typeof supabase==='undefined'||!supabase.createClient)return;
     try{
       realtimeClient=supabase.createClient(UP_REALTIME_URL,UP_REALTIME_KEY,{auth:{persistSession:false}});
-      realtimeChannel=realtimeClient.channel(UP_REALTIME_TOPIC,{config:{broadcast:{ack:true}}});
-      realtimeChannel
-        .on('broadcast',{event:'db_change'},function(payload){
-          var p=payload&&payload.payload||{};
-          var record=p.record;
-          if(!record)return;
-          if(p.op==='DELETE')handleRealtimeDelete(record);
-          else upsertRealtimeMessage(record);
-        })
-        .on('broadcast',{event:'chat_fast'},function(payload){handleRealtimeChatFast(payload&&payload.payload||{});})
-        .on('broadcast',{event:'chat_read'},function(payload){handleRealtimeChatRead(payload&&payload.payload||{});})
-        .on('broadcast',{event:'user_status'},function(){refresh();})
-        .on('broadcast',{event:'chat_presence'},function(payload){var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();})
-        .on('broadcast',{event:'health_ping'},function(payload){handleHealthPing(payload&&payload.payload||{});})
-        .on('broadcast',{event:'health_pong'},function(payload){handleHealthPong(payload&&payload.payload||{});})
-        .on('broadcast',{event:'remote_command'},function(payload){
-          var c=payload&&payload.payload&&payload.payload.command;
-          if(c&&c.target===member)executeRemoteCommand(c);
-        })
-        .on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{});})
-        .on('broadcast',{event:'remote_result'},function(payload){
-          var r=payload&&payload.payload&&payload.payload.result;
-          if(r&&r.commandId&&r.sender===member){
-            remoteResultCache[String(r.commandId)]=r;
-            var waiter=remoteResultWaiters[String(r.commandId)];
-            if(waiter)waiter(r);
-          }
-        })
-        .subscribe(function(status,err){
-          if(status==='SUBSCRIBED'){realtimeActive=true;if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}broadcastChatPresence(!chat.classList.contains('hidden'));return;}
-          if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
-            try{console.error('[UpStatus Realtime]',status,err||'');}catch(e){}
-            realtimeActive=false;
-            try{if(realtimeChannel)realtimeChannel.unsubscribe();}catch(e){}
-            realtimeChannel=null;realtimeClient=null;
-            if(!realtimeRetryTimer)realtimeRetryTimer=setTimeout(function(){realtimeRetryTimer=null;startRealtime();},3000);
-          }
-        });
+      var topics=[UP_REALTIME_TOPIC];
+      if(UP_REALTIME_LEGACY_TOPIC&&UP_REALTIME_LEGACY_TOPIC!==UP_REALTIME_TOPIC)topics.push(UP_REALTIME_LEGACY_TOPIC);
+      realtimeChannels=[];
+      function bindChannel(channel,isPrimary){
+        channel
+          .on('broadcast',{event:'db_change'},function(payload){
+            var p=payload&&payload.payload||{},record=p.record;
+            if(!record)return;
+            if(p.op==='DELETE')handleRealtimeDelete(record);
+            else upsertRealtimeMessage(record);
+          })
+          .on('broadcast',{event:'chat_fast'},function(payload){handleRealtimeChatFast(payload&&payload.payload||{});})
+          .on('broadcast',{event:'chat_read'},function(payload){handleRealtimeChatRead(payload&&payload.payload||{});})
+          .on('broadcast',{event:'user_status'},function(){refresh();})
+          .on('broadcast',{event:'chat_presence'},function(payload){var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();})
+          .on('broadcast',{event:'health_ping'},function(payload){handleHealthPing(payload&&payload.payload||{});})
+          .on('broadcast',{event:'health_pong'},function(payload){handleHealthPong(payload&&payload.payload||{});})
+          .on('broadcast',{event:'remote_command'},function(payload){
+            var c=payload&&payload.payload&&payload.payload.command;
+            if(c&&c.target===member)executeRemoteCommand(c);
+          })
+          .on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{});})
+          .on('broadcast',{event:'remote_result'},function(payload){
+            var r=payload&&payload.payload&&payload.payload.result;
+            if(r&&r.commandId&&r.sender===member){
+              remoteResultCache[String(r.commandId)]=r;
+              var waiter=remoteResultWaiters[String(r.commandId)];
+              if(waiter)waiter(r);
+            }
+          })
+          .subscribe(function(status,err){
+            if(status==='SUBSCRIBED'){
+              if(isPrimary){
+                realtimeActive=true;
+                if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}
+                broadcastChatPresence(!chat.classList.contains('hidden'));
+              }
+              return;
+            }
+            if(isPrimary&&(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED')){
+              try{console.error('[UpStatus Realtime]',status,err||'');}catch(e){}
+              realtimeActive=false;
+              try{realtimeChannels.forEach(function(ch){try{ch.unsubscribe();}catch(_){}});}catch(e){}
+              realtimeChannels=[];
+              realtimeChannel=null;
+              realtimeClient=null;
+              if(!realtimeRetryTimer)realtimeRetryTimer=setTimeout(function(){realtimeRetryTimer=null;startRealtime();},3000);
+            }
+          });
+      }
+      topics.forEach(function(topic,index){
+        var channel=realtimeClient.channel(topic,{config:{broadcast:{ack:true}}});
+        realtimeChannels.push(channel);
+        if(index===0)realtimeChannel=channel;
+        bindChannel(channel,index===0);
+      });
     }catch(e){
-      realtimeActive=false;realtimeChannel=null;realtimeClient=null;
+      realtimeActive=false;
+      try{realtimeChannels.forEach(function(ch){try{ch.unsubscribe();}catch(_){}});}catch(_){}
+      realtimeChannels=[];
+      realtimeChannel=null;
+      realtimeClient=null;
       if(!realtimeRetryTimer)realtimeRetryTimer=setTimeout(function(){realtimeRetryTimer=null;startRealtime();},5000);
     }
   }
@@ -1938,7 +1968,8 @@
   function stopRealtime(){
     realtimeActive=false;
     if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}
-    try{if(realtimeChannel)realtimeChannel.unsubscribe();}catch(e){}
+    try{realtimeChannels.forEach(function(ch){try{ch.unsubscribe();}catch(e){}});}catch(e){}
+    realtimeChannels=[];
     try{if(realtimeClient)realtimeClient.removeAllChannels();}catch(e){}
     realtimeChannel=null;realtimeClient=null;
   }
@@ -2058,6 +2089,17 @@
     chatProfileHover.classList.add('show');
     positionChatProfileHover(e);
     if(route&&!src){loadBlobUrl(route,'profile:'+name).then(function(url){if(chatProfileHover.classList.contains('show'))previewImg.src=url;}).catch(function(){});}
+  }
+  function positionReadTooltip(e){
+    if(!readTooltip.classList.contains('show'))return;
+    var pad=8,w=readTooltip.offsetWidth||150,h=readTooltip.offsetHeight||28;
+    var x=(e.clientX||0)+10,y=(e.clientY||0)+10;
+    if(x+w>window.innerWidth-pad)x=(e.clientX||0)-w-10;
+    if(y+h>window.innerHeight-pad)y=(e.clientY||0)-h-10;
+    x=Math.max(pad,Math.min(window.innerWidth-w-pad,x));
+    y=Math.max(pad,Math.min(window.innerHeight-h-pad,y));
+    readTooltip.style.left=x+'px';
+    readTooltip.style.top=y+'px';
   }
   function positionChatProfileHover(e){
     if(!chatProfileHover.classList.contains('show'))return;
