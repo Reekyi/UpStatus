@@ -3,6 +3,7 @@ name: Deploy Lucca Portal
 on:
   workflow_dispatch:
   push:
+    branches: [master]
     paths:
       - "lucca-site/**"
       - ".github/workflows/lucca-pages.yml"

@@ -15,6 +15,7 @@ const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.t
 const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
+const luccaHtml=fs.readFileSync(path.join(ROOT,"lucca-site/index.html"),"utf8");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
@@ -42,4 +43,16 @@ assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not mat
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
+
+const luccaInline=[...luccaHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].find(m=>!/\bsrc\s*=/.test(m[1])&&m[2].trim());
+assert(!!luccaInline,"Lucca inline script missing");
+checkSyntax(luccaInline[2],"lucca-site/index.html inline script");
+assert(luccaHtml.includes("input.addEventListener('paste'"),"Lucca clipboard image paste handler missing");
+assert(luccaHtml.includes("sendMedia(file)"),"Lucca clipboard image upload flow missing");
+assert(luccaHtml.includes("chatCache=chatCache.filter(function(m){return m.id!==tempId});upsertGuestRealtimeMessage(created)"),"Lucca optimistic/realtime message deduplication missing");
+assert(luccaHtml.includes("function callInviteParticipant")&&luccaHtml.includes("function callAcceptGroupInvite"),"Lucca group-call invite protocol missing");
+assert(luccaHtml.includes("event:'call_signal'"),"Lucca Realtime call signaling missing");
+assert(luccaHtml.includes("o.style.left='50%'")&&luccaHtml.includes("o.style.bottom='14px'")&&luccaHtml.includes("translateX(-50%)"),"Lucca call pop-out must be bottom-centered");
+assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Lucca");'),"Lucca login/logout/expiry must not delete shared messages");
+
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);

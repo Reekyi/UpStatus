@@ -253,7 +253,7 @@ async function expireLucca() {
   if(!s.online||!s.lastSeen||Date.now()-Date.parse(String(s.lastSeen))<12000)return s;
   const next={...s,online:false,session:null,lastSeen:new Date().toISOString()};
   await setState("lucca",next);
-  await db.from("messages").delete().eq("user_name","Lucca");
+  // Preserve shared chat history; the Lucca session view resets via joinedAt.
   await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco saiu do chat.",type:"system",system_type:"lucca_leave",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
   return next;
 }
@@ -509,7 +509,7 @@ async function luccaRoute(req:Request) {
     const background=async()=>{
       try{
         if(old.online)await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco saiu do chat.",type:"system",system_type:"lucca_leave",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
-        await db.from("messages").delete().eq("user_name","Lucca");
+        // Preserve shared chat history; the Lucca session view resets via joinedAt.
         await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco entrou no chat.",type:"system",system_type:"lucca_join",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
       }catch(e){console.error("Lucca login background cleanup failed",e);}
     };
@@ -527,7 +527,7 @@ async function luccaRoute(req:Request) {
   }
   if(path==="/api/lucca/logout") {
     const s:any=await expireLucca(),c=luccaToken(req);
-    if(c&&s.online&&s.session===c){await setState("lucca",{...s,online:false,session:null,lastSeen:new Date().toISOString()});await db.from("messages").delete().eq("user_name","Lucca");await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco saiu do chat.",type:"system",system_type:"lucca_leave",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});}
+    if(c&&s.online&&s.session===c){await setState("lucca",{...s,online:false,session:null,lastSeen:new Date().toISOString()});// Preserve shared chat history; the Lucca session view resets via joinedAt.await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco saiu do chat.",type:"system",system_type:"lucca_leave",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});}
     return response({ok:true},200,{"Set-Cookie":"lucca_session=; HttpOnly; SameSite=Lax; Secure; Path=/; Max-Age=0"});
   }
   return response({error:"Não encontrado."},404);
