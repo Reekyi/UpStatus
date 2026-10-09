@@ -30,9 +30,9 @@
 - GitHub checkpoint: Issue #16, "Add independent Ycaro guest chat access with orange theme": https://github.com/Reekyi/UpStatus/issues/16.
 - Working branch: `feature/ycaro-guest-access`, created from `develop` HEAD `6494a3d3018a4141ea2503dda012374517028979`.
 - Scope: add an independent Ycaro guest portal with orange highlights and a 🗿 favicon, independent `ycaro_session` cookie/state, and `YCARO_PASSWORD` configuration; preserve Lucca access and shared chat data.
-- Initial inspection confirmed `lucca.html` exactly matches the HTML embedded in `src/server/index.template.ts`. The implementation now uses standalone Lucca/Ycaro HTML source files as build inputs and adds independent Ycaro auth/session handling. Source-level preflight checks passed; build and CI validation remain pending.
+- Initial inspection confirmed `lucca.html` exactly matches the HTML embedded in `src/server/index.template.ts`. The implementation now uses standalone Lucca/Ycaro HTML source files as build inputs and adds independent Ycaro auth/session handling. GitHub Actions `UpStatus Validate` run #91 passed for implementation commit `148b63ed4f985fb01742e685c93af38f53ec88f8`, logging `Built UpStatus 3.0.27 / TEST 3.0.27-beta.5` and `Validation OK: PROD 3.0.27 / TEST 3.0.27-beta.5`. This is automated build/validation, not a live login test.
 - No Supabase secret or function deployment, Vercel deployment, or production resource has been changed. The new access will require `YCARO_PASSWORD` to be configured in Supabase before live login works.
-- Next steps: finish diff review, run `npm run validate` and `npm run build` where possible, inspect CI, open a PR against `develop`, and wait for explicit approval before merge/deploy.
+- PR #17 is open against `develop`: https://github.com/Reekyi/UpStatus/pull/17. Its Vercel status check reported success for a preview, not production. Next steps: re-check latest PR status after this documentation checkpoint update, then wait for explicit approval before merge/deploy. Live Ycaro login also requires `YCARO_PASSWORD` configured as a Supabase function secret.
 
 ## Open items
 
@@ -43,8 +43,8 @@
 
 ## Bonfire note
 
-Issue #16 tracks the Ycaro guest-access implementation on `feature/ycaro-guest-access`. Re-read the guide and this file, then inspect Issue #16, the branch's latest commit, validation results, and PR/deployment state before continuing. Keep the Lucca access and production runtime unchanged; configure `YCARO_PASSWORD` only through Supabase secrets after explicit authorization, and do not merge or deploy without explicit approval.
+Issue #16 tracks the Ycaro guest-access implementation on `feature/ycaro-guest-access`; PR #17 is open and unmerged. Re-read the guide and this file, then inspect Issue #16, PR #17, latest CI and deployment state before continuing. Validation run #91 passed on the implementation commit. Keep Lucca access and production runtime unchanged; configure `YCARO_PASSWORD` only through Supabase secrets after explicit authorization, and do not merge or deploy without explicit approval.
 
 ## Last updated
 
-2026-10-09. Updated for the in-progress Ycaro guest-access task on `feature/ycaro-guest-access`; Issue #16 is the checkpoint. Re-check live GitHub, Supabase, and Vercel state before continuing.
+2026-10-09. Updated after validation run #91 passed and PR #17 was opened for Ycaro guest access. Issue #16 is the checkpoint. Re-check latest GitHub checks, Supabase, and Vercel state before continuing.
