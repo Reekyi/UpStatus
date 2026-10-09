@@ -12,6 +12,8 @@ const fullVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
 
 const userTemplate=fs.readFileSync(path.join(ROOT,"src/userscript/upstatus.user.template.js"),"utf8");
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
+const luccaPage=fs.readFileSync(path.join(ROOT,"lucca.html"),"utf8");
+const ycaroPage=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
 
 const PROJECT="dlfvkawaiqduhlazsszm";
 const PROD_FUNCTION="upstatus";
@@ -59,7 +61,9 @@ function renderFunction({version,test}){
   return render(serverTemplate,{
     "__UPSTATUS_VERSION__":version,
     "__UPSTATUS_USERSCRIPT_HEX__":hexEncode(userscript),
-    "__UPSTATUS_PATH_MARKER__":"/"+fn
+    "__UPSTATUS_PATH_MARKER__":"/"+fn,
+    "__UPSTATUS_LUCCA_HTML_EXPR__":JSON.stringify(luccaPage),
+    "__UPSTATUS_YCARO_HTML_EXPR__":JSON.stringify(ycaroPage)
   });
 }
 function writeFunction(fn,source){

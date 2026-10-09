@@ -68,6 +68,12 @@ The TEST workflow deploys only `upstatus-test` and is manual until the required 
 
 The production workflow also targets the `production` GitHub Environment. Configure required reviewers there for an additional approval gate. The repository connector cannot create Actions secrets, so `SUPABASE_ACCESS_TOKEN` must be added in GitHub before CI deployment is enabled.
 
+## Guest access configuration
+
+- Lucca guest access uses the Supabase Edge Function route `/lucca` and secret `LUCCA_PASSWORD`.
+- Ycaro guest access uses `/ycaro` and requires the separate Supabase Edge Function secret `YCARO_PASSWORD`.
+- Configure the password as a Supabase function secret before enabling live Ycaro access. Never store the password in GitHub or source files.
+
 ## TEST isolation
 
 TEST uses separate:

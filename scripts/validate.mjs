@@ -15,6 +15,8 @@ const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.t
 const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
+const luccaPage=fs.readFileSync(path.join(ROOT,"lucca.html"),"utf8");
+const ycaroPage=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
@@ -40,6 +42,20 @@ assert(prodFn.includes('const marker="/upstatus";'),"production path marker mism
 assert(testFn.includes('const marker="/upstatus-test";'),"test path marker mismatch");
 assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not match build output");
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
+assert(prodFn.includes("const html="+JSON.stringify(luccaPage)+";"),"Lucca guest page embedding mismatch");
+assert(prodFn.includes("const html="+JSON.stringify(ycaroPage)+";"),"Ycaro guest page embedding mismatch");
+assert(prodFn.includes('if(path==="/ycaro"||path==="/ycaro.html")'),"Ycaro page route missing");
+assert(prodFn.includes('Deno.env.get("YCARO_PASSWORD")'),"Ycaro password setting missing");
+assert(prodFn.includes('cookie(req,"ycaro_session")'),"Ycaro session cookie missing");
+assert(ycaroPage.includes("%F0%9F%97%BF"),"Ycaro moai favicon missing");
+assert(ycaroPage.includes("var member='Ycaro'"),"Ycaro identity mismatch");
+assert(ycaroPage.includes("api('/api/ycaro/login'"),"Ycaro login endpoint mismatch");
+assert(ycaroPage.includes("localStorage.getItem('upstatus_ycaro_token')"),"Ycaro API session token is not sent");
+assert(ycaroPage.includes("localStorage.setItem('upstatus_ycaro_token',d.token)"),"Ycaro login token is not persisted");
+assert(ycaroPage.includes("localStorage.removeItem('upstatus_ycaro_token')"),"Ycaro logout token is not cleared");
+assert(ycaroPage.includes("#ff8a1f"),"Ycaro orange theme missing");
+assert(!ycaroPage.includes("api('/api/lucca/"),"Ycaro page contains Lucca endpoints");
+assert(prodFn.includes("expireLucca(),\n        expireYcaro()") && prodFn.includes("expireLucca(),\n      expireYcaro()"),"Ycaro expiry is not checked during chat polling");
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
