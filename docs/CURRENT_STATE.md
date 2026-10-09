@@ -25,6 +25,15 @@
 - Do not print or store credentials/secrets in this file.
 - README specifies feature PRs to `develop`, separate TEST identifiers and manual production deployment. Confirm the current release strategy before making future production changes.
 
+## Current implementation task (2026-10-09)
+
+- GitHub checkpoint: Issue #16, "Add independent Ycaro guest chat access with orange theme": https://github.com/Reekyi/UpStatus/issues/16.
+- Working branch: `feature/ycaro-guest-access`, created from `develop` HEAD `6494a3d3018a4141ea2503dda012374517028979`.
+- Scope: add an independent Ycaro guest portal with orange highlights and a 🗿 favicon, independent `ycaro_session` cookie/state, and `YCARO_PASSWORD` configuration; preserve Lucca access and shared chat data.
+- Initial inspection confirmed `lucca.html` exactly matches the HTML embedded in `src/server/index.template.ts`; the build script is being updated to use the standalone HTML sources as inputs for both guest routes.
+- No Supabase secret or function deployment, Vercel deployment, or production resource has been changed. The new access will require `YCARO_PASSWORD` to be configured in Supabase before live login works.
+- Next steps: review source changes, run validation/build where possible, inspect CI, open a PR against `develop`, and wait for explicit approval before merge/deploy.
+
 ## Open items
 
 - No known user-reported call bug is currently open; user said calls are working perfectly.
@@ -34,8 +43,8 @@
 
 ## Bonfire note
 
-The current chat is establishing durable continuity docs so a new chat can continue without rebuilding the whole conversation. The permanent prompt is in `docs/PROJECT_GUIDE.md`. The continuity docs are merged into `develop`. No production deployment was performed for this documentation-only change. At the start of the next task, read the guide and this file, then verify live repository and runtime state before implementation.
+Issue #16 tracks the Ycaro guest-access implementation on `feature/ycaro-guest-access`. Re-read the guide and this file, then inspect Issue #16, the branch's latest commit, validation results, and PR/deployment state before continuing. Keep the Lucca access and production runtime unchanged; configure `YCARO_PASSWORD` only through Supabase secrets after explicit authorization, and do not merge or deploy without explicit approval.
 
 ## Last updated
 
-2026-10-09. Updated after merge of PR #13. Re-check live GitHub, Supabase, and Vercel state before the next implementation.
+2026-10-09. Updated for the in-progress Ycaro guest-access task on `feature/ycaro-guest-access`; Issue #16 is the checkpoint. Re-check live GitHub, Supabase, and Vercel state before continuing.
