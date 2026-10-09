@@ -612,7 +612,7 @@ function callEnsureOverlay(){
     var titleEl=o.querySelector('[data-call-title]'),statusEl=o.querySelector('[data-call-status]');
     var dot=o.querySelector('[data-call-dot]'),time=o.querySelector('[data-call-time]'),a=o.querySelector('[data-call-actions]');
     a.innerHTML='';
-    o.style.width=upCall.connected?'270px':'310px';
+    o.style.width=upCall.connected?'390px':'310px';
     o.style.minHeight=upCall.connected?'48px':'46px';
     o.style.padding=upCall.connected?'5px 7px':'6px 8px 6px 10px';
     titleEl.textContent=upCall.connected?(upCall.speakerName||title||'Chamada'):(title||callNames(' + ')||'Chamada');
@@ -628,26 +628,23 @@ function callEnsureOverlay(){
         dot.style.boxShadow='0 0 8px rgba(95,211,139,.45)';dot.style.transform='scale(1)';
       }
     }
-    var added=false;
-    (buttons||[]).forEach(function(b){
-      if(upCall.connected&&!upTestMode&&b.danger&&!added){
-        var add=document.createElement('button');
-        add.type='button';add.setAttribute('aria-label','Adicionar participante');add.title='Adicionar participante';add.innerHTML=callIcon('personAdd');
-        add.onclick=function(e){e.preventDefault();e.stopPropagation();callOpenParticipantPicker();};
-        add.style.cssText='width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(118,142,174,.28);border-radius:10px;padding:0;background:rgba(45,60,82,.9);color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.22);transition:transform .12s ease,filter .12s ease,background .12s ease;';
-        add.onmouseenter=function(){add.style.filter='brightness(1.12)';add.style.transform='translateY(-1px)';};
-        add.onmouseleave=function(){add.style.filter='';add.style.transform='';};
-        a.appendChild(add);added=true;
-      }
-      var x=document.createElement('button');
-      x.type='button';x.setAttribute('aria-label',b.label||'A\u00e7\u00e3o');x.title=b.label||'A\u00e7\u00e3o';x.innerHTML=callIcon(b.icon||(b.danger?'hangup':'close'));x.onclick=b.onClick;
-      x.style.cssText='width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid '+(b.danger?'rgba(255,103,124,.34)':'rgba(118,142,174,.28)')+';border-radius:10px;padding:0;background:'+(b.danger?'linear-gradient(145deg,#b33b52,#8f2e42)':'rgba(45,60,82,.9)')+';color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.22);transition:transform .12s ease,filter .12s ease,background .12s ease;';
-      if(b.icon==='phone')x.style.background='linear-gradient(145deg,#2fae6a,#238754)';
-      if(b.muted)x.style.background='linear-gradient(145deg,#55677f,#3d4c61)';
-      x.onmouseenter=function(){x.style.filter='brightness(1.12)';x.style.transform='translateY(-1px)';};
-      x.onmouseleave=function(){x.style.filter='';x.style.transform='';};
-      a.appendChild(x);
-    });
+    function appendCallControl(label,icon,handler,style){
+      var x=document.createElement('button');x.type='button';x.setAttribute('aria-label',label);x.title=label;x.innerHTML=callIcon(icon);x.onclick=function(e){e.preventDefault();e.stopPropagation();handler();};
+      x.style.cssText='width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex:0 0 34px;border:1px solid rgba(118,142,174,.28);border-radius:10px;padding:0;background:rgba(45,60,82,.9);color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.22);'+(style||'');
+      x.onmouseenter=function(){x.style.filter='brightness(1.12)';x.style.transform='translateY(-1px)';};x.onmouseleave=function(){x.style.filter='';x.style.transform='';};a.appendChild(x);
+    }
+    if(upCall.active&&upCall.connected){
+      a.style.display='flex';a.style.visibility='visible';a.style.opacity='1';a.style.flex='0 0 auto';a.style.gap='6px';a.style.minWidth='114px';
+      appendCallControl(upCall.muted?'Ativar microfone':'Mutar microfone',upCall.muted?'mic':'micOff',toggleCallMute,upCall.muted?'background:linear-gradient(145deg,#55677f,#3d4c61);':'');
+      appendCallControl('Adicionar participante','personAdd',callOpenParticipantPicker,'');
+      appendCallControl('Desligar chamada','hangup',function(){callCleanup(true,'leave');},'border-color:rgba(255,103,124,.34);background:linear-gradient(145deg,#b33b52,#8f2e42);');
+    }else{
+      (buttons||[]).forEach(function(b){
+        var x=document.createElement('button');x.type='button';x.setAttribute('aria-label',b.label||'Ação');x.title=b.label||'Ação';x.innerHTML=callIcon(b.icon||(b.danger?'hangup':'close'));x.onclick=b.onClick;
+        x.style.cssText='width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex:0 0 34px;border:1px solid '+(b.danger?'rgba(255,103,124,.34)':'rgba(118,142,174,.28)')+';border-radius:10px;padding:0;background:'+(b.danger?'linear-gradient(145deg,#b33b52,#8f2e42)':'rgba(45,60,82,.9)')+';color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.22);';
+        if(b.icon==='phone')x.style.background='linear-gradient(145deg,#2fae6a,#238754)';if(b.muted)x.style.background='linear-gradient(145deg,#55677f,#3d4c61)';a.appendChild(x);
+      });
+    }
     if(upCall.connected&&!upCall.startedAt)callStartCounter();
     o.style.display='block';
     if(upCall.connected)callApplySpeakerVisual();
