@@ -580,7 +580,7 @@ function callEnsureOverlay(){
     var names=callAvailableParticipants();
     if(!names.length){
       var empty=document.createElement('div');
-      empty.textContent='Todos os membros j\u00e1 est\u00e3o na chamada.';
+      empty.textContent='Nenhum participante disponível para convite. Todos já estão na chamada.';
       empty.style.cssText='font-size:10px;color:#8fa0b8;padding:6px 2px;';
       box.appendChild(empty);
     }else{
@@ -633,9 +633,9 @@ function callEnsureOverlay(){
       x.style.cssText='width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex:0 0 34px;border:1px solid rgba(118,142,174,.28);border-radius:10px;padding:0;background:rgba(45,60,82,.9);color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.22);'+(style||'');
       x.onmouseenter=function(){x.style.filter='brightness(1.12)';x.style.transform='translateY(-1px)';};x.onmouseleave=function(){x.style.filter='';x.style.transform='';};a.appendChild(x);
     }
-    if(upCall.active&&upCall.connected){
-      a.style.display='flex';a.style.visibility='visible';a.style.opacity='1';a.style.flex='0 0 auto';a.style.gap='6px';a.style.minWidth='114px';
-      appendCallControl(upCall.muted?'Ativar microfone':'Mutar microfone',upCall.muted?'mic':'micOff',toggleCallMute,upCall.muted?'background:linear-gradient(145deg,#55677f,#3d4c61);':'');
+    if(upCall.active){
+      a.style.display='flex';a.style.visibility='visible';a.style.opacity='1';a.style.flex='0 0 auto';a.style.gap='6px';a.style.minWidth=upCall.connected?'114px':'40px';
+      if(upCall.connected)appendCallControl(upCall.muted?'Ativar microfone':'Mutar microfone',upCall.muted?'mic':'micOff',toggleCallMute,upCall.muted?'background:linear-gradient(145deg,#55677f,#3d4c61);':'');
       appendCallControl('Adicionar participante','personAdd',callOpenParticipantPicker,'');
       appendCallControl('Desligar chamada','hangup',function(){callCleanup(true,'leave');},'border-color:rgba(255,103,124,.34);background:linear-gradient(145deg,#b33b52,#8f2e42);');
     }else{
