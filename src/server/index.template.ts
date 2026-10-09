@@ -401,7 +401,7 @@ async function chatRoute(req:Request,name:string){
   const p:any=await readBody(req);
   const message=String(p.message||"").trim();
   const imageUrl=String(p.imageUrl||"").trim();
-  const type=p.type==="video"?"video":p.type==="audio"?"audio":imageUrl?"image":"text";
+  const type=p.type==="video"?"video":p.type==="audio"?"audio":p.type==="file"?"file":imageUrl?"image":"text";
   if(!message&&!imageUrl)return response({error:"Digite uma mensagem ou envie um arquivo."},400);
   if(message.length>1000)return response({error:"A mensagem deve ter no máximo 1000 caracteres."},400);
   let replyTo:any=null;
