@@ -9,7 +9,8 @@ const archivePath = path.join(ROOT, "archive/production-3.0.29/index.ts");
 const manifestPath = path.join(ROOT, "archive/production-3.0.29/README.md");
 const serverTemplatePath = path.join(ROOT, "src/server/index.template.ts");
 const userTemplatePath = path.join(ROOT, "src/userscript/upstatus.user.template.js");
-const EXPECTED_ARCHIVE_SHA256 = "ad3ba7f776d1ca49129d8fa1b2a1944710695908ef630ac736ee72ce279dd442";
+const LIVE_SOURCE_SHA256 = "ad3ba7f776d1ca49129d8fa1b2a1944710695908ef630ac736ee72ce279dd442";
+const EXPECTED_ARCHIVE_FILE_SHA256 = "a60b8c5249cf418b0e7a55720799f4bebb82a1daa2c6c50e9f08e1ced3978da8";
 const strict = process.argv.includes("--strict");
 
 function assert(condition, message) {
@@ -42,9 +43,9 @@ try {
   const userTemplate = fs.readFileSync(userTemplatePath, "utf8");
 
   const archiveHash = createHash("sha256").update(archive, "utf8").digest("hex");
-  assert(manifest.includes(EXPECTED_ARCHIVE_SHA256), "Archive manifest no longer records the expected live-source fingerprint.");
-  assert(archiveHash === EXPECTED_ARCHIVE_SHA256,
-    "Archived production source fingerprint mismatch. Expected " + EXPECTED_ARCHIVE_SHA256 + ", got " + archiveHash + ".");
+  assert(manifest.includes(LIVE_SOURCE_SHA256), "Archive manifest no longer records the expected live-source fingerprint.");
+  assert(archiveHash === EXPECTED_ARCHIVE_FILE_SHA256,
+    "Archived repository snapshot changed unexpectedly. Expected file SHA-256 " + EXPECTED_ARCHIVE_FILE_SHA256 + ", got " + archiveHash + ".");
 
   const archivedVersion = (archive.match(/const VERSION = "([^"]+)";/) || [])[1];
   const archivedUser = decodeUserscript(archive, "Archived production source");
@@ -65,7 +66,7 @@ try {
   ].filter(([, marker]) => !userTemplate.includes(marker)).map(([label]) => label);
 
   const lines = [
-    "Production snapshot integrity: OK (" + archiveHash + ")",
+    "Archived repository snapshot integrity: OK (" + archiveHash + "); recorded live-source fingerprint: " + LIVE_SOURCE_SHA256,
     "Backend template: matches archived production backend after build substitutions",
     "Archived production userscript: " + archivedUser.length.toLocaleString("en-US") + " characters / " + archivedUser.split("\n").length + " lines",
     "Current userscript template: " + userTemplate.length.toLocaleString("en-US") + " characters / " + userTemplate.split("\n").length + " lines",
