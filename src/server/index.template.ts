@@ -260,7 +260,7 @@ async function expireLucca() {
 
 function ycaroToken(req:Request) {
   const auth=req.headers.get("authorization")||"";
-  if(/^Bearer\s+/i.test(auth))return auth.replace(/^Bearer\\s+/i,"").trim();
+  if(/^Bearer\s+/i.test(auth))return auth.replace(/^Bearer\s+/i,"").trim();
   return cookie(req,"ycaro_session");
 }
 async function ycaroState() {

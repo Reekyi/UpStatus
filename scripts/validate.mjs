@@ -52,7 +52,7 @@ assert(ycaroPage.includes("var member='Ycaro'"),"Ycaro identity mismatch");
 assert(ycaroPage.includes("api('/api/ycaro/login'"),"Ycaro login endpoint mismatch");
 assert(ycaroPage.includes("#ff8a1f"),"Ycaro orange theme missing");
 assert(!ycaroPage.includes("api('/api/lucca/"),"Ycaro page contains Lucca endpoints");
-assert((prodFn.match(/expireLucca\(\),\\s*expireYcaro\(\)/g)||[]).length>=2,"Ycaro expiry is not checked during chat polling");
+assert(prodFn.includes("expireLucca(),\n        expireYcaro()") && prodFn.includes("expireLucca(),\n      expireYcaro()"),"Ycaro expiry is not checked during chat polling");
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
