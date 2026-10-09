@@ -51,6 +51,14 @@
 - Connected Supabase tools have neither a secret-write action nor a safe secret-name listing action. User reports that `YCARO_PASSWORD` is configured. If a Dashboard check is required before deploy, confirm the name only, never the value.
 - PR #17 remains open and unmerged. Check CI for the latest frontend-adjustment commit, then review/merge and deploy the Supabase production function only when explicitly authorized. No function deployment, secret change, PR merge, database mutation, or Lucca alias change was made.
 
+## Production release safety finding (2026-10-09)
+
+- Final release review found the feature branch is based on `develop` release `3.0.27-beta.5`, while `master` and the live production Edge Function source use stable `3.0.31`. The active production function is version 394 and has no Ycaro routes.
+- Do not deploy generated output from the current feature branch directly to production: `scripts/build.mjs` would embed the older userscript/backend and risk downgrading existing production behavior.
+- Vercel Git previews for the `upstatus-ycaro` project fail with `STATIC_BUILD_NO_OUT_DIR` because project settings expect a `public` output directory. The already-published production alias was deployed separately and remains READY; do not change its project settings without a scoped decision.
+- Safe next path: merge the feature PR to `develop` only after required checks/review; then create a separate release branch from `master` and carefully port the Ycaro route/page/build/validation changes while preserving stable 3.0.31 functionality. Run source validation and verify the secret name in Dashboard before a production deploy.
+- User explicitly authorized merging PR #17 and deploying production, but also instructed to stop if an unanticipated risk appears. No merge or production deployment was performed after this finding.
+ 
 ## Open items
 
 - No known user-reported call bug is currently open; user said calls are working perfectly.
