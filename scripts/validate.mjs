@@ -50,6 +50,9 @@ assert(prodFn.includes('cookie(req,"ycaro_session")'),"Ycaro session cookie miss
 assert(ycaroPage.includes("%F0%9F%97%BF"),"Ycaro moai favicon missing");
 assert(ycaroPage.includes("var member='Ycaro'"),"Ycaro identity mismatch");
 assert(ycaroPage.includes("api('/api/ycaro/login'"),"Ycaro login endpoint mismatch");
+assert(ycaroPage.includes("localStorage.getItem('upstatus_ycaro_token')"),"Ycaro API session token is not sent");
+assert(ycaroPage.includes("localStorage.setItem('upstatus_ycaro_token',d.token)"),"Ycaro login token is not persisted");
+assert(ycaroPage.includes("localStorage.removeItem('upstatus_ycaro_token')"),"Ycaro logout token is not cleared");
 assert(ycaroPage.includes("#ff8a1f"),"Ycaro orange theme missing");
 assert(!ycaroPage.includes("api('/api/lucca/"),"Ycaro page contains Lucca endpoints");
 assert(prodFn.includes("expireLucca(),\n        expireYcaro()") && prodFn.includes("expireLucca(),\n      expireYcaro()"),"Ycaro expiry is not checked during chat polling");
