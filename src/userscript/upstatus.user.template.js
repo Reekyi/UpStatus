@@ -1554,9 +1554,9 @@
     if(p.pc&&p.pc.signalingState!=='closed')return p;
     if(typeof RTCPeerConnection==='undefined')throw new Error('WebRTC n\u00e3o est\u00e1 dispon\u00edvel neste navegador.');
     await callGetMicrophone();
-    var pc=new RTCPeerConnection();p.pc=pc;p.connected=false;p.offerSent=false;
+    var pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}]});p.pc=pc;p.connected=false;p.offerSent=false;
     if(upCall.localStream)upCall.localStream.getTracks().forEach(function(t){pc.addTrack(t,upCall.localStream);});
-    pc.onicecandidate=function(e){if(e.candidate&&upCall.active)callSendTo(name,'ice',{candidate:e.candidate,connectionId:callConnectionId(name)});};
+    pc.onicecandidate=function(e){if(e.candidate&&upCall.active)callSendTo(name,'ice',{candidate:typeof e.candidate.toJSON==='function'?e.candidate.toJSON():e.candidate,connectionId:callConnectionId(name)});};
     pc.ontrack=function(e){p.remoteStream=e.streams&&e.streams[0]?e.streams[0]:null;if(p.remoteStream)callAttachRemoteAudio(name,p.remoteStream);callPrimeAudio();};
     pc.onconnectionstatechange=function(){
       var st=pc.connectionState;
@@ -1708,7 +1708,7 @@
     }
     if(p.type==='ice'&&p.candidate){
       var icePeer=callGetPeer(p.from);if(!icePeer)return;
-      if(icePeer.pc&&icePeer.pc.remoteDescription){try{await icePeer.pc.addIceCandidate(p.candidate);}catch(e){}}
+      if(icePeer.pc&&icePeer.pc.remoteDescription){try{await icePeer.pc.addIceCandidate(typeof RTCIceCandidate!=='undefined'?new RTCIceCandidate(p.candidate):p.candidate);}catch(e){}}
       else icePeer.pendingCandidates.push(p.candidate);
       return;
     }
