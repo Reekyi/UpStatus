@@ -10,12 +10,129 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_openInTab
+// @grant        GM_addValueChangeListener
+// @grant        GM_removeValueChangeListener
 // @updateURL    __UPSTATUS_UPDATE_URL__
 // @downloadURL  __UPSTATUS_DOWNLOAD_URL__
 // @connect      *
 // ==/UserScript==
 (function () {
   'use strict';
+
+  var __upLeaderKey='upstatus_leader_lock_beta2_v1';
+  var __upEventKey='upstatus_follower_event_beta2_v1';
+  var __upLeaderId='up-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
+  var __upLeaderRelease=null,__upLeaderRunning=false,__upFollowerMode=false,__upFollowerTimer=null,__upFollowerLastEvent='',__upFollowerKeyHandler=null;
+  var __upLeaderUrl='https://app.salesmartly.com/next/chat';
+  var __upLeaderLockName='upstatus_leader_lock_beta2_v1';
+
+  function __upLeaderInfo(){
+    return {id:__upLeaderId,url:location.href,host:location.hostname,version:'__UPSTATUS_VERSION__',at:Date.now()};
+  }
+  function __upPublishLeader(){
+    try{GM_setValue(__upLeaderKey,__upLeaderInfo());}catch(e){}
+  }
+  function __upClearLeader(){
+    try{
+      var cur=GM_getValue(__upLeaderKey,null);
+      if(cur&&cur.id===__upLeaderId)GM_setValue(__upLeaderKey,null);
+    }catch(e){}
+  }
+  function __upOpenLeader(){
+    try{
+      var w=window.open(__upLeaderUrl,'UpStatusLeader');
+      if(w&&typeof w.focus==='function')w.focus();
+    }catch(e){
+      try{GM_openInTab(__upLeaderUrl,{active:true,insert:true,setParent:true});}catch(_){}
+    }
+  }
+  function __upFollowerToast(title,text){
+    try{
+      var id='upstatus-follower-toast';
+      var old=document.getElementById(id);if(old)old.remove();
+      var box=document.createElement('div');
+      box.id=id;
+      box.style.cssText='position:fixed;right:18px;bottom:18px;z-index:2147483647;width:min(330px,calc(100vw - 36px));padding:12px 14px;border:1px solid #40536e;border-radius:12px;background:#182334;color:#edf2fb;box-shadow:0 14px 40px rgba(0,0,0,.35);font:12px Segoe UI,Arial,sans-serif;cursor:pointer';
+      box.innerHTML='<div style="font-weight:800;font-size:13px">'+String(title||'UpStatus').replace(/</g,'&lt;')+'</div><div style="margin-top:4px;color:#aebbd0;line-height:1.4">'+String(text||'').replace(/</g,'&lt;')+'</div><div style="margin-top:7px;color:#7fa8ff;font-weight:700">Clique para abrir o UpStatus</div>';
+      box.onclick=function(){__upOpenLeader();box.remove();};
+      (document.body||document.documentElement).appendChild(box);
+      setTimeout(function(){if(box&&box.parentNode)box.remove();},7000);
+    }catch(e){}
+  }
+  function __upHandleFollowerEvent(v){
+    if(!v||!v.id||v.id===__upFollowerLastEvent)return;
+    __upFollowerLastEvent=v.id;
+    if(v.type==='chat'){
+      __upFollowerToast('Nova mensagem no UpStatus',v.text||'Há uma nova atividade no chat.');
+    }else if(v.type==='call'){
+      __upFollowerToast('Chamada no UpStatus','Há uma chamada ativa no UpStatus. Clique para abrir o líder.');
+    }else if(v.type==='status'){
+      __upFollowerToast('Atualização de status','O status da equipe foi atualizado.');
+    }
+  }
+  function __upStartFollower(){
+    if(__upFollowerMode)return;
+    __upFollowerMode=true;
+    try{
+      if(typeof GM_addValueChangeListener==='function'){
+        GM_addValueChangeListener(__upEventKey,function(key,oldValue,newValue,remote){if(remote!==false)__upHandleFollowerEvent(newValue);});
+      }
+    }catch(e){}
+    __upFollowerKeyHandler=function(e){
+      if(!(e.shiftKey&&(e.key==='c'||e.key==='C')))return;
+      var t=e.target,tag=t&&t.tagName?String(t.tagName).toLowerCase():'';
+      if(t&&(t.isContentEditable||tag==='input'||tag==='textarea'||tag==='select'))return;
+      e.preventDefault();e.stopPropagation();
+      var leader=GM_getValue(__upLeaderKey,null);
+      if(leader&&leader.id)__upFollowerToast('UpStatus já está aberto','A aba líder está ativa. Clique aqui para voltar para ela.');
+      else __upOpenLeader();
+    };
+    document.addEventListener('keydown',__upFollowerKeyHandler,true);
+    __upFollowerTimer=setInterval(function(){__upTryLeader();},2000);
+  }
+  async function __upTryLeader(){
+    if(__upLeaderRunning||location.hostname!=='app.salesmartly.com'||!navigator.locks||!navigator.locks.request)return;
+    __upLeaderRunning=true;
+    try{
+      await navigator.locks.request(__upLeaderLockName,{ifAvailable:true},async function(lock){
+        if(!lock)return;
+        __upFollowerMode=false;
+        if(__upFollowerTimer){clearInterval(__upFollowerTimer);__upFollowerTimer=null;}
+        if(__upFollowerKeyHandler){try{document.removeEventListener('keydown',__upFollowerKeyHandler,true);}catch(e){};__upFollowerKeyHandler=null;}
+        try{window.name='UpStatusLeader';}catch(e){}
+        __upPublishLeader();
+        var beat=setInterval(__upPublishLeader,2000);
+        try{
+          await __upstatusMain();
+          await new Promise(function(resolve){
+            __upLeaderRelease=resolve;
+            window.addEventListener('beforeunload',function(){try{clearInterval(beat)}catch(e){};__upClearLeader();resolve();},{once:true});
+          });
+        }finally{
+          clearInterval(beat);
+          __upLeaderRelease=null;
+          __upClearLeader();
+        }
+      });
+    }catch(e){}finally{
+      __upLeaderRunning=false;
+    }
+  }
+  async function __upstatusRun(){
+    if(location.hostname!=='app.salesmartly.com'){
+      __upStartFollower();
+      return;
+    }
+    if(navigator.locks&&navigator.locks.request){
+      __upStartFollower();
+      await __upTryLeader();
+      return;
+    }
+    __upStartFollower();
+    try{__upFollowerToast('UpStatus','Seu navegador não disponibilizou o controle de abas.');}catch(e){}
+  }
+
+  async function __upstatusMain(){
 
   // Captura o botão direito do chat no início da página, antes de listeners do Sale Smartly.
   if(!window.__upstatusChatContextEarlyCapture){
@@ -1763,9 +1880,9 @@
           if(p.op==='DELETE')handleRealtimeDelete(record);
           else upsertRealtimeMessage(record);
         })
-        .on('broadcast',{event:'chat_fast'},function(payload){handleRealtimeChatFast(payload&&payload.payload||{});})
+        .on('broadcast',{event:'chat_fast'},function(payload){handleRealtimeChatFast(payload&&payload.payload||{});try{__upPublishFollowerEvent('chat',{text:'Nova mensagem no chat.'});}catch(e){}})
         .on('broadcast',{event:'chat_read'},function(payload){handleRealtimeChatRead(payload&&payload.payload||{});})
-        .on('broadcast',{event:'user_status'},function(){refresh();})
+        .on('broadcast',{event:'user_status'},function(){refresh();try{__upPublishFollowerEvent('status',{});}catch(e){}})
         .on('broadcast',{event:'chat_presence'},function(payload){var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();})
         .on('broadcast',{event:'health_ping'},function(payload){handleHealthPing(payload&&payload.payload||{});})
         .on('broadcast',{event:'health_pong'},function(payload){handleHealthPong(payload&&payload.payload||{});})
@@ -1773,7 +1890,7 @@
           var c=payload&&payload.payload&&payload.payload.command;
           if(c&&c.target===member)executeRemoteCommand(c);
         })
-        .on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{});})
+        .on('broadcast',{event:'call_signal'},async function(payload){var p=payload&&payload.payload||{};try{await receiveCallSignal(p);if(p&&(p.type==='offer'||p.type==='invite')&&p.from!==member&&(!p.to||p.to===member)){try{__upPublishFollowerEvent('call',{});}catch(e){}}}catch(e){try{console.error('[UpStatus Call] receiveCallSignal falhou',e,p);}catch(_){}}})
         .on('broadcast',{event:'remote_result'},function(payload){
           var r=payload&&payload.payload&&payload.payload.result;
           if(r&&r.commandId&&r.sender===member){
@@ -2748,4 +2865,11 @@
   setInterval(function(){loadChat();},3000);
   setInterval(pollChatTyping,1000);  setInterval(pollRemoteStatus,5000);
   setInterval(checkUpdate,60000);
+  }
+
+  function __upPublishFollowerEvent(type,payload){
+    try{GM_setValue(__upEventKey,{id:__upLeaderId+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),type:type,text:payload&&payload.text||'',at:Date.now()});}catch(e){}
+  }
+
+  __upstatusRun();
 })();
