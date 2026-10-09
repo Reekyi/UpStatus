@@ -1,6 +1,6 @@
 # Production Snapshot: UpStatus 3.0.29
 
-This archive documents the exact source captured from the live Supabase Edge Function. The source file is stored alongside this manifest in `index.ts`.
+This archive stores the production Edge Function source snapshot retrieved during the audit. The source file is stored alongside this manifest in `index.ts`. The archived file hash and the live deployment fingerprint are recorded separately because their serialization/hash relationship has not yet been confirmed.
 
 - Supabase project: `dlfvkawaiqduhlazsszm`
 - Function: `upstatus`
