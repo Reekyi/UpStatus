@@ -220,11 +220,13 @@ async function chatRows(name:string,since?:string){
   if(since)query=query.gt("created_at",since);
   const {data,error}=await query.order("created_at",{ascending:true}).limit(since?200:1000);
   if(error)throw error;
-  return (data||[]).map((m:any)=>({
+  await cleanupExpiredChatAttachments();
+  const rows=await Promise.all((data||[]).map(async(m:any)=>({
     id:String(m.id),user:m.user_name,message:m.message||"",type:m.type||"text",systemType:m.system_type||"",
-    createdAt:m.created_at,imageUrl:m.image_url||"",mentions:Array.isArray(m.mentions)?m.mentions:[],
+    createdAt:m.created_at,imageUrl:await signedChatAttachment(m.image_url||""),mentions:Array.isArray(m.mentions)?m.mentions:[],
     replyTo:m.reply_to||null,reactions:m.reactions||{},readBy:[]
-  }));
+  })));
+  return rows;
 }
 async function stateValue(key:string, fallback:any) {
   const {data,error}=await db.from("upstatus_state").select("value").eq("state_key",key).maybeSingle();
@@ -292,6 +294,43 @@ function sniffMime(bytes:Uint8Array,declared:string) {
 }
 function ext(mime:string) {
   return ({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm","audio/webm":"webm","audio/ogg":"ogg","audio/mp4":"m4a","audio/mpeg":"mp3","audio/wav":"wav","audio/x-wav":"wav","audio/x-m4a":"m4a" } as Record<string,string>)[mime]||"";
+}
+const CHAT_ATTACHMENT_TTL_MS=72*60*60*1000;
+const CHAT_ATTACHMENT_PREFIX="attachment:";
+async function cleanupExpiredChatAttachments(){
+  const now=new Date().toISOString();
+  const {data,error}=await db.from("upstatus_chat_attachments").select("object_path").lte("expires_at",now).limit(100);
+  if(error)throw error;
+  const paths=(data||[]).map((x:any)=>String(x.object_path||"")).filter(Boolean);
+  if(!paths.length)return;
+  const {error:removeError}=await db.storage.from("chat-attachments").remove(paths);
+  if(removeError)throw removeError;
+  const {error:deleteError}=await db.from("upstatus_chat_attachments").delete().in("object_path",paths);
+  if(deleteError)throw deleteError;
+}
+async function signedChatAttachment(value:string){
+  if(!value.startsWith(CHAT_ATTACHMENT_PREFIX))return value;
+  const objectPath=value.slice(CHAT_ATTACHMENT_PREFIX.length);
+  const {data,error}=await db.from("upstatus_chat_attachments").select("expires_at").eq("object_path",objectPath).maybeSingle();
+  if(error||!data||Date.parse(data.expires_at)<=Date.now())return "";
+  const {data:signed,error:signedError}=await db.storage.from("chat-attachments").createSignedUrl(objectPath,Math.max(60,Math.floor((Date.parse(data.expires_at)-Date.now())/1000)));
+  if(signedError)throw signedError;
+  return signed.signedUrl;
+}
+async function uploadChatAttachment(dataUrl:string,max:number,allowed:Set<string>){
+  const d=decodeDataUrl(dataUrl);
+  const mime=sniffMime(d.bytes,d.mime);
+  if(!allowed.has(mime))throw new Error("Tipo de arquivo não suportado.");
+  if(d.bytes.length>max)throw new Error("Arquivo acima do limite permitido.");
+  const e=ext(mime);if(!e)throw new Error("Tipo de arquivo não suportado.");
+  const path=Date.now()+"-"+randomBytes(12).toString("hex")+"."+e;
+  const body=d.bytes.buffer.slice(d.bytes.byteOffset,d.bytes.byteOffset+d.bytes.byteLength);
+  const {error}=await db.storage.from("chat-attachments").upload(path,body,{contentType:mime,cacheControl:"3600",upsert:false});
+  if(error)throw error;
+  const expiresAt=new Date(Date.now()+CHAT_ATTACHMENT_TTL_MS).toISOString();
+  const {error:metaError}=await db.from("upstatus_chat_attachments").insert({object_path:path,created_by:"chat",expires_at:expiresAt,content_type:mime,byte_size:d.bytes.length});
+  if(metaError){await db.storage.from("chat-attachments").remove([path]);throw metaError;}
+  return {url:CHAT_ATTACHMENT_PREFIX+path,mime};
 }
 async function uploadFile(bucket:string,dataUrl:string,max:number,allowed:Set<string>) {
   const d=decodeDataUrl(dataUrl);
@@ -377,7 +416,8 @@ async function chatRoute(req:Request,name:string){
     created_at:createdAt,image_url:imageUrl,mentions:mentionList,reply_to:replyTo,reactions:{}
   });
   if(error)throw error;
-  return response({ok:true,message:{id,user:name,user_name:name,message,type,systemType:"",system_type:"",createdAt,imageUrl,image_url:imageUrl,mentions:mentionList,replyTo,reactions:{},readBy:[]}});
+  const displayImageUrl=await signedChatAttachment(imageUrl);
+  return response({ok:true,message:{id,user:name,user_name:name,message,type,systemType:"",system_type:"",createdAt,imageUrl:displayImageUrl,image_url:displayImageUrl,mentions:mentionList,replyTo,reactions:{},readBy:[]}});
 }
 async function readRoute(req:Request,name:string){
   const p:any=await readBody(req);
@@ -455,9 +495,10 @@ async function profileRoute(req:Request,name:string) {
 }
 async function mediaRoute(req:Request,kind:"image"|"audio") {
   const p:any=await readBody(req);
+  await cleanupExpiredChatAttachments();
   const max=kind==="audio"?5*1024*1024:25*1024*1024;
   const allowed=kind==="audio"?new Set(["audio/webm","audio/ogg","audio/mp4","audio/mpeg","audio/wav","audio/x-wav","audio/x-m4a"]):new Set(["image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"]);
-  const saved=await uploadFile("chat-images",String(p.dataUrl||""),max,allowed);
+  const saved=await uploadChatAttachment(String(p.dataUrl||""),max,allowed);
   return response({ok:true,imageUrl:saved.url,type:saved.mime.startsWith("video/")?"video":kind});
 }
 
