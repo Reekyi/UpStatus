@@ -42,4 +42,17 @@ assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not mat
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
-console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
+const sourceTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
+const userTemplate=fs.readFileSync(path.join(ROOT,"src/userscript/upstatus.user.template.js"),"utf8");
+const attachmentMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261009120000_chat_attachments_expiry.sql"),"utf8");
+assert(sourceTemplate.includes("const CHAT_ATTACHMENT_TTL_MS=72*60*60*1000;"),"chat attachment TTL must be 72 hours");
+assert(sourceTemplate.includes('db.storage.from("chat-attachments").createSignedUrl'),"chat attachments must use signed URLs");
+assert(sourceTemplate.includes('db.storage.from("chat-attachments").remove(paths)'),"expired chat objects must be deleted from private storage");
+assert(sourceTemplate.includes("await cleanupExpiredChatAttachments();"),"chat cleanup must run during API activity");
+assert(sourceTemplate.includes('db.from("upstatus_chat_attachments").insert'),"uploaded attachments must register expiry metadata");
+assert(attachmentMigration.includes("public = false"),"chat attachment bucket must be private");
+assert(attachmentMigration.includes("'*/15 * * * *'"),"scheduled cleanup must run every 15 minutes");
+assert(attachmentMigration.includes("expires_at <= now()"),"scheduled cleanup must only remove expired attachments");
+assert(userTemplate.includes("Anexo expirado após 72 horas"),"chat UI must preserve an expired attachment placeholder");
+assert(!sourceTemplate.includes('getPublicUrl(path).data.publicUrl,mime')||sourceTemplate.includes('async function uploadChatAttachment'),"private chat upload path missing");
+console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion+" / private 72h chat attachments");
