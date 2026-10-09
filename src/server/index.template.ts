@@ -321,6 +321,7 @@ async function signedChatAttachment(value:string){
 }
 async function uploadChatAttachment(dataUrl:string,max:number,allowed:Set<string>,createdBy:string){
   const d=decodeDataUrl(dataUrl);
+  if(!d.bytes.length)throw new Error("Arquivo vazio não é permitido.");
   const mime=sniffMime(d.bytes,d.mime);
   if(!allowed.has(mime))throw new Error("Tipo de arquivo não suportado.");
   if(d.bytes.length>max)throw new Error("Arquivo acima do limite permitido.");
