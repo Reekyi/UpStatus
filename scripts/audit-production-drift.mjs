@@ -26,7 +26,7 @@ function decodeUserscript(source, label) {
 function normalizeServer(source, isTemplate) {
   let normalized = source
     .replace(/const VERSION = "[^"]+";/, 'const VERSION = "__VERSION__";')
-    .replace(/const USERSCRIPT_HEX = "[0-9a-fA-F]*";/, 'const USERSCRIPT_HEX = "__USERSCRIPT_HEX__";');
+    .replace(/const USERSCRIPT_HEX = "(?:[0-9a-fA-F]*|__UPSTATUS_USERSCRIPT_HEX__)";/, 'const USERSCRIPT_HEX = "__USERSCRIPT_HEX__";');
   if (isTemplate) {
     normalized = normalized.replaceAll(
       'const marker="__UPSTATUS_PATH_MARKER__";',
