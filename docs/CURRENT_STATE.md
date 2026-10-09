@@ -28,11 +28,11 @@
 ## Current documentation task (2026-10-09)
 
 - GitHub Issue #14 tracks the mandatory pre-work plan and resumable checkpoint protocol: https://github.com/Reekyi/UpStatus/issues/14.
-- Working branch: `docs/work-plan-checkpoint-protocol`, created from `develop` after registering the issue and before editing documentation.
+- Working branch: `docs/work-plan-checkpoint-protocol`, created from `develop` after registering the issue and before editing documentation. PR #15 is open against `develop`: https://github.com/Reekyi/UpStatus/pull/15.
 - Updated `docs/PROJECT_GUIDE.md` to require a GitHub Issue/checkpoint before code or documentation edits, milestone updates during execution, interruption-safe handoff notes, and linking the PR/status in the task record.
 - Updated the permanent new-chat prompt in `docs/PROJECT_GUIDE.md` to enforce the same process and wait for the user's task request after summarizing verified state.
-- Documentation-only task. No application code, production resources, Supabase functions, or Vercel deployments changed. Runtime tests are not applicable; final document review and PR status remain to be checked.
-- Next action: review both files on the working branch, open a PR to `develop`, then update this section and Issue #14 with the PR URL and actual validation/status. Do not merge without explicit approval.
+- Documentation-only task. No application code, production resources, Supabase functions, or Vercel deployments changed. Runtime tests are not applicable; document review completed by re-fetching both updated files and confirming the required protocol text is present. PR #15 is open and not merged; mergeability is currently reported as false by GitHub, so inspect PR checks/diff and resolve any blockers before considering integration.
+- Next action: inspect PR #15's mergeability/checks and resolve any blockers, then ask for explicit approval before merging. Keep Issue #14 updated with the outcome. Do not merge or deploy without explicit approval.
 
 ## Open items
 
@@ -43,8 +43,8 @@
 
 ## Bonfire note
 
-The current task is updating the permanent workflow so no implementation starts before its plan is recorded on GitHub. Issue #14 is the active checkpoint; working branch is `docs/work-plan-checkpoint-protocol`. The guide and prompt have been updated on the working branch; review and PR creation are still pending. No production deployment has been performed. If this chat is interrupted, open Issue #14, inspect branch `docs/work-plan-checkpoint-protocol`, review the latest commits and these docs, then continue with document review and PR creation. Do not merge without explicit approval.
+The current task is updating the permanent workflow so no implementation starts before its plan is recorded on GitHub. Issue #14 is the active checkpoint; working branch is `docs/work-plan-checkpoint-protocol`; PR #15 is open against `develop` and is not merged. The guide and prompt have been updated and reviewed for the required language. No production deployment has been performed. If this chat is interrupted, open Issue #14, inspect branch `docs/work-plan-checkpoint-protocol`, review the latest commits and these docs, then continue with document review and PR creation. Do not merge without explicit approval.
 
 ## Last updated
 
-2026-10-09. Updated on the documentation task branch for Issue #14; PR and final review pending. Re-check live GitHub, Supabase, and Vercel state before any implementation.
+2026-10-09. Updated on the documentation task branch for Issue #14; PR #15 open, not merged. Re-check live GitHub, Supabase, and Vercel state before any implementation.
