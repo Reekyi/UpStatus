@@ -315,7 +315,7 @@ async function signedChatAttachment(value:string){
   const objectPath=value.slice(CHAT_ATTACHMENT_PREFIX.length);
   const {data,error}=await db.from("upstatus_chat_attachments").select("expires_at").eq("object_path",objectPath).maybeSingle();
   if(error||!data||Date.parse(data.expires_at)<=Date.now())return "";
-  const {data:signed,error:signedError}=await db.storage.from("chat-attachments").createSignedUrl(objectPath,Math.max(60,Math.floor((Date.parse(data.expires_at)-Date.now())/1000)));
+  const {data:signed,error:signedError}=await db.storage.from("chat-attachments").createSignedUrl(objectPath,Math.max(1,Math.floor((Date.parse(data.expires_at)-Date.now())/1000)));
   if(signedError)throw signedError;
   return signed.signedUrl;
 }
