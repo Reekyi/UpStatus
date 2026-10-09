@@ -2,7 +2,7 @@
 
 ## Result
 
-The archived live production source is intact and the backend template matches its backend logic after accounting for generated version, embedded userscript, and route-marker substitutions. The unresolved drift is concentrated in the embedded userscript.
+The archived repository snapshot is intact under its own file hash, and the backend template matches its backend logic after accounting for generated version, embedded userscript, and route-marker substitutions. The README also records a separate SHA-256 fingerprint reported for the live deployment. Those two hashes are not equal, so they must be treated as distinct fingerprints until the capture/hash method is documented. The unresolved code drift is concentrated in the embedded userscript.
 
 | Item | Archived live production 3.0.29 | Current repository template |
 |---|---:|---:|
@@ -27,7 +27,7 @@ The current template also contains code not present in the archived production s
 
 ## Guardrails added
 
-- scripts/audit-production-drift.mjs verifies the archived source SHA-256, confirms the archive's embedded userscript version, and checks that the backend template still matches the archived backend after build substitutions.
+- scripts/audit-production-drift.mjs verifies the archived repository file SHA-256 separately from the live-deployment fingerprint recorded in the manifest, confirms the archive's embedded userscript version, and checks that the backend template still matches the archived backend after build substitutions.
 - npm run audit:production-drift reports the current known divergence in CI.
 - npm run audit:production-drift:strict fails closed if the current userscript template still lacks the identified production cross-tab coordination markers. The production deployment workflow now runs this strict check before deployment.
 
