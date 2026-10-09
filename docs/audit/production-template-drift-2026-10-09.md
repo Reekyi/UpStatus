@@ -7,7 +7,7 @@ The archived repository snapshot is intact under its own file hash, and the back
 | Item | Archived live production 3.0.29 | Current repository template |
 |---|---:|---:|
 | Backend source | 609,070 characters including embedded script | 95,545 characters before generated embedding |
-| Embedded userscript | 256,798 characters, 2,885 lines | 249,702 characters after rendering current placeholders as 3.0.29, 2,751 lines |
+| Embedded userscript | 256,350 characters, 2,885 lines | 249,702 characters after rendering current placeholders as 3.0.29, 2,751 lines |
 | Userscript equality | Not byte-identical | Not byte-identical |
 
 The server backend comparison normalizes only build-time values (VERSION, USERSCRIPT_HEX, and the /upstatus route marker). The remaining backend source matches. This means the large file-size difference is mainly the hex-encoded userscript, not 500 KB of missing server implementation.
