@@ -260,7 +260,7 @@ async function expireLucca() {
 
 function ycaroToken(req:Request) {
   const auth=req.headers.get("authorization")||"";
-  if(/^Bearer\\s+/i.test(auth))return auth.replace(/^Bearer\\s+/i,"").trim();
+  if(/^Bearer\s+/i.test(auth))return auth.replace(/^Bearer\\s+/i,"").trim();
   return cookie(req,"ycaro_session");
 }
 async function ycaroState() {
@@ -348,7 +348,8 @@ async function chatRoute(req:Request,name:string){
         chatRows(name,effectiveSince),
         db.from("upstatus_profiles").select("user_name,avatar_url"),
         db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name),
-        expireLucca()
+        expireLucca(),
+        expireYcaro()
       ]);
       const profileMap:Record<string,string>={};
       for(const p of profileRes.data||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
@@ -360,7 +361,8 @@ async function chatRoute(req:Request,name:string){
       db.from("chat_reads").select("user_name,last_read_at,messages"),
       db.from("upstatus_profiles").select("user_name,avatar_url"),
       db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name),
-      expireLucca()
+      expireLucca(),
+      expireYcaro()
     ]);
     const read=readRes.data;
     const readBy:Record<string,string[]>={};

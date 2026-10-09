@@ -30,9 +30,9 @@
 - GitHub checkpoint: Issue #16, "Add independent Ycaro guest chat access with orange theme": https://github.com/Reekyi/UpStatus/issues/16.
 - Working branch: `feature/ycaro-guest-access`, created from `develop` HEAD `6494a3d3018a4141ea2503dda012374517028979`.
 - Scope: add an independent Ycaro guest portal with orange highlights and a 🗿 favicon, independent `ycaro_session` cookie/state, and `YCARO_PASSWORD` configuration; preserve Lucca access and shared chat data.
-- Initial inspection confirmed `lucca.html` exactly matches the HTML embedded in `src/server/index.template.ts`; the build script is being updated to use the standalone HTML sources as inputs for both guest routes.
+- Initial inspection confirmed `lucca.html` exactly matches the HTML embedded in `src/server/index.template.ts`. The implementation now uses standalone Lucca/Ycaro HTML source files as build inputs and adds independent Ycaro auth/session handling. Source-level preflight checks passed; build and CI validation remain pending.
 - No Supabase secret or function deployment, Vercel deployment, or production resource has been changed. The new access will require `YCARO_PASSWORD` to be configured in Supabase before live login works.
-- Next steps: review source changes, run validation/build where possible, inspect CI, open a PR against `develop`, and wait for explicit approval before merge/deploy.
+- Next steps: finish diff review, run `npm run validate` and `npm run build` where possible, inspect CI, open a PR against `develop`, and wait for explicit approval before merge/deploy.
 
 ## Open items
 
