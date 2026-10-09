@@ -1,0 +1,18 @@
+#!/usr/bin/env node
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const FILE = path.join(ROOT, 'tests/release-version-guard.test.mjs');
+execFileSync(process.execPath, ['--test', FILE], { stdio: 'inherit' });
+
+function assert(ok, message) { if (!ok) throw new Error('RELEASE SAFETY FAILED: ' + message); }
+const workflow = fs.readFileSync(path.join(ROOT, '.github/workflows/deploy-production.yml'), 'utf8');
+const release = JSON.parse(fs.readFileSync(path.join(ROOT, 'release.json'), 'utf8'));
+assert(workflow.includes('Read current production version and prevent downgrade'), 'production workflow guard is missing');
+assert(workflow.includes('Refusing downgrade'), 'downgrade rejection message is missing');
+assert(workflow.includes('Refusing same-version redeployment'), 'same-version redeployment rejection is missing');
+assert(!String(release.preRelease || '').trim(), 'master release.json must not contain a prerelease marker');
+console.log('Release safety validation passed.');
