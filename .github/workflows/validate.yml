@@ -25,5 +25,7 @@ jobs:
         run: npm install --ignore-scripts
       - name: Validate generated build
         run: npm run validate
+      - name: Audit production source drift
+        run: npm run audit:production-drift
       - name: Validate production release guard
         run: npm run test:release-safety
