@@ -6,6 +6,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "validate": "node scripts/validate.mjs",
-    "test:release-safety": "node scripts/check-release-safety.mjs"
+    "test:release-safety": "node scripts/check-release-safety.mjs",
+    "audit:production-drift": "node scripts/audit-production-drift.mjs",
+    "audit:production-drift:strict": "node scripts/audit-production-drift.mjs --strict"
   }
 }
