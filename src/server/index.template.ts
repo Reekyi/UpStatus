@@ -281,10 +281,12 @@ function decodeDataUrl(raw:string) {
   return {mime,bytes};
 }
 function sniffMime(bytes:Uint8Array,declared:string) {
+  if(bytes.length>=5&&bytes[0]===0x25&&bytes[1]===0x50&&bytes[2]===0x44&&bytes[3]===0x46&&bytes[4]===0x2d)return "application/pdf";
   if(bytes.length>=3&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff)return "image/jpeg";
   if(bytes.length>=8&&bytes[0]===0x89&&bytes[1]===0x50&&bytes[2]===0x4e&&bytes[3]===0x47&&bytes[4]===0x0d&&bytes[5]===0x0a&&bytes[6]===0x1a&&bytes[7]===0x0a)return "image/png";
   if(bytes.length>=6&&bytes[0]===0x47&&bytes[1]===0x49&&bytes[2]===0x46&&bytes[3]===0x38)return "image/gif";
   if(bytes.length>=12&&bytes[0]===0x52&&bytes[1]===0x49&&bytes[2]===0x46&&bytes[3]===0x46&&bytes[8]===0x57&&bytes[9]===0x45&&bytes[10]===0x42&&bytes[11]===0x50)return "image/webp";
+  if(bytes.length>=4&&bytes[0]===0x50&&bytes[1]===0x4b&&bytes[2]===0x03&&bytes[3]===0x04&&/^application\/(vnd\.openxmlformats-officedocument\.|zip)/i.test(declared))return declared;
   if(bytes.length>=4&&bytes[0]===0x1a&&bytes[1]===0x45&&bytes[2]===0xdf&&bytes[3]===0xa3)return declared.startsWith("audio/")?"audio/webm":"video/webm";
   if(bytes.length>=4&&bytes[0]===0x4f&&bytes[1]===0x67&&bytes[2]===0x67&&bytes[3]===0x53)return "audio/ogg";
   if(bytes.length>=3&&bytes[0]===0x49&&bytes[1]===0x44&&bytes[2]===0x33)return "audio/mpeg";
@@ -293,7 +295,7 @@ function sniffMime(bytes:Uint8Array,declared:string) {
   return declared;
 }
 function ext(mime:string) {
-  return ({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm","audio/webm":"webm","audio/ogg":"ogg","audio/mp4":"m4a","audio/mpeg":"mp3","audio/wav":"wav","audio/x-wav":"wav","audio/x-m4a":"m4a" } as Record<string,string>)[mime]||"";
+  return ({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm","audio/webm":"webm","audio/ogg":"ogg","audio/mp4":"m4a","audio/mpeg":"mp3","audio/wav":"wav","audio/x-wav":"wav","audio/x-m4a":"m4a","application/pdf":"pdf","text/plain":"txt","text/csv":"csv","application/vnd.openxmlformats-officedocument.wordprocessingml.document":"docx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":"xlsx","application/vnd.openxmlformats-officedocument.presentationml.presentation":"pptx" } as Record<string,string>)[mime]||"";
 }
 const CHAT_ATTACHMENT_TTL_MS=72*60*60*1000;
 const CHAT_ATTACHMENT_PREFIX="attachment:";
@@ -493,13 +495,15 @@ async function profileRoute(req:Request,name:string) {
   await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:saved.url,updated_at:new Date().toISOString()},{onConflict:"user_name"});
   return response({ok:true,avatarUrl:saved.url});
 }
-async function mediaRoute(req:Request,kind:"image"|"audio") {
+async function mediaRoute(req:Request,kind:"image"|"audio"|"file") {
   const p:any=await readBody(req);
   await cleanupExpiredChatAttachments();
   const max=kind==="audio"?5*1024*1024:25*1024*1024;
-  const allowed=kind==="audio"?new Set(["audio/webm","audio/ogg","audio/mp4","audio/mpeg","audio/wav","audio/x-wav","audio/x-m4a"]):new Set(["image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"]);
+  const fileTypes=new Set(["application/pdf","text/plain","text/csv","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","application/vnd.openxmlformats-officedocument.presentationml.presentation"]);
+  const mediaTypes=kind==="audio"?new Set(["audio/webm","audio/ogg","audio/mp4","audio/mpeg","audio/wav","audio/x-wav","audio/x-m4a"]):new Set(["image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"]);
+  const allowed=kind==="file"?fileTypes:mediaTypes;
   const saved=await uploadChatAttachment(String(p.dataUrl||""),max,allowed);
-  return response({ok:true,imageUrl:saved.url,type:saved.mime.startsWith("video/")?"video":kind});
+  return response({ok:true,imageUrl:saved.url,type:kind==="file"?"file":saved.mime.startsWith("video/")?"video":kind});
 }
 
 async function remoteRoute(req:Request,name:string) {
@@ -635,6 +639,7 @@ Deno.serve(async(req)=>{
     if(path==="/api/profile/avatar"&&req.method==="POST")return await profileRoute(req,name);
     if(path==="/api/chat/image"&&req.method==="POST")return await mediaRoute(req,"image");
     if(path==="/api/chat/audio"&&req.method==="POST")return await mediaRoute(req,"audio");
+    if(path==="/api/chat/file"&&req.method==="POST")return await mediaRoute(req,"file");
     if(path.startsWith("/api/remote-status"))return await remoteRoute(req,name);
     if(path==="/api/chat/clear"&&req.method==="POST"){
       if(name!=="Ricardo")return response({error:"Somente Ricardo pode limpar o chat."},403);
