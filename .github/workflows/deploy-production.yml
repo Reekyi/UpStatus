@@ -23,6 +23,8 @@ jobs:
           node -e "const r=require('./release.json'); if(r.preRelease) { console.error('Production requires release.json.preRelease to be empty.'); process.exit(1); }"
       - name: Validate stable build
         run: node scripts/validate.mjs
+      - name: Refuse deployment while production behavior is unreconciled
+        run: npm run audit:production-drift:strict
       - name: Read current production version and prevent downgrade
         shell: bash
         run: |
