@@ -41,6 +41,16 @@
 - Blocker: the connected Supabase toolset has no action to securely set Edge Function secrets. `YCARO_PASSWORD` has not been configured, so deploying now would leave login unavailable. No merge, secret change, or production deployment has occurred.
 - Resume by setting `YCARO_PASSWORD` through an authorized Supabase Dashboard/CLI path, rechecking PR #17 and CI, then completing the explicitly requested publication and verifying the live route/login.
 
+## Ycaro Vercel frontend publication (2026-10-09)
+
+- User asked to use Vercel in the same manner as the Lucca portal.
+- Created separate Vercel project `upstatus-ycaro` (ID `prj_7CS7CPFOKfw2tEoiqT0IevPutuRC`) and deployed the Ycaro HTML, avoiding changes to the existing `upstatus-lucca` project/root directory.
+- Production alias https://upstatus-ycaro.vercel.app/ is assigned to deployment `dpl_5fZvs41hmBYe7aos7QL4ZmJimbrb` (READY); live fetch verified HTTP 200 and Ycaro page title.
+- Updated `ycaro.html` on the feature branch in commit `8d00482d4b5756d7a7a9b1bc1b10dd844a2a06ec` to route API requests to the Supabase Edge Function base, matching the Lucca pattern.
+- Important: this is only the frontend publication. The active Supabase production `upstatus` Edge Function remains version 393 and does not yet include Ycaro routes, and `YCARO_PASSWORD` is not configured. Login is therefore not yet functional; do not state otherwise.
+- Connected Supabase tools have no secret-write action. Add `YCARO_PASSWORD` in the authenticated Supabase Dashboard/CLI without sending the value in chat or committing it.
+- PR #17 remains open and unmerged. Check CI for the latest frontend-adjustment commit, then review/merge and deploy the Supabase production function only when explicitly authorized. No function deployment, secret change, PR merge, database mutation, or Lucca alias change was made.
+
 ## Open items
 
 - No known user-reported call bug is currently open; user said calls are working perfectly.
@@ -50,8 +60,8 @@
 
 ## Bonfire note
 
-Issue #16 tracks the Ycaro guest-access implementation on `feature/ycaro-guest-access`; PR #17 is open and unmerged. Re-read the guide and this file, then inspect Issue #16, PR #17, latest CI and deployment state before continuing. Validation runs #91 and #92 passed for implementation and checkpoint commits. The user has now requested publication, but the connected Supabase tools cannot set Edge Function secrets; `YCARO_PASSWORD` is not configured. Do not deploy a nonfunctional login. Configure the secret through an authorized Supabase Dashboard/CLI path, then complete the requested release and verify it.
+Issue #16 tracks Ycaro guest access; PR #17 remains open and unmerged. The separate Vercel frontend is live at https://upstatus-ycaro.vercel.app/ (deployment READY), but the production Supabase function remains version 393 without Ycaro routes and `YCARO_PASSWORD` is not configured. Do not claim login works. Set the secret via the authorized Supabase Dashboard/CLI, recheck latest CI, then review the PR and obtain/interpret release authorization before deploying the production function.
 
 ## Last updated
 
-2026-10-09. Updated with the publication blocker: the user requested live Ycaro access, but the connected Supabase tools cannot configure Edge Function secrets. PR #17 remains open and unmerged; Issue #16 is the checkpoint. Do not publish until `YCARO_PASSWORD` is securely configured and latest checks are reverified.
+2026-10-09. Ycaro frontend published separately to Vercel and verified READY; backend activation is pending Supabase Ycaro routes and secret configuration. PR #17 remains open/unmerged; recheck latest CI and live backend state before continuation.
