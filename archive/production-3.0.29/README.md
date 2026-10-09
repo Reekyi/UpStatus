@@ -5,7 +5,9 @@ This archive documents the exact source captured from the live Supabase Edge Fun
 - Supabase project: `dlfvkawaiqduhlazsszm`
 - Function: `upstatus`
 - Deployed function version: `390`
-- Deployed source SHA-256: `ad3ba7f776d1ca49129d8fa1b2a1944710695908ef630ac736ee72ce279dd442`
+- Live deployment source fingerprint reported at capture: `ad3ba7f776d1ca49129d8fa1b2a1944710695908ef630ac736ee72ce279dd442`
+- SHA-256 of the archived repository file bytes: `a60b8c5249cf418b0e7a55720799f4bebb82a1daa2c6c50e9f08e1ced3978da8`
+- These are distinct fingerprints. The exact serialization/hash relationship between Supabase's reported deployment fingerprint and the archived UTF-8 file bytes has not yet been established.
 - Embedded userscript version: `3.0.29`
 - Captured: 2026-10-09
 
