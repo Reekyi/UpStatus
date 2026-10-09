@@ -11,6 +11,8 @@ execFileSync(process.execPath, ['--test', FILE], { stdio: 'inherit' });
 function assert(ok, message) { if (!ok) throw new Error('RELEASE SAFETY FAILED: ' + message); }
 const workflow = fs.readFileSync(path.join(ROOT, '.github/workflows/deploy-production.yml'), 'utf8');
 assert(workflow.includes('Read current production version and prevent downgrade'), 'production workflow guard is missing');
-assert(workflow.includes('Refusing downgrade'), 'downgrade rejection message is missing');
-assert(workflow.includes('Refusing same-version redeployment'), 'same-version redeployment rejection is missing');
+assert(workflow.includes('scripts/compare-release-versions.mjs'), 'production workflow does not call the tested version comparator');
+assert(workflow.includes('current-production.user.js'), 'production workflow does not fetch the live userscript');
+assert(workflow.includes('Refusing downgrade'), 'downgrade rejection message is missing from shared comparator');
+assert(workflow.includes('Refusing same-version redeployment'), 'same-version redeployment rejection message is missing from shared comparator');
 console.log('Release safety validation passed.');
