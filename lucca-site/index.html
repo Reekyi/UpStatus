@@ -635,7 +635,7 @@ function callEnsureOverlay(){
     }
     if(upCall.active){
       a.style.display='flex';a.style.visibility='visible';a.style.opacity='1';a.style.flex='0 0 auto';a.style.gap='6px';a.style.minWidth=upCall.connected?'114px':'40px';
-      if(upCall.connected)appendCallControl(upCall.muted?'Ativar microfone':'Mutar microfone',upCall.muted?'mic':'micOff',toggleCallMute,upCall.muted?'background:linear-gradient(145deg,#55677f,#3d4c61);':'');
+      if(upCall.connected)appendCallControl(upCall.muted?'Ativar microfone':'Mutar microfone',upCall.muted?'micOff':'mic',toggleCallMute,upCall.muted?'background:linear-gradient(145deg,#55677f,#3d4c61);':'');
       appendCallControl('Adicionar participante','personAdd',callOpenParticipantPicker,'');
       appendCallControl('Desligar chamada','hangup',function(){callCleanup(true,'leave');},'border-color:rgba(255,103,124,.34);background:linear-gradient(145deg,#b33b52,#8f2e42);');
     }else{
@@ -793,16 +793,26 @@ function callEnsureOverlay(){
     callApplySpeakerVisual();
   }
   function syncGuestCallControls(){
-    var actions=root.querySelector('.guest-top-actions');if(!actions)return;
-    actions.querySelectorAll('[data-lucca-call-control]').forEach(function(b){b.remove();});
-    if(!upCall.active)return;
-    function addControl(label,text,handler){var b=document.createElement('button');b.type='button';b.setAttribute('data-lucca-call-control','');b.title=label;b.setAttribute('aria-label',label);b.textContent=text;b.style.cssText='height:34px;min-width:34px;padding:0 9px;border:1px solid #40506a;border-radius:7px;background:#273247;color:#e7eefb;cursor:pointer;font:700 12px Segoe UI,Arial,sans-serif';b.onclick=function(e){e.preventDefault();e.stopPropagation();handler();};actions.insertBefore(b,root.querySelector('.guest-exit'));}
-    if(upCall.connected){addControl(upCall.muted?'Ativar microfone':'Mutar microfone',upCall.muted?'Mic +':'Mic −',toggleCallMute);addControl('Adicionar participante','+ Pessoa',callOpenParticipantPicker);}
-    addControl('Desligar chamada','Desligar',function(){callCleanup(true,'leave');});
+    // Os controles da chamada ficam exclusivamente no overlay inferior.
+    var actions=root.querySelector('.guest-top-actions');
+    if(actions)actions.querySelectorAll('[data-lucca-call-control]').forEach(function(b){b.remove();});
+  }
+  function callWaitForRealtime(timeoutMs){
+    if(realtimeActive&&realtimeChannel)return Promise.resolve(true);
+    return new Promise(function(resolve){
+      var started=Date.now();
+      var timer=setInterval(function(){
+        if(realtimeActive&&realtimeChannel){clearInterval(timer);resolve(true);return;}
+        if(Date.now()-started>=timeoutMs){clearInterval(timer);resolve(false);}
+      },150);
+    });
   }
   async function startOutgoingCall(target){
     if(!target||target===member)return;
     if(upCall.active){message('Voc\u00ea j\u00e1 est\u00e1 em uma chamada.',true);return;}
+    if(!realtimeActive||!realtimeChannel){startRealtime();message('Conectando ao serviço de chamadas...');}
+    var signalingReady=await callWaitForRealtime(8000);
+    if(!signalingReady){message('Não foi possível conectar ao serviço de chamadas. Aguarde alguns segundos e tente novamente.');return;}
     upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
     upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
     callPrimeAudio();callStartRingtone();callRender(target,'Chamando\u2026',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true,'hangup');}}]);

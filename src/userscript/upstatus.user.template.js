@@ -1607,9 +1607,22 @@
     callStartSpeakerDetection();
     callApplySpeakerVisual();
   }
+  function callWaitForRealtime(timeoutMs){
+    if(realtimeActive&&realtimeChannel)return Promise.resolve(true);
+    return new Promise(function(resolve){
+      var started=Date.now();
+      var timer=setInterval(function(){
+        if(realtimeActive&&realtimeChannel){clearInterval(timer);resolve(true);return;}
+        if(Date.now()-started>=timeoutMs){clearInterval(timer);resolve(false);}
+      },150);
+    });
+  }
   async function startOutgoingCall(target){
     if(!target||target===member)return;
     if(upCall.active){message('Voc\u00ea j\u00e1 est\u00e1 em uma chamada.',true);return;}
+    if(!realtimeActive||!realtimeChannel){startRealtime();message('Conectando ao serviço de chamadas...',true);}
+    var signalingReady=await callWaitForRealtime(8000);
+    if(!signalingReady){message('Não foi possível conectar ao serviço de chamadas. Aguarde alguns segundos e tente novamente.',true);return;}
     upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
     upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
     callPrimeAudio();callStartRingtone();callRender(target,'Chamando\u2026',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true,'hangup');}}]);
