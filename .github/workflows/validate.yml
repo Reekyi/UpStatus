@@ -27,5 +27,7 @@ jobs:
         run: npm run validate
       - name: Audit production source drift
         run: npm run audit:production-drift
+      - name: Validate strict source-drift guard
+        run: npm run audit:production-drift:strict
       - name: Validate production release guard
         run: npm run test:release-safety
