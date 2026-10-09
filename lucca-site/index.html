@@ -542,9 +542,20 @@ function callEnsureOverlay(){
     var names=[],team=window.__upstatusTeam||{};
     Object.keys(team).forEach(function(n){if(n)names.push(n);});
     if(!names.length&&Array.isArray(window.__upstatusMembers))names=window.__upstatusMembers.slice();
-    names=names.filter(function(n){return n&&n!==member&&upCall.participants.indexOf(n)<0&&!upCall.pendingInvites[n];});
+    names=names.map(function(x){return typeof x==='string'?x:(x&&x.name?String(x.name):'');}).filter(function(n){return n&&n!=='Lucca'&&n!==member&&upCall.participants.indexOf(n)<0&&!upCall.pendingInvites[n];});
+    names=names.filter(function(n,i,a){return a.indexOf(n)===i;});
     names.sort(function(a,b){return String(a).localeCompare(String(b),'pt-BR');});
     return names;
+  }
+  function callRefreshMembers(){
+    return api('/api/members').then(function(r){
+      var list=Array.isArray(r)?r:(Array.isArray(r.members)?r.members:(Array.isArray(r.users)?r.users:[]));
+      window.__upstatusMembers=list.map(function(x){return typeof x==='string'?x:(x&&x.name?String(x.name):'');}).filter(function(n){return n&&n!=='Lucca';});
+      return window.__upstatusMembers;
+    }).catch(function(e){
+      window.__upstatusMembersError=e&&e.message?e.message:'Não foi possível carregar os membros.';
+      return [];
+    });
   }
   function callOpenParticipantPicker(){
     var o=callEnsureOverlay(),current=o.querySelector('[data-call-picker]');
@@ -916,14 +927,18 @@ function callEnsureOverlay(){
 function callOpenStartPicker(){
  var old=document.querySelector('[data-lucca-call-start-picker]');if(old){old.remove();return;}
  var box=document.createElement('div');box.setAttribute('data-lucca-call-start-picker','');
- var anchor=root.querySelector('.guest-call'),rect=anchor?anchor.getBoundingClientRect():{right:window.innerWidth-18,bottom:66};box.style.cssText='position:fixed;right:'+Math.max(12,window.innerWidth-rect.right)+'px;top:'+Math.min(window.innerHeight-120,rect.bottom+8)+'px;z-index:2147483647;width:238px;max-width:calc(100vw - 24px);max-height:55vh;overflow:auto;box-sizing:border-box;padding:10px;border:1px solid #40506a;border-radius:12px;background:linear-gradient(145deg,#192435,#111925);box-shadow:0 16px 36px rgba(0,0,0,.44);color:#dbe5f5;font:12px Segoe UI,Arial,sans-serif';
+ var anchor=root.querySelector('.guest-call'),rect=anchor?anchor.getBoundingClientRect():{right:window.innerWidth-18,bottom:66};
+ box.style.cssText='position:fixed;right:'+Math.max(12,window.innerWidth-rect.right)+'px;top:'+Math.min(window.innerHeight-120,rect.bottom+8)+'px;z-index:2147483647;width:238px;max-width:calc(100vw - 24px);max-height:55vh;overflow:auto;box-sizing:border-box;padding:10px;border:1px solid #40506a;border-radius:12px;background:linear-gradient(145deg,#192435,#111925);box-shadow:0 16px 36px rgba(0,0,0,.44);color:#dbe5f5;font:12px Segoe UI,Arial,sans-serif';
  var title=document.createElement('div');title.textContent='Ligar para';title.style.cssText='font-weight:800;margin:2px 2px 8px';box.appendChild(title);
- var names=callAvailableParticipants();
- if(!names.length){var empty=document.createElement('div');empty.textContent='Nenhum membro disponível na lista.';empty.style.cssText='color:#9baac0;padding:8px 2px';box.appendChild(empty);}
- names.forEach(function(name){var b=document.createElement('button');b.type='button';b.textContent=name;b.style.cssText='display:block;width:100%;text-align:left;padding:8px;margin:3px 0;border:1px solid #33445c;border-radius:8px;background:#202d40;color:#edf2fb;cursor:pointer;font:700 12px Segoe UI,Arial,sans-serif';b.onclick=function(){box.remove();startOutgoingCall(name);};box.appendChild(b);});
- document.body.appendChild(box);
+ var body=document.createElement('div');body.textContent='Carregando membros…';body.style.cssText='color:#9baac0;padding:8px 2px';box.appendChild(body);document.body.appendChild(box);
+ callRefreshMembers().then(function(){
+   if(!box.isConnected)return;body.innerHTML='';
+   var names=callAvailableParticipants();
+   if(!names.length){body.textContent=window.__upstatusMembersError?'Não foi possível carregar membros: '+window.__upstatusMembersError:'Nenhum membro disponível na lista.';return;}
+   names.forEach(function(name){var b=document.createElement('button');b.type='button';b.textContent=name;b.style.cssText='display:block;width:100%;text-align:left;padding:8px;margin:3px 0;border:1px solid #33445c;border-radius:8px;background:#202d40;color:#edf2fb;cursor:pointer;font:700 12px Segoe UI,Arial,sans-serif';b.onclick=function(){box.remove();startOutgoingCall(name);};body.appendChild(b);});
+ });
 }
-function login(){var password=document.getElementById('guest-password').value,box=document.getElementById('guest-login-msg'),btn=document.getElementById('guest-enter');if(btn&&btn.disabled)return;if(btn)btn.disabled=true;if(!password){box.textContent='Digite a senha.';if(btn)btn.disabled=false;return}box.textContent='Validando acesso…';api('/api/lucca/login',{method:'POST',body:JSON.stringify({password:password})}).then(function(d){if(d.token)localStorage.setItem('upstatus_lucca_token',d.token);joinedAt=Date.parse(d.joinedAt)||Date.now();chatCache=[];chatLastRenderKey='';list.innerHTML='';loginPanel.classList.add('hidden');shell.classList.remove('hidden');api('/api/members').then(function(r){window.__upstatusMembers=(r.members||[]).map(function(x){return x.name}).filter(function(n){return n&&n!=='Lucca'});}).catch(function(){});startRealtime();startHeartbeat();loadChat()}).catch(function(e){box.textContent=e.message}).finally(function(){if(btn)btn.disabled=false})}
+function login(){var password=document.getElementById('guest-password').value,box=document.getElementById('guest-login-msg'),btn=document.getElementById('guest-enter');if(btn&&btn.disabled)return;if(btn)btn.disabled=true;if(!password){box.textContent='Digite a senha.';if(btn)btn.disabled=false;return}box.textContent='Validando acesso…';api('/api/lucca/login',{method:'POST',body:JSON.stringify({password:password})}).then(function(d){if(d.token)localStorage.setItem('upstatus_lucca_token',d.token);joinedAt=Date.parse(d.joinedAt)||Date.now();chatCache=[];chatLastRenderKey='';list.innerHTML='';loginPanel.classList.add('hidden');shell.classList.remove('hidden');callRefreshMembers();startRealtime();startHeartbeat();loadChat()}).catch(function(e){box.textContent=e.message}).finally(function(){if(btn)btn.disabled=false})}
 function startHeartbeat(){if(heartbeatTimer)clearInterval(heartbeatTimer);heartbeatTimer=setInterval(function(){api('/api/lucca/heartbeat',{method:'POST',body:'{}'}).catch(function(){})},5000)}
 function logout(){stopTyping();if(upCall.active)callCleanup(true,'leave');stopRealtime();if(heartbeatTimer)clearInterval(heartbeatTimer);heartbeatTimer=null;chatCache=[];chatLastRenderKey='';list.innerHTML='';api('/api/lucca/logout',{method:'POST',body:'{}'}).finally(function(){localStorage.removeItem('upstatus_lucca_token');location.reload()})}
 root.querySelector('.up-chat-profile-btn').onclick=openProfile;root.querySelector('.up-chat-profile-btn').addEventListener('mouseenter',function(e){showHover(root.querySelector('.up-chat-profile-btn img'),member,e)});root.querySelector('.up-chat-profile-btn').addEventListener('mousemove',positionHover);root.querySelector('.up-chat-profile-btn').addEventListener('mouseleave',hideHover);root.querySelector('.guest-call').onclick=callOpenStartPicker;
