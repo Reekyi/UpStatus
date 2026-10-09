@@ -26,14 +26,16 @@ This document is the durable operating manual for continuing UpStatus work acros
 ## Required workflow for every change
 
 1. **Inspect first.** Read these documents, inspect the current branch/commit, related source, recent PRs, deployment state, and relevant logs/checks before editing. Do not assume a prior conversation's state is still current.
-2. **Scope narrowly.** Identify the actual cause and the smallest safe change. Preserve unrelated behavior and shared history/data.
-3. **Isolate.** Create a descriptive branch from `develop` unless the user explicitly requests another release path.
-4. **Implement source-first.** Edit source templates and intended source files, not generated artifacts, unless the task specifically concerns generated output.
-5. **Validate.** Run `node scripts/validate.mjs` and `node scripts/build.mjs` where a working checkout is available. Check syntax, version consistency, source diffs, and CI status. If tools cannot run a test, state that limitation clearly and never claim it passed.
-6. **Review.** Inspect the final diff for accidental edits, secrets, destructive data operations, wrong environments, and scope creep.
-7. **PR before integration.** Open a PR with a useful summary and validation evidence. Do not merge, deploy, or modify production resources without explicit user approval, except where the user has explicitly authorized that specific action in the current task.
-8. **Verify actual state.** After an authorized merge/deploy, check the resulting commit, CI/deployment status, active Supabase function version, Vercel deployment, and relevant served content when possible. Distinguish code checks from real-world functional testing.
-9. **Update continuity records.** Update `docs/CURRENT_STATE.md` as part of every meaningful completed task and include any newly discovered constraints in this guide only when they are durable.
+2. **Register the plan before editing.** Before changing any code or project documentation for a task, create a GitHub Issue or an appropriate checkpoint on GitHub. Include the objective, scope, likely files/areas, ordered steps, validation plan, known risks, initial status, and the next action. If a task already has an open Issue/checkpoint, update and reuse it rather than creating duplicates. Do not begin implementation until this record exists.
+3. **Scope narrowly.** Identify the actual cause and the smallest safe change. Preserve unrelated behavior and shared history/data.
+4. **Isolate.** Create a descriptive branch from `develop` unless the user explicitly requests another release path.
+5. **Implement source-first.** Edit source templates and intended source files, not generated artifacts, unless the task specifically concerns generated output.
+6. **Maintain a live checkpoint.** After meaningful milestones, update the GitHub Issue/checkpoint with status, branch, commit hashes, files changed, validations run and their actual results, blockers, pending steps, and the next concrete action. A handoff must remain useful without this chat's history.
+7. **Validate.** Run `node scripts/validate.mjs` and `node scripts/build.mjs` where a working checkout is available. Check syntax, version consistency, source diffs, and CI status. If tools cannot run a test, state that limitation clearly and never claim it passed.
+8. **Review.** Inspect the final diff for accidental edits, secrets, destructive data operations, wrong environments, and scope creep.
+9. **PR before integration.** Open a PR with a useful summary and validation evidence. Record the PR URL and current status in the issue/checkpoint. Do not merge, deploy, or modify production resources without explicit user approval, except where the user has explicitly authorized that specific action in the current task.
+10. **Verify actual state.** After an authorized merge/deploy, check the resulting commit, CI/deployment status, active Supabase function version, Vercel deployment, and relevant served content when possible. Distinguish code checks from real-world functional testing.
+11. **Update continuity records.** Update `docs/CURRENT_STATE.md` as part of every meaningful completed task and include any newly discovered constraints in this guide only when they are durable. Close or mark the task record complete only after the outcome and remaining risks are documented.
 
 ## Quality and safety rules
 
@@ -50,14 +52,15 @@ This document is the durable operating manual for continuing UpStatus work acros
 ## End-of-task / end-of-chat handoff protocol
 
 Before a conversation ends, before switching to another chat, or after a significant implementation:
-1. Update `docs/CURRENT_STATE.md` with the verified commit/branch, task result, PR status, deployments, test evidence, open risks, and next concrete action.
-2. Keep the permanent prompt stable. The prompt should direct the next chat to read this guide and the current-state file, then verify live repository/runtime state before acting.
-3. Leave a concise "bonfire note" in the current-state file: what was done, what is safe to assume, what must be rechecked, and the next step.
-4. Never write unverified claims as facts. If deployment or tests are pending, label them pending.
-5. If the conversation is running low on context, prioritize updating the handoff record over a long recap in chat.
+1. Update the active GitHub Issue/checkpoint with the verified branch/commit, completed and pending steps, tests and their results, PR status, deployments, open risks, and next concrete action.
+2. Update `docs/CURRENT_STATE.md` with the verified project-level state and link the active issue/checkpoint when work is in progress.
+3. Keep the permanent prompt stable. It must direct the next chat to read this guide and the current-state file, verify live repository/runtime state, and register or resume a GitHub task record before editing anything.
+4. Leave a concise "bonfire note": what was done, what is safe to assume, what must be rechecked, and the exact next step.
+5. Never write unverified claims as facts. If deployment or tests are pending, label them pending.
+6. If the conversation is running low on context, prioritize updating the GitHub checkpoint and handoff record over a long recap in chat. Never leave a task in progress with its only status inside the conversation.
 
 ## Permanent new-chat prompt
 
 Copy/paste the following into a new ChatGPT conversation, with GitHub and Supabase connectors enabled:
 
-> Continue work on UpStatus. Repository: https://github.com/Reekyi/UpStatus. First read `docs/PROJECT_GUIDE.md` and `docs/CURRENT_STATE.md` from the `develop` branch using @GitHub (these continuity docs may not yet exist on `master`). Then verify the actual current branch/commit, relevant PRs/checks, and any relevant Supabase/Vercel runtime state using the connected tools. Treat GitHub as the source of truth for code and release history, and runtime tools as the source of truth for deployment state. Do not assume prior chat memory is current. Follow the documented workflow exactly: investigate first, make narrow source-first changes on an isolated branch, validate and review the diff, open a PR, and do not merge or deploy to production without my explicit approval. Never claim a test or deployment succeeded unless verified. Preserve existing features and user data. At the end of each meaningful task, update `docs/CURRENT_STATE.md` with verified results, tests, PR/deployment status, risks, and the next step. If something is unclear, inspect first and ask one focused question rather than guessing.
+> Continue work on UpStatus. Repository: https://github.com/Reekyi/UpStatus. First read `docs/PROJECT_GUIDE.md` and `docs/CURRENT_STATE.md` from the `develop` branch using @GitHub (these continuity docs may not yet exist on `master`). Then verify the actual current branch/commit, relevant PRs/checks, and any relevant Supabase/Vercel runtime state using the connected tools. Treat GitHub as the source of truth for code and release history, and runtime tools as the source of truth for deployment state. Do not assume prior chat memory is current. **Before changing any code or documentation, create a GitHub Issue or checkpoint for the task**, unless an existing open task record can be reused. Record objective, scope, likely files, steps, validation plan, risks, current status, and next action. Update that record throughout the task with completed steps, commits, test results, blockers, PR/deployment status, and a resumable next action. If interrupted, leave the checkpoint usable without the conversation history. Follow the documented workflow exactly: investigate first, make narrow source-first changes on an isolated branch, validate and review the diff, open a PR, and do not merge or deploy to production without my explicit approval. Never claim a test or deployment succeeded unless verified. Preserve existing features and user data. At the end of each meaningful task, update both the task checkpoint and `docs/CURRENT_STATE.md` with verified results, tests, PR/deployment status, risks, and the next step. If something is unclear, inspect first and ask one focused question rather than guessing. At the start of a new chat, summarize the verified current state and wait for my task request; do not make unsolicited changes.
