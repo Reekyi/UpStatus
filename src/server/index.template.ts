@@ -619,7 +619,7 @@ Deno.serve(async(req)=>{
     if(path==="/api/update-info"&&req.method==="GET")return response({version:VERSION,updateUrl:"/upstatus.user.js"});
     if(path==="/lucca"||path==="/lucca.html"){
       if(req.method!=="GET")return response({error:"Método não permitido."},405);
-      const html=__UPSTATUS_LUCCA_HTML_EXPR__
+      const html=__UPSTATUS_LUCCA_HTML_EXPR__;
       return new Response(html,{status:200,headers:{
         "content-type":"text/html",
         "cache-control":"no-store",
