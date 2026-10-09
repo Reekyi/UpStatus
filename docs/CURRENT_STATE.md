@@ -28,14 +28,14 @@
 ## Open items
 
 - No known user-reported call bug is currently open; user said calls are working perfectly.
-- This documentation system is being introduced in PR #13 (verify live status before relying on this number/state).
-- After merging the documentation PR, consider adding a link to these files from README, and update this file after every significant task.
+- Continuity documentation PR #13 was merged into `develop` as `b0f4bed3f635d6b6a68c1898286cd519907b632d`.
+- Consider adding a link to these documents from README in a later small documentation change; the permanent prompt is already available in `docs/PROJECT_GUIDE.md`.
 - Before any future WebRTC change, re-check current browser behavior and consider TURN only if real networks still fail.
 
 ## Bonfire note
 
-The current chat is establishing durable continuity docs so a new chat can continue without rebuilding the whole conversation. The permanent prompt is in `docs/PROJECT_GUIDE.md`. The immediate next step is to review and merge the documentation PR only after validation; do not deploy production resources for documentation-only changes.
+The current chat is establishing durable continuity docs so a new chat can continue without rebuilding the whole conversation. The permanent prompt is in `docs/PROJECT_GUIDE.md`. The continuity docs are merged into `develop`. No production deployment was performed for this documentation-only change. At the start of the next task, read the guide and this file, then verify live repository and runtime state before implementation.
 
 ## Last updated
 
-2026-10-09. This snapshot reflects the state verified while preparing the continuity documentation; re-check live GitHub, Supabase, and Vercel state before the next implementation.
+2026-10-09. Updated after merge of PR #13. Re-check live GitHub, Supabase, and Vercel state before the next implementation.
