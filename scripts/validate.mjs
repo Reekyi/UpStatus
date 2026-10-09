@@ -49,6 +49,7 @@ assert(sourceTemplate.includes("const CHAT_ATTACHMENT_TTL_MS=72*60*60*1000;"),"c
 assert(sourceTemplate.includes('p.type==="file"?"file"'),"backend must preserve document attachment message type");
 assert(sourceTemplate.includes('path==="/api/chat/file"&&req.method==="POST"'),"document attachment upload endpoint missing");
 assert(sourceTemplate.includes('db.storage.from("chat-attachments").createSignedUrl'),"chat attachments must use signed URLs");
+assert(sourceTemplate.includes("createSignedUrl(objectPath,Math.max(1,Math.floor((Date.parse(data.expires_at)-Date.now())/1000)))"),"signed URL must not outlive the attachment expiry");
 assert(sourceTemplate.includes('db.storage.from("chat-attachments").remove(paths)'),"expired chat objects must be deleted from private storage");
 assert(sourceTemplate.includes("await cleanupExpiredChatAttachments();"),"chat cleanup must run during API activity");
 assert(sourceTemplate.includes('db.from("upstatus_chat_attachments").insert'),"uploaded attachments must register expiry metadata");
