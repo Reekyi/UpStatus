@@ -694,6 +694,7 @@ function callEnsureOverlay(){
     callStopStream();
     upCall.callId='';upCall.peer='';upCall.role='';upCall.initiator='';upCall.participants=[];upCall.pendingInvites={};upCall.pendingOffers={};upCall.pendingInvite=null;upCall.peers={};upCall.localStream=null;upCall.remoteStream=null;upCall.audio=null;upCall.active=false;upCall.connected=false;upCall.muted=false;upCall.startedAt=0;upCall.waitingForConnection=false;upCall.notice='';upCall.speakerName='';upCall.speakerLevel=0;
     callHideOverlay();
+    syncGuestCallControls();
   }
   function callFail(msg){
     if(upCall.timer){clearTimeout(upCall.timer);upCall.timer=null;}
@@ -769,8 +770,17 @@ function callEnsureOverlay(){
       {label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},
       {label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}
     ]);
+    syncGuestCallControls();
     callStartSpeakerDetection();
     callApplySpeakerVisual();
+  }
+  function syncGuestCallControls(){
+    var actions=root.querySelector('.guest-top-actions');if(!actions)return;
+    actions.querySelectorAll('[data-lucca-call-control]').forEach(function(b){b.remove();});
+    if(!upCall.active)return;
+    function addControl(label,text,handler){var b=document.createElement('button');b.type='button';b.setAttribute('data-lucca-call-control','');b.title=label;b.setAttribute('aria-label',label);b.textContent=text;b.style.cssText='height:34px;min-width:34px;padding:0 9px;border:1px solid #40506a;border-radius:7px;background:#273247;color:#e7eefb;cursor:pointer;font:700 12px Segoe UI,Arial,sans-serif';b.onclick=function(e){e.preventDefault();e.stopPropagation();handler();};actions.insertBefore(b,root.querySelector('.guest-exit'));}
+    if(upCall.connected){addControl(upCall.muted?'Ativar microfone':'Mutar microfone',upCall.muted?'Mic +':'Mic −',toggleCallMute);addControl('Adicionar participante','+ Pessoa',callOpenParticipantPicker);}
+    addControl('Desligar chamada','Desligar',function(){callCleanup(true,'leave');});
   }
   async function startOutgoingCall(target){
     if(!target||target===member)return;
@@ -906,7 +916,7 @@ function callEnsureOverlay(){
 function callOpenStartPicker(){
  var old=document.querySelector('[data-lucca-call-start-picker]');if(old){old.remove();return;}
  var box=document.createElement('div');box.setAttribute('data-lucca-call-start-picker','');
- box.style.cssText='position:fixed;right:18px;top:66px;z-index:2147483647;width:238px;max-width:calc(100vw - 36px);max-height:55vh;overflow:auto;box-sizing:border-box;padding:10px;border:1px solid #40506a;border-radius:12px;background:linear-gradient(145deg,#192435,#111925);box-shadow:0 16px 36px rgba(0,0,0,.44);color:#dbe5f5;font:12px Segoe UI,Arial,sans-serif';
+ var anchor=root.querySelector('.guest-call'),rect=anchor?anchor.getBoundingClientRect():{right:window.innerWidth-18,bottom:66};box.style.cssText='position:fixed;right:'+Math.max(12,window.innerWidth-rect.right)+'px;top:'+Math.min(window.innerHeight-120,rect.bottom+8)+'px;z-index:2147483647;width:238px;max-width:calc(100vw - 24px);max-height:55vh;overflow:auto;box-sizing:border-box;padding:10px;border:1px solid #40506a;border-radius:12px;background:linear-gradient(145deg,#192435,#111925);box-shadow:0 16px 36px rgba(0,0,0,.44);color:#dbe5f5;font:12px Segoe UI,Arial,sans-serif';
  var title=document.createElement('div');title.textContent='Ligar para';title.style.cssText='font-weight:800;margin:2px 2px 8px';box.appendChild(title);
  var names=callAvailableParticipants();
  if(!names.length){var empty=document.createElement('div');empty.textContent='Nenhum membro disponível na lista.';empty.style.cssText='color:#9baac0;padding:8px 2px';box.appendChild(empty);}
