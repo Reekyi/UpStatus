@@ -62,7 +62,14 @@ try {
     ["GM_removeValueChangeListener grant", "// @grant        GM_removeValueChangeListener"],
     ["cross-tab leader lock", "__upLeaderKey"],
     ["cross-tab follower mode", "__upFollowerMode"],
-    ["follower event handler", "__upHandleFollowerEvent"]
+    ["follower event handler", "__upHandleFollowerEvent"],
+    ["main runtime wrapper", "async function __upstatusMain(){"],
+    ["leader entry point", "async function __upstatusRun(){"],
+    ["leader startup invocation", "__upstatusRun();"],
+    ["Web Locks leader election", "await navigator.locks.request(__upLeaderLockName,{ifAvailable:true}"],
+    ["chat follower notification hook", "__upPublishFollowerEvent('chat'"],
+    ["status follower notification hook", "__upPublishFollowerEvent('status'"],
+    ["incoming-call follower notification hook", "__upPublishFollowerEvent('call'"]
   ].filter(([, marker]) => !userTemplate.includes(marker)).map(([label]) => label);
 
   const lines = [
