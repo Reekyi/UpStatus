@@ -23,6 +23,21 @@ jobs:
           node -e "const r=require('./release.json'); if(r.preRelease) { console.error('Production requires release.json.preRelease to be empty.'); process.exit(1); }"
       - name: Validate stable build
         run: node scripts/validate.mjs
+      - name: Refuse deployment while production behavior is unreconciled
+        run: npm run audit:production-drift:strict
+      - name: Read current production version and prevent downgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/upstatus/upstatus.user.js"
+          CODE="$(curl --silent --show-error --location --output current-production.user.js --write-out '%{http_code}' "$URL")"
+          if [ "$CODE" != "200" ]; then
+            echo "Could not verify the live production userscript (HTTP $CODE). Refusing deployment."
+            exit 1
+          fi
+          CURRENT="$(node -e "const fs=require('fs');const s=fs.readFileSync('current-production.user.js','utf8');const m=s.match(/^\\/\\/ @version\\s+(\\S+)/m);if(!m){console.error('Current production version marker missing');process.exit(2)}console.log(m[1])")"
+          CANDIDATE="$(node -e "console.log(String(require('./release.json').version||'').trim())")"
+          node scripts/compare-release-versions.mjs "$CURRENT" "$CANDIDATE"
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
         with:

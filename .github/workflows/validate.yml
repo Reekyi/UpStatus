@@ -17,5 +17,17 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - name: Validate build
-        run: node scripts/validate.mjs
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Validate generated build
+        run: npm run validate
+      - name: Audit production source drift
+        run: npm run audit:production-drift
+      - name: Validate strict source-drift guard
+        run: npm run audit:production-drift:strict
+      - name: Validate production release guard
+        run: npm run test:release-safety
