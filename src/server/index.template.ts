@@ -513,13 +513,13 @@ async function chatFileUploadInit(req:Request){
 async function chatFileUploadComplete(req:Request,name:string){
   const p:any=await readBody(req),path=String(p.path||""),mime=String(p.mime||"").toLowerCase(),size=Number(p.size);
   const filename=String(p.filename||"Arquivo anexado").slice(0,240);
-  if(!/^[0-9]+-[a-f0-9]{24}\\.[a-z0-9]+$/.test(path))return response({error:"Caminho de anexo inválido."},400);
+  if(!/^[0-9]+-[a-f0-9]{24}\.[a-z0-9]+$/.test(path))return response({error:"Caminho de anexo inválido."},400);
   if(!CHAT_FILE_TYPES.has(mime)||!Number.isSafeInteger(size)||size<1||size>CHAT_FILE_MAX_BYTES)return response({error:"Arquivo inválido ou acima de 100 MB."},413);
-  const {data:object,error:objectError}=await db.from("storage.objects").select("name,metadata,mime_type").eq("bucket_id","chat-attachments").eq("name",path).maybeSingle();
+  const {data:object,error:objectError}=await db.from("storage.objects").select("name,metadata").eq("bucket_id","chat-attachments").eq("name",path).maybeSingle();
   if(objectError)throw objectError;
   if(!object)return response({error:"O upload não foi concluído."},400);
   const storedSize=Number((object.metadata as any)?.size||0);
-  if(storedSize<1||storedSize>CHAT_FILE_MAX_BYTES||storedSize!==size||String(object.mime_type||"").toLowerCase()!==mime){
+  if(storedSize<1||storedSize>CHAT_FILE_MAX_BYTES||storedSize!==size||String((object.metadata as any)?.mimetype||"").toLowerCase()!==mime){
     await db.storage.from("chat-attachments").remove([path]);
     return response({error:"O arquivo enviado não corresponde ao tamanho ou formato informado."},400);
   }
