@@ -48,6 +48,9 @@ const attachmentMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20
 assert(sourceTemplate.includes("const CHAT_ATTACHMENT_TTL_MS=72*60*60*1000;"),"chat attachment TTL must be 72 hours");
 assert(sourceTemplate.includes('p.type==="file"?"file"'),"backend must preserve document attachment message type");
 assert(sourceTemplate.includes('path==="/api/chat/file"&&req.method==="POST"'),"document attachment upload endpoint missing");
+assert(sourceTemplate.includes('createSignedUploadUrl(path,{upsert:false})'),"large document uploads must use signed direct storage uploads");
+assert(sourceTemplate.includes('const CHAT_FILE_MAX_BYTES=100*1024*1024;'),"document attachment maximum must be 100 MB");
+assert(sourceTemplate.includes('path==="/api/chat/file-upload/complete"&&req.method==="POST"'),"document upload completion endpoint missing");
 assert(sourceTemplate.includes('db.storage.from("chat-attachments").createSignedUrl'),"chat attachments must use signed URLs");
 assert(sourceTemplate.includes("createSignedUrl(objectPath,Math.max(1,Math.floor((Date.parse(data.expires_at)-Date.now())/1000)))"),"signed URL must not outlive the attachment expiry");
 assert(sourceTemplate.includes('db.storage.from("chat-attachments").remove(paths)'),"expired chat objects must be deleted from private storage");
@@ -59,5 +62,7 @@ assert(attachmentMigration.includes("expires_at <= now()"),"scheduled cleanup mu
 assert(userTemplate.includes("Anexo expirado após 72 horas"),"chat UI must preserve an expired attachment placeholder");
 assert(userTemplate.includes("application/vnd.openxmlformats-officedocument.wordprocessingml.document"),"DOCX file support missing");
 assert(userTemplate.includes("el.href=url;el.download=''"),"download link must use the signed URL");
+assert(userTemplate.includes("function uploadChatDocument(file,info)"),"100 MB documents must upload directly to private storage");
+assert(userTemplate.includes("var max=100*1024*1024;"),"userscript document size limit must be 100 MB");
 assert(!sourceTemplate.includes('getPublicUrl(path).data.publicUrl,mime')||sourceTemplate.includes('async function uploadChatAttachment'),"private chat upload path missing");
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion+" / private 72h chat attachments");
