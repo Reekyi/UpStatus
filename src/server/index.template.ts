@@ -496,6 +496,38 @@ async function profileRoute(req:Request,name:string) {
   await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:saved.url,updated_at:new Date().toISOString()},{onConflict:"user_name"});
   return response({ok:true,avatarUrl:saved.url});
 }
+const CHAT_FILE_MAX_BYTES=100*1024*1024;
+const CHAT_FILE_TYPES=new Set(["application/pdf","text/plain","text/csv","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","application/vnd.openxmlformats-officedocument.presentationml.presentation"]);
+async function chatFileUploadInit(req:Request){
+  const p:any=await readBody(req);
+  await cleanupExpiredChatAttachments();
+  const mime=String(p.mime||"").toLowerCase(),size=Number(p.size);
+  if(!CHAT_FILE_TYPES.has(mime))return response({error:"Tipo de arquivo não suportado."},415);
+  if(!Number.isSafeInteger(size)||size<1||size>CHAT_FILE_MAX_BYTES)return response({error:"O arquivo deve ter até 100 MB."},413);
+  const e=ext(mime);if(!e)return response({error:"Tipo de arquivo não suportado."},415);
+  const path=Date.now()+"-"+randomBytes(12).toString("hex")+"."+e;
+  const {data,error}=await db.storage.from("chat-attachments").createSignedUploadUrl(path,{upsert:false});
+  if(error)throw error;
+  return response({ok:true,path:data.path,token:data.token,mime,size});
+}
+async function chatFileUploadComplete(req:Request,name:string){
+  const p:any=await readBody(req),path=String(p.path||""),mime=String(p.mime||"").toLowerCase(),size=Number(p.size);
+  const filename=String(p.filename||"Arquivo anexado").slice(0,240);
+  if(!/^[0-9]+-[a-f0-9]{24}\\.[a-z0-9]+$/.test(path))return response({error:"Caminho de anexo inválido."},400);
+  if(!CHAT_FILE_TYPES.has(mime)||!Number.isSafeInteger(size)||size<1||size>CHAT_FILE_MAX_BYTES)return response({error:"Arquivo inválido ou acima de 100 MB."},413);
+  const {data:object,error:objectError}=await db.from("storage.objects").select("name,metadata,mime_type").eq("bucket_id","chat-attachments").eq("name",path).maybeSingle();
+  if(objectError)throw objectError;
+  if(!object)return response({error:"O upload não foi concluído."},400);
+  const storedSize=Number((object.metadata as any)?.size||0);
+  if(storedSize<1||storedSize>CHAT_FILE_MAX_BYTES||storedSize!==size||String(object.mime_type||"").toLowerCase()!==mime){
+    await db.storage.from("chat-attachments").remove([path]);
+    return response({error:"O arquivo enviado não corresponde ao tamanho ou formato informado."},400);
+  }
+  const expiresAt=new Date(Date.now()+CHAT_ATTACHMENT_TTL_MS).toISOString();
+  const {error:metaError}=await db.from("upstatus_chat_attachments").insert({object_path:path,created_by:name,expires_at:expiresAt,content_type:mime,byte_size:storedSize});
+  if(metaError){await db.storage.from("chat-attachments").remove([path]);throw metaError;}
+  return response({ok:true,imageUrl:CHAT_ATTACHMENT_PREFIX+path,type:"file",filename,expiresAt});
+}
 async function mediaRoute(req:Request,kind:"image"|"audio"|"file",name:string) {
   const p:any=await readBody(req);
   await cleanupExpiredChatAttachments();
@@ -641,6 +673,8 @@ Deno.serve(async(req)=>{
     if(path==="/api/chat/image"&&req.method==="POST")return await mediaRoute(req,"image",name);
     if(path==="/api/chat/audio"&&req.method==="POST")return await mediaRoute(req,"audio",name);
     if(path==="/api/chat/file"&&req.method==="POST")return await mediaRoute(req,"file",name);
+    if(path==="/api/chat/file-upload/init"&&req.method==="POST")return await chatFileUploadInit(req);
+    if(path==="/api/chat/file-upload/complete"&&req.method==="POST")return await chatFileUploadComplete(req,name);
     if(path.startsWith("/api/remote-status"))return await remoteRoute(req,name);
     if(path==="/api/chat/clear"&&req.method==="POST"){
       if(name!=="Ricardo")return response({error:"Somente Ricardo pode limpar o chat."},403);
