@@ -5,7 +5,7 @@ values (
   'chat-attachments',
   'chat-attachments',
   false,
-  26214400,
+  104857600,
   array[
     'image/png','image/jpeg','image/webp','image/gif',
     'video/mp4','video/webm',
