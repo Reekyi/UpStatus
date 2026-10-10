@@ -1,4 +1,4 @@
--- Private chat attachments with a hard 72-hour retention window.
+-- Private chat attachments with a hard 72-hour access window.
 -- Apply in TEST first. This migration intentionally does not change the existing chat-images bucket.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -35,39 +35,9 @@ create index if not exists upstatus_chat_attachments_expiry_idx
 
 alter table public.upstatus_chat_attachments enable row level security;
 
--- The Edge Function uses the service-role key. No client-facing policy is created.
--- The scheduled task deletes the Storage object and its metadata after expiration.
-create extension if not exists pg_cron with schema pg_catalog;
-
-do $$
-declare existing_job bigint;
-begin
-  for existing_job in
-    select jobid from cron.job where jobname = 'upstatus-chat-attachment-cleanup'
-  loop
-    perform cron.unschedule(existing_job);
-  end loop;
-end $$;
-
-select cron.schedule(
-  'upstatus-chat-attachment-cleanup',
-  '*/15 * * * *',
-  $job$
-    with expired as (
-      select object_path
-      from public.upstatus_chat_attachments
-      where expires_at <= now()
-      limit 500
-    ),
-    removed as (
-      delete from storage.objects o
-      using expired e
-      where o.bucket_id = 'chat-attachments'
-        and o.name = e.object_path
-      returning o.name
-    )
-    delete from public.upstatus_chat_attachments a
-    using expired e
-    where a.object_path = e.object_path
-  $job$
-);
+-- No client-facing policy is created. The Edge Function uses the service-role key.
+-- Storage objects must be deleted through the Storage API, not by deleting rows
+-- directly from storage.objects. Expired URLs are denied immediately by the
+-- Edge Function; expired objects are physically removed during subsequent chat API
+-- activity by cleanupExpiredChatAttachments(). A scheduled worker is intentionally
+-- omitted because this project must not create paid infrastructure.
