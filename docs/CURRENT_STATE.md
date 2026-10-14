@@ -51,3 +51,19 @@ The current chat is establishing durable continuity docs so a new chat can conti
 ## Last updated
 
 2026-10-09. Updated with the Ycaro stable-release preparation checkpoint. Re-check live GitHub, Supabase, and Vercel state before any merge or deployment.
+
+## Chat reliability fixes in progress (2026-10-14)
+
+- Work is isolated in draft PR #21: https://github.com/Reekyi/UpStatus/pull/21, targeting `develop`. The attachment work in PR #20 remains separate and was not reused as the implementation branch.
+- Current source branch: `fix/team-chat-notifications-loading-scroll`. Latest implementation commit before this handoff: `6231d613d88f93c86dd9db02541795b8667e7e23`.
+- Updated `src/userscript/upstatus.user.template.js` to prevent Realtime events from prematurely marking the chat history as initialized; initial history now loads fully before incremental refreshes are used. Realtime messages arriving during bootstrap are queued and reconciled with the initial history.
+- Added protection against stale unread-count responses overwriting a newer read action. Chat history requests now have a 15-second timeout and retry path so a stalled request does not leave the loading state locked indefinitely.
+- Rendering now preserves the first visible message anchor when updating the conversation away from the bottom, and follows the bottom when appropriate. The redundant scroll condition in the prior draft was removed.
+- Added regression guards to `scripts/validate.mjs` for initial-history loading, Realtime bootstrap queuing, stale unread responses, request timeout recovery, and scroll-anchor preservation.
+- GitHub Actions `UpStatus Validate` run #129 passed for commit `6231d613d88f93c86dd9db02541795b8667e7e23`: https://github.com/Reekyi/UpStatus/actions/runs/38572201352. An earlier run #128 failed because the newly added assertions referenced a variable not defined in this branch; the assertions were corrected to inspect the generated production userscript, and run #129 passed.
+- Validation confirms build output/version consistency and JavaScript syntax. No browser test was performed in Sale Smartly. Manual verification is still required for unread notifications across F5, opening chat with Realtime already connected, slow/failed network recovery, scroll preservation while reading older messages, and media loading.
+- No Supabase schema, Edge Function, secret, production deployment, or Vercel configuration was intentionally changed. PR remains draft and unmerged. Do not merge or deploy to production until the manual checks and final review are complete.
+
+## Bonfire note (2026-10-14)
+
+The chat fixes have a passing automated build/validation run, but real browser behavior remains unverified. Next step: inspect the final PR diff and CI result after the continuity update, then run the manual Sale Smartly regression checklist if an isolated TEST environment is available. Keep PR #20's attachment changes separate and preserve the no-cost / no-production-deploy constraints.
