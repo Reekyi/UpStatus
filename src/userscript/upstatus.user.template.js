@@ -1556,7 +1556,7 @@
   function playLuccaEntrySound(){try{var a=new Audio(server+'/lucca-devil-laugh.wav?'+Date.now());a.volume=.7;var p=a.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}
   function loadChat(forceFull){
     if(!token||chatLoading)return;
-    if(realtimeActive&&!forceFull)return;
+    if(realtimeActive&&!forceFull&&chatCache.length)return;
     chatLoading=true;
     var useFast=!forceFull&&chatCache.length>0&&chatFastSince;
     var route='/api/chat';
@@ -1598,7 +1598,13 @@
         }
         updateTypingIndicator(d.typing||[]);
       }
-    }).catch(function(){}).finally(function(){chatLoading=false;});
+    }).catch(function(){
+      var list=chat.querySelector('.up-chat-list');
+      if(list&&!chat.classList.contains('hidden')&&!chatCache.length){list.innerHTML='<div class="up-history-empty">Não foi possível carregar o chat. Tentando novamente…</div>';}
+    }).finally(function(){
+      chatLoading=false;
+      if(!chat.classList.contains('hidden')&&!chatCache.length&&token){setTimeout(function(){if(!chatLoading&&!chat.classList.contains('hidden'))loadChat(true);},1500);}
+    });
   }
   function updateTypingIndicator(names){
     var box=chat.querySelector('.up-chat-typing');if(!box)return;
@@ -1726,6 +1732,7 @@
     chatLastRenderKey=renderKey;
     requestAnimationFrame(function(){
       if(forceScrollBottom)scrollChatToBottom(true);
+      else if(forceScrollBottom||!chatLastRenderKey)scrollChatToBottom(true);
       else list.scrollTop=wasAtBottom?list.scrollHeight:previousScrollTop;
     });
   }
@@ -1810,6 +1817,7 @@
     if(!token)return;
     chatReplyTo=null;chatContextMessageId=null;
     setUnread(0);
+    chatForceScrollBottom=true;
     chat.classList.remove('hidden');card.classList.add('hidden');history.classList.add('hidden');broadcastChatPresence(true);refresh();
     chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><button type="button" class="up-chat-profile-btn" title="Alterar foto de perfil"><img alt="Minha foto"></button><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">â</span> 0 online Â· 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'<button class="up-chat-back" type="button">â Voltar</button></div></div><div class="up-chat-lucca-alert hidden">ð´ ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregandoâ¦</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">Ã</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando <span class="up-chat-recording-time">0:00</span> â¢ clique novamente para enviar</div><div class="up-chat-input-wrap"><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vÃ­deo" aria-label="Enviar foto, GIF ou vÃ­deo">'+iconSvg('photo')+'</button><button type="button" class="up-chat-record" title="Gravar Ã¡udio (atÃ© 30 segundos)" aria-label="Gravar Ã¡udio">ðï¸</button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" hidden></div></div><div class="up-chat-lightbox hidden"><button type="button" class="up-chat-lightbox-close" aria-label="Fechar">Ã</button><img alt="Imagem ampliada"></div>';
     var profileBtn=chat.querySelector('.up-chat-profile-btn');if(profileBtn){hydrateAvatar(profileBtn.querySelector('img'),member);profileBtn.onclick=function(e){e.stopPropagation();openProfileModal();};profileBtn.addEventListener('mouseenter',function(e){showChatProfileHover(profileBtn.querySelector('img'),member,e);});profileBtn.addEventListener('mousemove',positionChatProfileHover);profileBtn.addEventListener('mouseleave',hideChatProfileHover);}
