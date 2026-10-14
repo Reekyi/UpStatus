@@ -330,6 +330,8 @@
   var chatUnread=0;
   var chatInitialized=false;
   var seenMentionIds={};
+  var pendingRealtimeChatNotifications=[];
+  var chatReadRevision=0;
   var audioCtx=null;
   var audioUnlocked=false;
   var mediaRecorder=null;
@@ -1046,7 +1048,7 @@
     }
     if(m.systemType==='lucca_join')updateLuccaPresence(true);
     if(m.systemType==='lucca_leave')updateLuccaPresence(false);
-    if(idx<0)processChatNotifications([m]);
+    if(idx<0){if(chatInitialized)processChatNotifications([m]);else pendingRealtimeChatNotifications.push(m);}
     if(!chat.classList.contains('hidden')){renderChat();markVisibleChatRead();}
     else if(idx<0&&m.user!==member&&m.type!=='system')setUnread(chatUnread+1);
     var newest=chatCache[chatCache.length-1];if(newest&&newest.createdAt)chatFastSince=newest.createdAt;
@@ -1556,12 +1558,15 @@
   function playLuccaEntrySound(){try{var a=new Audio(server+'/lucca-devil-laugh.wav?'+Date.now());a.volume=.7;var p=a.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}
   function loadChat(forceFull){
     if(!token||chatLoading)return;
-    if(realtimeActive&&!forceFull&&chatCache.length)return;
+    if(realtimeActive&&!forceFull&&chatInitialized&&chatCache.length)return;
+    var readRevisionAtStart=chatReadRevision,refreshUnreadAfterLoad=false,requestTimeout=null;
     chatLoading=true;
-    var useFast=!forceFull&&chatCache.length>0&&chatFastSince;
+    var useFast=!forceFull&&chatInitialized&&chatCache.length>0&&chatFastSince;
     var route='/api/chat';
     if(useFast)route='/api/chat?fast=1&since='+encodeURIComponent(new Date(new Date(chatFastSince).getTime()-2000).toISOString());
-    api('GET',route).then(function(d){
+    var chatRequest=api('GET',route);
+    var chatTimeout=new Promise(function(resolve,reject){requestTimeout=setTimeout(function(){reject(new Error('O carregamento do chat demorou demais. Tentando novamente…'));},15000);});
+    Promise.race([chatRequest,chatTimeout]).then(function(d){
       var incoming=d.messages||[],nextMessages;
       if(useFast){
         var byId={};
@@ -1576,6 +1581,10 @@
           var existing=chatCache.find(function(x){return String(x.id)===String(m.id);});
           return mergeChatMessage(existing,m);
         });
+        if(!chatInitialized&&chatCache.length){
+          chatCache.forEach(function(m){if(!nextMessages.some(function(x){return String(x.id)===String(m.id);}))nextMessages.push(m);});
+          nextMessages.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});
+        }
       }
       updateLuccaPresence(!!d.luccaOnline);
       var latestLuccaJoin=null;
@@ -1584,12 +1593,19 @@
       var beforeKey=chatDataKey(chatCache);
       chatCache=nextMessages;
       if(d.profiles)profileCache=d.profiles;
+      var wasChatInitialized=chatInitialized;
       processChatNotifications(incoming);
+      if(!wasChatInitialized&&chatInitialized&&pendingRealtimeChatNotifications.length){
+        var pending=pendingRealtimeChatNotifications.splice(0),loadedIds={};
+        incoming.forEach(function(m){loadedIds[String(m.id)]=true;});
+        pending.forEach(function(m){if(!loadedIds[String(m.id)])processChatNotifications([m]);});
+      }
       var newest=chatCache[chatCache.length-1];
       if(newest&&newest.createdAt)chatFastSince=newest.createdAt;
       var chatVisible=!chat.classList.contains('hidden')&&!document.hidden;
-      if(!useFast)setUnread(chatVisible?0:(d.unreadCount||0));
-      else if(chatVisible)setUnread(0);
+      if(chatVisible)setUnread(0);
+      else if(!useFast&&chatReadRevision===readRevisionAtStart)setUnread(d.unreadCount||0);
+      else if(chatReadRevision!==readRevisionAtStart)refreshUnreadAfterLoad=true;
       if(!chat.classList.contains('hidden')){
         var nextKey=chatDataKey(chatCache);
         if(nextKey!==beforeKey){
@@ -1598,11 +1614,13 @@
         }
         updateTypingIndicator(d.typing||[]);
       }
-    }).catch(function(){
+    }).catch(function(err){
       var list=chat.querySelector('.up-chat-list');
-      if(list&&!chat.classList.contains('hidden')&&!chatCache.length){list.innerHTML='<div class="up-history-empty">Não foi possível carregar o chat. Tentando novamente…</div>';}
+      if(list&&!chat.classList.contains('hidden')&&!chatCache.length){list.innerHTML='<div class="up-history-empty">'+esc(err&&err.message||'Não foi possível carregar o chat. Tentando novamente…')+'</div>';}
     }).finally(function(){
+      if(requestTimeout)clearTimeout(requestTimeout);
       chatLoading=false;
+      if(refreshUnreadAfterLoad&&token){setTimeout(function(){if(!chatLoading)loadChat(true);},0);return;}
       if(!chat.classList.contains('hidden')&&!chatCache.length&&token){setTimeout(function(){if(!chatLoading&&!chat.classList.contains('hidden'))loadChat(true);},1500);}
     });
   }
@@ -1625,7 +1643,7 @@
   function restoreChatDraft(input){if(!input||!member)return;try{var draft=String(GM_getValue(chatDraftKey(),'')||'');if(draft&&!String(input.value||'')){input.value=draft;input.setSelectionRange(input.value.length,input.value.length);}}catch(e){}}
   function clearChatDraft(){if(!member)return;try{GM_setValue(chatDraftKey(),'');}catch(e){}}
   function handleTypingInput(){var input=chat.querySelector('.up-chat-input');if(!input)return;saveChatDraft(input);if(String(input.value||'').trim()){startTypingHeartbeat();if(typingStopTimer)clearTimeout(typingStopTimer);typingStopTimer=setTimeout(function(){stopTypingHeartbeat();},4500);}else stopTypingHeartbeat();}
-  function markVisibleChatRead(){if(!token||chat.classList.contains('hidden'))return;var ids=chatCache.filter(function(m){return m.user!==member;}).map(function(m){return m.id;});setUnread(0);if(!ids.length)return;var k=ids.join(',');if(k===readSentKey)return;api('POST','/api/chat/read',{messageIds:ids}).then(function(){readSentKey=k;setUnread(0);if(realtimeActive&&realtimeChannel){try{realtimeChannel.send({type:'broadcast',event:'chat_read',payload:{reader:member,messageIds:ids}});}catch(e){}}}).catch(function(){});}
+  function markVisibleChatRead(){if(!token||chat.classList.contains('hidden'))return;chatReadRevision++;var ids=chatCache.filter(function(m){return m.user!==member;}).map(function(m){return m.id;});setUnread(0);if(!ids.length)return;var k=ids.join(',');if(k===readSentKey)return;api('POST','/api/chat/read',{messageIds:ids}).then(function(){readSentKey=k;setUnread(0);if(realtimeActive&&realtimeChannel){try{realtimeChannel.send({type:'broadcast',event:'chat_read',payload:{reader:member,messageIds:ids}});}catch(e){}}}).catch(function(){});}
 
 
   function replyPreview(m){
@@ -1699,7 +1717,8 @@
       if(forceScrollBottom)scrollChatToBottom(true);
       return;
     }
-    var wasAtBottom=(list.scrollHeight-list.scrollTop-list.clientHeight)<28;var previousScrollTop=list.scrollTop;
+    var wasAtBottom=(list.scrollHeight-list.scrollTop-list.clientHeight)<28;var previousScrollTop=list.scrollTop,anchorMessageId='',anchorOffset=0;
+    if(!wasAtBottom){var listTop=list.getBoundingClientRect().top,visibleItems=list.querySelectorAll('.up-chat-item');for(var ai=0;ai<visibleItems.length;ai++){var itemRect=visibleItems[ai].getBoundingClientRect();if(itemRect.bottom>listTop){anchorMessageId=visibleItems[ai].getAttribute('data-message-id')||'';anchorOffset=itemRect.top-listTop;break;}}}
     updateChatHeaderPresence();
     if(!chatCache.length){list.innerHTML='<div class="up-history-empty">Nenhuma mensagem nas Ãºltimas 48 horas.</div>';return;}
     var html='',lastDate='';
@@ -1731,9 +1750,10 @@
     list.onclick=function(e){if(e.target.closest&&e.target.closest('.up-delete-action'))return;list.querySelectorAll('.up-delete-action').forEach(function(b){b.classList.add('hidden')});};
     chatLastRenderKey=renderKey;
     requestAnimationFrame(function(){
-      if(forceScrollBottom)scrollChatToBottom(true);
-      else if(forceScrollBottom||!chatLastRenderKey)scrollChatToBottom(true);
-      else list.scrollTop=wasAtBottom?list.scrollHeight:previousScrollTop;
+      if(forceScrollBottom||wasAtBottom){list.scrollTop=list.scrollHeight;return;}
+      var anchor=null;if(anchorMessageId){var items=list.querySelectorAll('.up-chat-item');for(var i=0;i<items.length;i++){if(items[i].getAttribute('data-message-id')===anchorMessageId){anchor=items[i];break;}}}
+      if(anchor){var delta=anchor.getBoundingClientRect().top-list.getBoundingClientRect().top-anchorOffset;list.scrollTop+=delta;}
+      else list.scrollTop=previousScrollTop;
     });
   }
   function openChatLightbox(src){var box=chat.querySelector('.up-chat-lightbox'),img=box&&box.querySelector('img');if(!box||!img)return;img.src=src;box.classList.remove('hidden');}
