@@ -42,9 +42,9 @@ assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not mat
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
-assert(userTemplate.includes("var useFast=!forceFull&&chatInitialized&&chatCache.length>0&&chatFastSince;"),"chat must fetch full history before using incremental Realtime refresh");
-assert(userTemplate.includes("pendingRealtimeChatNotifications.push(m)"),"Realtime notifications must wait for initial history bootstrap");
-assert(userTemplate.includes("chatReadRevision===readRevisionAtStart"),"stale unread-count responses must not overwrite a newer read state");
-assert(userTemplate.includes("O carregamento do chat demorou demais. Tentando novamente"),"chat history requests must recover from a stalled request");
-assert(userTemplate.includes("anchor.getBoundingClientRect().top-list.getBoundingClientRect().top-anchorOffset"),"chat rerender must preserve the visible message anchor when not at bottom");
+assert(prodUser.includes("var useFast=!forceFull&&chatInitialized&&chatCache.length>0&&chatFastSince;"),"chat must fetch full history before using incremental Realtime refresh");
+assert(prodUser.includes("pendingRealtimeChatNotifications.push(m)"),"Realtime notifications must wait for initial history bootstrap");
+assert(prodUser.includes("chatReadRevision===readRevisionAtStart"),"stale unread-count responses must not overwrite a newer read state");
+assert(prodUser.includes("O carregamento do chat demorou demais. Tentando novamente"),"chat history requests must recover from a stalled request");
+assert(prodUser.includes("anchor.getBoundingClientRect().top-list.getBoundingClientRect().top-anchorOffset"),"chat rerender must preserve the visible message anchor when not at bottom");
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion+" / chat regression guards");
