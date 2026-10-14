@@ -73,4 +73,6 @@ assert(prodUser.includes("pendingRealtimeChatNotifications.push(m)"),"Realtime n
 assert(prodUser.includes("chatReadRevision===readRevisionAtStart"),"stale unread-count responses must not overwrite a newer read state");
 assert(prodUser.includes("O carregamento do chat demorou demais. Tentando novamente"),"chat history requests must recover from a stalled request");
 assert(prodUser.includes("anchor.getBoundingClientRect().top-list.getBoundingClientRect().top-anchorOffset"),"chat rerender must preserve the visible message anchor when not at bottom");
+assert(testUser.includes("if(wasAtBottom){list.scrollTop=list.scrollHeight;return;}"),"chat media loading must preserve the scroll anchor when the reader is away from the bottom");
+assert(testFn.includes('!(readBy[m.id]||[]).includes(name)'),"unread counts must respect per-message read receipts to avoid stale false positives");
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion+" / chat regression guards");
