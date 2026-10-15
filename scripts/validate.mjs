@@ -64,8 +64,9 @@ assert(prodUser.includes("function loadSeenChatNotifications()")&&prodUser.inclu
 assert(testUser.includes("chat_seen_notifications_'+member"),"TEST notification seen-ID storage must be scoped to the active member");
 assert(prodUser.includes("if(!list._upstatusBottomScrollBound)")&&prodUser.includes("list.addEventListener('load',function()"),"chat must re-pin to the latest message when async media loads");
 assert(testUser.includes("new ResizeObserver(function()")&&testUser.includes("Date.now()<chatOpenScrollUntil"),"TEST chat bottom-scroll intent must survive async layout changes");
+assert(testUser.includes("list.scrollHeight-list.scrollTop-list.clientHeight)<80"),"TEST chat render must preserve sticky-bottom state across ticket/layout changes");
 
-assert(testUser.includes("pendingChatNotificationMessages.push(m)")&&testUser.includes("pendingChatNotificationMessages.splice(0)"),"TEST realtime messages arriving before the baseline must be queued and reconciled");
+assert(testUser.includes("pendingChatNotificationMessages.push(m)")&&testUser.includes("pendingChatNotificationMessages.length=0"),"TEST realtime events buffered before the initial baseline must be discarded to prevent stale notification replay");
 assert(prodUser.includes("processChatNotifications(incoming,!useFast);")&&testUser.includes("processChatNotifications(incoming,!useFast);"),"only full history loads may establish the initial notification baseline");
 assert(prodUser.includes("Date.now()<chatOpenScrollUntil")&&testUser.includes("if(Date.now()<chatOpenScrollUntil)scrollChatToBottom(true);"),"opening chat must retain and reapply bottom-scroll intent through history completion");
 
