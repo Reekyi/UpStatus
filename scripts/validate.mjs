@@ -71,13 +71,13 @@ assert(ycaroHtml.includes("#ff8a1f"),"Ycaro orange theme missing");
 assert(!ycaroHtml.includes("api('/api/lucca/"),"Ycaro page contains Lucca endpoints");
 
 
-assert(prodUser.includes("var useFast=!forceFull&&chatInitialized&&chatCache.length>0&&chatFastSince;"),"chat must fetch full history before using incremental Realtime refresh");
+assert(prodUser.includes("var useFast=!forceFull&&chatInitialized&&chatCache.length>0&&chatFastSince&&(Date.now()-chatLastFullLoadAt<30000);"),"chat must use incremental fallback polling and periodically refresh full history");
 assert(prodUser.includes("pendingRealtimeChatNotifications.push(m)"),"Realtime notifications must wait for initial history bootstrap");
 assert(prodUser.includes("chatReadRevision===readRevisionAtStart"),"stale unread-count responses must not overwrite a newer read state");
 assert(prodUser.includes("O carregamento do chat demorou demais. Tentando novamente"),"chat history requests must recover from a stalled request");
 assert(prodUser.includes("anchor.getBoundingClientRect().top-list.getBoundingClientRect().top-anchorOffset"),"chat rerender must preserve the visible message anchor when not at bottom");
 assert(testUser.includes("if(forceScrollBottom||wasAtBottom){scrollChatToBottom(true);return;}"),"chat render must use the robust scroll helper when opening or already at the bottom");
-assert(testFn.includes('!(readBy[m.id]||[]).includes(name)'),"unread counts must respect per-message read receipts to avoid stale false positives");
+assert(testFn.includes('!(readBy[m.id]||[]).some((reader)=>normalizedReader(reader)===normalizedReader(name))'),"unread counts must respect per-message read receipts with normalized identities");
 assert(testUser.includes("list.getAttribute('data-render-key')===renderKey"),"recreated chat DOM must be rendered even when the global message cache key is unchanged");
 assert(testUser.includes("markVisibleChatRead(true)"),"opening the chat must force a server read-receipt update");
 assert(testUser.includes("setTimeout(apply,220)"),"scroll-to-bottom must retry after layout settles");
@@ -89,5 +89,20 @@ assert(prodUser.includes("if(chatInitialLoadScrollPending)chatForceScrollBottom=
 assert(prodUser.includes("function chatMessageAlreadyRead(m)")&&prodUser.includes("created<=chatLastReadAt"),"persisted read watermark must suppress notifications for previously read messages");
 assert(prodUser.includes("!chatMessageAlreadyRead(m))setUnread(chatUnread+1)"),"Realtime messages already read must not increase unread count");
 assert(testFn.includes("lastReadAt:me?.last_read_at||null"),"full chat history must return the persisted read watermark");
+assert(testFn.includes("normalizedReader(reader)===normalizedReader(name)"),"unread counts must compare read receipts case-insensitively");
+assert(testFn.includes('String(reader||"").trim().toLocaleLowerCase()===String(name||"").trim().toLocaleLowerCase()'),"read receipt writes must deduplicate member names case-insensitively");
+
 assert(testUser.includes("function chatMessageAlreadyRead(m)")&&testUser.includes("chatInitialLoadScrollPending=true;"),"TEST userscript must include read and initial-scroll fixes");
+assert(!testUser.includes("if(realtimeActive&&!forceFull&&chatInitialized&&chatCache.length)return;"),"Realtime subscription must not disable HTTP fallback polling");
+assert(testUser.includes("Date.now()-chatLastFullLoadAt<30000"),"incremental polling must periodically refresh full read receipts and watermark");
+assert(testUser.includes("if(chatLoading){if(forceFull)chatFullReloadPending=true;return;}")&&testUser.includes("if(chatFullReloadPending&&token)"),"forced chat-open history load must be queued if a request is already in flight");
+assert(testUser.includes("var chatFullReloadPending=false,chatLastFullLoadAt=0,chatReadInFlightKey='',chatReadPending=false;"),"chat loads and read receipt writes must be serialized/coalesced");
+assert(testUser.includes("if(!force&&(k===readSentKey||k===chatReadInFlightKey))return;")&&testUser.includes("if(chatReadInFlightKey){chatReadPending=true;return;}"),"read receipts must not race overlapping writes");
+assert(testUser.includes("function chatDiag(event,details)"),"TEST userscript must include targeted chat diagnostics");
+assert(testUser.includes("read-gate-blocked")&&testUser.includes("read-post-start")&&testUser.includes("read-post-success")&&testUser.includes("read-post-error"),"read-state diagnostic path must cover gates and POST outcome");
+assert(testUser.includes("notification-candidate")&&testUser.includes("nativePermission")&&testUser.includes("shouldNotify"),"notification diagnostics must expose gates without message content");
+assert(testUser.includes("load-success")&&testUser.includes("lastReadAt:d.lastReadAt")&&testUser.includes("scroll-final"),"history/watermark and final scroll diagnostics must be present");
+assert(!testUser.includes("messageText:")&&!testUser.includes("token:"),"diagnostics must not log message bodies or authentication tokens");
+assert(testUser.includes("String(n||'').trim().toLocaleLowerCase()===normalizedMember"),"read receipts must compare member names case-insensitively");
+
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion+" / chat read-scroll regression guards");
