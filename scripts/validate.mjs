@@ -71,7 +71,7 @@ assert(ycaroHtml.includes("#ff8a1f"),"Ycaro orange theme missing");
 assert(!ycaroHtml.includes("api('/api/lucca/"),"Ycaro page contains Lucca endpoints");
 
 
-assert(prodUser.includes("var useFast=!forceFull&&chatInitialized&&chatCache.length>0&&chatFastSince;"),"chat must fetch full history before using incremental Realtime refresh");
+assert(prodUser.includes("var useFast=!forceFull&&chatInitialized&&chatCache.length>0&&chatFastSince&&(Date.now()-chatLastFullLoadAt<30000);"),"chat must use incremental fallback polling and periodically refresh full history");
 assert(prodUser.includes("pendingRealtimeChatNotifications.push(m)"),"Realtime notifications must wait for initial history bootstrap");
 assert(prodUser.includes("chatReadRevision===readRevisionAtStart"),"stale unread-count responses must not overwrite a newer read state");
 assert(prodUser.includes("O carregamento do chat demorou demais. Tentando novamente"),"chat history requests must recover from a stalled request");
