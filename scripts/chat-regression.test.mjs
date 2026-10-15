@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
 const source=fs.readFileSync(path.join(ROOT,"src/userscript/upstatus.user.template.js"),"utf8");
-const start=source.indexOf("function processChatNotifications(messages,initialSnapshot){");
+const start=source.indexOf("function loadSeenChatNotifications(){");
 const end=source.indexOf("\n\n  document.addEventListener('UPSTATUS_EXTERNAL_NOTIFICATION_CLICK'",start);
 if(start<0||end<0)throw new Error("Could not isolate processChatNotifications for regression tests");
 const fn=source.slice(start,end);
@@ -15,12 +15,16 @@ function makeHarness(){
   const context={
     chatInitialized:false,
     seenMentionIds:{},
+    seenChatNotificationMember:"",
     pendingChatNotificationMessages:[],
     chatCache:[],
     member:"Ricardo",
     toasts:[],
     external:[],
     mentionAlerts:0,
+    persisted:{},
+    GM_getValue:(k,fallback)=>Object.prototype.hasOwnProperty.call(context.persisted,k)?context.persisted[k]:fallback,
+    GM_setValue:(k,v)=>{context.persisted[k]=v;},
     shouldNotifyForChat:()=>true,
     showChatToast:m=>context.toasts.push(String(m.id)),
     isTeamChatMessage:()=>true,
@@ -64,4 +68,20 @@ const oldMessages=[
   h.processChatNotifications(oldMessages,false);
   assert(h.toasts.length===0,"an empty cache must not mask the first full history snapshot and re-notify its messages");
 }
-console.log("Chat regression tests passed: initial baseline, empty-cache regression, duplicate history, incremental event, and Realtime/history race.");
+{
+  const persisted={};
+  const h=makeHarness();
+  h.persisted= persisted;
+  h.chatCache=oldMessages;
+  h.processChatNotifications(oldMessages,true);
+  assert(Array.isArray(persisted["upstatus_test_chat_seen_notifications_Ricardo"]),"initial baseline must persist seen message IDs");
+  const reloaded=makeHarness();
+  reloaded.persisted=persisted;
+  reloaded.processChatNotifications(oldMessages,false);
+  reloaded.chatCache=oldMessages;
+  reloaded.processChatNotifications(oldMessages,true);
+  assert(reloaded.toasts.length===0,"messages already seen before a page reload must not notify again");
+  reloaded.processChatNotifications([{id:"after-reload",user:"Lohan",type:"text",mentions:[]}],false);
+  assert(reloaded.toasts.length===1&&reloaded.toasts[0]==="after-reload","new messages must still notify after a reload");
+}
+console.log("Chat regression tests passed: initial baseline, persistent deduplication, empty-cache regression, duplicate history, incremental event, and Realtime/history race.");
