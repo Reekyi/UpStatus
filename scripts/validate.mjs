@@ -67,6 +67,8 @@ assert(testUser.includes("new ResizeObserver(function()")&&testUser.includes("Da
 assert(testUser.includes("list.scrollHeight-list.scrollTop-list.clientHeight)<80"),"TEST chat render must preserve sticky-bottom state across ticket/layout changes");
 
 assert(testUser.includes("pendingChatNotificationMessages.push(m)")&&testUser.includes("pendingChatNotificationMessages.length=0"),"TEST realtime events buffered before the initial baseline must be discarded to prevent stale notification replay");
+assert(prodUser.includes("quickChatBubble.onclick=function(e){e.stopPropagation();if(chat.classList.contains('hidden'))openChat();else closeChat();};"),"production floating chat icon must toggle chat open/closed");
+assert(testUser.includes("quickChatBubble.onclick=function(e){e.stopPropagation();if(chat.classList.contains('hidden'))openChat();else closeChat();};"),"TEST floating chat icon must toggle chat open/closed");
 assert(prodUser.includes("processChatNotifications(incoming,!useFast);")&&testUser.includes("processChatNotifications(incoming,!useFast);"),"only full history loads may establish the initial notification baseline");
 assert(prodUser.includes("Date.now()<chatOpenScrollUntil")&&testUser.includes("if(Date.now()<chatOpenScrollUntil)scrollChatToBottom(true);"),"opening chat must retain and reapply bottom-scroll intent through history completion");
 
