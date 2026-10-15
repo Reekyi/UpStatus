@@ -17,6 +17,7 @@ const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
 const luccaHtml=fs.readFileSync(path.join(ROOT,"lucca-site/index.html"),"utf8");
 const ycaroHtml=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
+const testYcaroHtml=ycaroHtml.replace("https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus","https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
@@ -56,6 +57,8 @@ assert(luccaHtml.includes("event:'call_signal'"),"Lucca Realtime call signaling 
 assert(luccaHtml.includes("o.style.left='50%'")&&luccaHtml.includes("o.style.bottom='14px'")&&luccaHtml.includes("translateX(-50%)"),"Lucca call pop-out must be bottom-centered");
 assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Lucca");'),"Lucca login/logout/expiry must not delete shared messages");
 assert(prodFn.includes("const html="+JSON.stringify(ycaroHtml)+";"),"Ycaro guest page embedding mismatch");
+assert(testFn.includes("const html="+JSON.stringify(testYcaroHtml)+";"),"TEST Ycaro page must be generated with the TEST endpoint");
+assert(testYcaroHtml.includes("functions/v1/upstatus-test'+route")&&!testYcaroHtml.includes("functions/v1/upstatus'+route"),"TEST Ycaro page must not call the production Edge Function");
 assert(prodFn.includes('if(path==="/ycaro"||path==="/ycaro.html")'),"Ycaro page route missing");
 assert(prodFn.includes('Deno.env.get("YCARO_PASSWORD")'),"Ycaro password setting missing");
 assert(prodFn.includes('cookie(req,"ycaro_session")'),"Ycaro session cookie missing");
@@ -80,4 +83,11 @@ assert(testUser.includes("markVisibleChatRead(true)"),"opening the chat must for
 assert(testUser.includes("setTimeout(apply,220)"),"scroll-to-bottom must retry after layout settles");
 assert(testFn.includes("if(readRes.error)throw readRes.error"),"read-state query failures must not silently inflate unread counts");
 assert(testFn.includes("if(currentError)throw currentError")&&testFn.includes("if(validError)throw validError"),"read receipt persistence must surface query failures instead of overwriting state");
-console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion+" / chat regression guards");
+assert(prodUser.includes("list.setAttribute('data-render-key',renderKey)"),"normal chat renders must store the DOM render key");
+assert(prodUser.includes("var chatInitialLoadScrollPending=false;")&&prodUser.includes("chatInitialLoadScrollPending=true;"),"opening chat must retain bottom-scroll intent through history loading");
+assert(prodUser.includes("if(chatInitialLoadScrollPending)chatForceScrollBottom=true;"),"fresh history render must preserve initial bottom-scroll intent");
+assert(prodUser.includes("function chatMessageAlreadyRead(m)")&&prodUser.includes("created<=chatLastReadAt"),"persisted read watermark must suppress notifications for previously read messages");
+assert(prodUser.includes("!chatMessageAlreadyRead(m))setUnread(chatUnread+1)"),"Realtime messages already read must not increase unread count");
+assert(testFn.includes("lastReadAt:me?.last_read_at||null"),"full chat history must return the persisted read watermark");
+assert(testUser.includes("function chatMessageAlreadyRead(m)")&&testUser.includes("chatInitialLoadScrollPending=true;"),"TEST userscript must include read and initial-scroll fixes");
+console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion+" / chat read-scroll regression guards");

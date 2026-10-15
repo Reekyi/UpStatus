@@ -376,7 +376,7 @@ async function chatRoute(req:Request,name:string){
     const unreadCount=messages.filter((m:any)=>m.type!=="system"&&m.user!==name&&Date.parse(m.createdAt)>lastRead&&!(readBy[m.id]||[]).includes(name)).length;
     const profileMap:Record<string,string>={};
     for(const p of profileRes.data||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
-    return response({messages,unreadCount,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
+    return response({messages,unreadCount,lastReadAt:me?.last_read_at||null,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
   }
   const p:any=await readBody(req);
   const message=String(p.message||"").trim();
