@@ -1874,10 +1874,9 @@
       else if(chatVisible)setUnread(0);
       if(!chat.classList.contains('hidden')){
         var nextKey=chatDataKey(chatCache);
-        if(nextKey!==beforeKey){
-          renderChat();
-          markVisibleChatRead();
-        }
+        var list=chat.querySelector('.up-chat-list');
+        if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();
+        markVisibleChatRead();
         updateTypingIndicator(d.typing||[]);
       }
     }).catch(function(){}).finally(function(){chatLoading=false;});
@@ -1971,13 +1970,13 @@
     var forceScrollBottom=chatForceScrollBottom;
     chatForceScrollBottom=false;
     var renderKey=chatDataKey(chatCache);
-    if(renderKey===chatLastRenderKey){
+    if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){
       if(forceScrollBottom)scrollChatToBottom(true);
       return;
     }
     var wasAtBottom=(list.scrollHeight-list.scrollTop-list.clientHeight)<28;var previousScrollTop=list.scrollTop;
     updateChatHeaderPresence();
-    if(!chatCache.length){list.innerHTML='<div class="up-history-empty">Nenhuma mensagem nas últimas 48 horas.</div>';return;}
+    if(!chatCache.length){list.innerHTML='<div class="up-history-empty">Nenhuma mensagem nas últimas 48 horas.</div>';list.setAttribute('data-render-key',renderKey);chatLastRenderKey=renderKey;return;}
     var html='',lastDate='';
     chatCache.forEach(function(m,idx){
       var day=chatDateKey(m.createdAt);if(day&&day!==lastDate){html+='<div class="up-chat-date-divider"><span>'+esc(chatDateLabel(m.createdAt))+'</span></div>';lastDate=day;}
@@ -1994,6 +1993,7 @@
       html+='<div class="up-chat-item '+(own?'own ':'')+(m.user==='Lucca'?'lucca ':'')+(groupStart?'group-start ':'')+(groupEnd?'group-end ':'')+(!groupStart&&!groupEnd?'group-middle ':'')+'" data-message-id="'+esc(m.id)+'">'+avatar+bubble+(own?'<button type="button" class="up-delete-action hidden">'+iconSvg('trash')+'</button>':'')+'</div>';
     });
     list.innerHTML=html;
+    list.setAttribute('data-render-key',renderKey);
     list.querySelectorAll('[data-avatar-name]').forEach(function(img){hydrateAvatar(img,img.getAttribute('data-avatar-name'));});
     list.querySelectorAll('[data-avatar-name]').forEach(function(img){var name=img.getAttribute('data-avatar-name')||'';img.addEventListener('mouseenter',function(e){showChatProfileHover(img,name,e);});img.addEventListener('mousemove',positionChatProfileHover);img.addEventListener('mouseleave',hideChatProfileHover);});
     list.querySelectorAll('[data-media-route]').forEach(function(el){var route=el.getAttribute('data-media-route')||'',key='chat:'+route;loadBlobUrl(route,key).then(function(url){if(el.classList.contains('up-chat-audio-player'))setupChatAudioPlayer(el,url);else el.src=url;}).catch(function(){});if(!el.classList.contains('up-chat-audio-player'))el.addEventListener('load',function(){if(wasAtBottom)requestAnimationFrame(function(){list.scrollTop=list.scrollHeight;});});});
