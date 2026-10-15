@@ -1890,11 +1890,12 @@
       else if(!useFast&&chatReadRevision===readRevisionAtStart)setUnread(d.unreadCount||0);
       else if(chatReadRevision!==readRevisionAtStart)refreshUnreadAfterLoad=true;
       if(!chat.classList.contains('hidden')){
-        var nextKey=chatDataKey(chatCache);
-        if(nextKey!==beforeKey){
-          renderChat();
-          markVisibleChatRead();
-        }
+        // The chat panel may have been rebuilt while the data cache stayed unchanged.
+        // Always reconcile the current DOM, persist read receipts after data is loaded,
+        // and force the newest message into view whenever the panel is open.
+        renderChat();
+        markVisibleChatRead(true);
+        scrollChatToBottom(true);
         updateTypingIndicator(d.typing||[]);
       }
     }).catch(function(err){
@@ -2150,9 +2151,8 @@
     input.addEventListener('keydown',function(e){if(e.key==='Escape'){var menu=chat.querySelector('.up-mention-menu');if(menu)menu.classList.add('hidden');return;}if(e.key==='Enter'&&!e.shiftKey){if(e.repeat){e.preventDefault();return;}var menu=chat.querySelector('.up-mention-menu');if(menu&&!menu.classList.contains('hidden')){var first=menu.querySelector('.up-mention-option');if(first){e.preventDefault();applyMention(first.getAttribute('data-name'));return;}}e.preventDefault();sendChat();}});
     if(chatCache.length)renderChat();
     updateLuccaPresence(luccaOnline);
-    loadChat();
+    loadChat(true);
     pollChatTyping();
-    markVisibleChatRead(true);
   }
   function refreshChatAfterSend(input,btn){if(input)input.value='';if(btn)btn.disabled=false;loadChat();return Promise.resolve();}
 
