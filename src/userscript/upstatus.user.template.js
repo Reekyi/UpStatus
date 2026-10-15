@@ -2235,6 +2235,15 @@
         }
       }catch(e){}
     }
+    if(!list._upstatusContentObserverBound&&typeof MutationObserver!=='undefined'){
+      try{
+        var contentObserver=new MutationObserver(function(){
+          if(!chat.classList.contains('hidden')&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil))requestAnimationFrame(apply);
+        });
+        contentObserver.observe(list,{childList:true,subtree:true,characterData:true});
+        list._upstatusContentObserverBound=true;
+      }catch(e){}
+    }
     if(!list._upstatusBottomScrollBound){
       list._upstatusBottomScrollBound=true;
       list.addEventListener('load',function(){
