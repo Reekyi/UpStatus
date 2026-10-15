@@ -43,6 +43,8 @@ assert(decodeHex(testFn)===testUser,"test embedded userscript does not match bui
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
 assert(prodUser.includes("list.getAttribute('data-render-key')===renderKey")&&prodUser.includes("list.setAttribute('data-render-key',renderKey)"),"a rebuilt chat list must render even when the global render key is unchanged");
+assert(prodUser.includes("var chatInitialLoadScrollPending=false;")&&prodUser.includes("chatInitialLoadScrollPending=true;"),"opening the chat must retain bottom-scroll intent until the fresh history response arrives");
+assert(prodUser.includes("if(chatInitialLoadScrollPending)chatForceScrollBottom=true;")&&prodUser.includes("if(chatInitialLoadScrollPending){\n          chatInitialLoadScrollPending=false;\n          scrollChatToBottom(true);"),"fresh history rendering must consume the initial bottom-scroll intent only after data arrives");
 assert(prodUser.includes("function chatMessageAlreadyRead(m)")&&prodUser.includes("created<=chatLastReadAt"),"persisted read watermark must suppress notifications for previously read messages");
 assert(prodUser.includes("!chatMessageAlreadyRead(m))setUnread(chatUnread+1)"),"Realtime events for previously read messages must not inflate unread count");
 assert(testFn.includes("lastReadAt:me?.last_read_at||null"),"full chat history must expose the persisted read watermark to clients");
