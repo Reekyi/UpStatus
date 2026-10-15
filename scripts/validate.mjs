@@ -17,6 +17,7 @@ const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
 const luccaHtml=fs.readFileSync(path.join(ROOT,"lucca-site/index.html"),"utf8");
 const ycaroHtml=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
+const testYcaroHtml=ycaroHtml.replace("https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus","https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
@@ -56,6 +57,8 @@ assert(luccaHtml.includes("event:'call_signal'"),"Lucca Realtime call signaling 
 assert(luccaHtml.includes("o.style.left='50%'")&&luccaHtml.includes("o.style.bottom='14px'")&&luccaHtml.includes("translateX(-50%)"),"Lucca call pop-out must be bottom-centered");
 assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Lucca");'),"Lucca login/logout/expiry must not delete shared messages");
 assert(prodFn.includes("const html="+JSON.stringify(ycaroHtml)+";"),"Ycaro guest page embedding mismatch");
+assert(testFn.includes("const html="+JSON.stringify(testYcaroHtml)+";"),"TEST Ycaro page must be generated with the TEST endpoint");
+assert(testYcaroHtml.includes("functions/v1/upstatus-test'+route")&&!testYcaroHtml.includes("functions/v1/upstatus'+route"),"TEST Ycaro page must not call the production Edge Function");
 assert(prodFn.includes('if(path==="/ycaro"||path==="/ycaro.html")'),"Ycaro page route missing");
 assert(prodFn.includes('Deno.env.get("YCARO_PASSWORD")'),"Ycaro password setting missing");
 assert(prodFn.includes('cookie(req,"ycaro_session")'),"Ycaro session cookie missing");
