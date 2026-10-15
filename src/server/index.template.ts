@@ -372,7 +372,7 @@ async function chatRoute(req:Request,name:string){
       }
     }
     for(const m of messages)m.readBy=readBy[m.id]||[];
-    const me=(read||[]).find((x:any)=>x.user_name===name);
+    const me=(read||[]).find((x:any)=>normalizedReader(x.user_name)===normalizedReader(name));
     const lastRead=me?.last_read_at?Date.parse(me.last_read_at):0;
     const unreadCount=messages.filter((m:any)=>m.type!=="system"&&normalizedReader(m.user)!==normalizedReader(name)&&Date.parse(m.createdAt)>lastRead&&!(readBy[m.id]||[]).some((reader)=>normalizedReader(reader)===normalizedReader(name))).length;
     const profileMap:Record<string,string>={};
@@ -404,13 +404,15 @@ async function chatRoute(req:Request,name:string){
 async function readRoute(req:Request,name:string){
   const p:any=await readBody(req);
   const ids=Array.isArray(p.messageIds)?p.messageIds.map(String).filter(Boolean).slice(0,1000):[];
-  const {data:current,error:currentError}=await db.from("chat_reads").select("messages").eq("user_name",name).maybeSingle();
+  const normalizedReader=(value:unknown)=>String(value||"").trim().toLocaleLowerCase();
+  const {data:readRows,error:currentError}=await db.from("chat_reads").select("user_name,messages");
   if(currentError)throw currentError;
+  const current=(readRows||[]).find((row:any)=>normalizedReader(row.user_name)===normalizedReader(name));
   const map=current?.messages&&typeof current.messages==="object"?{...current.messages}:{};
   if(ids.length){
     const {data:valid,error:validError}=await db.from("messages").select("id,user_name").in("id",ids);
     if(validError)throw validError;
-    const validIds=new Set((valid||[]).filter((x:any)=>x.user_name!==name).map((x:any)=>String(x.id)));
+    const validIds=new Set((valid||[]).filter((x:any)=>normalizedReader(x.user_name)!==normalizedReader(name)).map((x:any)=>String(x.id)));
     for(const id of ids)if(validIds.has(id)){
       const list=Array.isArray(map[id])?[...map[id]]:[];
       if(!list.some((reader:any)=>String(reader||"").trim().toLocaleLowerCase()===String(name||"").trim().toLocaleLowerCase()))list.push(name);
@@ -418,9 +420,9 @@ async function readRoute(req:Request,name:string){
     }
   }
   const lastReadAt=new Date().toISOString();
-  const {error}=await db.from("chat_reads").upsert({user_name:name,last_read_at:lastReadAt,messages:map},{onConflict:"user_name"});
+  const {error}=await db.from("chat_reads").upsert({user_name:current?.user_name||name,last_read_at:lastReadAt,messages:map},{onConflict:"user_name"});
   if(error)throw error;
-  return response({ok:true,lastReadAt,markedMessages:ids.length});
+  return response({ok:true,lastReadAt,markedMessages:ids.filter((id:string)=>map[id]&&Array.isArray(map[id])&&map[id].some((reader:any)=>normalizedReader(reader)===normalizedReader(name))).length});
 }
 async function typingRoute(req:Request,name:string){
   if(req.method==="GET"){

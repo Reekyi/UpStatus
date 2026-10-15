@@ -122,6 +122,7 @@
   var chatLoading=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
   var chatFullReloadPending=false,chatLastFullLoadAt=0,chatReadInFlightKey='',chatReadPending=false;
   var chatForceScrollBottom=false;
+  var chatForceBottomUntil=0;
   // Keep the open-at-bottom intent until fresh history has actually rendered.
   var chatInitialLoadScrollPending=false;
   var chatScrollSequence=0;
@@ -1911,14 +1912,15 @@
       else if(!useFast&&chatReadRevision===readRevisionAtStart)setUnread(d.unreadCount||0);
       else if(chatReadRevision!==readRevisionAtStart)refreshUnreadAfterLoad=true;
       if(!chat.classList.contains('hidden')){
-        // Keep the opening scroll request alive until fresh history, not cached history, is rendered.
-        if(chatInitialLoadScrollPending)chatForceScrollBottom=true;
+        // The opening intent survives cached and fresh renders; a newly-created list must always land at its end.
+        var openingChat=chatInitialLoadScrollPending;
+        if(openingChat){chatForceScrollBottom=true;chatForceBottomUntil=Date.now()+500;}
         renderChat();
-        if(chatInitialLoadScrollPending){
+        if(openingChat){
           chatInitialLoadScrollPending=false;
           scrollChatToBottom(true);
         }
-        markVisibleChatRead();
+        markVisibleChatRead(openingChat);
         updateTypingIndicator(d.typing||[]);
       }
     }).catch(function(err){
@@ -1960,9 +1962,10 @@
     }).map(function(m){return String(m.id);})));
     setUnread(0);
     chatDiag('read-candidate',{force:!!force,cacheCount:chatCache.length,eligibleIds:ids.length,ownOrSystemExcluded:chatCache.length-ids.length,readSentMatch:!!(ids.length&&ids.slice().sort().join(',')===readSentKey),readRequestInFlight:!!chatReadInFlightKey});
-    if(!ids.length){chatDiag('read-skipped-empty',{cacheCount:chatCache.length});return;}
+    // Opening the chat advances the server watermark even if the local cache is empty or contains only own/system messages.
+    if(!ids.length&&!force){chatDiag('read-skipped-empty',{cacheCount:chatCache.length});return;}
     var k=ids.slice().sort().join(',');
-    if(!force&&(k===readSentKey||k===chatReadInFlightKey)){chatDiag('read-skipped-duplicate',{force:!!force,readSentMatch:k===readSentKey,inFlightMatch:k===chatReadInFlightKey});return;}
+    if(!force&&ids.length&&(k===readSentKey||k===chatReadInFlightKey)){chatDiag('read-skipped-duplicate',{force:!!force,readSentMatch:k===readSentKey,inFlightMatch:k===chatReadInFlightKey});return;}
     if(chatReadInFlightKey){chatReadPending=true;chatDiag('read-queued',{reason:'another-read-in-flight'});return;}
     chatReadInFlightKey=k;
     chatReadRevision++;
@@ -1970,7 +1973,7 @@
     api('POST','/api/chat/read',{messageIds:ids}).then(function(result){
       if(!result||result.ok!==true)throw new Error('O servidor não confirmou a leitura do chat.');
       chatDiag('read-post-success',{messageCount:ids.length,markedMessages:Number(result.markedMessages)||0,lastReadAt:result.lastReadAt||null});
-      readSentKey=k;
+      readSentKey=ids.length?k:'';
       var saved=Date.parse(result.lastReadAt)||0;
       if(saved>chatLastReadAt)chatLastReadAt=saved;
       setUnread(0);
@@ -2054,7 +2057,7 @@
   function renderChat(){
     var list=chat.querySelector('.up-chat-list');if(!list)return;
     dedupeChatCache();
-    var forceScrollBottom=chatForceScrollBottom;
+    var forceScrollBottom=chatForceScrollBottom||Date.now()<chatForceBottomUntil;
     chatForceScrollBottom=false;
     var renderKey=chatDataKey(chatCache);
     // openChat() replaces the DOM, so the global cache key alone cannot prove this list was rendered.
@@ -2187,6 +2190,7 @@
     setUnread(0);
     chatInitialLoadScrollPending=true;
     chatForceScrollBottom=true;
+    chatForceBottomUntil=Date.now()+500;
     chat.classList.remove('hidden');card.classList.add('hidden');history.classList.add('hidden');broadcastChatPresence(true);
     chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><button type="button" class="up-chat-profile-btn" title="Alterar foto de perfil"><img alt="Minha foto"></button><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">●</span> 0 online · 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'<button class="up-chat-back" type="button">← Voltar</button></div></div><div class="up-chat-lucca-alert hidden">🔴 ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregando…</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">×</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando <span class="up-chat-recording-time">0:00</span> • clique novamente para enviar</div><div class="up-chat-input-wrap"><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">'+iconSvg('photo')+'</button><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">🎙️</button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" hidden></div></div><div class="up-chat-lightbox hidden"><button type="button" class="up-chat-lightbox-close" aria-label="Fechar">×</button><img alt="Imagem ampliada"></div>';
     refresh();
@@ -2271,24 +2275,26 @@
   function clearChatRicardo(){if(member!=='Ricardo')return;if(!confirm('Limpar todo o chat para a equipe?'))return;api('POST','/api/chat/clear',{}).then(function(){chatCache=[];chatLastRenderKey='';return api('GET','/api/chat');}).then(function(d){chatCache=d.messages||[];if(d.profiles)profileCache=d.profiles;renderChat();}).catch(function(e){message(e.message,true);});}
   function scrollChatToBottom(force){
     if(force===false)return;
-    var list=chat.querySelector('.up-chat-list');
-    if(!list)return;
     var sequence=++chatScrollSequence;
-    chatDiag('scroll-scheduled',{sequence:sequence,scrollHeight:list.scrollHeight,clientHeight:list.clientHeight,scrollTop:list.scrollTop});
     function apply(){
-      if(sequence!==chatScrollSequence||!list.isConnected||!chat.contains(list))return;
+      if(sequence!==chatScrollSequence||chat.classList.contains('hidden'))return;
+      // Resolve the current list on every pass because opening/re-rendering replaces the DOM node.
+      var list=chat.querySelector('.up-chat-list');
+      if(!list||!list.isConnected)return;
       try{
-        var target=Math.max(0,list.scrollHeight-list.clientHeight);
-        list.scrollTop=target;
-        if(typeof list.scrollTo==='function')list.scrollTo(0,target);
-        if(list.scrollTop<target)list.scrollTop=list.scrollHeight;
+        list.scrollTop=list.scrollHeight;
+        if(typeof list.scrollTo==='function')list.scrollTo({top:list.scrollHeight,behavior:'auto'});
+        var last=list.lastElementChild;
+        if(last&&typeof last.scrollIntoView==='function')last.scrollIntoView({block:'end',inline:'nearest',behavior:'auto'});
+        list.scrollTop=list.scrollHeight;
       }catch(e){try{list.scrollTop=list.scrollHeight;}catch(_){}}
     }
     apply();
     requestAnimationFrame(apply);
     requestAnimationFrame(function(){requestAnimationFrame(apply);});
     setTimeout(apply,80);
-    setTimeout(function(){apply();chatDiag('scroll-final',{sequence:sequence,scrollHeight:list.scrollHeight,clientHeight:list.clientHeight,scrollTop:list.scrollTop,atBottom:list.scrollTop+list.clientHeight>=list.scrollHeight-2});},220);
+    setTimeout(apply,220);
+    setTimeout(function(){apply();var list=chat.querySelector('.up-chat-list');if(list)chatDiag('scroll-final',{sequence:sequence,scrollHeight:list.scrollHeight,clientHeight:list.clientHeight,scrollTop:list.scrollTop,atBottom:list.scrollTop+list.clientHeight>=list.scrollHeight-2});},450);
   }
   function sendChat(){
     var input=chat.querySelector('.up-chat-input'),text=input?(input.value||'').trim():'';

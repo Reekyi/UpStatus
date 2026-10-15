@@ -85,10 +85,13 @@ assert(testFn.includes("if(readRes.error)throw readRes.error"),"read-state query
 assert(testFn.includes("if(currentError)throw currentError")&&testFn.includes("if(validError)throw validError"),"read receipt persistence must surface query failures instead of overwriting state");
 assert(prodUser.includes("list.setAttribute('data-render-key',renderKey)"),"normal chat renders must store the DOM render key");
 assert(prodUser.includes("var chatInitialLoadScrollPending=false;")&&prodUser.includes("chatInitialLoadScrollPending=true;"),"opening chat must retain bottom-scroll intent through history loading");
-assert(prodUser.includes("if(chatInitialLoadScrollPending)chatForceScrollBottom=true;"),"fresh history render must preserve initial bottom-scroll intent");
+assert(prodUser.includes("if(openingChat){chatForceScrollBottom=true;chatForceBottomUntil=Date.now()+500;}"),"fresh history render must preserve initial bottom-scroll intent through layout");
 assert(prodUser.includes("function chatMessageAlreadyRead(m)")&&prodUser.includes("created<=chatLastReadAt"),"persisted read watermark must suppress notifications for previously read messages");
 assert(prodUser.includes("!chatMessageAlreadyRead(m))setUnread(chatUnread+1)"),"Realtime messages already read must not increase unread count");
 assert(testFn.includes("lastReadAt:me?.last_read_at||null"),"full chat history must return the persisted read watermark");
+assert(testFn.includes("normalizedReader(x.user_name)===normalizedReader(name)"),"read watermark lookup must normalize member identity");
+assert(testFn.includes("normalizedReader(x.user_name)!==normalizedReader(name)"),"read receipt validation must normalize own-message identity");
+assert(testFn.includes("user_name:current?.user_name||name"),"read watermark updates must preserve the existing canonical member key");
 assert(testFn.includes("normalizedReader(reader)===normalizedReader(name)"),"unread counts must compare read receipts case-insensitively");
 assert(testFn.includes('String(reader||"").trim().toLocaleLowerCase()===String(name||"").trim().toLocaleLowerCase()'),"read receipt writes must deduplicate member names case-insensitively");
 
@@ -97,7 +100,11 @@ assert(!testUser.includes("if(realtimeActive&&!forceFull&&chatInitialized&&chatC
 assert(testUser.includes("Date.now()-chatLastFullLoadAt<30000"),"incremental polling must periodically refresh full read receipts and watermark");
 assert(testUser.includes("if(chatLoading){if(forceFull)chatFullReloadPending=true;return;}")&&testUser.includes("if(chatFullReloadPending&&token)"),"forced chat-open history load must be queued if a request is already in flight");
 assert(testUser.includes("var chatFullReloadPending=false,chatLastFullLoadAt=0,chatReadInFlightKey='',chatReadPending=false;"),"chat loads and read receipt writes must be serialized/coalesced");
-assert(testUser.includes("if(!force&&(k===readSentKey||k===chatReadInFlightKey))return;")&&testUser.includes("if(chatReadInFlightKey){chatReadPending=true;return;}"),"read receipts must not race overlapping writes");
+assert(testUser.includes("if(!force&&ids.length&&(k===readSentKey||k===chatReadInFlightKey))return;")&&testUser.includes("if(chatReadInFlightKey){chatReadPending=true;return;}"),"read receipts must not race overlapping writes");
+assert(testUser.includes("if(!ids.length&&!force)"),"opening chat must persist its read watermark even with an empty cache");
+assert(testUser.includes("markVisibleChatRead(openingChat)"),"fresh history must force a read-watermark update when chat opens");
+assert(testUser.includes("var chatForceBottomUntil=0;")&&testUser.includes("Date.now()<chatForceBottomUntil"),"initial bottom-scroll intent must survive repeated renders during layout");
+assert(testUser.includes("last.scrollIntoView({block:'end',inline:'nearest',behavior:'auto'})")&&testUser.includes("setTimeout(apply,450)"),"bottom scrolling must target the newest DOM child after layout settles");
 assert(testUser.includes("function chatDiag(event,details)"),"TEST userscript must include targeted chat diagnostics");
 assert(testUser.includes("read-gate-blocked")&&testUser.includes("read-post-start")&&testUser.includes("read-post-success")&&testUser.includes("read-post-error"),"read-state diagnostic path must cover gates and POST outcome");
 assert(testUser.includes("notification-candidate")&&testUser.includes("nativePermission")&&testUser.includes("shouldNotify"),"notification diagnostics must expose gates without message content");
