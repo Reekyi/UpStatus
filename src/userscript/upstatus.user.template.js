@@ -2229,8 +2229,6 @@
           var gap=lastRect.bottom-listRect.bottom;
           if(gap>1)list.scrollTop+=gap;
         }
-        var target=Math.max(0,list.scrollHeight-list.clientHeight);
-        if(Math.abs(list.scrollTop-target)>2)list.scrollTop=target;
       }catch(e){}
     }
     if(!list._upstatusContentObserverBound&&typeof MutationObserver!=='undefined'){
