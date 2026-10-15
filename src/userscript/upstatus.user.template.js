@@ -2215,6 +2215,12 @@
         if(Math.abs(list.scrollTop-target)>1)list.scrollTop=target;
       }catch(e){}
     }
+    if(!list._upstatusBottomScrollBound){
+      list._upstatusBottomScrollBound=true;
+      list.addEventListener('load',function(){
+        if(!chat.classList.contains('hidden')&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil))apply();
+      },true);
+    }
     if(typeof ResizeObserver!=='undefined'&&chatScrollObservedList!==list){
       try{
         if(chatScrollObserver)chatScrollObserver.disconnect();
