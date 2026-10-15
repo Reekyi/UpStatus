@@ -923,8 +923,10 @@
     var newMention=false;
     (messages||[]).forEach(function(m){
       if(m.type==='system')return;
-      if(!seenMentionIds[m.id]){
-        seenMentionIds[m.id]=true;
+      if(!seenMentionIds[String(m.id)]){
+        // Persist the dedupe marker before emitting notifications so a reload cannot replay them.
+        seenMentionIds[String(m.id)]=true;
+        persistSeenChatNotifications();
         if(m.user!==member&&shouldNotifyForChat()){
           showChatToast(m);
           if(isTeamChatMessage(m))showExternalNotification('chat',m);
@@ -1838,9 +1840,10 @@
   function playLuccaEntrySound(){try{var a=new Audio(server+'/lucca-devil-laugh.wav?'+Date.now());a.volume=.7;var p=a.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}
   function loadChat(forceFull){
     if(!token||chatLoading)return;
-    if(realtimeActive&&!forceFull)return;
+    // Keep polling as a fallback even while Realtime is connected. TEST and PROD use separate topics,
+    // so messages sent from the other environment must still appear without a manual refresh.
     chatLoading=true;
-    var useFast=!forceFull&&chatCache.length>0&&chatFastSince;
+    var useFast=!forceFull&&chatInitialized&&chatCache.length>0&&chatFastSince;
     var route='/api/chat';
     if(useFast)route='/api/chat?fast=1&since='+encodeURIComponent(new Date(new Date(chatFastSince).getTime()-2000).toISOString());
     api('GET',route).then(function(d){
@@ -2181,8 +2184,9 @@
     function apply(){
       try{
         var target=Math.max(0,list.scrollHeight-list.clientHeight);
-        list.scrollTo(0,target);
-        if(list.scrollTop!==target)list.scrollTop=target;
+        list.style.scrollBehavior='auto';
+        list.scrollTop=target;
+        if(Math.abs(list.scrollTop-target)>1)list.scrollTo(0,target);
       }catch(e){}
     }
     apply();
@@ -2437,7 +2441,7 @@
     if(settingsBtn)settingsBtn.onclick=function(e){e.stopPropagation();settingsMenu.classList.toggle('hidden');};
     if(settingsMenu){settingsMenu.onclick=function(e){e.stopPropagation();};var settingsHealth=settingsMenu.querySelector('.up-settings-health');if(settingsHealth)settingsHealth.onclick=function(){settingsMenu.classList.add('hidden');openHealth();};var settingsTest=settingsMenu.querySelector('.up-settings-test');if(settingsTest)settingsTest.onclick=function(){settingsMenu.classList.add('hidden');openTestPanel();};settingsMenu.querySelector('.up-settings-notifications').onclick=function(){toggleNotifications();};settingsMenu.querySelector('.up-settings-theme').onclick=function(){toggleTheme();};document.addEventListener('click',function(e){if(!settingsMenu.contains(e.target)&&e.target!==settingsBtn)settingsMenu.classList.add('hidden');});}
     card.querySelector('.up-chat-btn').onclick=function(e){e.stopPropagation();openChat()};
-    quickChatBubble.onclick=function(e){e.stopPropagation();openChat()};
+    quickChatBubble.onclick=function(e){e.stopPropagation();if(chat.classList.contains('hidden'))openChat();else closeChat();};
     updateNotificationPermissionUI();
     applyTheme();
     card.insertAdjacentHTML('beforeend','<div class="up-update"><div class="up-update-version">'+iconSvg('update')+'<div><b>Versão v'+CURRENT_VERSION+'</b><a href="#" class="up-patch-link">O que há de novo?</a><span class="up-update-status"></span></div></div><div class="up-update-actions"><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div></div>');
