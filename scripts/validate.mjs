@@ -98,6 +98,11 @@ assert(testUser.includes("Date.now()-chatLastFullLoadAt<30000"),"incremental pol
 assert(testUser.includes("if(chatLoading){if(forceFull)chatFullReloadPending=true;return;}")&&testUser.includes("if(chatFullReloadPending&&token)"),"forced chat-open history load must be queued if a request is already in flight");
 assert(testUser.includes("var chatFullReloadPending=false,chatLastFullLoadAt=0,chatReadInFlightKey='',chatReadPending=false;"),"chat loads and read receipt writes must be serialized/coalesced");
 assert(testUser.includes("if(!force&&(k===readSentKey||k===chatReadInFlightKey))return;")&&testUser.includes("if(chatReadInFlightKey){chatReadPending=true;return;}"),"read receipts must not race overlapping writes");
+assert(testUser.includes("function chatDiag(event,details)"),"TEST userscript must include targeted chat diagnostics");
+assert(testUser.includes("read-gate-blocked")&&testUser.includes("read-post-start")&&testUser.includes("read-post-success")&&testUser.includes("read-post-error"),"read-state diagnostic path must cover gates and POST outcome");
+assert(testUser.includes("notification-candidate")&&testUser.includes("nativePermission")&&testUser.includes("shouldNotify"),"notification diagnostics must expose gates without message content");
+assert(testUser.includes("load-success")&&testUser.includes("lastReadAt:d.lastReadAt")&&testUser.includes("scroll-final"),"history/watermark and final scroll diagnostics must be present");
+assert(!testUser.includes("messageText:")&&!testUser.includes("token:"),"diagnostics must not log message bodies or authentication tokens");
 assert(testUser.includes("String(n||'').trim().toLocaleLowerCase()===normalizedMember"),"read receipts must compare member names case-insensitively");
 
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion+" / chat read-scroll regression guards");
