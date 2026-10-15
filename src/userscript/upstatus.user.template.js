@@ -120,7 +120,7 @@
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
   var chatLoading=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
-  var chatForceScrollBottom=false;
+  var chatForceScrollBottom=false,chatOpenScrollUntil=0,pendingChatNotificationMessages=[];
   var remoteResultCache={},remoteResultWaiters={};
   var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
 
@@ -912,14 +912,20 @@
     }
   }
 
-  function processChatNotifications(messages){
-    var mentions=(messages||[]).filter(function(m){return m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0;});
+  function processChatNotifications(messages,initialSnapshot){
+    var list=messages||[];
     if(!chatInitialized){
-      (messages||[]).forEach(function(m){seenMentionIds[m.id]=true;});
-      mentions.forEach(function(m){seenMentionIds['mention:'+m.id]=true;});
+      if(!initialSnapshot){
+        list.forEach(function(m){if(m&&m.id&&!pendingChatNotificationMessages.some(function(x){return String(x.id)===String(m.id);}))pendingChatNotificationMessages.push(m);});
+        return;
+      }
+      (chatCache||list).forEach(function(m){if(!m||!m.id)return;seenMentionIds[m.id]=true;if(m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0)seenMentionIds['mention:'+m.id]=true;});
       chatInitialized=true;
+      var pending=pendingChatNotificationMessages.splice(0);
+      pending.forEach(function(m){if(m&&!seenMentionIds[m.id])processChatNotifications([m]);});
       return;
     }
+    var mentions=list.filter(function(m){return m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0;});
     var newMention=false;
     (messages||[]).forEach(function(m){
       if(m.type==='system')return;
@@ -1866,7 +1872,7 @@
       var beforeKey=chatDataKey(chatCache);
       chatCache=nextMessages;
       if(d.profiles)profileCache=d.profiles;
-      processChatNotifications(incoming);
+      processChatNotifications(incoming,!useFast);
       var newest=chatCache[chatCache.length-1];
       if(newest&&newest.createdAt)chatFastSince=newest.createdAt;
       var chatVisible=!chat.classList.contains('hidden')&&!document.hidden;
@@ -1967,7 +1973,7 @@
   function renderChat(){
     var list=chat.querySelector('.up-chat-list');if(!list)return;
     dedupeChatCache();
-    var forceScrollBottom=chatForceScrollBottom;
+    var forceScrollBottom=chatForceScrollBottom||Date.now()<chatOpenScrollUntil;
     chatForceScrollBottom=false;
     var renderKey=chatDataKey(chatCache);
     if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){
@@ -2116,6 +2122,7 @@
     chat.querySelector('.up-chat-send').onclick=function(e){e.stopPropagation();sendChat()};
     input.addEventListener('input',function(){renderMentionMenu();handleTypingInput();});input.addEventListener('click',renderMentionMenu);input.addEventListener('keyup',renderMentionMenu);input.addEventListener('keydown',function(e){if(e.key.length===1||e.key==='Backspace'||e.key==='Delete')startTypingHeartbeat();});input.addEventListener('focus',function(){if(String(input.value||'').trim())startTypingHeartbeat();});input.addEventListener('blur',function(){if(typingStopTimer)clearTimeout(typingStopTimer);typingStopTimer=setTimeout(function(){stopTypingHeartbeat();},1200);});
     input.addEventListener('keydown',function(e){if(e.key==='Escape'){var menu=chat.querySelector('.up-mention-menu');if(menu)menu.classList.add('hidden');return;}if(e.key==='Enter'&&!e.shiftKey){if(e.repeat){e.preventDefault();return;}var menu=chat.querySelector('.up-mention-menu');if(menu&&!menu.classList.contains('hidden')){var first=menu.querySelector('.up-mention-option');if(first){e.preventDefault();applyMention(first.getAttribute('data-name'));return;}}e.preventDefault();sendChat();}});
+    chatOpenScrollUntil=Date.now()+2500;
     chatForceScrollBottom=true;
     if(chatCache.length)renderChat();
     updateLuccaPresence(luccaOnline);
