@@ -44,6 +44,34 @@ assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not mat
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
+execFileSync(process.execPath,[path.join(ROOT,"scripts/chat-regression.test.mjs")],{stdio:"inherit"});
+assert(prodUser.includes("if(realtimeActive&&!forceFull&&chatInitialized&&chatCache.length){"),"Realtime must not skip the first full chat history snapshot");
+assert(testUser.includes("if(realtimeActive&&!forceFull&&chatInitialized&&chatCache.length){"),"TEST Realtime must not skip the first full chat history snapshot");
+assert(prodUser.includes("chatPendingInitialScroll=true;")&&prodUser.includes("if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}"),"opening chat must retain bottom-scroll intent until history load completes");
+assert(testUser.includes("chatPendingInitialScroll=true;")&&testUser.includes("if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}"),"TEST opening chat must retain bottom-scroll intent until history load completes");
+assert(prodUser.includes("if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){"),"chat render cache must be validated against the current DOM list");
+assert(testUser.includes("if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){"),"TEST chat render cache must be validated against the current DOM list");
+assert(prodUser.includes("list.setAttribute('data-render-key',renderKey);"),"chat render must tag the current DOM list with its render key");
+assert(prodUser.includes("if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();")&&prodUser.includes("markVisibleChatRead();\n        updateTypingIndicator(d.typing||[]);"),"chat read persistence must run even when history is unchanged");
+assert(testUser.includes("if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();")&&testUser.includes("markVisibleChatRead();\n        updateTypingIndicator(d.typing||[]);"),"TEST chat read persistence must run even when history is unchanged");
+assert(prodUser.includes("chatForceScrollBottom=true;")&&prodUser.includes("if(chatCache.length)renderChat();"),"opening chat must force scroll to the latest messages");
+assert(testUser.includes("chatForceScrollBottom=true;")&&testUser.includes("if(chatCache.length)renderChat();"),"TEST opening chat must force scroll to the latest messages");
+assert(prodUser.includes("setUnread(0);var k=ids.join(',');if(ids.length&&k===readSentKey)return;api('POST','/api/chat/read',{messageIds:ids})"),"read watermark must be persisted even when local message cache is empty");
+assert(testUser.includes("setUnread(0);var k=ids.join(',');if(ids.length&&k===readSentKey)return;api('POST','/api/chat/read',{messageIds:ids})"),"TEST read watermark must be persisted even when local message cache is empty");
+
+assert(prodUser.includes("function processChatNotifications(messages,initialSnapshot)"),"notification initialization must distinguish a full baseline snapshot from realtime events");
+assert(prodUser.includes("function loadSeenChatNotifications()")&&prodUser.includes("function persistSeenChatNotifications()"),"chat notification deduplication must persist across page reloads");
+assert(testUser.includes("chat_seen_notifications_'+member"),"TEST notification seen-ID storage must be scoped to the active member");
+assert(prodUser.includes("if(!list._upstatusBottomScrollBound)")&&prodUser.includes("list.addEventListener('load',function()"),"chat must re-pin to the latest message when async media loads");
+assert(testUser.includes("new ResizeObserver(function()")&&testUser.includes("Date.now()<chatOpenScrollUntil"),"TEST chat bottom-scroll intent must survive async layout changes");
+assert(testUser.includes("list.scrollHeight-list.scrollTop-list.clientHeight)<80"),"TEST chat render must preserve sticky-bottom state across ticket/layout changes");
+
+assert(testUser.includes("pendingChatNotificationMessages.push(m)")&&testUser.includes("pendingChatNotificationMessages.length=0"),"TEST realtime events buffered before the initial baseline must be discarded to prevent stale notification replay");
+assert(prodUser.includes("quickChatBubble.onclick=function(e){e.stopPropagation();if(chat.classList.contains('hidden'))openChat();else closeChat();};"),"production floating chat icon must toggle chat open/closed");
+assert(testUser.includes("quickChatBubble.onclick=function(e){e.stopPropagation();if(chat.classList.contains('hidden'))openChat();else closeChat();};"),"TEST floating chat icon must toggle chat open/closed");
+assert(prodUser.includes("processChatNotifications(incoming,!useFast);")&&testUser.includes("processChatNotifications(incoming,!useFast);"),"only full history loads may establish the initial notification baseline");
+assert(prodUser.includes("Date.now()<chatOpenScrollUntil")&&testUser.includes("if(Date.now()<chatOpenScrollUntil)scrollChatToBottom(true);"),"opening chat must retain and reapply bottom-scroll intent through history completion");
+
 
 const luccaInline=[...luccaHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].find(m=>!/\bsrc\s*=/.test(m[1])&&m[2].trim());
 assert(!!luccaInline,"Lucca inline script missing");
@@ -64,7 +92,7 @@ assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Ycaro")'),
 assert(ycaroHtml.includes("localStorage.getItem('upstatus_ycaro_token')"),"Ycaro API session token is not sent");
 assert(ycaroHtml.includes("localStorage.setItem('upstatus_ycaro_token',d.token)"),"Ycaro login token is not persisted");
 assert(ycaroHtml.includes("localStorage.removeItem('upstatus_ycaro_token')"),"Ycaro logout token is not cleared");
-assert(ycaroHtml.includes("#ff8a1f"),"Ycaro orange theme missing");
+assert(ycaroHtml.includes("#d66b1f"),"Ycaro orange theme missing");
 assert(!ycaroHtml.includes("api('/api/lucca/"),"Ycaro page contains Lucca endpoints");
 
 
