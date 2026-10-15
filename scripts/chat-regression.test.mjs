@@ -58,8 +58,10 @@ const oldMessages=[
   assert(h.pendingChatNotificationMessages.length===1,"Realtime messages arriving before initial history must be queued");
   h.chatCache=oldMessages;
   h.processChatNotifications(oldMessages,true);
-  assert(h.toasts.length===1&&h.toasts[0]==="during-load","queued messages absent from the baseline must notify once");
-  assert(h.pendingChatNotificationMessages.length===0,"the pending notification queue must be drained after baseline");
+  assert(h.toasts.length===0,"events buffered before the initial history baseline must not replay old-message notifications");
+  assert(h.pendingChatNotificationMessages.length===0,"the pending notification queue must be discarded after baseline");
+  h.processChatNotifications([{id:"after-baseline",user:"Lohan",type:"text",mentions:[]}],false);
+  assert(h.toasts.length===1&&h.toasts[0]==="after-baseline","events arriving after the baseline must still notify normally");
 }
 {
   const h=makeHarness();
