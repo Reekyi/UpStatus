@@ -90,4 +90,11 @@ assert(prodUser.includes("function chatMessageAlreadyRead(m)")&&prodUser.include
 assert(prodUser.includes("!chatMessageAlreadyRead(m))setUnread(chatUnread+1)"),"Realtime messages already read must not increase unread count");
 assert(testFn.includes("lastReadAt:me?.last_read_at||null"),"full chat history must return the persisted read watermark");
 assert(testUser.includes("function chatMessageAlreadyRead(m)")&&testUser.includes("chatInitialLoadScrollPending=true;"),"TEST userscript must include read and initial-scroll fixes");
+assert(!testUser.includes("if(realtimeActive&&!forceFull&&chatInitialized&&chatCache.length)return;"),"Realtime subscription must not disable HTTP fallback polling");
+assert(testUser.includes("Date.now()-chatLastFullLoadAt<30000"),"incremental polling must periodically refresh full read receipts and watermark");
+assert(testUser.includes("if(chatLoading){if(forceFull)chatFullReloadPending=true;return;}")&&testUser.includes("if(chatFullReloadPending&&token)"),"forced chat-open history load must be queued if a request is already in flight");
+assert(testUser.includes("var chatFullReloadPending=false,chatLastFullLoadAt=0,chatReadInFlightKey='',chatReadPending=false;"),"chat loads and read receipt writes must be serialized/coalesced");
+assert(testUser.includes("if(!force&&(k===readSentKey||k===chatReadInFlightKey))return;")&&testUser.includes("if(chatReadInFlightKey){chatReadPending=true;return;}"),"read receipts must not race overlapping writes");
+assert(testUser.includes("String(n||'').trim().toLocaleLowerCase()===normalizedMember"),"read receipts must compare member names case-insensitively");
+
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion+" / chat read-scroll regression guards");
