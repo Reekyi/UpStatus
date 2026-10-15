@@ -2035,7 +2035,7 @@
     list.onclick=function(e){if(e.target.closest&&e.target.closest('.up-delete-action'))return;list.querySelectorAll('.up-delete-action').forEach(function(b){b.classList.add('hidden')});};
     chatLastRenderKey=renderKey;
     requestAnimationFrame(function(){
-      if(forceScrollBottom||wasAtBottom){list.scrollTop=list.scrollHeight;return;}
+      if(forceScrollBottom||wasAtBottom){scrollChatToBottom(true);return;}
       var anchor=null;if(anchorMessageId){var items=list.querySelectorAll('.up-chat-item');for(var i=0;i<items.length;i++){if(items[i].getAttribute('data-message-id')===anchorMessageId){anchor=items[i];break;}}}
       if(anchor){var delta=anchor.getBoundingClientRect().top-list.getBoundingClientRect().top-anchorOffset;list.scrollTop+=delta;}
       else list.scrollTop=previousScrollTop;
