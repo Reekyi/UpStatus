@@ -48,6 +48,19 @@
 
 The current chat is establishing durable continuity docs so a new chat can continue without rebuilding the whole conversation. The permanent prompt is in `docs/PROJECT_GUIDE.md`. The continuity docs are merged into `develop`. No production deployment was performed for this documentation-only change. At the start of the next task, read the guide and this file, then verify live repository and runtime state before implementation.
 
+## Chat read-state and scroll investigation (2026-10-15)
+
+- Tracking issue: https://github.com/Reekyi/UpStatus/issues/24
+- Working branch: `fix/chat-read-scroll-root-cause-audit`, created from `develop` commit `7df829a5faf3d82eba27b854a4352258c0abbabf`. Current source changes are not merged.
+- Scope: prevent already-read messages from reappearing as unread after reload/status changes, and ensure a rebuilt chat list actually renders before scrolling to the newest message.
+- Confirmed source defect: `renderChat()` returned early whenever the global `chatLastRenderKey` matched, even if `openChat()` had replaced the entire DOM and the new `.up-chat-list` had never been rendered. The fix now validates a render key on the actual list element and stores it after rendering.
+- Read-state changes: full-history API now returns the persisted `lastReadAt`; the client uses this watermark and per-message `readBy` receipts to suppress notifications/unread increments for already-read messages. Server unread counts also honor per-message read receipts. Read-state database query failures now throw instead of silently treating read state as empty. Read API returns its persisted timestamp and client validates success before advancing its local watermark.
+- Commits currently recorded on branch: `24077a18b459abd00166a425bcdf5579bd4110a0` (userscript), `57e93e1539311a3d984841a88f7675bf38a88d76` (server read watermark), `6c0d9a22d0a4da33614ddeb95a484641a576ed2a` (initial regression guards), `54f93a7214d3f95cd1bfe9c0f3b6e2e09bb95103` (surface read-state query failures), `cf5d675ff632b6ad3ffe076606f2f1d482b88118` (additional regression guards).
+- Validation status: not yet run in a local checkout. GitHub compare confirms the branch is based directly on develop and currently changes only `src/userscript/upstatus.user.template.js`, `src/server/index.template.ts`, and `scripts/validate.mjs`. CI and generated artifact consistency must still be checked.
+- TEST deployment: not performed. Before deployment, recheck the actual live TEST function version and payload. No production deployment or merge performed.
+- Required manual verification in Sale Smartly: mark several messages read, reload with F5, change status, reopen chat, and confirm no old unread notifications return; open chat repeatedly and confirm newest messages are visible at the bottom. Also check that reading older history does not unexpectedly jump to the bottom during routine refresh.
+- Next action: open a draft PR to `develop`, inspect CI results and diff, fix any validation failures, then run the manual TEST workflow. Do not claim resolution until Sale Smartly behavior is verified.
+
 ## Last updated
 
-2026-10-09. Updated with the Ycaro stable-release preparation checkpoint. Re-check live GitHub, Supabase, and Vercel state before any merge or deployment.
+2026-10-15. Recorded the current chat read-state/scroll investigation. Re-check live GitHub and Supabase state before any TEST deployment or production action.
