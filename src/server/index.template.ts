@@ -352,10 +352,10 @@ async function chatRoute(req:Request,name:string){
     for(const m of messages)m.readBy=readBy[m.id]||[];
     const me=(read||[]).find((x:any)=>x.user_name===name);
     const lastRead=me?.last_read_at?Date.parse(me.last_read_at):0;
-    const unreadCount=messages.filter((m:any)=>m.type!=="system"&&m.user!==name&&Date.parse(m.createdAt)>lastRead).length;
+    const unreadCount=messages.filter((m:any)=>m.type!=="system"&&m.user!==name&&Date.parse(m.createdAt)>lastRead&&!(readBy[m.id]||[]).includes(name)).length;
     const profileMap:Record<string,string>={};
     for(const p of profileRes.data||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
-    return response({messages,unreadCount,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
+    return response({messages,unreadCount,lastReadAt:me?.last_read_at||null,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
   }
   const p:any=await readBody(req);
   const message=String(p.message||"").trim();
@@ -393,9 +393,10 @@ async function readRoute(req:Request,name:string){
       map[id]=list;
     }
   }
-  const {error}=await db.from("chat_reads").upsert({user_name:name,last_read_at:new Date().toISOString(),messages:map},{onConflict:"user_name"});
+  const lastReadAt=new Date().toISOString();
+  const {error}=await db.from("chat_reads").upsert({user_name:name,last_read_at:lastReadAt,messages:map},{onConflict:"user_name"});
   if(error)throw error;
-  return response({ok:true});
+  return response({ok:true,lastReadAt});
 }
 async function typingRoute(req:Request,name:string){
   if(req.method==="GET"){
