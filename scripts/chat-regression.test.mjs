@@ -19,6 +19,7 @@ function makeHarness(){
     pendingChatNotificationMessages:[],
     chatCache:[],
     member:"Ricardo",
+    key:"upstatus_test_",
     toasts:[],
     external:[],
     mentionAlerts:0,
