@@ -92,3 +92,11 @@ The current chat is establishing durable continuity docs so a new chat can conti
 - Generated TEST userscript was constructed in memory from the source/build substitutions; syntax compilation passed, placeholders were fully resolved, TEST endpoint/version isolation passed, and expected diagnostic events were present. The repository's native `node scripts/validate.mjs` and GitHub Actions have not run in this environment. The server TypeScript template still needs a generated artifact check before deployment.
 - Current TEST runtime was last verified as `upstatus-test` ACTIVE v67 beta.9; production remains `upstatus` ACTIVE v395 unchanged. No beta.10 deployment has occurred yet.
 - Next: assemble the generated TEST function from templates, check embedded userscript/version/path isolation and function source shape, then deploy only `upstatus-test` if preflight passes. Capture fresh runtime version/hash and ask for a controlled Sale Smartly retest. Do not merge or deploy production.
+
+
+## beta.10 TEST deployment checkpoint (2026-10-15)
+
+- Deployed generated `3.0.32-beta.10` function source to Supabase `upstatus-test` only. Active version is 68; runtime hash `f4064a7ce829cca4e19dffb175f9122a888cca2f4382b5c07227f92526bc7119`.
+- Retrieved active function source after deployment and decoded its embedded userscript. Confirmed embedded userscript metadata version `3.0.32-beta.10`, expected diagnostic events, TEST update endpoint and route marker. Embedded script is 260,095 UTF-8 bytes. The public script URL could not be verified through the web retrieval tool, so only the active source/embedded payload is confirmed.
+- Production remains `upstatus` ACTIVE v395, unchanged hash `6ae6ba4ec13059f1092acc0bad1296d6981eb7683a1ed3b7f116f71bdb1c9cf3`. No production deployment, merge, or database write occurred.
+- The deployed beta.10 is diagnostic only. All four failed manual cases remain unresolved; manual scrolling remains the only reported pass. Next: ensure the TEST userscript is updated in Tampermonkey, open Sale Smartly DevTools Console, filter `UpStatus ChatDiag`, then reproduce one read-state failure and one new-message notification failure with controlled steps. Capture the event sequence without message content. After collecting evidence, implement a root-cause fix and retest all five cases.
