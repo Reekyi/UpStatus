@@ -84,7 +84,7 @@ assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Ycaro")'),
 assert(ycaroHtml.includes("localStorage.getItem('upstatus_ycaro_token')"),"Ycaro API session token is not sent");
 assert(ycaroHtml.includes("localStorage.setItem('upstatus_ycaro_token',d.token)"),"Ycaro login token is not persisted");
 assert(ycaroHtml.includes("localStorage.removeItem('upstatus_ycaro_token')"),"Ycaro logout token is not cleared");
-assert(ycaroHtml.includes("#ff8a1f"),"Ycaro orange theme missing");
+assert(ycaroHtml.includes("#d66b1f"),"Ycaro orange theme missing");
 assert(!ycaroHtml.includes("api('/api/lucca/"),"Ycaro page contains Lucca endpoints");
 
 
