@@ -49,6 +49,10 @@ assert(testUser.includes("if(renderKey===chatLastRenderKey&&list.getAttribute('d
 assert(prodUser.includes("list.setAttribute('data-render-key',renderKey);"),"chat render must tag the current DOM list with its render key");
 assert(prodUser.includes("if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();\n        markVisibleChatRead();"),"chat read persistence must run even when history is unchanged");
 assert(testUser.includes("if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();\n        markVisibleChatRead();"),"TEST chat read persistence must run even when history is unchanged");
+assert(prodUser.includes("chatForceScrollBottom=true;\\n    if(chatCache.length)renderChat();"),"opening chat must force scroll to the latest messages");
+assert(testUser.includes("chatForceScrollBottom=true;\\n    if(chatCache.length)renderChat();"),"TEST opening chat must force scroll to the latest messages");
+assert(prodUser.includes("setUnread(0);var k=ids.join(',');if(ids.length&&k===readSentKey)return;api('POST','/api/chat/read',{messageIds:ids})"),"read watermark must be persisted even when local message cache is empty");
+assert(testUser.includes("setUnread(0);var k=ids.join(',');if(ids.length&&k===readSentKey)return;api('POST','/api/chat/read',{messageIds:ids})"),"TEST read watermark must be persisted even when local message cache is empty");
 
 const luccaInline=[...luccaHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].find(m=>!/\bsrc\s*=/.test(m[1])&&m[2].trim());
 assert(!!luccaInline,"Lucca inline script missing");
