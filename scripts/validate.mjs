@@ -77,7 +77,7 @@ assert(prodUser.includes("chatReadRevision===readRevisionAtStart"),"stale unread
 assert(prodUser.includes("O carregamento do chat demorou demais. Tentando novamente"),"chat history requests must recover from a stalled request");
 assert(prodUser.includes("anchor.getBoundingClientRect().top-list.getBoundingClientRect().top-anchorOffset"),"chat rerender must preserve the visible message anchor when not at bottom");
 assert(testUser.includes("if(forceScrollBottom||wasAtBottom){scrollChatToBottom(true);return;}"),"chat render must use the robust scroll helper when opening or already at the bottom");
-assert(testFn.includes('!(readBy[m.id]||[]).includes(name)'),"unread counts must respect per-message read receipts to avoid stale false positives");
+assert(testFn.includes('!(readBy[m.id]||[]).some((reader)=>normalizedReader(reader)===normalizedReader(name))'),"unread counts must respect per-message read receipts with normalized identities");
 assert(testUser.includes("list.getAttribute('data-render-key')===renderKey"),"recreated chat DOM must be rendered even when the global message cache key is unchanged");
 assert(testUser.includes("markVisibleChatRead(true)"),"opening the chat must force a server read-receipt update");
 assert(testUser.includes("setTimeout(apply,220)"),"scroll-to-bottom must retry after layout settles");
