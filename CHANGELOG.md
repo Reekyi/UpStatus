@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-15
+
+## 3.0.33
+- Corrigido o recebimento de mensagens do chat sem precisar recarregar a página, mantendo a consulta periódica como fallback quando o Realtime não cobre o ambiente de origem.
+- Corrigido o reaparecimento de notificações já lidas após F5, persistindo os identificadores das mensagens notificadas e estabelecendo corretamente a referência inicial do histórico.
+- Melhorada a rolagem do chat para ir diretamente à mensagem mais recente ao abrir a conversa.
+- O botão flutuante do chat agora alterna entre abrir e fechar a conversa.
+
+
+
 ## 2026-10-08
 
 ## 3.0.27
