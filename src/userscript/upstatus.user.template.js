@@ -949,8 +949,10 @@
     var newMention=false;
     (messages||[]).forEach(function(m){
       if(m.type==='system')return;
-      if(!seenMentionIds[m.id]){
-        seenMentionIds[m.id]=true;
+      if(!seenMentionIds[String(m.id)]){
+        // Persist the dedupe marker before emitting notifications so a reload cannot replay them.
+        seenMentionIds[String(m.id)]=true;
+        persistSeenChatNotifications();
         if(m.user!==member&&shouldNotifyForChat()){
           showChatToast(m);
           if(isTeamChatMessage(m))showExternalNotification('chat',m);
@@ -1865,7 +1867,7 @@
   function playLuccaEntrySound(){try{var a=new Audio(server+'/lucca-devil-laugh.wav?'+Date.now());a.volume=.7;var p=a.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}
   function loadChat(forceFull){
     if(!token||chatLoading)return;
-    if(realtimeActive&&!forceFull&&chatInitialized&&chatCache.length){if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}return;}
+    // Keep polling even when Realtime is connected: TEST and PROD use separate broadcast topics, so cross-environment messages can otherwise remain invisible until F5.
     chatLoading=true;
     var useFast=!forceFull&&chatInitialized&&chatCache.length>0&&chatFastSince;
     var route='/api/chat';
@@ -2216,8 +2218,9 @@
     function apply(){
       try{
         var target=Math.max(0,list.scrollHeight-list.clientHeight);
-        list.scrollTo(0,target);
-        if(Math.abs(list.scrollTop-target)>1)list.scrollTop=target;
+        list.style.scrollBehavior='auto';
+        list.scrollTop=target;
+        if(Math.abs(list.scrollTop-target)>1)list.scrollTo(0,target);
       }catch(e){}
     }
     if(!list._upstatusBottomScrollBound){
