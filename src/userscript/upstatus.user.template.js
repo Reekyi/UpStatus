@@ -120,7 +120,7 @@
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
   var chatLoading=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
-  var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,pendingChatNotificationMessages=[];
+  var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,pendingChatNotificationMessages=[],chatScrollObserver=null,chatScrollObservedList=null;
   var remoteResultCache={},remoteResultWaiters={};
   var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
 
@@ -1861,7 +1861,7 @@
   function playLuccaEntrySound(){try{var a=new Audio(server+'/lucca-devil-laugh.wav?'+Date.now());a.volume=.7;var p=a.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}
   function loadChat(forceFull){
     if(!token||chatLoading)return;
-    if(realtimeActive&&!forceFull&&chatInitialized&&chatCache.length)return;
+    if(realtimeActive&&!forceFull&&chatInitialized&&chatCache.length){if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}return;}
     chatLoading=true;
     var useFast=!forceFull&&chatCache.length>0&&chatFastSince;
     var route='/api/chat';
@@ -2146,7 +2146,7 @@
     chatPendingInitialScroll=true;
     chatForceScrollBottom=true;
     if(chatCache.length)renderChat();
-    if(chatCache.length){scrollChatToBottom(true);chatPendingInitialScroll=false;}
+    if(chatCache.length)scrollChatToBottom(true);
     updateLuccaPresence(luccaOnline);
     loadChat();
     pollChatTyping();
@@ -2212,8 +2212,19 @@
       try{
         var target=Math.max(0,list.scrollHeight-list.clientHeight);
         list.scrollTo(0,target);
-        if(list.scrollTop!==target)list.scrollTop=target;
+        if(Math.abs(list.scrollTop-target)>1)list.scrollTop=target;
       }catch(e){}
+    }
+    if(typeof ResizeObserver!=='undefined'&&chatScrollObservedList!==list){
+      try{
+        if(chatScrollObserver)chatScrollObserver.disconnect();
+        chatScrollObserver=new ResizeObserver(function(){
+          if(chat.classList.contains('hidden'))return;
+          if(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil)apply();
+        });
+        chatScrollObserver.observe(list);
+        chatScrollObservedList=list;
+      }catch(e){chatScrollObserver=null;chatScrollObservedList=null;}
     }
     apply();
     requestAnimationFrame(apply);
