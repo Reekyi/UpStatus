@@ -44,6 +44,15 @@ assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not mat
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
+execFileSync(process.execPath,[path.join(ROOT,"scripts/chat-regression.test.mjs")],{stdio:"inherit"});
+assert(prodUser.includes("if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();"),"production chat refresh must validate current DOM list");
+assert(testUser.includes("if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();"),"TEST chat refresh must validate current DOM list");
+assert(prodUser.includes("if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){"),"production render cache must validate current DOM list");
+assert(testUser.includes("if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){"),"TEST render cache must validate current DOM list");
+assert(prodUser.includes("if(ids.length&&k===readSentKey)return;"),"production read watermark must be sent when cache is empty");
+assert(testUser.includes("if(ids.length&&k===readSentKey)return;"),"TEST read watermark must be sent when cache is empty");
+assert(prodUser.includes("chatPendingInitialScroll=true;")&&prodUser.includes("if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}"),"production opening must scroll to newest message after history loads");
+assert(testUser.includes("chatPendingInitialScroll=true;")&&testUser.includes("if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}"),"TEST opening must scroll to newest message after history loads");
 
 const luccaInline=[...luccaHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].find(m=>!/\bsrc\s*=/.test(m[1])&&m[2].trim());
 assert(!!luccaInline,"Lucca inline script missing");
@@ -64,7 +73,7 @@ assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Ycaro")'),
 assert(ycaroHtml.includes("localStorage.getItem('upstatus_ycaro_token')"),"Ycaro API session token is not sent");
 assert(ycaroHtml.includes("localStorage.setItem('upstatus_ycaro_token',d.token)"),"Ycaro login token is not persisted");
 assert(ycaroHtml.includes("localStorage.removeItem('upstatus_ycaro_token')"),"Ycaro logout token is not cleared");
-assert(ycaroHtml.includes("#ff8a1f"),"Ycaro orange theme missing");
+assert(ycaroHtml.includes("#d66b1f"),"Ycaro orange theme missing");
 assert(!ycaroHtml.includes("api('/api/lucca/"),"Ycaro page contains Lucca endpoints");
 
 
