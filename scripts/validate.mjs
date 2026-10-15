@@ -42,4 +42,10 @@ assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not mat
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
-console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
+assert(prodUser.includes("list.getAttribute('data-render-key')===renderKey")&&prodUser.includes("list.setAttribute('data-render-key',renderKey)"),"a rebuilt chat list must render even when the global render key is unchanged");
+assert(prodUser.includes("function chatMessageAlreadyRead(m)")&&prodUser.includes("created<=chatLastReadAt"),"persisted read watermark must suppress notifications for previously read messages");
+assert(prodUser.includes("!chatMessageAlreadyRead(m))setUnread(chatUnread+1)"),"Realtime events for previously read messages must not inflate unread count");
+assert(testFn.includes("lastReadAt:me?.last_read_at||null"),"full chat history must expose the persisted read watermark to clients");
+assert(testFn.includes("!(readBy[m.id]||[]).includes(name)"),"unread counts must honor per-message read receipts");
+assert(testUser.includes("list.getAttribute('data-render-key')===renderKey")&&testUser.includes("function chatMessageAlreadyRead(m)"),"TEST userscript must contain chat render and read-notification regression fixes");
+console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion+" / chat read-scroll regression guards");
