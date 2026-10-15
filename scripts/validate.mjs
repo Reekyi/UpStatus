@@ -68,4 +68,16 @@ assert(ycaroHtml.includes("#ff8a1f"),"Ycaro orange theme missing");
 assert(!ycaroHtml.includes("api('/api/lucca/"),"Ycaro page contains Lucca endpoints");
 
 
-console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
+assert(prodUser.includes("var useFast=!forceFull&&chatInitialized&&chatCache.length>0&&chatFastSince;"),"chat must fetch full history before using incremental Realtime refresh");
+assert(prodUser.includes("pendingRealtimeChatNotifications.push(m)"),"Realtime notifications must wait for initial history bootstrap");
+assert(prodUser.includes("chatReadRevision===readRevisionAtStart"),"stale unread-count responses must not overwrite a newer read state");
+assert(prodUser.includes("O carregamento do chat demorou demais. Tentando novamente"),"chat history requests must recover from a stalled request");
+assert(prodUser.includes("anchor.getBoundingClientRect().top-list.getBoundingClientRect().top-anchorOffset"),"chat rerender must preserve the visible message anchor when not at bottom");
+assert(testUser.includes("if(forceScrollBottom||wasAtBottom){scrollChatToBottom(true);return;}"),"chat render must use the robust scroll helper when opening or already at the bottom");
+assert(testFn.includes('!(readBy[m.id]||[]).includes(name)'),"unread counts must respect per-message read receipts to avoid stale false positives");
+assert(testUser.includes("list.getAttribute('data-render-key')===renderKey"),"recreated chat DOM must be rendered even when the global message cache key is unchanged");
+assert(testUser.includes("markVisibleChatRead(true)"),"opening the chat must force a server read-receipt update");
+assert(testUser.includes("setTimeout(apply,220)"),"scroll-to-bottom must retry after layout settles");
+assert(testFn.includes("if(readRes.error)throw readRes.error"),"read-state query failures must not silently inflate unread counts");
+assert(testFn.includes("if(currentError)throw currentError")&&testFn.includes("if(validError)throw validError"),"read receipt persistence must surface query failures instead of overwriting state");
+console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion+" / chat regression guards");
