@@ -23,6 +23,9 @@ const PROD_RINGTONE_CHANNEL="upstatus-call-ringtone-stop-v1";
 const TEST_RINGTONE_CHANNEL="upstatus-test-call-ringtone-stop-v1";
 const PROD_RINGTONE_STORAGE="upstatus_call_ringtone_stop_bus";
 const TEST_RINGTONE_STORAGE="upstatus_test_call_ringtone_stop_bus";
+// The TEST function must embed a Ycaro page that calls TEST, not the production function.
+const TEST_YCARO_PAGE=ycaroPage.split("https://"+PROJECT+".supabase.co/functions/v1/"+PROD_FUNCTION)
+  .join("https://"+PROJECT+".supabase.co/functions/v1/"+TEST_FUNCTION);
 
 function render(template,replacements){
   let out=template;
@@ -61,7 +64,7 @@ function renderFunction({version,test}){
     "__UPSTATUS_VERSION__":version,
     "__UPSTATUS_USERSCRIPT_HEX__":hexEncode(userscript),
     "__UPSTATUS_PATH_MARKER__":"/"+fn,
-    "__UPSTATUS_YCARO_HTML_EXPR__":JSON.stringify(ycaroPage)
+    "__UPSTATUS_YCARO_HTML_EXPR__":JSON.stringify(test?TEST_YCARO_PAGE:ycaroPage)
   });
 }
 function writeFunction(fn,source){
