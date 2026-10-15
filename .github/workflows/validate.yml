@@ -2,7 +2,7 @@ name: UpStatus Validate
 
 on:
   push:
-    branches: [master, develop]
+    branches: [master, develop, 'fix/chat-reliability-beta9']
   pull_request:
     branches: [master, develop]
 
