@@ -71,5 +71,14 @@ The current chat is establishing durable continuity docs so a new chat can conti
 - User reported beta.8 failures: old/read messages, read state after status change, chat opening, and new-message notification; manual scroll worked.
 - Root cause found in the integration source: loadChat() returned immediately whenever Realtime was active, even though a 3-second timer calls loadChat() as the HTTP fallback. A connected broadcast channel therefore disabled fallback message discovery. The TEST beta.8 branch had a related guard that disabled fallback after cache initialization.
 - Added a beta.9 candidate patch to both the TEST source branch and this integration branch: keep incremental HTTP polling available, force a full history/read-state refresh at least every 30 seconds, queue forced history loads when another request is in flight, serialize read-receipt writes, and normalize member-name comparisons in client/server read state.
-- Added validation assertions for these failure paths. CI validation is pending; no beta.9 TEST deployment has been performed. No manual Sale Smartly case is considered resolved.
-- Production upstatus remains untouched. Next: confirm CI validation on this integration PR, inspect both diffs, and then consider TEST-only deployment of the beta.9 candidate.
+- Added validation assertions for these failure paths. Generated artifacts were reconstructed in-memory and the repository validation assertions passed. A native local Node run and GitHub Actions run were not confirmed; the TypeScript server template was not separately type-checked.
+- Validation assertions passed in-memory; beta.9 is now deployed to TEST as recorded below. Next: collect fresh Sale Smartly results; do not mark any failed manual case resolved until it passes.
+
+
+## Beta.9 TEST deployment checkpoint (2026-10-15)
+
+- Deployed candidate 3.0.32-beta.9 to Supabase Edge Function upstatus-test, now ACTIVE version 67, hash b5279c10af0e5f53a7329caf413d419cd1561b3fe10b442b34a62e283d2f1aff.
+- Re-read the live TEST function and decoded its embedded userscript. Verified version 3.0.32-beta.9, HTTP fallback polling, forced-load queuing, serialized read receipts, case-normalized read handling, and TEST endpoint isolation.
+- Production function upstatus remains ACTIVE version 395 with unchanged hash 6ae6ba4ec13059f1092acc0bad1296d6981eb7683a1ed3b7f116f71bdb1c9cf3.
+- Deployment/runtime source verification is complete, but no Sale Smartly browser retest has occurred. Keep all previously failed manual cases open and unverified.
+- TEST PR: https://github.com/Reekyi/UpStatus/pull/27. Do not merge or deploy production without explicit authorization.
