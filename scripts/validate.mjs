@@ -54,6 +54,12 @@ assert(testUser.includes("chatForceScrollBottom=true;\\n    if(chatCache.length)
 assert(prodUser.includes("setUnread(0);var k=ids.join(',');if(ids.length&&k===readSentKey)return;api('POST','/api/chat/read',{messageIds:ids})"),"read watermark must be persisted even when local message cache is empty");
 assert(testUser.includes("setUnread(0);var k=ids.join(',');if(ids.length&&k===readSentKey)return;api('POST','/api/chat/read',{messageIds:ids})"),"TEST read watermark must be persisted even when local message cache is empty");
 
+assert(prodUser.includes("function processChatNotifications(messages,initialSnapshot)"),"notification initialization must distinguish a full baseline snapshot from realtime events");
+assert(testUser.includes("pendingChatNotificationMessages.push(m)")&&testUser.includes("pendingChatNotificationMessages.splice(0)"),"TEST realtime messages arriving before the baseline must be queued and reconciled");
+assert(prodUser.includes("processChatNotifications(incoming,!useFast);")&&testUser.includes("processChatNotifications(incoming,!useFast);"),"only full history loads may establish the initial notification baseline");
+assert(prodUser.includes("Date.now()<chatOpenScrollUntil")&&testUser.includes("if(Date.now()<chatOpenScrollUntil)scrollChatToBottom(true);"),"opening chat must retain and reapply bottom-scroll intent through history completion");
+
+
 const luccaInline=[...luccaHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].find(m=>!/\bsrc\s*=/.test(m[1])&&m[2].trim());
 assert(!!luccaInline,"Lucca inline script missing");
 checkSyntax(luccaInline[2],"lucca-site/index.html inline script");
