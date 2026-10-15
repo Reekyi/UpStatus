@@ -340,22 +340,24 @@ async function chatRoute(req:Request,name:string){
       db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name),
       expireLucca()
     ]);
+    if(readRes.error)throw readRes.error;
     const read=readRes.data;
     const readBy:Record<string,string[]>={};
+    const normalizedReader=(value:unknown)=>String(value||"").trim().toLocaleLowerCase();
     for(const row of read||[]){
       const map=row.messages&&typeof row.messages==="object"?row.messages:{};
       for(const [id,names] of Object.entries(map))for(const n of Array.isArray(names)?names as string[]:[]){
         if(!readBy[id])readBy[id]=[];
-        if(!readBy[id].includes(n))readBy[id].push(n);
+        if(!readBy[id].some((existing)=>normalizedReader(existing)===normalizedReader(n)))readBy[id].push(n);
       }
     }
     for(const m of messages)m.readBy=readBy[m.id]||[];
     const me=(read||[]).find((x:any)=>x.user_name===name);
     const lastRead=me?.last_read_at?Date.parse(me.last_read_at):0;
-    const unreadCount=messages.filter((m:any)=>m.type!=="system"&&m.user!==name&&Date.parse(m.createdAt)>lastRead).length;
+    const unreadCount=messages.filter((m:any)=>m.type!=="system"&&normalizedReader(m.user)!==normalizedReader(name)&&Date.parse(m.createdAt)>lastRead&&!(readBy[m.id]||[]).some((reader)=>normalizedReader(reader)===normalizedReader(name))).length;
     const profileMap:Record<string,string>={};
     for(const p of profileRes.data||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
-    return response({messages,unreadCount,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
+    return response({messages,unreadCount,lastReadAt:me?.last_read_at||null,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
   }
   const p:any=await readBody(req);
   const message=String(p.message||"").trim();
@@ -382,20 +384,23 @@ async function chatRoute(req:Request,name:string){
 async function readRoute(req:Request,name:string){
   const p:any=await readBody(req);
   const ids=Array.isArray(p.messageIds)?p.messageIds.map(String).filter(Boolean).slice(0,1000):[];
-  const {data:current}=await db.from("chat_reads").select("messages").eq("user_name",name).maybeSingle();
+  const {data:current,error:currentError}=await db.from("chat_reads").select("messages").eq("user_name",name).maybeSingle();
+  if(currentError)throw currentError;
   const map=current?.messages&&typeof current.messages==="object"?{...current.messages}:{};
   if(ids.length){
-    const {data:valid}=await db.from("messages").select("id,user_name").in("id",ids);
+    const {data:valid,error:validError}=await db.from("messages").select("id,user_name").in("id",ids);
+    if(validError)throw validError;
     const validIds=new Set((valid||[]).filter((x:any)=>x.user_name!==name).map((x:any)=>String(x.id)));
     for(const id of ids)if(validIds.has(id)){
       const list=Array.isArray(map[id])?[...map[id]]:[];
-      if(!list.includes(name))list.push(name);
+      if(!list.some((reader:any)=>String(reader||"").trim().toLocaleLowerCase()===String(name||"").trim().toLocaleLowerCase()))list.push(name);
       map[id]=list;
     }
   }
-  const {error}=await db.from("chat_reads").upsert({user_name:name,last_read_at:new Date().toISOString(),messages:map},{onConflict:"user_name"});
+  const lastReadAt=new Date().toISOString();
+  const {error}=await db.from("chat_reads").upsert({user_name:name,last_read_at:lastReadAt,messages:map},{onConflict:"user_name"});
   if(error)throw error;
-  return response({ok:true});
+  return response({ok:true,lastReadAt});
 }
 async function typingRoute(req:Request,name:string){
   if(req.method==="GET"){
