@@ -1950,7 +1950,7 @@
     var normalizedMember=String(member||'').trim().toLocaleLowerCase();
     var ids=Array.from(new Set(chatCache.filter(function(m){
       return String(m.user||'').trim().toLocaleLowerCase()!==normalizedMember&&m.type!=='system'&&m.id!=null&&String(m.id).indexOf('local-')!==0;
-    }).map(function(m){return String(m.id);}));
+    }).map(function(m){return String(m.id);})));
     setUnread(0);
     if(!ids.length)return;
     var k=ids.slice().sort().join(',');
