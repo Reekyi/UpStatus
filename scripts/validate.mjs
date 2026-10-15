@@ -85,7 +85,7 @@ assert(testFn.includes("if(readRes.error)throw readRes.error"),"read-state query
 assert(testFn.includes("if(currentError)throw currentError")&&testFn.includes("if(validError)throw validError"),"read receipt persistence must surface query failures instead of overwriting state");
 assert(prodUser.includes("list.setAttribute('data-render-key',renderKey)"),"normal chat renders must store the DOM render key");
 assert(prodUser.includes("var chatInitialLoadScrollPending=false;")&&prodUser.includes("chatInitialLoadScrollPending=true;"),"opening chat must retain bottom-scroll intent through history loading");
-assert(prodUser.includes("if(chatInitialLoadScrollPending)chatForceScrollBottom=true;"),"fresh history render must preserve initial bottom-scroll intent");
+assert(prodUser.includes("if(openingChat){chatForceScrollBottom=true;chatForceBottomUntil=Date.now()+500;}"),"fresh history render must preserve initial bottom-scroll intent through layout");
 assert(prodUser.includes("function chatMessageAlreadyRead(m)")&&prodUser.includes("created<=chatLastReadAt"),"persisted read watermark must suppress notifications for previously read messages");
 assert(prodUser.includes("!chatMessageAlreadyRead(m))setUnread(chatUnread+1)"),"Realtime messages already read must not increase unread count");
 assert(testFn.includes("lastReadAt:me?.last_read_at||null"),"full chat history must return the persisted read watermark");
