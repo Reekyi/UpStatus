@@ -120,7 +120,7 @@
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
   var chatLoading=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
-  var chatForceScrollBottom=false,chatOpenScrollUntil=0,pendingChatNotificationMessages=[];
+  var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,pendingChatNotificationMessages=[];
   var remoteResultCache={},remoteResultWaiters={};
   var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
 
@@ -1844,7 +1844,7 @@
   function playLuccaEntrySound(){try{var a=new Audio(server+'/lucca-devil-laugh.wav?'+Date.now());a.volume=.7;var p=a.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}
   function loadChat(forceFull){
     if(!token||chatLoading)return;
-    if(realtimeActive&&!forceFull)return;
+    if(realtimeActive&&!forceFull&&chatInitialized&&chatCache.length)return;
     chatLoading=true;
     var useFast=!forceFull&&chatCache.length>0&&chatFastSince;
     var route='/api/chat';
@@ -1881,7 +1881,9 @@
       if(!chat.classList.contains('hidden')){
         var nextKey=chatDataKey(chatCache);
         var list=chat.querySelector('.up-chat-list');
+        if(chatPendingInitialScroll)chatForceScrollBottom=true;
         if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();
+        if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}
         if(Date.now()<chatOpenScrollUntil)scrollChatToBottom(true);
         markVisibleChatRead();
         updateTypingIndicator(d.typing||[]);
@@ -2124,8 +2126,10 @@
     input.addEventListener('input',function(){renderMentionMenu();handleTypingInput();});input.addEventListener('click',renderMentionMenu);input.addEventListener('keyup',renderMentionMenu);input.addEventListener('keydown',function(e){if(e.key.length===1||e.key==='Backspace'||e.key==='Delete')startTypingHeartbeat();});input.addEventListener('focus',function(){if(String(input.value||'').trim())startTypingHeartbeat();});input.addEventListener('blur',function(){if(typingStopTimer)clearTimeout(typingStopTimer);typingStopTimer=setTimeout(function(){stopTypingHeartbeat();},1200);});
     input.addEventListener('keydown',function(e){if(e.key==='Escape'){var menu=chat.querySelector('.up-mention-menu');if(menu)menu.classList.add('hidden');return;}if(e.key==='Enter'&&!e.shiftKey){if(e.repeat){e.preventDefault();return;}var menu=chat.querySelector('.up-mention-menu');if(menu&&!menu.classList.contains('hidden')){var first=menu.querySelector('.up-mention-option');if(first){e.preventDefault();applyMention(first.getAttribute('data-name'));return;}}e.preventDefault();sendChat();}});
     chatOpenScrollUntil=Date.now()+5000;
+    chatPendingInitialScroll=true;
     chatForceScrollBottom=true;
     if(chatCache.length)renderChat();
+    if(chatCache.length){scrollChatToBottom(true);chatPendingInitialScroll=false;}
     updateLuccaPresence(luccaOnline);
     loadChat();
     pollChatTyping();
