@@ -2,6 +2,15 @@
 
 ## 2026-10-15
 
+## 3.0.35
+- Corrigida a atualização do contador de mensagens não lidas durante as consultas rápidas do chat, sem depender de uma recarga completa.
+- Reforçada a rolagem inicial para a mensagem mais recente com novas tentativas após o layout inicial, especialmente em navegadores Chromium.
+- Mantidos o fluxo de leitura no servidor e o botão flutuante para abrir e fechar o chat.
+
+# Changelog
+
+## 2026-10-15
+
 ## 3.0.34
 - Corrigido o registro de leitura do chat mesmo quando o cache local está vazio e após atualizações do histórico sem mudança no conteúdo.
 - Corrigida a validação do cache de renderização para verificar a lista DOM atual, evitando que a conversa fique presa no histórico antigo.
