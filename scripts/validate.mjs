@@ -44,6 +44,11 @@ assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not mat
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
+assert(prodUser.includes("if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){"),"chat render cache must be validated against the current DOM list");
+assert(testUser.includes("if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){"),"TEST chat render cache must be validated against the current DOM list");
+assert(prodUser.includes("list.setAttribute('data-render-key',renderKey);"),"chat render must tag the current DOM list with its render key");
+assert(prodUser.includes("if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();\n        markVisibleChatRead();"),"chat read persistence must run even when history is unchanged");
+assert(testUser.includes("if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();\n        markVisibleChatRead();"),"TEST chat read persistence must run even when history is unchanged");
 
 const luccaInline=[...luccaHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].find(m=>!/\bsrc\s*=/.test(m[1])&&m[2].trim());
 assert(!!luccaInline,"Lucca inline script missing");
