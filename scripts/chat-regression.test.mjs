@@ -89,11 +89,15 @@ const oldMessages=[
 }
 assert(source.includes("if(ids.length&&k===readSentKey)return;"),"read receipt deduplication must not suppress the empty-cache watermark update");
 assert(source.includes("api('POST','/api/chat/read',{messageIds:ids})"),"visible chat must persist its read watermark");
+const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
+assert(serverTemplate.includes("unreadCount:unreadCount||0"),"fast chat endpoint must return a current unread count");
 assert(source.includes("if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();"),"loadChat must validate the current DOM render key");
 assert(source.includes("if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){"),"render cache must be tied to the current DOM list");
 assert(source.includes("list.setAttribute('data-render-key',renderKey);"),"rendered DOM list must retain its render key");
 assert(source.includes("chatPendingInitialScroll=true;"),"opening chat must request a forced initial scroll");
 assert(source.includes("if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}"),"first history load must apply the pending bottom scroll");
 assert(source.includes("new ResizeObserver(function(){"),"initial scroll must survive delayed layout changes");
+assert(source.includes("[50,150,300,600,1000].forEach(function(delay){"),"initial bottom scroll must retry after delayed Chromium layout");
+assert(source.includes("else if(typeof d.unreadCount==='number')setUnread(d.unreadCount);"),"fast chat refresh must update unread count while chat is hidden");
 assert(source.includes("if(chat.classList.contains('hidden'))openChat();else closeChat();"),"floating chat button must still toggle open and close");
 console.log("Chat regression tests passed: notification persistence, read watermark, DOM render cache, initial bottom scroll, and open/close toggle.");
