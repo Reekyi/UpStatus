@@ -2219,25 +2219,20 @@
     function apply(){
       try{
         list.style.scrollBehavior='auto';
-        list.scrollTop=Math.max(0,list.scrollHeight-list.clientHeight);
-        // Measure the last rendered message against the actual scroll viewport.
-        // This avoids relying only on scrollHeight during delayed browser layout.
+        var target=Math.max(0,list.scrollHeight-list.clientHeight);
+        list.scrollTop=target;
+        if(Math.abs(list.scrollTop-target)>1&&typeof list.scrollTo==='function')list.scrollTo({top:target,left:0,behavior:'auto'});
+        // Firefox can report the old scrollHeight for a frame after replacing the chat DOM.
+        // Use the last rendered child as a fallback, then re-align the list itself.
         var last=list.lastElementChild;
         if(last&&last.getBoundingClientRect){
           var listRect=list.getBoundingClientRect();
           var lastRect=last.getBoundingClientRect();
-          var gap=lastRect.bottom-listRect.bottom;
-          if(gap>1)list.scrollTop+=gap;
+          var visibleBottom=listRect.top+list.clientTop+list.clientHeight;
+          var gap=lastRect.bottom-visibleBottom;
+          if(gap>1)list.scrollTop=Math.min(list.scrollHeight-list.clientHeight,list.scrollTop+gap);
+          else if(gap < -1 && list.scrollTop<list.scrollHeight-list.clientHeight-1)list.scrollTop=list.scrollHeight-list.clientHeight;
         }
-      }catch(e){}
-    }
-    if(!list._upstatusContentObserverBound&&typeof MutationObserver!=='undefined'){
-      try{
-        var contentObserver=new MutationObserver(function(){
-          if(!chat.classList.contains('hidden')&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil))requestAnimationFrame(apply);
-        });
-        contentObserver.observe(list,{childList:true,subtree:true,characterData:true});
-        list._upstatusContentObserverBound=true;
       }catch(e){}
     }
     if(!list._upstatusBottomScrollBound){
@@ -2260,7 +2255,7 @@
     apply();
     requestAnimationFrame(apply);
     requestAnimationFrame(function(){requestAnimationFrame(apply);});
-    // Retry during the initial-open window across browsers while content and media finish laying out.
+    // Recheck after DOM/media layout settles; retries are limited to chat opening.
     if(!list._upstatusBottomRetryScheduled&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil)){
       list._upstatusBottomRetryScheduled=true;
       [50,150,300,600,1000].forEach(function(delay){
