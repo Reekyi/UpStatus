@@ -44,6 +44,11 @@ assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not mat
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
+execFileSync(process.execPath,[path.join(ROOT,"scripts/chat-regression.test.mjs")],{stdio:"inherit"});
+assert(prodUser.includes("if(realtimeActive&&!forceFull&&chatInitialized&&chatCache.length)return;"),"Realtime must not skip the first full chat history snapshot");
+assert(testUser.includes("if(realtimeActive&&!forceFull&&chatInitialized&&chatCache.length)return;"),"TEST Realtime must not skip the first full chat history snapshot");
+assert(prodUser.includes("chatPendingInitialScroll=true;")&&prodUser.includes("if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}"),"opening chat must retain bottom-scroll intent until history load completes");
+assert(testUser.includes("chatPendingInitialScroll=true;")&&testUser.includes("if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}"),"TEST opening chat must retain bottom-scroll intent until history load completes");
 assert(prodUser.includes("if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){"),"chat render cache must be validated against the current DOM list");
 assert(testUser.includes("if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){"),"TEST chat render cache must be validated against the current DOM list");
 assert(prodUser.includes("list.setAttribute('data-render-key',renderKey);"),"chat render must tag the current DOM list with its render key");
