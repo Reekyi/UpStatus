@@ -363,17 +363,18 @@ async function chatRoute(req:Request,name:string){
     if(readRes.error)throw readRes.error;
     const read=readRes.data;
     const readBy:Record<string,string[]>={};
+    const normalizedReader=(value:unknown)=>String(value||"").trim().toLocaleLowerCase();
     for(const row of read||[]){
       const map=row.messages&&typeof row.messages==="object"?row.messages:{};
       for(const [id,names] of Object.entries(map))for(const n of Array.isArray(names)?names as string[]:[]){
         if(!readBy[id])readBy[id]=[];
-        if(!readBy[id].includes(n))readBy[id].push(n);
+        if(!readBy[id].some((existing)=>normalizedReader(existing)===normalizedReader(n)))readBy[id].push(n);
       }
     }
     for(const m of messages)m.readBy=readBy[m.id]||[];
     const me=(read||[]).find((x:any)=>x.user_name===name);
     const lastRead=me?.last_read_at?Date.parse(me.last_read_at):0;
-    const unreadCount=messages.filter((m:any)=>m.type!=="system"&&m.user!==name&&Date.parse(m.createdAt)>lastRead&&!(readBy[m.id]||[]).includes(name)).length;
+    const unreadCount=messages.filter((m:any)=>m.type!=="system"&&normalizedReader(m.user)!==normalizedReader(name)&&Date.parse(m.createdAt)>lastRead&&!(readBy[m.id]||[]).some((reader)=>normalizedReader(reader)===normalizedReader(name))).length;
     const profileMap:Record<string,string>={};
     for(const p of profileRes.data||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
     return response({messages,unreadCount,lastReadAt:me?.last_read_at||null,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
@@ -412,7 +413,7 @@ async function readRoute(req:Request,name:string){
     const validIds=new Set((valid||[]).filter((x:any)=>x.user_name!==name).map((x:any)=>String(x.id)));
     for(const id of ids)if(validIds.has(id)){
       const list=Array.isArray(map[id])?[...map[id]]:[];
-      if(!list.includes(name))list.push(name);
+      if(!list.some((reader:any)=>String(reader||"").trim().toLocaleLowerCase()===String(name||"").trim().toLocaleLowerCase()))list.push(name);
       map[id]=list;
     }
   }
