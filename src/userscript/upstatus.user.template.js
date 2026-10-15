@@ -938,8 +938,11 @@
       list.forEach(function(m){if(!m||!m.id)return;seenMentionIds[m.id]=true;if(m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0)seenMentionIds['mention:'+m.id]=true;});
       persistSeenChatNotifications();
       chatInitialized=true;
-      var pending=pendingChatNotificationMessages.splice(0);
-      pending.forEach(function(m){if(m&&!seenMentionIds[m.id])processChatNotifications([m]);});
+      // The first full history response is the notification baseline. Realtime
+      // events buffered before it can include replayed/old rows; notifying them here
+      // makes old chat messages alert again after a reload. Drop the buffer once the
+      // baseline is persisted. Events received after this point are handled normally.
+      pendingChatNotificationMessages.length=0;
       return;
     }
     var mentions=list.filter(function(m){return m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0;});
@@ -2001,7 +2004,8 @@
       if(forceScrollBottom)scrollChatToBottom(true);
       return;
     }
-    var wasAtBottom=(list.scrollHeight-list.scrollTop-list.clientHeight)<28;var previousScrollTop=list.scrollTop;
+    // Treat the bottom as sticky within a small safety margin; DOM/layout changes caused by ticket updates can shift scroll metrics by more than a pixel.
+    var wasAtBottom=(list.scrollHeight-list.scrollTop-list.clientHeight)<80;var previousScrollTop=list.scrollTop;
     updateChatHeaderPresence();
     if(!chatCache.length){list.innerHTML='<div class="up-history-empty">Nenhuma mensagem nas últimas 48 horas.</div>';list.setAttribute('data-render-key',renderKey);chatLastRenderKey=renderKey;return;}
     var html='',lastDate='';
