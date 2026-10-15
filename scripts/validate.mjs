@@ -89,6 +89,9 @@ assert(prodUser.includes("if(chatInitialLoadScrollPending)chatForceScrollBottom=
 assert(prodUser.includes("function chatMessageAlreadyRead(m)")&&prodUser.includes("created<=chatLastReadAt"),"persisted read watermark must suppress notifications for previously read messages");
 assert(prodUser.includes("!chatMessageAlreadyRead(m))setUnread(chatUnread+1)"),"Realtime messages already read must not increase unread count");
 assert(testFn.includes("lastReadAt:me?.last_read_at||null"),"full chat history must return the persisted read watermark");
+assert(testFn.includes("normalizedReader(reader)===normalizedReader(name)"),"unread counts must compare read receipts case-insensitively");
+assert(testFn.includes('String(reader||"").trim().toLocaleLowerCase()===String(name||"").trim().toLocaleLowerCase()'),"read receipt writes must deduplicate member names case-insensitively");
+
 assert(testUser.includes("function chatMessageAlreadyRead(m)")&&testUser.includes("chatInitialLoadScrollPending=true;"),"TEST userscript must include read and initial-scroll fixes");
 assert(!testUser.includes("if(realtimeActive&&!forceFull&&chatInitialized&&chatCache.length)return;"),"Realtime subscription must not disable HTTP fallback polling");
 assert(testUser.includes("Date.now()-chatLastFullLoadAt<30000"),"incremental polling must periodically refresh full read receipts and watermark");
