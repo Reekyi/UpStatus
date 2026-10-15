@@ -681,7 +681,7 @@
   ['pointerdown','keydown','touchstart'].forEach(function(ev){document.addEventListener(ev,unlockAudio,{passive:true,capture:true});});
 
   function chatDiag(event,details){
-    try{console.info('[UpStatus ChatDiag]',event,Object.assign({at:new Date().toISOString(),member:member||'',chatHidden:!!(chat&&chat.classList.contains('hidden')),visibility:document.visibilityState||'unknown'},details||{}));}catch(e){}
+    try{console.info('[UpStatus ChatDiag]',event,Object.assign({at:new Date().toISOString(),chatHidden:!!(chat&&chat.classList.contains('hidden')),visibility:document.visibilityState||'unknown'},details||{}));}catch(e){}
   }
   function setUnread(n){
     chatUnread=Number(n)||0;
