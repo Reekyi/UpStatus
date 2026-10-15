@@ -15,8 +15,10 @@
   - Run the read-receipt path after every successful visible-chat history load, independently of whether message content changed.
   - Add focused static regression assertions to `scripts/validate.mjs`.
 - No changes to database schema/history, messages, calls, status behavior, guest portals, or release version metadata.
-- No build/validation command or browser test has been run in a working checkout yet. GitHub file edits were verified by exact-match post-edit assertions in the editing script only; do not treat this as a successful project build or functional test.
-- No PR opened yet. No deployment performed from this branch.
+- GitHub Actions `UpStatus Validate` run #153 built the artifacts and passed the userscript syntax checks plus the new chat regression assertions, then failed at the existing assertion `Ycaro orange theme missing` in `scripts/validate.mjs` line 72. The branch does not change `ycaro.html` or that existing assertion; this unrelated baseline mismatch blocks a green full validation run and has not been changed to avoid scope creep.
+- In-memory build-equivalent checks passed for stable version, no unresolved placeholders, PROD/TEST namespaces and update URLs, path markers, embedded userscript equality, userscript syntax, Lucca inline script syntax, Ycaro HTML embedding, and both chat regression conditions. This is not a substitute for the native validation script finishing successfully or a browser test.
+- Draft PR #29: https://github.com/Reekyi/UpStatus/pull/29, targeting `master`; not merged.
+- TEST deployment performed from this clean stable 3.0.32 source: `upstatus-test` ACTIVE v70, hash `e2bdffd5a9c5b353d0313469f56655feb35f3488b7da4d1cba0a48957ab8b705`. Re-read the active function and verified stable version `3.0.32`, TEST route marker, TEST namespace/update URL, embedded userscript, and both chat changes. Production remains untouched.
 
 ## Live runtime verified at restart
 
@@ -27,8 +29,7 @@
 
 ## Next action
 
-1. Verify the final diff on `fix/chat-root-cause-3.0.32-clean`.
-2. Run `node scripts/validate.mjs` and confirm the generated userscript/function artifacts; verify TEST endpoint/storage isolation.
-3. Open a draft PR targeting `master` or the agreed stable integration target, and deploy only the generated TEST artifact if build validation succeeds.
-4. Do not claim either bug fixed until the actual Sale Smartly browser behavior passes: opening chat lands at newest messages; already-read messages stay read after F5/status changes.
-5. Production remains untouched unless separately authorized.
+1. Resolve the existing Ycaro theme assertion only if separately approved; it is outside the requested chat scope. Until then, keep the CI failure clearly attributed and do not claim full validation passed.
+2. Ask the user to test the currently deployed TEST script in Sale Smartly: open chat at newest messages, then read messages and use F5/status change to confirm old unread counts do not return.
+3. Investigate only a reported failing behavior, using the fresh stable 3.0.32 source as the reference. Do not continue beta.11 work or expand scope.
+4. Production remains untouched unless separately authorized.
