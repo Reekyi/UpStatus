@@ -1900,8 +1900,8 @@
       var newest=chatCache[chatCache.length-1];
       if(newest&&newest.createdAt)chatFastSince=newest.createdAt;
       var chatVisible=!chat.classList.contains('hidden')&&!document.hidden;
-      if(!useFast)setUnread(chatVisible?0:(d.unreadCount||0));
-      else if(chatVisible)setUnread(0);
+      if(chatVisible)setUnread(0);
+      else if(typeof d.unreadCount==='number')setUnread(d.unreadCount);
       if(!chat.classList.contains('hidden')){
         var nextKey=chatDataKey(chatCache);
         var list=chat.querySelector('.up-chat-list');
@@ -2244,6 +2244,17 @@
     apply();
     requestAnimationFrame(apply);
     requestAnimationFrame(function(){requestAnimationFrame(apply);});
+    // Chromium can finish laying out flex children/media after the first animation frames.
+    // Retry on the same list during the initial-open window so the latest message remains visible.
+    if(!list._upstatusBottomRetryScheduled&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil)){
+      list._upstatusBottomRetryScheduled=true;
+      [50,150,300,600,1000].forEach(function(delay){
+        setTimeout(function(){
+          if(!chat.classList.contains('hidden')&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil))apply();
+          if(delay===1000)list._upstatusBottomRetryScheduled=false;
+        },delay);
+      });
+    }
   }
   function sendChat(){
     var input=chat.querySelector('.up-chat-input'),text=input?(input.value||'').trim():'';
