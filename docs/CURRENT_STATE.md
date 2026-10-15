@@ -64,3 +64,12 @@ The current chat is establishing durable continuity docs so a new chat can conti
 ## Last updated
 
 2026-10-15. Recorded source audit, beta.8 TEST deployment, production isolation, and successful `UpStatus Validate` run #138. Manual Sale Smartly verification remains pending. Re-check live Supabase state before further deployment or production action.
+
+
+## Beta.9 follow-up after Sale Smartly beta.8 failure (2026-10-15)
+
+- User reported beta.8 failures: old/read messages, read state after status change, chat opening, and new-message notification; manual scroll worked.
+- Root cause found in the integration source: loadChat() returned immediately whenever Realtime was active, even though a 3-second timer calls loadChat() as the HTTP fallback. A connected broadcast channel therefore disabled fallback message discovery. The TEST beta.8 branch had a related guard that disabled fallback after cache initialization.
+- Added a beta.9 candidate patch to both the TEST source branch and this integration branch: keep incremental HTTP polling available, force a full history/read-state refresh at least every 30 seconds, queue forced history loads when another request is in flight, serialize read-receipt writes, and normalize member-name comparisons in client/server read state.
+- Added validation assertions for these failure paths. CI validation is pending; no beta.9 TEST deployment has been performed. No manual Sale Smartly case is considered resolved.
+- Production upstatus remains untouched. Next: confirm CI validation on this integration PR, inspect both diffs, and then consider TEST-only deployment of the beta.9 candidate.
