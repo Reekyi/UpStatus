@@ -59,6 +59,15 @@ The current chat is establishing durable continuity docs so a new chat can conti
 - Confirmed live TEST before correction: Supabase Edge Function `upstatus-test` ACTIVE v66, version `3.0.32-beta.8`; production `upstatus` ACTIVE v395 and unchanged.
 - Investigation found a client guard in `loadChat()` that returned early whenever Realtime was subscribed and chat cache was initialized. The userscript also calls `loadChat()` periodically, so this disabled the HTTP incremental fallback precisely when Realtime appeared connected. That made fresh messages depend on broadcasts arriving on the exact same topic/client version.
 - Beta.9 candidate branch: `fix/chat-reliability-beta9`, based on the exact beta.8 TEST source branch. Candidate changes: restore incremental HTTP polling even when Realtime is subscribed; force a full history/read-state refresh at least every 30 seconds; queue forced history reloads if another request is in flight; serialize read-receipt writes to avoid overlapping upserts; normalize member-name comparisons for read receipts.
-- Regression assertions were added to `scripts/validate.mjs`. GitHub Actions validation is pending; no TEST deployment has been performed for beta.9 yet.
+- Regression assertions were added to scripts/validate.mjs. The generated PROD/TEST artifacts were reconstructed in-memory from the current build replacement map and the repository's validation assertions were executed against them; all assertions passed, including generated userscript syntax and TEST endpoint isolation. A native local Node run and GitHub Actions run were not confirmed; the TypeScript server template was not separately type-checked.
 - Production remains unchanged. Do not merge or deploy production. Do not mark any reported manual failure as resolved until a fresh Sale Smartly retest passes.
-- Next action: run validation for the beta.9 candidate, inspect final diff, open a draft PR against the beta.8 source branch, and deploy only to `upstatus-test` if validation and artifact checks pass. Then ask the user to repeat the five Sale Smartly checks.
+- Validation passed in-memory; beta.9 is now deployed to TEST as recorded below. Next action: collect fresh Sale Smartly results; do not mark any failed manual case resolved until it passes.
+
+
+## Beta.9 TEST deployment checkpoint (2026-10-15)
+
+- Deployed candidate 3.0.32-beta.9 to Supabase Edge Function upstatus-test, now ACTIVE version 67, hash b5279c10af0e5f53a7329caf413d419cd1561b3fe10b442b34a62e283d2f1aff.
+- Re-read the live TEST function and decoded its embedded userscript. Verified version 3.0.32-beta.9, HTTP fallback polling, forced-load queuing, serialized read receipts, case-normalized read handling, and TEST endpoint isolation.
+- Production function upstatus remains ACTIVE version 395 with unchanged hash 6ae6ba4ec13059f1092acc0bad1296d6981eb7683a1ed3b7f116f71bdb1c9cf3.
+- Deployment/runtime source verification is complete, but no Sale Smartly browser retest has occurred. Keep all previously failed manual cases open and unverified.
+- TEST PR: https://github.com/Reekyi/UpStatus/pull/27. Do not merge or deploy production without explicit authorization.
