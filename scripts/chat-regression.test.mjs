@@ -98,6 +98,8 @@ assert(source.includes("chatPendingInitialScroll=true;"),"opening chat must requ
 assert(source.includes("if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}"),"first history load must apply the pending bottom scroll");
 assert(source.includes("new ResizeObserver(function(){"),"initial scroll must survive delayed layout changes");
 assert(source.includes("[50,150,300,600,1000].forEach(function(delay){"),"initial bottom scroll must retry after delayed Chromium layout");
+assert(source.includes("new MutationObserver(function(){"),"initial bottom scroll must react to delayed DOM content changes");
+assert(source.includes("var gap=lastRect.bottom-listRect.bottom;"),"initial bottom scroll must verify the last message against the actual viewport");
 assert(source.includes("else if(typeof d.unreadCount==='number')setUnread(d.unreadCount);"),"fast chat refresh must update unread count while chat is hidden");
 assert(source.includes("if(chat.classList.contains('hidden'))openChat();else closeChat();"),"floating chat button must still toggle open and close");
 console.log("Chat regression tests passed: notification persistence, read watermark, DOM render cache, initial bottom scroll, and open/close toggle.");
