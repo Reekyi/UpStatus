@@ -56,4 +56,12 @@ const oldMessages=[
   assert(h.toasts.length===1&&h.toasts[0]==="during-load","queued messages absent from the baseline must notify once");
   assert(h.pendingChatNotificationMessages.length===0,"the pending notification queue must be drained after baseline");
 }
-console.log("Chat regression tests passed: initial baseline, duplicate history, incremental event, and Realtime/history race.");
+{
+  const h=makeHarness();
+  h.chatCache=[];
+  h.processChatNotifications(oldMessages,true);
+  assert(h.chatInitialized,"the first full history response must initialize notification state");
+  h.processChatNotifications(oldMessages,false);
+  assert(h.toasts.length===0,"an empty cache must not mask the first full history snapshot and re-notify its messages");
+}
+console.log("Chat regression tests passed: initial baseline, empty-cache regression, duplicate history, incremental event, and Realtime/history race.");
