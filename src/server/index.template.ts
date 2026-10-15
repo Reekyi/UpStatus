@@ -340,6 +340,7 @@ async function chatRoute(req:Request,name:string){
       db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name),
       expireLucca()
     ]);
+    if(readRes.error)throw readRes.error;
     const read=readRes.data;
     const readBy:Record<string,string[]>={};
     for(const row of read||[]){
@@ -382,10 +383,12 @@ async function chatRoute(req:Request,name:string){
 async function readRoute(req:Request,name:string){
   const p:any=await readBody(req);
   const ids=Array.isArray(p.messageIds)?p.messageIds.map(String).filter(Boolean).slice(0,1000):[];
-  const {data:current}=await db.from("chat_reads").select("messages").eq("user_name",name).maybeSingle();
+  const {data:current,error:currentError}=await db.from("chat_reads").select("messages").eq("user_name",name).maybeSingle();
+  if(currentError)throw currentError;
   const map=current?.messages&&typeof current.messages==="object"?{...current.messages}:{};
   if(ids.length){
-    const {data:valid}=await db.from("messages").select("id,user_name").in("id",ids);
+    const {data:valid,error:validError}=await db.from("messages").select("id,user_name").in("id",ids);
+    if(validError)throw validError;
     const validIds=new Set((valid||[]).filter((x:any)=>x.user_name!==name).map((x:any)=>String(x.id)));
     for(const id of ids)if(validIds.has(id)){
       const list=Array.isArray(map[id])?[...map[id]]:[];
