@@ -75,4 +75,9 @@ assert(prodUser.includes("O carregamento do chat demorou demais. Tentando novame
 assert(prodUser.includes("anchor.getBoundingClientRect().top-list.getBoundingClientRect().top-anchorOffset"),"chat rerender must preserve the visible message anchor when not at bottom");
 assert(testUser.includes("if(wasAtBottom){list.scrollTop=list.scrollHeight;return;}"),"chat media loading must preserve the scroll anchor when the reader is away from the bottom");
 assert(testFn.includes('!(readBy[m.id]||[]).includes(name)'),"unread counts must respect per-message read receipts to avoid stale false positives");
+assert(testUser.includes("list.getAttribute('data-render-key')===renderKey"),"recreated chat DOM must be rendered even when the global message cache key is unchanged");
+assert(testUser.includes("markVisibleChatRead(true)"),"opening the chat must force a server read-receipt update");
+assert(testUser.includes("setTimeout(apply,220)"),"scroll-to-bottom must retry after layout settles");
+assert(testFn.includes("if(readRes.error)throw readRes.error"),"read-state query failures must not silently inflate unread counts");
+assert(testFn.includes("if(currentError)throw currentError")&&testFn.includes("if(validError)throw validError"),"read receipt persistence must surface query failures instead of overwriting state");
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion+" / chat regression guards");
