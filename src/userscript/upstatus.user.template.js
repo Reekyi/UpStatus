@@ -2218,10 +2218,28 @@
     if(!list)return;
     function apply(){
       try{
-        var target=Math.max(0,list.scrollHeight-list.clientHeight);
         list.style.scrollBehavior='auto';
-        list.scrollTop=target;
-        if(Math.abs(list.scrollTop-target)>1)list.scrollTo(0,target);
+        list.scrollTop=Math.max(0,list.scrollHeight-list.clientHeight);
+        // Measure the last rendered message against the actual scroll viewport.
+        // This avoids relying only on scrollHeight during delayed browser layout.
+        var last=list.lastElementChild;
+        if(last&&last.getBoundingClientRect){
+          var listRect=list.getBoundingClientRect();
+          var lastRect=last.getBoundingClientRect();
+          var gap=lastRect.bottom-listRect.bottom;
+          if(gap>1)list.scrollTop+=gap;
+        }
+        var target=Math.max(0,list.scrollHeight-list.clientHeight);
+        if(Math.abs(list.scrollTop-target)>2)list.scrollTop=target;
+      }catch(e){}
+    }
+    if(!list._upstatusContentObserverBound&&typeof MutationObserver!=='undefined'){
+      try{
+        var contentObserver=new MutationObserver(function(){
+          if(!chat.classList.contains('hidden')&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil))requestAnimationFrame(apply);
+        });
+        contentObserver.observe(list,{childList:true,subtree:true,characterData:true});
+        list._upstatusContentObserverBound=true;
       }catch(e){}
     }
     if(!list._upstatusBottomScrollBound){
@@ -2244,8 +2262,7 @@
     apply();
     requestAnimationFrame(apply);
     requestAnimationFrame(function(){requestAnimationFrame(apply);});
-    // Chromium can finish laying out flex children/media after the first animation frames.
-    // Retry on the same list during the initial-open window so the latest message remains visible.
+    // Retry during the initial-open window across browsers while content and media finish laying out.
     if(!list._upstatusBottomRetryScheduled&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil)){
       list._upstatusBottomRetryScheduled=true;
       [50,150,300,600,1000].forEach(function(delay){
