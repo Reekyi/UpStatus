@@ -48,7 +48,7 @@ assert(prodUser.includes("if(chatInitialLoadScrollPending)chatForceScrollBottom=
 assert(prodUser.includes("function chatMessageAlreadyRead(m)")&&prodUser.includes("created<=chatLastReadAt"),"persisted read watermark must suppress notifications for previously read messages");
 assert(prodUser.includes("!chatMessageAlreadyRead(m))setUnread(chatUnread+1)"),"Realtime events for previously read messages must not inflate unread count");
 assert(testFn.includes("lastReadAt:me?.last_read_at||null"),"full chat history must expose the persisted read watermark to clients");
-assert(testFn.includes("!(readBy[m.id]||[]).includes(name)"),"unread counts must honor per-message read receipts");
+assert(testFn.includes("!(readBy[m.id]||[]).some((reader)=>normalizedReader(reader)===normalizedReader(name))"),"unread counts must honor normalized per-message read receipts");
 assert(testFn.includes("if(readRes.error)throw readRes.error"),"failed read-state lookup must not report every message as unread");
 assert(testFn.includes("if(currentError)throw currentError")&&testFn.includes("if(validError)throw validError"),"read receipt write must not silently overwrite state after failed reads");
 assert(testUser.includes("list.getAttribute('data-render-key')===renderKey")&&testUser.includes("function chatMessageAlreadyRead(m)"),"TEST userscript must contain chat render and read-notification regression fixes");
