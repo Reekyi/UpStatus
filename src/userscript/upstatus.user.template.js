@@ -1882,6 +1882,7 @@
         var nextKey=chatDataKey(chatCache);
         var list=chat.querySelector('.up-chat-list');
         if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();
+        if(Date.now()<chatOpenScrollUntil)scrollChatToBottom(true);
         markVisibleChatRead();
         updateTypingIndicator(d.typing||[]);
       }
@@ -2122,7 +2123,7 @@
     chat.querySelector('.up-chat-send').onclick=function(e){e.stopPropagation();sendChat()};
     input.addEventListener('input',function(){renderMentionMenu();handleTypingInput();});input.addEventListener('click',renderMentionMenu);input.addEventListener('keyup',renderMentionMenu);input.addEventListener('keydown',function(e){if(e.key.length===1||e.key==='Backspace'||e.key==='Delete')startTypingHeartbeat();});input.addEventListener('focus',function(){if(String(input.value||'').trim())startTypingHeartbeat();});input.addEventListener('blur',function(){if(typingStopTimer)clearTimeout(typingStopTimer);typingStopTimer=setTimeout(function(){stopTypingHeartbeat();},1200);});
     input.addEventListener('keydown',function(e){if(e.key==='Escape'){var menu=chat.querySelector('.up-mention-menu');if(menu)menu.classList.add('hidden');return;}if(e.key==='Enter'&&!e.shiftKey){if(e.repeat){e.preventDefault();return;}var menu=chat.querySelector('.up-mention-menu');if(menu&&!menu.classList.contains('hidden')){var first=menu.querySelector('.up-mention-option');if(first){e.preventDefault();applyMention(first.getAttribute('data-name'));return;}}e.preventDefault();sendChat();}});
-    chatOpenScrollUntil=Date.now()+2500;
+    chatOpenScrollUntil=Date.now()+5000;
     chatForceScrollBottom=true;
     if(chatCache.length)renderChat();
     updateLuccaPresence(luccaOnline);
