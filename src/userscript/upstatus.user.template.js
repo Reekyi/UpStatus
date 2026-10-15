@@ -120,7 +120,7 @@
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
   var chatLoading=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
-  var chatForceScrollBottom=false;
+  var chatForceScrollBottom=false,pendingChatNotificationMessages=[];
   var remoteResultCache={},remoteResultWaiters={};
   var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
 
@@ -338,6 +338,7 @@
   var chatUnread=0;
   var chatInitialized=false;
   var seenMentionIds={};
+  var seenChatNotificationMember='';
   var audioCtx=null;
   var audioUnlocked=false;
   var mediaRecorder=null;
@@ -912,14 +913,39 @@
     }
   }
 
-  function processChatNotifications(messages){
-    var mentions=(messages||[]).filter(function(m){return m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0;});
+  function loadSeenChatNotifications(){
+    if(!member||seenChatNotificationMember===member)return;
+    seenMentionIds={};
+    try{
+      var saved=GM_getValue(key+'chat_seen_notifications_'+member,[]);
+      if(Array.isArray(saved))saved.slice(-2400).forEach(function(id){if(id)seenMentionIds[String(id)]=true;});
+    }catch(e){}
+    seenChatNotificationMember=member;
+  }
+  function persistSeenChatNotifications(){
+    if(!member)return;
+    try{GM_setValue(key+'chat_seen_notifications_'+member,Object.keys(seenMentionIds).slice(-2400));}catch(e){}
+  }
+
+  function processChatNotifications(messages,initialSnapshot){
+    loadSeenChatNotifications();
+    var list=messages||[];
     if(!chatInitialized){
-      (messages||[]).forEach(function(m){seenMentionIds[m.id]=true;});
-      mentions.forEach(function(m){seenMentionIds['mention:'+m.id]=true;});
+      if(!initialSnapshot){
+        list.forEach(function(m){if(m&&m.id&&!pendingChatNotificationMessages.some(function(x){return String(x.id)===String(m.id);}))pendingChatNotificationMessages.push(m);});
+        return;
+      }
+      list.forEach(function(m){if(!m||!m.id)return;seenMentionIds[m.id]=true;if(m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0)seenMentionIds['mention:'+m.id]=true;});
+      persistSeenChatNotifications();
       chatInitialized=true;
+      // The first full history response is the notification baseline. Realtime
+      // events buffered before it can include replayed/old rows; notifying them here
+      // makes old chat messages alert again after a reload. Drop the buffer once the
+      // baseline is persisted. Events received after this point are handled normally.
+      pendingChatNotificationMessages.length=0;
       return;
     }
+    var mentions=list.filter(function(m){return m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0;});
     var newMention=false;
     (messages||[]).forEach(function(m){
       if(m.type==='system')return;
@@ -940,6 +966,7 @@
       }
     });
     if(newMention)playMentionAlert();
+    persistSeenChatNotifications();
   }
 
   document.addEventListener('UPSTATUS_EXTERNAL_NOTIFICATION_CLICK',function(e){
@@ -1869,7 +1896,7 @@
       var beforeKey=chatDataKey(chatCache);
       chatCache=nextMessages;
       if(d.profiles)profileCache=d.profiles;
-      processChatNotifications(incoming);
+      processChatNotifications(incoming,!useFast);
       var newest=chatCache[chatCache.length-1];
       if(newest&&newest.createdAt)chatFastSince=newest.createdAt;
       var chatVisible=!chat.classList.contains('hidden')&&!document.hidden;
