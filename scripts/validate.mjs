@@ -52,4 +52,10 @@ assert(testFn.includes("!(readBy[m.id]||[]).includes(name)"),"unread counts must
 assert(testFn.includes("if(readRes.error)throw readRes.error"),"failed read-state lookup must not report every message as unread");
 assert(testFn.includes("if(currentError)throw currentError")&&testFn.includes("if(validError)throw validError"),"read receipt write must not silently overwrite state after failed reads");
 assert(testUser.includes("list.getAttribute('data-render-key')===renderKey")&&testUser.includes("function chatMessageAlreadyRead(m)"),"TEST userscript must contain chat render and read-notification regression fixes");
+assert(!testUser.includes("if(realtimeActive&&!forceFull)return;"),"Realtime must not disable HTTP fallback polling");
+assert(testUser.includes("Date.now()-chatLastFullLoadAt<30000"),"incremental polling must periodically refresh full history/read state");
+assert(testUser.includes("if(chatLoading){if(forceFull)chatFullReloadPending=true;return;}")&&testUser.includes("if(chatFullReloadPending&&token)"),"forced chat-open history loads must be queued while a request is in flight");
+assert(testUser.includes("var chatFullReloadPending=false,chatLastFullLoadAt=0,chatReadInFlightKey='',chatReadPending=false;"),"chat history and read receipt requests must be coordinated");
+assert(testFn.includes("normalizedReader(reader)===normalizedReader(name)"),"unread counts must compare read receipts case-insensitively");
+assert(testFn.includes('String(reader||"").trim().toLocaleLowerCase()===String(name||"").trim().toLocaleLowerCase()'),"read receipt writes must deduplicate member names case-insensitively");
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion+" / chat read-scroll regression guards");
