@@ -2,6 +2,14 @@
 
 ## 2026-10-15
 
+## 3.0.34
+- Corrigido o registro de leitura do chat mesmo quando o cache local está vazio e após atualizações do histórico sem mudança no conteúdo.
+- Corrigida a validação do cache de renderização para verificar a lista DOM atual, evitando que a conversa fique presa no histórico antigo.
+- Reforçada a rolagem inicial para a mensagem mais recente, inclusive enquanto imagens e outros elementos terminam de carregar.
+- Mantido o comportamento do botão flutuante de chat para abrir e fechar a conversa.
+
+## 2026-10-15
+
 ## 3.0.33
 - Corrigido o recebimento de mensagens do chat sem precisar recarregar a página, mantendo a consulta periódica como fallback quando o Realtime não cobre o ambiente de origem.
 - Corrigido o reaparecimento de notificações já lidas após F5, persistindo os identificadores das mensagens notificadas e estabelecendo corretamente a referência inicial do histórico.
