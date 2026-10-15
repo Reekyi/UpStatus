@@ -1867,7 +1867,7 @@
     if(!token||chatLoading)return;
     if(realtimeActive&&!forceFull&&chatInitialized&&chatCache.length){if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}return;}
     chatLoading=true;
-    var useFast=!forceFull&&chatCache.length>0&&chatFastSince;
+    var useFast=!forceFull&&chatInitialized&&chatCache.length>0&&chatFastSince;
     var route='/api/chat';
     if(useFast)route='/api/chat?fast=1&since='+encodeURIComponent(new Date(new Date(chatFastSince).getTime()-2000).toISOString());
     api('GET',route).then(function(d){
