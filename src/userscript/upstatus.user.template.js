@@ -2489,7 +2489,7 @@
     if(settingsBtn)settingsBtn.onclick=function(e){e.stopPropagation();settingsMenu.classList.toggle('hidden');};
     if(settingsMenu){settingsMenu.onclick=function(e){e.stopPropagation();};var settingsHealth=settingsMenu.querySelector('.up-settings-health');if(settingsHealth)settingsHealth.onclick=function(){settingsMenu.classList.add('hidden');openHealth();};var settingsTest=settingsMenu.querySelector('.up-settings-test');if(settingsTest)settingsTest.onclick=function(){settingsMenu.classList.add('hidden');openTestPanel();};settingsMenu.querySelector('.up-settings-notifications').onclick=function(){toggleNotifications();};settingsMenu.querySelector('.up-settings-theme').onclick=function(){toggleTheme();};document.addEventListener('click',function(e){if(!settingsMenu.contains(e.target)&&e.target!==settingsBtn)settingsMenu.classList.add('hidden');});}
     card.querySelector('.up-chat-btn').onclick=function(e){e.stopPropagation();openChat()};
-    quickChatBubble.onclick=function(e){e.stopPropagation();openChat()};
+    quickChatBubble.onclick=function(e){e.stopPropagation();if(chat.classList.contains('hidden'))openChat();else closeChat();};
     updateNotificationPermissionUI();
     applyTheme();
     card.insertAdjacentHTML('beforeend','<div class="up-update"><div class="up-update-version">'+iconSvg('update')+'<div><b>Versão v'+CURRENT_VERSION+'</b><a href="#" class="up-patch-link">O que há de novo?</a><span class="up-update-status"></span></div></div><div class="up-update-actions"><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div></div>');
