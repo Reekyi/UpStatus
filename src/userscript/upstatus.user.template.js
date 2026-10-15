@@ -339,19 +339,6 @@
   var chatInitialized=false;
   var seenMentionIds={};
   var seenChatNotificationMember='';
-  function loadSeenChatNotifications(){
-    if(!member||seenChatNotificationMember===member)return;
-    seenMentionIds={};
-    try{
-      var saved=GM_getValue(key+'chat_seen_notifications_'+member,[]);
-      if(Array.isArray(saved))saved.slice(-2400).forEach(function(id){if(id)seenMentionIds[String(id)]=true;});
-    }catch(e){}
-    seenChatNotificationMember=member;
-  }
-  function persistSeenChatNotifications(){
-    if(!member)return;
-    try{GM_setValue(key+'chat_seen_notifications_'+member,Object.keys(seenMentionIds).slice(-2400));}catch(e){}
-  }
   var audioCtx=null;
   var audioUnlocked=false;
   var mediaRecorder=null;
@@ -924,6 +911,20 @@
         n2.onclick=function(){try{window.focus()}catch(e){};try{openChat()}catch(e){};try{n2.close()}catch(e){}};
       }catch(ignore){}
     }
+  }
+
+  function loadSeenChatNotifications(){
+    if(!member||seenChatNotificationMember===member)return;
+    seenMentionIds={};
+    try{
+      var saved=GM_getValue(key+'chat_seen_notifications_'+member,[]);
+      if(Array.isArray(saved))saved.slice(-2400).forEach(function(id){if(id)seenMentionIds[String(id)]=true;});
+    }catch(e){}
+    seenChatNotificationMember=member;
+  }
+  function persistSeenChatNotifications(){
+    if(!member)return;
+    try{GM_setValue(key+'chat_seen_notifications_'+member,Object.keys(seenMentionIds).slice(-2400));}catch(e){}
   }
 
   function processChatNotifications(messages,initialSnapshot){
