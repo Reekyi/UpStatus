@@ -480,6 +480,15 @@
     '#upstatus-root.up-theme-light .up-update button{background:#e8edf4;color:#334155}'+
     '#upstatus-root.up-theme-light .up-toast-stack .up-toast{background:rgba(255,255,255,.94);border-color:#d4dce7;color:#1e293b}'+
     '#upstatus-root.up-theme-light .up-toast-stack .up-toast-name{color:#526176}'+
+    '#upstatus-root.up-theme-light #upstatus-chat .up-chat-back{background:#e8edf4;color:#334155;border:1px solid #cbd5e1}'+
+    '#upstatus-root.up-theme-light #upstatus-chat .up-chat-back:hover{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd}'+
+    '#upstatus-root.up-theme-light #upstatus-chat .up-chat-clear{background:#fee2e2;color:#be123c;border:1px solid #fecaca}'+
+    '#upstatus-root.up-theme-light #upstatus-chat .up-chat-clear:hover{background:#fecaca;color:#9f1239}'+
+    '#upstatus-root.up-theme-light #upstatus-chat .up-chat-input-wrap{background:#fff;border-color:#cbd5e1;box-shadow:0 2px 8px rgba(15,23,42,.07)}'+
+    '#upstatus-root.up-theme-light #upstatus-chat .up-chat-input{background:transparent;color:#1e293b}'+
+    '#upstatus-root.up-theme-light #upstatus-chat .up-chat-input::placeholder{color:#94a3b8}'+
+    '#upstatus-root.up-theme-light #upstatus-chat .up-chat-input-wrap .up-chat-emoji-btn{background:transparent;color:#475569}'+
+    '#upstatus-root.up-theme-light #upstatus-chat .up-chat-input-wrap .up-chat-emoji-btn:hover{background:#e8edf4;color:#1d4ed8}'+
     '#upstatus-root.up-theme-light .up-remote-dialog{background:#fff;border-color:#cbd5e1;color:#1e293b}'+
     '#upstatus-root.up-theme-light .up-remote-sub{color:#64748b}'+
     '#upstatus-root.up-theme-light .up-remote-status{background:#f1f5f9;border-color:#cbd5e1;color:#334155}'+
