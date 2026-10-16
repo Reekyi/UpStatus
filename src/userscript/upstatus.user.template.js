@@ -338,7 +338,7 @@
   var chatUnread=0;
   var chatInitialized=false;
   var seenMentionIds={};
-  var seenChatNotificationMember='';
+  var seenChatNotificationMember='',seenChatNotificationHadBaseline=false;
   var audioCtx=null;
   var audioUnlocked=false;
   var mediaRecorder=null;
@@ -924,6 +924,7 @@
     seenMentionIds={};
     try{
       var saved=GM_getValue(key+'chat_seen_notifications_'+member,[]);
+      seenChatNotificationHadBaseline=Array.isArray(saved)&&saved.length>0;
       if(Array.isArray(saved))saved.slice(-2400).forEach(function(id){if(id)seenMentionIds[String(id)]=true;});
     }catch(e){}
     seenChatNotificationMember=member;
@@ -941,14 +942,32 @@
         list.forEach(function(m){if(m&&m.id&&!pendingChatNotificationMessages.some(function(x){return String(x.id)===String(m.id);}))pendingChatNotificationMessages.push(m);});
         return;
       }
-      list.forEach(function(m){if(!m||!m.id)return;seenMentionIds[m.id]=true;if(m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0)seenMentionIds['mention:'+m.id]=true;});
+      var baselineHadBeenSaved=seenChatNotificationHadBaseline;
+      var firstLoadMentions=false;
+      list.forEach(function(m){
+        if(!m||!m.id)return;
+        var id=String(m.id),wasSeen=!!seenMentionIds[id];
+        if(!wasSeen){
+          seenMentionIds[id]=true;
+          if(baselineHadBeenSaved&&m.type!=='system'&&m.user!==member&&shouldNotifyForChat()){
+            showChatToast(m);
+            if(isTeamChatMessage(m))showExternalNotification('chat',m);
+          }
+        }
+        if(m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0&&!seenMentionIds['mention:'+id]){
+          seenMentionIds['mention:'+id]=true;
+          if(baselineHadBeenSaved)firstLoadMentions=true;
+        }
+      });
       persistSeenChatNotifications();
       chatInitialized=true;
-      // The first full history response is the notification baseline. Realtime
-      // events buffered before it can include replayed/old rows; notifying them here
-      // makes old chat messages alert again after a reload. Drop the buffer once the
-      // baseline is persisted. Events received after this point are handled normally.
+      if(firstLoadMentions)playMentionAlert();
+      // Reconcile realtime messages that arrived while the initial history was loading.
+      // IDs already included in history are now marked seen, so only genuinely newer
+      // messages trigger notifications.
+      var buffered=pendingChatNotificationMessages.slice();
       pendingChatNotificationMessages.length=0;
+      if(buffered.length)processChatNotifications(buffered,false);
       return;
     }
     var mentions=list.filter(function(m){return m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0;});
