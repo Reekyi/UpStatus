@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-16
+
+## 3.0.39
+- Polido o modo claro do chat: botões do cabeçalho e área de digitação agora seguem a paleta clara.
+- Corrigidas as cores do balão de notificação para respeitar o tema ativo.
+- O indicador do chat fica verde quando não há mensagens novas e vermelho pulsante quando há mensagens não lidas.
+- Ajustado o microfone no modo claro: branco no estado normal, azul ao passar o mouse e vermelho durante a gravação.
+- Mantido o comportamento de abrir o chat pelo indicador e limpar o aviso ao abrir.
+
 ## 2026-10-15
 
 ## 3.0.36
