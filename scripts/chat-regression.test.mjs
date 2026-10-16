@@ -101,6 +101,10 @@ assert(source.includes("if(ids.length&&k===readSentKey)return;"),"read receipt d
 assert(source.includes("api('POST','/api/chat/read',{messageIds:ids})"),"visible chat must persist its read watermark");
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
 assert(serverTemplate.includes("unreadCount:unreadCount||0"),"fast chat endpoint must return a current unread count");
+const fastRouteStart=serverTemplate.indexOf("if(fast){",serverTemplate.indexOf("async function chatRoute"));
+const fastRouteEnd=serverTemplate.indexOf("\n    }\n    const cutoffTyping",fastRouteStart);
+const fastRoute=serverTemplate.slice(fastRouteStart,fastRouteEnd);
+assert(fastRoute.includes("const cutoff=new Date(Date.now()-48*60*60*1000).toISOString();")&&fastRoute.includes("lastReadAt=(readRes.data as any)?.last_read_at||cutoff"),"fast chat unread counter must define its fallback cutoff before use");
 assert(source.includes("if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();"),"loadChat must validate the current DOM render key");
 assert(source.includes("if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){"),"render cache must be tied to the current DOM list");
 assert(source.includes("list.setAttribute('data-render-key',renderKey);"),"rendered DOM list must retain its render key");
