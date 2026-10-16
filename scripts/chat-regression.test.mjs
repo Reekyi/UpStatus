@@ -16,6 +16,7 @@ function makeHarness(){
     chatInitialized:false,
     seenMentionIds:{},
     seenChatNotificationMember:"",
+    seenChatNotificationHadBaseline:false,
     pendingChatNotificationMessages:[],
     chatCache:[],
     member:"Ricardo",
@@ -57,8 +58,8 @@ const oldMessages=[
   h.processChatNotifications([arrivingDuringLoad],false);
   assert(h.pendingChatNotificationMessages.length===1,"Realtime messages arriving before initial history must be queued");
   h.chatCache=oldMessages;
-  h.processChatNotifications(oldMessages,true);
-  assert(h.toasts.length===0,"events buffered before the initial history baseline must not replay old-message notifications");
+  h.processChatNotifications(oldMessages.concat([arrivingDuringLoad]),true);
+  assert(h.toasts.length===0,"events buffered before the initial history baseline must not replay messages already present in the history snapshot");
   assert(h.pendingChatNotificationMessages.length===0,"the pending notification queue must be discarded after baseline");
   h.processChatNotifications([{id:"after-baseline",user:"Lohan",type:"text",mentions:[]}],false);
   assert(h.toasts.length===1&&h.toasts[0]==="after-baseline","events arriving after the baseline must still notify normally");
@@ -70,6 +71,15 @@ const oldMessages=[
   assert(h.chatInitialized,"the first full history response must initialize notification state");
   h.processChatNotifications(oldMessages,false);
   assert(h.toasts.length===0,"an empty cache must not mask the first full history snapshot and re-notify its messages");
+}
+{
+  const persisted={"upstatus_test_chat_seen_notifications_Ricardo":["old-1","old-2"]};
+  const h=makeHarness();
+  h.persisted=persisted;
+  const missedWhileAway={id:"missed-while-away",user:"Lohan",type:"text",mentions:[]};
+  h.processChatNotifications(oldMessages.concat([missedWhileAway]),true);
+  assert(h.toasts.length===1&&h.toasts[0]==="missed-while-away","new messages since the previous session must notify on the first history snapshot");
+  assert(h.external.length===1&&h.external[0]==="chat:missed-while-away","missed new messages must also raise external notifications");
 }
 {
   const persisted={};
@@ -98,6 +108,13 @@ assert(source.includes("chatPendingInitialScroll=true;"),"opening chat must requ
 assert(source.includes("if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}"),"first history load must apply the pending bottom scroll");
 assert(source.includes("new ResizeObserver(function(){"),"initial scroll must survive delayed layout changes");
 assert(source.includes("[50,150,300,600,1000].forEach(function(delay){"),"initial bottom scroll must retry after delayed Chromium layout");
+assert(source.includes("new MutationObserver(function(){"),"initial bottom scroll must react to delayed DOM content changes");
+assert(source.includes("var visibleBottom=listRect.top+list.clientTop+list.clientHeight;")&&source.includes("var gap=lastRect.bottom-visibleBottom;"),"initial bottom scroll must verify the last message against the actual scrollport");
+assert(source.includes("chatScrollObserver.observe(last)"),"initial scroll must react when the last message finishes resizing");
+assert(source.includes("timeout:15000")&&source.includes("ontimeout:function()"),"chat requests must time out instead of leaving the loading state stuck forever");
+assert(source.includes("Não foi possível carregar o chat.")&&source.includes("loadChat(true)"),"failed initial chat loads must show a retry action instead of an infinite loading label");
+assert(source.includes("var baselineHadBeenSaved=seenChatNotificationHadBaseline;"),"initial history must distinguish an established notification baseline from first install");
+assert(source.includes("var buffered=pendingChatNotificationMessages.slice();"),"realtime messages arriving during initial history load must be reconciled afterward");
 assert(source.includes("else if(typeof d.unreadCount==='number')setUnread(d.unreadCount);"),"fast chat refresh must update unread count while chat is hidden");
 assert(source.includes("if(chat.classList.contains('hidden'))openChat();else closeChat();"),"floating chat button must still toggle open and close");
 console.log("Chat regression tests passed: notification persistence, read watermark, DOM render cache, initial bottom scroll, and open/close toggle.");

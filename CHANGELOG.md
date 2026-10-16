@@ -2,6 +2,13 @@
 
 ## 2026-10-15
 
+## 3.0.36
+- Corrigida a rolagem do chat com uma verificação baseada na posição real da última mensagem dentro da área rolável.
+- Adicionado acompanhamento de alterações no conteúdo para repetir a rolagem após atualizações e carregamento de elementos.
+- Preservada a correção do contador de mensagens não lidas introduzida na versão 3.0.35.
+
+## 2026-10-15
+
 ## 3.0.35
 - Corrigida a atualização do contador de mensagens não lidas durante as consultas rápidas do chat, sem depender de uma recarga completa.
 - Reforçada a rolagem inicial para a mensagem mais recente com novas tentativas após o layout inicial, especialmente em navegadores Chromium.

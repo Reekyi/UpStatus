@@ -338,7 +338,7 @@
   var chatUnread=0;
   var chatInitialized=false;
   var seenMentionIds={};
-  var seenChatNotificationMember='';
+  var seenChatNotificationMember='',seenChatNotificationHadBaseline=false;
   var audioCtx=null;
   var audioUnlocked=false;
   var mediaRecorder=null;
@@ -390,7 +390,8 @@
 
   function api(method,route,data){
     return new Promise(function(resolve,reject){
-      GM_xmlhttpRequest({
+      var settled=false;
+      var request=GM_xmlhttpRequest({
         method:method,
         url:(function(){
           var u=server+route;
@@ -401,14 +402,19 @@
         })(),
         headers:Object.assign({'Content-Type':'application/json','X-UpStatus-Version':CURRENT_VERSION},token?{'X-UpStatus-Token':token}:{}),
         data:data?JSON.stringify(data):undefined,
+        timeout:15000,
         onload:function(r){
+          if(settled)return;settled=true;
           var x;
           try{x=JSON.parse(r.responseText)}catch(e){reject(new Error('Resposta inválida do servidor.'));return}
           if(r.status>=400||x.error){reject(new Error(x.error||'Erro de comunicação.'));return}
           resolve(x);
         },
-        onerror:function(){reject(new Error('Não foi possível conectar ao servidor UpStatus.'))}
+        onerror:function(){if(settled)return;settled=true;reject(new Error('Não foi possível conectar ao servidor UpStatus.'))},
+        ontimeout:function(){if(settled)return;settled=true;reject(new Error('O servidor demorou para responder. Tente novamente.'))},
+        onabort:function(){if(settled)return;settled=true;reject(new Error('A solicitação foi cancelada.'))}
       });
+      if(request&&typeof request.catch==='function')request.catch(function(){});
     });
   }
 
@@ -918,6 +924,7 @@
     seenMentionIds={};
     try{
       var saved=GM_getValue(key+'chat_seen_notifications_'+member,[]);
+      seenChatNotificationHadBaseline=Array.isArray(saved)&&saved.length>0;
       if(Array.isArray(saved))saved.slice(-2400).forEach(function(id){if(id)seenMentionIds[String(id)]=true;});
     }catch(e){}
     seenChatNotificationMember=member;
@@ -935,14 +942,32 @@
         list.forEach(function(m){if(m&&m.id&&!pendingChatNotificationMessages.some(function(x){return String(x.id)===String(m.id);}))pendingChatNotificationMessages.push(m);});
         return;
       }
-      list.forEach(function(m){if(!m||!m.id)return;seenMentionIds[m.id]=true;if(m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0)seenMentionIds['mention:'+m.id]=true;});
+      var baselineHadBeenSaved=seenChatNotificationHadBaseline;
+      var firstLoadMentions=false;
+      list.forEach(function(m){
+        if(!m||!m.id)return;
+        var id=String(m.id),wasSeen=!!seenMentionIds[id];
+        if(!wasSeen){
+          seenMentionIds[id]=true;
+          if(baselineHadBeenSaved&&m.type!=='system'&&m.user!==member&&shouldNotifyForChat()){
+            showChatToast(m);
+            if(isTeamChatMessage(m))showExternalNotification('chat',m);
+          }
+        }
+        if(m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0&&!seenMentionIds['mention:'+id]){
+          seenMentionIds['mention:'+id]=true;
+          if(baselineHadBeenSaved)firstLoadMentions=true;
+        }
+      });
       persistSeenChatNotifications();
       chatInitialized=true;
-      // The first full history response is the notification baseline. Realtime
-      // events buffered before it can include replayed/old rows; notifying them here
-      // makes old chat messages alert again after a reload. Drop the buffer once the
-      // baseline is persisted. Events received after this point are handled normally.
+      if(firstLoadMentions)playMentionAlert();
+      // Reconcile realtime messages that arrived while the initial history was loading.
+      // IDs already included in history are now marked seen, so only genuinely newer
+      // messages trigger notifications.
+      var buffered=pendingChatNotificationMessages.slice();
       pendingChatNotificationMessages.length=0;
+      if(buffered.length)processChatNotifications(buffered,false);
       return;
     }
     var mentions=list.filter(function(m){return m.user!==member&&m.mentions&&m.mentions.indexOf(member)>=0;});
@@ -1912,7 +1937,15 @@
         markVisibleChatRead();
         updateTypingIndicator(d.typing||[]);
       }
-    }).catch(function(){}).finally(function(){chatLoading=false;});
+    }).catch(function(error){
+      var list=chat.querySelector('.up-chat-list');
+      if(list&&!chatCache.length){
+        list.innerHTML='<div class="up-history-empty">Não foi possível carregar o chat. <button type="button" class="up-chat-retry">Tentar novamente</button></div>';
+        var retry=list.querySelector('.up-chat-retry');
+        if(retry)retry.onclick=function(){retry.disabled=true;retry.textContent='Carregando…';loadChat(true);};
+      }
+      try{console.warn('[UpStatus Chat] Falha ao carregar mensagens:',error&&error.message||error);}catch(e){}
+    }).finally(function(){chatLoading=false;});
   }
   function updateTypingIndicator(names){
     var box=chat.querySelector('.up-chat-typing');if(!box)return;
@@ -2218,10 +2251,34 @@
     if(!list)return;
     function apply(){
       try{
-        var target=Math.max(0,list.scrollHeight-list.clientHeight);
         list.style.scrollBehavior='auto';
+        var target=Math.max(0,list.scrollHeight-list.clientHeight);
         list.scrollTop=target;
-        if(Math.abs(list.scrollTop-target)>1)list.scrollTo(0,target);
+        if(Math.abs(list.scrollTop-target)>1&&typeof list.scrollTo==='function')list.scrollTo({top:target,left:0,behavior:'auto'});
+        // Firefox can report the old scrollHeight for a frame after replacing the chat DOM.
+        // Use the last rendered child as a fallback, then re-align the list itself.
+        var last=list.lastElementChild;
+        if(last&&typeof ResizeObserver!=='undefined'&&chatScrollObserver&&list._upstatusObservedLast!==last){
+          try{chatScrollObserver.observe(last);list._upstatusObservedLast=last;}catch(e){}
+        }
+        if(last&&last.getBoundingClientRect){
+          var listRect=list.getBoundingClientRect();
+          var lastRect=last.getBoundingClientRect();
+          var visibleBottom=listRect.top+list.clientTop+list.clientHeight;
+          var gap=lastRect.bottom-visibleBottom;
+          if(gap>1)list.scrollTop=Math.min(Math.max(0,list.scrollHeight-list.clientHeight),list.scrollTop+gap);
+          // If layout metrics settle after the first assignment, force the final
+          // scroll position again on the next animation frame/retry.
+        }
+      }catch(e){}
+    }
+    if(!list._upstatusContentObserverBound&&typeof MutationObserver!=='undefined'){
+      try{
+        var contentObserver=new MutationObserver(function(){
+          if(!chat.classList.contains('hidden')&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil))requestAnimationFrame(apply);
+        });
+        contentObserver.observe(list,{childList:true,subtree:true,characterData:true});
+        list._upstatusContentObserverBound=true;
       }catch(e){}
     }
     if(!list._upstatusBottomScrollBound){
@@ -2244,8 +2301,7 @@
     apply();
     requestAnimationFrame(apply);
     requestAnimationFrame(function(){requestAnimationFrame(apply);});
-    // Chromium can finish laying out flex children/media after the first animation frames.
-    // Retry on the same list during the initial-open window so the latest message remains visible.
+    // Recheck after DOM/media layout settles; retries are limited to chat opening.
     if(!list._upstatusBottomRetryScheduled&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil)){
       list._upstatusBottomRetryScheduled=true;
       [50,150,300,600,1000].forEach(function(delay){
