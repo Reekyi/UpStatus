@@ -1694,7 +1694,7 @@
       if(forceScrollBottom)scrollChatToBottom(true);
       return;
     }
-    var wasAtBottom=(list.scrollHeight-list.scrollTop-list.clientHeight)<28;var previousScrollTop=list.scrollTop;
+    var wasAtBottom=(list.scrollHeight-list.scrollTop-list.clientHeight)<80;var previousScrollTop=list.scrollTop;
     updateChatHeaderPresence();
     if(!chatCache.length){list.innerHTML='<div class="up-history-empty">Nenhuma mensagem nas últimas 48 horas.</div>';return;}
     var html='',lastDate='';
@@ -1809,6 +1809,7 @@
 
   function openChat(){
     if(!token)return;
+    chatForceScrollBottom=true;window.__upstatusChatOpenScrollUntil=Date.now()+1800;
     chatReplyTo=null;chatContextMessageId=null;
     setUnread(0);
     chat.classList.remove('hidden');card.classList.add('hidden');history.classList.add('hidden');broadcastChatPresence(true);refresh();
