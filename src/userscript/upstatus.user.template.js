@@ -1825,11 +1825,10 @@
     if(!token)return;
     // Keep the chat DOM and its listeners alive between openings. Only the first open after F5 builds it.
     if(chat.querySelector('.up-chat-list')&&(chatDomMember===member||chat.getAttribute('data-upstatus-chat-member')===member)){
-      chatDomInitialized=true;chatReplyTo=null;chatContextMessageId=null;
+      chatDomInitialized=true;chatReplyTo=null;chatContextMessageId=null;chatPendingInitialScroll=false;chatOpenScrollUntil=0;chatForceScrollBottom=false;
       var staleOpeningLoader=chat.querySelector('.up-chat-opening-loader');if(staleOpeningLoader)staleOpeningLoader.remove();
       chat.classList.remove('hidden');card.classList.add('hidden');history.classList.add('hidden');
-      setUnread(0);broadcastChatPresence(true);refresh();
-      if(chatForceScrollBottom||chatPendingInitialScroll)scrollChatToBottom(true);
+      setUnread(0);broadcastChatPresence(true);refresh();scrollChatToBottom(true);
       loadChat();pollChatTyping();markVisibleChatRead();return;
     }
     chatDomInitialized=false;chatDomMember=member;
