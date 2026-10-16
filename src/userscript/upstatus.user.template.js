@@ -390,7 +390,8 @@
 
   function api(method,route,data){
     return new Promise(function(resolve,reject){
-      GM_xmlhttpRequest({
+      var settled=false;
+      var request=GM_xmlhttpRequest({
         method:method,
         url:(function(){
           var u=server+route;
@@ -401,14 +402,19 @@
         })(),
         headers:Object.assign({'Content-Type':'application/json','X-UpStatus-Version':CURRENT_VERSION},token?{'X-UpStatus-Token':token}:{}),
         data:data?JSON.stringify(data):undefined,
+        timeout:15000,
         onload:function(r){
+          if(settled)return;settled=true;
           var x;
           try{x=JSON.parse(r.responseText)}catch(e){reject(new Error('Resposta inválida do servidor.'));return}
           if(r.status>=400||x.error){reject(new Error(x.error||'Erro de comunicação.'));return}
           resolve(x);
         },
-        onerror:function(){reject(new Error('Não foi possível conectar ao servidor UpStatus.'))}
+        onerror:function(){if(settled)return;settled=true;reject(new Error('Não foi possível conectar ao servidor UpStatus.'))},
+        ontimeout:function(){if(settled)return;settled=true;reject(new Error('O servidor demorou para responder. Tente novamente.'))},
+        onabort:function(){if(settled)return;settled=true;reject(new Error('A solicitação foi cancelada.'))}
       });
+      if(request&&typeof request.catch==='function')request.catch(function(){});
     });
   }
 
@@ -1912,7 +1918,15 @@
         markVisibleChatRead();
         updateTypingIndicator(d.typing||[]);
       }
-    }).catch(function(){}).finally(function(){chatLoading=false;});
+    }).catch(function(error){
+      var list=chat.querySelector('.up-chat-list');
+      if(list&&!chatCache.length){
+        list.innerHTML='<div class="up-history-empty">Não foi possível carregar o chat. <button type="button" class="up-chat-retry">Tentar novamente</button></div>';
+        var retry=list.querySelector('.up-chat-retry');
+        if(retry)retry.onclick=function(){retry.disabled=true;retry.textContent='Carregando…';loadChat(true);};
+      }
+      try{console.warn('[UpStatus Chat] Falha ao carregar mensagens:',error&&error.message||error);}catch(e){}
+    }).finally(function(){chatLoading=false;});
   }
   function updateTypingIndicator(names){
     var box=chat.querySelector('.up-chat-typing');if(!box)return;
