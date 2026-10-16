@@ -2258,13 +2258,17 @@
         // Firefox can report the old scrollHeight for a frame after replacing the chat DOM.
         // Use the last rendered child as a fallback, then re-align the list itself.
         var last=list.lastElementChild;
+        if(last&&typeof ResizeObserver!=='undefined'&&chatScrollObserver&&list._upstatusObservedLast!==last){
+          try{chatScrollObserver.observe(last);list._upstatusObservedLast=last;}catch(e){}
+        }
         if(last&&last.getBoundingClientRect){
           var listRect=list.getBoundingClientRect();
           var lastRect=last.getBoundingClientRect();
           var visibleBottom=listRect.top+list.clientTop+list.clientHeight;
           var gap=lastRect.bottom-visibleBottom;
-          if(gap>1)list.scrollTop=Math.min(list.scrollHeight-list.clientHeight,list.scrollTop+gap);
-          else if(gap < -1 && list.scrollTop<list.scrollHeight-list.clientHeight-1)list.scrollTop=list.scrollHeight-list.clientHeight;
+          if(gap>1)list.scrollTop=Math.min(Math.max(0,list.scrollHeight-list.clientHeight),list.scrollTop+gap);
+          // If layout metrics settle after the first assignment, force the final
+          // scroll position again on the next animation frame/retry.
         }
       }catch(e){}
     }
