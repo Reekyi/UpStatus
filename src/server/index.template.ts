@@ -342,6 +342,8 @@ async function chatRoute(req:Request,name:string){
     if(fast){
       const effectiveSince=since&&!Number.isNaN(since.getTime())?new Date(since.getTime()-2000).toISOString():"";
       const cutoffTyping=new Date(Date.now()-4500).toISOString();
+      // Keep the unread-count retention window aligned with chatRows (48 hours).
+      const cutoff=new Date(Date.now()-48*60*60*1000).toISOString();
       const [messages,profileRes,typingRes,luccaStateNow,readRes]=await Promise.all([
         chatRows(name,effectiveSince),
         db.from("upstatus_profiles").select("user_name,avatar_url"),
