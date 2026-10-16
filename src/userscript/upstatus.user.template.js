@@ -1584,7 +1584,6 @@
       if(latestLuccaJoin){if(lastLuccaJoinEventId&&latestLuccaJoin.id!==lastLuccaJoinEventId)playLuccaEntrySound();lastLuccaJoinEventId=latestLuccaJoin.id;}
       var beforeKey=chatDataKey(chatCache);
       chatCache=nextMessages;
-      var openingLoader=chat.querySelector('.up-chat-opening-loader');if(openingLoader)openingLoader.remove();
       chatDomInitialized=true;chatDomMember=member;
       if(d.profiles)profileCache=d.profiles;
       processChatNotifications(incoming,!useFast);
@@ -1600,11 +1599,14 @@
         if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();
         if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}
         if(Date.now()<chatOpenScrollUntil)scrollChatToBottom(true);
+        var completedOpeningLoader=chat.querySelector('.up-chat-opening-loader');
+        if(completedOpeningLoader){requestAnimationFrame(function(){scrollChatToBottom(true);requestAnimationFrame(function(){var loaderNow=chat.querySelector('.up-chat-opening-loader');if(loaderNow)loaderNow.remove();});});}
         markVisibleChatRead();
         updateTypingIndicator(d.typing||[]);
       }
     }).catch(function(error){
       var list=chat.querySelector('.up-chat-list');
+      var failedOpeningLoader=chat.querySelector('.up-chat-opening-loader');if(failedOpeningLoader)failedOpeningLoader.remove();
       if(list&&!chatCache.length){
         list.innerHTML='<div class="up-history-empty">Não foi possível carregar o chat. <button type="button" class="up-chat-retry">Tentar novamente</button></div>';
         var retry=list.querySelector('.up-chat-retry');
@@ -2220,7 +2222,7 @@
     if(settingsBtn)settingsBtn.onclick=function(e){e.stopPropagation();settingsMenu.classList.toggle('hidden');};
     if(settingsMenu){settingsMenu.onclick=function(e){e.stopPropagation();};var settingsHealth=settingsMenu.querySelector('.up-settings-health');if(settingsHealth)settingsHealth.onclick=function(){settingsMenu.classList.add('hidden');openHealth();};var settingsTest=settingsMenu.querySelector('.up-settings-test');if(settingsTest)settingsTest.onclick=function(){settingsMenu.classList.add('hidden');openTestPanel();};settingsMenu.querySelector('.up-settings-notifications').onclick=function(){toggleNotifications();};settingsMenu.querySelector('.up-settings-theme').onclick=function(){toggleTheme();};document.addEventListener('click',function(e){if(!settingsMenu.contains(e.target)&&e.target!==settingsBtn)settingsMenu.classList.add('hidden');});}
     card.querySelector('.up-chat-btn').onclick=function(e){e.stopPropagation();openChat()};
-    quickChatBubble.onclick=function(e){e.stopPropagation();openChat()};
+    quickChatBubble.onclick=function(e){e.stopPropagation();if(!chat.classList.contains('hidden'))closeChat(false);else openChat();};
     updateNotificationPermissionUI();
     applyTheme();
     card.insertAdjacentHTML('beforeend','<div class="up-update"><div class="up-update-version">'+iconSvg('update')+'<div><b>Versão v'+CURRENT_VERSION+'</b><a href="#" class="up-patch-link">O que há de novo?</a><span class="up-update-status"></span></div></div><div class="up-update-actions"><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div></div>');
