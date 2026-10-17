@@ -45,7 +45,7 @@ checkSyntax(testUser,"dist/upstatus-test.user.js");
 
 const luccaHtml=fs.readFileSync(path.join(ROOT,"lucca-site/index.html"),"utf8");
 const ycaroHtml=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
-const luccaInline=[...luccaHtml.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)].find(m=>!/\\bsrc\\s*=/.test(m[1])&&m[2].trim());
+const luccaInline=[...luccaHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].find(m=>!/\bsrc\s*=/.test(m[1])&&m[2].trim());
 assert(!!luccaInline,"Lucca inline script missing");
 checkSyntax(luccaInline[2],"lucca-site/index.html inline script");
 assert(luccaHtml.includes("sendMedia(file)"),"Lucca media upload flow missing");
