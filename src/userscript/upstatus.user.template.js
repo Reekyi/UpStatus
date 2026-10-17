@@ -2838,25 +2838,42 @@
   var upStatusSaleEmptyImageInput=null;
   var upStatusSaleEmptyImageTarget=null;
   function upStatusSaleFindEmptyImage(){
+    // Sale Smartly renders the illustration and its caption as separate nodes.
+    // Find either caption fragment, then inspect nearby visual siblings/ancestors.
     var textNodes=Array.from(document.querySelectorAll('body *')).filter(function(el){
-      if(!el||!el.children||el.children.length>3)return false;
+      if(!el||el.children.length>4)return false;
       var t=String(el.innerText||el.textContent||'').replace(/\s+/g,' ').trim();
-      return t.length>0&&t.length<100&&/tome um ch[aá]/i.test(t)&&/faça uma pausa/i.test(t);
+      return t.length>0&&t.length<100&&(/tome um ch[aá]/i.test(t)||/faça uma pausa/i.test(t));
     });
     textNodes.sort(function(a,b){return String(a.innerText||a.textContent||'').length-String(b.innerText||b.textContent||'').length;});
     for(var i=0;i<textNodes.length;i++){
-      var node=textNodes[i],parent=node;
-      for(var depth=0;depth<7&&parent;depth++,parent=parent.parentElement){
-        var imgs=Array.from(parent.querySelectorAll('img')).filter(function(img){
-          var r=img.getBoundingClientRect(),cs=getComputedStyle(img);
+      var caption=textNodes[i],parent=caption;
+      for(var depth=0;depth<8&&parent;depth++,parent=parent.parentElement){
+        var candidates=Array.from(parent.querySelectorAll('img,svg,canvas,[style*="background-image"]')).filter(function(el){
+          if(el.closest('#upstatus-root'))return false;
+          var r=el.getBoundingClientRect(),cs=getComputedStyle(el);
           return r.width>=24&&r.height>=24&&cs.display!=='none'&&cs.visibility!=='hidden'&&Number(cs.opacity||1)>0;
         });
-        if(imgs.length){
-          imgs.sort(function(a,b){
+        if(candidates.length){
+          candidates.sort(function(a,b){
             var ar=a.getBoundingClientRect(),br=b.getBoundingClientRect();
             return (br.width*br.height)-(ar.width*ar.height);
           });
-          return imgs[0];
+          return candidates[0];
+        }
+        // Fallback for an emoji rendered as a styled element rather than an image.
+        var capRect=caption.getBoundingClientRect();
+        var siblings=Array.from(parent.children).filter(function(el){
+          if(el===caption||el.contains(caption)||el.closest('#upstatus-root'))return false;
+          var r=el.getBoundingClientRect(),cs=getComputedStyle(el);
+          return r.width>=24&&r.height>=24&&cs.display!=='none'&&cs.visibility!=='hidden'&&Number(cs.opacity||1)>0&&r.bottom<=capRect.top+12;
+        });
+        if(siblings.length){
+          siblings.sort(function(a,b){
+            var ar=a.getBoundingClientRect(),br=b.getBoundingClientRect();
+            return Math.abs(capRect.top-ar.bottom)-Math.abs(capRect.top-br.bottom);
+          });
+          return siblings[0];
         }
       }
     }
