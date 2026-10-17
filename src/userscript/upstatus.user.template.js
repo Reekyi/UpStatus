@@ -2694,16 +2694,36 @@
     if(!header)return;
     var endButton=upStatusSaleFindEndButton(header);
     if(endButton&&endButton.parentElement){
+      var nativeStyle=getComputedStyle(endButton);
       if(button.parentElement!==endButton.parentElement||button.nextElementSibling!==endButton){
         endButton.parentElement.insertBefore(button,endButton);
       }
+      // Match the native end-session control's geometry and button styling.
       button.style.position='relative';
       button.style.left='auto';
       button.style.top='auto';
-      button.style.margin='0 6px 0 0';
-      button.style.flex='0 0 34px';
+      button.style.width=(endButton.offsetWidth||34)+'px';
+      button.style.height=(endButton.offsetHeight||34)+'px';
+      button.style.minWidth=(endButton.offsetWidth||34)+'px';
+      button.style.padding=nativeStyle.padding;
+      button.style.border=nativeStyle.border;
+      button.style.borderRadius=nativeStyle.borderRadius;
+      button.style.background=nativeStyle.backgroundColor;
+      button.style.color=nativeStyle.color;
+      button.style.boxShadow=nativeStyle.boxShadow;
+      button.style.fontSize=nativeStyle.fontSize;
+      button.style.lineHeight=nativeStyle.lineHeight;
+      button.style.margin=nativeStyle.margin;
+      button.style.display=nativeStyle.display==='inline'?'inline-flex':nativeStyle.display;
+      button.style.alignItems='center';
+      button.style.justifyContent='center';
+      button.style.verticalAlign='middle';
+      button.style.flex=nativeStyle.flex==='0 1 auto'?'0 0 auto':nativeStyle.flex;
       button.style.alignSelf='center';
       button.style.zIndex='1';
+      button.style.cursor='pointer';
+      button.style.boxSizing=nativeStyle.boxSizing;
+      button.style.outline='none';
       return;
     }
     // Fallback while the native end-session control is not identifiable.
