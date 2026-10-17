@@ -2,6 +2,13 @@
 
 ## 2026-10-17
 
+### 3.0.40-beta.11
+- Redesigned audio messages with a unified transparent player surface, removing the nested contrasting panel and border.
+- Added a more organic waveform with a single inherited waveform color and opacity-based playback progress.
+- Preserved beta.10 emoji, context menu, scrollbar, and chat layout behavior.
+
+## 2026-10-17
+
 ### 3.0.40-beta.10
 - Keep emoji and context menus inside the UpStatus root while allowing them to escape the chat panel's clipping.
 - Capture message context-menu events at document capture phase so parent app handlers cannot swallow right-click actions.
