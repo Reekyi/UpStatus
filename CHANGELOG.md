@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-16
+
+### 3.0.40-beta.1
+- Replaced the audio recorder emoji with the microphone SVG icon used by call controls.
+- Matched the recorder button dimensions to the attachment button on desktop and mobile.
+- Added reserved bottom space to the chat message list so the last message does not sit against the composer.
+- Added subtle panel and menu entrance animations with reduced-motion support.
+
 ## 2026-10-07
 
 ### Release pipeline v1
