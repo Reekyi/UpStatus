@@ -2,6 +2,14 @@
 
 ## 2026-10-17
 
+### 3.0.40-beta.9
+- Keep the emoji picker attached to its owning chat when dismissed, so reopening the chat can rebind it correctly.
+- Move the scrollbar back inside the chat panel and increase contrast.
+- Tighten composer and message-list spacing without changing the message list display mode.
+- Preserve the approved scroll-to-latest button position from beta.8.
+
+## 2026-10-17
+
 ### 3.0.40-beta.8
 - Improved chat scrollbar visibility and hover contrast.
 - Fixed emoji picker cleanup and outside-click handling after moving the picker to the document body.
