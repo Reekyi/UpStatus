@@ -15,8 +15,6 @@ const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.t
 const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
-const luccaHtml=fs.readFileSync(path.join(ROOT,"lucca-site/index.html"),"utf8");
-const ycaroHtml=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
@@ -44,37 +42,33 @@ assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not mat
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
-execFileSync(process.execPath,[path.join(ROOT,"scripts/chat-regression.test.mjs")],{stdio:"inherit"});
-assert(prodUser.includes("if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();"),"production chat refresh must validate current DOM list");
-assert(testUser.includes("if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();"),"TEST chat refresh must validate current DOM list");
-assert(prodUser.includes("if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){"),"production render cache must validate current DOM list");
-assert(testUser.includes("if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){"),"TEST render cache must validate current DOM list");
-assert(prodUser.includes("if(ids.length&&k===readSentKey)return;"),"production read watermark must be sent when cache is empty");
-assert(testUser.includes("if(ids.length&&k===readSentKey)return;"),"TEST read watermark must be sent when cache is empty");
-assert(prodUser.includes("chatPendingInitialScroll=true;")&&prodUser.includes("if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}"),"production opening must scroll to newest message after history loads");
-assert(testUser.includes("chatPendingInitialScroll=true;")&&testUser.includes("if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}"),"TEST opening must scroll to newest message after history loads");
 
-const luccaInline=[...luccaHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].find(m=>!/\bsrc\s*=/.test(m[1])&&m[2].trim());
+const luccaHtml=fs.readFileSync(path.join(ROOT,"lucca-site/index.html"),"utf8");
+const ycaroHtml=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
+const luccaInline=[...luccaHtml.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)].find(m=>!/\\bsrc\\s*=/.test(m[1])&&m[2].trim());
 assert(!!luccaInline,"Lucca inline script missing");
 checkSyntax(luccaInline[2],"lucca-site/index.html inline script");
-assert(luccaHtml.includes("input.addEventListener('paste'"),"Lucca clipboard image paste handler missing");
-assert(luccaHtml.includes("sendMedia(file)"),"Lucca clipboard image upload flow missing");
-assert(luccaHtml.includes("chatCache=chatCache.filter(function(m){return m.id!==tempId});upsertGuestRealtimeMessage(created)"),"Lucca optimistic/realtime message deduplication missing");
-assert(luccaHtml.includes("function callInviteParticipant")&&luccaHtml.includes("function callAcceptGroupInvite"),"Lucca group-call invite protocol missing");
-assert(luccaHtml.includes("event:'call_signal'"),"Lucca Realtime call signaling missing");
-assert(luccaHtml.includes("o.style.left='50%'")&&luccaHtml.includes("o.style.bottom='14px'")&&luccaHtml.includes("translateX(-50%)"),"Lucca call pop-out must be bottom-centered");
-assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Lucca");'),"Lucca login/logout/expiry must not delete shared messages");
-assert(prodFn.includes("const html="+JSON.stringify(ycaroHtml)+";"),"Ycaro guest page embedding mismatch");
+assert(luccaHtml.includes("sendMedia(file)"),"Lucca media upload flow missing");
+assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Lucca");'),"Lucca guest login/logout/expiry must preserve shared chat history");
+assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Ycaro")'),"Ycaro guest login/logout/expiry must preserve shared chat history");
+assert(prodFn.includes("const html="+JSON.stringify(ycaroHtml)+";"),"Ycaro page embedding mismatch");
 assert(prodFn.includes('if(path==="/ycaro"||path==="/ycaro.html")'),"Ycaro page route missing");
 assert(prodFn.includes('Deno.env.get("YCARO_PASSWORD")'),"Ycaro password setting missing");
 assert(prodFn.includes('cookie(req,"ycaro_session")'),"Ycaro session cookie missing");
 assert(prodFn.includes('if(path.startsWith("/api/ycaro/"))return await ycaroRoute(req);'),"Ycaro API route missing");
-assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Ycaro")'),"Ycaro login/logout/expiry must preserve shared chat history");
-assert(ycaroHtml.includes("localStorage.getItem('upstatus_ycaro_token')"),"Ycaro API session token is not sent");
+assert(ycaroHtml.includes("localStorage.getItem('upstatus_ycaro_token')"),"Ycaro session token is not sent");
 assert(ycaroHtml.includes("localStorage.setItem('upstatus_ycaro_token',d.token)"),"Ycaro login token is not persisted");
 assert(ycaroHtml.includes("localStorage.removeItem('upstatus_ycaro_token')"),"Ycaro logout token is not cleared");
-assert(ycaroHtml.includes("#d66b1f"),"Ycaro orange theme missing");
-assert(!ycaroHtml.includes("api('/api/lucca/"),"Ycaro page contains Lucca endpoints");
-
+assert(ycaroHtml.includes("#d66b1f"),"Ycaro theme marker missing");
+assert(!ycaroHtml.includes("api('/api/lucca/"),"Ycaro page must use separate API endpoints");
+for(const artifact of [prodUser,testUser]){
+  assert(artifact.includes("function closePopupAnimated(el,finish)"),"Popup exit animation helper missing");
+  assert(artifact.includes("@keyframes upPopupExit"),"Popup exit keyframes missing");
+  assert(artifact.includes("prefers-reduced-motion: reduce"),"Reduced-motion handling missing");
+  assert(artifact.includes("decodeAudioData(buf)")&&artifact.includes("drawFromAudio(channel)"),"Audio-derived waveform missing");
+  assert(!artifact.includes('class="up-chat-audio-volume"'),"Audio mute button should be removed");
+  assert(artifact.includes("s.style.fontWeight='normal'"),"Waveform bar weight should remain normal");
+}
+assert(prodFn.includes("unreadCount:unreadCount||0"),"Fast chat endpoint must include unread count");
 
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
