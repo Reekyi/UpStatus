@@ -742,7 +742,7 @@
     var existing=root.querySelector('.up-patch-modal');
     if(existing)existing.remove();
     var modal=node('div',{className:'up-patch-modal'});
-    modal.innerHTML='<div class="up-patch-dialog" role="dialog" aria-modal="true" aria-label="O que há de novo?"><div class="up-patch-head"><div class="up-patch-title">O que há de novo?</div><button type="button" class="up-patch-close" aria-label="Fechar">×</button></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.41</div><ul class="up-patch-list"><li>Adicionado um botão X vermelho para desmarcar a conversa ativa do Sale Smartly e voltar à tela nativa sem encerrar o atendimento.</li><li>A tecla Esc executa a mesma ação, sem interferir na digitação ou em janelas e diálogos abertos.</li><li>O X desaparece após desmarcar a conversa e reaparece ao selecionar outra conversa.</li><li>A sessão do Sale Smartly é preservada: nenhuma sessão é encerrada ou removida.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.26</div><ul class="up-patch-list"><li>Corrigida a compatibilidade dos áudios gravados no Firefox com a reprodução no Chrome.</li><li>O gravador agora prioriza Ogg/Opus quando disponível e mantém WebM/Opus como fallback.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.25</div><ul class="up-patch-list"><li>Corrigido o clique direito nas mensagens do chat, restaurando as opções de responder, reagir e excluir a própria mensagem.</li><li>Corrigida a captura do menu de contexto para impedir que o menu nativo do navegador seja aberto sobre as mensagens do UpStatus.</li><li>Emojis do chat corrigidos para manter a renderização correta mesmo em ambientes com problemas de codificação.</li><li>Botão de gravação de áudio restaurado com o ícone 🎙️.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.24</div><ul class="up-patch-list"><li>Correções de renderização dos emojis do chat.</li><li>Restaurado o ícone do botão de gravação de áudio.</li><li>Melhorias leves no menu de contexto do chat.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.21</div><ul class="up-patch-list"><li>Atualizados os toques padrão de chamada e renovado o cache do áudio antigo para garantir que todos os usuários recebam a nova versão.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.19</div><ul class="up-patch-list"><li>Corrigido o ringtone órfão em chamadas recebidas, incluindo instâncias duplicadas do userscript e carregamentos assíncronos pendentes.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.18</div><ul class="up-patch-list"><li>Corrigido o toque de chamada no usuário que recebe a ligação: o ringtone agora é encerrado de forma determinística ao atender.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.17</div><ul class="up-patch-list"><li>Chat mais fluido ao enviar mensagens, com redução do flicker causado por redesenhos completos.</li><li>Mensagens enviadas agora são reconciliadas com o servidor sem reconstruir o chat inteiro quando não é necessário.</li><li>Corrigido o envio duplicado ao manter a tecla Enter pressionada.</li><li>Corrigido o reaparecimento do texto na caixa de mensagem após um envio já aceito pelo servidor.</li><li>Permite enviar mensagens consecutivas sem bloquear o envio enquanto a anterior é processada.</li><li>Melhorada a estabilidade do chat, incluindo preservação da posição de leitura e comportamento do scroll durante novas mensagens.</li><li>O chat agora evita acumular listeners de menu de contexto e seletor de emojis ao ser reaberto.</li><li>Chamadas de áudio consolidadas com WebRTC e Supabase Realtime para sinalização entre os usuários.</li><li>Mini-player de chamadas com mute, cronômetro, estados de conexão, controles de áudio e encerramento da ligação.</li><li>Melhorias no áudio e nos toques de chamada, com distribuição automática dos toques padrão e preservação de toques personalizados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.16</div><ul class="up-patch-list"><li>Toques padrão de chamada agora são distribuídos automaticamente pelo GitHub.</li><li>Toques são armazenados localmente e personalizados continuam preservados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.15</div><ul class="up-patch-list"><li>Corrigido o redesenho excessivo do chat que causava flicker.</li><li>Melhorado o controle de mensagens não lidas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.14</div><ul class="up-patch-list"><li>Adicionado o sistema de chamadas WebRTC com áudio.</li><li>Adicionado mini-player de chamadas, mute, timer e controles de ligação.</li><li>Melhorado o áudio e os toques de chamada.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.8</div><ul class="up-patch-list"><li>Notificações do chat agora respeitam o estado do chat e da aba.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.7</div><ul class="up-patch-list"><li>Corrigido o botão "← Voltar" do chat.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.6</div><ul class="up-patch-list"><li>Adicionado o Patch Notes do UpStatus.</li><li>Novidades das versões reunidas em um só lugar.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.5</div><ul class="up-patch-list"><li>Chat corrigido e mais estável.</li><li>Correção de mensagens duplicadas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.4</div><ul class="up-patch-list"><li>Correção da identificação do autor das mensagens.</li><li>Melhorias na sincronização do chat.</li></ul></div></div>';
+    modal.innerHTML='<div class="up-patch-dialog" role="dialog" aria-modal="true" aria-label="O que há de novo?"><div class="up-patch-head"><div class="up-patch-title">O que há de novo?</div><button type="button" class="up-patch-close" aria-label="Fechar">×</button></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.41</div><ul class="up-patch-list"><li>Adicionada uma seta azul de voltar ao lado do botão nativo de encerrar para desmarcar a conversa ativa e retornar à tela vazia do Sale Smartly.</li><li>A tecla Esc executa a mesma ação, sem interferir na digitação ou em janelas e diálogos abertos.</li><li>A seta desaparece após a desmarcação e reaparece ao selecionar outra conversa.</li><li>A sessão de atendimento é preservada: a ação não encerra nem remove a sessão.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.26</div><ul class="up-patch-list"><li>Corrigida a compatibilidade dos áudios gravados no Firefox com a reprodução no Chrome.</li><li>O gravador agora prioriza Ogg/Opus quando disponível e mantém WebM/Opus como fallback.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.25</div><ul class="up-patch-list"><li>Corrigido o clique direito nas mensagens do chat, restaurando as opções de responder, reagir e excluir a própria mensagem.</li><li>Corrigida a captura do menu de contexto para impedir que o menu nativo do navegador seja aberto sobre as mensagens do UpStatus.</li><li>Emojis do chat corrigidos para manter a renderização correta mesmo em ambientes com problemas de codificação.</li><li>Botão de gravação de áudio restaurado com o ícone 🎙️.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.24</div><ul class="up-patch-list"><li>Correções de renderização dos emojis do chat.</li><li>Restaurado o ícone do botão de gravação de áudio.</li><li>Melhorias leves no menu de contexto do chat.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.21</div><ul class="up-patch-list"><li>Atualizados os toques padrão de chamada e renovado o cache do áudio antigo para garantir que todos os usuários recebam a nova versão.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.19</div><ul class="up-patch-list"><li>Corrigido o ringtone órfão em chamadas recebidas, incluindo instâncias duplicadas do userscript e carregamentos assíncronos pendentes.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.18</div><ul class="up-patch-list"><li>Corrigido o toque de chamada no usuário que recebe a ligação: o ringtone agora é encerrado de forma determinística ao atender.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.17</div><ul class="up-patch-list"><li>Chat mais fluido ao enviar mensagens, com redução do flicker causado por redesenhos completos.</li><li>Mensagens enviadas agora são reconciliadas com o servidor sem reconstruir o chat inteiro quando não é necessário.</li><li>Corrigido o envio duplicado ao manter a tecla Enter pressionada.</li><li>Corrigido o reaparecimento do texto na caixa de mensagem após um envio já aceito pelo servidor.</li><li>Permite enviar mensagens consecutivas sem bloquear o envio enquanto a anterior é processada.</li><li>Melhorada a estabilidade do chat, incluindo preservação da posição de leitura e comportamento do scroll durante novas mensagens.</li><li>O chat agora evita acumular listeners de menu de contexto e seletor de emojis ao ser reaberto.</li><li>Chamadas de áudio consolidadas com WebRTC e Supabase Realtime para sinalização entre os usuários.</li><li>Mini-player de chamadas com mute, cronômetro, estados de conexão, controles de áudio e encerramento da ligação.</li><li>Melhorias no áudio e nos toques de chamada, com distribuição automática dos toques padrão e preservação de toques personalizados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.16</div><ul class="up-patch-list"><li>Toques padrão de chamada agora são distribuídos automaticamente pelo GitHub.</li><li>Toques são armazenados localmente e personalizados continuam preservados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.15</div><ul class="up-patch-list"><li>Corrigido o redesenho excessivo do chat que causava flicker.</li><li>Melhorado o controle de mensagens não lidas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.14</div><ul class="up-patch-list"><li>Adicionado o sistema de chamadas WebRTC com áudio.</li><li>Adicionado mini-player de chamadas, mute, timer e controles de ligação.</li><li>Melhorado o áudio e os toques de chamada.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.8</div><ul class="up-patch-list"><li>Notificações do chat agora respeitam o estado do chat e da aba.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.7</div><ul class="up-patch-list"><li>Corrigido o botão "← Voltar" do chat.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.6</div><ul class="up-patch-list"><li>Adicionado o Patch Notes do UpStatus.</li><li>Novidades das versões reunidas em um só lugar.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.5</div><ul class="up-patch-list"><li>Chat corrigido e mais estável.</li><li>Correção de mensagens duplicadas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.4</div><ul class="up-patch-list"><li>Correção da identificação do autor das mensagens.</li><li>Melhorias na sincronização do chat.</li></ul></div></div>';
     root.appendChild(modal);
     var close=modal.querySelector('.up-patch-close');
     function closePatch(){closePopupAnimated(modal,function(){modal.remove();});}
@@ -2661,13 +2661,71 @@
     });
     return best?best.getBoundingClientRect():null;
   }
+  function upStatusSaleFindEndButton(header){
+    if(!header)return null;
+    var buttons=Array.from(header.querySelectorAll('button,[role="button"]')).filter(function(el){
+      if(el===upStatusSaleChatClose.button||el.closest('.upstatus-sale-chat-close'))return false;
+      var r=el.getBoundingClientRect(),style=getComputedStyle(el);
+      if(r.width<20||r.height<20||style.display==='none'||style.visibility==='hidden'||Number(style.opacity||1)===0)return false;
+      return true;
+    });
+    buttons.sort(function(a,b){return b.getBoundingClientRect().right-a.getBoundingClientRect().right;});
+    var headerRect=header.getBoundingClientRect();
+    for(var i=0;i<buttons.length;i++){
+      var el=buttons[i],r=el.getBoundingClientRect(),style=getComputedStyle(el);
+      var bg=style.backgroundColor||'';
+      var rgb=bg.match(/(\d+), *(\d+), *(\d+)/);
+      var red=!!(rgb&&Number(rgb[1])>180&&Number(rgb[2])<80&&Number(rgb[3])<80);
+      var label=((el.getAttribute('aria-label')||'')+' '+(el.getAttribute('title')||'')+' '+(el.innerText||'')).toLowerCase();
+      if((red||/end|close|encerrar|fechar|terminar|finalizar|结束|关闭/.test(label))&&r.right>=headerRect.right-70)return el;
+    }
+    return null;
+  }
   function upStatusSalePositionButton(){
     var panel=upStatusSaleChatPanel(),button=upStatusSaleChatClose.button;
     if(!button||!upStatusSaleChatVisible(panel))return;
     var header=panel.querySelector('.chat-session-panel__header');
     if(!header)return;
+    var endButton=upStatusSaleFindEndButton(header);
+    if(endButton&&endButton.parentElement){
+      var nativeStyle=getComputedStyle(endButton);
+      if(button.parentElement!==endButton.parentElement||button.nextElementSibling!==endButton){
+        endButton.parentElement.insertBefore(button,endButton);
+      }
+      // Match the native end-session control's geometry and button styling.
+      button.style.position='relative';
+      button.style.left='auto';
+      button.style.top='auto';
+      button.style.width=(endButton.offsetWidth||34)+'px';
+      button.style.height=(endButton.offsetHeight||34)+'px';
+      button.style.minWidth=(endButton.offsetWidth||34)+'px';
+      button.style.padding=nativeStyle.padding;
+      button.style.border=nativeStyle.border;
+      button.style.borderRadius=nativeStyle.borderRadius;
+      button.style.background='#2563eb';
+      button.style.color='#ffffff';
+      button.style.boxShadow=nativeStyle.boxShadow;
+      button.style.fontSize=nativeStyle.fontSize;
+      button.style.lineHeight=nativeStyle.lineHeight;
+      button.style.margin='0 8px 0 0';
+      button.style.display=nativeStyle.display==='inline'?'inline-flex':nativeStyle.display;
+      button.style.alignItems='center';
+      button.style.justifyContent='center';
+      button.style.verticalAlign='middle';
+      button.style.flex=nativeStyle.flex==='0 1 auto'?'0 0 auto':nativeStyle.flex;
+      button.style.alignSelf='center';
+      button.style.zIndex='1';
+      button.style.cursor='pointer';
+      button.style.boxSizing=nativeStyle.boxSizing;
+      button.style.outline='none';
+      return;
+    }
+    // Fallback while the native end-session control is not identifiable.
     var hr=header.getBoundingClientRect(),composer=upStatusSaleComposerRect(panel,hr);
-    if(hr.width<100||hr.height<10)return;
+    if(button.parentElement!==root)root.appendChild(button);
+    button.style.position='fixed';
+    button.style.margin='0';
+    button.style.flex='none';
     var left=composer?composer.right-24:hr.right-Math.max(240,hr.width*.30)-24;
     var top=hr.bottom+8;
     left=Math.max(8,Math.min(window.innerWidth-42,left));
@@ -2685,15 +2743,14 @@
       var button=document.createElement('button');
       button.type='button';
       button.className='upstatus-sale-chat-close';
-      button.setAttribute('aria-label','Sair da conversa atual');
-      button.title='Sair da conversa atual sem encerrar o atendimento';
-      button.innerHTML='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>';
-      button.style.cssText='position:fixed;display:flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border:0;border-radius:4px;background:#e53935;color:#fff;box-shadow:0 2px 7px rgba(0,0,0,.28);cursor:pointer;z-index:2147483000;line-height:1;box-sizing:border-box;';
+      button.setAttribute('aria-label','Voltar à lista de conversas');
+      button.title='Voltar à lista de conversas (Esc), sem encerrar o atendimento';
+      button.innerHTML='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M19 12H5M12 19l-7-7 7-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      button.style.cssText='position:relative;display:flex;align-items:center;justify-content:center;width:34px;height:34px;min-width:34px;padding:0;border:0;border-radius:4px;background:#2563eb;color:#fff;box-shadow:0 2px 7px rgba(0,0,0,.28);cursor:pointer;z-index:1;line-height:1;box-sizing:border-box;flex:0 0 34px;margin:0 6px 0 0;';
       button.addEventListener('click',function(e){
         e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
         upStatusSaleDeselectActiveChat();
       });
-      root.appendChild(button);
       upStatusSaleChatClose.button=button;
     }
     upStatusSalePositionButton();
