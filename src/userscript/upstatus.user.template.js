@@ -508,7 +508,8 @@
     '#upstatus-root.up-theme-light .up-member-actions .up-badge.b-online{background:#dff7ea;color:#137044}.up-theme-light .up-member-actions .up-badge.b-busy{background:#ffe5e9;color:#b4233c}.up-theme-light .up-member-actions .up-badge.b-away{background:#e9eef5;color:#475569}'
   });
   style.textContent += '#upstatus-card,#upstatus-history,#upstatus-chat,.up-health,.up-settings-menu{transition:opacity .18s ease,transform .18s ease,display .18s allow-discrete}#upstatus-card.hidden,#upstatus-history.hidden,#upstatus-chat.hidden,.up-health.hidden,.up-settings-menu.hidden{opacity:0;transform:translateY(8px) scale(.985)}@starting-style{#upstatus-card:not(.hidden),#upstatus-history:not(.hidden),#upstatus-chat:not(.hidden),.up-health:not(.hidden),.up-settings-menu:not(.hidden){opacity:0;transform:translateY(8px) scale(.985)}}@media(prefers-reduced-motion:reduce){#upstatus-card:not(.hidden),#upstatus-history:not(.hidden),#upstatus-chat:not(.hidden),.up-health:not(.hidden),.up-settings-menu:not(.hidden),.up-reason-menu:not(.hidden),.up-mention-menu:not(.hidden),.up-chat-emoji-menu:not(.hidden){animation:none!important;transition:none!important}}.up-update-prompt{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(4,8,15,.58);backdrop-filter:blur(3px)}.up-update-prompt-box{width:min(360px,calc(100vw - 32px));box-sizing:border-box;background:#19212e;border:1px solid #3a4b66;border-radius:14px;padding:18px;box-shadow:0 20px 55px #000b;color:#edf2fb}.up-update-prompt-title{font-size:16px;font-weight:800;margin-bottom:7px}.up-update-prompt-text{font-size:12px;line-height:1.5;color:#aebbd0}.up-update-prompt-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:16px}.up-update-prompt-actions button{border:1px solid #33445c;border-radius:7px;padding:7px 10px;background:#1e2b3f;color:#cbd7e7;cursor:pointer}.up-update-prompt-actions .up-update-prompt-now{background:#4f7dff;border-color:#4f7dff;color:#fff}.up-chat-list{flex:1 1 0;height:0;min-height:0;overflow-y:auto;overflow-x:hidden;scroll-behavior:auto;overscroll-behavior:contain;padding-bottom:18px;scroll-padding-bottom:18px;box-sizing:border-box}.up-chat-compose{position:relative;z-index:3;flex:0 0 auto;min-height:0;background:inherit;padding-top:8px}.up-chat-typing{position:relative;z-index:3;flex:0 0 auto}.up-chat-list>*:last-child{margin-bottom:4px}';
-  style.textContent += '#upstatus-chat{height:min(470px,calc(100vh - 48px));min-height:min(360px,calc(100vh - 48px));max-height:calc(100vh - 32px);padding:14px}'+
+  style.textContent += '.up-chat-context-menu.up-theme-light-menu{background:#fff;color:#1e293b;border-color:#cbd5e1;box-shadow:0 12px 32px rgba(15,23,42,.18)}.up-chat-context-menu.up-theme-light-menu .up-chat-context-action{color:#1e293b}.up-chat-context-menu.up-theme-light-menu .up-chat-context-action:hover{background:#eef2f7}.up-chat-context-menu.up-theme-light-menu .up-chat-reaction{background:#eef2f7;color:#1e293b}'+
+    '#upstatus-chat{height:min(470px,calc(100vh - 48px));min-height:min(360px,calc(100vh - 48px));max-height:calc(100vh - 32px);padding:14px}'+
     '#upstatus-chat .up-chat-emoji-menu{position:absolute;z-index:2147483647}'+
     '#upstatus-chat .up-chat-input-wrap>.up-chat-attach{background:transparent;color:#9aabc3;border-color:transparent;transition:background .14s,color .14s}'+
     '#upstatus-chat .up-chat-input-wrap>.up-chat-attach:hover{background:#26364d;color:#eaf2ff}'+
@@ -1770,7 +1771,9 @@
   function openChatLightbox(src){var box=chat.querySelector('.up-chat-lightbox'),img=box&&box.querySelector('img');if(!box||!img)return;img.src=src;box.classList.remove('hidden');}
   function closeChatLightbox(){var box=chat.querySelector('.up-chat-lightbox');if(box)box.classList.add('hidden');}
   function openChatContextMenu(e,m){
-    var menu=chat.querySelector('.up-chat-context-menu');if(!menu)return;
+    var menu=chat.querySelector('.up-chat-context-menu')||document.querySelector('.up-chat-context-menu');if(!menu)return;
+    if(menu.parentNode!==document.body)document.body.appendChild(menu);
+    menu.classList.toggle('up-theme-light-menu',!!document.getElementById('upstatus-root')&&document.getElementById('upstatus-root').classList.contains('up-theme-light'));
     chatContextMessageId=m.id;
     var canReply=m.user!==member;
     var quick=['😂','❤️','👍','😡','😮','👏'];
@@ -1782,7 +1785,7 @@
     var del=menu.querySelector('[data-action="delete"]');if(del)del.onclick=function(){hideChatContextMenu();if(!confirm('Excluir esta mensagem?'))return;del.disabled=true;api('DELETE','/api/chat/'+encodeURIComponent(m.id)).then(function(){chatCache=chatCache.filter(function(x){return x.id!==m.id;});renderChat();}).catch(function(err){message(err.message,true);});};
     menu.querySelectorAll('[data-context-reaction]').forEach(function(btn){btn.onclick=function(){toggleChatReaction(m.id,btn.getAttribute('data-context-reaction'));hideChatContextMenu();};});
   }
-  function hideChatContextMenu(){var menu=chat.querySelector('.up-chat-context-menu');if(menu)menu.classList.remove('show');chatContextMessageId=null;}
+  function hideChatContextMenu(){var menu=document.querySelector('.up-chat-context-menu');if(menu){menu.classList.remove('show','up-theme-light-menu');if(menu.parentNode===document.body)chat.appendChild(menu);}chatContextMessageId=null;}
   function toggleChatReaction(id,emoji){api('POST','/api/chat/reaction',{messageId:id,emoji:emoji}).then(function(){return api('GET','/api/chat')}).then(function(d){chatCache=d.messages||[];renderChat();}).catch(function(e){message(e.message,true);});}
   function setChatReply(m){chatReplyTo=m?{id:m.id,user:m.user,message:m.message||((m.type==='image'||m.type==='video'||m.type==='audio')?'Anexo':'')} : null;var bar=chat.querySelector('.up-chat-reply-bar'),copy=bar&&bar.querySelector('.up-chat-reply-copy');if(bar&&copy){if(chatReplyTo){copy.innerHTML='<b>Respondendo a '+esc(chatReplyTo.user)+'</b>'+esc(chatReplyTo.message.slice(0,120));bar.classList.remove('hidden');}else{bar.classList.add('hidden');copy.textContent='';}}var input=chat.querySelector('.up-chat-input');if(input)input.focus();}
   function mentionState(input){
@@ -1894,7 +1897,7 @@
     if(!chatDocumentClickBound){
       chatDocumentClickBound=true;
       document.addEventListener('click',function(e){
-        var menu=chat.querySelector('.up-chat-context-menu');
+        var menu=document.querySelector('.up-chat-context-menu');
         if(menu&&menu.classList.contains('show')&&!menu.contains(e.target))hideChatContextMenu();
       });
     }
@@ -1933,13 +1936,13 @@
     if(!btn||!menu||!input)return;
     var emojis=[0x1F600,0x1F603,0x1F604,0x1F601,0x1F606,0x1F605,0x1F602,0x1F642,0x1F643,0x1F609,0x1F60A,0x1F60D,0x1F970,0x1F618,0x1F60E,0x1F914,0x1F610,0x1F611,0x1F636,0x1F644,0x1F60F,0x1F634,0x1F923,0x1F62D,0x1F621,0x1F92F,0x1F631,0x1F91D,0x1F44D,0x1F44E,0x1F44C,0x270C,0x1F64F,0x1F44F,0x1F4AA,0x2764,0x1F7E7,0x1F7E8,0x1F7E9,0x1F7E6,0x1F535,0x1F7E3,0x1F5A4,0x1F90D,0x1F4AF,0x1F525,0x1F389,0x1F680,0x2705,0x274C,0x2B50,0x1F921,0x1F916,0x1F440,0x1FAE1].map(function(cp){return String.fromCodePoint(cp);});
     menu.innerHTML=emojis.map(function(e){return '<button type="button" class="up-chat-emoji" data-emoji="'+esc(e)+'">'+e+'</button>';}).join('');
-    function positionMenu(){if(menu.classList.contains('hidden'))return;var br=btn.getBoundingClientRect(),cr=(btn.closest('.up-chat-compose')||chat).getBoundingClientRect(),vw=window.innerWidth||document.documentElement.clientWidth,vh=window.innerHeight||document.document.documentElement.clientHeight;var width=Math.min(260,Math.max(180,vw-16));menu.style.width=width+'px';menu.style.maxWidth='calc(100vw - 16px)';menu.style.position='absolute';menu.style.left='8px';menu.style.top='0px';menu.style.bottom='auto';menu.style.right='auto';var mr=menu.getBoundingClientRect();var top=br.top-cr.top-mr.height-8;if(top<8)top=br.bottom-cr.top+8;if(top+mr.height>vh-cr.top-8)top=Math.max(8,vh-cr.top-mr.height-8);var left=Math.max(8,Math.min(br.left-cr.left,vw-cr.left-mr.width-8));menu.style.left=left+'px';menu.style.top=top+'px';}
-    btn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var opening=menu.classList.contains('hidden');menu.classList.toggle('hidden',!opening);if(opening)requestAnimationFrame(positionMenu);});
+    function positionMenu(){if(menu.classList.contains('hidden'))return;var br=btn.getBoundingClientRect(),vw=window.innerWidth||document.documentElement.clientWidth,vh=window.innerHeight||document.documentElement.clientHeight;var width=Math.min(260,Math.max(180,vw-16));menu.style.width=width+'px';menu.style.maxWidth='calc(100vw - 16px)';menu.style.position='fixed';menu.style.left='8px';menu.style.top='8px';menu.style.bottom='auto';menu.style.right='auto';var mr=menu.getBoundingClientRect();var top=br.top-mr.height-8;if(top<8)top=br.bottom+8;if(top+mr.height>vh-8)top=Math.max(8,vh-mr.height-8);var left=Math.max(8,Math.min(br.left,vw-mr.width-8));menu.style.left=left+'px';menu.style.top=top+'px';}
+    btn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var opening=menu.classList.contains('hidden');menu.classList.toggle('hidden',!opening);if(opening){if(menu.parentNode!==document.body)document.body.appendChild(menu);requestAnimationFrame(positionMenu);}});
     if(!menu.__upstatusEmojiBound){menu.__upstatusEmojiBound=true;menu.addEventListener('click',function(e){var b=e.target&&e.target.closest?e.target.closest('.up-chat-emoji'):null;if(!b)return;e.preventDefault();e.stopPropagation();var value=input.value||'',pos=input.selectionStart==null?value.length:input.selectionStart,em=b.getAttribute('data-emoji')||'';input.value=value.slice(0,pos)+em+value.slice(pos);pos+=em.length;input.focus();input.setSelectionRange(pos,pos);});}
     if(!chatEmojiDocumentClickBound){
       chatEmojiDocumentClickBound=true;
       document.addEventListener('click',function(e){
-        var currentMenu=chat.querySelector('.up-chat-emoji-menu'),currentBtn=chat.querySelector('.up-chat-emoji-btn');
+        var currentMenu=document.querySelector('.up-chat-emoji-menu'),currentBtn=chat.querySelector('.up-chat-emoji-btn');
         if(currentMenu&&currentBtn&&!currentMenu.contains(e.target)&&!currentBtn.contains(e.target))currentMenu.classList.add('hidden');
       });
     }
