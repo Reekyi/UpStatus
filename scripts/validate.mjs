@@ -48,6 +48,11 @@ assert(prodUser.includes("UPSTATUS_SALE_DESELECT_CHAT"),"Sale Smartly deselect b
 assert(testUser.includes("UPSTATUS_SALE_DESELECT_CHAT"),"Sale Smartly deselect bridge missing from test artifact");
 assert(prodUser.includes("chatStore.setActiveUser('')"),"native active-chat deselection action missing from production artifact");
 assert(testUser.includes("chatStore.setActiveUser('')"),"native active-chat deselection action missing from test artifact");
+assert(prodUser.includes("function upStatusSaleDeselectActiveChat()"),"shared native deselection action missing from production artifact");
+assert(testUser.includes("function upStatusSaleDeselectActiveChat()"),"shared native deselection action missing from test artifact");
+assert(prodUser.includes("upStatusSaleChatClose.deselected=true"),"close button must disappear after native deselection in production artifact");
+assert(testUser.includes("upStatusSaleChatClose.deselected=true"),"close button must disappear after native deselection in test artifact");
+assert(prodUser.includes("upStatusSaleDeselectActiveChat();")&&testUser.includes("upStatusSaleDeselectActiveChat();"),"X/Escape must use shared native deselection action");
 assert(!prodUser.includes("CHAT_REMOVE_SESSION"),"userscript must not use Sale Smartly session-removal event");
 assert(!testUser.includes("CHAT_REMOVE_SESSION"),"test userscript must not use Sale Smartly session-removal event");
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
