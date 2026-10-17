@@ -2,6 +2,12 @@
 
 ## 2026-10-16
 
+### 3.0.40-beta.2
+- Grouped emoji, attachment, message input, microphone, and send controls into one composer bar.
+- Fixed the emoji picker closing immediately when clicking its icon.
+
+## 2026-10-16
+
 ### 3.0.40-beta.1
 - Replaced the audio recorder emoji with the microphone SVG icon used by call controls.
 - Matched the recorder button dimensions to the attachment button on desktop and mobile.
