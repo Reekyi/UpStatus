@@ -2,6 +2,13 @@
 
 ## 2026-10-17
 
+### 3.0.42
+- Bumped the official release version so userscript managers detect and offer the update.
+- Kept the blue Sale Smartly back arrow, native-sized button, 8px spacing, Escape shortcut, and safe conversation deselection.
+- Preserved all existing UpStatus functionality and the active Sale Smartly session.
+
+## 2026-10-17
+
 ### 3.0.41
 - Added a blue back-arrow button beside Sale Smartly's native end-session control to deselect the active conversation and return to the empty-chat screen.
 - Matched the arrow button's dimensions to the native control and added spacing between the buttons.
