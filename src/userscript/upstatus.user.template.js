@@ -2833,130 +2833,69 @@
   else document.addEventListener('DOMContentLoaded',upStatusSaleCloseInit,{once:true});
 
 
-  // Let each user personalize Sale Smartly's native empty-chat illustration.
+  // Clickable overlay for Sale Smartly's native empty-chat illustration.
   var upStatusSaleEmptyImageKey='upstatus_sale_empty_screen_image_v1';
   var upStatusSaleEmptyImageInput=null;
-  var upStatusSaleEmptyImageTarget=null;
-  function upStatusSaleFindEmptyImage(){
-    // Sale Smartly renders the illustration and its caption as separate nodes.
-    // Find either caption fragment, then inspect nearby visual siblings/ancestors.
-    var textNodes=Array.from(document.querySelectorAll('body *')).filter(function(el){
+  var upStatusSaleEmptyImageOverlay=null;
+  function upStatusSaleFindEmptyCaption(){
+    var nodes=Array.from(document.querySelectorAll('body *')).filter(function(el){
       if(!el||el.children.length>4)return false;
       var t=String(el.innerText||el.textContent||'').replace(/\s+/g,' ').trim();
       return t.length>0&&t.length<100&&(/tome um ch[aá]/i.test(t)||/faça uma pausa/i.test(t));
     });
-    textNodes.sort(function(a,b){return String(a.innerText||a.textContent||'').length-String(b.innerText||b.textContent||'').length;});
-    for(var i=0;i<textNodes.length;i++){
-      var caption=textNodes[i],parent=caption;
-      for(var depth=0;depth<8&&parent;depth++,parent=parent.parentElement){
-        var candidates=Array.from(parent.querySelectorAll('img,svg,canvas,[style*="background-image"]')).filter(function(el){
-          if(el.closest('#upstatus-root'))return false;
-          var r=el.getBoundingClientRect(),cs=getComputedStyle(el);
-          return r.width>=24&&r.height>=24&&cs.display!=='none'&&cs.visibility!=='hidden'&&Number(cs.opacity||1)>0;
-        });
-        if(candidates.length){
-          candidates.sort(function(a,b){
-            var ar=a.getBoundingClientRect(),br=b.getBoundingClientRect();
-            return (br.width*br.height)-(ar.width*ar.height);
-          });
-          return candidates[0];
-        }
-        // Fallback for an emoji rendered as a styled element rather than an image.
-        var capRect=caption.getBoundingClientRect();
-        var siblings=Array.from(parent.children).filter(function(el){
-          if(el===caption||el.contains(caption)||el.closest('#upstatus-root'))return false;
-          var r=el.getBoundingClientRect(),cs=getComputedStyle(el);
-          return r.width>=24&&r.height>=24&&cs.display!=='none'&&cs.visibility!=='hidden'&&Number(cs.opacity||1)>0&&r.bottom<=capRect.top+12;
-        });
-        if(siblings.length){
-          siblings.sort(function(a,b){
-            var ar=a.getBoundingClientRect(),br=b.getBoundingClientRect();
-            return Math.abs(capRect.top-ar.bottom)-Math.abs(capRect.top-br.bottom);
-          });
-          return siblings[0];
-        }
-      }
-    }
-    return null;
+    nodes.sort(function(a,b){return String(a.innerText||a.textContent||'').length-String(b.innerText||b.textContent||'').length;});
+    return nodes[0]||null;
   }
   function upStatusSaleEnsureImagePicker(){
     if(upStatusSaleEmptyImageInput)return upStatusSaleEmptyImageInput;
-    var input=document.createElement('input');
-    input.type='file';input.accept='image/jpeg,image/gif,.jpg,.jpeg,.gif';
-    input.tabIndex=-1;input.setAttribute('aria-label','Escolher imagem para a tela vazia do Sale Smartly');
+    var input=document.createElement('input');input.type='file';input.accept='image/jpeg,image/gif,.jpg,.jpeg,.gif';input.tabIndex=-1;
     input.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10000px;top:-10000px;';
     input.addEventListener('change',function(){
       var file=input.files&&input.files[0];if(!file)return;
       var type=String(file.type||'').toLowerCase(),name=String(file.name||'').toLowerCase();
-      if(!(type==='image/jpeg'||type==='image/gif'||/\.(jpe?g|gif)$/.test(name))){
-        alert('Escolha um arquivo JPEG ou GIF.');input.value='';return;
-      }
-      if(file.size>5*1024*1024){
-        alert('A imagem deve ter no máximo 5 MB.');input.value='';return;
-      }
-      var reader=new FileReader();
-      reader.onload=function(){
+      if(!(type==='image/jpeg'||type==='image/gif'||/\.(jpe?g|gif)$/.test(name))){alert('Escolha um arquivo JPEG ou GIF.');input.value='';return;}
+      if(file.size>5*1024*1024){alert('A imagem deve ter no máximo 5 MB.');input.value='';return;}
+      var reader=new FileReader();reader.onload=function(){
         var data=String(reader.result||'');
-        if(!/^data:image\/(?:jpeg|gif);base64,/i.test(data)){
-          alert('Não foi possível ler essa imagem.');input.value='';return;
-        }
-        try{
-          GM_setValue(upStatusSaleEmptyImageKey,data);
-          upStatusSaleApplyEmptyImage();
-        }catch(err){alert('Não foi possível salvar a imagem neste navegador.');}
+        if(!/^data:image\/(?:jpeg|gif);base64,/i.test(data)){alert('Não foi possível ler essa imagem.');input.value='';return;}
+        try{GM_setValue(upStatusSaleEmptyImageKey,data);upStatusSaleApplyEmptyImage();}catch(err){alert('Não foi possível salvar a imagem neste navegador.');}
         input.value='';
-      };
-      reader.onerror=function(){alert('Não foi possível ler essa imagem.');input.value='';};
-      reader.readAsDataURL(file);
+      };reader.onerror=function(){alert('Não foi possível ler essa imagem.');input.value='';};reader.readAsDataURL(file);
     });
     document.body.appendChild(input);upStatusSaleEmptyImageInput=input;return input;
   }
+  function upStatusSaleEnsureEmptyOverlay(){
+    if(upStatusSaleEmptyImageOverlay&&upStatusSaleEmptyImageOverlay.isConnected)return upStatusSaleEmptyImageOverlay;
+    var overlay=document.createElement('button');overlay.type='button';overlay.id='upstatus-sale-empty-image-overlay';
+    overlay.setAttribute('aria-label','Trocar imagem da tela vazia do Sale Smartly');
+    overlay.title='Clique para escolher um JPEG/GIF. Clique com o botão direito para restaurar o original.';
+    overlay.style.cssText='position:fixed;display:block;border:0;padding:0;margin:0;background:transparent;cursor:pointer;z-index:2147483000;box-sizing:border-box;outline:none;';
+    var img=document.createElement('img');img.alt='';img.draggable=false;
+    img.style.cssText='display:none;width:100%;height:100%;object-fit:contain;pointer-events:none;background:transparent;';
+    overlay.appendChild(img);
+    overlay.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();upStatusSaleEnsureImagePicker().click();},true);
+    overlay.addEventListener('contextmenu',function(e){e.preventDefault();e.stopPropagation();try{GM_setValue(upStatusSaleEmptyImageKey,'');}catch(err){}upStatusSaleApplyEmptyImage();},true);
+    document.body.appendChild(overlay);upStatusSaleEmptyImageOverlay=overlay;return overlay;
+  }
   function upStatusSaleApplyEmptyImage(){
-    var img=upStatusSaleFindEmptyImage();
-    if(!img){
-      if(upStatusSaleEmptyImageTarget){
-        upStatusSaleEmptyImageTarget.removeAttribute('data-upstatus-empty-image-ready');
-        upStatusSaleEmptyImageTarget=null;
-      }
-      return;
-    }
-    if(img!==upStatusSaleEmptyImageTarget){
-      upStatusSaleEmptyImageTarget=img;
-      if(!img.hasAttribute('data-upstatus-empty-image-original'))img.setAttribute('data-upstatus-empty-image-original',img.getAttribute('src')||'');
-      img.setAttribute('data-upstatus-empty-image-ready','1');
-      img.style.cursor='pointer';
-      img.title='Clique para trocar a imagem da tela vazia. Clique com o botão direito para restaurar o padrão.';
-      img.setAttribute('aria-label','Trocar imagem da tela vazia do Sale Smartly');
-      img.addEventListener('click',upStatusSaleEmptyImageClick,true);
-      img.addEventListener('contextmenu',upStatusSaleEmptyImageReset,true);
-    }
-    var custom='';
-    try{custom=GM_getValue(upStatusSaleEmptyImageKey,'')||'';}catch(e){}
-    if(custom&&/^data:image\/(?:jpeg|gif);base64,/i.test(custom)&&img.src!==custom)img.src=custom;
-    else if(!custom){
-      var original=img.getAttribute('data-upstatus-empty-image-original');
-      if(original&&img.getAttribute('src')!==original)img.setAttribute('src',original);
-    }
+    var caption=upStatusSaleFindEmptyCaption(),overlay=upStatusSaleEnsureEmptyOverlay();
+    if(!caption){overlay.style.display='none';return;}
+    var r=caption.getBoundingClientRect();if(r.width<20||r.height<8){overlay.style.display='none';return;}
+    var width=Math.max(96,Math.min(180,r.width*.95)),height=Math.max(82,Math.min(140,r.height*5.2));
+    var left=r.left+r.width/2-width/2,top=r.top-height-12;if(top<0)top=Math.max(0,r.top-100);
+    overlay.style.left=Math.round(left)+'px';overlay.style.top=Math.round(top)+'px';
+    overlay.style.width=Math.round(width)+'px';overlay.style.height=Math.round(height)+'px';overlay.style.display='block';
+    var custom='';try{custom=GM_getValue(upStatusSaleEmptyImageKey,'')||'';}catch(e){}
+    var img=overlay.firstElementChild;
+    if(custom&&/^data:image\/(?:jpeg|gif);base64,/i.test(custom)){if(img.src!==custom)img.src=custom;img.style.display='block';}
+    else{img.removeAttribute('src');img.style.display='none';}
   }
-  function upStatusSaleEmptyImageClick(e){
-    if(e.button!==0)return;
-    e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
-    upStatusSaleEnsureImagePicker().click();
-  }
-  function upStatusSaleEmptyImageReset(e){
-    e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
-    try{GM_setValue(upStatusSaleEmptyImageKey,'');}catch(err){}
-    upStatusSaleApplyEmptyImage();
-  }
-  var upStatusSaleEmptyImageObserver=new MutationObserver(function(){
-    if(upStatusSaleEmptyImageObserver._raf)return;
-    upStatusSaleEmptyImageObserver._raf=requestAnimationFrame(function(){
-      upStatusSaleEmptyImageObserver._raf=0;upStatusSaleApplyEmptyImage();
-    });
-  });
-  if(document.documentElement)upStatusSaleEmptyImageObserver.observe(document.documentElement,{childList:true,subtree:true});
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',upStatusSaleApplyEmptyImage,{once:true});
-  else upStatusSaleApplyEmptyImage();
+  var upStatusSaleEmptyImageTick=0;
+  function upStatusSaleScheduleEmptyImageApply(){if(upStatusSaleEmptyImageTick)return;upStatusSaleEmptyImageTick=requestAnimationFrame(function(){upStatusSaleEmptyImageTick=0;upStatusSaleApplyEmptyImage();});}
+  var upStatusSaleEmptyImageObserver=new MutationObserver(upStatusSaleScheduleEmptyImageApply);
+  if(document.documentElement)upStatusSaleEmptyImageObserver.observe(document.documentElement,{childList:true,subtree:true,characterData:true});
+  window.addEventListener('resize',upStatusSaleScheduleEmptyImageApply);window.addEventListener('scroll',upStatusSaleScheduleEmptyImageApply,true);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',upStatusSaleApplyEmptyImage,{once:true});else upStatusSaleApplyEmptyImage();
 
   setInterval(function(){loadChat();},3000);
   setInterval(pollChatTyping,1000);  setInterval(pollRemoteStatus,5000);
