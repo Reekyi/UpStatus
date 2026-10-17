@@ -2826,6 +2826,124 @@
   if(document.documentElement)upStatusSaleCloseInit();
   else document.addEventListener('DOMContentLoaded',upStatusSaleCloseInit,{once:true});
 
+// Clickable overlay for Sale Smartly's native empty-chat illustration.
+  var upStatusSaleEmptyImageKey='upstatus_sale_empty_screen_image_v1';
+  var upStatusSaleEmptyImageInput=null;
+  var upStatusSaleEmptyImageOverlay=null;
+  function upStatusSaleFindEmptyCaption(){
+    var nodes=Array.from(document.querySelectorAll('body *')).filter(function(el){
+      if(!el||el.children.length>4)return false;
+      var t=String(el.innerText||el.textContent||'').replace(/\s+/g,' ').trim();
+      if(!(t.length>0&&t.length<100&&(/tome um ch[aá]/i.test(t)||/faça uma pausa/i.test(t))))return false;
+      var r=el.getBoundingClientRect(),cs=getComputedStyle(el);
+      return r.width>=40&&r.height>=8&&r.bottom>0&&r.top<window.innerHeight&&r.right>0&&r.left<window.innerWidth&&cs.display!=='none'&&cs.visibility!=='hidden'&&Number(cs.opacity||1)>0;
+    });
+    nodes.sort(function(a,b){
+      var at=String(a.innerText||a.textContent||'').length,bt=String(b.innerText||b.textContent||'').length;
+      if(at!==bt)return at-bt;
+      return a.getBoundingClientRect().width-b.getBoundingClientRect().width;
+    });
+    return nodes[0]||null;
+  }
+  function upStatusSaleEnsureImagePicker(){
+    if(upStatusSaleEmptyImageInput)return upStatusSaleEmptyImageInput;
+    var input=document.createElement('input');input.type='file';input.accept='image/jpeg,image/gif,.jpg,.jpeg,.gif';input.tabIndex=-1;
+    input.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10000px;top:-10000px;';
+    input.addEventListener('change',function(){
+      var file=input.files&&input.files[0];if(!file)return;
+      var type=String(file.type||'').toLowerCase(),name=String(file.name||'').toLowerCase();
+      if(!(type==='image/jpeg'||type==='image/gif'||/\.(jpe?g|gif)$/.test(name))){alert('Escolha um arquivo JPEG ou GIF.');input.value='';return;}
+      if(file.size>5*1024*1024){alert('A imagem deve ter no máximo 5 MB.');input.value='';return;}
+      var reader=new FileReader();reader.onload=function(){
+        var data=String(reader.result||'');
+        if(!/^data:image\/(?:jpeg|gif);base64,/i.test(data)){alert('Não foi possível ler essa imagem.');input.value='';return;}
+        try{GM_setValue(upStatusSaleEmptyImageKey,data);upStatusSaleApplyEmptyImage();}catch(err){alert('Não foi possível salvar a imagem neste navegador.');}
+        input.value='';
+      };reader.onerror=function(){alert('Não foi possível ler essa imagem.');input.value='';};reader.readAsDataURL(file);
+    });
+    document.body.appendChild(input);upStatusSaleEmptyImageInput=input;return input;
+  }
+  function upStatusSaleEnsureEmptyOverlay(){
+    if(upStatusSaleEmptyImageOverlay&&upStatusSaleEmptyImageOverlay.isConnected)return upStatusSaleEmptyImageOverlay;
+    var overlay=document.createElement('button');overlay.type='button';overlay.id='upstatus-sale-empty-image-overlay';
+    overlay.setAttribute('aria-label','Trocar imagem da tela vazia do Sale Smartly');
+    overlay.title='Clique para escolher um JPEG/GIF. Clique com o botão direito para restaurar o original.';
+    overlay.style.cssText='position:fixed;display:block;border:0;padding:0;margin:0;background:transparent;cursor:pointer;z-index:2147483000;box-sizing:border-box;outline:none;';
+    var img=document.createElement('img');img.alt='';img.draggable=false;
+    img.style.cssText='display:none;width:100%;height:100%;object-fit:contain;pointer-events:none;background:transparent;';
+    overlay.appendChild(img);
+    overlay.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();upStatusSaleEnsureImagePicker().click();},true);
+    overlay.addEventListener('contextmenu',function(e){e.preventDefault();e.stopPropagation();if(!confirm('Remover a imagem personalizada e restaurar o emoji original?'))return;try{GM_setValue(upStatusSaleEmptyImageKey,'');}catch(err){alert('Não foi possível restaurar a imagem original.');return;}upStatusSaleApplyEmptyImage();},true);
+    document.body.appendChild(overlay);upStatusSaleEmptyImageOverlay=overlay;return overlay;
+  }
+  var upStatusSaleHiddenOriginals=[];
+  function upStatusSaleSetOriginalIllustrationHidden(caption,hidden){
+    if(!hidden){
+      upStatusSaleHiddenOriginals.forEach(function(item){
+        if(item.el&&item.el.isConnected){
+          item.el.style.visibility=item.visibility;
+          item.el.style.opacity=item.opacity;
+          item.el.style.pointerEvents=item.pointerEvents;
+        }
+      });
+      upStatusSaleHiddenOriginals=[];
+      return;
+    }
+    if(upStatusSaleHiddenOriginals.length)return;
+    if(!caption)return;
+    var cr=caption.getBoundingClientRect(),candidates=[];
+    var parent=caption;
+    for(var depth=0;depth<7&&parent;depth++,parent=parent.parentElement){
+      Array.from(parent.children||[]).forEach(function(el){
+        if(el===caption||el.contains(caption)||el.id==='upstatus-sale-empty-image-overlay'||el.closest('#upstatus-sale-empty-image-overlay'))return;
+        var r=el.getBoundingClientRect(),cs=getComputedStyle(el);
+        if(r.width<36||r.height<36||r.width>360||r.height>260)return;
+        if(r.bottom>cr.top+8||r.top<cr.top-280)return;
+        if(cs.display==='none'||cs.visibility==='hidden'||Number(cs.opacity||1)===0)return;
+        // Prefer the visible graphic immediately above the caption, not the whole layout container.
+        candidates.push({el:el,area:r.width*r.height,distance:Math.abs(cr.top-r.bottom),depth:depth});
+      });
+      if(candidates.length)break;
+    }
+    candidates.sort(function(a,b){return a.distance-b.distance||a.area-b.area;});
+    if(candidates.length){
+      var target=candidates[0].el;
+      upStatusSaleHiddenOriginals.push({el:target,visibility:target.style.visibility,opacity:target.style.opacity,pointerEvents:target.style.pointerEvents});
+      target.style.visibility='hidden';
+      target.style.opacity='0';
+      target.style.pointerEvents='none';
+    }
+  }
+  function upStatusSaleApplyEmptyImage(){
+    var caption=upStatusSaleFindEmptyCaption(),overlay=upStatusSaleEnsureEmptyOverlay();
+    if(!caption){overlay.style.display='none';upStatusSaleSetOriginalIllustrationHidden(null,false);return;}
+    var r=caption.getBoundingClientRect();
+    if(r.width<40||r.height<8){overlay.style.display='none';return;}
+    var width=Math.max(150,Math.min(240,r.width+48)),height=160;
+    var left=r.left+r.width/2-width/2,top=r.top-height-8;
+    left=Math.max(0,Math.min(window.innerWidth-width,left));
+    top=Math.max(0,Math.min(window.innerHeight-height,top));
+    overlay.style.left=Math.round(left)+'px';overlay.style.top=Math.round(top)+'px';
+    overlay.style.width=Math.round(width)+'px';overlay.style.height=Math.round(height)+'px';
+    var custom='';try{custom=GM_getValue(upStatusSaleEmptyImageKey,'')||'';}catch(e){}
+    var img=overlay.firstElementChild;
+    if(custom&&/^data:image\/(?:jpeg|gif);base64,/i.test(custom)){
+      upStatusSaleSetOriginalIllustrationHidden(caption,true);
+      if(img.src!==custom)img.src=custom;
+      img.style.display='block';overlay.style.display='block';overlay.style.pointerEvents='auto';
+    }else{
+      upStatusSaleSetOriginalIllustrationHidden(caption,false);
+      img.removeAttribute('src');img.style.display='none';overlay.style.display='block';overlay.style.pointerEvents='auto';
+    }
+  }
+  var upStatusSaleEmptyImageTick=0;
+  function upStatusSaleScheduleEmptyImageApply(){if(upStatusSaleEmptyImageTick)return;upStatusSaleEmptyImageTick=requestAnimationFrame(function(){upStatusSaleEmptyImageTick=0;upStatusSaleApplyEmptyImage();});}
+  var upStatusSaleEmptyImageObserver=new MutationObserver(upStatusSaleScheduleEmptyImageApply);
+  if(document.documentElement)upStatusSaleEmptyImageObserver.observe(document.documentElement,{childList:true,subtree:true,characterData:true});
+  window.addEventListener('resize',upStatusSaleScheduleEmptyImageApply);window.addEventListener('scroll',upStatusSaleScheduleEmptyImageApply,true);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',upStatusSaleApplyEmptyImage,{once:true});else upStatusSaleApplyEmptyImage();
+
+
   setInterval(function(){loadChat();},3000);
   setInterval(pollChatTyping,1000);  setInterval(pollRemoteStatus,5000);
   setInterval(checkUpdate,60000);
