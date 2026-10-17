@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-17
+
+### 3.0.40
+- Refined the chat experience with stable emoji/context menus, scrolling, message layout, and preserved sharing behavior for Lucca and Ycaro guest sessions.
+- Reworked audio messages with a unified player, decoded-audio waveform with an irregular fallback, opacity-only playback progress, normal-weight bars, and no mute button.
+- Added closing animations to patch notes, update prompts, profile modal, remote control overlay, and chat image lightbox, respecting reduced-motion preferences.
+- Preserved the Ycaro guest chat page and its dedicated password/session/API flow in the production Edge Function.
+
+# Changelog
+
 ## 2026-10-16
 
 ## 3.0.39
