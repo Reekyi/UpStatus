@@ -55,4 +55,10 @@ assert(testUser.includes("upStatusSaleChatClose.deselected=true"),"close button 
 assert(prodUser.includes("upStatusSaleDeselectActiveChat();")&&testUser.includes("upStatusSaleDeselectActiveChat();"),"X/Escape must use shared native deselection action");
 assert(!prodUser.includes("CHAT_REMOVE_SESSION"),"userscript must not use Sale Smartly session-removal event");
 assert(!testUser.includes("CHAT_REMOVE_SESSION"),"test userscript must not use Sale Smartly session-removal event");
+assert(prodUser.includes("function upStatusSaleFindEndButton(header)"),"native end-session button detection missing from production artifact");
+assert(testUser.includes("function upStatusSaleFindEndButton(header)"),"native end-session button detection missing from test artifact");
+assert(prodUser.includes("endButton.parentElement.insertBefore(button,endButton)"),"X must be placed immediately before native end-session control in production artifact");
+assert(testUser.includes("endButton.parentElement.insertBefore(button,endButton)"),"X must be placed immediately before native end-session control in test artifact");
+assert(prodUser.includes("Desmarcar conversa (Esc)"),"X tooltip must describe deselection in production artifact");
+assert(testUser.includes("Desmarcar conversa (Esc)"),"X tooltip must describe deselection in test artifact");
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
