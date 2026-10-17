@@ -2,6 +2,14 @@
 
 ## 2026-10-17
 
+### 3.0.43
+- Allow users to replace the Sale Smartly empty-chat illustration with a local JPEG or animated GIF (up to 5 MB).
+- Preserve native GIF animation and transparency; hide the original illustration while a custom image is active.
+- Ask for confirmation before removing the custom image and restore the original illustration when removal is confirmed.
+- Keep the feature local to the user's browser; no database changes.
+
+## 2026-10-17
+
 ### 3.0.42
 - Bumped the official release version so userscript managers detect and offer the update.
 - Kept the blue Sale Smartly back arrow, native-sized button, 8px spacing, Escape shortcut, and safe conversation deselection.
