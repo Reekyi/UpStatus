@@ -2680,7 +2680,8 @@
     for(var i=0;i<buttons.length;i++){
       var el=buttons[i],r=el.getBoundingClientRect(),style=getComputedStyle(el);
       var bg=style.backgroundColor||'';
-      var red=/rgb\\(\\s*(?:220|221|222|223|224|225|226|227|228|229|230|231|232|233|234|235|236|237|238|239|240|241|242|243|244|245|246|247|248|249|250|251|252|253|254|255)\\s*,\\s*(?:0|[1-5]?[0-9])\\s*,\\s*(?:0|[1-5]?[0-9])\\s*\\)/i.test(bg);
+      var rgb=bg.match(/(\d+), *(\d+), *(\d+)/);
+      var red=!!(rgb&&Number(rgb[1])>180&&Number(rgb[2])<80&&Number(rgb[3])<80);
       var label=((el.getAttribute('aria-label')||'')+' '+(el.getAttribute('title')||'')+' '+(el.innerText||'')).toLowerCase();
       if((red||/end|close|encerrar|fechar|terminar|finalizar|结束|关闭/.test(label))&&r.right>=headerRect.right-70)return el;
     }
