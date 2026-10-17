@@ -2,6 +2,13 @@
 
 ## 2026-10-17
 
+### 3.0.40-beta.5
+- Rendered the emoji picker and message context menu above the page layer to prevent clipping by the animated chat panel.
+- Updated outside-click handling and theme styling for the portaled menus.
+- Preserved existing reply, reaction, delete, emoji insertion, and composer behavior.
+
+## 2026-10-17
+
 ### 3.0.40-beta.4
 - Anchored the emoji picker to the chat composer to prevent it from opening outside the panel.
 - Replaced the fragile early right-click capture with one delegated chat listener for message context menus.
