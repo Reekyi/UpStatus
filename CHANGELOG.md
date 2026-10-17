@@ -2,6 +2,12 @@
 
 ## 2026-10-17
 
+### 3.0.40-beta.14
+- Added smooth exit animations for the patch-notes modal, update prompt, profile modal, remote-control overlay, and chat image lightbox.
+- Delay dismissal until the exit animation finishes, with a reduced-motion fallback and a cleanup timeout.
+
+## 2026-10-17
+
 ### 3.0.40-beta.13
 - Build the visible waveform from RMS levels of the decoded audio, loading waveform data only when the player is near the viewport.
 - Keep an irregular per-audio fallback waveform when decoding is blocked by the browser or cross-origin restrictions.
