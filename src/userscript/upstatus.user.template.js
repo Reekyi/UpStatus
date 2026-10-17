@@ -2623,7 +2623,7 @@
   });
 
   // Sale Smartly: close only the conversation view; do not touch session status or list events.
-  var upStatusSaleChatClose={observer:null,button:null,closed:false,raf:0};
+  var upStatusSaleChatClose={observer:null,button:null,closed:false,deselected:false,raf:0};
   function upStatusSaleChatPanel(){return document.querySelector('.chat-session-panel');}
   function upStatusSaleChatVisible(panel){return !!(panel&&panel.isConnected&&getComputedStyle(panel).display!=='none'&&panel.getAttribute('data-upstatus-visual-closed')!=='1');}
   function upStatusSaleRestoreVisual(){
@@ -2682,6 +2682,7 @@
   }
   function upStatusSaleInstallButton(){
     var panel=upStatusSaleChatPanel();
+    if(upStatusSaleChatClose.deselected){if(upStatusSaleChatClose.button){upStatusSaleChatClose.button.remove();upStatusSaleChatClose.button=null;}return;}
     if(!panel||!panel.isConnected)return;
     var header=panel.querySelector('.chat-session-panel__header');
     if(!header)return;
@@ -2696,30 +2697,7 @@
       button.style.cssText='position:fixed;display:flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border:0;border-radius:4px;background:#e53935;color:#fff;box-shadow:0 2px 7px rgba(0,0,0,.28);cursor:pointer;z-index:2147483000;line-height:1;box-sizing:border-box;';
       button.addEventListener('click',function(e){
         e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
-        var current=upStatusSaleChatPanel();
-        if(!current)return;
-        button.disabled=true;
-        var settled=false,timer=0;
-        function finish(ev){
-          if(settled)return;
-          settled=true;
-          document.removeEventListener('UPSTATUS_SALE_DESELECT_CHAT_RESULT',finish);
-          clearTimeout(timer);
-          button.disabled=false;
-          var result=ev&&ev.detail||{};
-          if(result.ok){
-            upStatusSaleChatClose.closed=false;
-            current.removeAttribute('data-upstatus-visual-closed');
-            upStatusSaleRestoreVisual();
-          }else{
-            console.warn('[UpStatus] Não foi possível deselecionar a conversa:',result.error||'erro desconhecido');
-          }
-        }
-        document.addEventListener('UPSTATUS_SALE_DESELECT_CHAT_RESULT',finish);
-        timer=setTimeout(function(){
-          finish({detail:{ok:false,error:'Tempo esgotado aguardando a resposta do Sale Smartly.'}});
-        },1500);
-        document.dispatchEvent(new CustomEvent('UPSTATUS_SALE_DESELECT_CHAT'));
+        upStatusSaleDeselectActiveChat();
       });
       root.appendChild(button);
       upStatusSaleChatClose.button=button;
@@ -2751,16 +2729,46 @@
     upStatusSaleInstallButton();
   }
   document.addEventListener('click',function(e){
-    if(upStatusSaleChatClose.closed&&upStatusSaleRowClick(e.target)){
-      requestAnimationFrame(upStatusSaleRestoreVisual);
+    if(!upStatusSaleRowClick(e.target))return;
+    if(upStatusSaleChatClose.closed)requestAnimationFrame(upStatusSaleRestoreVisual);
+    if(upStatusSaleChatClose.deselected){
+      upStatusSaleChatClose.deselected=false;
+      requestAnimationFrame(upStatusSaleInstallButton);
     }
   },true);
+  function upStatusSaleDeselectActiveChat(){
+    if(upStatusSaleChatClose.deselected)return;
+    var panel=upStatusSaleChatPanel();
+    if(!upStatusSaleChatVisible(panel))return;
+    if(upStatusSaleChatClose.button)upStatusSaleChatClose.button.disabled=true;
+    var settled=false,timer=0;
+    function finish(ev){
+      if(settled)return;
+      settled=true;
+      document.removeEventListener('UPSTATUS_SALE_DESELECT_CHAT_RESULT',finish);
+      clearTimeout(timer);
+      var result=ev&&ev.detail||{};
+      if(result.ok){
+        upStatusSaleChatClose.deselected=true;
+        upStatusSaleChatClose.closed=false;
+        if(upStatusSaleChatClose.button){upStatusSaleChatClose.button.remove();upStatusSaleChatClose.button=null;}
+      }else{
+        if(upStatusSaleChatClose.button)upStatusSaleChatClose.button.disabled=false;
+        console.warn('[UpStatus] Não foi possível deselecionar a conversa:',result.error||'erro desconhecido');
+      }
+    }
+    document.addEventListener('UPSTATUS_SALE_DESELECT_CHAT_RESULT',finish);
+    timer=setTimeout(function(){
+      finish({detail:{ok:false,error:'Tempo esgotado aguardando a resposta do Sale Smartly.'}});
+    },1500);
+    document.dispatchEvent(new CustomEvent('UPSTATUS_SALE_DESELECT_CHAT'));
+  }
   document.addEventListener('keydown',function(e){
     if(e.key!=='Escape'||e.defaultPrevented)return;
     var panel=upStatusSaleChatPanel();
     if(!upStatusSaleChatVisible(panel)||upStatusSaleEditableOrModal(e.target))return;
     e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
-    upStatusSaleHideVisual(panel);
+    upStatusSaleDeselectActiveChat();
   },true);
   window.addEventListener('resize',upStatusSalePositionButton);
   window.addEventListener('scroll',upStatusSalePositionButton,true);
