@@ -2832,6 +2832,115 @@
   if(document.documentElement)upStatusSaleCloseInit();
   else document.addEventListener('DOMContentLoaded',upStatusSaleCloseInit,{once:true});
 
+
+  // Let each user personalize Sale Smartly's native empty-chat illustration.
+  var upStatusSaleEmptyImageKey='upstatus_sale_empty_screen_image_v1';
+  var upStatusSaleEmptyImageInput=null;
+  var upStatusSaleEmptyImageTarget=null;
+  function upStatusSaleFindEmptyImage(){
+    var textNodes=Array.from(document.querySelectorAll('body *')).filter(function(el){
+      if(!el||!el.children||el.children.length>3)return false;
+      var t=String(el.innerText||el.textContent||'').replace(/\s+/g,' ').trim();
+      return t.length>0&&t.length<100&&/tome um ch[aá]/i.test(t)&&/faça uma pausa/i.test(t);
+    });
+    textNodes.sort(function(a,b){return String(a.innerText||a.textContent||'').length-String(b.innerText||b.textContent||'').length;});
+    for(var i=0;i<textNodes.length;i++){
+      var node=textNodes[i],parent=node;
+      for(var depth=0;depth<7&&parent;depth++,parent=parent.parentElement){
+        var imgs=Array.from(parent.querySelectorAll('img')).filter(function(img){
+          var r=img.getBoundingClientRect(),cs=getComputedStyle(img);
+          return r.width>=24&&r.height>=24&&cs.display!=='none'&&cs.visibility!=='hidden'&&Number(cs.opacity||1)>0;
+        });
+        if(imgs.length){
+          imgs.sort(function(a,b){
+            var ar=a.getBoundingClientRect(),br=b.getBoundingClientRect();
+            return (br.width*br.height)-(ar.width*ar.height);
+          });
+          return imgs[0];
+        }
+      }
+    }
+    return null;
+  }
+  function upStatusSaleEnsureImagePicker(){
+    if(upStatusSaleEmptyImageInput)return upStatusSaleEmptyImageInput;
+    var input=document.createElement('input');
+    input.type='file';input.accept='image/jpeg,image/gif,.jpg,.jpeg,.gif';
+    input.tabIndex=-1;input.setAttribute('aria-label','Escolher imagem para a tela vazia do Sale Smartly');
+    input.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10000px;top:-10000px;';
+    input.addEventListener('change',function(){
+      var file=input.files&&input.files[0];if(!file)return;
+      var type=String(file.type||'').toLowerCase(),name=String(file.name||'').toLowerCase();
+      if(!(type==='image/jpeg'||type==='image/gif'||/\.(jpe?g|gif)$/.test(name))){
+        alert('Escolha um arquivo JPEG ou GIF.');input.value='';return;
+      }
+      if(file.size>5*1024*1024){
+        alert('A imagem deve ter no máximo 5 MB.');input.value='';return;
+      }
+      var reader=new FileReader();
+      reader.onload=function(){
+        var data=String(reader.result||'');
+        if(!/^data:image\/(?:jpeg|gif);base64,/i.test(data)){
+          alert('Não foi possível ler essa imagem.');input.value='';return;
+        }
+        try{
+          GM_setValue(upStatusSaleEmptyImageKey,data);
+          upStatusSaleApplyEmptyImage();
+        }catch(err){alert('Não foi possível salvar a imagem neste navegador.');}
+        input.value='';
+      };
+      reader.onerror=function(){alert('Não foi possível ler essa imagem.');input.value='';};
+      reader.readAsDataURL(file);
+    });
+    document.body.appendChild(input);upStatusSaleEmptyImageInput=input;return input;
+  }
+  function upStatusSaleApplyEmptyImage(){
+    var img=upStatusSaleFindEmptyImage();
+    if(!img){
+      if(upStatusSaleEmptyImageTarget){
+        upStatusSaleEmptyImageTarget.removeAttribute('data-upstatus-empty-image-ready');
+        upStatusSaleEmptyImageTarget=null;
+      }
+      return;
+    }
+    if(img!==upStatusSaleEmptyImageTarget){
+      upStatusSaleEmptyImageTarget=img;
+      if(!img.hasAttribute('data-upstatus-empty-image-original'))img.setAttribute('data-upstatus-empty-image-original',img.getAttribute('src')||'');
+      img.setAttribute('data-upstatus-empty-image-ready','1');
+      img.style.cursor='pointer';
+      img.title='Clique para trocar a imagem da tela vazia. Clique com o botão direito para restaurar o padrão.';
+      img.setAttribute('aria-label','Trocar imagem da tela vazia do Sale Smartly');
+      img.addEventListener('click',upStatusSaleEmptyImageClick,true);
+      img.addEventListener('contextmenu',upStatusSaleEmptyImageReset,true);
+    }
+    var custom='';
+    try{custom=GM_getValue(upStatusSaleEmptyImageKey,'')||'';}catch(e){}
+    if(custom&&/^data:image\/(?:jpeg|gif);base64,/i.test(custom)&&img.src!==custom)img.src=custom;
+    else if(!custom){
+      var original=img.getAttribute('data-upstatus-empty-image-original');
+      if(original&&img.getAttribute('src')!==original)img.setAttribute('src',original);
+    }
+  }
+  function upStatusSaleEmptyImageClick(e){
+    if(e.button!==0)return;
+    e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+    upStatusSaleEnsureImagePicker().click();
+  }
+  function upStatusSaleEmptyImageReset(e){
+    e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+    try{GM_setValue(upStatusSaleEmptyImageKey,'');}catch(err){}
+    upStatusSaleApplyEmptyImage();
+  }
+  var upStatusSaleEmptyImageObserver=new MutationObserver(function(){
+    if(upStatusSaleEmptyImageObserver._raf)return;
+    upStatusSaleEmptyImageObserver._raf=requestAnimationFrame(function(){
+      upStatusSaleEmptyImageObserver._raf=0;upStatusSaleApplyEmptyImage();
+    });
+  });
+  if(document.documentElement)upStatusSaleEmptyImageObserver.observe(document.documentElement,{childList:true,subtree:true});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',upStatusSaleApplyEmptyImage,{once:true});
+  else upStatusSaleApplyEmptyImage();
+
   setInterval(function(){loadChat();},3000);
   setInterval(pollChatTyping,1000);  setInterval(pollRemoteStatus,5000);
   setInterval(checkUpdate,60000);
