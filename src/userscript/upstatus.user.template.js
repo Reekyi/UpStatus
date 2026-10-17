@@ -2580,7 +2580,10 @@
   setInterval(refresh,5000);
   setInterval(function(){if(member){broadcastChatPresence(!chat.classList.contains('hidden'));Object.keys(chatPresence).forEach(function(name){if(chatPresence[name]&&chatPresence[name]<Date.now())delete chatPresence[name];});if(!chat.classList.contains('hidden'))updateChatHeaderPresence();}},10000);
   document.addEventListener('keydown',function(e){
-    if(e.key==='Escape'){e.preventDefault();closeChat();}
+    if(e.key==='Escape'&&!upStatusSaleEditableOrModal(e.target)){
+      var activeSalePanel=upStatusSaleChatPanel();
+      if(!upStatusSaleChatVisible(activeSalePanel)){e.preventDefault();closeChat();}
+    }
     if(e.shiftKey&&(e.key==='c'||e.key==='C')){
       var t=e.target,tag=t&&t.tagName?String(t.tagName).toLowerCase():'';
       var editable=!!(t&&(t.isContentEditable||tag==='input'||tag==='textarea'||tag==='select'));
@@ -2591,6 +2594,130 @@
       }
     }
   });
+
+  // Sale Smartly: close only the conversation view; do not touch session status or list events.
+  var upStatusSaleChatClose={observer:null,button:null,closed:false,raf:0};
+  function upStatusSaleChatPanel(){return document.querySelector('.chat-session-panel');}
+  function upStatusSaleChatVisible(panel){return !!(panel&&panel.isConnected&&getComputedStyle(panel).display!=='none'&&panel.getAttribute('data-upstatus-visual-closed')!=='1');}
+  function upStatusSaleRestoreVisual(){
+    upStatusSaleChatClose.closed=false;
+    document.querySelectorAll('.chat-session-panel[data-upstatus-visual-closed="1"]').forEach(function(panel){
+      var previous=panel.__upStatusClosePreviousDisplay;
+      panel.style.removeProperty('display');
+      if(previous&&previous.value)panel.style.setProperty('display',previous.value,previous.priority||'');
+      panel.removeAttribute('data-upstatus-visual-closed');
+      try{delete panel.__upStatusClosePreviousDisplay;}catch(e){panel.__upStatusClosePreviousDisplay=null;}
+    });
+    upStatusSaleInstallButton();
+  }
+  function upStatusSaleHideVisual(panel){
+    if(!panel)return;
+    if(!panel.hasAttribute('data-upstatus-visual-closed')){
+      panel.__upStatusClosePreviousDisplay={value:panel.style.getPropertyValue('display'),priority:panel.style.getPropertyPriority('display')};
+      panel.setAttribute('data-upstatus-visual-closed','1');
+    }
+    panel.style.setProperty('display','none','important');
+    upStatusSaleChatClose.closed=true;
+    if(upStatusSaleChatClose.button){upStatusSaleChatClose.button.remove();upStatusSaleChatClose.button=null;}
+  }
+  function upStatusSaleEditableOrModal(target){
+    var el=target&&target.nodeType===1?target:null;
+    if(el&&el.closest('input,textarea,select,[contenteditable="true"],[role="textbox"],[role="dialog"],.arco-modal-wrapper,.arco-modal,.arco-drawer,.arco-trigger-popup,.up-chat-input'))return true;
+    var overlays=document.querySelectorAll('[role="dialog"],.arco-modal-wrapper,.arco-modal,.arco-drawer');
+    for(var i=0;i<overlays.length;i++){
+      var overlay=overlays[i],style=getComputedStyle(overlay),rect=overlay.getBoundingClientRect();
+      if(style.display!=='none'&&style.visibility!=='hidden'&&Number(style.opacity||1)>0&&rect.width>0&&rect.height>0)return true;
+    }
+    return false;
+  }
+  function upStatusSaleComposerRect(panel,headerRect){
+    var nodes=panel.querySelectorAll('textarea,[contenteditable="true"],[role="textbox"]'),best=null,bestWidth=0;
+    nodes.forEach(function(el){
+      if(el.closest('#upstatus-root'))return;
+      var r=el.getBoundingClientRect(),style=getComputedStyle(el);
+      if(r.width<160||r.height<8||r.bottom<=headerRect.bottom||style.display==='none'||style.visibility==='hidden')return;
+      if(r.width>bestWidth){best=el;bestWidth=r.width;}
+    });
+    return best?best.getBoundingClientRect():null;
+  }
+  function upStatusSalePositionButton(){
+    var panel=upStatusSaleChatPanel(),button=upStatusSaleChatClose.button;
+    if(!button||!upStatusSaleChatVisible(panel))return;
+    var header=panel.querySelector('.chat-session-panel__header');
+    if(!header)return;
+    var hr=header.getBoundingClientRect(),composer=upStatusSaleComposerRect(panel,hr);
+    if(hr.width<100||hr.height<10)return;
+    var left=composer?composer.right-42:hr.right-Math.max(240,hr.width*.30)-42;
+    var top=hr.bottom+8;
+    left=Math.max(8,Math.min(window.innerWidth-42,left));
+    top=Math.max(8,Math.min(window.innerHeight-42,top));
+    button.style.left=Math.round(left)+'px';button.style.top=Math.round(top)+'px';
+  }
+  function upStatusSaleInstallButton(){
+    var panel=upStatusSaleChatPanel();
+    if(!panel||!panel.isConnected)return;
+    var header=panel.querySelector('.chat-session-panel__header');
+    if(!header)return;
+    if(upStatusSaleChatClose.closed){upStatusSaleHideVisual(panel);return;}
+    if(!upStatusSaleChatClose.button){
+      var button=document.createElement('button');
+      button.type='button';
+      button.className='upstatus-sale-chat-close';
+      button.setAttribute('aria-label','Fechar visualização da conversa');
+      button.title='Fechar visualização da conversa (o atendimento continua ativo)';
+      button.innerHTML='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>';
+      button.style.cssText='position:fixed;display:flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border:0;border-radius:4px;background:#e53935;color:#fff;box-shadow:0 2px 7px rgba(0,0,0,.28);cursor:pointer;z-index:2147483000;line-height:1;box-sizing:border-box;';
+      button.addEventListener('click',function(e){
+        e.preventDefault();e.stopPropagation();
+        var current=upStatusSaleChatPanel();
+        if(current)upStatusSaleHideVisual(current);
+      });
+      root.appendChild(button);
+      upStatusSaleChatClose.button=button;
+    }
+    upStatusSalePositionButton();
+  }
+  function upStatusSaleRowClick(target){
+    var row=target&&target.closest?target.closest('[class*="session-list"] [class*="item"],[class*="session-list"] [data-session-id],[class*="session-list"] [data-chat-user-id]'):null;
+    if(!row)return false;
+    var classes=String(row.className||'');
+    if(/filter|tabs|search|header/i.test(classes))return false;
+    return true;
+  }
+  function upStatusSaleCloseInit(){
+    if(!document.documentElement)return;
+    if(!upStatusSaleChatClose.observer){
+      upStatusSaleChatClose.observer=new MutationObserver(function(){
+        if(upStatusSaleChatClose.raf)return;
+        upStatusSaleChatClose.raf=requestAnimationFrame(function(){
+          upStatusSaleChatClose.raf=0;
+          var panel=upStatusSaleChatPanel();
+          if(!panel)return;
+          if(upStatusSaleChatClose.closed)upStatusSaleHideVisual(panel);
+          else upStatusSaleInstallButton();
+        });
+      });
+      upStatusSaleChatClose.observer.observe(document.documentElement,{childList:true,subtree:true});
+    }
+    upStatusSaleInstallButton();
+  }
+  document.addEventListener('click',function(e){
+    if(upStatusSaleChatClose.closed&&upStatusSaleRowClick(e.target)){
+      requestAnimationFrame(upStatusSaleRestoreVisual);
+    }
+  },true);
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape'||e.defaultPrevented)return;
+    var panel=upStatusSaleChatPanel();
+    if(!upStatusSaleChatVisible(panel)||upStatusSaleEditableOrModal(e.target))return;
+    e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+    upStatusSaleHideVisual(panel);
+  },true);
+  window.addEventListener('resize',upStatusSalePositionButton);
+  window.addEventListener('scroll',upStatusSalePositionButton,true);
+  if(document.documentElement)upStatusSaleCloseInit();
+  else document.addEventListener('DOMContentLoaded',upStatusSaleCloseInit,{once:true});
+
   setInterval(function(){loadChat();},3000);
   setInterval(pollChatTyping,1000);  setInterval(pollRemoteStatus,5000);
   setInterval(checkUpdate,60000);
