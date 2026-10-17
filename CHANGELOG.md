@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-17
+
+### 3.0.40-beta.4
+- Anchored the emoji picker to the chat composer to prevent it from opening outside the panel.
+- Replaced the fragile early right-click capture with one delegated chat listener for message context menus.
+- Added a refined paper-plane SVG icon for sending messages.
+- Vertically centered the message input and placeholder with the composer controls.
+- Preserved TEST-only storage, Realtime topic, ringtone coordination, and Edge Function routing.
+
 ## 2026-10-16
 
 ### 3.0.40-beta.3
