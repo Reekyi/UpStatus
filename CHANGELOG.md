@@ -2,6 +2,11 @@
 
 ## 2026-10-17
 
+### 3.0.40-beta.7
+- Reduced the apparent gap between the last chat message and the composer by bottom-aligning short message lists while preserving scroll behavior for longer histories.
+
+## 2026-10-17
+
 ### 3.0.40-beta.6
 - Restored the latest test chat UI changes, including the message context menu portal, emoji picker positioning, composer alignment, and updated send icon.
 - Fixed a missing quote in the chat icon definition that prevented the userscript from loading.
