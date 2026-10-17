@@ -2,6 +2,13 @@
 
 ## 2026-10-17
 
+### 3.0.40-beta.10
+- Keep emoji and context menus inside the UpStatus root while allowing them to escape the chat panel's clipping.
+- Capture message context-menu events at document capture phase so parent app handlers cannot swallow right-click actions.
+- Reduce bottom padding between the latest message and composer.
+
+## 2026-10-17
+
 ### 3.0.40-beta.9
 - Keep the emoji picker attached to its owning chat when dismissed, so reopening the chat can rebind it correctly.
 - Move the scrollbar back inside the chat panel and increase contrast.
