@@ -2667,13 +2667,50 @@
     });
     return best?best.getBoundingClientRect():null;
   }
+  function upStatusSaleFindEndButton(header){
+    if(!header)return null;
+    var buttons=Array.from(header.querySelectorAll('button,[role="button"]')).filter(function(el){
+      if(el===upStatusSaleChatClose.button||el.closest('.upstatus-sale-chat-close'))return false;
+      var r=el.getBoundingClientRect(),style=getComputedStyle(el);
+      if(r.width<20||r.height<20||style.display==='none'||style.visibility==='hidden'||Number(style.opacity||1)===0)return false;
+      return true;
+    });
+    buttons.sort(function(a,b){return b.getBoundingClientRect().right-a.getBoundingClientRect().right;});
+    var headerRect=header.getBoundingClientRect();
+    for(var i=0;i<buttons.length;i++){
+      var el=buttons[i],r=el.getBoundingClientRect(),style=getComputedStyle(el);
+      var bg=style.backgroundColor||'';
+      var red=/rgb\\(\\s*(?:220|221|222|223|224|225|226|227|228|229|230|231|232|233|234|235|236|237|238|239|240|241|242|243|244|245|246|247|248|249|250|251|252|253|254|255)\\s*,\\s*(?:0|[1-5]?[0-9])\\s*,\\s*(?:0|[1-5]?[0-9])\\s*\\)/i.test(bg);
+      var label=((el.getAttribute('aria-label')||'')+' '+(el.getAttribute('title')||'')+' '+(el.innerText||'')).toLowerCase();
+      if((red||/end|close|encerrar|fechar|terminar|finalizar|结束|关闭/.test(label))&&r.right>=headerRect.right-70)return el;
+    }
+    return null;
+  }
   function upStatusSalePositionButton(){
     var panel=upStatusSaleChatPanel(),button=upStatusSaleChatClose.button;
     if(!button||!upStatusSaleChatVisible(panel))return;
     var header=panel.querySelector('.chat-session-panel__header');
     if(!header)return;
+    var endButton=upStatusSaleFindEndButton(header);
+    if(endButton&&endButton.parentElement){
+      if(button.parentElement!==endButton.parentElement||button.nextElementSibling!==endButton){
+        endButton.parentElement.insertBefore(button,endButton);
+      }
+      button.style.position='relative';
+      button.style.left='auto';
+      button.style.top='auto';
+      button.style.margin='0 6px 0 0';
+      button.style.flex='0 0 34px';
+      button.style.alignSelf='center';
+      button.style.zIndex='1';
+      return;
+    }
+    // Fallback while the native end-session control is not identifiable.
     var hr=header.getBoundingClientRect(),composer=upStatusSaleComposerRect(panel,hr);
-    if(hr.width<100||hr.height<10)return;
+    if(button.parentElement!==root)root.appendChild(button);
+    button.style.position='fixed';
+    button.style.margin='0';
+    button.style.flex='none';
     var left=composer?composer.right-24:hr.right-Math.max(240,hr.width*.30)-24;
     var top=hr.bottom+8;
     left=Math.max(8,Math.min(window.innerWidth-42,left));
@@ -2691,15 +2728,14 @@
       var button=document.createElement('button');
       button.type='button';
       button.className='upstatus-sale-chat-close';
-      button.setAttribute('aria-label','Sair da conversa atual');
-      button.title='Sair da conversa atual sem encerrar o atendimento';
+      button.setAttribute('aria-label','Desmarcar conversa');
+      button.title='Desmarcar conversa (Esc), sem encerrar o atendimento';
       button.innerHTML='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>';
-      button.style.cssText='position:fixed;display:flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border:0;border-radius:4px;background:#e53935;color:#fff;box-shadow:0 2px 7px rgba(0,0,0,.28);cursor:pointer;z-index:2147483000;line-height:1;box-sizing:border-box;';
+      button.style.cssText='position:relative;display:flex;align-items:center;justify-content:center;width:34px;height:34px;min-width:34px;padding:0;border:0;border-radius:4px;background:#e53935;color:#fff;box-shadow:0 2px 7px rgba(0,0,0,.28);cursor:pointer;z-index:1;line-height:1;box-sizing:border-box;flex:0 0 34px;margin:0 6px 0 0;';
       button.addEventListener('click',function(e){
         e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
         upStatusSaleDeselectActiveChat();
       });
-      root.appendChild(button);
       upStatusSaleChatClose.button=button;
     }
     upStatusSalePositionButton();
