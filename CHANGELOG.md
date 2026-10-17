@@ -2,6 +2,12 @@
 
 ## 2026-10-17
 
+### 3.0.40-beta.6
+- Restored the latest test chat UI changes, including the message context menu portal, emoji picker positioning, composer alignment, and updated send icon.
+- Fixed a missing quote in the chat icon definition that prevented the userscript from loading.
+
+## 2026-10-17
+
 ### 3.0.40-beta.5
 - Rendered the emoji picker and message context menu above the page layer to prevent clipping by the animated chat panel.
 - Updated outside-click handling and theme styling for the portaled menus.
