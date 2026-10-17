@@ -249,6 +249,33 @@
       setTimeout(rescan,1500);
       setTimeout(rescan,3000);
       setTimeout(rescan,5000);
+      // Narrow bridge for the UpStatus conversation close button.
+      // Only clear the selected chat in the Vue/Pinia store; never emit session-removal events.
+      document.addEventListener('UPSTATUS_SALE_DESELECT_CHAT',function(){
+        var result={ok:false,error:'A store de conversa do Sale Smartly não está disponível.'};
+        try{
+          var appRoot=document.querySelector('#app');
+          var vueApp=appRoot&&appRoot.__vue_app__;
+          var pinia=vueApp&&vueApp.config&&vueApp.config.globalProperties&&vueApp.config.globalProperties.$pinia;
+          var stores=pinia&&pinia._s;
+          var chatStore=stores&&typeof stores.get==='function'?stores.get('chat'):null;
+          if(!chatStore||typeof chatStore.setActiveUser!=='function'){
+            document.dispatchEvent(new CustomEvent('UPSTATUS_SALE_DESELECT_CHAT_RESULT',{detail:result}));
+            return;
+          }
+          if(!chatStore.activeChatUserId){
+            result={ok:true,alreadyEmpty:true};
+            document.dispatchEvent(new CustomEvent('UPSTATUS_SALE_DESELECT_CHAT_RESULT',{detail:result}));
+            return;
+          }
+          chatStore.setActiveUser('');
+          result={ok:!chatStore.activeChatUserId,activeChatUserId:String(chatStore.activeChatUserId||'')};
+          if(!result.ok)result.error='O Sale Smartly não confirmou a deseleção da conversa.';
+        }catch(err){
+          result={ok:false,error:err&&err.message?String(err.message):'Falha ao deselecionar a conversa.'};
+        }
+        document.dispatchEvent(new CustomEvent('UPSTATUS_SALE_DESELECT_CHAT_RESULT',{detail:result}));
+      });
       document.addEventListener('UPSTATUS_SET',async function(e){
         var detail=e.detail||{};
         if(!hya){
@@ -2647,7 +2674,7 @@
     if(!header)return;
     var hr=header.getBoundingClientRect(),composer=upStatusSaleComposerRect(panel,hr);
     if(hr.width<100||hr.height<10)return;
-    var left=composer?composer.right-42:hr.right-Math.max(240,hr.width*.30)-42;
+    var left=composer?composer.right-24:hr.right-Math.max(240,hr.width*.30)-24;
     var top=hr.bottom+8;
     left=Math.max(8,Math.min(window.innerWidth-42,left));
     top=Math.max(8,Math.min(window.innerHeight-42,top));
@@ -2663,14 +2690,36 @@
       var button=document.createElement('button');
       button.type='button';
       button.className='upstatus-sale-chat-close';
-      button.setAttribute('aria-label','Fechar visualização da conversa');
-      button.title='Fechar visualização da conversa (o atendimento continua ativo)';
+      button.setAttribute('aria-label','Sair da conversa atual');
+      button.title='Sair da conversa atual sem encerrar o atendimento';
       button.innerHTML='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>';
       button.style.cssText='position:fixed;display:flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border:0;border-radius:4px;background:#e53935;color:#fff;box-shadow:0 2px 7px rgba(0,0,0,.28);cursor:pointer;z-index:2147483000;line-height:1;box-sizing:border-box;';
       button.addEventListener('click',function(e){
-        e.preventDefault();e.stopPropagation();
+        e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
         var current=upStatusSaleChatPanel();
-        if(current)upStatusSaleHideVisual(current);
+        if(!current)return;
+        button.disabled=true;
+        var settled=false,timer=0;
+        function finish(ev){
+          if(settled)return;
+          settled=true;
+          document.removeEventListener('UPSTATUS_SALE_DESELECT_CHAT_RESULT',finish);
+          clearTimeout(timer);
+          button.disabled=false;
+          var result=ev&&ev.detail||{};
+          if(result.ok){
+            upStatusSaleChatClose.closed=false;
+            current.removeAttribute('data-upstatus-visual-closed');
+            upStatusSaleRestoreVisual();
+          }else{
+            console.warn('[UpStatus] Não foi possível deselecionar a conversa:',result.error||'erro desconhecido');
+          }
+        }
+        document.addEventListener('UPSTATUS_SALE_DESELECT_CHAT_RESULT',finish);
+        timer=setTimeout(function(){
+          finish({detail:{ok:false,error:'Tempo esgotado aguardando a resposta do Sale Smartly.'}});
+        },1500);
+        document.dispatchEvent(new CustomEvent('UPSTATUS_SALE_DESELECT_CHAT'));
       });
       root.appendChild(button);
       upStatusSaleChatClose.button=button;
