@@ -2,6 +2,13 @@
 
 ## 2026-10-17
 
+### 3.0.40-beta.13
+- Build the visible waveform from RMS levels of the decoded audio, loading waveform data only when the player is near the viewport.
+- Keep an irregular per-audio fallback waveform when decoding is blocked by the browser or cross-origin restrictions.
+- Preserve opacity-only playback progress, normal bar weight, and the simplified player without a mute button.
+
+## 2026-10-17
+
 ### 3.0.40-beta.12
 - Generate a distinct, irregular audio waveform for each audio URL instead of repeating a fixed bar sequence.
 - Keep waveform bars at normal weight while playback progress changes opacity only.
