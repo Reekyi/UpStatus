@@ -2708,12 +2708,12 @@
       button.style.padding=nativeStyle.padding;
       button.style.border=nativeStyle.border;
       button.style.borderRadius=nativeStyle.borderRadius;
-      button.style.background=nativeStyle.backgroundColor;
-      button.style.color=nativeStyle.color;
+      button.style.background='#2563eb';
+      button.style.color='#ffffff';
       button.style.boxShadow=nativeStyle.boxShadow;
       button.style.fontSize=nativeStyle.fontSize;
       button.style.lineHeight=nativeStyle.lineHeight;
-      button.style.margin=nativeStyle.margin;
+      button.style.margin='0 8px 0 0';
       button.style.display=nativeStyle.display==='inline'?'inline-flex':nativeStyle.display;
       button.style.alignItems='center';
       button.style.justifyContent='center';
@@ -2749,10 +2749,10 @@
       var button=document.createElement('button');
       button.type='button';
       button.className='upstatus-sale-chat-close';
-      button.setAttribute('aria-label','Desmarcar conversa');
-      button.title='Desmarcar conversa (Esc), sem encerrar o atendimento';
-      button.innerHTML='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>';
-      button.style.cssText='position:relative;display:flex;align-items:center;justify-content:center;width:34px;height:34px;min-width:34px;padding:0;border:0;border-radius:4px;background:#e53935;color:#fff;box-shadow:0 2px 7px rgba(0,0,0,.28);cursor:pointer;z-index:1;line-height:1;box-sizing:border-box;flex:0 0 34px;margin:0 6px 0 0;';
+      button.setAttribute('aria-label','Voltar à lista de conversas');
+      button.title='Voltar à lista de conversas (Esc), sem encerrar o atendimento';
+      button.innerHTML='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M19 12H5M12 19l-7-7 7-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      button.style.cssText='position:relative;display:flex;align-items:center;justify-content:center;width:34px;height:34px;min-width:34px;padding:0;border:0;border-radius:4px;background:#2563eb;color:#fff;box-shadow:0 2px 7px rgba(0,0,0,.28);cursor:pointer;z-index:1;line-height:1;box-sizing:border-box;flex:0 0 34px;margin:0 6px 0 0;';
       button.addEventListener('click',function(e){
         e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
         upStatusSaleDeselectActiveChat();
