@@ -2,6 +2,13 @@
 
 ## 2026-10-17
 
+### 3.0.40-beta.12
+- Generate a distinct, irregular audio waveform for each audio URL instead of repeating a fixed bar sequence.
+- Keep waveform bars at normal weight while playback progress changes opacity only.
+- Remove the audio mute/volume button and reclaim its layout space.
+
+## 2026-10-17
+
 ### 3.0.40-beta.11
 - Redesigned audio messages with a unified transparent player surface, removing the nested contrasting panel and border.
 - Added a more organic waveform with a single inherited waveform color and opacity-based playback progress.
