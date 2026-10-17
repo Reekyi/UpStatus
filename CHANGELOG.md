@@ -2,6 +2,13 @@
 
 ## 2026-10-16
 
+### 3.0.40-beta.3
+- Fixed emoji picker positioning and visibility inside the animated chat panel; preserved cursor insertion and outside-click dismissal.
+- Restored right-click message context menus with string-safe message ID matching.
+- Neutralized attachment and microphone default states in light theme, with clear hover, recording, and disabled states.
+- Reduced chat panel height while preserving message-list scrolling and compact-screen access.
+- Kept the composer order as emoji, attachment, message input, microphone, and send.
+
 ### 3.0.40-beta.2
 - Grouped emoji, attachment, message input, microphone, and send controls into one composer bar.
 - Fixed the emoji picker closing immediately when clicking its icon.
