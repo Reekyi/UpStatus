@@ -3,11 +3,11 @@
 ## 2026-10-17
 
 ### 3.0.41
-- Added a red X button inside the Sale Smartly conversation to return to the native empty-chat screen by deselecting the active conversation.
+- Added a blue back-arrow button beside Sale Smartly's native end-session control to deselect the active conversation and return to the empty-chat screen.
+- Matched the arrow button's dimensions to the native control and added spacing between the buttons.
 - Added Escape as a keyboard shortcut for the same deselection action, while avoiding text fields and open dialogs.
-- Hide the X after a successful deselection and restore it when another conversation is selected.
+- Hide the arrow after a successful deselection and restore it when another conversation is selected.
 - Preserve the active support session: this action does not close, remove, or end the Sale Smartly session.
-- Kept the change isolated to conversation deselection, preserving existing UpStatus functionality.
 
 ## 2026-10-17
 
