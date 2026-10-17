@@ -523,6 +523,8 @@
     '#upstatus-root.up-theme-light #upstatus-chat .up-chat-input-wrap>.up-chat-record:hover:not(.recording):not(:disabled){background:#e8edf4;color:#1d4ed8}'+
     '#upstatus-root.up-theme-light #upstatus-chat .up-chat-input-wrap>.up-chat-record.recording{background:#c52f48;color:#fff;border-color:#ff667b;box-shadow:0 0 0 3px #c52f4822}'+
     '#upstatus-root.up-theme-light #upstatus-chat .up-chat-input-wrap>.up-chat-record:disabled{background:transparent;color:#94a3b8;opacity:.6;cursor:wait}'+
+    '#upstatus-chat .up-chat-list:has(.up-chat-item){display:flex;flex-direction:column;justify-content:flex-end}'+
+    '#upstatus-chat .up-chat-list:has(.up-chat-item)>*{flex-shrink:0}'+
     '#upstatus-chat .up-chat-input-wrap{align-items:center;min-height:44px}'+
     '#upstatus-chat .up-chat-input-wrap .up-chat-input{align-self:center;display:block;min-height:24px;height:24px;line-height:24px;padding:0 2px;margin:0;resize:none;box-sizing:border-box}'+
     '#upstatus-chat .up-chat-input-wrap .up-chat-input::placeholder{line-height:24px;vertical-align:middle}'+
