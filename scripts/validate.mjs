@@ -42,4 +42,8 @@ assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not mat
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
+assert(prodUser.includes("upStatusSaleChatClose"),"Sale Smartly visual-close integration missing from production artifact");
+assert(testUser.includes("upStatusSaleChatClose"),"Sale Smartly visual-close integration missing from test artifact");
+assert(!prodUser.includes("CHAT_REMOVE_SESSION"),"userscript must not use Sale Smartly session-removal event");
+assert(!testUser.includes("CHAT_REMOVE_SESSION"),"test userscript must not use Sale Smartly session-removal event");
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
