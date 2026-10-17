@@ -2841,9 +2841,15 @@
     var nodes=Array.from(document.querySelectorAll('body *')).filter(function(el){
       if(!el||el.children.length>4)return false;
       var t=String(el.innerText||el.textContent||'').replace(/\s+/g,' ').trim();
-      return t.length>0&&t.length<100&&(/tome um ch[aá]/i.test(t)||/faça uma pausa/i.test(t));
+      if(!(t.length>0&&t.length<100&&(/tome um ch[aá]/i.test(t)||/faça uma pausa/i.test(t))))return false;
+      var r=el.getBoundingClientRect(),cs=getComputedStyle(el);
+      return r.width>=40&&r.height>=8&&r.bottom>0&&r.top<window.innerHeight&&r.right>0&&r.left<window.innerWidth&&cs.display!=='none'&&cs.visibility!=='hidden'&&Number(cs.opacity||1)>0;
     });
-    nodes.sort(function(a,b){return String(a.innerText||a.textContent||'').length-String(b.innerText||b.textContent||'').length;});
+    nodes.sort(function(a,b){
+      var at=String(a.innerText||a.textContent||'').length,bt=String(b.innerText||b.textContent||'').length;
+      if(at!==bt)return at-bt;
+      return a.getBoundingClientRect().width-b.getBoundingClientRect().width;
+    });
     return nodes[0]||null;
   }
   function upStatusSaleEnsureImagePicker(){
@@ -2880,15 +2886,28 @@
   function upStatusSaleApplyEmptyImage(){
     var caption=upStatusSaleFindEmptyCaption(),overlay=upStatusSaleEnsureEmptyOverlay();
     if(!caption){overlay.style.display='none';return;}
-    var r=caption.getBoundingClientRect();if(r.width<20||r.height<8){overlay.style.display='none';return;}
-    var width=Math.max(96,Math.min(180,r.width*.95)),height=Math.max(82,Math.min(140,r.height*5.2));
-    var left=r.left+r.width/2-width/2,top=r.top-height-12;if(top<0)top=Math.max(0,r.top-100);
-    overlay.style.left=Math.round(left)+'px';overlay.style.top=Math.round(top)+'px';
-    overlay.style.width=Math.round(width)+'px';overlay.style.height=Math.round(height)+'px';overlay.style.display='block';
+    var r=caption.getBoundingClientRect();
+    if(r.width<40||r.height<8){overlay.style.display='none';return;}
+    // The artwork sits above the caption. Use a generous hit area covering the full artwork,
+    // not a guessed height derived from the caption's line height.
+    var width=Math.max(150,Math.min(240,r.width+48));
+    var height=160;
+    var left=r.left+r.width/2-width/2;
+    var top=r.top-height-8;
+    left=Math.max(0,Math.min(window.innerWidth-width,left));
+    top=Math.max(0,Math.min(window.innerHeight-height,top));
+    overlay.style.left=Math.round(left)+'px';
+    overlay.style.top=Math.round(top)+'px';
+    overlay.style.width=Math.round(width)+'px';
+    overlay.style.height=Math.round(height)+'px';
+    overlay.style.display='block';
+    overlay.style.pointerEvents='auto';
     var custom='';try{custom=GM_getValue(upStatusSaleEmptyImageKey,'')||'';}catch(e){}
     var img=overlay.firstElementChild;
-    if(custom&&/^data:image\/(?:jpeg|gif);base64,/i.test(custom)){if(img.src!==custom)img.src=custom;img.style.display='block';}
-    else{img.removeAttribute('src');img.style.display='none';}
+    if(custom&&/^data:image\/(?:jpeg|gif);base64,/i.test(custom)){
+      if(img.src!==custom)img.src=custom;
+      img.style.display='block';
+    }else{img.removeAttribute('src');img.style.display='none';}
   }
   var upStatusSaleEmptyImageTick=0;
   function upStatusSaleScheduleEmptyImageApply(){if(upStatusSaleEmptyImageTick)return;upStatusSaleEmptyImageTick=requestAnimationFrame(function(){upStatusSaleEmptyImageTick=0;upStatusSaleApplyEmptyImage();});}
