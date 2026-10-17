@@ -2,6 +2,11 @@
 
 ## 2026-10-17
 
+### 3.0.40-beta.6 (restored)
+- Reverted beta.7 chat-list spacing change after UI regression; restored beta.6 behavior.
+
+## 2026-10-17
+
 ### 3.0.40-beta.7
 - Reduced the apparent gap between the last chat message and the composer by bottom-aligning short message lists while preserving scroll behavior for longer histories.
 
