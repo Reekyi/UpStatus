@@ -2,6 +2,15 @@
 
 ## 2026-10-17
 
+### 3.0.41
+- Added a red X button inside the Sale Smartly conversation to return to the native empty-chat screen by deselecting the active conversation.
+- Added Escape as a keyboard shortcut for the same deselection action, while avoiding text fields and open dialogs.
+- Hide the X after a successful deselection and restore it when another conversation is selected.
+- Preserve the active support session: this action does not close, remove, or end the Sale Smartly session.
+- Kept the change isolated to conversation deselection, preserving existing UpStatus functionality.
+
+## 2026-10-17
+
 ### 3.0.40
 - Refined the chat experience with stable emoji/context menus, scrolling, message layout, and preserved sharing behavior for Lucca and Ycaro guest sessions.
 - Reworked audio messages with a unified player, decoded-audio waveform with an irregular fallback, opacity-only playback progress, normal-weight bars, and no mute button.
