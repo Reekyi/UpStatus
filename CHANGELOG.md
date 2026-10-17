@@ -2,6 +2,13 @@
 
 ## 2026-10-17
 
+### 3.0.40-beta.8
+- Improved chat scrollbar visibility and hover contrast.
+- Fixed emoji picker cleanup and outside-click handling after moving the picker to the document body.
+- Repositioned the scroll-to-latest button relative to the chat panel and bottom-aligned short message lists without changing long-history scrolling.
+
+## 2026-10-17
+
 ### 3.0.40-beta.6 (restored)
 - Reverted beta.7 chat-list spacing change after UI regression; restored beta.6 behavior.
 
