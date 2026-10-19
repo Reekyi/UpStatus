@@ -1,5 +1,13 @@
 ## 2026-10-19
 
+### 3.0.45-beta.1 (test)
+- Added a clickable new-message indicator when incoming messages arrive while reading older history.
+- Keep the view at the bottom after sending; avoid forcing scroll when a reader is above the latest message.
+- Shifted the chat scrollbar right without changing message bubble widths.
+- Test-only prerelease; no database changes and no production deployment.
+
+## 2026-10-19
+
 ### 3.0.44
 - Fixed the fast chat endpoint's undefined cutoff, which caused HTTP 500 responses while syncing messages.
 - Render cached incoming messages immediately when reopening the chat and force a fresh history load.
