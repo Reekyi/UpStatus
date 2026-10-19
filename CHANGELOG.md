@@ -1,3 +1,13 @@
+## 2026-10-19
+
+### 3.0.44
+- Fixed the fast chat endpoint's undefined cutoff, which caused HTTP 500 responses while syncing messages.
+- Render cached incoming messages immediately when reopening the chat and force a fresh history load.
+- Made retry resilient to an in-flight request and kept a retry action available even when cached messages exist.
+- Removed numeric unread counters while retaining a simple red chat indicator.
+- Show desktop chat notifications only when the UpStatus tab is hidden or the browser window is not focused.
+- No database or session-lifecycle changes.
+
 # Changelog
 
 ## 2026-10-17
