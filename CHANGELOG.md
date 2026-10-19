@@ -1,5 +1,15 @@
 ## 2026-10-19
 
+### 3.0.45
+- Promoted the tested chat reliability and interface updates from the beta build to the official userscript.
+- Keep the chat pinned to the latest message after sending and reopening; preserve history position while the user is reading older messages.
+- Added a latest-message arrow indicator hook for incoming messages while scrolled up. Known limitation: the blinking dot has not been visually confirmed and may not appear in the current release.
+- Fixed the system-health state query so `Alertas e comandos` reports the correct status.
+- Fixed emoji picker dismissal when clicking outside or closing the chat, and moved the image lightbox to the page-level overlay.
+- No database schema changes or session-lifecycle actions.
+
+## 2026-10-19
+
 ### 3.0.44
 - Fixed the fast chat endpoint's undefined cutoff, which caused HTTP 500 responses while syncing messages.
 - Render cached incoming messages immediately when reopening the chat and force a fresh history load.

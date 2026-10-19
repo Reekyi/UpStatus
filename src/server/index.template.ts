@@ -124,7 +124,7 @@ async function healthRoute(req:Request,name:string){
   const chatMs=Date.now()-chatStarted;
 
   const stateStarted=Date.now();
-  const stateQ=await db.from("upstatus_state").select("state_key").in("state_key"["remote-status"]);
+  const stateQ=await db.from("upstatus_state").select("state_key").in("state_key",["remote-status"]);
   const stateOk=!stateQ.error;
   const stateMs=Date.now()-stateStarted;
 
