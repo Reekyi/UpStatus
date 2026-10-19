@@ -52,6 +52,9 @@ const oldMessages=[
   h.processChatNotifications([{id:"mention-1",user:"Lohan",type:"text",mentions:["Ricardo"]}]);
   assert(h.mentionAlerts===1,"a new mention must still trigger the mention alert");
 }
+assert(source.includes("function showChatNewBelow()"),"incoming messages while reading history must show a new-message indicator");
+assert(source.includes("↓ Novas mensagens"),"new-message indicator must offer scroll-to-latest");
+assert(source.includes("margin-right:-8px;margin-left:-5px;padding-right:14px"),"scrollbar should move right without widening bubbles");
 assert(source.includes("if(chatLoading){if(forceFull)chatForceFullQueued=true;return;}"),"full retry requests must queue behind an in-flight chat load");
 assert(source.includes("renderChat();setUnread(0);broadcastChatPresence(true);refresh();scrollChatToBottom(true);"),"reopening chat must render cached incoming messages immediately");
 assert(source.includes("if(!isTeamChatMessage(data)||!shouldShowDesktopNotification())return;"),"desktop notifications must be limited to hidden or unfocused tabs");
