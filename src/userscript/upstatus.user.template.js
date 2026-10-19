@@ -834,8 +834,8 @@
     toastNotificationCount=total;
     var countBadge=toastStack&&toastStack.querySelector('.up-toast-count');
     if(countBadge){
-      countBadge.textContent=total>99?'99+':String(total);
-      countBadge.classList.toggle('show',total>0);
+      countBadge.textContent='';
+      countBadge.classList.remove('show');
     }
   }
 
