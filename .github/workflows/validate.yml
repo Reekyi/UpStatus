@@ -19,3 +19,5 @@ jobs:
           persist-credentials: false
       - name: Validate build
         run: node scripts/validate.mjs
+      - name: Chat regression tests
+        run: node scripts/chat-regression.test.mjs
