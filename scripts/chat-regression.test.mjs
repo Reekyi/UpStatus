@@ -116,5 +116,11 @@ assert(source.includes("Não foi possível carregar o chat.")&&source.includes("
 assert(source.includes("var baselineHadBeenSaved=seenChatNotificationHadBaseline;"),"initial history must distinguish an established notification baseline from first install");
 assert(source.includes("var buffered=pendingChatNotificationMessages.slice();"),"realtime messages arriving during initial history load must be reconciled afterward");
 assert(source.includes("else if(typeof d.unreadCount==='number')setUnread(d.unreadCount);"),"fast chat refresh must update unread count while chat is hidden");
+assert(source.includes("if(chatLoading){if(forceFull)chatForceFullQueued=true;return;}"),"full retry requests must queue behind an in-flight chat load");
+assert(source.includes("renderChat();setUnread(0);broadcastChatPresence(true);refresh();scrollChatToBottom(true);"),"reopening the chat must render cached incoming messages immediately");
+assert(source.includes("if(!isTeamChatMessage(data)||!shouldShowDesktopNotification())return;"),"desktop notifications must be limited to hidden or unfocused tabs");
+assert(source.includes("chatDot.textContent='';"),"unread indicator must not display a numeric counter");
+assert(!source.includes("chatDot.textContent=chatUnread>99"),"numeric unread badge must remain removed");
+assert(source.includes("countBadge.textContent='';"),"toast notification stack must not show a numeric unread counter");
 assert(source.includes("if(chat.classList.contains('hidden'))openChat();else closeChat();"),"floating chat button must still toggle open and close");
 console.log("Chat regression tests passed: notification persistence, read watermark, DOM render cache, initial bottom scroll, and open/close toggle.");
