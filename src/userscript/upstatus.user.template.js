@@ -11,7 +11,7 @@
 // @grant        GM_setValue
 // @grant        GM_openInTab
 // @updateURL    __UPSTATUS_UPDATE_URL__
-// @downloadURL  https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js
+// @downloadURL  __UPSTATUS_DOWNLOAD_URL__
 // @connect      *
 // ==/UserScript==
 (function () {
