@@ -86,4 +86,5 @@ assert(prodUser.includes("M19 12H5M12 19l-7-7 7-7"),"production button must use 
 assert(prodUser.includes("button.style.background='#2563eb'"),"production back-arrow button must use the blue theme color");
 assert(prodUser.includes("button.style.margin='0 8px 0 0'"),"production back-arrow button must have spacing before native end-session control");
 assert(prodUser.includes("endButton.parentElement.insertBefore(button,endButton)"),"production back-arrow must sit immediately before native end-session control");
+execFileSync(process.execPath,[path.join(ROOT,"scripts/chat-regression.test.mjs")],{stdio:"inherit"});
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);

@@ -94,7 +94,7 @@
   var member=GM_getValue(key+'member','');
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
-  var chatLoading=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
+  var chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
   var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,pendingChatNotificationMessages=[],chatScrollObserver=null,chatScrollObservedList=null;
   var remoteResultCache={},remoteResultWaiters={};
   var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
@@ -710,11 +710,12 @@
 
   function setUnread(n){
     chatUnread=Number(n)||0;
-    updateFaviconNotification(chatUnread);
+    updateFaviconNotification(0);
     var chatDot=card.querySelector('.up-chat-btn .up-chat-notify-dot');
-    if(chatDot){chatDot.classList.toggle('show',chatUnread>0);chatDot.textContent=chatUnread>99?'99+':String(chatUnread||'');}
+    if(chatDot){chatDot.classList.toggle('show',chatUnread>0);chatDot.textContent='';chatDot.title=chatUnread>0?'Há mensagens novas no chat':'Sem mensagens novas';}
     var bubbleDot=bubble.querySelector('.up-notify-dot');
-    if(bubbleDot){bubbleDot.classList.toggle('show',chatUnread>0);bubbleDot.textContent=chatUnread>99?'99+':String(chatUnread||'');bubbleDot.title=chatUnread>0?(chatUnread+' mensagem(ns) não lida(s) no chat'):'Sem mensagens não lidas';}
+    if(bubbleDot){bubbleDot.classList.remove('show');bubbleDot.textContent='';bubbleDot.title='';}
+    if(!chatUnread&&quickChatBubble)quickChatBubble.classList.remove('has-unread');
   }
   function setUpdateAvailable(show,version){
     var dot=bubble.querySelector('.up-update-dot');
@@ -833,8 +834,8 @@
     toastNotificationCount=total;
     var countBadge=toastStack&&toastStack.querySelector('.up-toast-count');
     if(countBadge){
-      countBadge.textContent=total>99?'99+':String(total);
-      countBadge.classList.toggle('show',total>0);
+      countBadge.textContent='';
+      countBadge.classList.remove('show');
     }
   }
 
@@ -942,6 +943,9 @@
   function shouldNotifyForChat(){
     return chat.classList.contains('hidden') || document.visibilityState!=='visible';
   }
+  function shouldShowDesktopNotification(){
+    return document.visibilityState!=='visible'||!document.hasFocus();
+  }
   function closePendingChatExternalNotifications(){
     try{
       var list=window.__upstatusActiveExternalNotifications||[];
@@ -984,7 +988,7 @@
   }
   function showExternalNotification(type,data){
     if(type!=='chat')return;
-    if(!isTeamChatMessage(data)||!shouldNotifyForChat())return;
+    if(!isTeamChatMessage(data)||!shouldShowDesktopNotification())return;
     if(!shouldShowExternalNotification())return;
     var id=data&&data.id||Date.now();
     if(wasExternalNotificationShown(type,id))return;
@@ -1607,12 +1611,14 @@
   }
   function playLuccaEntrySound(){try{var a=new Audio(server+'/lucca-devil-laugh.wav?'+Date.now());a.volume=.7;var p=a.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}
   function loadChat(forceFull){
-    if(!token||chatLoading)return;
+    if(!token)return;
+    if(chatLoading){if(forceFull)chatForceFullQueued=true;return;}
     chatLoading=true;
     var useFast=!forceFull&&chatInitialized&&chatCache.length>0&&chatFastSince;
     var route='/api/chat';
     if(useFast)route='/api/chat?fast=1&since='+encodeURIComponent(new Date(new Date(chatFastSince).getTime()-2000).toISOString());
     api('GET',route).then(function(d){
+      var previousLoadError=chat.querySelector('.up-chat-load-error');if(previousLoadError)previousLoadError.remove();
       var incoming=d.messages||[],nextMessages;
       if(useFast){
         var byId={};
@@ -1657,13 +1663,14 @@
     }).catch(function(error){
       var list=chat.querySelector('.up-chat-list');
       var failedOpeningLoader=chat.querySelector('.up-chat-opening-loader');if(failedOpeningLoader)failedOpeningLoader.remove();
-      if(list&&!chatCache.length){
-        list.innerHTML='<div class="up-history-empty">Não foi possível carregar o chat. <button type="button" class="up-chat-retry">Tentar novamente</button></div>';
-        var retry=list.querySelector('.up-chat-retry');
+      if(list){
+        var retryBox=list.querySelector('.up-chat-load-error');
+        if(!retryBox){retryBox=document.createElement('div');retryBox.className='up-history-empty up-chat-load-error';retryBox.innerHTML='Não foi possível carregar o chat. <button type="button" class="up-chat-retry">Tentar novamente</button>';list.appendChild(retryBox);}
+        var retry=retryBox.querySelector('.up-chat-retry');
         if(retry)retry.onclick=function(){retry.disabled=true;retry.textContent='Carregando…';loadChat(true);};
       }
       try{console.warn('[UpStatus Chat] Falha ao carregar mensagens:',error&&error.message||error);}catch(e){}
-    }).finally(function(){chatLoading=false;});
+    }).finally(function(){chatLoading=false;if(chatForceFullQueued){chatForceFullQueued=false;var retry=chat.querySelector('.up-chat-retry');if(retry){retry.disabled=false;retry.textContent='Tentar novamente';}loadChat(true);}});
   }
   function updateTypingIndicator(names){
     var box=chat.querySelector('.up-chat-typing');if(!box)return;
@@ -1883,8 +1890,8 @@
       chatDomInitialized=true;chatReplyTo=null;chatContextMessageId=null;chatPendingInitialScroll=false;chatOpenScrollUntil=0;chatForceScrollBottom=false;
       var staleOpeningLoader=chat.querySelector('.up-chat-opening-loader');if(staleOpeningLoader)staleOpeningLoader.remove();
       chat.classList.remove('hidden');card.classList.add('hidden');history.classList.add('hidden');
-      setUnread(0);broadcastChatPresence(true);refresh();scrollChatToBottom(true);
-      loadChat();pollChatTyping();markVisibleChatRead();return;
+      renderChat();setUnread(0);broadcastChatPresence(true);refresh();scrollChatToBottom(true);
+      loadChat(true);pollChatTyping();markVisibleChatRead();return;
     }
     chatDomInitialized=false;chatDomMember=member;
     chatForceScrollBottom=true;chatPendingInitialScroll=true;chatOpenScrollUntil=Date.now()+2400;
