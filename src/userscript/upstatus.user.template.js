@@ -1638,6 +1638,10 @@
       var latestLuccaJoin=null;
       for(var li=nextMessages.length-1;li>=0;li--){if(nextMessages[li].type==='system'&&nextMessages[li].systemType==='lucca_join'){latestLuccaJoin=nextMessages[li];break;}}
       if(latestLuccaJoin){if(lastLuccaJoinEventId&&latestLuccaJoin.id!==lastLuccaJoinEventId)playLuccaEntrySound();lastLuccaJoinEventId=latestLuccaJoin.id;}
+      var listBeforeLoad=chat.querySelector('.up-chat-list');
+      var wasNearBottomBeforeLoad=!!listBeforeLoad&&(listBeforeLoad.scrollHeight-listBeforeLoad.scrollTop-listBeforeLoad.clientHeight)<90;
+      var previousMessageIds={};chatCache.forEach(function(m){previousMessageIds[String(m.id)]=true;});
+      var hasNewExternalMessage=incoming.some(function(m){return m&&m.id!=null&&!previousMessageIds[String(m.id)]&&m.user!==member&&m.type!=='system';});
       var beforeKey=chatDataKey(chatCache);
       chatCache=nextMessages;
       chatDomInitialized=true;chatDomMember=member;
@@ -1653,6 +1657,7 @@
         var list=chat.querySelector('.up-chat-list');
         if(chatPendingInitialScroll)chatForceScrollBottom=true;
         if(nextKey!==beforeKey||!list||list.getAttribute('data-render-key')!==nextKey)renderChat();
+        if(hasNewExternalMessage){if(wasNearBottomBeforeLoad)scrollChatToBottom(true);else showChatNewBelow();}
         if(chatPendingInitialScroll){scrollChatToBottom(true);chatPendingInitialScroll=false;}
         if(Date.now()<chatOpenScrollUntil)scrollChatToBottom(true);
         var completedOpeningLoader=chat.querySelector('.up-chat-opening-loader');
@@ -2100,6 +2105,7 @@
     chatCache.push(optimistic);
     input.value='';
     chatForceScrollBottom=true;
+    chatOpenScrollUntil=Date.now()+1500;
     clearChatDraft();
     chatReplyTo=null;
     setChatReply(null);
