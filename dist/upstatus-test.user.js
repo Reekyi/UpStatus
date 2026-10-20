@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus TEST - Sale Smartly
 // @namespace    upseller-test
-// @version      3.0.48-beta8
+// @version      3.0.48-beta9
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -16,34 +16,38 @@
 // ==/UserScript==
 (function () {
   'use strict';
-  // Beta5 emergency launcher: stays visible if the main bubble fails to initialize.
+  // Beta9 resilient launcher: persistent watchdog restores a visible fallback if the main root/bubble disappears.
   (function(){
-    var mounted=false,observer=null;
-    function mount(){
-      if(mounted||!document.documentElement)return;
-      if(document.getElementById('upstatus-root')&&document.getElementById('upstatus-bubble'))return;
-      mounted=true;
-      var button=document.getElementById('upstatus-beta5-recovery');
-      if(!button){
-        button=document.createElement('button');button.id='upstatus-beta5-recovery';button.type='button';
-        button.title='Abrir UpStatus (recuperação)';button.setAttribute('aria-label','Abrir UpStatus');
-        button.textContent='U';
-        button.style.cssText='position:fixed!important;right:24px!important;bottom:24px!important;width:44px!important;height:44px!important;border:3px solid #8b95a4!important;border-radius:50%!important;background:#273247!important;color:#fff!important;font:800 16px Segoe UI,Arial,sans-serif!important;box-shadow:0 5px 18px #0009!important;z-index:2147483647!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;';
-        button.addEventListener('click',function(){
-          var root=document.getElementById('upstatus-root'),bubble=document.getElementById('upstatus-bubble');
-          if(root&&bubble){button.remove();bubble.click();return;}
-          button.title='UpStatus não terminou de iniciar. Recarregue a página (Ctrl+F5).';button.textContent='!';
-        });
-        document.documentElement.appendChild(button);
+    var recovery=null,observer=null,checkQueued=false;
+    function mainReady(){return !!(document.getElementById('upstatus-root')&&document.getElementById('upstatus-bubble'));}
+    function ensureRecovery(){
+      if(!document.documentElement)return;
+      if(!recovery||!recovery.isConnected){
+        recovery=document.getElementById('upstatus-beta9-recovery');
+        if(!recovery){
+          recovery=document.createElement('button');recovery.id='upstatus-beta9-recovery';recovery.type='button';
+          recovery.title='Abrir UpStatus';recovery.setAttribute('aria-label','Abrir UpStatus');recovery.textContent='U';
+          recovery.style.cssText='position:fixed!important;right:24px!important;bottom:24px!important;width:44px!important;height:44px!important;border:3px solid #8b95a4!important;border-radius:50%!important;background:#273247!important;color:#fff!important;font:800 16px Segoe UI,Arial,sans-serif!important;box-shadow:0 5px 18px #0009!important;z-index:2147483646!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;';
+          recovery.addEventListener('click',function(){
+            var bubble=document.getElementById('upstatus-bubble'),root=document.getElementById('upstatus-root');
+            if(root&&bubble){bubble.click();return;}
+            recovery.textContent='!';recovery.title='O UpStatus está se recuperando. Recarregue a página se não voltar em alguns segundos.';
+            recovery.style.background='#713448';
+          });
+          document.documentElement.appendChild(recovery);
+        }
       }
-      observer=new MutationObserver(function(){
-        if(document.getElementById('upstatus-root')&&document.getElementById('upstatus-bubble')){var b=document.getElementById('upstatus-beta5-recovery');if(b)b.remove();observer.disconnect();}
-      });
-      observer.observe(document.documentElement,{childList:true,subtree:true});
+      var ready=mainReady();recovery.style.display=ready?'none':'flex';
+      if(!ready){recovery.textContent='U';recovery.title='Abrir UpStatus';recovery.style.background='#273247';}
     }
-    if(document.documentElement)mount();else document.addEventListener('DOMContentLoaded',mount,{once:true});
+    function scheduleCheck(){if(checkQueued)return;checkQueued=true;setTimeout(function(){checkQueued=false;ensureRecovery();},0);}
+    function boot(){
+      ensureRecovery();
+      if(!observer&&typeof MutationObserver!=='undefined'){observer=new MutationObserver(scheduleCheck);observer.observe(document.documentElement,{childList:true,subtree:true});}
+      setInterval(ensureRecovery,1500);
+    }
+    if(document.documentElement)boot();else document.addEventListener('DOMContentLoaded',boot,{once:true});
   })();
-
 
   var key='upstatus_test_';
   var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
@@ -377,7 +381,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.48-beta8'
+  var CURRENT_VERSION='3.0.48-beta9'
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
