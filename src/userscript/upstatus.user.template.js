@@ -1848,7 +1848,7 @@
       else list.scrollTop=wasAtBottom?list.scrollHeight:previousScrollTop;
     });
   }
-  var lightboxPreviousFocus=null,lightboxPreviousOverflow='';
+  var lightboxPreviousFocus=null,lightboxPreviousOverflow='',lightboxRootFilter='',lightboxRootPointerEvents='';
   function openChatLightbox(src){
     var box=chatLightbox||chat.querySelector('.up-chat-lightbox'),img=box&&box.querySelector('img');
     if(!box||!img)return;
@@ -1856,6 +1856,8 @@
     if(box.parentNode!==document.body)document.body.appendChild(box);
     lightboxPreviousFocus=document.activeElement;
     lightboxPreviousOverflow=document.documentElement.style.overflow;
+    lightboxRootFilter=root.style.filter;lightboxRootPointerEvents=root.style.pointerEvents;
+    root.style.filter='blur(12px)';root.style.pointerEvents='none';
     document.documentElement.style.overflow='hidden';
     img.src=src;
     box.classList.remove('hidden');
@@ -1883,6 +1885,7 @@
     box.classList.remove('up-popup-closing');
     ['position','inset','width','height','z-index','display','align-items','justify-content','box-sizing','padding','background','backdrop-filter','-webkit-backdrop-filter','pointer-events'].forEach(function(p){box.style.removeProperty(p);});
     document.documentElement.style.overflow=lightboxPreviousOverflow;
+    root.style.filter=lightboxRootFilter;root.style.pointerEvents=lightboxRootPointerEvents;
     var focus=lightboxPreviousFocus;lightboxPreviousFocus=null;
     if(box.parentNode===document.body&&chat.isConnected)chat.appendChild(box);
     if(focus&&focus.isConnected&&typeof focus.focus==='function'){try{focus.focus({preventScroll:true});}catch(_){focus.focus();}}
