@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         "UpStatus TEST - Sale Smartly"
 // @namespace    "upseller-test"
-// @version      "3.0.45-beta.2"
+// @version      "3.0.45-beta.3"
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -349,7 +349,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='"3.0.45-beta.2"';
+  var CURRENT_VERSION='"3.0.45-beta.3"';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -404,7 +404,7 @@
         data:data?JSON.stringify(data):undefined,
         onload:function(r){
           var x;
-          try{x=JSON.parse(r.responseText)}catch(e){reject(new Error('Resposta inválida do servidor.'));return}
+          try{x=JSON.parse(r.responseText)}catch(e){var raw=String(r.responseText||'').replace(/\s+/g,' ').slice(0,180);reject(new Error('Servidor respondeu fora do formato esperado (HTTP '+(r.status||'?')+'). '+(raw||'Resposta vazia')));return}
           if(r.status>=400||x.error){reject(new Error(x.error||'Erro de comunicação.'));return}
           resolve(x);
         },
