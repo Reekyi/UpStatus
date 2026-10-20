@@ -2962,7 +2962,6 @@
   var upStatusMyQueueClearBefore=0;
   var upStatusMyQueueDismissedUnknown={};
   var upStatusMyQueuePanelOpen=false;
-  var upStatusMyQueueSourceComponent=null;
   var upStatusMyQueueSourceArray=null;
   var upStatusMyQueueSignature='';
   var upStatusMyQueueMessage='';
@@ -2987,93 +2986,88 @@
     var header=upStatusMyQueueText(title&&title.textContent);
     return header.indexOf('aguardando resposta')>=0||header.indexOf('unanswered')>=0||header.indexOf('waiting for reply')>=0||header.indexOf('awaiting response')>=0;
   }
-  function upStatusMyQueueVueComponent(){
-    if(upStatusMyQueueSourceComponent&&!upStatusMyQueueSourceComponent.isUnmounted)return upStatusMyQueueSourceComponent;
-    var viewport=document.querySelector('#dynamic_scroller_list.session-list__area__list,.session-list__area__list,#dynamic_scroller_list');
-    if(viewport){
-      var component=viewport.__vueParentComponent,guard=0;
-      while(component&&guard++<24){
-        if(component.type&&component.type.__name==='SessionList'){
-          upStatusMyQueueSourceComponent=component;
-          return component;
-        }
-        component=component.parent;
-      }
-    }
-    try{
-      var app=document.querySelector('#app');
-      var instance=app&&app.__vue_app__&&app.__vue_app__._instance;
-      var seen=[];
-      function visitVNode(vnode,depth){
-        if(!vnode||depth>40)return null;
-        if(vnode.component){
-          var result=visitComponent(vnode.component,depth+1);
-          if(result)return result;
-        }
-        if(Array.isArray(vnode.children)){
-          for(var i=0;i<vnode.children.length;i++){
-            var child=vnode.children[i];
-            if(child&&typeof child==='object'){
-              var found=visitVNode(child,depth+1);
-              if(found)return found;
-            }
-          }
-        }
-        return null;
-      }
-      function visitComponent(comp,depth){
-        if(!comp||depth>40||seen.indexOf(comp)>=0)return null;
-        seen.push(comp);
-        if(comp.type&&comp.type.__name==='SessionList')return comp;
-        try{return visitVNode(comp.subTree,depth+1);}catch(e){return null;}
-      }
-      var found=instance&&visitComponent(instance,0);
-      if(found){upStatusMyQueueSourceComponent=found;return found;}
-    }catch(e){}
-    return null;
-  }
   function upStatusMyQueueItems(){
     var viewport=document.querySelector('#dynamic_scroller_list.session-list__area__list,.session-list__area__list,#dynamic_scroller_list');
-    var component=viewport&&viewport.__vueParentComponent;
-    var best=null,bestScore=-1,seen=[];
-    // The native virtual scroller receives the complete currently-loaded sorted list as props.items.
-    // Reading this prop avoids touching Sale Smartly's sessionList array.
-    while(component&&seen.length<24){
-      seen.push(component);
-      try{
-        var props=component.props||{};
-        var items=props.items;
-        if(Array.isArray(items)){
-          var visibleIds={};
-          document.querySelectorAll('.session-list__area [data-index]').forEach(function(el){
-            var id=el.getAttribute('data-index');
-            if(id)visibleIds[String(id)]=true;
-          });
-          var matches=0,sessionCount=0;
-          items.forEach(function(item){
-            if(item&&item.chat_user_id){
-              sessionCount++;
-              if(visibleIds[String(item.chat_user_id)])matches++;
-            }
-          });
-          var name=String(component.type&&component.type.__name||'');
-          var score=matches*100000+sessionCount*100+(name.indexOf('Scroller')>=0?20:0);
-          if(sessionCount===items.length&&score>bestScore){best=items;bestScore=score;}
+    var visibleIds={};
+    document.querySelectorAll('.session-list__area [data-index]').forEach(function(el){
+      var id=el.getAttribute('data-index');
+      if(id)visibleIds[String(id)]=true;
+    });
+    function unwrap(value){
+      if(Array.isArray(value))return value;
+      if(value&&Array.isArray(value.value))return value.value;
+      return null;
+    }
+    function arrayForComponent(component){
+      if(!component)return null;
+      var props=component.props||{};
+      var items=unwrap(props.items);
+      if(!items)return null;
+      var sessionCount=0,matches=0;
+      items.forEach(function(item){
+        if(item&&item.chat_user_id){
+          sessionCount++;
+          if(visibleIds[String(item.chat_user_id)])matches++;
         }
-      }catch(e){}
+      });
+      if(items.length>0&&sessionCount!==items.length)return null;
+      var typeName=String(component.type&&component.type.__name||'');
+      if(items.length===0&&typeName.toLowerCase().indexOf('scroller')<0)return null;
+      var score=matches*100000+sessionCount*100+(typeName.toLowerCase().indexOf('scroller')>=0?20:0);
+      return {items:items,component:component,score:score};
+    }
+    if(upStatusMyQueueScrollerComponent&&!upStatusMyQueueScrollerComponent.isUnmounted){
+      var cached=arrayForComponent(upStatusMyQueueScrollerComponent);
+      if(cached){upStatusMyQueueSourceArray=cached.items;return {items:cached.items,known:true};}
+    }
+    var best=null,bestScore=-1,seen=[];
+    function inspect(component){
+      if(!component||seen.indexOf(component)>=0)return;
+      seen.push(component);
+      var candidate=arrayForComponent(component);
+      if(candidate&&candidate.score>bestScore){best=candidate;bestScore=candidate.score;}
+    }
+    function visitVNode(vnode,depth){
+      if(!vnode||depth>36)return;
+      if(vnode.component)visitComponent(vnode.component,depth+1);
+      if(Array.isArray(vnode.children)){
+        vnode.children.forEach(function(child){
+          if(child&&typeof child==='object')visitVNode(child,depth+1);
+        });
+      }
+    }
+    function visitComponent(component,depth){
+      if(!component||depth>36||seen.indexOf(component)>=0)return;
+      inspect(component);
+      try{visitVNode(component.subTree,depth+1);}catch(e){}
+    }
+    var component=viewport&&viewport.__vueParentComponent,guard=0;
+    while(component&&guard++<24){
+      visitComponent(component,0);
       component=component.parent;
     }
-    if(best){upStatusMyQueueSourceArray=best;return {items:best,known:true};}
-    // Fallback: inspect visible row component props, never alter their DOM or native array.
+    if(!best){
+      try{
+        var app=document.querySelector('#app');
+        var instance=app&&app.__vue_app__&&app.__vue_app__._instance;
+        if(instance)visitComponent(instance,0);
+      }catch(e){}
+    }
+    if(best){
+      upStatusMyQueueScrollerComponent=best.component;
+      upStatusMyQueueSourceArray=best.items;
+      return {items:best.items,known:true};
+    }
+    // Last-resort fallback: render only rows which can be read directly. This never changes
+    // native state; "Carregar mais" can materialize additional rows through native scrolling.
     var rows=Array.prototype.slice.call(document.querySelectorAll('.session-list__area .session-item--spacing'));
     var fromRows=[];
     rows.forEach(function(row){
-      var node=row,guard=0,session=null;
-      while(node&&guard++<5&&!session){
+      var node=row,depth=0,session=null;
+      while(node&&depth++<5&&!session){
         try{
-          var inst=node.__vueParentComponent;
-          var compGuard=0;
-          while(inst&&compGuard++<8&&!session){
+          var inst=node.__vueParentComponent,guard2=0;
+          while(inst&&guard2++<8&&!session){
             var p=inst.props||{};
             if(p.session&&p.session.chat_user_id)session=p.session;
             inst=inst.parent;
@@ -3083,7 +3077,7 @@
       }
       if(session)fromRows.push(session);
     });
-    if(fromRows.length)return {items:fromRows,known:false};
+    if(fromRows.length)return {items:fromRows,known:true};
     return {items:[],known:false};
   }
   function upStatusMyQueueIsGroup(session){
