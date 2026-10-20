@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         "UpStatus TEST - Sale Smartly"
-// @namespace    "upseller-test"
-// @version      "3.0.45-beta.3"
+// @name         UpStatus TEST - Sale Smartly
+// @namespace    upseller-test
+// @version      3.0.45-beta.3
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -10,20 +10,20 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_openInTab
-// @updateURL    "https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test/upstatus.user.js"
-// @downloadURL  "https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test/upstatus.user.js"
+// @updateURL    https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test/upstatus.user.js
+// @downloadURL  https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test/upstatus.user.js
 // @connect      *
 // ==/UserScript==
 (function () {
   'use strict';
 
-  var key='"upstatus_test_"';
+  var key='upstatus_test_';
   var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
-  var CLOUD_SERVER='"https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test"';
+  var CLOUD_SERVER='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test';
   var server=CLOUD_SERVER;
   var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';
   var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
-  var UP_REALTIME_TOPIC='"upstatus-test-live-20261007-v1"';
+  var UP_REALTIME_TOPIC='upstatus-test-live-20261007-v1';
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
   // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
   // Mantido isolado do chat, status e demais recursos do UpStatus.
@@ -32,10 +32,10 @@
   var upRingtoneGlobal=window.__upstatusRingtoneGlobal||(window.__upstatusRingtoneGlobal={generation:0,sources:[],gains:[]});
   // Coordenação do ringtone entre instâncias/contextos do UpStatus.
   // A chamada real pode ser recebida por mais de um contexto da mesma página.
-  var UP_RINGTONE_CHANNEL='"upstatus-test-call-ringtone-stop-v1"';
+  var UP_RINGTONE_CHANNEL='upstatus-test-call-ringtone-stop-v1';
   var upCallInstanceId='up-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
   var upRingtoneChannel=null;
-  var upRingtoneStorageKey='"upstatus_test_call_ringtone_stop_bus"';
+  var upRingtoneStorageKey='upstatus_test_call_ringtone_stop_bus';
   function callHandleRemoteRingtoneStop(payload){
     try{
       var p=payload&&payload.detail?payload.detail:payload;
@@ -349,7 +349,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='"3.0.45-beta.3"';
+  var CURRENT_VERSION='3.0.45-beta.3';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
