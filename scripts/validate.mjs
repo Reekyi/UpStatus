@@ -61,4 +61,18 @@ assert(prodUser.includes("endButton.parentElement.insertBefore(button,endButton)
 assert(testUser.includes("endButton.parentElement.insertBefore(button,endButton)"),"X must be placed immediately before native end-session control in test artifact");
 assert(prodUser.includes("Desmarcar conversa (Esc)"),"X tooltip must describe deselection in production artifact");
 assert(testUser.includes("Desmarcar conversa (Esc)"),"X tooltip must describe deselection in test artifact");
+
+for(const [artifactName,artifact] of [["production",prodUser],["test",testUser]]){
+  const queueStart=artifact.indexOf('// UpStatus: independent "Minha fila"');
+  const queueEnd=artifact.indexOf("setInterval(function(){loadChat();},3000);",queueStart);
+  assert(queueStart>=0&&queueEnd>queueStart,artifactName+" independent queue block missing");
+  const queue=artifact.slice(queueStart,queueEnd);
+  assert(queue.includes("function upStatusMyQueueFilter(items)"),artifactName+" custom queue filter missing");
+  assert(queue.includes("props.items"),artifactName+" must read the virtual scroller's session data");
+  assert(queue.includes("store.setChangeSession(session)"),artifactName+" must open conversations with the native selection action");
+  assert(queue.includes("GM_setValue(UPSTATUS_MY_QUEUE_CLEAR_KEY,upStatusMyQueueClearBefore"),artifactName+" cleanup persistence missing");
+  assert(!queue.includes("upstatus-awaiting-queue-hidden"),artifactName+" custom queue must not hide native rows with CSS");
+  assert(!queue.includes("items.splice(")&&!queue.includes("state.list.splice("),artifactName+" custom queue must not mutate the native session list");
+  assert(!queue.includes("CHAT_REMOVE_SESSION")&&!queue.includes("end_session"),artifactName+" custom queue must not remove/end sessions");
+}
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
