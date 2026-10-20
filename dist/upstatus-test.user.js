@@ -2310,7 +2310,7 @@
   }
   function openChatLibrary(){
     closeChatLibrary();
-    var items=chatCache.filter(function(m){return m&&m.imageUrl&&(m.type==='image'||m.type==='video'||m.type==='gif'||/\\.gif(?:[?#]|$)/i.test(String(m.imageUrl));}).slice().reverse();
+    var items=chatCache.filter(function(m){return m&&m.imageUrl&&(m.type==='image'||m.type==='video'||m.type==='gif'||/\.gif(?:[?#]|$)/i.test(String(m.imageUrl)));}).slice().reverse();
     var modal=node('div',{className:'up-chat-library-modal'}),panel=node('div',{className:'up-chat-library-panel'}),head=node('div',{className:'up-chat-library-head'});
     var title=node('div',{className:'up-chat-library-title',textContent:'Biblioteca de imagens'}),close=node('button',{className:'up-chat-library-close',type:'button',textContent:'×',title:'Voltar ao chat'});
     close.setAttribute('aria-label','Voltar ao chat');
@@ -2318,7 +2318,7 @@
     head.appendChild(title);head.appendChild(close);
     if(!items.length){grid.innerHTML='<div class="up-chat-library-empty">As imagens e os vídeos enviados no chat aparecerão aqui.</div>';grid.style.display='block';}
     items.forEach(function(item){
-      var url=String(item.imageUrl||''),isVideo=item.type==='video'||/^video\\//i.test(String(item.mime||'')),isGif=item.type==='gif'||/\\.gif(?:[?#]|$)/i.test(url)||/^image\\/gif$/i.test(String(item.mime||'')),sender=node('div',{className:'up-chat-library-sender',textContent:item.user||'Usuário'});
+      var url=String(item.imageUrl||''),isVideo=item.type==='video'||/^video\//i.test(String(item.mime||'')),isGif=item.type==='gif'||/\.gif(?:[?#]|$)/i.test(url)||/^image\/gif$/i.test(String(item.mime||'')),sender=node('div',{className:'up-chat-library-sender',textContent:item.user||'Usuário'});
       var card=node('button',{className:'up-chat-library-item',type:'button',title:'Abrir mídia para visualizar'}),media;
       if(isVideo){media=node('video',{className:'up-chat-library-thumb',muted:true,preload:'metadata',playsInline:true});}
       else media=node('img',{className:'up-chat-library-thumb',alt:isGif?'GIF enviado':'Imagem enviada',loading:'lazy'});
@@ -2341,7 +2341,7 @@
     overlay.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(3,7,13,.92);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
     frame.style.cssText='position:relative;display:flex;align-items:center;justify-content:center;max-width:96vw;max-height:92vh;width:100%;height:100%;';
     close.style.cssText='position:absolute;right:0;top:0;z-index:2;width:36px;height:36px;border:0;border-radius:8px;background:#273247;color:#fff;font-size:22px;cursor:pointer;';
-    if(item.type==='video'||/^video\\//i.test(String(item.mime||''))){media=node('video',{controls:true,autoplay:true,playsInline:true,style:'max-width:100%;max-height:90vh;border-radius:8px'});}
+    if(item.type==='video'||/^video\//i.test(String(item.mime||''))){media=node('video',{controls:true,autoplay:true,playsInline:true,style:'max-width:100%;max-height:90vh;border-radius:8px'});}
     else media=node('img',{alt:'Mídia do chat',style:'max-width:100%;max-height:90vh;object-fit:contain;border-radius:8px'});
     frame.appendChild(media);frame.appendChild(close);overlay.appendChild(frame);chat.appendChild(overlay);
     loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(u){if(media.isConnected)media.src=u;}).catch(function(){});
