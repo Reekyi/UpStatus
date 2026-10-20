@@ -3069,7 +3069,7 @@
     if(upStatusAwaitingQueueClearBefore>0&&activity>0&&activity<=upStatusAwaitingQueueClearBefore)return true;
     if(upStatusAwaitingQueueClearBefore>0&&!activity&&id){
       var previous=upStatusAwaitingQueueUnknownDismissed[id];
-      if(previous&&previous===upStatusAwaitingQueueUnknownFingerprint(session))return true;
+      if(previous&&previous.fingerprint===upStatusAwaitingQueueUnknownFingerprint(session))return true;
       if(previous)delete upStatusAwaitingQueueUnknownDismissed[id];
     }
     return false;
@@ -3154,6 +3154,21 @@
       }
     }
     if(changed)upStatusAwaitingQueueLastCount=state.list.length;
+    upStatusAwaitingQueueUpdateCount(state.list.length);
+  }
+  function upStatusAwaitingQueueUpdateCount(count){
+    var badge=document.querySelector('.session-list__filter__header__title__count');
+    if(!badge)return;
+    var target=badge.querySelector('sup,[class*="badge-sup"],[class*="badge__count"]');
+    if(!target){
+      var leaves=badge.querySelectorAll('span');
+      for(var i=0;i<leaves.length;i++){
+        if(/^\d+\+?$/.test(String(leaves[i].textContent||'').trim())){target=leaves[i];break;}
+      }
+    }
+    if(!target)return;
+    var value=count>99?'99+':String(Math.max(0,count));
+    if(String(target.textContent||'').trim()!==value)target.textContent=value;
   }
   function upStatusAwaitingQueueTick(){
     try{
