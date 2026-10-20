@@ -2962,6 +2962,7 @@
   var upStatusMyQueueClearBefore=0;
   var upStatusMyQueueDismissedUnknown={};
   var upStatusMyQueuePanelOpen=false;
+  var upStatusMyQueueScrollerComponent=null;
   var upStatusMyQueueSourceArray=null;
   var upStatusMyQueueSignature='';
   var upStatusMyQueueMessage='';
