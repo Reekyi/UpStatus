@@ -10,20 +10,20 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_openInTab
-// @updateURL    __UPSTATUS_UPDATE_URL__
-// @downloadURL  __UPSTATUS_DOWNLOAD_URL__
+// @updateURL    https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test/upstatus.user.js
+// @downloadURL  https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test/upstatus.user.js
 // @connect      *
 // ==/UserScript==
 (function () {
   'use strict';
 
-  var key='__UPSTATUS_STORAGE_PREFIX__';
+  var key='upstatus_test_';
   var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
-  var CLOUD_SERVER='__UPSTATUS_CLOUD_SERVER__';
+  var CLOUD_SERVER='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test';
   var server=CLOUD_SERVER;
   var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';
   var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
-  var UP_REALTIME_TOPIC='__UPSTATUS_REALTIME_TOPIC__';
+  var UP_REALTIME_TOPIC='upstatus-test-live-20261007-v1';
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
   // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
   // Mantido isolado do chat, status e demais recursos do UpStatus.
