@@ -1857,7 +1857,7 @@
     lightboxPreviousFocus=document.activeElement;
     lightboxPreviousOverflow=document.documentElement.style.overflow;
     lightboxRootFilter=root.style.filter;lightboxRootPointerEvents=root.style.pointerEvents;
-    root.style.filter='blur(12px)';root.style.pointerEvents='none';
+    root.style.filter='blur(12px)';
     document.documentElement.style.overflow='hidden';
     img.src=src;
     box.classList.remove('hidden');
