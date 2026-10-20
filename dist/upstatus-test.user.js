@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus TEST - Sale Smartly
 // @namespace    upseller-test
-// @version      3.0.48-beta5
+// @version      3.0.48-beta6
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
