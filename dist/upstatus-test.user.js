@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus TEST - Sale Smartly
 // @namespace    upseller-test
-// @version      3.0.45-beta.11
+// @version      3.0.45-beta.12
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -349,7 +349,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.45-beta.11';
+  var CURRENT_VERSION='3.0.45-beta.12';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1857,7 +1857,7 @@
     lightboxPreviousFocus=document.activeElement;
     lightboxPreviousOverflow=document.documentElement.style.overflow;
     lightboxRootFilter=root.style.filter;lightboxRootPointerEvents=root.style.pointerEvents;
-    root.style.filter='blur(12px)';root.style.pointerEvents='none';
+    root.style.filter='blur(12px)';
     document.documentElement.style.overflow='hidden';
     img.src=src;
     box.classList.remove('hidden');
