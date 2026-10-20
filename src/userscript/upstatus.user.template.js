@@ -404,7 +404,7 @@
         data:data?JSON.stringify(data):undefined,
         onload:function(r){
           var x;
-          try{x=JSON.parse(r.responseText)}catch(e){reject(new Error('Resposta inválida do servidor.'));return}
+          try{x=JSON.parse(r.responseText)}catch(e){var raw=String(r.responseText||'').replace(/\s+/g,' ').slice(0,180);reject(new Error('Servidor respondeu fora do formato esperado (HTTP '+(r.status||'?')+'). '+(raw||'Resposta vazia')));return}
           if(r.status>=400||x.error){reject(new Error(x.error||'Erro de comunicação.'));return}
           resolve(x);
         },
