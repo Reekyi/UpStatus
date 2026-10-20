@@ -2960,6 +2960,7 @@
   var upStatusAwaitingQueueClearBefore=0;
   var upStatusAwaitingQueueUnknownDismissed={};
   var upStatusAwaitingQueueWasActive=false;
+  var upStatusAwaitingQueueListComponent=null;
   try{upStatusAwaitingQueueClearBefore=Number(GM_getValue(UPSTATUS_AWAITING_QUEUE_CLEAR_KEY,0))||0;}catch(e){}
   try{
     var unknownValue=GM_getValue(UPSTATUS_AWAITING_QUEUE_UNKNOWN_KEY,{});
@@ -3060,8 +3061,96 @@
   function upStatusAwaitingQueueSessionState(){
     var root=document.getElementById('chatUserSessionLayout');
     if(!root)return null;
-    var rows=Array.prototype.slice.call(root.querySelectorAll('.session-item--spacing'));
-    return {root:root,rows:rows.map(upStatusAwaitingQueueReadRow)};
+    var rowNodes=Array.prototype.slice.call(root.querySelectorAll('.session-item--spacing'));
+    var visible=[];
+    rowNodes.forEach(function(row){
+      var target=row.querySelector('.session-item')||row;
+      var session=upStatusAwaitingQueueGetRowSession(target);
+      if(session&&session.chat_user_id)visible.push({id:String(session.chat_user_id),session:session,row:row});
+    });
+    function unwrap(value){
+      if(Array.isArray(value))return value;
+      if(value&&Array.isArray(value.value))return value.value;
+      return null;
+    }
+    function listFromComponent(component){
+      if(!component)return null;
+      var state=component.setupState;
+      if(state){
+        var list=unwrap(state.sessionList);
+        if(list)return list;
+      }
+      var exposed=component.exposeProxy||component.exposed;
+      if(exposed){
+        var candidate=unwrap(exposed.sessionList);
+        if(candidate)return candidate;
+      }
+      return null;
+    }
+    function score(component,list){
+      var ids={};
+      list.forEach(function(item){if(item&&item.chat_user_id)ids[String(item.chat_user_id)]=true;});
+      var matches=0;
+      visible.forEach(function(item){if(ids[item.id])matches++;});
+      var name=String(component&&component.type&&component.type.__name||'');
+      var recognized=name==='SessionList'||name==='SessionListPanel'||
+        !!(component&&component.setupState&&typeof component.setupState.fetchSessionList==='function');
+      return {component:component,list:list,matches:matches,recognized:recognized};
+    }
+    var candidates=[],seen=[];
+    function add(component){
+      if(!component||seen.indexOf(component)>=0)return;
+      seen.push(component);
+      var list=listFromComponent(component);
+      if(!list)return;
+      var item=score(component,list);
+      if(item.matches>0||item.recognized)candidates.push(item);
+    }
+    try{
+      if(upStatusAwaitingQueueListComponent&&!upStatusAwaitingQueueListComponent.isUnmounted){
+        add(upStatusAwaitingQueueListComponent);
+      }
+    }catch(e){}
+    rowNodes.forEach(function(row){
+      var node=row.querySelector('.session-item')||row,guard=0;
+      while(node&&guard++<20){
+        var component=null;
+        try{component=node.__vueParentComponent||null;}catch(e){}
+        var componentGuard=0;
+        while(component&&componentGuard++<24){
+          add(component);
+          component=component.parent;
+        }
+        node=node.parentElement;
+      }
+    });
+    if(!candidates.length){
+      function visitVNode(vnode,depth){
+        if(!vnode||depth>45)return;
+        if(vnode.component)visitComponent(vnode.component,depth+1);
+        if(Array.isArray(vnode.children)){
+          vnode.children.forEach(function(child){if(child&&typeof child==='object')visitVNode(child,depth+1);});
+        }
+      }
+      function visitComponent(component,depth){
+        if(!component||depth>45||seen.indexOf(component)>=0)return;
+        add(component);
+        try{visitVNode(component.subTree,depth+1);}catch(e){}
+      }
+      try{
+        var app=document.querySelector('#app');
+        var appInstance=app&&app.__vue_app__&&app.__vue_app__._instance;
+        if(appInstance)visitComponent(appInstance,0);
+      }catch(e){}
+    }
+    candidates.sort(function(a,b){
+      if(a.matches!==b.matches)return b.matches-a.matches;
+      if(a.recognized!==b.recognized)return a.recognized?-1:1;
+      return b.list.length-a.list.length;
+    });
+    if(!candidates.length)return null;
+    upStatusAwaitingQueueListComponent=candidates[0].component;
+    return {root:root,list:candidates[0].list,component:candidates[0].component};
   }
   function upStatusAwaitingQueueIsGroupFields(session){
     if(!session)return false;
@@ -3198,29 +3287,16 @@
   function upStatusAwaitingQueueApply(){
     if(!upStatusAwaitingQueueIsActive())return;
     var state=upStatusAwaitingQueueSessionState();
-    if(!state)return;
+    if(!state||!Array.isArray(state.list))return;
     var now=Date.now();
-    if(!document.getElementById('upstatus-awaiting-queue-filter-style')){
-      var style=document.createElement('style');
-      style.id='upstatus-awaiting-queue-filter-style';
-      style.textContent='.session-item--spacing.upstatus-awaiting-queue-hidden{display:none!important;}';
-      (document.head||document.documentElement).appendChild(style);
-    }
-    state.rows.forEach(function(item){
-      var hide=upStatusAwaitingQueueShouldHide(item.session,now,item.element,item.id||item.name);
-      if(hide&&!item.element.classList.contains('upstatus-awaiting-queue-hidden')){
-        item.element.classList.add('upstatus-awaiting-queue-hidden');
-      }else if(!hide&&item.element.classList.contains('upstatus-awaiting-queue-hidden')){
-        item.element.classList.remove('upstatus-awaiting-queue-hidden');
+    // Filter the backing sessionList array consumed by the virtual scroller.
+    // Removing data items instead of hiding DOM rows avoids empty black slots.
+    for(var i=state.list.length-1;i>=0;i--){
+      var session=state.list[i];
+      if(upStatusAwaitingQueueShouldHide(session,now,null,session&&session.chat_user_id)){
+        state.list.splice(i,1);
       }
-    });
-  }
-  function upStatusAwaitingQueueRestoreHiddenRows(){
-    var root=document.getElementById('chatUserSessionLayout');
-    if(!root)return;
-    root.querySelectorAll('.session-item--spacing.upstatus-awaiting-queue-hidden').forEach(function(row){
-      row.classList.remove('upstatus-awaiting-queue-hidden');
-    });
+    }
   }
   function upStatusAwaitingQueueTick(){
     try{
@@ -3230,15 +3306,9 @@
         upStatusAwaitingQueueWasActive=true;
         upStatusAwaitingQueueApply();
       }else{
-        // Always undo local DOM hiding before showing any other Sale Smartly filter.
-        // The virtual scroller reuses row elements between filters.
-        upStatusAwaitingQueueRestoreHiddenRows();
         upStatusAwaitingQueueWasActive=false;
       }
-    }catch(e){
-      // Failing closed: a script error must never leave conversation rows hidden.
-      try{upStatusAwaitingQueueRestoreHiddenRows();}catch(_){}
-    }
+    }catch(e){}
   }
   if(document.readyState==='loading'){
     document.addEventListener('DOMContentLoaded',upStatusAwaitingQueueTick,{once:true});
