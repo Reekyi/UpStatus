@@ -2998,33 +2998,95 @@
   function upStatusAwaitingQueueSessionState(){
     var root=document.getElementById('chatUserSessionLayout');
     var component=root&&root.__vueParentComponent;
-    var search=component,guard=0,list=null;
-    while(search&&guard++<8&&!list){
+    if(!root||!component)return null;
+    var rows=Array.prototype.slice.call(root.querySelectorAll('.session-item'));
+    var visible=rows.map(function(row){
+      var name=row.querySelector('.session-item__content__top__left__name');
+      var labels=Array.prototype.slice.call(row.querySelectorAll('.session-item__content__tags__item span')).map(function(el){
+        return upStatusAwaitingQueueNormalizeText(el.textContent);
+      });
+      var type=row.querySelector('.session-item__content__top__left__type');
+      return {
+        name:upStatusAwaitingQueueNormalizeText(name&&name.textContent),
+        labels:labels,
+        type:upStatusAwaitingQueueNormalizeText(type&&type.textContent)
+      };
+    }).filter(function(item){return item.name;});
+    var seen=[];
+    var bestList=null,bestOwner=null,bestScore=-1;
+    function unwrap(value){
+      if(Array.isArray(value))return value;
+      if(value&&Array.isArray(value.value))return value.value;
+      return null;
+    }
+    function consider(value,owner){
+      var list=unwrap(value);
+      if(!list||!list.length||seen.indexOf(list)>=0)return;
+      seen.push(list);
+      var score=Math.min(list.length,100)*0.001;
+      if(visible.length){
+        var matched=0,labelMatched=0,groupMatched=0;
+        visible.forEach(function(row){
+          var item=null;
+          for(var i=0;i<list.length;i++){
+            var session=list[i]||{};
+            var names=[
+              session.title,session.remark_name,session.nickname,session.display_name
+            ].map(upStatusAwaitingQueueNormalizeText).filter(Boolean);
+            if(names.indexOf(row.name)>=0){item=session;break;}
+          }
+          if(item){
+            matched++;
+            var labels=upStatusAwaitingQueueLabels(item).map(function(label){
+              return upStatusAwaitingQueueNormalizeText(label&&label.label_name||label&&label.name||'');
+            });
+            if(row.labels.some(function(label){return labels.indexOf(label)>=0;}))labelMatched++;
+            if(row.type.indexOf('grupo')>=0&&upStatusAwaitingQueueIsGroupFields(item))groupMatched++;
+          }
+        });
+        score+=matched*20+labelMatched*5+groupMatched*3;
+      }
+      if(score>bestScore){bestList=list;bestOwner=owner;bestScore=score;}
+    }
+    var search=component,guard=0;
+    while(search&&guard++<16){
       try{
         var state=search.setupState;
-        if(state){
-          var candidate=state.sessionList;
-          if(Array.isArray(candidate))list=candidate;
-          else if(candidate&&Array.isArray(candidate.value))list=candidate.value;
-        }
+        if(state)consider(state.sessionList,search);
       }catch(e){}
-      if(!list){
-        try{
-          var exposed=search.exposeProxy||search.exposed;
-          var external=exposed&&exposed.sessionList;
-          if(Array.isArray(external))list=external;
-          else if(external&&Array.isArray(external.value))list=external.value;
-        }catch(e){}
-      }
-      search=search&&search.parent;
+      try{
+        var exposed=search.exposeProxy||search.exposed;
+        if(exposed)consider(exposed.sessionList,search);
+      }catch(e){}
+      search=search.parent;
     }
-    return root&&Array.isArray(list)?{root:root,list:list,component:component}:null;
+    return bestList?{root:root,list:bestList,component:bestOwner,visibleCount:visible.length}:null;
+  }
+  function upStatusAwaitingQueueIsGroupFields(session){
+    if(!session)return false;
+    var chatType=String(session.chat_type==null?'':session.chat_type);
+    var type=String(session.type==null?'':session.type);
+    var info=session.channel_info||{};
+    var infoType=upStatusAwaitingQueueNormalizeText(info.channel_type||info.type||'');
+    if(infoType&&infoType!=='private'&&infoType!=='individual'&&infoType!=='one to one')return true;
+    if(chatType&&chatType!=='1')return true;
+    return !!(type&&type!=='1');
   }
   function upStatusAwaitingQueueIsGroup(session){
     if(!session)return false;
-    var type=String(session.type==null?'':session.type);
-    // O Sale Smartly usa o mesmo campo "type" para exibir o ícone de grupo na lista.
-    return type!==''&&type!=='1';
+    var root=document.getElementById('chatUserSessionLayout');
+    var title=upStatusAwaitingQueueNormalizeText(session.remark_name||session.title||session.nickname||'');
+    if(root&&title){
+      var rows=root.querySelectorAll('.session-item');
+      for(var i=0;i<rows.length;i++){
+        var name=rows[i].querySelector('.session-item__content__top__left__name');
+        if(upStatusAwaitingQueueNormalizeText(name&&name.textContent)!==title)continue;
+        var type=rows[i].querySelector('.session-item__content__top__left__type');
+        var visibleType=upStatusAwaitingQueueNormalizeText(type&&type.textContent);
+        if(visibleType.indexOf('grupo')>=0)return true;
+      }
+    }
+    return upStatusAwaitingQueueIsGroupFields(session);
   }
   function upStatusAwaitingQueueLabels(session){
     return session&&Array.isArray(session.labels)?session.labels:[];
@@ -3032,16 +3094,16 @@
   function upStatusAwaitingQueueActivityTime(session){
     if(!session)return 0;
     var fields=['user_last_reply_time','last_reply_time','snippet_time','last_message_time','latest_message_time'];
+    var latest=0;
     for(var i=0;i<fields.length;i++){
       var raw=session[fields[i]];
       if(raw===null||raw===undefined||raw==='')continue;
       var value=Number(raw);
       if(!isFinite(value)||value<=0)continue;
-      // Aceita timestamps em segundos ou milissegundos.
       if(value<100000000000)value*=1000;
-      return value;
+      if(value>latest)latest=value;
     }
-    return 0;
+    return latest;
   }
   function upStatusAwaitingQueueUnknownFingerprint(session){
     if(!session)return '';
