@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus TEST - Sale Smartly
 // @namespace    upseller-test
-// @version      3.0.48-beta9
+// @version      3.0.48-beta10
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -19,7 +19,11 @@
   // Beta9 resilient launcher: persistent watchdog restores a visible fallback if the main root/bubble disappears.
   (function(){
     var recovery=null,observer=null,checkQueued=false;
-    function mainReady(){return !!(document.getElementById('upstatus-root')&&document.getElementById('upstatus-bubble'));}
+    function mainReady(){
+      var root=document.getElementById('upstatus-root'),bubble=document.getElementById('upstatus-bubble');
+      if(!root||!bubble||!root.isConnected||!bubble.isConnected)return false;
+      try{var r=bubble.getBoundingClientRect(),cs=getComputedStyle(bubble);return r.width>=8&&r.height>=8&&cs.display!=='none'&&cs.visibility!=='hidden'&&Number(cs.opacity||1)>.05&&getComputedStyle(root).display!=='none'&&getComputedStyle(root).visibility!=='hidden';}catch(_){return false;}
+    }
     function ensureRecovery(){
       if(!document.documentElement)return;
       if(!recovery||!recovery.isConnected){
@@ -30,7 +34,7 @@
           recovery.style.cssText='position:fixed!important;right:24px!important;bottom:24px!important;width:44px!important;height:44px!important;border:3px solid #8b95a4!important;border-radius:50%!important;background:#273247!important;color:#fff!important;font:800 16px Segoe UI,Arial,sans-serif!important;box-shadow:0 5px 18px #0009!important;z-index:2147483646!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;';
           recovery.addEventListener('click',function(){
             var bubble=document.getElementById('upstatus-bubble'),root=document.getElementById('upstatus-root');
-            if(root&&bubble){bubble.click();return;}
+            if(root&&bubble&&mainReady()){bubble.click();return;}
             recovery.textContent='!';recovery.title='O UpStatus está se recuperando. Recarregue a página se não voltar em alguns segundos.';
             recovery.style.background='#713448';
           });
@@ -381,7 +385,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.48-beta9'
+  var CURRENT_VERSION='3.0.48-beta10'
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
