@@ -2960,7 +2960,6 @@
   var upStatusAwaitingQueueClearBefore=0;
   var upStatusAwaitingQueueUnknownDismissed={};
   var upStatusAwaitingQueueWasActive=false;
-  var upStatusAwaitingQueueLastCount=-1;
   try{upStatusAwaitingQueueClearBefore=Number(GM_getValue(UPSTATUS_AWAITING_QUEUE_CLEAR_KEY,0))||0;}catch(e){}
   try{
     var unknownValue=GM_getValue(UPSTATUS_AWAITING_QUEUE_UNKNOWN_KEY,{});
@@ -3153,22 +3152,6 @@
         changed=true;
       }
     }
-    if(changed)upStatusAwaitingQueueLastCount=state.list.length;
-    upStatusAwaitingQueueUpdateCount(state.list.length);
-  }
-  function upStatusAwaitingQueueUpdateCount(count){
-    var badge=document.querySelector('.session-list__filter__header__title__count');
-    if(!badge)return;
-    var target=badge.querySelector('sup,[class*="badge-sup"],[class*="badge__count"]');
-    if(!target){
-      var leaves=badge.querySelectorAll('span');
-      for(var i=0;i<leaves.length;i++){
-        if(/^\d+\+?$/.test(String(leaves[i].textContent||'').trim())){target=leaves[i];break;}
-      }
-    }
-    if(!target)return;
-    var value=count>99?'99+':String(Math.max(0,count));
-    if(String(target.textContent||'').trim()!==value)target.textContent=value;
   }
   function upStatusAwaitingQueueTick(){
     try{
