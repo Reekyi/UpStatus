@@ -2750,7 +2750,7 @@
       button.type='button';
       button.className='upstatus-sale-chat-close';
       button.setAttribute('aria-label','Voltar à lista de conversas');
-      button.title='Voltar à lista de conversas (Esc), sem encerrar o atendimento';
+      button.title='Desmarcar conversa (Esc) e voltar à lista, sem encerrar o atendimento';
       button.innerHTML='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M19 12H5M12 19l-7-7 7-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
       button.style.cssText='position:relative;display:flex;align-items:center;justify-content:center;width:34px;height:34px;min-width:34px;padding:0;border:0;border-radius:4px;background:#2563eb;color:#fff;box-shadow:0 2px 7px rgba(0,0,0,.28);cursor:pointer;z-index:1;line-height:1;box-sizing:border-box;flex:0 0 34px;margin:0 6px 0 0;';
       button.addEventListener('click',function(e){
@@ -2949,6 +2949,229 @@
   if(document.documentElement)upStatusSaleEmptyImageObserver.observe(document.documentElement,{childList:true,subtree:true,characterData:true});
   window.addEventListener('resize',upStatusSaleScheduleEmptyImageApply);window.addEventListener('scroll',upStatusSaleScheduleEmptyImageApply,true);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',upStatusSaleApplyEmptyImage,{once:true});else upStatusSaleApplyEmptyImage();
+
+
+  // Fila local de "Aguardando resposta": não altera sessões, tags nem estados no servidor.
+  // A limpeza é persistente por navegador e usa a última atividade para permitir que
+  // conversas com novas mensagens voltem naturalmente à fila.
+  var UPSTATUS_AWAITING_QUEUE_CLEAR_KEY=key+'awaiting_queue_cleared_at';
+  var UPSTATUS_AWAITING_QUEUE_UNKNOWN_KEY=key+'awaiting_queue_cleared_unknown';
+  var UPSTATUS_AWAITING_QUEUE_SIX_DAYS=6*24*60*60*1000;
+  var upStatusAwaitingQueueClearBefore=0;
+  var upStatusAwaitingQueueUnknownDismissed={};
+  var upStatusAwaitingQueueWasActive=false;
+  try{upStatusAwaitingQueueClearBefore=Number(GM_getValue(UPSTATUS_AWAITING_QUEUE_CLEAR_KEY,0))||0;}catch(e){}
+  try{
+    var unknownValue=GM_getValue(UPSTATUS_AWAITING_QUEUE_UNKNOWN_KEY,{});
+    if(typeof unknownValue==='string')unknownValue=JSON.parse(unknownValue||'{}');
+    if(unknownValue&&typeof unknownValue==='object')upStatusAwaitingQueueUnknownDismissed=unknownValue;
+  }catch(e){}
+
+  function upStatusAwaitingQueueNormalizeText(value){
+    try{return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();}
+    catch(e){return String(value||'').toLowerCase().replace(/\s+/g,' ').trim();}
+  }
+  function upStatusAwaitingQueueChatStore(){
+    try{
+      var appRoot=document.querySelector('#app');
+      var vueApp=appRoot&&appRoot.__vue_app__;
+      var pinia=vueApp&&vueApp.config&&vueApp.config.globalProperties&&vueApp.config.globalProperties.$pinia;
+      var stores=pinia&&pinia._s;
+      return stores&&typeof stores.get==='function'?stores.get('chat'):null;
+    }catch(e){return null;}
+  }
+  function upStatusAwaitingQueueIsActive(){
+    var store=upStatusAwaitingQueueChatStore();
+    var view=store&&store.filterViewItem;
+    var isDefault=!!view&&String(view.is_default_in)==='1';
+    var subtab=String(store&&store.allViewSubTab||'').toUpperCase().replace(/[^A-Z0-9]+/g,'_');
+    if(isDefault&&/(^|_)NO_REPLY($|_)/.test(subtab))return true;
+    var title=document.querySelector('.session-list__filter__header__title__name');
+    var text=upStatusAwaitingQueueNormalizeText(title&&title.textContent);
+    return text.indexOf('aguardando resposta')>=0||
+      text.indexOf('unanswered')>=0||
+      text.indexOf('waiting for reply')>=0||
+      text.indexOf('awaiting response')>=0||
+      text.indexOf('待回复')>=0||
+      text.indexOf('未回复')>=0;
+  }
+  function upStatusAwaitingQueueSessionState(){
+    var root=document.getElementById('chatUserSessionLayout');
+    var component=root&&root.__vueParentComponent;
+    var search=component,guard=0,list=null;
+    while(search&&guard++<8&&!list){
+      try{
+        var state=search.setupState;
+        if(state){
+          var candidate=state.sessionList;
+          if(Array.isArray(candidate))list=candidate;
+          else if(candidate&&Array.isArray(candidate.value))list=candidate.value;
+        }
+      }catch(e){}
+      if(!list){
+        try{
+          var exposed=search.exposeProxy||search.exposed;
+          var external=exposed&&exposed.sessionList;
+          if(Array.isArray(external))list=external;
+          else if(external&&Array.isArray(external.value))list=external.value;
+        }catch(e){}
+      }
+      search=search&&search.parent;
+    }
+    return root&&Array.isArray(list)?{root:root,list:list,component:component}:null;
+  }
+  function upStatusAwaitingQueueIsGroup(session){
+    if(!session)return false;
+    var type=String(session.type==null?'':session.type);
+    // O Sale Smartly usa o mesmo campo "type" para exibir o ícone de grupo na lista.
+    return type!==''&&type!=='1';
+  }
+  function upStatusAwaitingQueueLabels(session){
+    return session&&Array.isArray(session.labels)?session.labels:[];
+  }
+  function upStatusAwaitingQueueActivityTime(session){
+    if(!session)return 0;
+    var fields=['user_last_reply_time','last_reply_time','snippet_time','last_message_time','latest_message_time'];
+    for(var i=0;i<fields.length;i++){
+      var raw=session[fields[i]];
+      if(raw===null||raw===undefined||raw==='')continue;
+      var value=Number(raw);
+      if(!isFinite(value)||value<=0)continue;
+      // Aceita timestamps em segundos ou milissegundos.
+      if(value<100000000000)value*=1000;
+      return value;
+    }
+    return 0;
+  }
+  function upStatusAwaitingQueueUnknownFingerprint(session){
+    if(!session)return '';
+    return [
+      String(session.chat_user_id||''),
+      String(session.title||''),
+      String(session.snippet||''),
+      String(session.snippet_text||''),
+      String(session.snippet_type||''),
+      String(session.snippet_msg_type||'')
+    ].join('|');
+  }
+  function upStatusAwaitingQueueShouldHide(session,now){
+    if(!session)return true;
+    var id=String(session.chat_user_id||'');
+    var group=upStatusAwaitingQueueIsGroup(session);
+    var labels=upStatusAwaitingQueueLabels(session);
+    var activity=upStatusAwaitingQueueActivityTime(session);
+    if(group&&labels.length>0)return true;
+    // Conversas privadas só permanecem no filtro durante os seis dias mais recentes.
+    if(!group&&activity>0&&now-activity>UPSTATUS_AWAITING_QUEUE_SIX_DAYS)return true;
+    // A limpeza vale também para páginas antigas que ainda não foram carregadas.
+    // Uma nova mensagem (atividade posterior ao clique) faz a conversa voltar à fila.
+    if(upStatusAwaitingQueueClearBefore>0&&activity>0&&activity<=upStatusAwaitingQueueClearBefore)return true;
+    if(upStatusAwaitingQueueClearBefore>0&&!activity&&id){
+      var previous=upStatusAwaitingQueueUnknownDismissed[id];
+      if(previous&&previous.fingerprint===upStatusAwaitingQueueUnknownFingerprint(session))return true;
+      if(previous)delete upStatusAwaitingQueueUnknownDismissed[id];
+    }
+    return false;
+  }
+  function upStatusAwaitingQueueSaveUnknown(){
+    try{
+      var ids=Object.keys(upStatusAwaitingQueueUnknownDismissed);
+      if(ids.length>1500){
+        ids.sort(function(a,b){return Number(upStatusAwaitingQueueUnknownDismissed[a].time||0)-Number(upStatusAwaitingQueueUnknownDismissed[b].time||0);});
+        ids.slice(0,ids.length-1500).forEach(function(id){delete upStatusAwaitingQueueUnknownDismissed[id];});
+      }
+      GM_setValue(UPSTATUS_AWAITING_QUEUE_UNKNOWN_KEY,upStatusAwaitingQueueUnknownDismissed);
+    }catch(e){}
+  }
+  function upStatusAwaitingQueueEnsureButton(active){
+    var root=document.getElementById('chatUserSessionLayout');
+    var tools=root&&root.querySelector('.session-list__filter__header__icon');
+    var button=document.getElementById('upstatus-awaiting-queue-clear');
+    if(!active){
+      if(button)button.style.display='none';
+      return;
+    }
+    if(!tools)return;
+    if(!button){
+      if(!document.getElementById('upstatus-awaiting-queue-style')){
+        var style=document.createElement('style');
+        style.id='upstatus-awaiting-queue-style';
+        style.textContent='#upstatus-awaiting-queue-clear{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;white-space:nowrap;height:28px;padding:0 8px;margin-left:4px;border:1px solid var(--n-border-color,rgba(127,127,127,.35));border-radius:6px;background:var(--n-button-color,transparent);color:var(--n-text-color,#555);font:inherit;font-size:11px;font-weight:600;line-height:1;cursor:pointer}#upstatus-awaiting-queue-clear:hover{background:var(--n-color-hover,rgba(127,127,127,.14))}#upstatus-awaiting-queue-clear:focus-visible{outline:2px solid var(--n-color-target,#409eff);outline-offset:2px}';
+        (document.head||document.documentElement).appendChild(style);
+      }
+      button=document.createElement('button');
+      button.type='button';
+      button.id='upstatus-awaiting-queue-clear';
+      button.textContent='Limpar fila';
+      button.title='Limpa esta fila somente no UpStatus. Não encerra atendimentos nem altera tags.';
+      button.setAttribute('aria-label',button.title);
+      button.addEventListener('click',function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        if(!upStatusAwaitingQueueIsActive())return;
+        var state=upStatusAwaitingQueueSessionState();
+        if(!state){
+          button.textContent='Tente novamente';
+          setTimeout(function(){if(button&&button.isConnected)button.textContent='Limpar fila';},1600);
+          return;
+        }
+        var now=Date.now();
+        state.list.forEach(function(session){
+          if(!upStatusAwaitingQueueActivityTime(session)){
+            var id=String(session&&session.chat_user_id||'');
+            if(id)upStatusAwaitingQueueUnknownDismissed[id]={fingerprint:upStatusAwaitingQueueUnknownFingerprint(session),time:now};
+          }
+        });
+        upStatusAwaitingQueueClearBefore=now;
+        try{GM_setValue(UPSTATUS_AWAITING_QUEUE_CLEAR_KEY,upStatusAwaitingQueueClearBefore);}catch(e){}
+        upStatusAwaitingQueueSaveUnknown();
+        upStatusAwaitingQueueApply();
+        button.textContent='Fila limpa';
+        button.title='Fila limpa neste navegador. Conversas com novas mensagens podem voltar.';
+        setTimeout(function(){
+          if(button&&button.isConnected){
+            button.textContent='Limpar fila';
+            button.title='Limpa esta fila somente no UpStatus. Não encerra atendimentos nem altera tags.';
+          }
+        },1500);
+      });
+      tools.appendChild(button);
+    }else if(button.parentElement!==tools){
+      tools.appendChild(button);
+    }
+    button.style.display='inline-flex';
+  }
+  function upStatusAwaitingQueueApply(){
+    if(!upStatusAwaitingQueueIsActive())return;
+    var state=upStatusAwaitingQueueSessionState();
+    if(!state)return;
+    var now=Date.now(),changed=false;
+    for(var i=state.list.length-1;i>=0;i--){
+      if(upStatusAwaitingQueueShouldHide(state.list[i],now)){
+        state.list.splice(i,1);
+        changed=true;
+      }
+    }
+  }
+  function upStatusAwaitingQueueTick(){
+    try{
+      var active=upStatusAwaitingQueueIsActive();
+      upStatusAwaitingQueueEnsureButton(active);
+      if(active){
+        upStatusAwaitingQueueWasActive=true;
+        upStatusAwaitingQueueApply();
+      }else if(upStatusAwaitingQueueWasActive){
+        // A navegação nativa entre filtros já recarrega a lista. Não tocar nos outros filtros.
+        upStatusAwaitingQueueWasActive=false;
+      }
+    }catch(e){}
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',upStatusAwaitingQueueTick,{once:true});
+  }else{
+    upStatusAwaitingQueueTick();
+  }
+  setInterval(upStatusAwaitingQueueTick,500);
 
   setInterval(function(){loadChat();},3000);
   setInterval(pollChatTyping,1000);  setInterval(pollRemoteStatus,5000);
