@@ -556,7 +556,7 @@
     '.up-patch-link{display:block;margin-top:3px;font-size:10px;color:#7f9dca;text-decoration:none;cursor:pointer;width:max-content}.up-patch-link:hover{text-decoration:underline;color:#a9c7ff}.up-patch-modal{position:fixed;inset:0;z-index:2147483647;background:rgba(4,8,14,.62);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}.up-patch-dialog{width:min(430px,calc(100vw - 40px));max-height:min(560px,calc(100vh - 40px));overflow:auto;box-sizing:border-box;border:1px solid #33445c;border-radius:16px;background:linear-gradient(145deg,#172131,#101722);color:#edf2fb;box-shadow:0 18px 55px rgba(0,0,0,.5);padding:18px}.up-patch-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.up-patch-title{font-size:15px;font-weight:800}.up-patch-close{border:0;background:#273247;color:#c6d1e1;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:16px}.up-patch-close:hover{background:#35425a}.up-patch-version{margin-top:14px;padding-top:13px;border-top:1px solid #29374b}.up-patch-version:first-of-type{margin-top:0;padding-top:0;border-top:0}.up-patch-version-title{font-size:12px;font-weight:800;color:#dbe5f5}.up-patch-list{margin:7px 0 0;padding-left:17px;color:#9eacc0;font-size:11px;line-height:1.55}.up-patch-list li{margin:2px 0}.up-theme-light .up-patch-link{color:#356fe8}.up-theme-light .up-patch-link:hover{color:#245fc4}.up-theme-light .up-patch-modal{background:rgba(15,23,42,.35)}.up-theme-light .up-patch-dialog{background:#fff;border-color:#d7dee9;color:#1e293b;box-shadow:0 18px 55px rgba(0,0,0,.2)}.up-theme-light .up-patch-close{background:#eef2f7;color:#334155}.up-theme-light .up-patch-close:hover{background:#e2e8f0}.up-theme-light .up-patch-version{border-color:#e2e8f0}.up-theme-light .up-patch-version-title{color:#1e293b}.up-theme-light .up-patch-list{color:#64748b}';
   style.textContent += '.up-chat-bubble{position:relative;padding-bottom:8px}.up-chat-own-meta{display:inline-flex;align-items:center;gap:2px;margin-left:6px;vertical-align:baseline;line-height:10px;font-size:10px;float:right;position:relative;top:2px}.up-chat-read{font-size:10px;line-height:10px;letter-spacing:-1px}.up-chat-reactions{clear:both}.up-chat-profile-hover-since{font-size:9px;color:#718096;margin-top:1px}.up-health-ping{font-variant-numeric:tabular-nums;font-weight:700;color:#8fa0b8}.up-health-ping.good{color:#75dba0}.up-health-ping.warn{color:#e7c56a}.up-health-ping.bad{color:#ff8499}.up-health-ping.pending{color:#7f8ea4}.up-health-member{display:flex;align-items:center;justify-content:space-between;gap:8px}.up-health-member .up-health-ping{margin-left:auto}';
   style.textContent += '.up-chat-list{padding-bottom:4px!important;scroll-padding-bottom:4px!important}.up-chat-compose{padding-top:2px!important}';
-  style.textContent += '.up-quick-chat-bubble{left:-7px;top:-7px;width:24px;height:24px;min-width:24px;min-height:24px;border:2px solid #19212e;background:#16a36a;color:#fff;overflow:hidden;transition:background .2s,border-color .2s,transform .2s,box-shadow .2s}.up-quick-chat-bubble .up-quick-chat-content{display:flex;align-items:center;justify-content:center;width:100%;height:100%;line-height:1;animation:upQuickChatSwap .22s ease both}.up-quick-chat-bubble .up-quick-chat-icon{display:block;width:15px;height:15px}.up-quick-chat-bubble .up-quick-chat-count{font:800 11px/1 Segoe UI,Arial,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.3px}.up-quick-chat-bubble.has-unread{background:#e11d48;border-color:#fb7185;animation:upQuickChatAlert 1s ease-in-out infinite,upQuickChatBlink 1s ease-in-out infinite}.up-quick-chat-bubble.has-unread:hover{background:#be123c;border-color:#fecdd3}.up-quick-chat-bubble.content-transition .up-quick-chat-content{animation:upQuickChatSwap .22s cubic-bezier(.2,.8,.2,1) both}@keyframes upQuickChatSwap{0%{opacity:0;transform:scale(.55) rotate(-12deg)}100%{opacity:1;transform:scale(1) rotate(0)}}@keyframes upQuickChatBlink{0%,100%{background:#e11d48;border-color:#fb7185;filter:brightness(1);box-shadow:0 4px 10px #0008,0 0 0 0 #ff334f44}50%{background:#fb345f;border-color:#fecdd3;filter:brightness(1.16);box-shadow:0 4px 10px #0008,0 0 0 4px #ff334f44}}@keyframes upQuickChatAlert{0%,78%,100%{transform:translateX(0) scale(1);box-shadow:0 4px 10px #0008,0 0 0 0 #ff334f44}82%{transform:translateX(-2px) scale(1.04)}86%{transform:translateX(2px) scale(1.04);box-shadow:0 4px 10px #0008,0 0 0 4px #ff334f22}90%{transform:translateX(-1px) scale(1)}94%{transform:translateX(1px) scale(1)}}.up-quick-chat-bubble.lucca-active{animation:upQuickChatAlert 1s ease-in-out infinite}.up-quick-chat-bubble.lucca-active .up-quick-chat-count{color:#fff}@media(prefers-reduced-motion:reduce){.up-quick-chat-bubble,.up-quick-chat-bubble .up-quick-chat-content{animation:none!important;transition:none!important}}';
+  style.textContent += '.up-quick-chat-bubble{left:-7px;top:-7px;width:24px;height:24px;min-width:24px;min-height:24px;border:2px solid #19212e;background:#16a36a;color:#fff;overflow:hidden;transition:background .2s,border-color .2s,transform .2s,box-shadow .2s}.up-quick-chat-bubble .up-quick-chat-content{display:flex;align-items:center;justify-content:center;width:100%;height:100%;line-height:1;animation:none}.up-quick-chat-bubble .up-quick-chat-icon{display:block;width:15px;height:15px}.up-quick-chat-bubble .up-quick-chat-count{font:800 11px/1 Segoe UI,Arial,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.3px}.up-quick-chat-bubble.has-unread{background:#e11d48;border-color:#fb7185;animation:upQuickChatAlert 3.2s ease-in-out infinite}.up-quick-chat-bubble.has-unread:hover{background:#be123c;border-color:#fecdd3}.up-quick-chat-bubble.content-transition .up-quick-chat-content{animation:none}@keyframes upQuickChatSwap{0%{opacity:0;transform:scale(.55) rotate(-12deg)}100%{opacity:1;transform:scale(1) rotate(0)}}@keyframes upQuickChatAlert{0%,78%,100%{transform:translateX(0) scale(1);box-shadow:0 4px 10px #0008,0 0 0 0 #ff334f44}82%{transform:translateX(-2px) scale(1.04)}86%{transform:translateX(2px) scale(1.04);box-shadow:0 4px 10px #0008,0 0 0 4px #ff334f22}90%{transform:translateX(-1px) scale(1)}94%{transform:translateX(1px) scale(1)}}.up-quick-chat-bubble.lucca-active{animation:upQuickChatAlert 1s ease-in-out infinite}.up-quick-chat-bubble.lucca-active .up-quick-chat-count{color:#fff}@media(prefers-reduced-motion:reduce){.up-quick-chat-bubble,.up-quick-chat-bubble .up-quick-chat-content{animation:none!important;transition:none!important}}';
   var root=node('div',{id:'upstatus-root'});
   var bubble=node('button',{id:'upstatus-bubble',title:'Abrir UpStatus'});
   var quickChatBubble=node('button',{className:'up-quick-chat-bubble',title:'Abrir Chat da equipe',type:'button','aria-label':'Abrir Chat da equipe'});
@@ -897,7 +897,7 @@
     updateToastNotificationCount();
   }
 
-  function showChatToast(m){
+  function showChatToast(m){return; /* Internal message popups removed; unread count remains. */
     if(!m||!m.id||m.type==='system'||m.user===member||!shouldNotifyForChat())return;
     if(upCall&&upCall.active){pendingChatToast=m;return;}
     if(!shouldNotifyForChat())return;
@@ -924,7 +924,7 @@
   }
   var notificationsEnabled=GM_getValue(key+'notifications_enabled',true)!==false;
   function updateNotificationPermissionUI(){
-    var btn=card.querySelector('.up-settings-notifications');
+    var btn=null; /* Notification settings removed. */
     if(!btn)return;
     var p=externalNotificationsSupported()?UpNativeNotification.permission:'unsupported';
     externalNotifPermission=p;btn.classList.remove('enabled','denied');
@@ -999,7 +999,7 @@
   function upStatusNotificationIcon(){
     return server+'/upstatus-icon.svg';
   }
-  function showExternalNotification(type,data){
+  function showExternalNotification(type,data){return; /* Native Windows/browser notifications removed. */
     if(type!=='chat')return;
     if(!isTeamChatMessage(data)||!shouldShowDesktopNotification())return;
     if(!shouldShowExternalNotification())return;
@@ -1034,7 +1034,7 @@
         seenMentionIds[m.id]=true;
         if(m.user!==member&&shouldNotifyForChat()){
           showChatToast(m);
-          if(isTeamChatMessage(m))showExternalNotification('chat',m);
+          /* External notifications intentionally disabled. */
         }
       }
     });
@@ -2348,7 +2348,7 @@
     history.querySelector('.up-close').onclick=function(){history.classList.add('hidden')};
     history.querySelector('.up-export').onclick=function(){exportHistoryTxt()};
     if(settingsBtn)settingsBtn.onclick=function(e){e.stopPropagation();settingsMenu.classList.toggle('hidden');};
-    if(settingsMenu){settingsMenu.onclick=function(e){e.stopPropagation();};var settingsHealth=settingsMenu.querySelector('.up-settings-health');if(settingsHealth)settingsHealth.onclick=function(){settingsMenu.classList.add('hidden');openHealth();};var settingsTest=settingsMenu.querySelector('.up-settings-test');if(settingsTest)settingsTest.onclick=function(){settingsMenu.classList.add('hidden');openTestPanel();};settingsMenu.querySelector('.up-settings-notifications').onclick=function(){toggleNotifications();};settingsMenu.querySelector('.up-settings-theme').onclick=function(){toggleTheme();};document.addEventListener('click',function(e){if(!settingsMenu.contains(e.target)&&e.target!==settingsBtn)settingsMenu.classList.add('hidden');});}
+    if(settingsMenu){settingsMenu.onclick=function(e){e.stopPropagation();};var settingsHealth=settingsMenu.querySelector('.up-settings-health');if(settingsHealth)settingsHealth.onclick=function(){settingsMenu.classList.add('hidden');openHealth();};var settingsTest=settingsMenu.querySelector('.up-settings-test');if(settingsTest)settingsTest.onclick=function(){settingsMenu.classList.add('hidden');openTestPanel();};settingsMenu.querySelector('.up-settings-theme').onclick=function(){toggleTheme();};document.addEventListener('click',function(e){if(!settingsMenu.contains(e.target)&&e.target!==settingsBtn)settingsMenu.classList.add('hidden');});}
     card.querySelector('.up-chat-btn').onclick=function(e){e.stopPropagation();openChat()};
     quickChatBubble.onclick=function(e){e.stopPropagation();if(!chat.classList.contains('hidden'))closeChat(false);else openChat();};
     updateNotificationPermissionUI();
