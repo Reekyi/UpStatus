@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus TEST - Sale Smartly
 // @namespace    upseller-test
-// @version      3.0.48-beta6
+// @version      3.0.48-beta7
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -122,7 +122,7 @@
   var member=GM_getValue(key+'member','');
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
-  var chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
+  var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
   var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,pendingChatNotificationMessages=[],chatScrollObserver=null,chatScrollObservedList=null,chatLightbox=null,chatHasUnreadBelow=false;
   var remoteResultCache={},remoteResultWaiters={};
   var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
@@ -377,7 +377,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.48-beta5'
+  var CURRENT_VERSION='3.0.48-beta7'
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -450,6 +450,15 @@
   function message(txt,bad){
     var x=card.querySelector('.up-message');
     if(x){x.textContent=txt||'';x.style.color=bad?'#ff8499':'#75dba0'}
+  }
+  var chatErrorToastTimer=null;
+  function showChatError(txt){
+    if(!chat)return;
+    var toast=chat.querySelector('.up-chat-error-toast');
+    if(!toast){toast=document.createElement('div');toast.className='up-chat-error-toast';toast.style.cssText='position:absolute;top:54px;left:12px;right:12px;z-index:2147483646;padding:11px 14px;border:1px solid rgba(255,132,153,.45);border-radius:10px;background:rgba(55,27,39,.96);box-shadow:0 8px 26px #0006;color:#ffe7ed;font:12px/1.4 Segoe UI,Arial,sans-serif;pointer-events:none;';chat.appendChild(toast);}
+    toast.textContent=String(txt||'Não foi possível concluir a ação no chat.');
+    if(chatErrorToastTimer)clearTimeout(chatErrorToastTimer);
+    chatErrorToastTimer=setTimeout(function(){if(toast&&toast.isConnected)toast.remove();chatErrorToastTimer=null;},4200);
   }
 
   var style=node('style',{textContent:
@@ -1660,6 +1669,7 @@
     var route='/api/chat';
     if(useFast)route='/api/chat?fast=1&since='+encodeURIComponent(new Date(new Date(chatFastSince).getTime()-2000).toISOString());
     api('GET',route).then(function(d){
+      if(chatReconnectTimer){clearTimeout(chatReconnectTimer);chatReconnectTimer=null;}
       var previousLoadError=chat.querySelector('.up-chat-load-error');if(previousLoadError)previousLoadError.remove();
       var incoming=d.messages||[],nextMessages;
       if(useFast){
@@ -1714,12 +1724,12 @@
       var failedOpeningLoader=chat.querySelector('.up-chat-opening-loader');if(failedOpeningLoader)failedOpeningLoader.remove();
       if(list){
         var retryBox=list.querySelector('.up-chat-load-error');
-        if(!retryBox){retryBox=document.createElement('div');retryBox.className='up-history-empty up-chat-load-error';retryBox.innerHTML='Não foi possível carregar o chat. <button type="button" class="up-chat-retry">Tentar novamente</button>';list.appendChild(retryBox);}
-        var retry=retryBox.querySelector('.up-chat-retry');
-        if(retry)retry.onclick=function(){retry.disabled=true;retry.textContent='Carregando…';loadChat(true);};
+        if(!retryBox){retryBox=document.createElement('div');retryBox.className='up-history-empty up-chat-load-error';retryBox.innerHTML='<span style="display:inline-flex;align-items:center;gap:8px"><i style="display:inline-block;width:12px;height:12px;border:2px solid #52627b;border-top-color:#8db4ff;border-radius:50%;animation:upChatUploadSpin .7s linear infinite"></i>Reconectando…</span>';list.appendChild(retryBox);}
+        else retryBox.innerHTML='<span style="display:inline-flex;align-items:center;gap:8px"><i style="display:inline-block;width:12px;height:12px;border:2px solid #52627b;border-top-color:#8db4ff;border-radius:50%;animation:upChatUploadSpin .7s linear infinite"></i>Reconectando…</span>';
+        if(!chatReconnectTimer)chatReconnectTimer=setTimeout(function(){chatReconnectTimer=null;loadChat(true);},3000);
       }
       try{console.warn('[UpStatus Chat] Falha ao carregar mensagens:',error&&error.message||error);}catch(e){}
-    }).finally(function(){chatLoading=false;if(chatForceFullQueued){chatForceFullQueued=false;var retry=chat.querySelector('.up-chat-retry');if(retry){retry.disabled=false;retry.textContent='Tentar novamente';}loadChat(true);}});
+    }).finally(function(){chatLoading=false;if(chatForceFullQueued){chatForceFullQueued=false;if(chatReconnectTimer){clearTimeout(chatReconnectTimer);chatReconnectTimer=null;}loadChat(true);}});
   }
   function updateTypingIndicator(names){
     var box=chat.querySelector('.up-chat-typing');if(!box)return;
@@ -2274,11 +2284,12 @@
     }).then(function(r){
       var created=normalizeChatMessage(r&&r.message);
       if(!created)throw new Error('O anexo foi enviado, mas não recebemos a confirmação da mensagem.');
+      created.pendingUpload=false;created.optimistic=false;created.uploadLabel='';
       var idx=chatCache.findIndex(function(m){return String(m.id)===String(tempId);});
-      if(idx>=0)chatCache[idx]=mergeChatMessage(chatCache[idx],created);else chatCache.push(created);
+      if(idx>=0)chatCache[idx]=created;else if(!chatCache.some(function(m){return String(m.id)===String(created.id);}))chatCache.push(created);
       chatCache.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});renderChat();
       try{sendRealtimeEvent('chat_fast',{message:r.message});}catch(e){}
-    }).catch(function(e){chatCache=chatCache.filter(function(m){return String(m.id)!==String(tempId);});try{renderChat();}catch(_){}message(e.message||'Não foi possível enviar o anexo.',true);});
+    }).catch(function(e){chatCache=chatCache.filter(function(m){return String(m.id)!==String(tempId);});try{renderChat();}catch(_){}showChatError(e&&e.message||'Não foi possível enviar o anexo.');});
   }
 
   function closeChatLibrary(){var modal=chat.querySelector('.up-chat-library-modal');if(modal)modal.remove();}
@@ -2295,7 +2306,7 @@
       var name=node('span',{className:'up-chat-library-name',textContent:(item.type==='video'?'Vídeo':'Imagem')+' • '+fmtTime(item.createdAt)});
       card.appendChild(media);card.appendChild(name);grid.appendChild(card);
       loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(url){if(media.isConnected)media.src=url;}).catch(function(){});
-      card.onclick=function(){card.disabled=true;name.textContent='Enviando…';api('POST','/api/chat',{message:'',imageUrl:item.imageUrl,type:item.type,replyTo:chatReplyTo}).then(function(r){var created=normalizeChatMessage(r&&r.message);if(!created)throw new Error('Não foi possível reenviar o anexo.');chatCache.push(created);chatCache.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});renderChat();try{sendRealtimeEvent('chat_fast',{message:r.message});}catch(e){}closeChatLibrary();}).catch(function(e){card.disabled=false;name.textContent='Falha ao enviar • tentar novamente';message(e.message,true);});};
+      card.onclick=function(){card.disabled=true;name.textContent='Enviando…';api('POST','/api/chat',{message:'',imageUrl:item.imageUrl,type:item.type,replyTo:chatReplyTo}).then(function(r){var created=normalizeChatMessage(r&&r.message);if(!created)throw new Error('Não foi possível reenviar o anexo.');chatCache.push(created);chatCache.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});renderChat();try{sendRealtimeEvent('chat_fast',{message:r.message});}catch(e){}closeChatLibrary();}).catch(function(e){card.disabled=false;name.textContent='Falha ao enviar • tentar novamente';showChatError(e&&e.message||'Não foi possível reenviar o anexo.');});};
     });
     panel.appendChild(head);panel.appendChild(grid);modal.appendChild(panel);chat.appendChild(modal);
     close.onclick=closeChatLibrary;modal.addEventListener('click',function(e){if(e.target===modal)closeChatLibrary();});
