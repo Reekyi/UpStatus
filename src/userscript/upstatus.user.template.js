@@ -2750,7 +2750,7 @@
       button.type='button';
       button.className='upstatus-sale-chat-close';
       button.setAttribute('aria-label','Voltar à lista de conversas');
-      button.title='Voltar à lista de conversas (Esc), sem encerrar o atendimento';
+      button.title='Desmarcar conversa (Esc) e voltar à lista, sem encerrar o atendimento';
       button.innerHTML='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M19 12H5M12 19l-7-7 7-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
       button.style.cssText='position:relative;display:flex;align-items:center;justify-content:center;width:34px;height:34px;min-width:34px;padding:0;border:0;border-radius:4px;background:#2563eb;color:#fff;box-shadow:0 2px 7px rgba(0,0,0,.28);cursor:pointer;z-index:1;line-height:1;box-sizing:border-box;flex:0 0 34px;margin:0 6px 0 0;';
       button.addEventListener('click',function(e){
