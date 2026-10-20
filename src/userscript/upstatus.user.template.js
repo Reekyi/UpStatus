@@ -2981,10 +2981,25 @@
     }catch(e){return null;}
   }
   function upStatusAwaitingQueueIsActive(){
+    var root=document.getElementById('chatUserSessionLayout');
+    // The selected visual subtab is the source of truth. This avoids reusing
+    // a stale Pinia subtab when Sale Smartly navigates between queues.
+    var activeTabs=root?root.querySelectorAll('.session-list__filter__tabs__item--active'):[];
+    if(activeTabs&&activeTabs.length){
+      var activeText=upStatusAwaitingQueueNormalizeText(activeTabs[0].textContent);
+      return activeText.indexOf('aguardando resposta')>=0||
+        activeText.indexOf('unanswered')>=0||
+        activeText.indexOf('waiting for reply')>=0||
+        activeText.indexOf('awaiting response')>=0||
+        activeText.indexOf('未回复')>=0||
+        activeText.indexOf('待回复')>=0;
+    }
     var store=upStatusAwaitingQueueChatStore();
     var view=store&&store.filterViewItem;
     var isDefault=!!view&&String(view.is_default_in)==='1';
     var subtab=String(store&&store.allViewSubTab||'').toUpperCase().replace(/[^A-Z0-9]+/g,'_');
+    // If sub-tabs are present but none is active, fail closed and restore all rows.
+    if(root&&root.querySelector('.session-list__filter__tabs'))return false;
     if(isDefault&&/(^|_)NO_REPLY($|_)/.test(subtab))return true;
     var title=document.querySelector('.session-list__filter__header__title__name');
     var text=upStatusAwaitingQueueNormalizeText(title&&title.textContent);
@@ -2992,8 +3007,8 @@
       text.indexOf('unanswered')>=0||
       text.indexOf('waiting for reply')>=0||
       text.indexOf('awaiting response')>=0||
-      text.indexOf('待回复')>=0||
-      text.indexOf('未回复')>=0;
+      text.indexOf('未回复')>=0||
+      text.indexOf('待回复')>=0;
   }
   function upStatusAwaitingQueueGetRowSession(row){
     var node=row,guard=0;
@@ -3200,6 +3215,13 @@
       }
     });
   }
+  function upStatusAwaitingQueueRestoreHiddenRows(){
+    var root=document.getElementById('chatUserSessionLayout');
+    if(!root)return;
+    root.querySelectorAll('.session-item--spacing.upstatus-awaiting-queue-hidden').forEach(function(row){
+      row.classList.remove('upstatus-awaiting-queue-hidden');
+    });
+  }
   function upStatusAwaitingQueueTick(){
     try{
       var active=upStatusAwaitingQueueIsActive();
@@ -3207,11 +3229,16 @@
       if(active){
         upStatusAwaitingQueueWasActive=true;
         upStatusAwaitingQueueApply();
-      }else if(upStatusAwaitingQueueWasActive){
-        // A navegação nativa entre filtros já recarrega a lista. Não tocar nos outros filtros.
+      }else{
+        // Always undo local DOM hiding before showing any other Sale Smartly filter.
+        // The virtual scroller reuses row elements between filters.
+        upStatusAwaitingQueueRestoreHiddenRows();
         upStatusAwaitingQueueWasActive=false;
       }
-    }catch(e){}
+    }catch(e){
+      // Failing closed: a script error must never leave conversation rows hidden.
+      try{upStatusAwaitingQueueRestoreHiddenRows();}catch(_){}
+    }
   }
   if(document.readyState==='loading'){
     document.addEventListener('DOMContentLoaded',upStatusAwaitingQueueTick,{once:true});
