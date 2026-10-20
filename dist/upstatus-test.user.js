@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus TEST - Sale Smartly
 // @namespace    upseller-test
-// @version      3.0.45-beta.15
+// @version      3.0.46-beta.1
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -349,7 +349,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.45-beta.15';
+  var CURRENT_VERSION='3.0.46-beta.1';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1848,7 +1848,7 @@
       else list.scrollTop=wasAtBottom?list.scrollHeight:previousScrollTop;
     });
   }
-  var lightboxPreviousFocus=null,lightboxPreviousOverflow='',lightboxRootFilter='',lightboxRootPointerEvents='';
+  var lightboxPreviousFocus=null,lightboxPreviousOverflow='',lightboxRootFilter='',lightboxRootPointerEvents='',lightboxPreviousRootZIndex='';
   function openChatLightbox(src){
     var box=chatLightbox||chat.querySelector('.up-chat-lightbox'),img=box&&box.querySelector('img');
     if(!box||!img)return;
@@ -1857,7 +1857,10 @@
     lightboxPreviousFocus=document.activeElement;
     lightboxPreviousOverflow=document.documentElement.style.overflow;
     lightboxRootFilter=root.style.filter;lightboxRootPointerEvents=root.style.pointerEvents;
+    lightboxPreviousRootZIndex=root.style.zIndex;
     root.style.filter='blur(12px)';
+    // Keep the lightbox above the widget root, whose own stacking context also uses the maximum z-index.
+    root.style.zIndex='2147483646';
     document.documentElement.style.overflow='hidden';
     img.src=src;
     box.classList.remove('hidden');
@@ -1885,13 +1888,19 @@
     box.classList.remove('up-popup-closing');
     ['position','inset','width','height','z-index','display','align-items','justify-content','box-sizing','padding','background','backdrop-filter','-webkit-backdrop-filter','pointer-events'].forEach(function(p){box.style.removeProperty(p);});
     document.documentElement.style.overflow=lightboxPreviousOverflow;
-    root.style.filter=lightboxRootFilter;root.style.pointerEvents=lightboxRootPointerEvents;
+    root.style.filter=lightboxRootFilter;root.style.pointerEvents=lightboxRootPointerEvents;root.style.zIndex=lightboxPreviousRootZIndex;
     var focus=lightboxPreviousFocus;lightboxPreviousFocus=null;
     if(box.parentNode===document.body&&chat.isConnected)chat.appendChild(box);
+    // Re-assert restoration after the page's own event handlers have finished.
+    requestAnimationFrame(function(){
+      if(!box||box.classList.contains('hidden')){
+        root.style.filter=lightboxRootFilter;root.style.pointerEvents=lightboxRootPointerEvents;root.style.zIndex=lightboxPreviousRootZIndex;
+        document.documentElement.style.overflow=lightboxPreviousOverflow;
+      }
+    });
     if(focus&&focus.isConnected&&typeof focus.focus==='function'){try{focus.focus({preventScroll:true});}catch(_){focus.focus();}}
   }
-  // Captura a interação antes do handler global que fecha o widget.
-  // O clique no fundo fecha somente a foto; clicar na foto mantém o lightbox aberto.
+  // Captura apenas eventos da camada do lightbox. Clique no fundo fecha só a foto.
   window.addEventListener('pointerdown',function(e){
     var box=chatLightbox;
     if(!box||box.classList.contains('hidden')||!box.isConnected||!box.contains(e.target))return;
