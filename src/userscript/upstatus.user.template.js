@@ -3064,7 +3064,8 @@
     var rowNodes=Array.prototype.slice.call(root.querySelectorAll('.session-item--spacing'));
     var visible=[];
     rowNodes.forEach(function(row){
-      var session=upStatusAwaitingQueueGetRowSession(row);
+      var target=row.querySelector('.session-item')||row;
+      var session=upStatusAwaitingQueueGetRowSession(target);
       if(session&&session.chat_user_id)visible.push({id:String(session.chat_user_id),session:session,row:row});
     });
     function unwrap(value){
@@ -3105,8 +3106,13 @@
       var item=score(component,list);
       if(item.matches>0||item.recognized)candidates.push(item);
     }
+    try{
+      if(upStatusAwaitingQueueListComponent&&!upStatusAwaitingQueueListComponent.isUnmounted){
+        add(upStatusAwaitingQueueListComponent);
+      }
+    }catch(e){}
     rowNodes.forEach(function(row){
-      var node=row,guard=0;
+      var node=row.querySelector('.session-item')||row,guard=0;
       while(node&&guard++<20){
         var component=null;
         try{component=node.__vueParentComponent||null;}catch(e){}
