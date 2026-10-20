@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus TEST - Sale Smartly
 // @namespace    upseller-test
-// @version      3.0.48-beta3
+// @version      3.0.48-beta4
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -349,7 +349,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.48-beta3';
+  var CURRENT_VERSION='3.0.48-beta4';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -3101,7 +3101,9 @@
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',upStatusSaleApplyEmptyImage,{once:true});else upStatusSaleApplyEmptyImage();
 
 
-  setInterval(function(){loadChat();},3000);
+  var upStatusRootRecoveryObserver=new MutationObserver(function(){if(!root.isConnected&&document.documentElement)document.documentElement.appendChild(root);if(root.isConnected&&!bubble.isConnected)root.appendChild(bubble);if(root.isConnected&&!quickChatBubble.isConnected)root.appendChild(quickChatBubble);});
+  if(document.documentElement)upStatusRootRecoveryObserver.observe(document.documentElement,{childList:true,subtree:true});
+  setInterval(function(){if(!root.isConnected&&document.documentElement)document.documentElement.appendChild(root);loadChat();},3000);
   setInterval(pollChatTyping,1000);  setInterval(pollRemoteStatus,5000);
   setInterval(checkUpdate,60000);
 })();
