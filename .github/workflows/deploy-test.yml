@@ -2,6 +2,14 @@ name: UpStatus Deploy TEST
 
 on:
   workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - 'src/userscript/upstatus.user.template.js'
+      - 'src/server/index.template.ts'
+      - 'release.json'
+      - 'scripts/build.mjs'
+      - '.github/workflows/deploy-test.yml'
 
 permissions:
   contents: read
