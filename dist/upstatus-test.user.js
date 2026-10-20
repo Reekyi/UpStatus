@@ -32,10 +32,10 @@
   var upRingtoneGlobal=window.__upstatusRingtoneGlobal||(window.__upstatusRingtoneGlobal={generation:0,sources:[],gains:[]});
   // Coordenação do ringtone entre instâncias/contextos do UpStatus.
   // A chamada real pode ser recebida por mais de um contexto da mesma página.
-  var UP_RINGTONE_CHANNEL='__UPSTATUS_RINGTONE_CHANNEL__';
+  var UP_RINGTONE_CHANNEL='';
   var upCallInstanceId='up-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
   var upRingtoneChannel=null;
-  var upRingtoneStorageKey='__UPSTATUS_RINGTONE_STORAGE_KEY__';
+  var upRingtoneStorageKey='';
   function callHandleRemoteRingtoneStop(payload){
     try{
       var p=payload&&payload.detail?payload.detail:payload;
