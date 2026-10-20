@@ -2961,7 +2961,7 @@
   var UPSTATUS_MY_QUEUE_SIX_DAYS=6*24*60*60*1000;
   var upStatusMyQueueClearBefore=0;
   var upStatusMyQueueDismissedUnknown={};
-  var upStatusMyQueueOpen=false;
+  var upStatusMyQueuePanelOpen=false;
   var upStatusMyQueueSourceComponent=null;
   var upStatusMyQueueSourceArray=null;
   var upStatusMyQueueSignature='';
@@ -3209,7 +3209,7 @@
     return document.querySelector('.session-list__filter__header__icon');
   }
   function upStatusMyQueueClose(){
-    upStatusMyQueueOpen=false;
+    upStatusMyQueuePanelOpen=false;
     var panel=document.getElementById(UPSTATUS_MY_QUEUE_PANEL_ID);
     if(panel)panel.remove();
     if(upStatusMyQueueRestorePosition){
@@ -3288,7 +3288,7 @@
   }
   function upStatusMyQueueRender(force){
     var panel=document.getElementById(UPSTATUS_MY_QUEUE_PANEL_ID);
-    if(!panel||!upStatusMyQueueOpen)return;
+    if(!panel||!upStatusMyQueuePanelOpen)return;
     var state=upStatusMyQueueItems();
     var loaded=state.items||[];
     var filtered=upStatusMyQueueFilter(loaded);
@@ -3341,12 +3341,12 @@
     }
     upStatusMyQueueSignature=signature;
   }
-  function upStatusMyQueueOpen(){
-    if(upStatusMyQueueOpen)return;
+  function upStatusMyQueueOpenPanel(){
+    if(upStatusMyQueuePanelOpen)return;
     var area=upStatusMyQueueGetArea();
     if(!area)return;
     upStatusMyQueueEnsureStyle();
-    upStatusMyQueueOpen=true;
+    upStatusMyQueuePanelOpen=true;
     upStatusMyQueueMessage='';
     if(getComputedStyle(area).position==='static'){
       upStatusMyQueueRestorePosition={area:area,value:area.style.getPropertyValue('position'),priority:area.style.getPropertyPriority('position')};
@@ -3396,19 +3396,19 @@
       button.type='button';
       button.addEventListener('click',function(e){
         e.preventDefault();e.stopPropagation();
-        if(upStatusMyQueueOpen)upStatusMyQueueClose();else upStatusMyQueueOpen();
+        if(upStatusMyQueuePanelOpen)upStatusMyQueueClose();else upStatusMyQueueOpenPanel();
         upStatusMyQueueEnsureButton(upStatusMyQueueActive());
       },true);
       host.appendChild(button);
     }else if(button.parentElement!==host)host.appendChild(button);
     button.style.display='inline-flex';
-    button.textContent=upStatusMyQueueOpen?'Fechar fila':'Minha fila';
+    button.textContent=upStatusMyQueuePanelOpen?'Fechar fila':'Minha fila';
   }
   function upStatusMyQueueTick(){
     try{
       var active=upStatusMyQueueActive();
       upStatusMyQueueEnsureButton(active);
-      if(upStatusMyQueueOpen)upStatusMyQueueRender(false);
+      if(upStatusMyQueuePanelOpen)upStatusMyQueueRender(false);
     }catch(e){}
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',upStatusMyQueueTick,{once:true});else upStatusMyQueueTick();
