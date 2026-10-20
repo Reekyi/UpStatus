@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus TEST - Sale Smartly
 // @namespace    upseller-test
-// @version      3.0.45-beta.13
+// @version      3.0.45-beta.14
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -349,7 +349,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.45-beta.13';
+  var CURRENT_VERSION='3.0.45-beta.14';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -1848,7 +1848,7 @@
       else list.scrollTop=wasAtBottom?list.scrollHeight:previousScrollTop;
     });
   }
-  var lightboxPreviousFocus=null,lightboxPreviousOverflow='',lightboxRootFilter='',lightboxRootPointerEvents='';
+  var lightboxPreviousFocus=null,lightboxPreviousOverflow='';
   function openChatLightbox(src){
     var box=chatLightbox||chat.querySelector('.up-chat-lightbox'),img=box&&box.querySelector('img');
     if(!box||!img)return;
@@ -1856,8 +1856,6 @@
     if(box.parentNode!==document.body)document.body.appendChild(box);
     lightboxPreviousFocus=document.activeElement;
     lightboxPreviousOverflow=document.documentElement.style.overflow;
-    lightboxRootFilter=root.style.filter;lightboxRootPointerEvents=root.style.pointerEvents;
-    root.style.filter='blur(12px)';
     document.documentElement.style.overflow='hidden';
     img.src=src;
     box.classList.remove('hidden');
@@ -1878,27 +1876,39 @@
     box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('tabindex','-1');
     try{box.focus({preventScroll:true});}catch(_){box.focus();}
   }
-  function closeChatLightbox(){
+  function closeChatLightbox(restoreFocus){
     var box=chatLightbox||document.querySelector('.up-chat-lightbox');
     if(!box||box.classList.contains('hidden'))return;
     box.classList.add('hidden');
     box.classList.remove('up-popup-closing');
     ['position','inset','width','height','z-index','display','align-items','justify-content','box-sizing','padding','background','backdrop-filter','-webkit-backdrop-filter','pointer-events'].forEach(function(p){box.style.removeProperty(p);});
     document.documentElement.style.overflow=lightboxPreviousOverflow;
-    root.style.filter=lightboxRootFilter;root.style.pointerEvents=lightboxRootPointerEvents;
     var focus=lightboxPreviousFocus;lightboxPreviousFocus=null;
     if(box.parentNode===document.body&&chat.isConnected)chat.appendChild(box);
-    if(focus&&focus.isConnected&&typeof focus.focus==='function'){try{focus.focus({preventScroll:true});}catch(_){focus.focus();}}
+    if(restoreFocus!==false&&focus&&focus.isConnected&&typeof focus.focus==='function'){try{focus.focus({preventScroll:true});}catch(_){focus.focus();}}
   }
-  // Intercepta a camada do lightbox na captura de window, antes do pointerdown global do widget.
-  // O handler global de document fecha o chat quando o alvo está fora de #upstatus-root.
+  // A camada captura os cliques antes do handler global que fecha o widget.
+  // O blur vem do backdrop de tela cheia, evitando deixar o contêiner do chat borrado após fechar.
   window.addEventListener('pointerdown',function(e){
     var box=chatLightbox;
     if(!box||box.classList.contains('hidden')||!box.isConnected||!box.contains(e.target))return;
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
-    if(e.target===box)closeChatLightbox();
+    if(e.target!==box)return; // Clicar na foto não fecha nem repassa o clique.
+    var target=null;
+    try{
+      box.style.visibility='hidden';
+      target=document.elementFromPoint(e.clientX,e.clientY);
+    }catch(_){}
+    box.style.visibility='';
+    closeChatLightbox(false);
+    // Repassa somente para controles interativos, evitando disparar ações em duplicidade.
+    var actionable=target&&target.closest?target.closest('button,a,input,textarea,select,[role="button"],[contenteditable="true"],[tabindex]:not([tabindex="-1"])'):null;
+    if(actionable&&actionable.isConnected){
+      try{if(/^(INPUT|TEXTAREA|SELECT)$/.test(actionable.tagName))actionable.focus({preventScroll:true});}catch(_){}
+      try{actionable.click();}catch(_){}
+    }
   },true);
   function openChatContextMenu(e,m){
     var menu=chat.querySelector('.up-chat-context-menu')||document.querySelector('.up-chat-context-menu');if(!menu)return;
