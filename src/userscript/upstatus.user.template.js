@@ -2964,6 +2964,7 @@
   var upStatusMyQueuePanelOpen=false;
   var upStatusMyQueueScrollerComponent=null;
   var upStatusMyQueueSourceArray=null;
+  var upStatusMyQueueCollectedFallback={};
   var upStatusMyQueueSignature='';
   var upStatusMyQueueMessage='';
   var upStatusMyQueueRestorePosition=null;
@@ -3076,9 +3077,15 @@
         }catch(e){}
         node=node.parentElement;
       }
-      if(session)fromRows.push(session);
+      if(session){
+        var sessionId=String(session.chat_user_id||'');
+        if(sessionId)upStatusMyQueueCollectedFallback[sessionId]=session;
+      }
     });
-    if(fromRows.length)return {items:fromRows,known:true};
+    var collectedIds=Object.keys(upStatusMyQueueCollectedFallback);
+    if(collectedIds.length){
+      return {items:collectedIds.map(function(id){return upStatusMyQueueCollectedFallback[id];}),known:true};
+    }
     return {items:[],known:false};
   }
   function upStatusMyQueueIsGroup(session){
