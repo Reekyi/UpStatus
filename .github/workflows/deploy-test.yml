@@ -31,5 +31,6 @@ jobs:
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
         with:
           version: latest
+          github-token: ${{ github.token }}
       - name: Deploy TEST only
         run: supabase functions deploy upstatus-test --project-ref "$SUPABASE_PROJECT_ID" --use-api
