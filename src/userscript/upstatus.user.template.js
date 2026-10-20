@@ -17,41 +17,42 @@
 (function () {
   'use strict';
 
-  // Beta9 resilient launcher: persistent watchdog restores a visible fallback if the main root/bubble disappears.
+  // Beta10 recovery launcher: independent watchdog keeps a clickable fallback visible until the real bubble is visible.
   (function(){
-    var recovery=null,observer=null,checkQueued=false;
-    function mainReady(){
-      var root=document.getElementById('upstatus-root'),bubble=document.getElementById('upstatus-bubble');
-      if(!root||!bubble||!root.isConnected||!bubble.isConnected)return false;
-      try{var r=bubble.getBoundingClientRect(),cs=getComputedStyle(bubble);return r.width>=8&&r.height>=8&&cs.display!=='none'&&cs.visibility!=='hidden'&&Number(cs.opacity||1)>.05&&getComputedStyle(root).display!=='none'&&getComputedStyle(root).visibility!=='hidden';}catch(_){return false;}
+    if(window.__upstatusRecoveryStarted)return;
+    window.__upstatusRecoveryStarted=true;
+    var recovery=null,observer=null,queued=false,booted=false;
+    function visible(el){
+      if(!el||!el.isConnected)return false;
+      try{var r=el.getBoundingClientRect();if(r.width<8||r.height<8)return false;
+        for(var n=el;n&&n.nodeType===1;n=n.parentElement){var s=getComputedStyle(n);if(s.display==='none'||s.visibility==='hidden'||s.visibility==='collapse'||Number(s.opacity||1)<=.05||n.hidden)return false;}
+        return true;
+      }catch(_){return false;}
     }
-    function ensureRecovery(){
-      if(!document.documentElement)return;
-      if(!recovery||!recovery.isConnected){
-        recovery=document.getElementById('upstatus-beta9-recovery');
-        if(!recovery){
-          recovery=document.createElement('button');recovery.id='upstatus-beta9-recovery';recovery.type='button';
-          recovery.title='Abrir UpStatus';recovery.setAttribute('aria-label','Abrir UpStatus');recovery.textContent='U';
-          recovery.style.cssText='position:fixed!important;right:24px!important;bottom:24px!important;width:44px!important;height:44px!important;border:3px solid #8b95a4!important;border-radius:50%!important;background:#273247!important;color:#fff!important;font:800 16px Segoe UI,Arial,sans-serif!important;box-shadow:0 5px 18px #0009!important;z-index:2147483646!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;';
-          recovery.addEventListener('click',function(){
-            var bubble=document.getElementById('upstatus-bubble'),root=document.getElementById('upstatus-root');
-            if(root&&bubble&&mainReady()){bubble.click();return;}
-            recovery.textContent='!';recovery.title='O UpStatus está se recuperando. Recarregue a página se não voltar em alguns segundos.';
-            recovery.style.background='#713448';
-          });
-          document.documentElement.appendChild(recovery);
-        }
-      }
-      var ready=mainReady();recovery.style.display=ready?'none':'flex';
-      if(!ready){recovery.textContent='U';recovery.title='Abrir UpStatus';recovery.style.background='#273247';}
+    function ready(){var r=document.getElementById('upstatus-root'),b=document.getElementById('upstatus-bubble');return !!(r&&b&&visible(r)&&visible(b));}
+    function create(){
+      recovery=document.getElementById('upstatus-beta10-recovery')||document.getElementById('upstatus-beta9-recovery');
+      if(recovery)return;
+      recovery=document.createElement('button');recovery.id='upstatus-beta10-recovery';recovery.type='button';
+      recovery.title='Abrir UpStatus';recovery.setAttribute('aria-label','Abrir UpStatus');recovery.textContent='U';
+      recovery.style.cssText='position:fixed!important;right:24px!important;bottom:24px!important;width:46px!important;height:46px!important;min-width:46px!important;min-height:46px!important;padding:0!important;border:3px solid #8b95a4!important;border-radius:50%!important;background:#273247!important;color:#fff!important;font:800 16px Segoe UI,Arial,sans-serif!important;box-shadow:0 5px 18px #0009!important;z-index:2147483647!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;';
+      recovery.addEventListener('click',function(){var bubble=document.getElementById('upstatus-bubble');if(ready()&&bubble){bubble.click();return;}recovery.textContent='!';recovery.title='O UpStatus está se recuperando. Aguarde alguns segundos ou recarregue a página.';recovery.style.setProperty('background','#713448','important');});
+      (document.body||document.documentElement).appendChild(recovery);
     }
-    function scheduleCheck(){if(checkQueued)return;checkQueued=true;setTimeout(function(){checkQueued=false;ensureRecovery();},0);}
-    function boot(){
-      ensureRecovery();
-      if(!observer&&typeof MutationObserver!=='undefined'){observer=new MutationObserver(scheduleCheck);observer.observe(document.documentElement,{childList:true,subtree:true});}
-      setInterval(ensureRecovery,1500);
+    function check(){
+      var host=document.body||document.documentElement;if(!host)return;
+      if(!recovery||!recovery.isConnected)create();if(!recovery||!recovery.isConnected)return;
+      if(ready()){recovery.style.setProperty('display','none','important');recovery.style.setProperty('visibility','hidden','important');return;}
+      recovery.textContent='U';recovery.title='Abrir UpStatus';
+      recovery.style.setProperty('display','flex','important');recovery.style.setProperty('visibility','visible','important');recovery.style.setProperty('opacity','1','important');recovery.style.setProperty('background','#273247','important');
+      if(recovery.parentNode!==host||host.lastElementChild!==recovery)host.appendChild(recovery);
     }
-    if(document.documentElement)boot();else document.addEventListener('DOMContentLoaded',boot,{once:true});
+    function schedule(){if(queued)return;queued=true;setTimeout(function(){queued=false;try{check();}catch(_){}},0);}
+    function boot(){if(booted)return;if(!document.documentElement){setTimeout(boot,50);return;}booted=true;try{check();}catch(_){}
+      if(typeof MutationObserver!=='undefined')try{observer=new MutationObserver(schedule);observer.observe(document.documentElement,{childList:true,subtree:true});}catch(_){observer=null;}
+      setInterval(function(){try{check();}catch(_){}},900);
+    }
+    if(document.documentElement)boot();else{document.addEventListener('readystatechange',boot);document.addEventListener('DOMContentLoaded',boot,{once:true});setTimeout(boot,0);}
   })();
 
   var key='__UPSTATUS_STORAGE_PREFIX__';
