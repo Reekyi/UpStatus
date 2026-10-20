@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus TEST - Sale Smartly
 // @namespace    upseller-test
-// @version      3.0.48-beta4
+// @version      3.0.48-beta5
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -16,6 +16,34 @@
 // ==/UserScript==
 (function () {
   'use strict';
+  // Beta5 emergency launcher: stays visible if the main bubble fails to initialize.
+  (function(){
+    var mounted=false,observer=null;
+    function mount(){
+      if(mounted||!document.documentElement)return;
+      if(document.getElementById('upstatus-root')&&document.getElementById('upstatus-bubble'))return;
+      mounted=true;
+      var button=document.getElementById('upstatus-beta5-recovery');
+      if(!button){
+        button=document.createElement('button');button.id='upstatus-beta5-recovery';button.type='button';
+        button.title='Abrir UpStatus (recuperação)';button.setAttribute('aria-label','Abrir UpStatus');
+        button.textContent='U';
+        button.style.cssText='position:fixed!important;right:24px!important;bottom:24px!important;width:44px!important;height:44px!important;border:3px solid #8b95a4!important;border-radius:50%!important;background:#273247!important;color:#fff!important;font:800 16px Segoe UI,Arial,sans-serif!important;box-shadow:0 5px 18px #0009!important;z-index:2147483647!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;pointer-events:auto!important;';
+        button.addEventListener('click',function(){
+          var root=document.getElementById('upstatus-root'),bubble=document.getElementById('upstatus-bubble');
+          if(root&&bubble){button.remove();bubble.click();return;}
+          button.title='UpStatus não terminou de iniciar. Recarregue a página (Ctrl+F5).';button.textContent='!';
+        });
+        document.documentElement.appendChild(button);
+      }
+      observer=new MutationObserver(function(){
+        if(document.getElementById('upstatus-root')&&document.getElementById('upstatus-bubble')){var b=document.getElementById('upstatus-beta5-recovery');if(b)b.remove();observer.disconnect();}
+      });
+      observer.observe(document.documentElement,{childList:true,subtree:true});
+    }
+    if(document.documentElement)mount();else document.addEventListener('DOMContentLoaded',mount,{once:true});
+  })();
+
 
   var key='upstatus_test_';
   var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
@@ -349,7 +377,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.0.48-beta4';
+  var CURRENT_VERSION='3.0.48-beta5'
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
