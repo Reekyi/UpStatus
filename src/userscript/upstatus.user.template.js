@@ -2995,72 +2995,58 @@
       text.indexOf('待回复')>=0||
       text.indexOf('未回复')>=0;
   }
+  function upStatusAwaitingQueueGetRowSession(row){
+    var node=row,guard=0;
+    while(node&&guard++<6){
+      try{
+        var component=node.__vueParentComponent;
+        if(component){
+          var props=component.props||{};
+          var session=props.session||props.item&&props.item.session||props.data&&props.data.session;
+          if(session&&(session.chat_user_id||session.chatUserId))return session;
+          var exposed=component.exposeProxy||component.exposed;
+          session=exposed&&(exposed.session||exposed.item&&exposed.item.session);
+          if(session&&(session.chat_user_id||session.chatUserId))return session;
+        }
+      }catch(e){}
+      node=node.parentElement;
+    }
+    return null;
+  }
+  function upStatusAwaitingQueueReadRow(row){
+    var session=upStatusAwaitingQueueGetRowSession(row);
+    var titleEl=row.querySelector('.session-item__content__top__left__name');
+    var typeEl=row.querySelector('.session-item__content__top__left__type');
+    var labelContainer=row.querySelector('.session-item__content__tags');
+    var visibleLabels=labelContainer?Array.prototype.slice.call(labelContainer.querySelectorAll('.session-item__content__tags__item span')).map(function(el){
+      return {label_name:String(el.textContent||'').trim()};
+    }):[];
+    var sessionId=session&&String(session.chat_user_id||session.chatUserId||'');
+    if(!sessionId){
+      var idNode=row.querySelector('[data-chat-user-id],[chat-user-id],[data-session-id]');
+      if(idNode)sessionId=String(idNode.getAttribute('data-chat-user-id')||idNode.getAttribute('chat-user-id')||idNode.getAttribute('data-session-id')||'');
+    }
+    var fallbackName=String(titleEl&&titleEl.textContent||'').trim();
+    var fallbackType=upStatusAwaitingQueueNormalizeText(typeEl&&typeEl.textContent);
+    if(!session){
+      session={
+        chat_user_id:sessionId,
+        title:fallbackName,
+        labels:visibleLabels,
+        type:fallbackType.indexOf('grupo')>=0?'2':'1',
+        snippet:String((row.querySelector('.session-item__content__center__text')||{}).textContent||''),
+        __upstatusFallback:true
+      };
+    }else if(!Array.isArray(session.labels)||!session.labels.length){
+      session={...session,labels:visibleLabels.length?visibleLabels:(Array.isArray(session.labels)?session.labels:[])};
+    }
+    return {element:row,session:session,id:sessionId||String(session.chat_user_id||''),name:fallbackName,type:fallbackType};
+  }
   function upStatusAwaitingQueueSessionState(){
     var root=document.getElementById('chatUserSessionLayout');
-    var component=root&&root.__vueParentComponent;
-    if(!root||!component)return null;
-    var rows=Array.prototype.slice.call(root.querySelectorAll('.session-item'));
-    var visible=rows.map(function(row){
-      var name=row.querySelector('.session-item__content__top__left__name');
-      var labels=Array.prototype.slice.call(row.querySelectorAll('.session-item__content__tags__item span')).map(function(el){
-        return upStatusAwaitingQueueNormalizeText(el.textContent);
-      });
-      var type=row.querySelector('.session-item__content__top__left__type');
-      return {
-        name:upStatusAwaitingQueueNormalizeText(name&&name.textContent),
-        labels:labels,
-        type:upStatusAwaitingQueueNormalizeText(type&&type.textContent)
-      };
-    }).filter(function(item){return item.name;});
-    var seen=[];
-    var bestList=null,bestOwner=null,bestScore=-1;
-    function unwrap(value){
-      if(Array.isArray(value))return value;
-      if(value&&Array.isArray(value.value))return value.value;
-      return null;
-    }
-    function consider(value,owner){
-      var list=unwrap(value);
-      if(!list||!list.length||seen.indexOf(list)>=0)return;
-      seen.push(list);
-      var score=Math.min(list.length,100)*0.001;
-      if(visible.length){
-        var matched=0,labelMatched=0,groupMatched=0;
-        visible.forEach(function(row){
-          var item=null;
-          for(var i=0;i<list.length;i++){
-            var session=list[i]||{};
-            var names=[
-              session.title,session.remark_name,session.nickname,session.display_name
-            ].map(upStatusAwaitingQueueNormalizeText).filter(Boolean);
-            if(names.indexOf(row.name)>=0){item=session;break;}
-          }
-          if(item){
-            matched++;
-            var labels=upStatusAwaitingQueueLabels(item).map(function(label){
-              return upStatusAwaitingQueueNormalizeText(label&&label.label_name||label&&label.name||'');
-            });
-            if(row.labels.some(function(label){return labels.indexOf(label)>=0;}))labelMatched++;
-            if(row.type.indexOf('grupo')>=0&&upStatusAwaitingQueueIsGroupFields(item))groupMatched++;
-          }
-        });
-        score+=matched*20+labelMatched*5+groupMatched*3;
-      }
-      if(score>bestScore){bestList=list;bestOwner=owner;bestScore=score;}
-    }
-    var search=component,guard=0;
-    while(search&&guard++<16){
-      try{
-        var state=search.setupState;
-        if(state)consider(state.sessionList,search);
-      }catch(e){}
-      try{
-        var exposed=search.exposeProxy||search.exposed;
-        if(exposed)consider(exposed.sessionList,search);
-      }catch(e){}
-      search=search.parent;
-    }
-    return bestList?{root:root,list:bestList,component:bestOwner,visibleCount:visible.length}:null;
+    if(!root)return null;
+    var rows=Array.prototype.slice.call(root.querySelectorAll('.session-item--spacing'));
+    return {root:root,rows:rows.map(upStatusAwaitingQueueReadRow)};
   }
   function upStatusAwaitingQueueIsGroupFields(session){
     if(!session)return false;
@@ -3072,20 +3058,10 @@
     if(chatType&&chatType!=='1')return true;
     return !!(type&&type!=='1');
   }
-  function upStatusAwaitingQueueIsGroup(session){
-    if(!session)return false;
-    var root=document.getElementById('chatUserSessionLayout');
-    var title=upStatusAwaitingQueueNormalizeText(session.remark_name||session.title||session.nickname||'');
-    if(root&&title){
-      var rows=root.querySelectorAll('.session-item');
-      for(var i=0;i<rows.length;i++){
-        var name=rows[i].querySelector('.session-item__content__top__left__name');
-        if(upStatusAwaitingQueueNormalizeText(name&&name.textContent)!==title)continue;
-        var type=rows[i].querySelector('.session-item__content__top__left__type');
-        var visibleType=upStatusAwaitingQueueNormalizeText(type&&type.textContent);
-        if(visibleType.indexOf('grupo')>=0)return true;
-      }
-    }
+  function upStatusAwaitingQueueIsGroup(session,row){
+    var rowType=row&&row.querySelector?row.querySelector('.session-item__content__top__left__type'):null;
+    var visibleType=upStatusAwaitingQueueNormalizeText(rowType&&rowType.textContent);
+    if(visibleType.indexOf('grupo')>=0)return true;
     return upStatusAwaitingQueueIsGroupFields(session);
   }
   function upStatusAwaitingQueueLabels(session){
@@ -3116,22 +3092,19 @@
       String(session.snippet_msg_type||'')
     ].join('|');
   }
-  function upStatusAwaitingQueueShouldHide(session,now){
-    if(!session)return true;
-    var id=String(session.chat_user_id||'');
-    var group=upStatusAwaitingQueueIsGroup(session);
+  function upStatusAwaitingQueueShouldHide(session,now,row,id){
+    if(!session)return false;
+    var isGroup=upStatusAwaitingQueueIsGroup(session,row);
     var labels=upStatusAwaitingQueueLabels(session);
     var activity=upStatusAwaitingQueueActivityTime(session);
-    if(group&&labels.length>0)return true;
-    // Conversas privadas só permanecem no filtro durante os seis dias mais recentes.
-    if(!group&&activity>0&&now-activity>UPSTATUS_AWAITING_QUEUE_SIX_DAYS)return true;
-    // A limpeza vale também para páginas antigas que ainda não foram carregadas.
-    // Uma nova mensagem (atividade posterior ao clique) faz a conversa voltar à fila.
+    if(isGroup&&labels.length>0)return true;
+    if(!isGroup&&activity>0&&now-activity>UPSTATUS_AWAITING_QUEUE_SIX_DAYS)return true;
     if(upStatusAwaitingQueueClearBefore>0&&activity>0&&activity<=upStatusAwaitingQueueClearBefore)return true;
-    if(upStatusAwaitingQueueClearBefore>0&&!activity&&id){
-      var previous=upStatusAwaitingQueueUnknownDismissed[id];
+    var rowKey=String(id||session.chat_user_id||'');
+    if(upStatusAwaitingQueueClearBefore>0&&!activity&&rowKey){
+      var previous=upStatusAwaitingQueueUnknownDismissed[rowKey];
       if(previous&&previous.fingerprint===upStatusAwaitingQueueUnknownFingerprint(session))return true;
-      if(previous)delete upStatusAwaitingQueueUnknownDismissed[id];
+      if(previous)delete upStatusAwaitingQueueUnknownDismissed[rowKey];
     }
     return false;
   }
@@ -3178,10 +3151,14 @@
           return;
         }
         var now=Date.now();
-        state.list.forEach(function(session){
+        state.rows.forEach(function(item){
+          var session=item.session||{};
           if(!upStatusAwaitingQueueActivityTime(session)){
-            var id=String(session&&session.chat_user_id||'');
-            if(id)upStatusAwaitingQueueUnknownDismissed[id]={fingerprint:upStatusAwaitingQueueUnknownFingerprint(session),time:now};
+            var rowKey=String(item.id||session.chat_user_id||item.name||'');
+            if(rowKey)upStatusAwaitingQueueUnknownDismissed[rowKey]={
+              fingerprint:upStatusAwaitingQueueUnknownFingerprint(session),
+              time:now
+            };
           }
         });
         upStatusAwaitingQueueClearBefore=now;
@@ -3207,13 +3184,21 @@
     if(!upStatusAwaitingQueueIsActive())return;
     var state=upStatusAwaitingQueueSessionState();
     if(!state)return;
-    var now=Date.now(),changed=false;
-    for(var i=state.list.length-1;i>=0;i--){
-      if(upStatusAwaitingQueueShouldHide(state.list[i],now)){
-        state.list.splice(i,1);
-        changed=true;
-      }
+    var now=Date.now();
+    if(!document.getElementById('upstatus-awaiting-queue-filter-style')){
+      var style=document.createElement('style');
+      style.id='upstatus-awaiting-queue-filter-style';
+      style.textContent='.session-item--spacing.upstatus-awaiting-queue-hidden{display:none!important;}';
+      (document.head||document.documentElement).appendChild(style);
     }
+    state.rows.forEach(function(item){
+      var hide=upStatusAwaitingQueueShouldHide(item.session,now,item.element,item.id||item.name);
+      if(hide&&!item.element.classList.contains('upstatus-awaiting-queue-hidden')){
+        item.element.classList.add('upstatus-awaiting-queue-hidden');
+      }else if(!hide&&item.element.classList.contains('upstatus-awaiting-queue-hidden')){
+        item.element.classList.remove('upstatus-awaiting-queue-hidden');
+      }
+    });
   }
   function upStatusAwaitingQueueTick(){
     try{
