@@ -1,5 +1,13 @@
 ## 2026-10-21
 
+### 3.0.51-beta2
+- Improve light-theme styling for shared documents and document attachments.
+- Add animated green phone indicator on team avatars for detected active calls.
+- Add targeted request-to-join flow with accept/decline and approval before starting group mesh connection.
+- Test-only build; production 3.0.50 and Beta 10/11 endpoints remain unchanged.
+
+## 2026-10-21
+
 ### 3.0.50 (stable)
 - Promote the current 3.0.50 candidate to the official stable channel.
 - Includes document attachment and shared-document UI fixes, the restored WebRTC group-call engine, and active-call discovery/join signaling.
