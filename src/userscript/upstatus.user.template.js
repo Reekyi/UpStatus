@@ -65,7 +65,23 @@
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
   // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
   // Mantido isolado do chat, status e demais recursos do UpStatus.
-  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,overlay:null,callId:'',peer:'',role:'',pendingOffer:null,pendingCandidates:[],active:false,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0,ringtoneTimer:null,ringtoneCtx:null,ringtoneAllowed:false};;
+  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,overlay:null,callId:'',peer:'',role:'',initiator:'',participants:[],pendingInvites:{},pendingOffers:{},pendingInvite:null,peers:{},active:false,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0,waitingForConnection:false,notice:'',ringtoneTimer:null,ringtoneCtx:null,ringtoneAllowed:false,ringtoneLoadId:0,ringtoneSource:null,ringtoneGain:null,presenceTimer:null};
+  
+var upCallDirectory={};
+var voiceRoom={id:'upstatus-team-room-v1',active:false,muted:false,stream:null,peers:{},participants:{},timer:null,joining:false,audioContext:null,levelTimer:null,sessionStartedAt:0,sessionTimer:null};
+var VOICE_ROOM_EVENT='voice_room_signal';
+function voiceRoomSend(type,to,data){if(!realtimeActive||!realtimeChannel||!member)return;try{realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:Object.assign({roomId:voiceRoom.id,type:type,from:member,to:to||'',active:voiceRoom.active,muted:voiceRoom.muted,version:CURRENT_VERSION,at:Date.now(),sessionStartedAt:voiceRoom.sessionStartedAt||0},data||{})});}catch(e){}}
+function voiceRoomMessage(t){var e=card&&card.querySelector('.up-voice-message');if(e)e.textContent=t||'';}
+function voiceRoomRender(){var p=card&&card.querySelector('.up-voice-room');if(!p)return;var names=Object.keys(voiceRoom.participants).filter(function(n){return n===member&&voiceRoom.active||Date.now()-voiceRoom.participants[n].at<16000;}).sort();if(names.length&&!voiceRoom.sessionStartedAt){var sessionCandidates=names.map(function(n){return Number((voiceRoom.participants[n]||{}).sessionStartedAt)||0;}).filter(function(t){return t>0;});voiceRoom.sessionStartedAt=sessionCandidates.length?Math.min.apply(Math,sessionCandidates):Date.now();}if(!names.length&&!voiceRoom.active){voiceRoom.sessionStartedAt=0;if(voiceRoom.sessionTimer){clearInterval(voiceRoom.sessionTimer);voiceRoom.sessionTimer=null;}}else if(voiceRoom.sessionStartedAt&&!voiceRoom.sessionTimer){voiceRoom.sessionTimer=setInterval(function(){voiceRoomRender();},1000);}p.classList.toggle('is-empty',!names.length&&!voiceRoom.active);var st=p.querySelector('.up-voice-state');if(st){var stateLabel=voiceRoom.active?'Conectado':names.length?names.length+' na sala':'Sala vazia';if(names.length&&voiceRoom.sessionStartedAt){var elapsed=Math.max(0,Math.floor((Date.now()-voiceRoom.sessionStartedAt)/1000));stateLabel+=' <span class="up-voice-duration">· '+String(Math.floor(elapsed/60)).padStart(2,'0')+':'+String(elapsed%60).padStart(2,'0')+'</span>';}st.innerHTML=stateLabel;}var list=p.querySelector('.up-voice-participants');if(list)list.innerHTML=names.length?names.map(function(n){var x=voiceRoom.participants[n]||{};return '<span class="up-voice-person '+(x.speaking?'is-speaking':'')+'"><img class="up-voice-avatar" data-voice-avatar="'+esc(n)+'" alt=""><b>'+esc(n)+'</b>'+(x.muted?'<span class="up-voice-mic-muted" title="Microfone mutado">'+iconSvg('mic-off')+'</span>':'')+'</span>';}).join(''):'<span class="up-voice-empty">Não há ninguém por aqui ainda</span>';if(list)list.querySelectorAll('[data-voice-avatar]').forEach(function(img){hydrateAvatar(img,img.getAttribute('data-voice-avatar')||'');});var j=p.querySelector('.up-voice-join'),m=p.querySelector('.up-voice-mute'),l=p.querySelector('.up-voice-leave');if(j){j.classList.add('hidden');j.disabled=voiceRoom.joining;p.classList.toggle('is-joining',voiceRoom.joining);p.classList.toggle('is-joined',voiceRoom.active);}if(m){m.classList.toggle('hidden',!voiceRoom.active);m.innerHTML=iconSvg(voiceRoom.muted?'mic-off':'mic');m.title=voiceRoom.muted?'Ativar microfone':'Mutar microfone';m.classList.toggle('is-muted',voiceRoom.muted);}if(l){l.classList.toggle('hidden',!voiceRoom.active);l.innerHTML=iconSvg('hangup');}}
+function voiceRoomDrop(n){var p=voiceRoom.peers[n];if(!p)return;delete voiceRoom.peers[n];try{if(p.audio){p.audio.pause();p.audio.srcObject=null;p.audio.remove();}}catch(e){}try{if(p.pc)p.pc.close();}catch(e){}}
+async function voiceRoomMakePeer(n){var p=voiceRoom.peers[n];if(p&&p.pc&&p.pc.signalingState!=='closed')return p;if(!voiceRoom.stream)throw new Error('Microfone não iniciado');p=p||{pc:null,pending:[],audio:null,analyser:null};p.pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]});p.pending=p.pending||[];voiceRoom.peers[n]=p;voiceRoom.stream.getAudioTracks().forEach(function(t){p.pc.addTrack(t,voiceRoom.stream);});p.pc.onicecandidate=function(e){if(e.candidate)voiceRoomSend('ice',n,{candidate:e.candidate});};p.pc.onconnectionstatechange=function(){if(p.pc.connectionState==='failed')voiceRoomMessage('Conexão de áudio com '+n+' falhou. Verifique a rede ou tente novamente.');};p.pc.ontrack=function(e){try{var stream=e.streams&&e.streams[0];if(!stream)stream=new MediaStream([e.track]);if(!p.audio){p.audio=document.createElement('audio');p.audio.autoplay=true;p.audio.playsInline=true;p.audio.setAttribute('playsinline','');p.audio.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-100px;bottom:0';document.body.appendChild(p.audio);}p.audio.srcObject=stream;p.audio.muted=false;p.audio.volume=1;if(voiceRoom.audioContext&&voiceRoom.audioContext.state==='suspended')voiceRoom.audioContext.resume().catch(function(){});var play=p.audio.play();if(play&&play.catch)play.catch(function(){voiceRoomMessage('O navegador bloqueou a reprodução do áudio. Clique uma vez na sala para liberar o som.');});if(voiceRoom.audioContext){var source=voiceRoom.audioContext.createMediaStreamSource(stream),an=voiceRoom.audioContext.createAnalyser();an.fftSize=512;source.connect(an);p.analyser=an;p.levelData=new Uint8Array(an.frequencyBinCount);}}catch(err){voiceRoomMessage('Erro ao preparar o áudio de '+n+': '+(err.message||err));}};return p;}
+async function voiceRoomOffer(n){if(!voiceRoom.active||String(member).localeCompare(String(n),'pt-BR')>=0)return;var p=await voiceRoomMakePeer(n);if(p.pc.signalingState!=='stable'||p.pc.localDescription)return;var offer=await p.pc.createOffer();await p.pc.setLocalDescription(offer);voiceRoomSend('offer',n,{sdp:p.pc.localDescription});}
+async function voiceRoomReceive(p){if(!p||p.roomId!==voiceRoom.id||!p.from||p.from===member||p.to&&p.to!==member)return;if(p.type==='presence'){if(p.active){voiceRoom.participants[p.from]=Object.assign(voiceRoom.participants[p.from]||{},{at:Date.now(),muted:!!p.muted,sessionStartedAt:Number(p.sessionStartedAt)||0});if(Number(p.sessionStartedAt)>0)voiceRoom.sessionStartedAt=voiceRoom.sessionStartedAt?Math.min(voiceRoom.sessionStartedAt,Number(p.sessionStartedAt)):Number(p.sessionStartedAt);voiceRoomRender();if(!p.to)voiceRoomSend('presence',p.from,{});if(voiceRoom.active&&String(member).localeCompare(String(p.from),'pt-BR')<0)voiceRoomOffer(p.from).catch(function(e){voiceRoomMessage('Não foi possível iniciar áudio com '+p.from+': '+(e.message||e));});}else{delete voiceRoom.participants[p.from];voiceRoomDrop(p.from);voiceRoomRender();}return;}if(p.type==='leave'){delete voiceRoom.participants[p.from];voiceRoomDrop(p.from);voiceRoomRender();return;}if(!voiceRoom.active)return;if(p.type==='offer'&&p.sdp&&String(member).localeCompare(String(p.from),'pt-BR')>0){try{var peer=await voiceRoomMakePeer(p.from);await peer.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));for(var i=0;i<peer.pending.length;i++){try{await peer.pc.addIceCandidate(peer.pending[i]);}catch(e){}}peer.pending=[];var answer=await peer.pc.createAnswer();await peer.pc.setLocalDescription(answer);voiceRoomSend('answer',p.from,{sdp:peer.pc.localDescription});}catch(e){voiceRoomMessage('Falha ao negociar áudio com '+p.from+': '+(e.message||e));}return;}if(p.type==='answer'&&p.sdp){var ap=voiceRoom.peers[p.from];if(ap&&ap.pc&&!ap.pc.remoteDescription){try{await ap.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));for(var j=0;j<ap.pending.length;j++){try{await ap.pc.addIceCandidate(ap.pending[j]);}catch(e){}}ap.pending=[];}catch(e){voiceRoomMessage('Falha ao aceitar áudio de '+p.from+': '+(e.message||e));}}return;}if(p.type==='ice'&&p.candidate){var ip=voiceRoom.peers[p.from];if(!ip){ip={pc:null,pending:[],audio:null};voiceRoom.peers[p.from]=ip;}if(ip.pc&&ip.pc.remoteDescription){try{await ip.pc.addIceCandidate(new RTCIceCandidate(p.candidate));}catch(e){voiceRoomMessage('Falha ao configurar áudio de '+p.from+': '+(e.message||e));}}else ip.pending.push(new RTCIceCandidate(p.candidate));}}
+async function voiceRoomJoin(){if(voiceRoom.active||voiceRoom.joining)return;if(!realtimeActive||!realtimeChannel){voiceRoomMessage('A conexão da sala ainda está sendo preparada. Tente novamente em alguns segundos.');return;}voiceRoom.joining=true;voiceRoomRender();voiceRoomMessage('Pedindo acesso ao microfone…');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Este navegador não disponibiliza acesso ao microfone.');voiceRoom.stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});var roomHadParticipants=Object.keys(voiceRoom.participants).some(function(n){return Date.now()-voiceRoom.participants[n].at<16000;});if(!roomHadParticipants)voiceRoom.sessionStartedAt=Date.now();voiceRoom.muted=false;voiceRoom.active=true;voiceRoom.participants[member]={at:Date.now(),muted:false,speaking:false,sessionStartedAt:voiceRoom.sessionStartedAt};voiceRoomSend('presence','',{});if(!voiceRoom.audioContext){var AC=window.AudioContext||window.webkitAudioContext;if(AC)voiceRoom.audioContext=new AC();}if(voiceRoom.audioContext&&voiceRoom.audioContext.state==='suspended')await voiceRoom.audioContext.resume();if(voiceRoom.audioContext){voiceRoom.localAnalyser=voiceRoom.audioContext.createAnalyser();voiceRoom.localAnalyser.fftSize=512;voiceRoom.localLevelData=new Uint8Array(voiceRoom.localAnalyser.frequencyBinCount);voiceRoom.audioContext.createMediaStreamSource(voiceRoom.stream).connect(voiceRoom.localAnalyser);}voiceRoom.levelTimer=setInterval(function(){var changed=false;Object.keys(voiceRoom.participants).forEach(function(n){var x=voiceRoom.participants[n];if(!x)return;var analyser=n===member?voiceRoom.localAnalyser:(voiceRoom.peers[n]&&voiceRoom.peers[n].analyser),data=n===member?voiceRoom.localLevelData:(voiceRoom.peers[n]&&voiceRoom.peers[n].levelData);if(x.muted||!analyser||!data){if(x.speaking){x.speaking=false;changed=true;}return;}analyser.getByteFrequencyData(data);var sum=0;for(var i=0;i<data.length;i++)sum+=data[i];var speaking=sum/data.length>8;if(x.speaking!==speaking){x.speaking=speaking;changed=true;}});if(changed)voiceRoomRender();},160);voiceRoom.timer=setInterval(function(){voiceRoomSend('presence','',{});Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member&&Date.now()-voiceRoom.participants[n].at>16000){delete voiceRoom.participants[n];voiceRoomDrop(n);}});voiceRoomRender();},4000);voiceRoomMessage('Você entrou na sala. Microfone ativo.');Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member)voiceRoomOffer(n).catch(function(e){voiceRoomMessage('Não foi possível conectar com '+n+': '+(e.message||e));});});}catch(e){try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(_){}voiceRoom.stream=null;voiceRoom.active=false;delete voiceRoom.participants[member];voiceRoomMessage((e&&e.name==='NotAllowedError'?'Permita o acesso ao microfone nas configurações do navegador. ':e&&e.name==='NotFoundError'?'Nenhum microfone foi encontrado. ':'Falha ao entrar na sala: ')+(e.message||'erro desconhecido'));}finally{voiceRoom.joining=false;voiceRoomRender();}}
+function voiceRoomMute(){if(!voiceRoom.active||!voiceRoom.stream)return;voiceRoom.muted=!voiceRoom.muted;voiceRoom.stream.getAudioTracks().forEach(function(t){t.enabled=!voiceRoom.muted;});if(voiceRoom.participants[member]){voiceRoom.participants[member].muted=voiceRoom.muted;if(voiceRoom.muted)voiceRoom.participants[member].speaking=false;}voiceRoomSend('presence','',{});voiceRoomRender();}
+function voiceRoomLeave(){var wasActive=voiceRoom.active;voiceRoom.active=false;voiceRoom.joining=false;if(wasActive)voiceRoomSend('leave','',{active:false});if(voiceRoom.timer)clearInterval(voiceRoom.timer);if(voiceRoom.levelTimer)clearInterval(voiceRoom.levelTimer);voiceRoom.timer=null;voiceRoom.levelTimer=null;Object.keys(voiceRoom.peers).forEach(function(n){voiceRoomDrop(n);});try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}voiceRoom.stream=null;voiceRoom.muted=false;delete voiceRoom.participants[member];voiceRoomRender();voiceRoomMessage('Você saiu da sala.')}
+window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}});
+
   // Controle global do ringtone: evita áudio órfão quando há mais de uma instância do userscript na página.
   var upRingtoneGlobal=window.__upstatusRingtoneGlobal||(window.__upstatusRingtoneGlobal={generation:0,sources:[],gains:[]});
   // Coordenação do ringtone entre instâncias/contextos do UpStatus.
@@ -133,7 +149,7 @@
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
   var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
-  var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,pendingChatNotificationMessages=[],chatScrollObserver=null,chatScrollObservedList=null,chatLightbox=null,chatHasUnreadBelow=false;
+  var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,chatUserScrollInterruptedUntil=0,pendingChatNotificationMessages=[],chatScrollObserver=null,chatScrollObservedList=null,chatLightbox=null,chatHasUnreadBelow=false;
   var remoteResultCache={},remoteResultWaiters={};
   var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
 
@@ -398,7 +414,7 @@
     clock:'<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
     download:'<path d="M12 4v10m0 0 4-4m-4 4-4-4M5 19h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
     sound:'<path d="M5 10v4h3l4 3V7l-4 3H5Z" fill="currentColor"/><path d="M15 9.5a4 4 0 0 1 0 5M17.5 7a7.5 7.5 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
-    mic:'<rect x="8" y="3.5" width="8" height="10.5" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5.5 10.5a6.5 6.5 0 0 0 13 0M12 17v3.5M8.5 20.5h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    'mic-off':'<rect x="8" y="3.5" width="8" height="10.5" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5.5 10.5a6.5 6.5 0 0 0 13 0M12 17v3.5M8.5 20.5h7M4 4l16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>','hangup':'<path d="M3.5 10.8c4.8-4.1 12.2-4.1 17 0l-2.2 3.2a1.5 1.5 0 0 1-1.8.5l-2.4-1a1.5 1.5 0 0 1-.9-1.4v-1.1a9.8 9.8 0 0 0-2.4 0v1.1a1.5 1.5 0 0 1-.9 1.4l-2.4 1a1.5 1.5 0 0 1-1.8-.5Z" fill="currentColor"/>',mic:'<rect x="8" y="3.5" width="8" height="10.5" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5.5 10.5a6.5 6.5 0 0 0 13 0M12 17v3.5M8.5 20.5h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
     clip:'<path d="m21.4 11.1-8.9 8.9a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
     phone:'<path d="M7.1 4.2 9.4 3.5a1.8 1.8 0 0 1 2 1l1.1 3a1.8 1.8 0 0 1-.6 2l-1.4 1.1a12.6 12.6 0 0 0 3.9 3.9l1.1-1.4a1.8 1.8 0 0 1 2-.6l3 1.1a1.8 1.8 0 0 1 1 2l-.7 2.3a2.3 2.3 0 0 1-2.4 1.6C11.3 19.7 4.3 12.7 3.5 5.9a2.3 2.3 0 0 1-1.6-2.4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
     send:'<path d="M21.5 2.8 14.1 21a1 1 0 0 1-1.85-.02l-2.5-6.72-6.72-2.5A1 1 0 0 1 3 9.91l18.5-7.38ZM9.75 14.25 21.5 2.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -494,12 +510,12 @@
     '.up-actions{display:flex;gap:6px;align-items:center;position:relative}.up-chat-btn,.up-logout,.up-history-btn,.up-close,.up-settings-btn{border:0;border-radius:7px;padding:7px 9px;background:#273247;color:#c6d1e1;cursor:pointer;box-sizing:border-box;height:34px;min-width:34px}.up-logout{background:#3a2730;color:#ffb0bc}.up-logout:hover{background:#54313c}.up-settings-btn{display:inline-flex;align-items:center;justify-content:center}.up-settings-btn .up-icon{width:17px;height:17px}.up-settings-menu{position:absolute;right:0;top:42px;width:210px;padding:8px;background:#111722;border:1px solid #3a475b;border-radius:10px;box-shadow:0 12px 30px #0009;z-index:70}.up-settings-menu.hidden{display:none}.up-settings-menu button{width:100%;display:flex;align-items:center;gap:8px;border:0;border-radius:7px;padding:9px;background:transparent;color:#dbe5f5;text-align:left;cursor:pointer;font:inherit;font-size:12px}.up-settings-menu button:hover{background:#273247}.up-settings-menu button .up-icon{width:16px;height:16px}'+
     '.up-chat-btn{position:relative;border:0;border-radius:7px;padding:7px 9px;background:#273247;color:#c6d1e1;cursor:pointer}.up-chat-btn.lucca-active{background:#c52f48;color:#fff;animation:upLuccaPulse .8s infinite alternate}.up-notification-btn{border:0;border-radius:7px;padding:7px 9px;background:#273247;color:#c6d1e1;cursor:pointer;box-sizing:border-box;height:34px;min-width:34px;font-size:15px;line-height:1}.up-notification-btn.enabled{background:#184f3a;color:#7ef0b6}.up-notification-btn.denied{background:#3a2730;color:#ff9aaa}.up-chat-btn .up-chat-notify-dot{position:absolute;right:-3px;top:-3px;width:10px;height:10px;border-radius:50%;background:#ff4d67;border:2px solid #19212e;display:none}.up-chat-btn .up-chat-notify-dot.show{display:block}.up-barui-main{position:relative;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#273247;color:#c6d1e1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}.up-barui-main .up-icon{width:17px;height:17px}.up-barui-main.active,.up-barui-main.incoming{background:#c52f48;color:#fff;animation:upbaruibtn .55s infinite alternate}.up-barui-popup{position:absolute;right:0;top:42px;width:230px;padding:10px;background:#111722;border:1px solid #3a475b;border-radius:10px;box-shadow:0 12px 30px #0009;z-index:60}.up-barui-popup.hidden{display:none}.up-barui-popup-title{font-size:12px;font-weight:750;color:#cbd5e4;margin-bottom:7px}.up-barui-popup-row{display:flex;gap:6px}.up-barui-popup select{flex:1;min-width:0;border:1px solid #3a475b;border-radius:7px;background:#19212e;color:#edf2fb;padding:7px;font-size:12px}.up-barui-popup button{border:0;border-radius:7px;background:#c52f48;color:#fff;font-weight:750;padding:7px 9px;cursor:pointer}.up-barui-popup button:disabled{opacity:.6;cursor:wait}.up-barui-row{display:flex;gap:7px;margin-top:8px}.up-barui-select{flex:1;min-width:0;border:1px solid #3a475b;border-radius:8px;background:#111722;color:#edf2fb;padding:8px}.up-barui-btn{border:0;border-radius:8px;padding:8px 11px;background:#a52a3c;color:#fff;font-weight:800;cursor:pointer}.up-barui-btn.active{background:#d66b1f}.up-barui-hint{font-size:11px;color:#8f9db2;margin-top:5px}.up-barui-active{animation:upbarui .55s infinite alternate}@keyframes upbaruibtn{from{transform:scale(1);box-shadow:0 0 0 0 #ff334f55}to{transform:scale(1.08);box-shadow:0 0 0 7px #ff334f55}}@keyframes upbarui{from{box-shadow:0 7px 22px #0009}to{box-shadow:0 0 0 7px #ff334f55,0 7px 22px #0009}}.up-icon{display:inline-block;width:16px;height:16px;vertical-align:-3px;flex:0 0 auto}.up-icon-wrap{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle}.up-history-btn{font-size:17px;padding:5px 8px;line-height:1}.up-history-btn .up-icon{width:18px;height:18px}.up-select,.up-history-list,.up-history-head{font-family:"Segoe UI",Arial,sans-serif}.up-reason-picker{position:relative}.up-reason-trigger{width:100%;display:flex;align-items:center;gap:8px;padding:10px;border-radius:8px;border:1px solid #3a475b;background:#111722;color:#edf2fb;cursor:pointer;text-align:left}.up-reason-menu{position:absolute;z-index:30;left:0;right:0;margin-top:4px;background:#111722;border:1px solid #3a475b;border-radius:8px;padding:4px;box-shadow:0 12px 30px #0008}.up-reason-menu.hidden{display:none}.up-reason-option{width:100%;display:flex;align-items:center;gap:8px;border:0;background:transparent;color:#edf2fb;padding:9px 8px;border-radius:6px;cursor:pointer;text-align:left}.up-reason-option:hover{background:#273247}.up-reason-text{flex:1}.up-status-icon.online{color:#7be1a7}.up-status-icon.busy{color:#ff6b7a}.up-status-icon.away{color:#c7d0df}.up-export{height:34px;min-width:34px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:5px;border:0;border-radius:7px;padding:7px 9px;background:#273247;color:#c6d1e1;cursor:pointer;font-size:12px;font-weight:700}.up-statuses{display:flex;gap:7px;margin:16px 0 8px}'+
 
-    '.up-status{border:0;border-radius:8px;padding:9px;font-weight:700;cursor:pointer}.online{background:#173f2b;color:#7be1a7}.busy{background:#4d1b25;color:#ff6b7a}.away{background:#303949;color:#c7d0df}'+
+    '.up-status{border:0;border-radius:8px;padding:9px;font-weight:700;cursor:pointer;transition:filter .14s,transform .14s}.up-status:hover{filter:brightness(1.12);transform:translateY(-1px)}.up-status:focus-visible{outline:2px solid #7da7ff;outline-offset:3px}.online{background:#173f2b;color:#7be1a7}.busy{background:#4d1b25;color:#ff6b7a}.away{background:#303949;color:#c7d0df}'+
     '.up-label{display:block;margin-bottom:6px;font-weight:650}.up-select,.up-input{width:100%;padding:10px;border-radius:8px;border:1px solid #3a475b;background:#111722;color:#edf2fb}.up-input{margin-top:7px}'+
     '.up-confirm{margin-top:7px;width:100%;border:0;border-radius:8px;padding:9px;background:#4f7dff;color:#fff;font-weight:700;cursor:pointer}'+
     '.up-message{min-height:20px;font-size:12px;color:#ff8499;margin-top:8px}.up-notice{margin:10px 0;padding:9px;border-radius:8px;background:#173f2b;color:#9ce5b8;font-size:12px}'+
-    '.up-team-title{font-weight:750;margin:13px 0 7px}.up-member{padding:9px 0;border-bottom:1px solid #303b4d}.up-member:last-child{border:0}.up-badge{font-size:11px;font-weight:700;border-radius:12px;padding:3px 6px}.b-online{background:#173f2b;color:#7be1a7}.b-busy{background:#4d1b25;color:#ff6b7a}.b-away,.b-offline{background:#303949;color:#c7d0df}.up-time{font-size:11px;color:#8390a4;margin-top:4px}'+
-    '.up-chat-lucca-alert{flex:0 0 auto;position:relative;z-index:20;margin-top:8px;padding:9px 12px;border:1px solid #a92e43;border-radius:9px;background:#351724;color:#ff9aaa;font-size:11px;font-weight:850;letter-spacing:.2px;box-shadow:0 4px 14px #0005}.up-chat-lucca-alert.hidden{display:none}.up-chat-system-event{display:flex;justify-content:center;padding:8px 0 6px}.up-chat-system-event span{padding:6px 10px;border-radius:999px;background:#252e3c;border:1px solid #3a475b;color:#aebbd0;font-size:10px;font-weight:800;text-align:center}.up-chat-system-event.join span{background:#351724;border-color:#7c2a3e;color:#ff9aaa}.up-chat-list{height:auto;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;margin-top:8px;margin-right:-8px;margin-left:-5px;padding-right:14px;padding-left:5px;scrollbar-width:thin}.up-chat-date-divider{display:flex;align-items:center;gap:9px;margin:14px 0 8px;color:#8fa0b8;font-size:10px;font-weight:800;letter-spacing:.15px}.up-chat-date-divider:before,.up-chat-date-divider:after{content:"";height:1px;flex:1;background:#334158}.up-chat-date-divider span{padding:5px 10px;border:1px solid #334158;border-radius:999px;background:#182130;white-space:nowrap}.up-chat-item.group-middle .up-chat-bubble{border-radius:7px 14px 14px 7px;padding-top:5px;padding-bottom:5px}.up-chat-item.own.group-middle .up-chat-bubble{border-radius:14px 7px 7px 14px}.up-chat-item.group-end .up-chat-bubble{margin-bottom:2px}.up-chat-item.group-start{padding-top:7px}.up-chat-item.group-end{padding-bottom:7px}.up-chat-item.group-middle{padding-top:1px;padding-bottom:1px}.up-chat-avatar.avatar-hidden{visibility:hidden}.up-chat-audio-player{display:flex;align-items:center;gap:8px;min-width:220px;max-width:100%;margin-top:6px;padding:2px 0;border-radius:0;background:transparent;border:0;box-sizing:border-box;color:inherit}.up-chat-audio-play{width:30px;height:30px;flex:0 0 30px;border:0;border-radius:50%;background:#fff;color:#3159bd;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;box-shadow:0 1px 3px rgba(0,0,0,.12)}.up-chat-audio-wave{height:28px;flex:1;display:flex;align-items:center;justify-content:space-between;gap:2px;overflow:hidden;min-width:0}.up-chat-audio-wave span{display:block;width:2px;flex:1 1 2px;max-width:3px;min-width:1px;min-height:3px;border-radius:999px;background:currentColor;opacity:.46;font-weight:normal;transform:none;transition:opacity .12s linear}.up-chat-audio-time{font-size:10px;color:inherit;opacity:.92;font-variant-numeric:tabular-nums;min-width:30px;text-align:right;white-space:nowrap}.up-chat-header-info{font-size:10px;color:#8fa0b8;margin-top:2px}.up-chat-header-info .chat-online-dot{color:#55e58b}.up-chat-send{position:absolute;right:7px;bottom:7px;margin:0;width:28px;height:28px;border:0;border-radius:50%;padding:0;background:#4f7dff;color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;z-index:2}.up-chat-send:hover{background:#6b92ff;transform:translateY(-1px)}.up-chat-send .up-icon{width:15px;height:15px}.up-chat-list{scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.72) rgba(30,41,59,.28)}.up-chat-list::-webkit-scrollbar{width:8px}.up-chat-list::-webkit-scrollbar-track{background:rgba(30,41,59,.22);border-radius:999px}.up-chat-list::-webkit-scrollbar-thumb{background:rgba(148,163,184,.72);border:2px solid rgba(24,33,48,.9);border-radius:999px}.up-chat-list::-webkit-scrollbar-thumb:hover{background:rgba(191,205,225,.95)}.up-chat-item{position:relative;display:flex;align-items:flex-end;gap:7px;padding:6px 0}.up-chat-item.own{flex-direction:row-reverse;cursor:context-menu}.up-chat-avatar{width:28px;height:28px;flex:0 0 28px;border-radius:50%;object-fit:cover;background:#273247;border:2px solid transparent;box-sizing:border-box}.up-chat-avatar.up-chat-presence-idle{border-color:#62a7ff;box-shadow:0 0 7px rgba(83,155,255,.6)}.up-chat-avatar.up-chat-presence-active{border-color:#55e58b;animation:upChatPresencePulse 1.9s ease-in-out infinite}@keyframes upChatPresencePulse{0%,100%{box-shadow:0 0 0 0 rgba(82,224,137,.12),0 0 7px rgba(82,224,137,.62)}50%{box-shadow:0 0 0 1px rgba(82,224,137,.28),0 0 10px rgba(82,224,137,.72)}}.up-chat-bubble{position:relative;max-width:78%;min-width:52px;padding:8px 11px;border-radius:16px 16px 16px 5px;background:linear-gradient(145deg,#2a3549,#252f41);color:#e7edf7;box-sizing:border-box;border:1px solid rgba(117,137,168,.16);box-shadow:0 4px 14px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.035);transition:transform .12s ease,box-shadow .12s ease}.up-chat-item.own .up-chat-bubble{border-radius:16px 16px 5px 16px;background:linear-gradient(145deg,#3967d1,#3159bd);border-color:rgba(122,157,255,.16);box-shadow:0 4px 14px rgba(23,67,160,.22),inset 0 1px 0 rgba(255,255,255,.07)}.up-chat-item.lucca .up-chat-bubble{background:rgba(106,18,39,.48);border:1px solid rgba(255,76,108,.48);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 4px 18px rgba(255,45,82,.12),inset 0 1px 0 rgba(255,255,255,.07)}.up-chat-item.lucca .up-chat-meta b{color:#ff91a7}.up-chat-item.lucca .up-chat-text{color:#ffe9ee}.up-chat-system-event.clear span{background:#273247;border-color:#4f7dff;color:#a9c2ff}.up-chat-photo{cursor:zoom-in}.up-chat-lightbox{position:fixed;inset:0;z-index:2147483647;background:rgba(5,8,13,.88);display:flex;align-items:center;justify-content:center;padding:28px;box-sizing:border-box;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}.up-chat-lightbox.hidden{display:none}.up-chat-lightbox img{max-width:92vw;max-height:90vh;width:auto;height:auto;object-fit:contain;border-radius:12px;box-shadow:0 20px 70px #000b;border:1px solid #52627b}.up-chat-meta{display:flex;align-items:center;gap:7px;font-size:10px;color:#9eabc0}.up-chat-meta b{font-weight:750;color:#cbd5e4}.up-chat-item.own .up-chat-meta{justify-content:flex-end}.up-chat-read{font-size:11px;color:#aebbd0;margin-left:4px;cursor:help;user-select:none}.up-chat-read.read{color:#63a2ff}.up-chat-own-meta{text-align:right;min-height:13px}.up-chat-profile-btn{width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#273247;cursor:pointer;overflow:hidden}.up-chat-profile-btn img{width:100%;height:100%;object-fit:cover;display:block}.up-chat-title-wrap{display:flex;align-items:center;gap:8px}.up-chat-profile-modal{position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}.up-chat-profile-modal.hidden{display:none}.up-chat-profile-dialog{width:min(330px,calc(100vw - 40px));padding:18px;border:1px solid #40506a;border-radius:14px;background:#182130;box-shadow:0 18px 45px #000b}.up-chat-profile-preview{width:84px;height:84px;margin:0 auto 12px;border-radius:50%;object-fit:cover;background:#273247;border:2px solid #40506a;display:block}.up-chat-profile-file{width:100%;margin:8px 0;color:#cbd5e4;font-size:12px}.up-chat-profile-actions{display:flex;gap:7px}.up-chat-profile-actions button{flex:1;border:0;border-radius:8px;padding:9px;cursor:pointer;font-weight:750}.up-chat-profile-save{background:#4f7dff;color:#fff}.up-chat-profile-cancel{background:#273247;color:#cbd5e4}.up-chat-profile-message{min-height:18px;font-size:11px;color:#ff9aaa;margin:7px 0}.up-delete-action{position:absolute;right:4px;top:28px;border:1px solid #4a566b;border-radius:6px;background:#273247;color:#ff9aaa;padding:4px 7px;font:700 11px Segoe UI,Arial,sans-serif;cursor:pointer;box-shadow:0 5px 14px #0006;z-index:5}.up-delete-action:hover{background:#3a2530;color:#ffb5c1}.up-delete-action.hidden{display:none}.up-chat-meta{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#8fa0b8}.up-chat-text{font-size:13px;color:#e7edf7;white-space:pre-wrap;word-break:break-word;margin-top:4px}.up-chat-typing{display:flex;align-items:center;gap:7px;min-height:28px;margin:2px 0 3px 35px;color:#9eabc0;font-size:10px}.up-chat-typing.hidden{display:none}.up-chat-typing-avatar{width:22px;height:22px;border-radius:50%;object-fit:cover;border:1px solid #3a475b;background:#273247}.up-chat-typing-dots{display:inline-flex;align-items:center;gap:3px;padding:5px 7px;border-radius:10px 10px 10px 3px;background:#273247}.up-chat-typing-dots i{width:4px;height:4px;border-radius:50%;background:#aebbd0;animation:upTyping 1s infinite ease-in-out}.up-chat-typing-dots i:nth-child(2){animation-delay:.15s}.up-chat-typing-dots i:nth-child(3){animation-delay:.3s}@keyframes upTyping{0%,60%,100%{transform:translateY(0);opacity:.45}30%{transform:translateY(-3px);opacity:1}}.up-member-top{display:flex;align-items:center;gap:7px}.up-member-identity{display:flex;align-items:center;gap:6px;flex:1;min-width:0}.up-member-identity b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.up-member-version{font-size:10px;font-weight:700;color:#8fa0b8;background:#222d3d;border:1px solid #344158;border-radius:999px;padding:2px 5px;white-space:nowrap}.up-member-presence{width:8px;height:8px;border-radius:50%;flex:0 0 8px;background:#46505f;box-shadow:0 0 0 2px rgba(70,80,95,.12)}.up-member-presence.online{background:#579cff;box-shadow:0 0 7px rgba(87,156,255,.55)}.up-member-presence.chat{background:#51df88;box-shadow:0 0 7px rgba(81,223,136,.58)}.up-member-presence.offline{background:#46505f;box-shadow:none}.up-member-barui{width:28px;height:28px;padding:0;border:0;border-radius:50%;background:#273247;color:#c6d1e1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.up-member-barui .up-icon{width:15px;height:15px}.up-member-barui:hover{background:#36445b}.up-member-barui.active{background:#c52f48;color:#fff;animation:upbaruibtn .55s infinite alternate}.up-member-barui:disabled{opacity:.55;cursor:wait}.up-member-power{width:28px;height:28px;padding:0;border:0;border-radius:50%;background:#273247;color:#c6d1e1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.up-member-power .up-icon{width:15px;height:15px}.up-member-power:hover{background:#3b465b;color:#fff}.up-member-power:disabled{opacity:.55;cursor:wait}.up-remote-overlay{position:absolute;inset:0;z-index:100;background:rgba(10,15,24,.68);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;border-radius:16px}.up-remote-overlay.hidden{display:none}.up-remote-dialog{width:100%;max-width:315px;background:#182130;border:1px solid #40506a;border-radius:14px;padding:14px;box-sizing:border-box;box-shadow:0 18px 45px #000b}.up-remote-title{font-size:15px;font-weight:800}.up-remote-sub{font-size:11px;color:#9aa8bc;margin-top:3px}.up-remote-statuses{display:flex;gap:6px;margin-top:12px}.up-remote-status{flex:1;border:1px solid #3a475b;border-radius:8px;padding:9px 6px;background:#111722;color:#dce5f2;cursor:pointer;font:700 12px Segoe UI,Arial,sans-serif}.up-remote-status:hover,.up-remote-status.active{background:#30405b;border-color:#5b7fc8}.up-remote-reason{margin-top:9px}.up-remote-reason.hidden{display:none}.up-remote-reason-menu{display:flex;flex-direction:column;gap:3px}.up-remote-reason-option{border:0;background:#111722;color:#dce5f2;border-radius:7px;padding:8px;text-align:left;cursor:pointer;font:12px Segoe UI,Arial,sans-serif}.up-remote-reason-option:hover,.up-remote-reason-option.active{background:#30405b}.up-remote-actions{display:flex;gap:7px;margin-top:12px}.up-remote-actions button{flex:1;border:0;border-radius:8px;padding:9px;font:800 12px Segoe UI,Arial,sans-serif;cursor:pointer}.up-remote-cancel{background:#273247;color:#cbd5e4}.up-remote-confirm{background:#4f7dff;color:#fff}.up-remote-confirm:disabled{opacity:.55;cursor:wait}.up-remote-message{min-height:18px;margin-top:7px;font-size:11px;color:#ff9aaa}.up-chat-text{font-size:13px;color:#e7edf7;white-space:pre-wrap;word-break:break-word;margin-top:4px}.up-chat-photo{display:block;max-width:260px;max-height:210px;width:auto;height:auto;margin-top:6px;border:1px solid #3a475b;border-radius:9px;background:#111722;cursor:zoom-in;object-fit:contain;box-shadow:0 4px 14px #0004}.up-chat-media{display:block;max-width:220px;max-height:150px;margin-top:6px;border:1px solid #3a475b;border-radius:9px;background:#111722;object-fit:contain;box-shadow:0 4px 14px #0004}.up-chat-media-video{width:220px;height:150px}.up-chat-profile-hover{position:fixed;z-index:2147483647;display:none;width:148px;padding:10px;box-sizing:border-box;border:1px solid #52627b;border-radius:12px;background:#182130;box-shadow:0 14px 40px #000b;pointer-events:none;text-align:center}.up-chat-profile-hover.show{display:block}.up-chat-profile-hover img{display:block;width:96px;height:96px;margin:0 auto 7px;border-radius:50%;object-fit:cover;border:2px solid transparent;background:#273247}.up-chat-profile-hover img.up-chat-presence-idle{border-color:#62a7ff;box-shadow:0 0 8px rgba(83,155,255,.62)}.up-chat-profile-hover img.up-chat-presence-active{border-color:#55e58b;animation:upProfilePresencePulse 1.9s ease-in-out infinite}@keyframes upProfilePresencePulse{0%,100%{box-shadow:0 0 0 0 rgba(82,224,137,.12),0 0 7px rgba(82,224,137,.62)}50%{box-shadow:0 0 0 1px rgba(82,224,137,.28),0 0 10px rgba(82,224,137,.72)}}.up-chat-profile-hover-name{font-size:12px;font-weight:750;color:#e7edf7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.up-chat-profile-hover-role{font-size:10px;color:#9eabc0;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.up-chat-compose{position:relative;display:flex;align-items:center;gap:9px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}.up-chat-input-wrap{position:relative;display:flex;align-items:center;gap:6px;flex:1 1 auto;min-width:0;padding:5px 6px 5px 9px;border:1px solid #2b3a50;border-radius:15px;background:#111b2a;box-shadow:0 3px 12px rgba(0,0,0,.08)}.up-chat-input-wrap>.up-chat-attach{flex:0 0 28px;width:28px;height:30px;border:0;border-radius:8px;background:transparent;color:#9aabc3;padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}.up-chat-input-wrap>.up-chat-attach:hover{background:#26364d;color:#eaf2ff}.up-chat-input-wrap>.up-chat-record{flex:0 0 30px;width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:#9aabc3;padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:none}.up-chat-input-wrap>.up-chat-record:hover{background:#26364d;color:#eaf2ff;transform:none;box-shadow:none}.up-chat-input-wrap>.up-chat-record.recording{background:#c91e3b;color:#fff;box-shadow:0 0 0 3px #ff334f22}.up-chat-input-wrap>.up-chat-record svg{width:18px;height:18px}.up-chat-compose .up-chat-input{display:block;flex:1 1 auto;width:100%;min-width:0;height:34px;max-height:100px;box-sizing:border-box;padding:7px 2px;border:0;outline:0;resize:none;background:transparent;color:#edf4ff;font:14px Segoe UI,Arial,sans-serif}.up-chat-compose .up-chat-input::placeholder{color:#8493aa}.up-chat-tools{display:flex;align-items:center;gap:0;flex:0 0 auto;margin-top:0}.up-chat-send{position:static;flex:0 0 34px;width:34px;height:34px;margin:0;border:0;border-radius:50%;padding:0;background:linear-gradient(145deg,#368bff,#1760ed);color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 9px #1478ff44;transition:transform .16s,filter .16s}.up-chat-send:hover{filter:brightness(1.12);transform:translateY(-1px)}.up-chat-send .up-icon{width:16px;height:16px}.up-chat-input-wrap .up-chat-emoji-btn{flex:0 0 28px;width:28px;height:30px;border:0;border-radius:9px;background:transparent;color:#9aabc3;padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}.up-chat-input-wrap .up-chat-emoji-btn:hover{background:#26364d;color:#eaf2ff}.up-chat-input-wrap .up-chat-emoji-btn .up-icon{width:18px;height:18px}.up-chat-compose>.up-chat-attach{flex:0 0 42px;width:42px;height:42px;border:1px solid #33445f;border-radius:50%;background:#202e43;color:#cbd8ec;padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}.up-chat-compose>.up-chat-attach:hover{background:#2d4260;color:#fff}.up-chat-tools .up-chat-record{width:42px;height:42px;flex:0 0 42px;border:1px solid #465266;border-radius:50%;background:#273247;color:#9aa7ba;box-shadow:none;transition:transform .18s,box-shadow .18s,background .18s,color .18s}.up-chat-tools .up-chat-record:hover{background:#1e4f91;border-color:#3989ff;color:#dcecff;transform:translateY(-1px);box-shadow:0 0 0 3px #1683ff20}.up-chat-tools .up-chat-record.recording{background:linear-gradient(145deg,#ff5369,#c91e3b);border-color:#ff8292;color:#fff;box-shadow:0 0 0 4px #ff334f22,0 3px 14px #ff334f55}.up-chat-tools .up-chat-record svg{width:21px;height:21px}.up-chat-tools .up-chat-record:disabled{opacity:.55;cursor:wait}@media(max-width:440px){.up-chat-compose{gap:6px;padding:0}.up-chat-compose>.up-chat-attach{flex-basis:36px;width:36px;height:36px}.up-chat-tools .up-chat-record{flex-basis:36px;width:36px;height:36px}.up-chat-input-wrap{gap:5px;padding-left:5px}}.up-mention-menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:20;display:flex;flex-wrap:wrap;gap:6px;width:100%;padding:7px;box-sizing:border-box;background:#182130;border:1px solid #3a475b;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.32)}.up-mention-menu.hidden{display:none}.up-mention-option{flex:0 0 auto;border:1px solid #344158;background:#243149;color:#dbe5f5;border-radius:8px;padding:6px 9px;cursor:pointer;font:12px Segoe UI,Arial,sans-serif}.up-mention-option:hover{background:#30405b;border-color:#4f7dff}.up-mention-option.up-mention-all{background:#3b315f;border-color:#8065c7;color:#fff}.up-chat-tools{display:flex;gap:6px;flex:0 0 auto;position:static}.up-chat-scroll-latest{position:absolute;right:14px;bottom:58px;width:32px;height:32px;border:1px solid #3d8bff;border-radius:50%;background:#2468d8;color:#fff;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 4px 14px #0005;opacity:0;transform:translateY(5px) scale(.92);pointer-events:none;transition:opacity .18s ease,transform .18s ease;z-index:5}.up-chat-scroll-latest.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}.up-chat-scroll-latest.has-new-message:after{content:"";position:absolute;right:-3px;top:-3px;width:9px;height:9px;border-radius:50%;background:#ff405c;border:2px solid #19212e;box-shadow:0 0 0 0 rgba(255,64,92,.7);animation:upChatNewDotPulse 1s infinite}@keyframes upChatNewDotPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,64,92,.65);transform:scale(1)}50%{box-shadow:0 0 0 4px rgba(255,64,92,0);transform:scale(.86)}}.up-chat-scroll-latest:hover{background:#3984f4}.up-chat-scroll-latest svg{width:17px;height:17px}.up-chat-emoji-btn{width:38px;height:42px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;padding:0;border:1px solid #3a475b;border-radius:8px;background:#273247;color:#dbe5f5;cursor:pointer}.up-chat-emoji-btn .up-icon{width:17px;height:17px}.up-chat-emoji-btn:hover{background:#35425a}.up-chat-attach{width:38px;height:42px;padding:0;border:1px solid #3a475b;border-radius:8px;background:#273247;color:#dbe5f5;cursor:pointer;font-size:17px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}.up-chat-attach:hover{background:#35425a}.up-chat-clear,.up-chat-back,.up-chat-library{width:34px;height:34px;min-width:34px;padding:0;border:0;border-radius:8px;background:#273247;color:#c6d1e1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;font:700 12px Segoe UI,Arial,sans-serif}.up-chat-clear{background:#3a2730;color:#ff9aaa}.up-chat-clear .up-icon,.up-chat-library .up-icon{width:16px;height:16px}.up-chat-clear:hover{background:#552d3a}.up-chat-back:hover,.up-chat-library:hover{background:#35425a}.up-chat-uploading{display:flex;align-items:center;gap:8px;padding:12px 14px;color:#c8d5e8;font-size:12px;min-width:150px}.up-chat-upload-spinner{width:14px;height:14px;border:2px solid #52627b;border-top-color:#8db4ff;border-radius:50%;animation:upChatUploadSpin .7s linear infinite;flex:none}@keyframes upChatUploadSpin{to{transform:rotate(360deg)}}.up-chat-library-modal{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;z-index:2147483647!important;background:rgba(4,8,14,.78);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:clamp(6px,2vw,20px);box-sizing:border-box;overflow:auto;margin:0!important;}.up-chat-library-panel{position:relative;width:min(760px,calc(100vw - 16px));height:min(760px,calc(100vh - 16px));height:min(760px,calc(100dvh - 16px));max-height:calc(100dvh - 16px);display:flex;flex-direction:column;background:#19212e;border:1px solid #354258;border-radius:14px;box-shadow:0 20px 60px #000b;overflow:hidden;min-height:0}.up-chat-library-head{position:relative;z-index:2;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 54px 10px 12px;border-bottom:1px solid #303d51;background:#19212e;min-height:52px;box-sizing:border-box}.up-chat-library-title{font-size:14px;font-weight:800;color:#edf2fb}.up-chat-library-close{position:absolute!important;right:8px!important;top:8px!important;z-index:2147483647!important;width:34px;height:34px;min-width:34px;flex:none;border:1px solid #52627b;border-radius:10px;background:#273247;color:#fff;cursor:pointer;font-size:20px;line-height:1;box-shadow:0 2px 8px #0005;display:flex;align-items:center;justify-content:center;pointer-events:auto;transition:background .15s,border-color .15s,transform .15s}.up-chat-library-close:hover{background:#3b4b64;border-color:#7c91b2;transform:scale(1.04)}.up-chat-library-viewing-image .up-chat-library-close{visibility:hidden!important;pointer-events:none!important}.up-chat-library-close:focus-visible{outline:2px solid #80aaff;outline-offset:2px}.up-chat-library-grid{padding:10px;overflow:auto;overscroll-behavior:contain;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(150px,100%),1fr));align-content:start;gap:8px;min-height:0}.up-chat-library-item{min-width:0;border:1px solid #354258;border-radius:9px;background:#111722;padding:7px;color:#dbe5f5;display:flex;flex-direction:column;gap:5px;text-align:left;cursor:pointer}.up-chat-library-item:hover{border-color:#6b92ff;background:#202b3d}.up-chat-library-thumb{width:100%;height:clamp(64px,12vh,110px);object-fit:cover;border-radius:6px;background:#0b1018}.up-chat-library-meta{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0;width:100%}.up-chat-library-sender{font-size:10px;font-weight:700;color:#a9c4ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.up-chat-library-date{font-size:9px;color:#9eabc0;white-space:nowrap;flex:none}.up-chat-library-name{font-size:10px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#dbe5f5}.up-chat-library-empty{padding:24px;text-align:center;color:#9eabc0;font-size:12px}.up-chat-library-modal.up-theme-light{background:rgba(20,28,40,.42)}.up-chat-library-modal.up-theme-light .up-chat-library-panel{background:#f7f9fc;border-color:#d7dee9;box-shadow:0 20px 60px #0003}.up-chat-library-modal.up-theme-light .up-chat-library-head{background:#f7f9fc;border-color:#d7dee9}.up-chat-library-modal.up-theme-light .up-chat-library-title{color:#1b2430}.up-chat-library-modal.up-theme-light .up-chat-library-item{background:#fff;border-color:#d7dee9;color:#1b2430}.up-chat-library-modal.up-theme-light .up-chat-library-item:hover{background:#eef4ff;border-color:#83a9f7}.up-chat-library-modal.up-theme-light .up-chat-library-sender{color:#315ca8}.up-chat-library-modal.up-theme-light .up-chat-library-date,.up-chat-library-modal.up-theme-light .up-chat-library-name{color:#64748b}.up-chat-library-modal.up-theme-light .up-chat-library-close{background:#e8edf4;border-color:#cbd5e1;color:#334155;box-shadow:0 2px 8px #0002}.up-chat-library-modal.up-theme-light .up-chat-library-close:hover{background:#dce5f0;border-color:#9aabc2}.up-chat-library-modal.up-theme-light .up-chat-library-thumb{background:#e8edf4}.up-chat-library-modal.up-theme-light .up-chat-library-empty{color:#64748b}@media(max-width:480px){.up-chat-library-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:8px}.up-chat-library-thumb{height:clamp(58px,11vh,84px)}.up-chat-library-panel{border-radius:10px}}.up-chat-mention{color:#7fb1ff;font-weight:750}.up-chat-input{flex:1 1 auto;width:auto;min-width:0;min-height:42px;height:42px;max-height:90px;resize:vertical;padding:8px;border-radius:8px;border:1px solid #3a475b;background:#111722;color:#edf2fb;font:13px Segoe UI,Arial,sans-serif}.up-update{font-size:11px;color:#9caac0;margin-top:10px}.up-update button{margin-left:6px;border:0;background:#273247;color:#c6d1e1;border-radius:6px;padding:4px 7px;cursor:pointer}.up-update button:hover{background:#35425a}.up-update .up-update-now:disabled{opacity:.45;cursor:not-allowed;background:#202938;color:#7f8ca0}.up-update .up-update-now:disabled:hover{background:#202938}.up-history-list{overflow:auto;flex:1;min-height:0;margin-top:12px}.up-history-day{font-size:11px;font-weight:800;letter-spacing:.2px;color:#8fa0b8;margin:12px 0 7px;padding:0 2px}.up-history-item{padding:10px 11px;margin-bottom:6px;border:1px solid #2f3d52;border-radius:10px;background:linear-gradient(145deg,#1b2535,#161f2c);box-sizing:border-box}.up-history-meta{display:flex;gap:7px;align-items:center;flex-wrap:wrap;font-size:11px}.up-history-meta>b{font-size:12px;color:#e4ebf5}.up-history-meta>span:first-child{color:#7f8ea4;font-variant-numeric:tabular-nums}.up-history-reason{font-size:11px;color:#aebbd0;margin-top:5px;padding-left:1px}.up-history-status{display:inline-flex;align-items:center;gap:5px;font-weight:750}.up-history-status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:currentColor;box-shadow:0 0 7px currentColor}.up-history-status.online{color:#67dda0}.up-history-status.busy{color:#ff7180}.up-history-status.away{color:#b9c4d5}.up-history-empty{font-size:12px;color:#9aa8bc;padding:14px 0}'+
+    '.up-team-title{font-weight:750;margin:13px 0 7px}.up-member{padding:9px 0;border-bottom:1px solid #303b4d}.up-member:last-child{border:0}.up-badge{font-size:11px;font-weight:700;border-radius:12px;padding:3px 6px;border:1px solid transparent;white-space:nowrap}.up-member-status-button{font-family:inherit;line-height:1.25;cursor:pointer;transition:filter .12s,transform .12s}.up-member-status-button:hover{filter:brightness(1.12);transform:translateY(-1px)}.up-member-status-button.b-online{border-color:#245c40}.up-member-status-button.b-busy{border-color:#7b2c3b}.up-member-status-button.b-away{border-color:#3d4a60}.b-online{background:#173f2b;color:#7be1a7}.b-busy{background:#4d1b25;color:#ff6b7a}.b-away,.b-offline{background:#303949;color:#c7d0df}.up-time{font-size:11px;color:#8390a4;margin-top:4px}'+
+    '.up-chat-lucca-alert{flex:0 0 auto;position:relative;z-index:20;margin-top:8px;padding:9px 12px;border:1px solid #a92e43;border-radius:9px;background:#351724;color:#ff9aaa;font-size:11px;font-weight:850;letter-spacing:.2px;box-shadow:0 4px 14px #0005}.up-chat-lucca-alert.hidden{display:none}.up-chat-system-event{display:flex;justify-content:center;padding:8px 0 6px}.up-chat-system-event span{padding:6px 10px;border-radius:999px;background:#252e3c;border:1px solid #3a475b;color:#aebbd0;font-size:10px;font-weight:800;text-align:center}.up-chat-system-event.join span{background:#351724;border-color:#7c2a3e;color:#ff9aaa}.up-chat-list{height:auto;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;margin-top:8px;margin-right:-8px;margin-left:-5px;padding-right:14px;padding-left:5px;scrollbar-width:thin}.up-chat-date-divider{display:flex;align-items:center;gap:9px;margin:14px 0 8px;color:#8fa0b8;font-size:10px;font-weight:800;letter-spacing:.15px}.up-chat-date-divider:before,.up-chat-date-divider:after{content:"";height:1px;flex:1;background:#334158}.up-chat-date-divider span{padding:5px 10px;border:1px solid #334158;border-radius:999px;background:#182130;white-space:nowrap}.up-chat-item.group-middle .up-chat-bubble{border-radius:7px 14px 14px 7px;padding-top:5px;padding-bottom:5px}.up-chat-item.own.group-middle .up-chat-bubble{border-radius:14px 7px 7px 14px}.up-chat-item.group-end .up-chat-bubble{margin-bottom:2px}.up-chat-item.group-start{padding-top:7px}.up-chat-item.group-end{padding-bottom:7px}.up-chat-item.group-middle{padding-top:1px;padding-bottom:1px}.up-chat-avatar.avatar-hidden{visibility:hidden}.up-chat-audio-player{display:flex;align-items:center;gap:8px;min-width:220px;max-width:100%;margin-top:6px;padding:2px 0;border-radius:0;background:transparent;border:0;box-sizing:border-box;color:inherit}.up-chat-audio-play{width:30px;height:30px;flex:0 0 30px;border:0;border-radius:50%;background:#fff;color:#3159bd;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;box-shadow:0 1px 3px rgba(0,0,0,.12)}.up-chat-audio-wave{height:28px;flex:1;display:flex;align-items:center;justify-content:space-between;gap:2px;overflow:hidden;min-width:0}.up-chat-audio-wave span{display:block;width:2px;flex:1 1 2px;max-width:3px;min-width:1px;min-height:3px;border-radius:999px;background:currentColor;opacity:.46;font-weight:normal;transform:none;transition:opacity .12s linear}.up-chat-audio-time{font-size:10px;color:inherit;opacity:.92;font-variant-numeric:tabular-nums;min-width:30px;text-align:right;white-space:nowrap}.up-chat-header-info{font-size:10px;color:#8fa0b8;margin-top:2px}.up-chat-header-info .chat-online-dot{color:#55e58b}.up-chat-send{position:absolute;right:7px;bottom:7px;margin:0;width:28px;height:28px;border:0;border-radius:50%;padding:0;background:#4f7dff;color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;z-index:2}.up-chat-send:hover{background:#6b92ff;transform:translateY(-1px)}.up-chat-send .up-icon{width:15px;height:15px}.up-chat-list{scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.72) rgba(30,41,59,.28)}.up-chat-list::-webkit-scrollbar{width:8px}.up-chat-list::-webkit-scrollbar-track{background:rgba(30,41,59,.22);border-radius:999px}.up-chat-list::-webkit-scrollbar-thumb{background:rgba(148,163,184,.72);border:2px solid rgba(24,33,48,.9);border-radius:999px}.up-chat-list::-webkit-scrollbar-thumb:hover{background:rgba(191,205,225,.95)}.up-chat-item{position:relative;display:flex;align-items:flex-end;gap:7px;padding:6px 0}.up-chat-item.own{flex-direction:row-reverse;cursor:context-menu}.up-chat-avatar{width:28px;height:28px;flex:0 0 28px;border-radius:50%;object-fit:cover;background:#273247;border:2px solid transparent;box-sizing:border-box}.up-chat-avatar.up-chat-presence-idle{border-color:#62a7ff;box-shadow:0 0 7px rgba(83,155,255,.6)}.up-chat-avatar.up-chat-presence-active{border-color:#55e58b;animation:upChatPresencePulse 1.9s ease-in-out infinite}@keyframes upChatPresencePulse{0%,100%{box-shadow:0 0 0 0 rgba(82,224,137,.12),0 0 7px rgba(82,224,137,.62)}50%{box-shadow:0 0 0 1px rgba(82,224,137,.28),0 0 10px rgba(82,224,137,.72)}}.up-chat-bubble{position:relative;max-width:78%;min-width:52px;padding:8px 11px;border-radius:16px 16px 16px 5px;background:linear-gradient(145deg,#2a3549,#252f41);color:#e7edf7;box-sizing:border-box;border:1px solid rgba(117,137,168,.16);box-shadow:0 4px 14px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.035);transition:transform .12s ease,box-shadow .12s ease}.up-chat-item.own .up-chat-bubble{border-radius:16px 16px 5px 16px;background:linear-gradient(145deg,#3967d1,#3159bd);border-color:rgba(122,157,255,.16);box-shadow:0 4px 14px rgba(23,67,160,.22),inset 0 1px 0 rgba(255,255,255,.07)}.up-chat-item.lucca .up-chat-bubble{background:rgba(106,18,39,.48);border:1px solid rgba(255,76,108,.48);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 4px 18px rgba(255,45,82,.12),inset 0 1px 0 rgba(255,255,255,.07)}.up-chat-item.lucca .up-chat-meta b{color:#ff91a7}.up-chat-item.lucca .up-chat-text{color:#ffe9ee}.up-chat-system-event.clear span{background:#273247;border-color:#4f7dff;color:#a9c2ff}.up-chat-photo{cursor:zoom-in}.up-chat-lightbox{position:fixed;inset:0;z-index:2147483647;background:rgba(5,8,13,.88);display:flex;align-items:center;justify-content:center;padding:28px;box-sizing:border-box;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}.up-chat-lightbox.hidden{display:none}.up-chat-lightbox img{max-width:92vw;max-height:90vh;width:auto;height:auto;object-fit:contain;border-radius:12px;box-shadow:0 20px 70px #000b;border:1px solid #52627b}.up-chat-meta{display:flex;align-items:center;gap:7px;font-size:10px;color:#9eabc0}.up-chat-meta b{font-weight:750;color:#cbd5e4}.up-chat-item.own .up-chat-meta{justify-content:flex-end}.up-chat-read{font-size:11px;color:#aebbd0;margin-left:4px;cursor:help;user-select:none}.up-chat-read.read{color:#63a2ff}.up-chat-own-meta{text-align:right;min-height:13px}.up-chat-profile-btn{width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#273247;cursor:pointer;overflow:hidden}.up-chat-profile-btn img{width:100%;height:100%;object-fit:cover;display:block}.up-chat-title-wrap{display:flex;align-items:center;gap:8px}.up-chat-profile-modal{position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}.up-chat-profile-modal.hidden{display:none}.up-chat-profile-dialog{width:min(330px,calc(100vw - 40px));padding:18px;border:1px solid #40506a;border-radius:14px;background:#182130;box-shadow:0 18px 45px #000b}.up-chat-profile-preview{width:84px;height:84px;margin:0 auto 12px;border-radius:50%;object-fit:cover;background:#273247;border:2px solid #40506a;display:block}.up-chat-profile-file{width:100%;margin:8px 0;color:#cbd5e4;font-size:12px}.up-chat-profile-actions{display:flex;gap:7px}.up-chat-profile-actions button{flex:1;border:0;border-radius:8px;padding:9px;cursor:pointer;font-weight:750}.up-chat-profile-save{background:#4f7dff;color:#fff}.up-chat-profile-cancel{background:#273247;color:#cbd5e4}.up-chat-profile-message{min-height:18px;font-size:11px;color:#ff9aaa;margin:7px 0}.up-delete-action{position:absolute;right:4px;top:28px;border:1px solid #4a566b;border-radius:6px;background:#273247;color:#ff9aaa;padding:4px 7px;font:700 11px Segoe UI,Arial,sans-serif;cursor:pointer;box-shadow:0 5px 14px #0006;z-index:5}.up-delete-action:hover{background:#3a2530;color:#ffb5c1}.up-delete-action.hidden{display:none}.up-chat-meta{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#8fa0b8}.up-chat-text{font-size:13px;color:#e7edf7;white-space:pre-wrap;word-break:break-word;margin-top:4px}.up-chat-typing{display:flex;align-items:center;gap:7px;min-height:28px;margin:2px 0 3px 35px;color:#9eabc0;font-size:10px}.up-chat-typing.hidden{display:none}.up-chat-typing-avatar{width:22px;height:22px;border-radius:50%;object-fit:cover;border:1px solid #3a475b;background:#273247}.up-chat-typing-dots{display:inline-flex;align-items:center;gap:3px;padding:5px 7px;border-radius:10px 10px 10px 3px;background:#273247}.up-chat-typing-dots i{width:4px;height:4px;border-radius:50%;background:#aebbd0;animation:upTyping 1s infinite ease-in-out}.up-chat-typing-dots i:nth-child(2){animation-delay:.15s}.up-chat-typing-dots i:nth-child(3){animation-delay:.3s}@keyframes upTyping{0%,60%,100%{transform:translateY(0);opacity:.45}30%{transform:translateY(-3px);opacity:1}}.up-member-top{display:flex;align-items:center;gap:7px}.up-member-identity{display:flex;align-items:center;gap:6px;flex:1;min-width:0}.up-member-identity b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.up-member-version{font-size:10px;font-weight:700;color:#8fa0b8;background:#222d3d;border:1px solid #344158;border-radius:999px;padding:2px 5px;white-space:nowrap}.up-member-presence{width:8px;height:8px;border-radius:50%;flex:0 0 8px;background:#46505f;box-shadow:0 0 0 2px rgba(70,80,95,.12)}.up-member-presence.online{background:#579cff;box-shadow:0 0 7px rgba(87,156,255,.55)}.up-member-presence.chat{background:#51df88;box-shadow:0 0 7px rgba(81,223,136,.58)}.up-member-presence.offline{background:#46505f;box-shadow:none}.up-member-barui{width:28px;height:28px;padding:0;border:0;border-radius:50%;background:#273247;color:#c6d1e1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.up-member-barui .up-icon{width:15px;height:15px}.up-member-barui:hover{background:#36445b}.up-member-barui.active{background:#c52f48;color:#fff;animation:upbaruibtn .55s infinite alternate}.up-member-barui:disabled{opacity:.55;cursor:wait}.up-member-power{width:28px;height:28px;padding:0;border:0;border-radius:50%;background:#273247;color:#c6d1e1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.up-member-power .up-icon{width:15px;height:15px}.up-member-power:hover{background:#3b465b;color:#fff}.up-member-status-button{border:0;font:inherit;cursor:pointer;transition:filter .14s,transform .14s}.up-member-status-button:hover{filter:brightness(1.12);transform:translateY(-1px)}.up-member-status-button:focus-visible{outline:2px solid #7da7ff;outline-offset:2px}.up-member-power:disabled{opacity:.55;cursor:wait}.up-remote-overlay{position:absolute;inset:0;z-index:100;background:rgba(10,15,24,.68);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;border-radius:16px}.up-remote-overlay.hidden{display:none}.up-remote-dialog{width:100%;max-width:315px;background:#182130;border:1px solid #40506a;border-radius:14px;padding:14px;box-sizing:border-box;box-shadow:0 18px 45px #000b}.up-remote-title{font-size:15px;font-weight:800}.up-remote-sub{font-size:11px;color:#9aa8bc;margin-top:3px}.up-remote-statuses{display:flex;gap:6px;margin-top:12px}.up-remote-status{flex:1;border:1px solid #3a475b;border-radius:8px;padding:9px 6px;background:#111722;color:#dce5f2;cursor:pointer;font:700 12px Segoe UI,Arial,sans-serif}.up-remote-status:hover,.up-remote-status.active{background:#30405b;border-color:#5b7fc8}.up-remote-reason{margin-top:9px}.up-remote-reason.hidden{display:none}.up-remote-reason-menu{display:flex;flex-direction:column;gap:3px}.up-remote-reason-option{border:0;background:#111722;color:#dce5f2;border-radius:7px;padding:8px;text-align:left;cursor:pointer;font:12px Segoe UI,Arial,sans-serif}.up-remote-reason-option:hover,.up-remote-reason-option.active{background:#30405b}.up-remote-actions{display:flex;gap:7px;margin-top:12px}.up-remote-actions button{flex:1;border:0;border-radius:8px;padding:9px;font:800 12px Segoe UI,Arial,sans-serif;cursor:pointer}.up-remote-cancel{background:#273247;color:#cbd5e4}.up-remote-confirm{background:#4f7dff;color:#fff}.up-remote-confirm:disabled{opacity:.55;cursor:wait}.up-remote-message{min-height:18px;margin-top:7px;font-size:11px;color:#ff9aaa}.up-chat-text{font-size:13px;color:#e7edf7;white-space:pre-wrap;word-break:break-word;margin-top:4px}.up-chat-document{display:flex;align-items:center;gap:9px;max-width:100%;min-width:0;margin-top:6px;padding:10px;border:1px solid #52627b;border-radius:9px;background:#182130;color:#dbe5f5;text-decoration:none;box-sizing:border-box}.up-chat-document-blue{border-color:#3478d4;background:linear-gradient(110deg,#16345b,#182130 65%)}.up-chat-document-blue .up-chat-document-icon{color:#60a5fa}.up-chat-document-red{border-color:#c64b59;background:linear-gradient(110deg,#4b202b,#182130 65%)}.up-chat-document-red .up-chat-document-icon{color:#fb7185}.up-chat-document-green{border-color:#29966c;background:linear-gradient(110deg,#123f34,#182130 65%)}.up-theme-light .up-chat-document{color:#1b2637;border-width:1px;box-shadow:0 4px 12px rgba(20,35,55,.10)}.up-theme-light .up-chat-document-blue{background:linear-gradient(115deg,#cfe3ff 0%,#e7f1ff 48%,#f8fbff 100%);border-color:#6fa5f3}.up-theme-light .up-chat-document-red{background:linear-gradient(115deg,#ffd7df 0%,#ffe9ed 48%,#fff8f9 100%);border-color:#ee8297}.up-theme-light .up-chat-document-green{background:linear-gradient(115deg,#c9f7df 0%,#e1faed 48%,#f5fff9 100%);border-color:#63c99a}.up-theme-light .up-chat-document-blue .up-chat-document-icon{color:#245ec1}.up-theme-light .up-chat-document-red .up-chat-document-icon{color:#c21e4a}.up-theme-light .up-chat-document-green .up-chat-document-icon{color:#087a50}.up-theme-light .up-chat-document-download{color:#234f9f}.up-chat-document-green .up-chat-document-icon{color:#4ade80}.up-chat-document-icon{flex:none;font-size:22px;font-weight:900}.up-chat-document-name{min-width:0;flex:1;overflow-wrap:anywhere;font-size:12px;font-weight:700}.up-chat-document-download{flex:none;font-size:10px;font-weight:800;color:#a9c4ff}.up-chat-photo{display:block;box-sizing:border-box;min-width:0;max-width:min(260px,100%);max-height:210px;width:auto;height:auto;margin-top:6px;border:1px solid #3a475b;border-radius:9px;background:#111722;cursor:zoom-in;object-fit:contain;box-shadow:0 4px 14px #0004}.up-chat-media{display:block;box-sizing:border-box;min-width:0;width:auto;height:auto;max-width:min(220px,100%);max-height:150px;margin-top:6px;border:1px solid #3a475b;border-radius:9px;background:#111722;object-fit:contain;box-shadow:0 4px 14px #0004}.up-chat-media-video{width:min(220px,100%);height:auto;aspect-ratio:4/3;max-height:150px}.up-chat-profile-hover{position:fixed;z-index:2147483647;display:none;width:148px;padding:10px;box-sizing:border-box;border:1px solid #52627b;border-radius:12px;background:#182130;box-shadow:0 14px 40px #000b;pointer-events:none;text-align:center}.up-chat-profile-hover.show{display:block}.up-chat-profile-hover img{display:block;width:96px;height:96px;margin:0 auto 7px;border-radius:50%;object-fit:cover;border:2px solid transparent;background:#273247}.up-chat-profile-hover img.up-chat-presence-idle{border-color:#62a7ff;box-shadow:0 0 8px rgba(83,155,255,.62)}.up-chat-profile-hover img.up-chat-presence-active{border-color:#55e58b;animation:upProfilePresencePulse 1.9s ease-in-out infinite}@keyframes upProfilePresencePulse{0%,100%{box-shadow:0 0 0 0 rgba(82,224,137,.12),0 0 7px rgba(82,224,137,.62)}50%{box-shadow:0 0 0 1px rgba(82,224,137,.28),0 0 10px rgba(82,224,137,.72)}}.up-chat-profile-hover-name{font-size:12px;font-weight:750;color:#e7edf7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.up-chat-profile-hover-role{font-size:10px;color:#9eabc0;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.up-chat-compose{position:relative;display:flex;align-items:center;gap:9px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}.up-chat-input-wrap{position:relative;display:flex;align-items:center;gap:6px;flex:1 1 auto;min-width:0;padding:5px 6px 5px 9px;border:1px solid #2b3a50;border-radius:15px;background:#111b2a;box-shadow:0 3px 12px rgba(0,0,0,.08)}.up-chat-input-wrap>.up-chat-attach{flex:0 0 28px;width:28px;height:30px;border:0;border-radius:8px;background:transparent;color:#9aabc3;padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}.up-chat-input-wrap>.up-chat-attach:hover{background:#26364d;color:#eaf2ff}.up-chat-input-wrap>.up-chat-record{flex:0 0 30px;width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:#9aabc3;padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:none}.up-chat-input-wrap>.up-chat-record:hover{background:#26364d;color:#eaf2ff;transform:none;box-shadow:none}.up-chat-input-wrap>.up-chat-record.recording{background:#c91e3b;color:#fff;box-shadow:0 0 0 3px #ff334f22}.up-chat-input-wrap>.up-chat-record svg{width:18px;height:18px}.up-chat-compose .up-chat-input{display:block;flex:1 1 auto;width:100%;min-width:0;height:34px;max-height:100px;box-sizing:border-box;padding:7px 2px;border:0;outline:0;resize:none;background:transparent;color:#edf4ff;font:14px Segoe UI,Arial,sans-serif}.up-chat-compose .up-chat-input::placeholder{color:#8493aa}.up-chat-tools{display:flex;align-items:center;gap:0;flex:0 0 auto;margin-top:0}.up-chat-send{position:static;flex:0 0 34px;width:34px;height:34px;margin:0;border:0;border-radius:50%;padding:0;background:linear-gradient(145deg,#368bff,#1760ed);color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 9px #1478ff44;transition:transform .16s,filter .16s}.up-chat-send:hover{filter:brightness(1.12);transform:translateY(-1px)}.up-chat-send .up-icon{width:16px;height:16px}.up-chat-input-wrap .up-chat-emoji-btn{flex:0 0 28px;width:28px;height:30px;border:0;border-radius:9px;background:transparent;color:#9aabc3;padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}.up-chat-input-wrap .up-chat-emoji-btn:hover{background:#26364d;color:#eaf2ff}.up-chat-input-wrap .up-chat-emoji-btn .up-icon{width:18px;height:18px}.up-chat-compose>.up-chat-attach{flex:0 0 42px;width:42px;height:42px;border:1px solid #33445f;border-radius:50%;background:#202e43;color:#cbd8ec;padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}.up-chat-compose>.up-chat-attach:hover{background:#2d4260;color:#fff}.up-chat-tools .up-chat-record{width:42px;height:42px;flex:0 0 42px;border:1px solid #465266;border-radius:50%;background:#273247;color:#9aa7ba;box-shadow:none;transition:transform .18s,box-shadow .18s,background .18s,color .18s}.up-chat-tools .up-chat-record:hover{background:#1e4f91;border-color:#3989ff;color:#dcecff;transform:translateY(-1px);box-shadow:0 0 0 3px #1683ff20}.up-chat-tools .up-chat-record.recording{background:linear-gradient(145deg,#ff5369,#c91e3b);border-color:#ff8292;color:#fff;box-shadow:0 0 0 4px #ff334f22,0 3px 14px #ff334f55}.up-chat-tools .up-chat-record svg{width:21px;height:21px}.up-chat-tools .up-chat-record:disabled{opacity:.55;cursor:wait}@media(max-width:440px){.up-chat-compose{gap:6px;padding:0}.up-chat-compose>.up-chat-attach{flex-basis:36px;width:36px;height:36px}.up-chat-tools .up-chat-record{flex-basis:36px;width:36px;height:36px}.up-chat-input-wrap{gap:5px;padding-left:5px}}.up-mention-menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:20;display:flex;flex-wrap:wrap;gap:6px;width:100%;padding:7px;box-sizing:border-box;background:#182130;border:1px solid #3a475b;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.32)}.up-mention-menu.hidden{display:none}.up-mention-option{flex:0 0 auto;border:1px solid #344158;background:#243149;color:#dbe5f5;border-radius:8px;padding:6px 9px;cursor:pointer;font:12px Segoe UI,Arial,sans-serif}.up-mention-option:hover{background:#30405b;border-color:#4f7dff}.up-mention-option.up-mention-all{background:#3b315f;border-color:#8065c7;color:#fff}.up-chat-tools{display:flex;gap:6px;flex:0 0 auto;position:static}.up-chat-scroll-latest{position:absolute;right:14px;bottom:58px;width:32px;height:32px;border:1px solid #3d8bff;border-radius:50%;background:#2468d8;color:#fff;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 4px 14px #0005;opacity:0;transform:translateY(5px) scale(.92);pointer-events:none;transition:opacity .18s ease,transform .18s ease;z-index:5}.up-chat-scroll-latest.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}.up-chat-scroll-latest.has-new-message:after{content:"";position:absolute;right:-3px;top:-3px;width:9px;height:9px;border-radius:50%;background:#ff405c;border:2px solid #19212e;box-shadow:0 0 0 0 rgba(255,64,92,.7);animation:upChatNewDotPulse 1s infinite}@keyframes upChatNewDotPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,64,92,.65);transform:scale(1)}50%{box-shadow:0 0 0 4px rgba(255,64,92,0);transform:scale(.86)}}.up-chat-scroll-latest:hover{background:#3984f4}.up-chat-scroll-latest svg{width:17px;height:17px}.up-chat-emoji-btn{width:38px;height:42px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;padding:0;border:1px solid #3a475b;border-radius:8px;background:#273247;color:#dbe5f5;cursor:pointer}.up-chat-emoji-btn .up-icon{width:17px;height:17px}.up-chat-emoji-btn:hover{background:#35425a}.up-chat-attach{width:38px;height:42px;padding:0;border:1px solid #3a475b;border-radius:8px;background:#273247;color:#dbe5f5;cursor:pointer;font-size:17px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}.up-chat-attach:hover{background:#35425a}.up-chat-clear,.up-chat-back,.up-chat-library{width:34px;height:34px;min-width:34px;padding:0;border:0;border-radius:8px;background:#273247;color:#c6d1e1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;font:700 12px Segoe UI,Arial,sans-serif}.up-chat-clear{background:#3a2730;color:#ff9aaa}.up-chat-clear .up-icon,.up-chat-library .up-icon{width:16px;height:16px}.up-chat-clear:hover{background:#552d3a}.up-chat-back:hover,.up-chat-library:hover{background:#35425a}.up-chat-uploading{display:flex;align-items:center;gap:8px;padding:12px 14px;color:#c8d5e8;font-size:12px;min-width:150px}.up-chat-upload-spinner{width:14px;height:14px;border:2px solid #52627b;border-top-color:#8db4ff;border-radius:50%;animation:upChatUploadSpin .7s linear infinite;flex:none}@keyframes upChatUploadSpin{to{transform:rotate(360deg)}}.up-chat-library-modal{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;z-index:2147483647!important;background:rgba(4,8,14,.78);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:clamp(6px,2vw,20px);box-sizing:border-box;overflow:auto;margin:0!important;}.up-chat-library-panel{position:relative;width:min(760px,calc(100vw - 16px));height:min(760px,calc(100vh - 16px));height:min(760px,calc(100dvh - 16px));max-height:calc(100dvh - 16px);display:flex;flex-direction:column;background:#19212e;border:1px solid #354258;border-radius:14px;box-shadow:0 20px 60px #000b;overflow:hidden;min-height:0}.up-chat-library-head{position:relative;z-index:2;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 54px 10px 12px;border-bottom:1px solid #303d51;background:#19212e;min-height:52px;box-sizing:border-box}.up-chat-library-title{font-size:14px;font-weight:800;color:#edf2fb}.up-chat-library-close{position:absolute!important;right:8px!important;top:8px!important;z-index:2147483647!important;width:34px;height:34px;min-width:34px;flex:none;border:1px solid #52627b;border-radius:10px;background:#273247;color:#fff;cursor:pointer;font-size:20px;line-height:1;box-shadow:0 2px 8px #0005;display:flex;align-items:center;justify-content:center;pointer-events:auto;transition:background .15s,border-color .15s,transform .15s}.up-chat-library-close:hover{background:#3b4b64;border-color:#7c91b2;transform:scale(1.04)}.up-chat-library-viewing-image .up-chat-library-close{visibility:hidden!important;pointer-events:none!important}.up-chat-library-close:focus-visible{outline:2px solid #80aaff;outline-offset:2px}.up-chat-library-section-title{padding:12px 12px 4px;font-size:12px;font-weight:800;color:#a9c4ff;border-top:1px solid #354258}.up-chat-library-documents{display:flex;flex:1 1 0;flex-direction:column;gap:6px;padding:8px 10px;min-height:0;max-height:none;overflow:auto;overscroll-behavior:contain}.up-chat-library-document{display:block;width:100%;min-width:0;padding:9px 10px;border:1px solid #354258;border-radius:8px;background:#182130;color:#dbe5f5;text-align:left;font:600 11px Segoe UI,Arial,sans-serif;overflow-wrap:anywhere;cursor:pointer}.up-chat-library-document:hover{border-color:#6b92ff;background:#202b3d}.up-chat-library-heading{display:flex;flex-direction:column;gap:3px;min-width:0}.up-chat-library-eyebrow{font-size:9px;letter-spacing:1.5px;font-weight:800;color:#8ba4c8}.up-chat-library-toolbar{flex:none;padding:12px 14px 0;background:#19212e}.up-chat-library-tabs{display:flex;gap:6px;padding:4px;background:#111a27;border:1px solid #303d51;border-radius:11px}.up-chat-library-tab{flex:1;min-width:0;padding:10px 12px;border:0;border-radius:8px;background:transparent;color:#9eabc0;font:700 12px Segoe UI,Arial,sans-serif;cursor:pointer}.up-chat-library-tab.active{background:#2b5cc0;color:#fff;box-shadow:0 2px 8px #0003}.up-chat-library-content{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}.up-chat-library-filters{display:flex;gap:8px;padding:12px 14px 4px;flex:none}.up-chat-library-search{flex:1;min-width:0;height:36px;padding:0 11px;border:1px solid #35465f;border-radius:9px;background:#111a27;color:#edf2fb;font:12px Segoe UI,Arial,sans-serif;outline:none;box-sizing:border-box}.up-chat-library-search:focus{border-color:#5c8fff;box-shadow:0 0 0 2px #3b82f633}.up-chat-library-filter{max-width:120px;height:36px;padding:0 8px;border:1px solid #35465f;border-radius:9px;background:#111a27;color:#dbe5f5;font:11px Segoe UI,Arial,sans-serif}.up-chat-library-documents{display:flex;flex:1 1 0;flex-direction:column;gap:8px;padding:8px 14px 16px;overflow:auto;overscroll-behavior:contain;min-height:0;max-height:none}.up-chat-library-document-card{display:flex;align-items:center;gap:12px;min-width:0;padding:12px;border:1px solid #354258;border-radius:11px;background:#111a27;color:#dbe5f5;box-sizing:border-box}.up-chat-library-doc-blue{border-color:#2d66ae;background:linear-gradient(110deg,#173355,#111a27 72%)}.up-chat-library-doc-red{border-color:#a83f50;background:linear-gradient(110deg,#48212c,#111a27 72%)}.up-chat-library-doc-green{border-color:#237653;background:linear-gradient(110deg,#143b30,#111a27 72%)}.up-chat-library-doc-icon{display:flex;align-items:center;justify-content:center;width:42px;height:46px;flex:none;border-radius:9px;background:#25344a;color:#93c5fd;font-size:11px;font-weight:900;letter-spacing:-.4px}.up-chat-library-doc-icon span{display:inline-flex;align-items:center;justify-content:center;min-width:30px;min-height:22px;padding:0 3px;border:1.5px solid currentColor;border-radius:4px;box-sizing:border-box;font-size:9px;letter-spacing:-.3px}.up-chat-library-doc-red .up-chat-library-doc-icon{background:#512833;color:#fb7185}.up-chat-library-doc-green .up-chat-library-doc-icon{background:#174837;color:#4ade80}.up-chat-library-doc-info{flex:1;min-width:0}.up-chat-library-doc-name{font-size:12px;font-weight:750;line-height:1.4;overflow-wrap:anywhere;color:#edf2fb}.up-chat-library-doc-meta{margin-top:4px;font-size:10px;color:#9eabc0}.up-chat-library-download{flex:none;border:1px solid #425674;border-radius:8px;padding:8px 10px;background:#263750;color:#dbeafe;font:700 10px Segoe UI,Arial,sans-serif;cursor:pointer}.up-chat-library-download:hover{background:#34517a}.up-chat-library-modal.up-theme-light .up-chat-library-toolbar,.up-chat-library-modal.up-theme-light .up-chat-library-head{background:#f7f9fc}.up-chat-library-modal.up-theme-light .up-chat-library-tabs{background:#e8edf5;border-color:#d4dce8}.up-chat-library-modal.up-theme-light .up-chat-library-tab{color:#52627b}.up-chat-library-modal.up-theme-light .up-chat-library-tab.active{background:#2859ad;color:#fff}.up-chat-library-modal.up-theme-light .up-chat-library-search,.up-chat-library-modal.up-theme-light .up-chat-library-filter{background:#fff;color:#1b2637;border-color:#ccd6e4}.up-chat-library-modal.up-theme-light .up-chat-library-document-card{color:#1b2637;box-shadow:0 3px 10px rgba(20,35,55,.07)}.up-chat-library-modal.up-theme-light .up-chat-library-doc-name{color:#1b2637}.up-chat-library-modal.up-theme-light .up-chat-library-doc-icon{background:#cfe3ff;color:#245ec1}.up-chat-library-modal.up-theme-light .up-chat-library-doc-red .up-chat-library-doc-icon{background:#ffd7df;color:#c21e4a}.up-chat-library-modal.up-theme-light .up-chat-library-doc-green .up-chat-library-doc-icon{background:#c9f7df;color:#087a50}.up-chat-library-modal.up-theme-light .up-chat-library-download{background:#e3edff;color:#234f9f;border-color:#b6cdf4}.up-chat-library-modal.up-theme-light .up-chat-library-download:hover{background:#d2e2ff}.up-chat-library-modal.up-theme-light .up-chat-library-grid .up-chat-library-item{color:#1b2637;border-color:#d4dce8}.up-chat-library-modal.up-theme-light .up-chat-library-sender{color:#2859ad}.up-chat-library-modal.up-theme-light .up-chat-library-doc-meta{color:#68778d}.up-chat-library-modal.up-theme-light .up-chat-library-doc-blue{background:linear-gradient(115deg,#cfe3ff 0%,#e7f1ff 48%,#f8fbff 100%);border-color:#6fa5f3}.up-chat-library-modal.up-theme-light .up-chat-library-doc-red{background:linear-gradient(115deg,#ffd7df 0%,#ffe9ed 48%,#fff8f9 100%);border-color:#ee8297}.up-chat-library-modal.up-theme-light .up-chat-library-doc-green{background:linear-gradient(115deg,#c9f7df 0%,#e1faed 48%,#f5fff9 100%);border-color:#63c99a}@media(max-width:520px){.up-chat-library-panel{width:calc(100vw - 12px);height:calc(100dvh - 12px);max-height:calc(100dvh - 12px);border-radius:12px}.up-chat-library-head{padding:10px 52px 10px 12px}.up-chat-library-toolbar{padding:10px 10px 0}.up-chat-library-filters{padding:10px 10px 4px}.up-chat-library-documents{padding:8px 10px 12px}.up-chat-library-document-card{gap:8px;padding:9px}.up-chat-library-doc-icon{width:36px;height:40px}}.up-chat-library-grid{padding:10px;overflow:auto;overscroll-behavior:contain;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(150px,100%),1fr));align-content:start;gap:8px;min-height:0}.up-chat-library-item{min-width:0;border:1px solid #354258;border-radius:9px;background:#111722;padding:7px;color:#dbe5f5;display:flex;flex-direction:column;gap:5px;text-align:left;cursor:pointer}.up-chat-library-item:hover{border-color:#6b92ff;background:#202b3d}.up-chat-library-thumb{width:100%;height:clamp(64px,12vh,110px);object-fit:cover;border-radius:6px;background:#0b1018}.up-chat-library-meta{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0;width:100%}.up-chat-library-sender{font-size:10px;font-weight:700;color:#a9c4ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.up-chat-library-date{font-size:9px;color:#9eabc0;white-space:nowrap;flex:none}.up-chat-library-name{font-size:10px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#dbe5f5}.up-chat-library-empty{padding:24px;text-align:center;color:#9eabc0;font-size:12px}.up-chat-library-modal.up-theme-light{background:rgba(20,28,40,.42)}.up-chat-library-modal.up-theme-light .up-chat-library-panel{background:#f7f9fc;border-color:#d7dee9;box-shadow:0 20px 60px #0003}.up-chat-library-modal.up-theme-light .up-chat-library-head{background:#f7f9fc;border-color:#d7dee9}.up-chat-library-modal.up-theme-light .up-chat-library-title{color:#1b2430}.up-chat-library-modal.up-theme-light .up-chat-library-item{background:#fff;border-color:#d7dee9;color:#1b2430}.up-chat-library-modal.up-theme-light .up-chat-library-item:hover{background:#eef4ff;border-color:#83a9f7}.up-chat-library-modal.up-theme-light .up-chat-library-sender{color:#315ca8}.up-chat-library-modal.up-theme-light .up-chat-library-date,.up-chat-library-modal.up-theme-light .up-chat-library-name{color:#64748b}.up-chat-library-modal.up-theme-light .up-chat-library-close{background:#e8edf4;border-color:#cbd5e1;color:#334155;box-shadow:0 2px 8px #0002}.up-chat-library-modal.up-theme-light .up-chat-library-close:hover{background:#dce5f0;border-color:#9aabc2}.up-chat-library-modal.up-theme-light .up-chat-library-thumb{background:#e8edf4}.up-chat-library-modal.up-theme-light .up-chat-library-empty{color:#64748b}@media(max-width:480px){.up-chat-library-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:8px}.up-chat-library-thumb{height:clamp(58px,11vh,84px)}.up-chat-library-panel{border-radius:10px}}.up-chat-mention{color:#7fb1ff;font-weight:750}.up-chat-input{flex:1 1 auto;width:auto;min-width:0;min-height:42px;height:42px;max-height:90px;resize:vertical;padding:8px;border-radius:8px;border:1px solid #3a475b;background:#111722;color:#edf2fb;font:13px Segoe UI,Arial,sans-serif}.up-update{font-size:11px;color:#9caac0;margin-top:10px}.up-update button{margin-left:6px;border:0;background:#273247;color:#c6d1e1;border-radius:6px;padding:4px 7px;cursor:pointer}.up-update button:hover{background:#35425a}.up-update .up-update-now:disabled{opacity:.45;cursor:not-allowed;background:#202938;color:#7f8ca0}.up-update .up-update-now:disabled:hover{background:#202938}.up-history-list{overflow:auto;flex:1;min-height:0;margin-top:12px}.up-history-day{font-size:11px;font-weight:800;letter-spacing:.2px;color:#8fa0b8;margin:12px 0 7px;padding:0 2px}.up-history-item{padding:10px 11px;margin-bottom:6px;border:1px solid #2f3d52;border-radius:10px;background:linear-gradient(145deg,#1b2535,#161f2c);box-sizing:border-box}.up-history-meta{display:flex;gap:7px;align-items:center;flex-wrap:wrap;font-size:11px}.up-history-meta>b{font-size:12px;color:#e4ebf5}.up-history-meta>span:first-child{color:#7f8ea4;font-variant-numeric:tabular-nums}.up-history-reason{font-size:11px;color:#aebbd0;margin-top:5px;padding-left:1px}.up-history-status{display:inline-flex;align-items:center;gap:5px;font-weight:750}.up-history-status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:currentColor;box-shadow:0 0 7px currentColor}.up-history-status.online{color:#67dda0}.up-history-status.busy{color:#ff7180}.up-history-status.away{color:#b9c4d5}.up-history-empty{font-size:12px;color:#9aa8bc;padding:14px 0}'+
     '.up-login label{display:block;margin:12px 0 5px;font-weight:650}.up-login-fixed{padding:10px;border:1px solid #3a475b;border-radius:8px;background:#111722;color:#edf2fb;font-size:13px}.up-login button{width:100%;margin-top:15px;border:0;border-radius:8px;padding:10px;background:#4f7dff;color:#fff;font-weight:700;cursor:pointer}'+
     '.up-remote-overlay{position:fixed!important;inset:0!important;width:100vw;height:100vh;z-index:2147483646;background:rgba(5,9,16,.64);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;border-radius:0;overflow:auto}'+
     '.up-remote-dialog{width:min(360px,calc(100vw - 40px));max-height:calc(100vh - 40px);overflow:auto}'+
@@ -522,7 +538,7 @@
     '#upstatus-root.up-theme-light .up-mention-option.up-mention-all{background:#ede9fe;border-color:#a78bfa;color:#4c1d95}'+
     '#upstatus-root.up-theme-light .up-chat-mention{color:#2563eb;background:#dbeafe;border-radius:4px;padding:0 2px}'+
     '#upstatus-root.up-theme-light .up-status-icon.online{color:#168a4d}#upstatus-root.up-theme-light .up-status-icon.busy{color:#c52f48}#upstatus-root.up-theme-light .up-status-icon.away{color:#475569}#upstatus-root.up-theme-light .up-statuses-title{color:#64748b}#upstatus-root.up-theme-light .up-status.online{background:#d9f3e4;color:#168a4d}#upstatus-root.up-theme-light .up-status.busy{background:#f6dce1;color:#b4233d}#upstatus-root.up-theme-light .up-status.away{background:#e4e8ee;color:#475569}'+
-    '#upstatus-root.up-theme-light .up-login label,#upstatus-root.up-theme-light .up-label,#upstatus-root.up-theme-light .up-team-title{color:#172033}'+
+    '#upstatus-root.up-theme-light .up-voice-room{background:linear-gradient(135deg,#e3f0ff,#f3f7ff);border-color:#c5d6ed;box-shadow:0 5px 15px rgba(38,68,112,.10)}#upstatus-root.up-theme-light .up-voice-title{color:#172033}#upstatus-root.up-theme-light .up-voice-state,#upstatus-root.up-theme-light .up-voice-message,#upstatus-root.up-theme-light .up-voice-empty{color:#52647c}#upstatus-root.up-theme-light .up-voice-person{background:#fff;border-color:#c9d8ea;color:#233047}#upstatus-root.up-theme-light .up-voice-actions button{background:#dbe6f4;color:#233047}#upstatus-root.up-theme-light .up-voice-actions .up-voice-join{background:#18794e;color:#fff}#upstatus-root.up-theme-light .up-login label,#upstatus-root.up-theme-light .up-label,#upstatus-root.up-theme-light .up-team-title{color:#172033}'+
     '#upstatus-root.up-theme-light .up-login input:-webkit-autofill,#upstatus-root.up-theme-light .up-login input:-webkit-autofill:hover,#upstatus-root.up-theme-light .up-login input:-webkit-autofill:focus{-webkit-text-fill-color:#1e293b;-webkit-box-shadow:0 0 0 1000px #fff inset;box-shadow:0 0 0 1000px #fff inset;border-color:#cbd5e1}'+
     '#upstatus-root.up-theme-light .up-login input:-moz-autofill{box-shadow:0 0 0 1000px #fff inset;color:#1e293b}'+
     '#upstatus-root.up-theme-light .up-reason-option:hover,#upstatus-root.up-theme-light .up-mention-option:hover{background:#eef2f7}'+
@@ -570,7 +586,7 @@
     '.up-head-identity{display:flex;align-items:center;gap:10px;min-width:0}.up-head-identity>div:last-child{min-width:0}.up-you{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;top:-2px}.up-head-avatar{width:34px;height:34px;border-radius:50%;padding:2px;box-sizing:border-box;background:#273247;border:1px solid #3b4a62;flex:0 0 34px}.up-head-avatar-btn{cursor:pointer}.up-head-avatar-img{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover}'+
     '.up-statuses{gap:8px;margin:10px 0 8px}.up-status{flex:1;min-width:0;border:1px solid transparent;border-radius:10px;padding:10px 9px;display:flex;align-items:center;justify-content:center;gap:6px;transition:transform .15s,border-color .15s,box-shadow .15s,background .15s}.up-status:hover{transform:translateY(-1px)}.up-status.active{transform:translateY(-1px);box-shadow:0 0 0 1px currentColor inset,0 6px 18px rgba(0,0,0,.12)}.up-status.active.online{box-shadow:0 0 0 1px #55e58b inset,0 0 16px rgba(85,229,139,.16)}.up-status.active.busy{box-shadow:0 0 0 1px #ff6b7a inset,0 0 16px rgba(255,107,122,.13)}.up-status.active.away{box-shadow:0 0 0 1px #8090a8 inset,0 0 16px rgba(128,144,168,.12)}'+
     '.up-notice{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:10px 11px;border:1px solid #236b49;border-radius:10px;background:linear-gradient(90deg,#143b2b,#174732);color:#a9edc5}.up-notice .up-icon{width:15px;height:15px}.up-notice-ok{margin-left:auto;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#35c77a;color:#0e2b1e;font-weight:900;font-size:12px}'+
-    '.up-team-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 0 8px}.up-team-title{margin:0}.up-team-count{font-size:10px;color:#6f819b;font-weight:700}.up-team{display:flex;flex-direction:column;gap:7px}.up-member{display:flex;align-items:center;gap:9px;padding:9px 9px;margin:0;border:1px solid #2d3a4e;border-radius:12px;background:linear-gradient(145deg,#182332,#141d29);box-shadow:0 5px 16px rgba(0,0,0,.12);transition:border-color .15s,transform .15s,background .15s}.up-member:hover{transform:translateY(-1px);border-color:#40536e;background:#1b2636}.up-member-main{display:flex;align-items:center;gap:9px;min-width:0;flex:1}.up-member-avatar{width:38px;height:38px;flex:0 0 38px;border-radius:50%;object-fit:cover;background:#273247;border:2px solid #59677c;box-sizing:border-box;transition:border-color .18s,box-shadow .18s}.up-member-avatar.presence-active{border-color:#62a7ff;box-shadow:0 0 8px rgba(83,155,255,.58)}.up-member-avatar.presence-chat{border-color:#55e58b;box-shadow:0 0 8px rgba(85,229,139,.42)}.up-member-avatar.presence-offline{border-color:#59677c;box-shadow:none}.up-member-info{min-width:0;flex:1}.up-member-sub{font-size:10.5px;color:#8d9bb0;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.up-member-separator{color:#52627a}.up-member-actions{display:flex;align-items:center;gap:5px;flex:0 0 auto}.up-member-actions .up-member-barui,.up-member-actions .up-member-power{width:30px;height:30px}.up-badge{min-width:52px;text-align:center}.up-member-version{background:#223047;border-color:#3a4b63}.up-update{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding:10px 10px;border:1px solid #2c3b52;border-radius:12px;background:linear-gradient(145deg,#151f2e,#121a26);box-sizing:border-box}.up-update-version{display:flex;align-items:center;gap:8px;min-width:0}.up-update-version>.up-icon{width:22px;height:22px;color:#7aa7ff;padding:5px;border-radius:50%;box-sizing:content-box;background:#20304a}.up-update-version b{display:block;font-size:11px;color:#dbe5f5}.up-update-status{display:block;font-size:10px;color:#7f8ea4;margin-top:2px}.up-update-actions{display:flex;align-items:center;gap:5px;flex:0 0 auto}.up-update button{margin:0;padding:6px 8px;border:1px solid #33445c;border-radius:7px;background:#1e2b3f;color:#cbd7e7}.up-update .up-update-check{border-color:#4165a0;color:#a9c7ff}.up-update .up-update-now{background:#4f7dff;border-color:#4f7dff;color:#fff}.up-update .up-update-now:disabled{background:#1b2534;border-color:#2a374a;color:#69788d}'+
+    '.up-voice-room{position:relative;margin:12px 0 14px;padding:10px 12px;border:1px solid #34445d;border-radius:13px;background:linear-gradient(135deg,#1c2b3e,#141d2a);cursor:pointer}.up-voice-room.is-empty{padding:7px 10px;margin:7px 0 9px;min-height:0}.up-voice-room.is-empty .up-voice-participants,.up-voice-room.is-empty .up-voice-message{display:none}.up-voice-room.is-empty .up-voice-head{gap:8px}.up-voice-room.is-empty .up-voice-state{margin-left:auto}.up-voice-room.is-joined{cursor:default}.up-voice-title .up-icon{width:14px;height:14px;vertical-align:middle}.up-voice-actions{position:absolute;right:10px;top:8px;margin:0}.up-voice-room.is-empty .up-voice-actions{display:none}.up-voice-room.is-joined .up-voice-participants{padding-right:82px}.up-voice-head{display:flex;align-items:center;gap:9px}.up-voice-title{font-weight:800;font-size:13px;color:#edf2fb}.up-voice-state{font-size:10px;color:#91a4bd;margin-top:3px}.up-voice-participants{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.up-voice-person{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #34445a;border-radius:999px;background:#1b2738;font-size:10px;color:#e4edf8}.up-voice-avatar{width:22px;height:22px;border-radius:50%;object-fit:cover;border:1px solid #526783}.up-voice-person.is-speaking{background:#183a65;border-color:#4f9bff;animation:upVoiceSpeaking .8s ease-in-out infinite}@keyframes upVoiceSpeaking{0%,100%{box-shadow:0 0 0 1px #3b82f633,0 0 6px #3b82f633}50%{box-shadow:0 0 0 3px #3b82f655,0 0 15px #3b82f688}}.up-voice-mic-muted{display:inline-flex;color:#ff596d}.up-voice-mic-muted .up-icon,.up-voice-actions .up-icon{width:15px;height:15px}.up-voice-empty{font-size:10px;color:#91a0b5}.up-voice-actions{display:flex;gap:7px;margin-top:10px}.up-voice-actions button{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:9px;padding:8px;background:#2b3d54;color:#e5edf8;cursor:pointer}.up-voice-actions .up-voice-join{width:auto;background:#247b54;color:#fff;font-size:11px;font-weight:750;padding:8px 12px}.up-voice-actions .up-voice-mute.is-muted{background:#8d2537}.up-voice-actions .up-voice-leave{background:#a92e43;color:#fff}.up-voice-actions button:disabled{opacity:.6}.up-voice-message{min-height:13px;margin-top:7px;font-size:10px;color:#9db0c9}.up-voice-actions .hidden{display:none!important}.up-team-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 0 8px}.up-team-title{margin:0}.up-team-count{font-size:10px;color:#6f819b;font-weight:700}.up-team{display:flex;flex-direction:column;gap:7px}.up-member{display:flex;align-items:center;gap:9px;padding:9px 9px;margin:0;border:1px solid #2d3a4e;border-radius:12px;background:linear-gradient(145deg,#182332,#141d29);box-shadow:0 5px 16px rgba(0,0,0,.12);transition:border-color .15s,transform .15s,background .15s}.up-member:hover{transform:translateY(-1px);border-color:#40536e;background:#1b2636}.up-member-main{display:flex;align-items:center;gap:9px;min-width:0;flex:1}.up-member-avatar-wrap{position:relative;display:inline-flex;flex:0 0 38px;width:38px;height:38px}.up-member-call-indicator{position:absolute;left:-5px;top:1px;width:19px;height:19px;border:2px solid #0f1724;border-radius:50%;background:#24c875;color:#fff;display:flex;align-items:center;justify-content:center;z-index:2;box-shadow:0 0 0 2px rgba(36,200,117,.15);padding:0;cursor:pointer;animation:upCallPhoneRock 1s ease-in-out infinite;transform-origin:50% 70%}.up-member-call-indicator svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.up-member-call-indicator:hover{background:#18a85e;transform:scale(1.08)}@keyframes upCallPhoneRock{0%,100%{transform:rotate(0)}20%{transform:rotate(-13deg)}40%{transform:rotate(10deg)}60%{transform:rotate(-8deg)}80%{transform:rotate(5deg)}}@media(prefers-reduced-motion:reduce){.up-member-call-indicator{animation:none}}.up-member-avatar{width:38px;height:38px;flex:0 0 38px;border-radius:50%;object-fit:cover;background:#273247;border:2px solid #59677c;box-sizing:border-box;transition:border-color .18s,box-shadow .18s}.up-member-avatar.presence-active{border-color:#62a7ff;box-shadow:0 0 8px rgba(83,155,255,.58)}.up-member-avatar.presence-chat{border-color:#55e58b;box-shadow:0 0 8px rgba(85,229,139,.42)}.up-member-avatar.presence-offline{border-color:#59677c;box-shadow:none}.up-member-info{min-width:0;flex:1}.up-member-sub{font-size:10.5px;color:#8d9bb0;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.up-member-separator{color:#52627a}.up-member-actions{display:flex;align-items:center;gap:5px;flex:0 0 auto}.up-member-actions .up-member-barui,.up-member-actions .up-member-power{width:30px;height:30px}.up-badge{min-width:52px;text-align:center}.up-member-version{background:#223047;border-color:#3a4b63}.up-member-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.up-update{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding:10px 10px;border:1px solid #2c3b52;border-radius:12px;background:linear-gradient(145deg,#151f2e,#121a26);box-sizing:border-box}.up-update-version{display:flex;align-items:center;gap:8px;min-width:0}.up-update-version>.up-icon{width:22px;height:22px;color:#7aa7ff;padding:5px;border-radius:50%;box-sizing:content-box;background:#20304a}.up-update-version b{display:block;font-size:11px;color:#dbe5f5}.up-update-status{display:block;font-size:10px;color:#7f8ea4;margin-top:2px}.up-update-actions{display:flex;align-items:center;gap:5px;flex:0 0 auto}.up-update button{margin:0;padding:6px 8px;border:1px solid #33445c;border-radius:7px;background:#1e2b3f;color:#cbd7e7}.up-update .up-update-check{border-color:#4165a0;color:#a9c7ff}.up-update .up-update-now{background:#4f7dff;border-color:#4f7dff;color:#fff}.up-update .up-update-now:disabled{background:#1b2534;border-color:#2a374a;color:#69788d}'+
     '#upstatus-root.up-theme-light #upstatus-card{background:linear-gradient(145deg,#ffffff 0%,#f5f8fc 100%);border-color:#d3dce8;box-shadow:0 20px 50px rgba(15,23,42,.15),inset 0 1px 0 rgba(255,255,255,.9)}'+
     '#upstatus-root.up-theme-light .up-head-avatar{background:#e8edf4;border-color:#d0d9e6}#upstatus-root.up-theme-light .up-team-count{color:#718096}'+
     '#upstatus-root.up-theme-light .up-status{box-shadow:none}.up-theme-light .up-status.active.online{box-shadow:0 0 0 1px #39bd76 inset,0 5px 14px rgba(16,185,129,.10)}.up-theme-light .up-status.active.busy{box-shadow:0 0 0 1px #e25568 inset,0 5px 14px rgba(225,29,72,.08)}.up-theme-light .up-status.active.away{box-shadow:0 0 0 1px #64748b inset,0 5px 14px rgba(100,116,139,.08)}'+
@@ -605,7 +621,11 @@
     '.up-patch-link{display:block;margin-top:3px;font-size:10px;color:#7f9dca;text-decoration:none;cursor:pointer;width:max-content}.up-patch-link:hover{text-decoration:underline;color:#a9c7ff}.up-patch-modal{position:fixed;inset:0;z-index:2147483647;background:rgba(4,8,14,.62);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}.up-patch-dialog{width:min(430px,calc(100vw - 40px));max-height:min(560px,calc(100vh - 40px));overflow:auto;box-sizing:border-box;border:1px solid #33445c;border-radius:16px;background:linear-gradient(145deg,#172131,#101722);color:#edf2fb;box-shadow:0 18px 55px rgba(0,0,0,.5);padding:18px}.up-patch-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.up-patch-title{font-size:15px;font-weight:800}.up-patch-close{border:0;background:#273247;color:#c6d1e1;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:16px}.up-patch-close:hover{background:#35425a}.up-patch-version{margin-top:14px;padding-top:13px;border-top:1px solid #29374b}.up-patch-version:first-of-type{margin-top:0;padding-top:0;border-top:0}.up-patch-version-title{font-size:12px;font-weight:800;color:#dbe5f5}.up-patch-list{margin:7px 0 0;padding-left:17px;color:#9eacc0;font-size:11px;line-height:1.55}.up-patch-list li{margin:2px 0}.up-theme-light .up-patch-link{color:#356fe8}.up-theme-light .up-patch-link:hover{color:#245fc4}.up-theme-light .up-patch-modal{background:rgba(15,23,42,.35)}.up-theme-light .up-patch-dialog{background:#fff;border-color:#d7dee9;color:#1e293b;box-shadow:0 18px 55px rgba(0,0,0,.2)}.up-theme-light .up-patch-close{background:#eef2f7;color:#334155}.up-theme-light .up-patch-close:hover{background:#e2e8f0}.up-theme-light .up-patch-version{border-color:#e2e8f0}.up-theme-light .up-patch-version-title{color:#1e293b}.up-theme-light .up-patch-list{color:#64748b}';
   style.textContent += '.up-chat-bubble{position:relative;padding-bottom:8px}.up-chat-own-meta{display:inline-flex;align-items:center;gap:2px;margin-left:6px;vertical-align:baseline;line-height:10px;font-size:10px;float:right;position:relative;top:2px}.up-chat-read{font-size:10px;line-height:10px;letter-spacing:-1px}.up-chat-reactions{clear:both}.up-chat-profile-hover-since{font-size:9px;color:#718096;margin-top:1px}.up-health-ping{font-variant-numeric:tabular-nums;font-weight:700;color:#8fa0b8}.up-health-ping.good{color:#75dba0}.up-health-ping.warn{color:#e7c56a}.up-health-ping.bad{color:#ff8499}.up-health-ping.pending{color:#7f8ea4}.up-health-member{display:flex;align-items:center;justify-content:space-between;gap:8px}.up-health-member .up-health-ping{margin-left:auto}';
   style.textContent += '.up-chat-list{padding-bottom:4px!important;scroll-padding-bottom:4px!important}.up-chat-compose{padding-top:2px!important}';
+  style.textContent += '.up-voice-actions{align-items:center}.up-voice-actions .up-voice-mute,.up-voice-actions .up-voice-leave{display:inline-flex;align-items:center;justify-content:center;line-height:0;padding:0}.up-voice-actions .up-icon{display:block;width:17px;height:17px;flex:0 0 17px;margin:0}.up-voice-actions .up-voice-leave .up-icon{width:17px;height:17px;transform:none}.up-member-status-button{font-family:inherit;font-size:11px;font-weight:800;line-height:1.15;padding:5px 9px;border:1px solid rgba(255,255,255,.06);border-radius:999px;min-width:64px;text-align:center;box-shadow:inset 0 1px rgba(255,255,255,.035);cursor:pointer}.up-member-status-button.b-online{background:#173f2b;color:#7be1a7;border-color:#245c40}.up-member-status-button.b-busy{background:#4d1b25;color:#ff6b7a;border-color:#7b2c3b}.up-member-status-button.b-away,.up-member-status-button.b-offline{background:#303949;color:#c7d0df;border-color:#3d4a60}.up-update-compact{min-height:0!important;padding:3px 7px!important;gap:5px!important;border-radius:8px!important}.up-update-compact .up-update-version>.up-icon{width:18px!important;height:18px!important;padding:3px!important}.up-update-compact .up-update-version{gap:5px!important}.up-update-compact .up-update-version b{font-size:9px!important}.up-update-compact .up-patch-link,.up-update-compact .up-update-status{font-size:8px!important;margin-top:0!important}.up-update-compact .up-update-actions{gap:4px!important}.up-update-compact .up-update-actions button{padding:3px 5px!important;font-size:8px!important;line-height:1.1!important}';
+  style.textContent += '.up-member-version{font-size:10px;font-weight:500;color:#8292a8;background:transparent;border:0;border-radius:0;padding:0;white-space:nowrap;flex:0 0 auto}.up-member-version:before{content:"·";margin-right:4px;color:#52627a}.up-member-top{align-items:baseline;gap:5px;flex-wrap:wrap}.up-member-top>b{min-width:0;overflow:visible;text-overflow:clip}.up-member-actions .up-badge{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;appearance:none;-webkit-appearance:none;font-family:inherit;font-size:11px;font-weight:800;line-height:1.15;padding:5px 9px;border:1px solid rgba(255,255,255,.06);border-radius:999px;min-width:64px;text-align:center}.up-member-actions .up-member-status-button{cursor:pointer}.up-notice{display:flex;align-items:center;gap:5px;margin:2px 0 6px;padding:0;border:0;border-radius:0;background:transparent;color:#8395ab;font-size:10px;opacity:.78;box-shadow:none}.up-notice .up-icon,.up-notice-ok{display:none!important}.up-voice-duration{font-size:10px;font-weight:500;color:#8ea4c0;font-variant-numeric:tabular-nums;white-space:nowrap}.up-voice-state{display:flex;align-items:center;gap:4px}.up-update{display:flex;align-items:center;justify-content:space-between;gap:5px;flex-wrap:wrap;margin-top:3px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;box-sizing:border-box;opacity:.58;transition:opacity .15s}.up-update:hover{opacity:.9}.up-update-version{display:flex;align-items:center;gap:4px;min-width:0}.up-update-version>.up-icon{display:none!important}.up-update-version b{display:inline;font-size:9px;font-weight:500;color:#8492a6}.up-update-version>div{display:flex;align-items:center;gap:4px;flex-wrap:wrap}.up-update-version .up-patch-link{font-size:9px;color:#7185a2}.up-update-status{display:inline;font-size:9px;color:#718096;margin:0}.up-update-actions{display:flex;align-items:center;gap:3px;flex:0 0 auto}.up-update button{margin:0;padding:2px 4px;border:0;border-radius:4px;background:transparent;color:#7185a2;font-size:9px;line-height:1.2;cursor:pointer}.up-update button:hover{background:rgba(125,150,185,.08);color:#a5b7d1}.up-update .up-update-check{border:0;color:#8098bb}.up-update .up-update-now{background:transparent;border:0;color:#7185a2}.up-update .up-update-now:disabled{background:transparent;border:0;color:#56657a;opacity:.45}.up-voice-actions .up-voice-leave .up-icon{width:17px;height:17px;display:block;flex:0 0 17px;margin:0;transform:none}';
+  style.textContent += '.up-team-status-menu{position:absolute;right:0;bottom:calc(100% + 7px);z-index:100;display:flex;flex-direction:column;gap:4px;min-width:106px;padding:6px;border:1px solid #3a4c65;border-radius:10px;background:#172233;box-shadow:0 12px 28px #0008}.up-team-status-menu>button,.up-team-reason button{display:flex;align-items:center;gap:6px;border:1px solid transparent;border-radius:7px;background:#26354a;color:#e6edf7;padding:6px 8px;font:800 10px/1.2 inherit;text-align:left;cursor:pointer;white-space:nowrap}.up-team-status-menu>button.active{border-color:#4f7dff;background:#24427a}.up-team-reason{display:flex;flex-direction:column;gap:4px;margin-top:5px;padding-top:5px;border-top:1px solid #3b4b61}.up-team-reason-title{font-size:9px;color:#aab9ce;font-weight:800;padding:3px}.up-team-reason .up-icon{width:12px;height:12px;flex:none}.up-team-status-wait{font-size:10px;color:#aebdd2;padding:4px 6px}';
   style.textContent += '.up-quick-chat-bubble{left:-7px;top:-7px;width:24px;height:24px;min-width:24px;min-height:24px;border:2px solid #19212e;background:#16a36a;color:#fff;overflow:hidden;transition:background .2s,border-color .2s,transform .2s,box-shadow .2s}.up-quick-chat-bubble .up-quick-chat-content{display:flex;align-items:center;justify-content:center;width:100%;height:100%;line-height:1;animation:none}.up-quick-chat-bubble .up-quick-chat-icon{display:block;width:15px;height:15px}.up-chat-title-wrap .up-chat-btn .up-quick-chat-icon{width:18px!important;height:18px!important;min-width:18px;min-height:18px;transform:none;overflow:visible}.up-chat-title-wrap .up-chat-btn{--up-chat-icon-cutout:#273247}#upstatus-root.up-theme-light .up-chat-title-wrap .up-chat-btn{--up-chat-icon-cutout:#e8edf4}.up-quick-chat-bubble .up-quick-chat-count{font:800 11px/1 Segoe UI,Arial,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.3px}.up-quick-chat-bubble.has-unread{background:#e11d48;border-color:#fb7185;animation:upQuickChatAlert 3.2s ease-in-out infinite}.up-quick-chat-bubble.has-unread:hover{background:#be123c;border-color:#fecdd3}.up-quick-chat-bubble.content-transition .up-quick-chat-content{animation:none}@keyframes upQuickChatSwap{0%{opacity:0;transform:scale(.55) rotate(-12deg)}100%{opacity:1;transform:scale(1) rotate(0)}}@keyframes upQuickChatAlert{0%,78%,100%{transform:translateX(0) scale(1);box-shadow:0 4px 10px #0008,0 0 0 0 #ff334f44}82%{transform:translateX(-2px) scale(1.04)}86%{transform:translateX(2px) scale(1.04);box-shadow:0 4px 10px #0008,0 0 0 4px #ff334f22}90%{transform:translateX(-1px) scale(1)}94%{transform:translateX(1px) scale(1)}}.up-quick-chat-bubble.lucca-active{animation:upQuickChatAlert 1s ease-in-out infinite}.up-quick-chat-bubble.lucca-active .up-quick-chat-count{color:#fff}@media(prefers-reduced-motion:reduce){.up-quick-chat-bubble,.up-quick-chat-bubble .up-quick-chat-content{animation:none!important;transition:none!important}}';
+  style.textContent += '.up-message:empty{display:none!important;min-height:0!important;margin:0!important;padding:0!important}.up-notice{margin-bottom:1px!important}.up-voice-room{margin-top:1px!important;margin-bottom:8px!important}.up-member-top{justify-content:flex-start!important;gap:5px!important;flex-wrap:wrap!important}.up-member-top>b{flex:0 1 auto!important;width:auto!important;min-width:0!important;max-width:100%!important}.up-member-version{flex:0 0 auto!important;margin-left:0!important}.up-voice-actions .up-voice-leave{align-items:center!important;justify-content:center!important;line-height:0!important;padding:0!important}.up-voice-actions .up-voice-leave .up-icon{width:17px!important;height:17px!important;display:block!important;flex:0 0 17px!important;margin:0!important;transform:none!important}';
   var root=node('div',{id:'upstatus-root'});
   var bubble=node('button',{id:'upstatus-bubble',title:'Abrir UpStatus'});
   var quickChatBubble=node('button',{className:'up-quick-chat-bubble',title:'Abrir Chat da equipe',type:'button','aria-label':'Abrir Chat da equipe'});
@@ -805,7 +825,7 @@
     var existing=root.querySelector('.up-patch-modal');
     if(existing)existing.remove();
     var modal=node('div',{className:'up-patch-modal'});
-    modal.innerHTML='<div class="up-patch-dialog" role="dialog" aria-modal="true" aria-label="O que há de novo?"><div class="up-patch-head"><div class="up-patch-title">O que há de novo?</div><button type="button" class="up-patch-close" aria-label="Fechar">×</button></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.48</div><ul class="up-patch-list"><li>Personalização da tela vazia do Sale Smartly com imagem JPEG ou GIF local, preservando animação e transparência.</li><li>Chat mais confiável: carregamento e sincronização do histórico, rolagem, novas mensagens, notificações e recuperação do atalho flutuante.</li><li>Melhorias nos menus de emoji, nas imagens ampliadas e na experiência de mensagens de áudio.</li><li>Biblioteca de mídias com tamanho dos arquivos, remetente e data de envio, layout responsivo e suporte aos temas claro e escuro.</li><li>Fotos e vídeos da biblioteca abrem em visualização centralizada; ao fechar a mídia, a biblioteca continua aberta. Esc e clique fora fecham apenas a mídia.</li><li>Botão de fechar da biblioteca sempre acessível e ícone do bate-papo redesenhado para combinar com os demais controles.</li><li>Corrigidos problemas de inicialização do userscript e preservados os recursos existentes de chat, chamadas e sessão de atendimento.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.26</div><ul class="up-patch-list"><li>Corrigida a compatibilidade dos áudios gravados no Firefox com a reprodução no Chrome.</li><li>O gravador agora prioriza Ogg/Opus quando disponível e mantém WebM/Opus como fallback.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.25</div><ul class="up-patch-list"><li>Corrigido o clique direito nas mensagens do chat, restaurando as opções de responder, reagir e excluir a própria mensagem.</li><li>Corrigida a captura do menu de contexto para impedir que o menu nativo do navegador seja aberto sobre as mensagens do UpStatus.</li><li>Emojis do chat corrigidos para manter a renderização correta mesmo em ambientes com problemas de codificação.</li><li>Botão de gravação de áudio restaurado com o ícone 🎙️.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.24</div><ul class="up-patch-list"><li>Correções de renderização dos emojis do chat.</li><li>Restaurado o ícone do botão de gravação de áudio.</li><li>Melhorias leves no menu de contexto do chat.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.21</div><ul class="up-patch-list"><li>Atualizados os toques padrão de chamada e renovado o cache do áudio antigo para garantir que todos os usuários recebam a nova versão.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.19</div><ul class="up-patch-list"><li>Corrigido o ringtone órfão em chamadas recebidas, incluindo instâncias duplicadas do userscript e carregamentos assíncronos pendentes.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.18</div><ul class="up-patch-list"><li>Corrigido o toque de chamada no usuário que recebe a ligação: o ringtone agora é encerrado de forma determinística ao atender.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.17</div><ul class="up-patch-list"><li>Chat mais fluido ao enviar mensagens, com redução do flicker causado por redesenhos completos.</li><li>Mensagens enviadas agora são reconciliadas com o servidor sem reconstruir o chat inteiro quando não é necessário.</li><li>Corrigido o envio duplicado ao manter a tecla Enter pressionada.</li><li>Corrigido o reaparecimento do texto na caixa de mensagem após um envio já aceito pelo servidor.</li><li>Permite enviar mensagens consecutivas sem bloquear o envio enquanto a anterior é processada.</li><li>Melhorada a estabilidade do chat, incluindo preservação da posição de leitura e comportamento do scroll durante novas mensagens.</li><li>O chat agora evita acumular listeners de menu de contexto e seletor de emojis ao ser reaberto.</li><li>Chamadas de áudio consolidadas com WebRTC e Supabase Realtime para sinalização entre os usuários.</li><li>Mini-player de chamadas com mute, cronômetro, estados de conexão, controles de áudio e encerramento da ligação.</li><li>Melhorias no áudio e nos toques de chamada, com distribuição automática dos toques padrão e preservação de toques personalizados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.16</div><ul class="up-patch-list"><li>Toques padrão de chamada agora são distribuídos automaticamente pelo GitHub.</li><li>Toques são armazenados localmente e personalizados continuam preservados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.15</div><ul class="up-patch-list"><li>Corrigido o redesenho excessivo do chat que causava flicker.</li><li>Melhorado o controle de mensagens não lidas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.14</div><ul class="up-patch-list"><li>Adicionado o sistema de chamadas WebRTC com áudio.</li><li>Adicionado mini-player de chamadas, mute, timer e controles de ligação.</li><li>Melhorado o áudio e os toques de chamada.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.8</div><ul class="up-patch-list"><li>Notificações do chat agora respeitam o estado do chat e da aba.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.7</div><ul class="up-patch-list"><li>Corrigido o botão "← Voltar" do chat.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.6</div><ul class="up-patch-list"><li>Adicionado o Patch Notes do UpStatus.</li><li>Novidades das versões reunidas em um só lugar.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.5</div><ul class="up-patch-list"><li>Chat corrigido e mais estável.</li><li>Correção de mensagens duplicadas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.4</div><ul class="up-patch-list"><li>Correção da identificação do autor das mensagens.</li><li>Melhorias na sincronização do chat.</li></ul></div></div>';
+    modal.innerHTML='<div class="up-patch-dialog" role="dialog" aria-modal="true" aria-label="O que há de novo?"><div class="up-patch-head"><div class="up-patch-title">O que há de novo?</div><button type="button" class="up-patch-close" aria-label="Fechar">×</button></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.52-beta1</div><ul class="up-patch-list"><li>Home simplificada, sem controles individuais de telefone e power nos cartões.</li><li>Controle de status com feedback visual e fluxo de confirmação do Sale Smartly.</li><li>Painel permanente da sala de voz da equipe, com entrada manual, microfone e saída.</li><li>Áudio em grupo WebRTC mesh em teste.</li><li>Arquivos no chat e na Biblioteca agora têm degradês mais marcantes no modo claro, mantendo contraste e cores por tipo de arquivo.</li><li>Preservadas as cores intensas dos documentos no modo escuro e corrigidos detalhes visuais da Biblioteca.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.48</div><ul class="up-patch-list"><li>Personalização da tela vazia do Sale Smartly com imagem JPEG ou GIF local, preservando animação e transparência.</li><li>Chat mais confiável: carregamento e sincronização do histórico, rolagem, novas mensagens, notificações e recuperação do atalho flutuante.</li><li>Melhorias nos menus de emoji, nas imagens ampliadas e na experiência de mensagens de áudio.</li><li>Biblioteca de mídias com tamanho dos arquivos, remetente e data de envio, layout responsivo e suporte aos temas claro e escuro.</li><li>Fotos e vídeos da biblioteca abrem em visualização centralizada; ao fechar a mídia, a biblioteca continua aberta. Esc e clique fora fecham apenas a mídia.</li><li>Botão de fechar da biblioteca sempre acessível e ícone do bate-papo redesenhado para combinar com os demais controles.</li><li>Corrigidos problemas de inicialização do userscript e preservados os recursos existentes de chat, chamadas e sessão de atendimento.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.26</div><ul class="up-patch-list"><li>Corrigida a compatibilidade dos áudios gravados no Firefox com a reprodução no Chrome.</li><li>O gravador agora prioriza Ogg/Opus quando disponível e mantém WebM/Opus como fallback.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.25</div><ul class="up-patch-list"><li>Corrigido o clique direito nas mensagens do chat, restaurando as opções de responder, reagir e excluir a própria mensagem.</li><li>Corrigida a captura do menu de contexto para impedir que o menu nativo do navegador seja aberto sobre as mensagens do UpStatus.</li><li>Emojis do chat corrigidos para manter a renderização correta mesmo em ambientes com problemas de codificação.</li><li>Botão de gravação de áudio restaurado com o ícone 🎙️.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.24</div><ul class="up-patch-list"><li>Correções de renderização dos emojis do chat.</li><li>Restaurado o ícone do botão de gravação de áudio.</li><li>Melhorias leves no menu de contexto do chat.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.21</div><ul class="up-patch-list"><li>Atualizados os toques padrão de chamada e renovado o cache do áudio antigo para garantir que todos os usuários recebam a nova versão.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.19</div><ul class="up-patch-list"><li>Corrigido o ringtone órfão em chamadas recebidas, incluindo instâncias duplicadas do userscript e carregamentos assíncronos pendentes.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.18</div><ul class="up-patch-list"><li>Corrigido o toque de chamada no usuário que recebe a ligação: o ringtone agora é encerrado de forma determinística ao atender.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.17</div><ul class="up-patch-list"><li>Chat mais fluido ao enviar mensagens, com redução do flicker causado por redesenhos completos.</li><li>Mensagens enviadas agora são reconciliadas com o servidor sem reconstruir o chat inteiro quando não é necessário.</li><li>Corrigido o envio duplicado ao manter a tecla Enter pressionada.</li><li>Corrigido o reaparecimento do texto na caixa de mensagem após um envio já aceito pelo servidor.</li><li>Permite enviar mensagens consecutivas sem bloquear o envio enquanto a anterior é processada.</li><li>Melhorada a estabilidade do chat, incluindo preservação da posição de leitura e comportamento do scroll durante novas mensagens.</li><li>O chat agora evita acumular listeners de menu de contexto e seletor de emojis ao ser reaberto.</li><li>Chamadas de áudio consolidadas com WebRTC e Supabase Realtime para sinalização entre os usuários.</li><li>Mini-player de chamadas com mute, cronômetro, estados de conexão, controles de áudio e encerramento da ligação.</li><li>Melhorias no áudio e nos toques de chamada, com distribuição automática dos toques padrão e preservação de toques personalizados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.16</div><ul class="up-patch-list"><li>Toques padrão de chamada agora são distribuídos automaticamente pelo GitHub.</li><li>Toques são armazenados localmente e personalizados continuam preservados.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.15</div><ul class="up-patch-list"><li>Corrigido o redesenho excessivo do chat que causava flicker.</li><li>Melhorado o controle de mensagens não lidas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.14</div><ul class="up-patch-list"><li>Adicionado o sistema de chamadas WebRTC com áudio.</li><li>Adicionado mini-player de chamadas, mute, timer e controles de ligação.</li><li>Melhorado o áudio e os toques de chamada.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.8</div><ul class="up-patch-list"><li>Notificações do chat agora respeitam o estado do chat e da aba.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.7</div><ul class="up-patch-list"><li>Corrigido o botão "← Voltar" do chat.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.6</div><ul class="up-patch-list"><li>Adicionado o Patch Notes do UpStatus.</li><li>Novidades das versões reunidas em um só lugar.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.5</div><ul class="up-patch-list"><li>Chat corrigido e mais estável.</li><li>Correção de mensagens duplicadas.</li></ul></div><div class="up-patch-version"><div class="up-patch-version-title">v3.0.4</div><ul class="up-patch-list"><li>Correção da identificação do autor das mensagens.</li><li>Melhorias na sincronização do chat.</li></ul></div></div>';
     root.appendChild(modal);
     var close=modal.querySelector('.up-patch-close');
     function closePatch(){closePopupAnimated(modal,function(){modal.remove();});}
@@ -1182,8 +1202,8 @@
     if(upCall.overlay&&upCall.overlay.isConnected)return upCall.overlay;
     var o=document.createElement('div');
     o.id='upstatus-call-overlay';
-    o.style.cssText='position:absolute;left:auto;right:48px;bottom:-2px;z-index:2147483647;width:260px;height:46px;box-sizing:border-box;background:linear-gradient(135deg,rgba(27,36,51,.98),rgba(18,25,37,.98));border:1px solid rgba(105,125,155,.32);border-radius:14px;padding:6px 8px 6px 10px;color:#edf2fb;font:12px Segoe UI,Arial,sans-serif;cursor:default;box-shadow:0 12px 30px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.04);display:none;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);';
-    o.innerHTML='<div style="display:flex;align-items:center;gap:8px;height:100%">'+
+    o.style.cssText='position:absolute;left:auto;right:48px;bottom:-2px;z-index:2147483647;width:310px;min-height:46px;box-sizing:border-box;background:linear-gradient(135deg,rgba(27,36,51,.98),rgba(18,25,37,.98));border:1px solid rgba(105,125,155,.32);border-radius:14px;padding:6px 8px 6px 10px;color:#edf2fb;font:12px Segoe UI,Arial,sans-serif;cursor:default;box-shadow:0 12px 30px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.04);display:none;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);overflow:visible;';
+    o.innerHTML='<div style="display:flex;align-items:center;gap:8px;min-height:34px">'+
       '<div style="min-width:0;flex:1;overflow:hidden">'+
         '<div style="display:flex;align-items:center;gap:6px;min-width:0">'+
           '<span style="width:7px;height:7px;border-radius:50%;background:#5fd38b;box-shadow:0 0 8px rgba(95,211,139,.45);flex:0 0 auto" data-call-dot></span>'+
@@ -1193,15 +1213,10 @@
       '</div>'+
       '<div style="display:none;align-items:center;justify-content:center;min-width:54px" data-call-time></div>'+
       '<div style="display:flex;align-items:center;gap:6px;flex:0 0 auto" data-call-actions></div>'+
-      '<audio data-call-audio autoplay></audio>'+
+      '<div data-call-audios style="display:none"></div>'+
     '</div>';
     root.appendChild(o);
     upCall.overlay=o;
-    upCall.audio=o.querySelector('[data-call-audio]');
-    upCall.audio.setAttribute('playsinline','');
-    upCall.audio.autoplay=true;
-    upCall.audio.muted=false;
-    upCall.audio.volume=1;
     return o;
   }
   function callEnsureAudioContext(){
@@ -1226,35 +1241,33 @@
     if(ctx&&ctx.state==='suspended'){try{ctx.resume();}catch(e){}}
   }
   function callPrimeAudio(){
-    callEnsureAudioContext();
-    var o=callEnsureOverlay();
-    if(!upCall.audio)return;
-    try{
-      upCall.audio.muted=false;
-      upCall.audio.volume=1;
-      var p=upCall.audio.play();
-      if(p&&p.catch)p.catch(function(){});
-    }catch(e){}
-  }
-  function callAttachRemoteAudio(stream){
-    if(!stream)return;
     var ctx=callEnsureAudioContext();
-    if(ctx&&upCall.audioGain){
+    if(ctx&&ctx.state==='suspended'){try{ctx.resume();}catch(e){}}
+  }
+  function callAttachRemoteAudio(peerName,stream){
+    if(!stream||!peerName)return;
+    var p=upCall.peers[peerName];
+    if(!p)return;
+    var ctx=callEnsureAudioContext();
+    if(ctx){
       try{
-        if(upCall.audioSource){try{upCall.audioSource.disconnect();}catch(e){}}
-        upCall.audioSource=ctx.createMediaStreamSource(stream);
-        upCall.audioSource.connect(upCall.audioGain);
-        if(upCall.audio){upCall.audio.srcObject=stream;upCall.audio.muted=true;}
+        if(p.audioSource){try{p.audioSource.disconnect();}catch(e){}}
+        if(p.audioGain){try{p.audioGain.disconnect();}catch(e){}}
+        p.audioSource=ctx.createMediaStreamSource(stream);
+        p.audioGain=ctx.createGain();
+        p.audioGain.gain.value=1;
+        p.audioSource.connect(p.audioGain);
+        p.audioGain.connect(ctx.destination);
         return;
       }catch(e){}
     }
-    if(upCall.audio){
-      upCall.audio.muted=false;
-      upCall.audio.volume=1;
-      upCall.audio.srcObject=stream;
-      var p=upCall.audio.play();
-      if(p&&p.catch)p.catch(function(){});
-    }
+    var o=callEnsureOverlay(),box=o.querySelector('[data-call-audios]');
+    if(!box)return;
+    if(p.audio){try{p.audio.pause();}catch(e){}try{p.audio.remove();}catch(e){}p.audio=null;}
+    var audio=document.createElement('audio');
+    audio.autoplay=true;audio.playsInline=true;audio.volume=1;audio.srcObject=stream;audio.style.display='none';
+    box.appendChild(audio);p.audio=audio;
+    try{var play=audio.play();if(play&&play.catch)play.catch(function(){});}catch(e){}
   }
   function callStopRingtone(broadcast){
     var callId=upCall.callId;
@@ -1262,33 +1275,18 @@
     if(upCall.ringtoneTimer){clearInterval(upCall.ringtoneTimer);upCall.ringtoneTimer=null;}
     upCall.ringtoneLoadId=(upCall.ringtoneLoadId||0)+1;
     try{upRingtoneGlobal.generation=(upRingtoneGlobal.generation||0)+1;}catch(e){}
-    var source=upCall.ringtoneSource;
-    var gain=upCall.ringtoneGain;
-    upCall.ringtoneSource=null;
-    upCall.ringtoneGain=null;
+    var source=upCall.ringtoneSource,gain=upCall.ringtoneGain;
+    upCall.ringtoneSource=null;upCall.ringtoneGain=null;
     try{if(gain)gain.gain.setValueAtTime(0,gain.context.currentTime);}catch(e){}
-    if(source){
-      try{source.stop(0);}catch(e){}
-      try{source.disconnect();}catch(e){}
-    }
+    if(source){try{source.stop(0);}catch(e){}try{source.disconnect();}catch(e){}}
     if(gain){try{gain.disconnect();}catch(e){}}
     try{
-      (upRingtoneGlobal.sources||[]).slice().forEach(function(src){
-        try{src.stop(0);}catch(e){}
-        try{src.disconnect();}catch(e){}
-      });
-      (upRingtoneGlobal.gains||[]).slice().forEach(function(g){
-        try{g.gain.setValueAtTime(0,g.context.currentTime);}catch(e){}
-        try{g.disconnect();}catch(e){}
-      });
-      upRingtoneGlobal.sources=[];
-      upRingtoneGlobal.gains=[];
+      (upRingtoneGlobal.sources||[]).slice().forEach(function(src){try{src.stop(0);}catch(e){}try{src.disconnect();}catch(e){}});
+      (upRingtoneGlobal.gains||[]).slice().forEach(function(g){try{g.gain.setValueAtTime(0,g.context.currentTime);}catch(e){}try{g.disconnect();}catch(e){}});
+      upRingtoneGlobal.sources=[];upRingtoneGlobal.gains=[];
     }catch(e){}
     upCall.ringtoneCtx=null;
-    if(broadcast!==false&&callId){
-      callBroadcastRingtoneStop(callId,'local-stop');
-      try{if(upCall.peer&&upCall.active)callSend('ringtone_stop');}catch(e){}
-    }
+    if(broadcast!==false&&callId)callBroadcastRingtoneStop(callId,'local-stop');
   }
   function callConfigureRingtones(){
     var roles=[{key:'caller',label:'CHAMANDO: selecione chamando.mp3'},{key:'callee',label:'RECEBENDO: selecione recebendo.mp3'}];
@@ -1314,21 +1312,16 @@
   }
   document.addEventListener('keydown',function(e){
     if(e.ctrlKey&&e.shiftKey&&(e.key==='R'||e.key==='r')){
-      e.preventDefault();
-      callConfigureRingtones();
+      e.preventDefault();callConfigureRingtones();
     }
   });
-  // Cache dos ringtones padrão: força a renovação apenas dos arquivos padrão da versão anterior.
-  // Ringtones personalizados continuam preservados.
   var CALL_RINGTONE_CACHE_VERSION='3.0.22';
   var CALL_RINGTONE_LEGACY_B64_LENGTHS={caller:351271,callee:419262};
   function callRefreshLegacyDefaultRingtoneCache(){
     try{
       var current=localStorage.getItem('upstatus_call_ringtone_cache_version')||'';
       if(current!==CALL_RINGTONE_CACHE_VERSION){
-        ['caller','callee'].forEach(function(roleKey){
-          try{localStorage.removeItem('upstatus_call_ringtone_'+roleKey);}catch(e){}
-        });
+        ['caller','callee'].forEach(function(roleKey){try{localStorage.removeItem('upstatus_call_ringtone_'+roleKey);}catch(e){}});
         localStorage.setItem('upstatus_call_ringtone_cache_version',CALL_RINGTONE_CACHE_VERSION);
       }
     }catch(e){}
@@ -1352,57 +1345,42 @@
             if(data){try{localStorage.setItem(storageKey,data);}catch(e){}}
             resolve(data);
           };
-          fr.onerror=reject;
-          fr.readAsDataURL(r.response);
+          fr.onerror=reject;fr.readAsDataURL(r.response);
         },
         onerror:reject,onabort:reject,ontimeout:reject
       });
     }).catch(function(){callRingtoneFetches[roleKey]=null;return '';});
     return callRingtoneFetches[roleKey];
   }
-
   function callStartRingtone(){
     callStopRingtone(false);
     upCall.ringtoneAllowed=true;
     try{
-      var ctx=callEnsureAudioContext();
-      if(!ctx)return;
-      var roleKey=upCall.role==='caller'?'caller':'callee';
-      var data=null;
+      var ctx=callEnsureAudioContext();if(!ctx)return;
+      var roleKey=upCall.role==='caller'?'caller':'callee',data=null;
       try{data=localStorage.getItem('upstatus_call_ringtone_'+roleKey)||'';}catch(e){}
       upCall.ringtoneCtx=ctx;
-      var loadId=(upCall.ringtoneLoadId||0)+1;
-      upCall.ringtoneLoadId=loadId;
-      var globalGeneration=(upRingtoneGlobal.generation||0)+1;
-      upRingtoneGlobal.generation=globalGeneration;
+      var loadId=(upCall.ringtoneLoadId||0)+1;upCall.ringtoneLoadId=loadId;
+      var globalGeneration=(upRingtoneGlobal.generation||0)+1;upRingtoneGlobal.generation=globalGeneration;
       var dataPromise=data?Promise.resolve(data):callGetRingtoneData(roleKey);
       dataPromise.then(function(value){
         if(upCall.ringtoneLoadId!==loadId||globalGeneration!==upRingtoneGlobal.generation||!upCall.active||upCall.connected||!upCall.ringtoneAllowed)return null;
         if(!value)return null;
         return fetch(value).then(function(r){return r.arrayBuffer();});
       }).then(function(buf){
-        if(!buf)return null;
-        return ctx.decodeAudioData(buf);
+        if(!buf)return null;return ctx.decodeAudioData(buf);
       }).then(function(decoded){
         if(!upCall.active||upCall.connected||upCall.ringtoneLoadId!==loadId||globalGeneration!==upRingtoneGlobal.generation||!upCall.ringtoneAllowed)return;
         var source=ctx.createBufferSource(),gain=ctx.createGain();
-        source.buffer=decoded;
-        source.loop=true;
-        gain.gain.value=1;
-        source.connect(gain);gain.connect(ctx.destination);
-        upCall.ringtoneSource=source;
-        upCall.ringtoneGain=gain;
+        source.buffer=decoded;source.loop=true;gain.gain.value=1;source.connect(gain);gain.connect(ctx.destination);
+        upCall.ringtoneSource=source;upCall.ringtoneGain=gain;
         try{upRingtoneGlobal.sources.push(source);upRingtoneGlobal.gains.push(gain);}catch(e){}
         source.start(0);
       }).catch(function(){});
     }catch(e){}
   }
-
   function callPositionOverlay(){
-    var o=callEnsureOverlay();
-    o.style.left='auto';
-    o.style.right='48px';
-    o.style.bottom='-2px';
+    var o=callEnsureOverlay();o.style.left='auto';o.style.right='48px';o.style.bottom='-2px';
   }
   function callStartCounter(){
     if(upCall.counterTimer)clearInterval(upCall.counterTimer);
@@ -1413,39 +1391,103 @@
       var el=upCall.overlay&&upCall.overlay.querySelector('[data-call-time]');
       if(el)el.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
     }
-    upCall.counterTimer=setInterval(tick,1000);
-    tick();
+    upCall.counterTimer=setInterval(tick,1000);tick();
   }
   function callIcon(type){
     var paths={
       phone:'<path d="M7.7 3.8l2.1 2.1c.45.45.45 1.18.02 1.64l-1.2 1.3c1.02 2.02 2.63 3.63 4.65 4.65l1.3-1.2c.46-.43 1.19-.43 1.64.02l2.1 2.1c.46.46.46 1.2-.01 1.66l-.92.92c-.64.64-1.56.91-2.45.71-5.98-1.35-10.8-6.17-12.15-12.15-.2-.89.07-1.81.71-2.45l.92-.92c.46-.47 1.2-.47 1.66-.01z"/>',
-      hangup:'<path d="M3.6 11.2c2.22-2.02 4.9-3.04 8.4-3.04s6.18 1.02 8.4 3.04"/><path d="M7.1 10.15l-1.25 3.1"/><path d="M16.9 10.15l1.25 3.1"/><path d="M8.25 10.1l.45 3.35"/><path d="M15.75 10.1l-.45 3.35"/>',
+      hangup:'<path d="M3.5 10.8c5.2-4.05 11.8-4.05 17 0l-2.35 3.15a1.15 1.15 0 0 1-1.55.28l-2.1-1.42a4.55 4.55 0 0 0-5 0l-2.1 1.42a1.15 1.15 0 0 1-1.55-.28z"/>',
       mic:'<rect x="8" y="3.5" width="8" height="10.5" rx="4"/><path d="M5.5 10.5a6.5 6.5 0 0 0 13 0"/><path d="M12 17v3.5M8.5 20.5h7"/>',
       micOff:'<path d="M8 4v7.5a4 4 0 0 0 6.35 3.23M16 10.5V4a4 4 0 0 0-7.22-2.4"/><path d="M5.5 10.5a6.5 6.5 0 0 0 11.07 4.6M12 17v3.5M8.5 20.5h7M4 4l16 16"/>',
+      personAdd:'<path d="M9.2 11.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M3.8 19c.55-3.15 2.4-4.8 5.4-4.8s4.85 1.65 5.4 4.8"/><path d="M18 11v6M15 14h6"/>',
       close:'<path d="M6 6l12 12M18 6L6 18"/>'
     };
     return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(paths[type]||paths.close)+'</svg>';
   }
+  function callNames(separator){
+    var list=Array.isArray(upCall.participants)?upCall.participants.filter(function(n){return n;}).slice():[];
+    if(!list.length&&upCall.peer)list=[member,upCall.peer].filter(function(n){return n;});
+    return list.join(separator||' + ');
+  }
+  function callConnectedLabel(){
+    var n=Array.isArray(upCall.participants)?upCall.participants.length:0;
+    var label=String(n||2)+' '+((n||2)===1?'participante':'participantes');
+    if(upCall.notice)label+=' \u2022 '+upCall.notice;
+    return label;
+  }
+  function callCloseParticipantPicker(){
+    var o=upCall.overlay;if(!o)return;
+    var box=o.querySelector('[data-call-picker]');if(box)box.remove();
+  }
+  function callAvailableParticipants(){
+    var names=[],team=window.__upstatusTeam||{};
+    Object.keys(team).forEach(function(n){if(n)names.push(n);});
+    if(!names.length&&Array.isArray(window.__upstatusMembers))names=window.__upstatusMembers.slice();
+    names=names.filter(function(n){return n&&n!==member&&upCall.participants.indexOf(n)<0&&!upCall.pendingInvites[n];});
+    names.sort(function(a,b){return String(a).localeCompare(String(b),'pt-BR');});
+    return names;
+  }
+  function callOpenParticipantPicker(){
+    var o=callEnsureOverlay(),current=o.querySelector('[data-call-picker]');
+    if(current){current.remove();return;}
+    var box=document.createElement('div');
+    box.setAttribute('data-call-picker','');
+    box.style.cssText='position:absolute;right:8px;bottom:50px;width:228px;max-width:calc(100vw - 30px);box-sizing:border-box;padding:9px;border:1px solid #40506a;border-radius:12px;background:linear-gradient(145deg,#192435,#111925);box-shadow:0 16px 36px rgba(0,0,0,.44);';
+    var title=document.createElement('div');
+    title.textContent='Adicionar participante';
+    title.style.cssText='font-size:11px;font-weight:800;color:#dbe5f5;margin-bottom:7px;';
+    box.appendChild(title);
+    var names=callAvailableParticipants();
+    if(!names.length){
+      var empty=document.createElement('div');
+      empty.textContent='Todos os membros j\u00e1 est\u00e3o na chamada.';
+      empty.style.cssText='font-size:10px;color:#8fa0b8;padding:6px 2px;';
+      box.appendChild(empty);
+    }else{
+      names.forEach(function(name){
+        var btn=document.createElement('button');
+        btn.type='button';btn.textContent=name;
+        btn.style.cssText='display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px;margin:3px 0;border:1px solid #33445c;border-radius:8px;background:#202d40;color:#dbe5f5;cursor:pointer;font:700 11px Segoe UI,Arial,sans-serif;text-align:left;';
+        btn.onmouseenter=function(){btn.style.background='#2b3b55';};
+        btn.onmouseleave=function(){btn.style.background='#202d40';};
+        btn.onclick=function(e){e.preventDefault();e.stopPropagation();callInviteParticipant(name);};
+        box.appendChild(btn);
+      });
+    }
+    o.appendChild(box);
+  }
+  function callInviteParticipant(target){
+    if(!upCall.active||!upCall.connected||!target||target===member||upCall.participants.indexOf(target)>=0||upCall.pendingInvites[target])return;
+    upCall.pendingInvites[target]=Date.now();
+    var sent=callSendTo(target,'invite',{participants:upCall.participants.slice(),initiator:upCall.initiator||member});
+    callCloseParticipantPicker();
+    if(!sent){delete upCall.pendingInvites[target];upCall.notice='N\u00e3o foi poss\u00edvel enviar o convite.';}
+    else upCall.notice='Convidando '+target+'...';
+    callRenderConnected();
+    if(upCall.notice)setTimeout(function(){if(upCall.active){upCall.notice='';callRenderConnected();}},3500);
+  }
   function callRender(title,status,buttons){
     if(toastStack)toastStack.style.display='none';
-    var o=callEnsureOverlay();
-    callPositionOverlay();
-    o.querySelector('[data-call-title]').textContent=title||'Chamada';
+    var o=callEnsureOverlay();callCloseParticipantPicker();callPositionOverlay();
+    o.querySelector('[data-call-title]').textContent=title||callNames(' + ')||'Chamada';
     o.querySelector('[data-call-status]').textContent=status||'';
-    var dot=o.querySelector('[data-call-dot]');
-    var time=o.querySelector('[data-call-time]');
-    var a=o.querySelector('[data-call-actions]');
+    var dot=o.querySelector('[data-call-dot]'),time=o.querySelector('[data-call-time]'),a=o.querySelector('[data-call-actions]');
     a.innerHTML='';
-    time.style.display=upCall.connected?'flex':'none';
     time.style.cssText='display:'+(upCall.connected?'flex':'none')+';align-items:center;justify-content:center;min-width:54px;color:#f3f7fd;font:800 17px/1 Segoe UI,Arial,sans-serif;letter-spacing:.3px;text-shadow:0 1px 10px rgba(255,255,255,.08);';
     if(dot)dot.style.background=upCall.connected?'#5fd38b':(status==='Chamada recebida'?'#70a7ff':'#e7b75a');
+    var added=false;
     (buttons||[]).forEach(function(b){
+      if(upCall.connected&&!upTestMode&&b.danger&&!added){
+        var add=document.createElement('button');
+        add.type='button';add.setAttribute('aria-label','Adicionar participante');add.title='Adicionar participante';add.innerHTML=callIcon('personAdd');
+        add.onclick=function(e){e.preventDefault();e.stopPropagation();callOpenParticipantPicker();};
+        add.style.cssText='width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(118,142,174,.28);border-radius:10px;padding:0;background:rgba(45,60,82,.9);color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.22);transition:transform .12s ease,filter .12s ease,background .12s ease;';
+        add.onmouseenter=function(){add.style.filter='brightness(1.12)';add.style.transform='translateY(-1px)';};
+        add.onmouseleave=function(){add.style.filter='';add.style.transform='';};
+        a.appendChild(add);added=true;
+      }
       var x=document.createElement('button');
-      x.type='button';
-      x.setAttribute('aria-label',b.label||'Ação');
-      x.title=b.label||'Ação';
-      x.innerHTML=callIcon(b.icon||(b.danger?'hangup':'close'));
-      x.onclick=b.onClick;
+      x.type='button';x.setAttribute('aria-label',b.label||'A\u00e7\u00e3o');x.title=b.label||'A\u00e7\u00e3o';x.innerHTML=callIcon(b.icon||(b.danger?'hangup':'close'));x.onclick=b.onClick;
       x.style.cssText='width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid '+(b.danger?'rgba(255,103,124,.34)':'rgba(118,142,174,.28)')+';border-radius:10px;padding:0;background:'+(b.danger?'linear-gradient(145deg,#b33b52,#8f2e42)':'rgba(45,60,82,.9)')+';color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.22);transition:transform .12s ease,filter .12s ease,background .12s ease;';
       if(b.icon==='phone')x.style.background='linear-gradient(145deg,#2fae6a,#238754)';
       if(b.muted)x.style.background='linear-gradient(145deg,#55677f,#3d4c61)';
@@ -1458,133 +1500,317 @@
   }
   function callHideOverlay(){
     if(upCall.overlay)upCall.overlay.style.display='none';
+    if(upCall.overlay)callCloseParticipantPicker();
     if(toastStack)toastStack.style.display='';
     if(pendingChatToast){
-      var pending=pendingChatToast;
-      pendingChatToast=null;
+      var pending=pendingChatToast;pendingChatToast=null;
       setTimeout(function(){if(!upCall.active)showChatToast(pending);},0);
     }
   }
   function callNewId(){return String(member||'user')+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);}
-  function callSend(type,extra){
-    var p=Object.assign({type:type,callId:upCall.callId,from:member,to:upCall.peer},extra||{});
+  function callConnectionId(remote){
+    return String(upCall.callId)+'::'+[String(member||''),String(remote||'')].sort().join('::');
+  }
+  function callPublishPresence(){
+    if(!upCall.active||!upCall.callId)return;
+    sendRealtimeEvent('call_signal',{type:'presence',callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false});
+  }
+  function callStartPresence(){
+    if(upCall.presenceTimer)clearInterval(upCall.presenceTimer);
+    callPublishPresence();upCall.presenceTimer=setInterval(callPublishPresence,5000);
+  }
+  function callReceivePresence(p){
+    if(!p||!p.callId||!p.from||!Array.isArray(p.participants))return;
+    var old=upCallDirectory[p.callId]||{callId:p.callId,participants:[]};
+    old.callId=p.callId;old.participants=p.participants.slice();if(old.participants.indexOf(p.from)<0)old.participants.push(p.from);
+    old.initiator=p.initiator||old.initiator||p.from;old.updatedAt=Date.now();old.sharing=!!p.sharing;old.screenSharer=p.screenSharer||'';upCallDirectory[p.callId]=old;
+  }
+  function callSendTo(to,type,extra){
+    if(!to||!upCall.callId)return false;
+    var p=Object.assign({type:type,callId:upCall.callId,from:member,to:to,connectionId:callConnectionId(to),participants:upCall.participants.slice()},extra||{});
     return sendRealtimeEvent('call_signal',p);
+  }
+  function callSend(type,extra){return callSendTo(upCall.peer,type,extra);}
+  function callSendAll(type,extra){
+    var sent=false;
+    upCall.participants.forEach(function(name){if(name&&name!==member)sent=callSendTo(name,type,extra)||sent;});
+    return sent;
   }
   function callStopStream(){
     if(upCall.localStream){try{upCall.localStream.getTracks().forEach(function(t){t.stop();});}catch(e){}upCall.localStream=null;}
   }
-  function callCleanup(sendHangup){
-    if(sendHangup&&upCall.peer&&upCall.callId)callSend('hangup');
+  function callRemovePeer(name,forgetParticipant){
+    var p=upCall.peers[name];if(!p)return;
+    if(p.disconnectTimer){clearTimeout(p.disconnectTimer);p.disconnectTimer=null;}
+    if(p.pc){try{p.pc.onicecandidate=null;p.pc.ontrack=null;p.pc.onconnectionstatechange=null;p.pc.close();}catch(e){}p.pc=null;}
+    if(p.audioSource){try{p.audioSource.disconnect();}catch(e){}p.audioSource=null;}
+    if(p.audioGain){try{p.audioGain.disconnect();}catch(e){}p.audioGain=null;}
+    if(p.audio){try{p.audio.pause();}catch(e){}try{p.audio.srcObject=null;}catch(e){}try{p.audio.remove();}catch(e){}p.audio=null;}
+    delete upCall.peers[name];
+    if(forgetParticipant){
+      upCall.participants=upCall.participants.filter(function(n){return n!==name;});
+      if(upCall.pendingInvites)delete upCall.pendingInvites[name];
+    }
+    upCall.connected=Object.keys(upCall.peers).some(function(n){return !!(upCall.peers[n]&&upCall.peers[n].connected);});
+    if(!upCall.connected&&upCall.startedAt){upCall.startedAt=0;if(upCall.counterTimer){clearInterval(upCall.counterTimer);upCall.counterTimer=null;}}
+  }
+  function callCleanup(sendSignal,signalType){
+    var callId=upCall.callId;
+    if(callId&&upCall.active)sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now()});
+    if(upCall.presenceTimer){clearInterval(upCall.presenceTimer);upCall.presenceTimer=null;}
+    if(sendSignal&&callId){
+      try{
+        if(signalType==='hangup'&&upCall.peer)callSend('hangup');
+        else if(signalType)callSendAll(signalType);
+        else if(upCall.connected||upCall.participants.length>2)callSendAll('leave');
+        else if(upCall.peer)callSend('hangup');
+      }catch(e){}
+    }
     if(upCall.timer){clearTimeout(upCall.timer);upCall.timer=null;}
     if(upCall.counterTimer){clearInterval(upCall.counterTimer);upCall.counterTimer=null;}
     callStopRingtone();
-    if(upCall.pc){try{upCall.pc.onicecandidate=null;upCall.pc.ontrack=null;upCall.pc.close();}catch(e){}upCall.pc=null;}
+    Object.keys(upCall.peers).slice().forEach(function(name){callRemovePeer(name,false);});
     callStopStream();
-    if(upCall.audio){try{upCall.audio.pause();upCall.audio.srcObject=null;upCall.audio.muted=false;}catch(e){}}
-    if(upCall.audioSource){try{upCall.audioSource.disconnect();}catch(e){}upCall.audioSource=null;}
-    upCall.remoteStream=null;upCall.callId='';upCall.peer='';upCall.role='';upCall.pendingOffer=null;upCall.pendingCandidates=[];upCall.active=false;upCall.connected=false;upCall.muted=false;upCall.startedAt=0;
+    upCall.callId='';upCall.peer='';upCall.role='';upCall.initiator='';upCall.participants=[];upCall.pendingInvites={};upCall.pendingOffers={};upCall.pendingInvite=null;upCall.peers={};upCall.localStream=null;upCall.remoteStream=null;upCall.audio=null;upCall.active=false;upCall.connected=false;upCall.muted=false;upCall.startedAt=0;upCall.waitingForConnection=false;upCall.notice='';
     callHideOverlay();
   }
-  function callFail(message){
+  function callFail(msg){
     if(upCall.timer){clearTimeout(upCall.timer);upCall.timer=null;}
     if(upCall.counterTimer){clearInterval(upCall.counterTimer);upCall.counterTimer=null;}
     callStopRingtone();
-    callRender('Chamada',message,[{label:'Fechar',onClick:function(){callCleanup(false);}}]);
-  }
-  function callCreatePeer(){
-    if(upCall.pc)return upCall.pc;
-    if(typeof RTCPeerConnection==='undefined')throw new Error('WebRTC não está disponível neste navegador.');
-    var pc=new RTCPeerConnection();
-    upCall.pc=pc;
-    pc.onicecandidate=function(e){if(e.candidate&&upCall.active)callSend('ice',{candidate:e.candidate});};
-    pc.ontrack=function(e){
-      upCall.remoteStream=e.streams&&e.streams[0]?e.streams[0]:null;
-      if(upCall.remoteStream)callAttachRemoteAudio(upCall.remoteStream);
-    };
-    pc.onconnectionstatechange=function(){
-      var st=pc.connectionState;
-      if(st==='connected'){
-        upCall.connected=true;
-        callStopRingtone();
-        callPrimeAudio();
-        if(upCall.remoteStream)callAttachRemoteAudio(upCall.remoteStream);
-        callRender(upCall.peer,'Conectado',[{label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}]);
-        if(!upCall.startedAt)callStartCounter();
-      }else if(st==='failed'){callCleanup(false);}
-      else if(st==='disconnected'&&upCall.active){callCleanup(false);}
-    };
-    if(upCall.localStream)upCall.localStream.getTracks().forEach(function(t){pc.addTrack(t,upCall.localStream);});
-    return pc;
+    callRender('Chamada',msg,[{label:'Fechar',onClick:function(){callCleanup(false);}}]);
   }
   async function callGetMicrophone(){
     if(upCall.localStream)return upCall.localStream;
-    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('O navegador não liberou acesso ao microfone.');
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('O navegador n\u00e3o liberou acesso ao microfone.');
     upCall.localStream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
     return upCall.localStream;
   }
-  async function callAddQueuedCandidates(){
-    if(!upCall.pc||!upCall.pc.remoteDescription)return;
-    var q=upCall.pendingCandidates.splice(0);
-    for(var i=0;i<q.length;i++){try{await upCall.pc.addIceCandidate(q[i]);}catch(e){}}
+  function callGetPeer(name){
+    if(!name||name===member)return null;
+    var p=upCall.peers[name];
+    if(!p){p={name:name,pc:null,remoteStream:null,audio:null,audioSource:null,audioGain:null,pendingCandidates:[],connected:false,offerSent:false,disconnectTimer:null};upCall.peers[name]=p;}
+    return p;
+  }
+  async function callCreatePeer(name){
+    var p=callGetPeer(name);if(!p)return null;
+    if(p.pc&&p.pc.signalingState!=='closed')return p;
+    if(typeof RTCPeerConnection==='undefined')throw new Error('WebRTC n\u00e3o est\u00e1 dispon\u00edvel neste navegador.');
+    await callGetMicrophone();
+    var pc=new RTCPeerConnection();p.pc=pc;p.connected=false;p.offerSent=false;
+    if(upCall.localStream)upCall.localStream.getTracks().forEach(function(t){pc.addTrack(t,upCall.localStream);});
+    pc.onicecandidate=function(e){if(e.candidate&&upCall.active)callSendTo(name,'ice',{candidate:e.candidate,connectionId:callConnectionId(name)});};
+    pc.ontrack=function(e){p.remoteStream=e.streams&&e.streams[0]?e.streams[0]:null;if(p.remoteStream)callAttachRemoteAudio(name,p.remoteStream);callPrimeAudio();};
+    pc.onconnectionstatechange=function(){
+      var st=pc.connectionState;
+      if(st==='connected'){
+        p.connected=true;upCall.connected=true;upCall.waitingForConnection=false;callStopRingtone();callPrimeAudio();
+        if(!upCall.startedAt)callStartCounter();callRenderConnected();
+      }else if(st==='failed'||st==='disconnected'){
+        if(p.disconnectTimer)clearTimeout(p.disconnectTimer);
+        p.disconnectTimer=setTimeout(function(){
+          if(!upCall.active||p.pc!==pc)return;
+          if(pc.connectionState==='failed'||pc.connectionState==='disconnected'||pc.connectionState==='closed'){
+            callRemovePeer(name,true);
+            if(upCall.participants.length<=1)callCleanup(false);
+            else if(upCall.active)callRenderConnected();
+          }
+        },1200);
+      }else if(st==='closed'){
+        callRemovePeer(name,true);
+        if(upCall.participants.length<=1&&upCall.active)callCleanup(false);
+      }
+    };
+    return p;
+  }
+  async function callStartOffer(name){
+    if(!upCall.active||!name||name===member)return;
+    var p=await callCreatePeer(name);if(!p||!p.pc||p.offerSent)return;
+    var offer=await p.pc.createOffer();await p.pc.setLocalDescription(offer);p.offerSent=true;
+    callSendTo(name,'offer',{sdp:p.pc.localDescription,phase:'mesh'});
+  }
+  async function callAddQueuedCandidates(p){
+    if(!p||!p.pc||!p.pc.remoteDescription)return;
+    var q=p.pendingCandidates.splice(0);
+    for(var i=0;i<q.length;i++){try{await p.pc.addIceCandidate(q[i]);}catch(e){}}
+  }
+  function callMergeParticipants(list){
+    var next=Array.isArray(list)?list.slice():[];if(member)next.push(member);
+    next=next.filter(function(n){return n;});
+    var out=[];next.forEach(function(n){if(out.indexOf(n)<0)out.push(n);});
+    if(member&&out.indexOf(member)<0)out.push(member);upCall.participants=out;
+  }
+  function callRenderConnected(){
+    if(!upCall.active)return;
+    callRender(callNames(' + ')||'Chamada',callConnectedLabel(),[
+      {label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},
+      {label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}
+    ]);
+  }
+  async function callJoinActiveCall(callId){
+    var entry=upCallDirectory[callId];
+    if(upCall.active){message('Você já está em uma chamada.',true);return;}
+    if(!entry||!entry.participants||entry.participants.length<2){message('Esta chamada não está mais disponível. Atualize a lista e tente novamente.',true);return;}
+    upCall.callId=callId;upCall.peer=entry.participants.find(function(n){return n!==member;})||'';upCall.role='member';upCall.initiator=entry.initiator||upCall.peer;upCall.participants=entry.participants.slice();if(upCall.participants.indexOf(member)<0)upCall.participants.push(member);
+    upCall.pendingInvites={};upCall.pendingOffers={};upCall.pendingInvite=null;upCall.peers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
+    try{
+      await callGetMicrophone();
+      callRender(callNames(' + '),'Entrando na chamada…',[{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true,'leave');}}]);
+      var others=upCall.participants.filter(function(n){return n&&n!==member;});
+      others.forEach(function(n){callSendTo(n,'join',{phase:'mesh',joinExisting:true});});
+      callStartPresence();
+    }catch(e){callCleanup(false);message(e.message||'Não foi possível entrar na chamada.',true);}
   }
   async function startOutgoingCall(target){
     if(!target||target===member)return;
-    if(upCall.active){message('Você já está em uma chamada.',true);return;}
-    upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.active=true;upCall.connected=false;upCall.startedAt=0;
-    callPrimeAudio();
-    callStartRingtone();
-    callRender(target,'Chamando…',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true);}}]);
-    upCall.timer=setTimeout(function(){if(upCall.active&&!upCall.connected){callFail('Sem resposta.');callSend('hangup');}},30000);
+    if(upCall.active){message('Voc\u00ea j\u00e1 est\u00e1 em uma chamada.',true);return;}
+    upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
+    upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
+    callStartPresence();callPrimeAudio();callStartRingtone();callRender(target,'Chamando\u2026',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true,'hangup');}}]);
+    upCall.timer=setTimeout(function(){if(upCall.active&&!upCall.connected){callFail('Sem resposta.');try{callSend('hangup');}catch(e){}}},30000);
     try{
-      await callGetMicrophone();
-      var pc=callCreatePeer();
-      var offer=await pc.createOffer({offerToReceiveAudio:true});
-      await pc.setLocalDescription(offer);
-      callSend('offer',{sdp:pc.localDescription});
-    }catch(e){callFail(e.message||'Não foi possível iniciar a chamada.');}
+      await callGetMicrophone();var p=await callCreatePeer(target);var offer=await p.pc.createOffer();await p.pc.setLocalDescription(offer);p.offerSent=true;
+      callSendTo(target,'offer',{sdp:p.pc.localDescription,phase:'initial'});
+    }catch(e){callFail(e.message||'N\u00e3o foi poss\u00edvel iniciar a chamada.');}
   }
-  function receiveCallSignal(p){
-    if(!p||!p.type||!p.callId||!p.from||p.to!==member||p.from===member)return;
-    if(p.type==='offer'){
-      if(upCall.active){sendRealtimeEvent('call_signal',{type:'busy',callId:p.callId,from:member,to:p.from});return;}
-      upCall.callId=p.callId;upCall.peer=p.from;upCall.role='callee';upCall.active=true;upCall.connected=false;upCall.pendingOffer=p.sdp;upCall.pendingCandidates=[];upCall.startedAt=0;
-      callStartRingtone();
-      callRender(p.from,'Chamada recebida',[{label:'Atender',icon:'phone',onClick:function(){acceptIncomingCall();}},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callSend('reject');callCleanup(false);}}]);
+  async function callAcceptIncomingOffer(remoteName){
+    var p=callGetPeer(remoteName),sdp=upCall.pendingOffers[remoteName];if(!p||!sdp)return;
+    callStartPresence();
+    try{
+      upCall.waitingForConnection=true;await callGetMicrophone();await callCreatePeer(remoteName);
+      await p.pc.setRemoteDescription(new RTCSessionDescription(sdp));await callAddQueuedCandidates(p);
+      var answer=await p.pc.createAnswer();await p.pc.setLocalDescription(answer);delete upCall.pendingOffers[remoteName];
+      callSendTo(remoteName,'answer',{sdp:p.pc.localDescription,phase:'initial'});
+      callRender(remoteName,'Conectando\u2026',[{label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}]);
+    }catch(e){
+      try{callSendTo(remoteName,'reject',{reason:'\u00c1udio n\u00e3o autorizado'});}catch(_){}
+      callFail(e.message||'N\u00e3o foi poss\u00edvel atender a chamada.');
+    }
+  }
+  async function callAcceptGroupInvite(){
+    var invite=upCall.pendingInvite;if(!invite||!upCall.active)return;
+    upCall.pendingInvite=null;upCall.role='member';callMergeParticipants(invite.participants||[invite.from]);callStartPresence();
+    try{
+      await callGetMicrophone();upCall.waitingForConnection=true;
+      upCall.participants.filter(function(n){return n!==member;}).forEach(function(n){callSendTo(n,'join',{phase:'mesh'});});
+      callRender(callNames(' + '),'Conectando\u2026',[{label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}]);
+    }catch(e){
+      try{callSendTo(invite.from,'reject',{reason:'\u00c1udio n\u00e3o autorizado'});}catch(_){}
+      callCleanup(false);message(e.message||'N\u00e3o foi poss\u00edvel entrar na chamada.',true);
+    }
+  }
+  async function callAcceptIncomingCall(){
+    if(upCall.pendingInvite)return callAcceptGroupInvite();
+    var names=Object.keys(upCall.pendingOffers||{});if(names.length)return callAcceptIncomingOffer(names[0]);
+  }
+  function callRequestToJoin(callId,target){
+    var entry=upCallDirectory[callId];
+    if(upCall.active){message('Você já está em uma chamada.',true);return;}
+    if(!entry||!entry.participants||entry.participants.indexOf(target)<0){message('A chamada não está mais disponível. Atualize a equipe.',true);return;}
+    var sent=sendRealtimeEvent('call_signal',{type:'join_request',callId:callId,from:member,to:target,target:target,participants:entry.participants.slice(),updatedAt:Date.now()});
+    if(sent)message('Pedido para entrar enviado a '+target+'. Aguarde a confirmação.',false);
+    else message('Não foi possível enviar o pedido de entrada.',true);
+  }
+  async function receiveCallSignal(p){
+    if(!p||!p.type||!p.callId||!p.from||p.from===member)return;
+    if(p.to&&p.to!==member)return;
+    if(p.type==='presence'){callReceivePresence(p);return;}
+    if(p.type==='ended'){delete upCallDirectory[p.callId];return;}
+    if(p.type==='join_request'){
+      if(!upCall.active||p.callId!==upCall.callId||upCall.participants.indexOf(member)<0)return;
+      var requester=String(p.from);
+      var accepted=false;
+      try{accepted=window.confirm(requester+' quer entrar na sua chamada em grupo.\n\nPermitir a entrada?');}catch(e){}
+      sendRealtimeEvent('call_signal',{type:accepted?'join_approved':'join_declined',callId:p.callId,from:member,to:requester,participants:upCall.participants.slice(),updatedAt:Date.now()});
+      if(accepted)message('Você aceitou o pedido de '+requester+'. Conectando à sala…',false);
       return;
     }
-    if(p.callId!==upCall.callId||p.from!==upCall.peer)return;
-    if(p.type==='answer'&&upCall.role==='caller'&&upCall.pc){upCall.pc.setRemoteDescription(new RTCSessionDescription(p.sdp)).then(callAddQueuedCandidates).catch(function(){callFail('Resposta de chamada inválida.');});return;}
+    if(p.type==='join_approved'){callJoinActiveCall(p.callId);return;}
+    if(p.type==='join_declined'){message(p.from+' recusou seu pedido para entrar na chamada.',true);return;}
+    if(p.type==='offer'){
+      if(!upCall.active){
+        upCall.callId=p.callId;upCall.peer=p.from;upCall.role='callee';upCall.initiator=p.from;
+        upCall.participants=(Array.isArray(p.participants)&&p.participants.length?p.participants:[member,p.from]).slice();
+        if(upCall.participants.indexOf(member)<0)upCall.participants.push(member);
+        upCall.pendingOffers={};upCall.pendingOffers[p.from]=p.sdp;upCall.pendingInvite=null;upCall.peers={};
+        upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=false;
+        callStartRingtone();
+        callRender(p.from,'Chamada recebida',[{label:'Atender',icon:'phone',onClick:function(){callAcceptIncomingCall();}},{label:'Recusar',icon:'hangup',danger:true,onClick:function(){callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}]);
+        return;
+      }
+      if(p.callId!==upCall.callId){
+        sendRealtimeEvent('call_signal',{type:'busy',callId:p.callId,from:member,to:p.from,connectionId:String(p.callId)+'::busy'});return;
+      }
+      callMergeParticipants(p.participants||[]);
+      if(!upCall.peers[p.from]||!upCall.peers[p.from].pc){
+        upCall.pendingOffers[p.from]=p.sdp;
+        if(p.phase==='mesh'){try{await callAcceptIncomingOffer(p.from);}catch(e){}}
+      }
+      return;
+    }
+    if(p.type==='invite'){
+      if(upCall.active){
+        if(p.callId===upCall.callId)return;
+        sendRealtimeEvent('call_signal',{type:'busy',callId:p.callId,from:member,to:p.from,connectionId:String(p.callId)+'::busy'});return;
+      }
+      upCall.callId=p.callId;upCall.peer=p.from;upCall.role='callee';upCall.initiator=p.initiator||p.from;
+      callMergeParticipants(p.participants||[p.from]);
+      upCall.pendingInvite={callId:p.callId,from:p.from,participants:upCall.participants.slice()};
+      upCall.pendingOffers={};upCall.peers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;
+      callStartRingtone();
+      var inviteNames=Array.isArray(p.participants)?p.participants.filter(function(n){return n&&n!==member;}).join(', '):p.from;
+      callRender('Convite para chamada em grupo','Participantes: '+inviteNames,[
+        {label:'Atender',icon:'phone',onClick:function(){callAcceptIncomingCall();}},
+        {label:'Recusar',icon:'hangup',danger:true,onClick:function(){callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}
+      ]);
+      return;
+    }
+    if(!upCall.active||p.callId!==upCall.callId)return;
+    if(p.from===member)return;
+    if(p.type==='join'){
+      callMergeParticipants(p.participants||[]);
+      if(upCall.participants.indexOf(p.from)<0)upCall.participants.push(p.from);
+      try{await callStartOffer(p.from);callRenderConnected();}
+      catch(e){upCall.notice='Falha ao conectar '+p.from+'.';callRenderConnected();}
+      return;
+    }
+    if(p.type==='answer'){
+      var answerPeer=callGetPeer(p.from);
+      if(answerPeer&&answerPeer.pc&&p.sdp){
+        try{await answerPeer.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));await callAddQueuedCandidates(answerPeer);}
+        catch(e){callRemovePeer(p.from,false);upCall.notice='Resposta de '+p.from+' inv\u00e1lida.';callRenderConnected();}
+      }
+      return;
+    }
     if(p.type==='ice'&&p.candidate){
-      if(upCall.pc&&upCall.pc.remoteDescription)upCall.pc.addIceCandidate(p.candidate).catch(function(){});
-      else upCall.pendingCandidates.push(p.candidate);
+      var icePeer=callGetPeer(p.from);if(!icePeer)return;
+      if(icePeer.pc&&icePeer.pc.remoteDescription){try{await icePeer.pc.addIceCandidate(p.candidate);}catch(e){}}
+      else icePeer.pendingCandidates.push(p.candidate);
       return;
     }
     if(p.type==='ringtone_stop'){callStopRingtone(false);return;}
-    if(p.type==='reject'||p.type==='busy'){callFail(p.type==='busy'?'O usuário está em outra chamada.':'Chamada recusada.');return;}
-    if(p.type==='hangup'){callCleanup(false);return;}
-  }
-  async function acceptIncomingCall(){
-    if(!upCall.active||upCall.role!=='callee'||!upCall.pendingOffer)return;
-    try{
-      callStopRingtone();
-      callPrimeAudio();
-      await callGetMicrophone();
-      var pc=callCreatePeer();
-      await pc.setRemoteDescription(new RTCSessionDescription(upCall.pendingOffer));
-      await callAddQueuedCandidates();
-      var answer=await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      upCall.pendingOffer=null;
-      callStopRingtone();
-      callSend('answer',{sdp:pc.localDescription});
-      callRender(upCall.peer,'Conectando…',[{label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}]);
-    }catch(e){callFail(e.message||'Não foi possível atender a chamada.');}
+    if(p.type==='reject'||p.type==='busy'){
+      if(upCall.pendingInvites[p.from]){
+        delete upCall.pendingInvites[p.from];upCall.notice=p.from+(p.type==='busy'?' est\u00e1 em outra chamada.':' recusou o convite.');callRenderConnected();return;
+      }
+      if(upCall.peer===p.from&&!upCall.connected){callFail(p.type==='busy'?'O usu\u00e1rio est\u00e1 em outra chamada.':'Chamada recusada.');return;}
+      return;
+    }
+    if(p.type==='hangup'){
+      if(upCall.peer===p.from&&!upCall.connected&&upCall.participants.length<=2){callCleanup(false);return;}
+      callRemovePeer(p.from,true);
+      if(upCall.active){if(upCall.participants.length<=1)callCleanup(false);else callRenderConnected();}
+      return;
+    }
+    if(p.type==='leave'){
+      callRemovePeer(p.from,true);
+      if(upCall.active){if(upCall.participants.length<=1)callCleanup(false);else callRenderConnected();}
+      return;
+    }
   }
   function toggleCallMute(){
     if(!upCall.localStream)return;
-    upCall.muted=!upCall.muted;
-    upCall.localStream.getAudioTracks().forEach(function(t){t.enabled=!upCall.muted;});
-    callRender(upCall.peer,upCall.connected?'Conectado':'Conectando…',[{label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}]);
+    upCall.muted=!upCall.muted;upCall.localStream.getAudioTracks().forEach(function(t){t.enabled=!upCall.muted;});callRenderConnected();
   }
 
   function handleRealtimeChatRead(payload){
@@ -1624,6 +1850,7 @@
           if(c&&c.target===member)executeRemoteCommand(c);
         })
         .on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{});})
+        .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){voiceRoomReceive(payload&&payload.payload||{});})
         .on('broadcast',{event:'remote_result'},function(payload){
           var r=payload&&payload.payload&&payload.payload.result;
           if(r&&r.commandId&&r.sender===member){
@@ -1764,6 +1991,7 @@
   function markVisibleChatRead(){if(!token||chat.classList.contains('hidden'))return;var ids=chatCache.filter(function(m){return m.user!==member;}).map(function(m){return m.id;});setUnread(0);if(!ids.length)return;var k=ids.join(',');if(k===readSentKey)return;api('POST','/api/chat/read',{messageIds:ids}).then(function(){readSentKey=k;setUnread(0);if(realtimeActive&&realtimeChannel){try{realtimeChannel.send({type:'broadcast',event:'chat_read',payload:{reader:member,messageIds:ids}});}catch(e){}}}).catch(function(){});}
 
 
+  function positionReadTooltip(e){if(!readTooltip)return;var x=e&&Number.isFinite(e.clientX)?e.clientX:0,y=e&&Number.isFinite(e.clientY)?e.clientY:0;readTooltip.style.left=Math.max(8,Math.min(window.innerWidth-220,x+12))+'px';readTooltip.style.top=Math.max(8,Math.min(window.innerHeight-70,y+14))+'px';}
   function replyPreview(m){
     if(!m||!m.replyTo)return '';
     var r=m.replyTo;
@@ -1854,7 +2082,7 @@
   function renderChat(){
     var list=chat.querySelector('.up-chat-list');if(!list)return;
     dedupeChatCache();
-    var forceScrollBottom=chatForceScrollBottom||Date.now()<chatOpenScrollUntil;
+    var forceScrollBottom=chatForceScrollBottom||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil);
     chatForceScrollBottom=false;
     var renderKey=chatDataKey(chatCache);
     if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){
@@ -1875,7 +2103,7 @@
       var groupStart=!samePrev,groupEnd=!sameNext;
       var avatar='<img class="up-chat-avatar '+chatAvatarPresence(m.user)+(groupEnd?'':' avatar-hidden')+'" data-avatar-name="'+esc(m.user)+'" alt="'+esc(m.user)+'">',body='';
       if(m.pendingUpload)body='<div class="up-chat-uploading"><span class="up-chat-upload-spinner"></span><span>'+esc(m.uploadLabel||'Enviando anexo…')+'</span></div>';
-      else if(m.imageUrl){if(m.type==='video')body='<video class="up-chat-media up-chat-media-video" data-media-route="'+esc(m.imageUrl)+'" controls preload="metadata"></video>';else if(m.type==='audio')body='<div class="up-chat-audio-player" data-media-route="'+esc(m.imageUrl)+'"><button type="button" class="up-chat-audio-play" aria-label="Reproduzir áudio">▶</button><div class="up-chat-audio-wave"></div><span class="up-chat-audio-time">0:00</span></div>';else body='<img class="up-chat-photo" data-media-route="'+esc(m.imageUrl)+'" alt="Imagem enviada por '+esc(m.user)+'" loading="lazy">';}
+      else if(m.imageUrl){if(m.type==='document'){var docName=String(m.message||'Documento'),docExt=(docName.split('.').pop()||'').toLowerCase(),docKind=/^(doc|docx|txt|rtf|odt)$/.test(docExt)?'blue':/^(xls|xlsx|csv|ods)$/.test(docExt)?'green':/^(pdf|html?|ppt|pptx|odp)$/.test(docExt)?'red':'blue',docIcon=/^(pdf)$/.test(docExt)?'PDF':/^(doc|docx|odt)$/.test(docExt)?'W':/^(xls|xlsx|ods)$/.test(docExt)?'XLS':/^csv$/.test(docExt)?'CSV':/^(ppt|pptx|odp)$/.test(docExt)?'PPT':/^(html?)$/.test(docExt)?'WEB':/^(txt|rtf)$/.test(docExt)?'TXT':'FILE';body='<a class="up-chat-document up-chat-document-'+docKind+'" data-document-route="'+esc(m.imageUrl)+'" data-file-name="'+esc(docName)+'" href="#"><span class="up-chat-document-icon">'+docIcon+'</span><span class="up-chat-document-name">'+esc(docName)+'</span><span class="up-chat-document-download">Baixar</span></a>';}else if(m.type==='video')body='<video class="up-chat-media up-chat-media-video" data-media-route="'+esc(m.imageUrl)+'" controls preload="metadata"></video>';else if(m.type==='audio')body='<div class="up-chat-audio-player" data-media-route="'+esc(m.imageUrl)+'"><button type="button" class="up-chat-audio-play" aria-label="Reproduzir áudio">▶</button><div class="up-chat-audio-wave"></div><span class="up-chat-audio-time">0:00</span></div>';else body='<img class="up-chat-photo" data-media-route="'+esc(m.imageUrl)+'" alt="Imagem enviada por '+esc(m.user)+'" loading="lazy">';}
       else if(m.message)body='<div class="up-chat-text">'+renderChatText(m.message)+'</div>';
       var readers=Array.isArray(m.readBy)?m.readBy.filter(function(n){return n!==member;}):[],title=readers.length?'Lido por: '+readers.join(', '):'Não lido ainda',tick=own?'<span class="up-chat-read '+(readers.length?'read':'')+'" data-readers="'+esc(title)+'">✓✓</span>':'';
       var meta=groupStart?'<div class="up-chat-meta"><b>'+esc(m.user)+'</b><span>'+fmtTime(m.createdAt)+'</span></div>':'';
@@ -1887,7 +2115,7 @@
     list.querySelectorAll('[data-avatar-name]').forEach(function(img){hydrateAvatar(img,img.getAttribute('data-avatar-name'));});
     list.querySelectorAll('[data-avatar-name]').forEach(function(img){var name=img.getAttribute('data-avatar-name')||'';img.addEventListener('mouseenter',function(e){showChatProfileHover(img,name,e);});img.addEventListener('mousemove',positionChatProfileHover);img.addEventListener('mouseleave',hideChatProfileHover);});
     list.querySelectorAll('[data-media-route]').forEach(function(el){var route=el.getAttribute('data-media-route')||'',key='chat:'+route;loadBlobUrl(route,key).then(function(url){if(el.classList.contains('up-chat-audio-player'))setupChatAudioPlayer(el,url);else el.src=url;}).catch(function(){});if(!el.classList.contains('up-chat-audio-player'))el.addEventListener('load',function(){if(wasAtBottom)requestAnimationFrame(function(){list.scrollTop=list.scrollHeight;});});});
-    list.querySelectorAll('.up-chat-photo').forEach(function(img){img.addEventListener('click',function(){openChatLightbox(img.src);});});
+    list.querySelectorAll('[data-document-route]').forEach(function(el){el.addEventListener('click',function(e){e.preventDefault();var route=el.getAttribute('data-document-route')||'',name=el.getAttribute('data-file-name')||'documento';loadBlobUrl(route,'chat-document:'+route).then(function(url){var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();}).catch(function(){showToast('Não foi possível baixar o documento.','error');});});});list.querySelectorAll('.up-chat-photo').forEach(function(img){img.addEventListener('click',function(){openChatLightbox(img.src);});});
     list.querySelectorAll('.up-chat-read').forEach(function(tick){tick.addEventListener('mouseenter',function(e){readTooltip.textContent=tick.getAttribute('data-readers')||'Não lido ainda';readTooltip.classList.add('show');positionReadTooltip(e);});tick.addEventListener('mousemove',positionReadTooltip);tick.addEventListener('mouseleave',function(){readTooltip.classList.remove('show');});});
     
     
@@ -1898,7 +2126,7 @@
     chatLastRenderKey=renderKey;
     requestAnimationFrame(function(){
       if(forceScrollBottom)scrollChatToBottom(true);
-      else list.scrollTop=wasAtBottom?list.scrollHeight:previousScrollTop;
+      else if(!list._upstatusUserScrolling)list.scrollTop=wasAtBottom?list.scrollHeight:previousScrollTop;
     });
   }
   var lightboxPreviousFocus=null,lightboxPreviousOverflow='',lightboxRootFilter='',lightboxRootPointerEvents='',lightboxPreviousRootZIndex='';
@@ -2044,6 +2272,7 @@
 
   function openChat(){
     if(!token)return;
+    chatUserScrollInterruptedUntil=0;
     if(quickChatBubble)quickChatBubble.classList.remove('has-unread');
     // Keep the chat DOM and its listeners alive between openings. Only the first open after F5 builds it.
     if(chat.querySelector('.up-chat-list')&&(chatDomMember===member||chat.getAttribute('data-upstatus-chat-member')===member)){
@@ -2059,7 +2288,7 @@
     setUnread(0);
     chat.classList.remove('hidden');card.classList.add('hidden');history.classList.add('hidden');broadcastChatPresence(true);refresh();
     chat.setAttribute('data-upstatus-chat-member',member);
-    chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><button type="button" class="up-chat-profile-btn" title="Alterar foto de perfil"><img alt="Minha foto"></button><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">●</span> 0 online · 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+'<button class="up-chat-library" type="button" title="Biblioteca de imagens" aria-label="Biblioteca de imagens">'+iconSvg('folder')+'</button>'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'<button class="up-chat-back" type="button" aria-label="Voltar" title="Voltar">←</button></div></div><div class="up-chat-lucca-alert hidden">🔴 ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregando…</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">×</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando <span class="up-chat-recording-time">0:00</span> • clique novamente para enviar <button type="button" class="up-chat-record-cancel" aria-label="Cancelar gravação" title="Cancelar gravação e descartar áudio">×</button></div><div class="up-chat-input-wrap"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">'+iconSvg('clip')+'</button><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">'+iconSvg('mic')+'</button><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-scroll-latest" aria-label="Ir para a última mensagem" title="Ir para a última mensagem"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-6-6 6 6 6-6"/></svg></button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" hidden></div></div><div class="up-chat-lightbox hidden"><img alt="Imagem ampliada"></div>';
+    chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><button type="button" class="up-chat-profile-btn" title="Alterar foto de perfil"><img alt="Minha foto"></button><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">●</span> 0 online · 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'<button class="up-chat-library" type="button" title="Biblioteca de imagens" aria-label="Biblioteca de imagens">'+iconSvg('folder')+'</button>'+'<button class="up-chat-back" type="button" aria-label="Voltar" title="Voltar">←</button></div></div><div class="up-chat-lucca-alert hidden">🔴 ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregando…</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">×</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando <span class="up-chat-recording-time">0:00</span> • clique novamente para enviar <button type="button" class="up-chat-record-cancel" aria-label="Cancelar gravação" title="Cancelar gravação e descartar áudio">×</button></div><div class="up-chat-input-wrap"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">'+iconSvg('clip')+'</button><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">'+iconSvg('mic')+'</button><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-scroll-latest" aria-label="Ir para a última mensagem" title="Ir para a última mensagem"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-6-6 6 6 6-6"/></svg></button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.rtf" hidden></div></div><div class="up-chat-lightbox hidden"><img alt="Imagem ampliada"></div>';
     var chatOpeningLoader=document.createElement('div');chatOpeningLoader.className='up-chat-opening-loader';chatOpeningLoader.innerHTML='<span class="up-chat-opening-spinner"></span>';chatOpeningLoader.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,16,28,.98);z-index:999;pointer-events:none';if(getComputedStyle(chat).position==='static')chat.style.position='relative';var openingLoaderStyle=document.getElementById('up-chat-opening-loader-style');if(!openingLoaderStyle){openingLoaderStyle=document.createElement('style');openingLoaderStyle.id='up-chat-opening-loader-style';openingLoaderStyle.textContent='.up-chat-opening-spinner{width:26px;height:26px;border:3px solid rgba(160,180,210,.25);border-top-color:#8baeff;border-radius:50%;animation:upChatOpenSpin .65s linear infinite}@keyframes upChatOpenSpin{to{transform:rotate(360deg)}}';document.head.appendChild(openingLoaderStyle);}chat.appendChild(chatOpeningLoader);
     var profileBtn=chat.querySelector('.up-chat-profile-btn');if(profileBtn){hydrateAvatar(profileBtn.querySelector('img'),member);profileBtn.onclick=function(e){e.stopPropagation();openProfileModal();};profileBtn.addEventListener('mouseenter',function(e){showChatProfileHover(profileBtn.querySelector('img'),member,e);});profileBtn.addEventListener('mousemove',positionChatProfileHover);profileBtn.addEventListener('mouseleave',hideChatProfileHover);}
     var input=chat.querySelector('.up-chat-input'),photoBtn=chat.querySelector('.up-chat-attach'),photoFile=chat.querySelector('.up-chat-file'),emojiBtn=chat.querySelector('.up-chat-emoji-btn'),emojiMenu=chat.querySelector('.up-chat-emoji-menu'),recordBtn=chat.querySelector('.up-chat-record');
@@ -2168,10 +2397,12 @@
   function clearChatRicardo(){if(member!=='Ricardo')return;if(!confirm('Limpar todo o chat para a equipe?'))return;api('POST','/api/chat/clear',{}).then(function(){chatCache=[];chatLastRenderKey='';return api('GET','/api/chat');}).then(function(d){chatCache=d.messages||[];if(d.profiles)profileCache=d.profiles;renderChat();}).catch(function(e){message(e.message,true);});}
   function scrollChatToBottom(force){
     if(force===false)return;
+    if(Date.now()<chatUserScrollInterruptedUntil&&!chatForceScrollBottom){chatPendingInitialScroll=false;return;}
     var list=chat.querySelector('.up-chat-list');
     if(!list)return;
     function apply(){
       try{
+        if(list._upstatusUserScrolling&&Date.now()<chatUserScrollInterruptedUntil){chatPendingInitialScroll=false;return;}
         list.style.scrollBehavior='auto';
         var target=Math.max(0,list.scrollHeight-list.clientHeight);
         list.scrollTop=target;
@@ -2193,10 +2424,31 @@
         }
       }catch(e){}
     }
+    if(!list._upstatusUserScrollBound){
+      list._upstatusUserScrollBound=true;
+      list._upstatusUserScrolling=false;
+      var userScrollClearTimer=null;
+      function markUserScrollIntent(){
+        list._upstatusUserScrolling=true;
+        chatUserScrollInterruptedUntil=Date.now()+1800;
+        chatPendingInitialScroll=false;
+        chatForceScrollBottom=false;
+        if(userScrollClearTimer)clearTimeout(userScrollClearTimer);
+        userScrollClearTimer=setTimeout(function(){list._upstatusUserScrolling=false;userScrollClearTimer=null;},1800);
+      }
+      list.addEventListener('wheel',function(e){if(e.deltaY<0)markUserScrollIntent();},{passive:true});
+      list.addEventListener('pointerdown',function(e){if(e.target===list||e.target===list.firstElementChild)list._upstatusPointerStartY=e.clientY;},{passive:true});
+      list.addEventListener('pointermove',function(e){if(e.buttons&&list._upstatusPointerStartY!=null&&e.clientY>list._upstatusPointerStartY)markUserScrollIntent();},{passive:true});
+      list.addEventListener('pointerup',function(){list._upstatusPointerStartY=null;},{passive:true});
+      list.addEventListener('touchstart',function(e){list._upstatusTouchStartY=e.touches&&e.touches.length?e.touches[0].clientY:null;},{passive:true});
+      list.addEventListener('touchmove',function(e){var y=e.touches&&e.touches.length?e.touches[0].clientY:null;if(y!=null&&list._upstatusTouchStartY!=null&&y>list._upstatusTouchStartY)markUserScrollIntent();list._upstatusTouchStartY=y;},{passive:true});
+      list.addEventListener('keydown',function(e){if(e.key==='ArrowUp'||e.key==='PageUp'||e.key==='Home')markUserScrollIntent();});
+      list.addEventListener('scroll',function(){list._upstatusLastScrollTop=list.scrollTop;},{passive:true});
+    }
     if(!list._upstatusContentObserverBound&&typeof MutationObserver!=='undefined'){
       try{
         var contentObserver=new MutationObserver(function(){
-          if(!chat.classList.contains('hidden')&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil))requestAnimationFrame(apply);
+          if(!chat.classList.contains('hidden')&&!list._upstatusUserScrolling&&(chatPendingInitialScroll||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil)))requestAnimationFrame(apply);
         });
         contentObserver.observe(list,{childList:true,subtree:true,characterData:true});
         list._upstatusContentObserverBound=true;
@@ -2205,7 +2457,7 @@
     if(!list._upstatusBottomScrollBound){
       list._upstatusBottomScrollBound=true;
       list.addEventListener('load',function(){
-        if(!chat.classList.contains('hidden')&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil))apply();
+        if(!chat.classList.contains('hidden')&&!list._upstatusUserScrolling&&(chatPendingInitialScroll||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil)))apply();
       },true);
     }
     if(typeof ResizeObserver!=='undefined'&&chatScrollObservedList!==list){
@@ -2213,7 +2465,7 @@
         if(chatScrollObserver)chatScrollObserver.disconnect();
         chatScrollObserver=new ResizeObserver(function(){
           if(chat.classList.contains('hidden'))return;
-          if(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil)apply();
+          if(!list._upstatusUserScrolling&&(chatPendingInitialScroll||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil)))apply();
         });
         chatScrollObserver.observe(list);
         chatScrollObservedList=list;
@@ -2223,11 +2475,11 @@
     requestAnimationFrame(apply);
     requestAnimationFrame(function(){requestAnimationFrame(apply);});
     // Recheck after DOM/media layout settles; retries are limited to chat opening.
-    if(!list._upstatusBottomRetryScheduled&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil)){
+    if(!list._upstatusBottomRetryScheduled&&(chatPendingInitialScroll||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil))){
       list._upstatusBottomRetryScheduled=true;
       [50,150,300,600,1000].forEach(function(delay){
         setTimeout(function(){
-          if(!chat.classList.contains('hidden')&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil))apply();
+          if(!chat.classList.contains('hidden')&&!list._upstatusUserScrolling&&(chatPendingInitialScroll||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil)))apply();
           if(delay===1000)list._upstatusBottomRetryScheduled=false;
         },delay);
       });
@@ -2274,25 +2526,25 @@
       if(btn)btn.disabled=false;
     });
   }
-  function fileMimeFromExt(ext){return ({png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',gif:'image/gif',mp4:'video/mp4',webm:'video/webm'})[ext]||'';}
+  function fileMimeFromExt(ext){return ({png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',gif:'image/gif',mp4:'video/mp4',webm:'video/webm',pdf:'application/pdf',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xls:'application/vnd.ms-excel',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',csv:'text/csv',ppt:'application/vnd.ms-powerpoint',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',txt:'text/plain',rtf:'application/rtf'})[ext]||'';}
   function resolveFileMime(file,allowVideo){
     var type=String(file&&file.type||'').toLowerCase(),ext=String(file&&file.name||'').split('.').pop().toLowerCase();
     var extMime=fileMimeFromExt(ext);
     var typeOk=allowVideo?/^(image\/(png|jpe?g|webp|gif)|video\/(mp4|webm))$/i.test(type):/^image\/(png|jpe?g|webp|gif)$/i.test(type);
     var mime=typeOk?type:extMime;
-    var ok=allowVideo?/^(image\/(png|jpe?g|webp|gif)|video\/(mp4|webm))$/i.test(mime):/^image\/(png|jpe?g|webp|gif)$/i.test(mime);
+    var isDoc=/^(application\/(pdf|msword|vnd\.(ms-excel|ms-powerpoint|openxmlformats-officedocument\.(wordprocessingml\.document|spreadsheetml\.sheet|presentationml\.presentation)))|text\/(plain|csv|rtf))$/i.test(mime);var ok=allowVideo?(/^(image\/(png|jpe?g|webp|gif)|video\/(mp4|webm))$/i.test(mime)||isDoc):/^image\/(png|jpe?g|webp|gif)$/i.test(mime);
     return {mime:mime,ext:ext,ok:ok};
   }
-  function fileToDataUrl(file){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Use PNG, JPG, WEBP, GIF, MP4 ou WEBM.'));return;}var max=/^video\//i.test(info.mime)?25*1024*1024:5*1024*1024;if(file.size>max){reject(new Error('O arquivo deve ter no máximo '+(max/1024/1024)+' MB.'));return;}var reader=new FileReader();reader.onload=function(){var data=reader.result;if(!(data instanceof ArrayBuffer)){resolve(String(data));return;}var bytes=new Uint8Array(data),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+info.mime+';base64,'+btoa(bin));};reader.onerror=function(){reject(new Error('Não foi possível ler o arquivo.'));};reader.readAsArrayBuffer(file);});}
+  function fileToDataUrl(file){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Use imagens, vídeos ou documentos PDF, DOC/DOCX, XLS/XLSX, CSV, PPT/PPTX, TXT e RTF.'));return;}var max=/^video\//i.test(info.mime)?25*1024*1024:/^(application\/|text\/)/i.test(info.mime)?10*1024*1024:5*1024*1024;if(file.size>max){reject(new Error('O arquivo deve ter no máximo '+(max/1024/1024)+' MB.'));return;}var reader=new FileReader();reader.onload=function(){var data=reader.result;if(!(data instanceof ArrayBuffer)){resolve(String(data));return;}var bytes=new Uint8Array(data),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+info.mime+';base64,'+btoa(bin));};reader.onerror=function(){reject(new Error('Não foi possível ler o arquivo.'));};reader.readAsArrayBuffer(file);});}
   function fileToDataUrlForProfile(file,type,ext){var info=resolveFileMime(file,false),mime=info.ok?info.mime:fileMimeFromExt(ext);if(!/^image\//i.test(mime)){return Promise.reject(new Error('Use PNG, JPG, WEBP ou GIF.'));}return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){try{var bytes=new Uint8Array(reader.result),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+mime+';base64,'+btoa(bin));}catch(e){reject(new Error('Não foi possível preparar a foto.'));}};reader.onerror=function(){reject(new Error('Não foi possível ler a foto.'));};reader.readAsArrayBuffer(file);});}
   function sendChatMedia(file){
     if(!file)return;
-    var tempId='local-upload-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),reply=chatReplyTo,info=resolveFileMime(file,true),isVideo=String(info.mime||'').indexOf('video/')===0,label=isVideo?'Enviando vídeo…':'Enviando imagem…';
-    var optimistic={id:tempId,user:member,message:'',type:isVideo?'video':'image',systemType:'',createdAt:new Date().toISOString(),imageUrl:'',mentions:[],replyTo:reply,reactions:{},readBy:[],optimistic:true,pendingUpload:true,uploadLabel:label};
+    var tempId='local-upload-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),reply=chatReplyTo,info=resolveFileMime(file,true),isVideo=String(info.mime||'').indexOf('video/')===0,isDocument=/^(application\/|text\/)/i.test(info.mime||''),label=isDocument?'Enviando documento…':isVideo?'Enviando vídeo…':'Enviando imagem…';
+    var optimistic={id:tempId,user:member,message:'',type:isDocument?'document':isVideo?'video':'image',systemType:'',createdAt:new Date().toISOString(),imageUrl:'',mentions:[],replyTo:reply,reactions:{},readBy:[],optimistic:true,pendingUpload:true,uploadLabel:label};
     chatCache.push(optimistic);chatForceScrollBottom=true;chatOpenScrollUntil=Date.now()+1200;
     try{renderChat();scrollChatToBottom(true);}catch(e){}
-    fileToDataUrl(file).then(function(dataUrl){return api('POST','/api/chat/image',{dataUrl:dataUrl});}).then(function(upload){
-      return api('POST','/api/chat',{message:'',imageUrl:upload.imageUrl,type:upload.type,replyTo:reply});
+    fileToDataUrl(file).then(function(dataUrl){return api('POST',isDocument?'/api/chat/document':'/api/chat/image',{dataUrl:dataUrl});}).then(function(upload){
+      return api('POST','/api/chat',{message:isDocument?String(file.name||'Documento'):'',imageUrl:upload.imageUrl,type:upload.type,replyTo:reply});
     }).then(function(r){
       var created=normalizeChatMessage(r&&r.message);
       if(!created)throw new Error('O anexo foi enviado, mas não recebemos a confirmação da mensagem.');
@@ -2312,30 +2564,59 @@
   }
   function openChatLibrary(){
     closeChatLibrary();
-    var items=chatCache.filter(function(m){return m&&m.imageUrl&&(m.type==='image'||m.type==='video'||m.type==='gif'||/\.gif(?:[?#]|$)/i.test(String(m.imageUrl)));}).slice().reverse();
+    var allItems=chatCache.filter(function(m){return m&&m.imageUrl;});
+    var items=allItems.filter(function(m){return m.type==='image'||m.type==='video'||m.type==='gif'||/\.gif(?:[?#]|$)/i.test(String(m.imageUrl));}).slice().reverse();
+    var documents=allItems.filter(function(m){return m.type==='document';}).slice().reverse();
     var modal=node('div',{className:'up-chat-library-modal'}),panel=node('div',{className:'up-chat-library-panel'}),head=node('div',{className:'up-chat-library-head'});
-    var title=node('div',{className:'up-chat-library-title',textContent:'Biblioteca de imagens'}),close=node('button',{className:'up-chat-library-close',type:'button',textContent:'×',title:'Fechar biblioteca'});
-    close.setAttribute('aria-label','Voltar ao chat');
+    var heading=node('div',{className:'up-chat-library-heading'}),eyebrow=node('div',{className:'up-chat-library-eyebrow',textContent:'ARQUIVOS COMPARTILHADOS'}),title=node('div',{className:'up-chat-library-title',textContent:'Biblioteca'});
+    var close=node('button',{className:'up-chat-library-close',type:'button',textContent:'×',title:'Fechar biblioteca'});
+    close.setAttribute('aria-label','Fechar biblioteca');heading.appendChild(eyebrow);heading.appendChild(title);head.appendChild(heading);head.appendChild(close);
     if(root.classList.contains('up-theme-light'))modal.classList.add('up-theme-light');
-    var grid=node('div',{className:'up-chat-library-grid'});
-    head.appendChild(title);head.appendChild(close);
-    if(!items.length){grid.innerHTML='<div class="up-chat-library-empty">As imagens e os vídeos enviados no chat aparecerão aqui.</div>';grid.style.display='block';}
-    items.forEach(function(item){
-      var url=String(item.imageUrl||''),isVideo=item.type==='video'||/^video\//i.test(String(item.mime||'')),isGif=item.type==='gif'||/\.gif(?:[?#]|$)/i.test(url)||/^image\/gif$/i.test(String(item.mime||'')),sender=node('div',{className:'up-chat-library-sender',textContent:item.user||'Usuário'}),date=node('div',{className:'up-chat-library-date',textContent:fmtDay(item.createdAt)}),meta=node('div',{className:'up-chat-library-meta'});
-      var card=node('button',{className:'up-chat-library-item',type:'button',title:'Abrir mídia para visualizar'}),media;
-      if(isVideo){media=node('video',{className:'up-chat-library-thumb',muted:true,preload:'metadata',playsInline:true});}
-      else media=node('img',{className:'up-chat-library-thumb',alt:isGif?'GIF enviado':'Imagem enviada',loading:'lazy'});
-      var libraryBytes=item.size!=null?item.size:item.fileSize!=null?item.fileSize:item.bytes!=null?item.bytes:null;var name=node('span',{className:'up-chat-library-name',textContent:(isVideo?'Vídeo':isGif?'GIF':'Imagem')+' • '+fmtTime(item.createdAt)+' • '+formatLibraryBytes(libraryBytes)});
-      meta.appendChild(sender);meta.appendChild(date);card.appendChild(meta);card.appendChild(media);card.appendChild(name);grid.appendChild(card);
-      loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(blobUrl){
-        if(!media.isConnected)return;media.src=blobUrl;if(libraryBytes==null&&mediaBlobSizeCache['chat:'+item.imageUrl]!=null){libraryBytes=mediaBlobSizeCache['chat:'+item.imageUrl];name.textContent=(isVideo?'Vídeo':isGif?'GIF':'Imagem')+' • '+fmtTime(item.createdAt)+' • '+formatLibraryBytes(libraryBytes);}
-        if(isVideo){media.addEventListener('loadedmetadata',function(){var dur=Number(media.duration);if(isFinite(dur)&&dur>0){name.textContent='Vídeo • '+Math.floor(dur/60)+':'+String(Math.floor(dur%60)).padStart(2,'0')+' • '+formatLibraryBytes(item.size||item.fileSize||item.bytes);}}, {once:true});}
-      }).catch(function(){});
-      card.onclick=function(){if(isVideo){openChatLibraryVideoLightbox(item,modal);return;}var openImage=function(src){var box=chatLightbox||chat.querySelector('.up-chat-lightbox');if(box&&box.parentNode===document.body)document.body.appendChild(box);modal.classList.add('up-chat-library-viewing-image');openChatLightbox(src);};if(media.src&&media.complete!==false&&media.naturalWidth>0){openImage(media.src);}else{loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(src){if(card.isConnected)openImage(src);}).catch(function(){});}};
-    });
-    panel.appendChild(head);panel.appendChild(grid);modal.appendChild(panel);document.body.appendChild(modal);
+    var toolbar=node('div',{className:'up-chat-library-toolbar'}),tabs=node('div',{className:'up-chat-library-tabs'}),mediaTab=node('button',{className:'up-chat-library-tab active',type:'button',textContent:'Mídias ('+items.length+')'}),docsTab=node('button',{className:'up-chat-library-tab',type:'button',textContent:'Documentos ('+documents.length+')'});
+    tabs.appendChild(mediaTab);tabs.appendChild(docsTab);toolbar.appendChild(tabs);
+    var mediaContent=node('div',{className:'up-chat-library-content'}),filters=node('div',{className:'up-chat-library-filters'}),search=node('input',{className:'up-chat-library-search',type:'search',placeholder:'Buscar arquivo…','aria-label':'Buscar na biblioteca'}),filterSelect=node('select',{className:'up-chat-library-filter','aria-label':'Filtrar mídias'});
+    ['Todos','Fotos','Vídeos','GIFs'].forEach(function(label){var opt=node('option',{textContent:label});opt.value=label;filterSelect.appendChild(opt);});
+    filters.appendChild(search);filters.appendChild(filterSelect);mediaContent.appendChild(filters);
+    var grid=node('div',{className:'up-chat-library-grid'});mediaContent.appendChild(grid);
+    var docsContent=node('div',{className:'up-chat-library-content up-chat-library-docs-content'});docsContent.style.display='none';
+    var docsSearch=node('input',{className:'up-chat-library-search',type:'search',placeholder:'Buscar documentos…','aria-label':'Buscar documentos'}),docsFilters=node('div',{className:'up-chat-library-filters'});docsFilters.appendChild(docsSearch);docsContent.appendChild(docsFilters);
+    var docsList=node('div',{className:'up-chat-library-documents'});docsContent.appendChild(docsList);
+    function docMeta(item){return (item.user||'Usuário')+' • '+fmtDay(item.createdAt);}
+    function renderDocs(){
+      docsList.innerHTML='';
+      var filtered=documents.filter(function(item){var name=String(item.message||'Documento'),q=String(docsSearch.value||'').toLowerCase();return name.toLowerCase().indexOf(q)>=0||String(item.user||'').toLowerCase().indexOf(q)>=0;});
+      if(!filtered.length){docsList.appendChild(node('div',{className:'up-chat-library-empty',textContent:documents.length?'Nenhum documento corresponde à busca.':'Os documentos enviados no chat aparecerão aqui.'}));return;}
+      filtered.forEach(function(item){
+        var name=String(item.message||'Documento'),ext=(name.split('.').pop()||'').toLowerCase(),kind=/^(doc|docx|txt|rtf|odt)$/.test(ext)?'blue':/^(xls|xlsx|csv|ods)$/.test(ext)?'green':/^(pdf|html?|ppt|pptx|odp)$/.test(ext)?'red':'blue';
+        var iconName=/^pdf$/.test(ext)?'PDF':/^(doc|docx|odt)$/.test(ext)?'W':/^(xls|xlsx|ods)$/.test(ext)?'XLS':/^csv$/.test(ext)?'CSV':/^(ppt|pptx|odp)$/.test(ext)?'PPT':/^(txt|rtf)$/.test(ext)?'TXT':/^(html?)$/.test(ext)?'WEB':'FILE';
+        var card=node('div',{className:'up-chat-library-document-card '+ 'up-chat-library-doc-'+kind}),iconBox=node('div',{className:'up-chat-library-doc-icon'}),iconLabel=node('span',{textContent:iconName}),info=node('div',{className:'up-chat-library-doc-info'}),fileName=node('div',{className:'up-chat-library-doc-name',textContent:name}),meta=node('div',{className:'up-chat-library-doc-meta',textContent:docMeta(item)}),download=node('button',{className:'up-chat-library-download',type:'button',textContent:'Baixar'});
+        iconBox.appendChild(iconLabel);info.appendChild(fileName);info.appendChild(meta);download.onclick=function(){loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(url){var a=document.createElement('a');a.href=url;a.download=name.replace(/^.*[\\/]/,'');document.body.appendChild(a);a.click();a.remove();}).catch(function(){showToast('Não foi possível baixar o documento.','error');});};
+        card.appendChild(iconBox);card.appendChild(info);card.appendChild(download);docsList.appendChild(card);
+      });
+    }
+    function renderMedia(){
+      grid.innerHTML='';
+      var q=String(search.value||'').toLowerCase(),kind=filterSelect.value;
+      var filtered=items.filter(function(item){var url=String(item.imageUrl||''),isVideo=item.type==='video'||/^video\//i.test(String(item.mime||'')),isGif=item.type==='gif'||/\.gif(?:[?#]|$)/i.test(url)||/^image\/gif$/i.test(String(item.mime||'')),label=isVideo?'Vídeo':isGif?'GIF':'Imagem';return (kind==='Todos'||kind==='Fotos'&&!isVideo&&!isGif||kind==='Vídeos'&&isVideo||kind==='GIFs'&&isGif)&&((label+' '+(item.user||'')+' '+fmtDay(item.createdAt)).toLowerCase().indexOf(q)>=0);});
+      if(!filtered.length){grid.style.display='block';grid.appendChild(node('div',{className:'up-chat-library-empty',textContent:items.length?'Nenhuma mídia corresponde ao filtro.':'As fotos, vídeos e GIFs enviados no chat aparecerão aqui.'}));return;}
+      grid.style.display='grid';
+      filtered.forEach(function(item){
+        var url=String(item.imageUrl||''),isVideo=item.type==='video'||/^video\//i.test(String(item.mime||'')),isGif=item.type==='gif'||/\.gif(?:[?#]|$)/i.test(url)||/^image\/gif$/i.test(String(item.mime||'')),sender=node('div',{className:'up-chat-library-sender',textContent:item.user||'Usuário'}),date=node('div',{className:'up-chat-library-date',textContent:fmtDay(item.createdAt)}),meta=node('div',{className:'up-chat-library-meta'}),card=node('button',{className:'up-chat-library-item',type:'button',title:'Abrir mídia para visualizar'}),media;
+        if(isVideo)media=node('video',{className:'up-chat-library-thumb',muted:true,preload:'metadata',playsInline:true});else media=node('img',{className:'up-chat-library-thumb',alt:isGif?'GIF enviado':'Imagem enviada',loading:'lazy'});
+        var bytes=item.size!=null?item.size:item.fileSize!=null?item.fileSize:item.bytes!=null?item.bytes:null,label=node('span',{className:'up-chat-library-name',textContent:(isVideo?'Vídeo':isGif?'GIF':'Imagem')+' • '+fmtTime(item.createdAt)+' • '+formatLibraryBytes(bytes)});
+        meta.appendChild(sender);meta.appendChild(date);card.appendChild(meta);card.appendChild(media);card.appendChild(label);grid.appendChild(card);
+        loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(blobUrl){if(!media.isConnected)return;media.src=blobUrl;if(bytes==null&&mediaBlobSizeCache['chat:'+item.imageUrl]!=null)label.textContent=(isVideo?'Vídeo':isGif?'GIF':'Imagem')+' • '+fmtTime(item.createdAt)+' • '+formatLibraryBytes(mediaBlobSizeCache['chat:'+item.imageUrl]);}).catch(function(){});
+        card.onclick=function(){if(isVideo){openChatLibraryVideoLightbox(item,modal);return;}var openImage=function(src){var box=chatLightbox||chat.querySelector('.up-chat-lightbox');if(box&&box.parentNode===document.body)document.body.appendChild(box);modal.classList.add('up-chat-library-viewing-image');openChatLightbox(src);};if(media.src&&media.complete!==false&&media.naturalWidth>0)openImage(media.src);else loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(src){if(card.isConnected)openImage(src);}).catch(function(){});};
+      });
+    }
+    function switchTab(which){var docs=which==='documents';mediaTab.classList.toggle('active',!docs);docsTab.classList.toggle('active',docs);mediaContent.style.display=docs?'none':'flex';docsContent.style.display=docs?'flex':'none';}
+    mediaTab.onclick=function(){switchTab('media');};docsTab.onclick=function(){switchTab('documents');};
+    search.addEventListener('input',renderMedia);filterSelect.addEventListener('change',renderMedia);docsSearch.addEventListener('input',renderDocs);
+    renderMedia();renderDocs();
+    panel.appendChild(head);panel.appendChild(toolbar);panel.appendChild(mediaContent);panel.appendChild(docsContent);modal.appendChild(panel);document.body.appendChild(modal);
     close.onclick=closeChatLibrary;modal.addEventListener('click',function(e){if(e.target===modal)closeChatLibrary();});
-    var onKey=function(e){var box=chatLightbox||document.querySelector('.up-chat-lightbox'),videoBox=document.querySelector('.up-chat-library-video-lightbox');if(e.key==='Escape'&&((box&&!box.classList.contains('hidden'))||(videoBox&&videoBox.isConnected)))return;if(e.key==='Escape'&&modal.isConnected){closeChatLibrary();document.removeEventListener('keydown',onKey,true);}};document.addEventListener('keydown',onKey,true);
+    var onKey=function(e){var box=chatLightbox||document.querySelector('.up-chat-lightbox'),videoBox=document.querySelector('.up-chat-library-video-lightbox');if(e.key==='Escape'&&((box&&!box.classList.contains('hidden'))||(videoBox&&videoBox.isConnected)))return;if(e.key==='Escape'&&modal.isConnected){closeChatLibrary();document.removeEventListener('keydown',onKey,true);}};
+    document.addEventListener('keydown',onKey,true);
   }
   function openChatLibraryVideoLightbox(item,libraryModal){
     if(!item||!item.imageUrl)return;
@@ -2516,7 +2797,7 @@
 
   function app(){
     api('GET','/api/members').then(function(r){window.__upstatusMembers=(r.members||[]).map(function(x){return x.name});}).catch(function(){});
-    card.innerHTML='<div class="up-head"><div class="up-head-identity"><button type="button" class="up-head-avatar up-head-avatar-btn" title="Alterar foto de perfil" aria-label="Alterar foto de perfil"><img class="up-head-avatar-img" alt=""></button><div><div class="up-title">UpStatus</div><div class="up-you">Conectado como '+esc(member)+'</div></div></div><div class="up-actions"><button class="up-chat-btn" title="Chat da equipe" aria-label="Chat da equipe"><svg class="up-quick-chat-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="up-chat-icon-bubble" d="M12 2.5C6.35 2.5 1.8 6.45 1.8 11.35c0 2.28.98 4.35 2.63 5.92-.4 1.72-1.38 3.15-2.55 4.3 3.1.14 5.68-.63 7.63-1.77.8.2 1.65.3 2.49.3 5.65 0 10.2-3.95 10.2-8.75S17.65 2.5 12 2.5Z" fill="currentColor"/><circle cx="7.7" cy="11.4" r="1.45" fill="var(--up-chat-icon-cutout,#273247)"/><circle cx="12" cy="11.4" r="1.45" fill="var(--up-chat-icon-cutout,#273247)"/><circle cx="16.3" cy="11.4" r="1.45" fill="var(--up-chat-icon-cutout,#273247)"/></svg></button><button class="up-history-btn hidden" title="Ver histórico" aria-label="Ver histórico">'+iconSvg('clock')+'</button><button class="up-settings-btn" title="Configurações" aria-label="Configurações">'+iconSvg('gear')+'</button><div class="up-settings-menu hidden"><button type="button" class="up-settings-theme"></button>'+'<button type="button" class="up-settings-health">'+iconSvg('pulse')+'<span>Saúde do sistema</span></button>'+(member==='Ricardo'&&role==='implementation_admin'?'<button type="button" class="up-settings-test">'+iconSvg('tools')+'<span>Painel de testes</span></button>':'')+'</div><button class="up-logout">Sair</button></div></div><div class="up-statuses"><button class="up-status online">'+iconSvg('online')+' Online</button><button class="up-status busy">'+iconSvg('busy')+' Ocupado</button><button class="up-status away">'+iconSvg('away')+' Ausente</button></div><div class="up-reasons hidden"><label class="up-label">Motivo de ocupado</label><div class="up-reason-picker"><button type="button" class="up-reason-trigger"><span class="up-reason-trigger-icon">'+iconSvg('edit')+'</span><span class="up-reason-trigger-text">Selecione um motivo</span></button><div class="up-reason-menu hidden">'+reasons.map(function(x){return '<button type="button" class="up-reason-option" data-value="'+esc(x.value)+'">'+iconSvg(x.icon)+'<span class="up-reason-text">'+esc(x.label)+'</span></button>'}).join('')+'</div></div><select class="up-select hidden"></select><input class="up-input hidden" placeholder="Escreva o motivo"><button class="up-confirm hidden">Confirmar ocupado</button></div><div class="up-message"></div><div class="up-notice">'+iconSvg('pulse')+'<span>Sincronização com o Sale Smartly ativa.</span><span class="up-notice-ok">✓</span></div><div class="up-team-title-row"><div class="up-team-title">Equipe</div><span class="up-team-count"></span></div><div class="up-team">Carregando…</div>';
+    card.innerHTML='<div class="up-head"><div class="up-head-identity"><button type="button" class="up-head-avatar up-head-avatar-btn" title="Alterar foto de perfil" aria-label="Alterar foto de perfil"><img class="up-head-avatar-img" alt=""></button><div><div class="up-title">UpStatus</div><div class="up-you">Conectado como '+esc(member)+'</div></div></div><div class="up-actions"><button class="up-chat-btn" title="Chat da equipe" aria-label="Chat da equipe"><svg class="up-quick-chat-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="up-chat-icon-bubble" d="M12 2.5C6.35 2.5 1.8 6.45 1.8 11.35c0 2.28.98 4.35 2.63 5.92-.4 1.72-1.38 3.15-2.55 4.3 3.1.14 5.68-.63 7.63-1.77.8.2 1.65.3 2.49.3 5.65 0 10.2-3.95 10.2-8.75S17.65 2.5 12 2.5Z" fill="currentColor"/><circle cx="7.7" cy="11.4" r="1.45" fill="var(--up-chat-icon-cutout,#273247)"/><circle cx="12" cy="11.4" r="1.45" fill="var(--up-chat-icon-cutout,#273247)"/><circle cx="16.3" cy="11.4" r="1.45" fill="var(--up-chat-icon-cutout,#273247)"/></svg></button><button class="up-history-btn hidden" title="Ver histórico" aria-label="Ver histórico">'+iconSvg('clock')+'</button><button class="up-settings-btn" title="Configurações" aria-label="Configurações">'+iconSvg('gear')+'</button><div class="up-settings-menu hidden"><button type="button" class="up-settings-theme"></button>'+'<button type="button" class="up-settings-health">'+iconSvg('pulse')+'<span>Saúde do sistema</span></button>'+(member==='Ricardo'&&role==='implementation_admin'?'<button type="button" class="up-settings-test">'+iconSvg('tools')+'<span>Painel de testes</span></button>':'')+'</div><button class="up-logout">Sair</button></div></div><div class="up-statuses"><button class="up-status online">'+iconSvg('online')+' Online</button><button class="up-status busy">'+iconSvg('busy')+' Ocupado</button><button class="up-status away">'+iconSvg('away')+' Ausente</button></div><div class="up-reasons hidden"><label class="up-label">Motivo de ocupado</label><div class="up-reason-picker"><button type="button" class="up-reason-trigger"><span class="up-reason-trigger-icon">'+iconSvg('edit')+'</span><span class="up-reason-trigger-text">Selecione um motivo</span></button><div class="up-reason-menu hidden">'+reasons.map(function(x){return '<button type="button" class="up-reason-option" data-value="'+esc(x.value)+'">'+iconSvg(x.icon)+'<span class="up-reason-text">'+esc(x.label)+'</span></button>'}).join('')+'</div></div><select class="up-select hidden"></select><input class="up-input hidden" placeholder="Escreva o motivo"><button class="up-confirm hidden">Confirmar ocupado</button></div><div class="up-notice">'+iconSvg('pulse')+'<span>Sincronização com o Sale Smartly ativa.</span><span class="up-notice-ok">✓</span></div><div class="up-message"></div><section class="up-voice-room is-empty" aria-label="Sala de voz da equipe"><div class="up-voice-head"><div class="up-voice-title">'+iconSvg('sound')+' Sala de voz da equipe</div><div class="up-voice-state">Sala disponível</div></div><div class="up-voice-participants"><span class="up-voice-empty">Ninguém na sala ainda</span></div><div class="up-voice-actions"><button type="button" class="up-voice-join">Entrar na sala</button><button type="button" class="up-voice-mute hidden" aria-label="Mutar microfone"></button><button type="button" class="up-voice-leave hidden" aria-label="Sair da sala">'+iconSvg('phone-off')+'</button></div><div class="up-voice-message" role="status" aria-live="polite"></div></section><div class="up-team-title-row"><div class="up-team-title">Equipe</div><span class="up-team-count"></span></div><div class="up-team">Carregando…</div>';
     history.innerHTML='<div class="up-history-head"><div class="up-history-title">Histórico</div><div class="up-actions"><button class="up-export" title="Exportar histórico">'+iconSvg('download')+' TXT</button><button class="up-close">Fechar</button></div></div><div class="up-history-list">Carregando…</div>';
 
     var box=card.querySelector('.up-reasons'),select=box.querySelector('select'),custom=box.querySelector('input'),confirm=box.querySelector('button.up-confirm'),trigger=box.querySelector('.up-reason-trigger'),menu=box.querySelector('.up-reason-menu');
@@ -2534,8 +2815,12 @@
     trigger.onclick=function(){menu.classList.toggle('hidden')};
     box.querySelectorAll('.up-reason-option').forEach(function(opt){opt.onclick=function(){var value=opt.getAttribute('data-value');var r=reasons.find(function(x){return x.value===value});trigger.innerHTML=iconSvg(r?r.icon:'edit')+'<span class="up-reason-trigger-text">'+esc(r?r.label:value)+'</span>';menu.classList.add('hidden');custom.classList.toggle('hidden',value!=='Outro');confirm.classList.toggle('hidden',value!=='Outro');if(value&&value!=='Outro')save('busy',value);else if(value==='Outro')custom.focus();}});
     confirm.onclick=function(){save('busy',custom.value)};
+    card.querySelector('.up-voice-room').onclick=function(e){if(!voiceRoom.active&&!voiceRoom.joining&&!e.target.closest('.up-voice-actions'))voiceRoomJoin();};card.querySelector('.up-voice-room').onkeydown=function(e){if((e.key==='Enter'||e.key===' ')&&!voiceRoom.active){e.preventDefault();voiceRoomJoin();}};card.querySelector('.up-voice-join').onclick=voiceRoomJoin;
+    card.querySelector('.up-voice-mute').onclick=voiceRoomMute;
+    card.querySelector('.up-voice-leave').onclick=function(e){e.preventDefault();e.stopPropagation();this.disabled=true;voiceRoomLeave();this.disabled=false;};
+    voiceRoomRender();
     document.addEventListener('click',function(e){if(box&&!box.contains(e.target))menu.classList.add('hidden')});
-    card.querySelector('.up-logout').onclick=function(){broadcastChatPresence(false);stopRealtime();token='';member='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');history.classList.add('hidden');health.classList.add('hidden');img.src=profileFallback();login()};
+    card.querySelector('.up-logout').onclick=function(){voiceRoomLeave();broadcastChatPresence(false);stopRealtime();token='';member='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');history.classList.add('hidden');health.classList.add('hidden');img.src=profileFallback();login()};
     history.querySelector('.up-close').onclick=function(){history.classList.add('hidden')};
     history.querySelector('.up-export').onclick=function(){exportHistoryTxt()};
     if(settingsBtn)settingsBtn.onclick=function(e){e.stopPropagation();settingsMenu.classList.toggle('hidden');};
@@ -2544,7 +2829,7 @@
     quickChatBubble.onclick=function(e){e.stopPropagation();if(!chat.classList.contains('hidden'))closeChat(false);else openChat();};
     updateNotificationPermissionUI();
     applyTheme();
-    card.insertAdjacentHTML('beforeend','<div class="up-update"><div class="up-update-version">'+iconSvg('update')+'<div><b>Versão v'+CURRENT_VERSION+'</b><a href="#" class="up-patch-link">O que há de novo?</a><span class="up-update-status"></span></div></div><div class="up-update-actions"><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div></div>');
+    card.insertAdjacentHTML('beforeend','<div class="up-update up-update-compact"><div class="up-update-version">'+iconSvg('update')+'<div><b>Versão v'+CURRENT_VERSION+'</b><a href="#" class="up-patch-link">O que há de novo?</a><span class="up-update-status"></span></div></div><div class="up-update-actions"><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div></div>');
     card.querySelector('.up-update-check').onclick=checkUpdate;
     card.querySelector('.up-patch-link').onclick=function(e){e.preventDefault();openPatchNotes();};
     checkUpdate();
@@ -2664,15 +2949,14 @@
       team.innerHTML=memberNames.map(function(k){
         var m=d.members[k],presence=profilePresenceState(m.name,m);
         if(m.name===member)currentStatus=m.status;
-        var controls=(role==='implementation_admin'&&m.name!==member)
-          ? '<button type="button" class="up-member-barui" data-target="'+esc(m.name)+'" title="Ligação rápida (em reconstrução) para '+esc(m.name)+'" aria-label="Ligação rápida (em reconstrução) para '+esc(m.name)+'">'+iconSvg('phone')+'</button><button type="button" class="up-member-power" data-target="'+esc(m.name)+'" title="Controlar fila de '+esc(m.name)+'" aria-label="Controlar fila de '+esc(m.name)+'">'+iconSvg('power')+'</button>'
-          : '';
+        var controls='';
+        var callSummary='';
         var version=m.version?'<span class="up-member-version">v'+esc(m.version)+'</span>':'<span class="up-member-version">v?</span>';
         var sub=[];
         if(m.reason)sub.push(reasonIcon(m.reason)+' '+esc(reasonLabel(m.reason)));
         if(m.updatedAt)sub.push('Desde '+fmtTime(m.updatedAt));
         var presenceTitle=presence==='chat'?'No bate-papo':presence==='active'?'UpStatus Ativo':'Offline';
-        return '<div class="up-member"><div class="up-member-main"><img class="up-member-avatar presence-'+presence+'" data-member-avatar="'+esc(m.name)+'" data-presence-name="'+esc(m.name)+'" title="'+presenceTitle+'" alt=""><div class="up-member-info"><div class="up-member-top"><b>'+esc(m.name)+'</b>'+version+'</div><div class="up-member-sub">'+(sub.length?sub.join(' <span class="up-member-separator">•</span> '):'Sem atualização registrada')+'</div></div></div><div class="up-member-actions">'+controls+'<span class="up-badge b-'+m.status+'" title="Status da fila do Sale Smartly">'+labels[m.status]+'</span></div></div>';
+        return '<div class="up-member"><div class="up-member-main"><span class="up-member-avatar-wrap"><img class="up-member-avatar presence-'+presence+'" data-member-avatar="'+esc(m.name)+'" data-presence-name="'+esc(m.name)+'" title="'+presenceTitle+'" alt=""></span><div class="up-member-info"><div class="up-member-top"><b>'+esc(m.name)+'</b>'+version+'</div><div class="up-member-sub">'+(sub.length?sub.join(' <span class="up-member-separator">•</span> '):'Sem atualização registrada')+'</div></div></div><div class="up-member-actions">'+(role==='implementation_admin'&&m.name!==member?'<button type="button" class="up-badge b-'+m.status+' up-member-status-button" data-target="'+esc(m.name)+'" title="Alterar status de '+esc(m.name)+'">'+labels[m.status]+'</button>':'<span class="up-badge b-'+m.status+'" title="Status da fila do Sale Smartly">'+labels[m.status]+'</span>')+'</div></div>';
       }).join('');
       team.querySelectorAll('.up-member-avatar').forEach(function(a){
         hydrateAvatar(a,a.getAttribute('data-member-avatar')||'');
@@ -2681,8 +2965,8 @@
         a.addEventListener('mousemove',positionChatProfileHover);
         a.addEventListener('mouseleave',hideChatProfileHover);
       });
-      team.querySelectorAll('.up-member-barui').forEach(function(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();startOutgoingCall(btn.getAttribute('data-target'));};});
-      team.querySelectorAll('.up-member-power').forEach(function(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();openRemoteControl(btn.getAttribute('data-target'));};});
+      team.querySelectorAll('.up-member-status-button').forEach(function(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();var target=btn.getAttribute('data-target'),wrap=btn.parentNode,old=wrap.querySelector('.up-team-status-menu');if(old){old.remove();return;}team.querySelectorAll('.up-team-status-menu').forEach(function(x){x.remove();});var current=(window.__upstatusTeam||{})[target]||{},menu=document.createElement('div');menu.className='up-team-status-menu';menu.innerHTML='<button type="button" data-status="online">Online</button><button type="button" data-status="busy">Ocupado</button><button type="button" data-status="away">Ausente</button>';wrap.style.position='relative';wrap.appendChild(menu);menu.querySelectorAll('[data-status]').forEach(function(opt){opt.classList.toggle('active',opt.getAttribute('data-status')===current.status);opt.onclick=function(ev){ev.preventDefault();ev.stopPropagation();var status=opt.getAttribute('data-status');if(status==='busy'){var picker=menu.querySelector('.up-team-reason');if(!picker){picker=document.createElement('div');picker.className='up-team-reason';picker.innerHTML='<div class="up-team-reason-title">Motivo de ocupado</div>'+reasons.map(function(r){return '<button type="button" data-reason="'+esc(r.value)+'">'+iconSvg(r.icon)+'<span>'+esc(r.label)+'</span></button>';}).join('');menu.appendChild(picker);picker.querySelectorAll('[data-reason]').forEach(function(rb){rb.onclick=function(re){re.preventDefault();re.stopPropagation();sendRemoteStatus(target,'busy',rb.getAttribute('data-reason'),menu);};});}return;}sendRemoteStatus(target,status,status==='away'?'Ausente':'',menu);};});};});
+      function sendRemoteStatus(target,status,reason,menu){if(role!=='implementation_admin'||!target||target===member)return;if(status==='busy'&&!reason){return;}menu.innerHTML='<span class="up-team-status-wait">Enviando…</span>';api('POST','/api/remote-status',{target:target,status:status,reason:status==='busy'?reason:status==='away'?'Ausente':''}).then(function(r){if(!r.commandId)throw new Error('O servidor não confirmou o comando.');menu.innerHTML='<span class="up-team-status-wait">Aguardando confirmação…</span>';if(r.command)sendRealtimeEvent('remote_command',{command:r.command});waitRemoteResult(r.commandId,target,menu,menu.querySelector('button'));}).catch(function(err){menu.innerHTML='<span class="up-team-status-wait">'+esc(err.message||'Falha ao alterar status')+'</span>';});}
       setBubbleStatus(currentStatus);
     }).catch(function(e){message(e.message,true)}).finally(function(){refreshing=false});
     loadChat();
@@ -2785,7 +3069,7 @@
       card.querySelector('.up-reasons').classList.add('hidden');
       refresh();
       if(location.hostname==='app.salesmartly.com')setTimeout(function(){location.reload()},250);
-    }catch(e){message(e.message,true)}
+    }catch(e){message(e.message,true);refresh();}
   }
 
   var drag=null;
