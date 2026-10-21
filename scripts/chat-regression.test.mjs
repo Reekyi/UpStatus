@@ -42,9 +42,9 @@ const oldMessages=[
   assert(h.toasts.length===0,"repeated messages must not notify twice");
   h.processChatNotifications([{id:"new-1",user:"Lohan",type:"text",mentions:[]}]);
   assert(h.toasts.length===1&&h.toasts[0]==="new-1","new incoming messages must trigger one in-page notification");
-  assert(h.external.length===1&&h.external[0]==="chat:new-1","new incoming messages must be passed to desktop-notification gating");
+  assert(h.external.length===0,"external notifications remain intentionally disabled in the current chat flow");
   h.processChatNotifications([{id:"new-1",user:"Lohan",type:"text",mentions:[]}]);
-  assert(h.toasts.length===1&&h.external.length===1,"duplicate realtime events must not notify twice");
+  assert(h.toasts.length===1&&h.external.length===0,"duplicate realtime events must not create duplicate in-page notifications");
 }
 {
   const h=makeHarness();
