@@ -308,7 +308,7 @@ function sniffMime(bytes:Uint8Array,declared:string) {
   return declared;
 }
 function ext(mime:string) {
-  return ({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm","audio/webm":"webm","audio/ogg":"ogg","audio/mp4":"m4a","audio/mpeg":"mp3","audio/wav":"wav","audio/x-wav":"wav","audio/x-m4a":"m4a" } as Record<string,string>)[mime]||"";
+  return ({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif","application/pdf":"pdf","application/msword":"doc","application/vnd.openxmlformats-officedocument.wordprocessingml.document":"docx","application/vnd.ms-excel":"xls","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":"xlsx","text/csv":"csv","application/vnd.ms-powerpoint":"ppt","application/vnd.openxmlformats-officedocument.presentationml.presentation":"pptx","text/plain":"txt","text/rtf":"rtf","application/rtf":"rtf","video/mp4":"mp4","video/webm":"webm","audio/webm":"webm","audio/ogg":"ogg","audio/mp4":"m4a","audio/mpeg":"mp3","audio/wav":"wav","audio/x-wav":"wav","audio/x-m4a":"m4a" } as Record<string,string>)[mime]||"";
 }
 async function uploadFile(bucket:string,dataUrl:string,max:number,allowed:Set<string>) {
   const d=decodeDataUrl(dataUrl);
@@ -388,7 +388,7 @@ async function chatRoute(req:Request,name:string){
   const p:any=await readBody(req);
   const message=String(p.message||"").trim();
   const imageUrl=String(p.imageUrl||"").trim();
-  const type=p.type==="video"?"video":p.type==="audio"?"audio":imageUrl?"image":"text";
+  const type=p.type==="document"?"document":p.type==="video"?"video":p.type==="audio"?"audio":imageUrl?"image":"text";
   if(!message&&!imageUrl)return response({error:"Digite uma mensagem ou envie um arquivo."},400);
   if(message.length>1000)return response({error:"A mensagem deve ter no máximo 1000 caracteres."},400);
   let replyTo:any=null;
@@ -483,8 +483,8 @@ async function profileRoute(req:Request,name:string) {
 }
 async function mediaRoute(req:Request,kind:"image"|"audio") {
   const p:any=await readBody(req);
-  const max=kind==="audio"?5*1024*1024:25*1024*1024;
-  const allowed=kind==="audio"?new Set(["audio/webm","audio/ogg","audio/mp4","audio/mpeg","audio/wav","audio/x-wav","audio/x-m4a"]):new Set(["image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"]);
+  const max=kind==="audio"?5*1024*1024:kind==="document"?10*1024*1024:25*1024*1024;
+  const allowed=kind==="audio"?new Set(["audio/webm","audio/ogg","audio/mp4","audio/mpeg","audio/wav","audio/x-wav","audio/x-m4a"]):kind==="document"?new Set(["application/pdf","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","text/csv","application/vnd.ms-powerpoint","application/vnd.openxmlformats-officedocument.presentationml.presentation","text/plain","text/rtf","application/rtf"]):new Set(["image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"]);
   const saved=await uploadFile("chat-images",String(p.dataUrl||""),max,allowed);
   return response({ok:true,imageUrl:saved.url,type:saved.mime.startsWith("video/")?"video":kind});
 }
@@ -672,6 +672,7 @@ Deno.serve(async(req)=>{
     if(path==="/api/profiles")return await profileRoute(req,name);
     if(path==="/api/profile/avatar"&&req.method==="POST")return await profileRoute(req,name);
     if(path==="/api/chat/image"&&req.method==="POST")return await mediaRoute(req,"image");
+    if(path==="/api/chat/document"&&req.method==="POST")return await mediaRoute(req,"document");
     if(path==="/api/chat/audio"&&req.method==="POST")return await mediaRoute(req,"audio");
     if(path.startsWith("/api/remote-status"))return await remoteRoute(req,name);
     if(path==="/api/chat/clear"&&req.method==="POST"){
