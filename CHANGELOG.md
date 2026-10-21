@@ -1,3 +1,14 @@
+## 2026-10-20
+
+### 3.0.48
+- Promoted the validated beta17 client behavior to the stable 3.0.48 release.
+- Added a media library with sender, upload date, file size, responsive layout, and light/dark theme support.
+- Reused the chat image lightbox for library images and added a matching centered video viewer; closing media leaves the library open, with Escape or backdrop click dismissing only the media.
+- Improved the library close control and standardized the chat header icon with the floating chat shortcut.
+- Preserved the unread-bubble recovery mechanism and fixed userscript syntax issues that could prevent the full script from starting.
+- Consolidated chat reliability improvements introduced since 3.0.42, including history synchronization, scroll behavior, notifications, emoji/context menus, media viewing, and empty-chat illustration customization.
+- No database schema changes; production backend logic and guest portal/session routes are preserved.
+
 ## 2026-10-19
 
 ### 3.0.45
