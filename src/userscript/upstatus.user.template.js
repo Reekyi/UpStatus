@@ -2044,6 +2044,7 @@
 
   function openChat(){
     if(!token)return;
+    chatUserScrollInterruptedUntil=0;
     if(quickChatBubble)quickChatBubble.classList.remove('has-unread');
     // Keep the chat DOM and its listeners alive between openings. Only the first open after F5 builds it.
     if(chat.querySelector('.up-chat-list')&&(chatDomMember===member||chat.getAttribute('data-upstatus-chat-member')===member)){
