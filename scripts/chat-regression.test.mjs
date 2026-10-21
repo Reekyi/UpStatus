@@ -77,5 +77,6 @@ assert(source.includes("list.addEventListener('touchmove'"),"touch scrolling mus
 assert(source.includes("chatPendingInitialScroll=false;\n        chatForceScrollBottom=false;"),"manual upward scroll must cancel pending initial forced scrolling");
 assert(source.includes("!list._upstatusUserScrolling&&(chatPendingInitialScroll||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil))"),"DOM/resize retries must respect user scroll intent");
 assert(source.includes("if(Date.now()<chatUserScrollInterruptedUntil&&!chatForceScrollBottom)"),"non-forced scrolling must respect the user-scroll interruption window");
+assert(source.includes("function openChat(){\n    if(!token)return;\n    chatUserScrollInterruptedUntil=0;"),"opening the chat must reset an older scroll-interruption window");
 
 console.log("Chat regression tests passed: baseline notifications, duplicate suppression, mentions, retry, immediate reopen rendering, desktop notification focus, and unread indicators.");
