@@ -1,5 +1,15 @@
 ## 2026-10-21
 
+### 3.0.51 (stable)
+- Added an animated green phone indicator on team avatars when an active group call is detected.
+- Added targeted requests to join an existing group call, with accept/decline handling before attempting to connect.
+- Improved cross-version active-call discovery using the shared Realtime presence topic.
+- Strengthened light-mode document card gradients in chat messages and the shared-document library, with distinct blue, red and green file-type treatments.
+- Preserved the vivid dark-mode document styling and improved light-mode contrast for icons and download controls.
+- Production stable release. Call admission and audio still require validation with multiple live users; this release does not claim screen-share forwarding support.
+
+## 2026-10-21
+
 ### 3.0.51-beta3
 - Fix active-call discovery across stable 3.0.50 and beta test builds by listening on the shared call-presence topic.
 - Keep beta3 storage and ringtone identifiers isolated from stable and beta builds.
