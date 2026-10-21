@@ -1,5 +1,10 @@
 ## 2026-10-21
 
+### 3.0.50-beta10
+- Fix a duplicated `else` in chat message rendering that caused a JavaScript syntax error and prevented the entire userscript from starting.
+- Validate the generated production and test userscripts by parsing the complete artifacts before release.
+- Test environment only; production function unchanged.
+
 ### 3.0.50-beta1
 - Add chat document attachments for PDF, DOC/DOCX, XLS/XLSX, CSV, PPT/PPTX, TXT, and RTF.
 - Limit document uploads to 10 MB and retain existing image/video limits.
