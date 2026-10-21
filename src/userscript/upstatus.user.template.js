@@ -2338,7 +2338,7 @@
   function openChatLibrary(){
     closeChatLibrary();
     var allItems=chatCache.filter(function(m){return m&&m.imageUrl;});
-    var items=allItems.filter(function(m){return m.type==='image'||m.type==='video'||m.type==='gif'||/\\.gif(?:[?#]|$)/i.test(String(m.imageUrl));}).slice().reverse();
+    var items=allItems.filter(function(m){return m.type==='image'||m.type==='video'||m.type==='gif'||/\.gif(?:[?#]|$)/i.test(String(m.imageUrl));}).slice().reverse();
     var documents=allItems.filter(function(m){return m.type==='document';}).slice().reverse();
     var modal=node('div',{className:'up-chat-library-modal'}),panel=node('div',{className:'up-chat-library-panel'}),head=node('div',{className:'up-chat-library-head'});
     var heading=node('div',{className:'up-chat-library-heading'}),eyebrow=node('div',{className:'up-chat-library-eyebrow',textContent:'ARQUIVOS COMPARTILHADOS'}),title=node('div',{className:'up-chat-library-title',textContent:'Biblioteca'});
@@ -2370,11 +2370,11 @@
     function renderMedia(){
       grid.innerHTML='';
       var q=String(search.value||'').toLowerCase(),kind=filterSelect.value;
-      var filtered=items.filter(function(item){var url=String(item.imageUrl||''),isVideo=item.type==='video'||/^video\\//i.test(String(item.mime||'')),isGif=item.type==='gif'||/\\.gif(?:[?#]|$)/i.test(url)||/^image\\/gif$/i.test(String(item.mime||'')),label=isVideo?'Vídeo':isGif?'GIF':'Imagem';return (kind==='Todos'||kind==='Fotos'&&!isVideo&&!isGif||kind==='Vídeos'&&isVideo||kind==='GIFs'&&isGif)&&((label+' '+(item.user||'')+' '+fmtDay(item.createdAt)).toLowerCase().indexOf(q)>=0);});
+      var filtered=items.filter(function(item){var url=String(item.imageUrl||''),isVideo=item.type==='video'||/^video\//i.test(String(item.mime||'')),isGif=item.type==='gif'||/\.gif(?:[?#]|$)/i.test(url)||/^image\/gif$/i.test(String(item.mime||'')),label=isVideo?'Vídeo':isGif?'GIF':'Imagem';return (kind==='Todos'||kind==='Fotos'&&!isVideo&&!isGif||kind==='Vídeos'&&isVideo||kind==='GIFs'&&isGif)&&((label+' '+(item.user||'')+' '+fmtDay(item.createdAt)).toLowerCase().indexOf(q)>=0);});
       if(!filtered.length){grid.style.display='block';grid.appendChild(node('div',{className:'up-chat-library-empty',textContent:items.length?'Nenhuma mídia corresponde ao filtro.':'As fotos, vídeos e GIFs enviados no chat aparecerão aqui.'}));return;}
       grid.style.display='grid';
       filtered.forEach(function(item){
-        var url=String(item.imageUrl||''),isVideo=item.type==='video'||/^video\\//i.test(String(item.mime||'')),isGif=item.type==='gif'||/\\.gif(?:[?#]|$)/i.test(url)||/^image\\/gif$/i.test(String(item.mime||'')),sender=node('div',{className:'up-chat-library-sender',textContent:item.user||'Usuário'}),date=node('div',{className:'up-chat-library-date',textContent:fmtDay(item.createdAt)}),meta=node('div',{className:'up-chat-library-meta'}),card=node('button',{className:'up-chat-library-item',type:'button',title:'Abrir mídia para visualizar'}),media;
+        var url=String(item.imageUrl||''),isVideo=item.type==='video'||/^video\//i.test(String(item.mime||'')),isGif=item.type==='gif'||/\.gif(?:[?#]|$)/i.test(url)||/^image\/gif$/i.test(String(item.mime||'')),sender=node('div',{className:'up-chat-library-sender',textContent:item.user||'Usuário'}),date=node('div',{className:'up-chat-library-date',textContent:fmtDay(item.createdAt)}),meta=node('div',{className:'up-chat-library-meta'}),card=node('button',{className:'up-chat-library-item',type:'button',title:'Abrir mídia para visualizar'}),media;
         if(isVideo)media=node('video',{className:'up-chat-library-thumb',muted:true,preload:'metadata',playsInline:true});else media=node('img',{className:'up-chat-library-thumb',alt:isGif?'GIF enviado':'Imagem enviada',loading:'lazy'});
         var bytes=item.size!=null?item.size:item.fileSize!=null?item.fileSize:item.bytes!=null?item.bytes:null,label=node('span',{className:'up-chat-library-name',textContent:(isVideo?'Vídeo':isGif?'GIF':'Imagem')+' • '+fmtTime(item.createdAt)+' • '+formatLibraryBytes(bytes)});
         meta.appendChild(sender);meta.appendChild(date);card.appendChild(meta);card.appendChild(media);card.appendChild(label);grid.appendChild(card);
