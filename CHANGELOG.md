@@ -1,6 +1,14 @@
 ## 2026-10-21
 
 ### 3.0.50-beta10
+- Added realtime discovery of active group calls and a visible "Entrar na chamada" action in team member cards.
+- Joining an active call requests microphone access and notifies current participants to establish the WebRTC mesh.
+- Screen-share streaming is not yet included in this change; it requires the separate display-capture and remote-video integration.
+- Test environment only; production function unchanged.
+
+## 2026-10-21
+
+### 3.0.50-beta10
 - Fix userscript startup syntax error in chat document rendering.
 - Distinguish document icons by file type and fix shared-document list height and scrolling.
 - Restore the WebRTC mesh group-call engine, participant invitations, and group-call controls in the test build.
