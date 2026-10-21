@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import vm from "node:vm";
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
 const release=JSON.parse(fs.readFileSync(path.join(ROOT,"release.json"),"utf8"));
@@ -28,6 +29,9 @@ const user=render(userTemplate,{
  "__UPSTATUS_RINGTONE_CHANNEL__":"upstatus-test-3-0-52-beta1-ringtone-v1",
  "__UPSTATUS_RINGTONE_STORAGE_KEY__":"upstatus_test_3_0_52_beta1_ringtone_bus"
 });
+new vm.Script(user,{filename:"dist/upstatus-test-3-0-52-beta1.user.js"});
+if(!user.includes("voice_room_signal")||!user.includes("up-voice-room"))throw new Error("Team voice room implementation is missing.");
+if(user.includes('class="up-member-barui"')||user.includes('class="up-member-power"')||user.includes('class="up-member-call-indicator"'))throw new Error("Legacy per-member call/power controls must not ship.");
 const server=render(serverTemplate,{
  "__UPSTATUS_VERSION__":version,
  "__UPSTATUS_USERSCRIPT_HEX__":Buffer.from(user,"utf8").toString("hex"),
