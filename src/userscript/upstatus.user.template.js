@@ -2336,14 +2336,14 @@
   }
   function openChatLibrary(){
     closeChatLibrary();
-    var items=chatCache.filter(function(m){return m&&m.imageUrl&&(m.type==='image'||m.type==='video'||m.type==='gif'||/\.gif(?:[?#]|$)/i.test(String(m.imageUrl)));}).slice().reverse();
+    var allItems=chatCache.filter(function(m){return m&&m.imageUrl;}),items=allItems.filter(function(m){return m.type==='image'||m.type==='video'||m.type==='gif'||/\.gif(?:[?#]|$)/i.test(String(m.imageUrl));}).slice().reverse(),documents=allItems.filter(function(m){return m.type==='document';}).slice().reverse();
     var modal=node('div',{className:'up-chat-library-modal'}),panel=node('div',{className:'up-chat-library-panel'}),head=node('div',{className:'up-chat-library-head'});
-    var title=node('div',{className:'up-chat-library-title',textContent:'Biblioteca de imagens'}),close=node('button',{className:'up-chat-library-close',type:'button',textContent:'×',title:'Fechar biblioteca'});
+    var title=node('div',{className:'up-chat-library-title',textContent:'Biblioteca'}),close=node('button',{className:'up-chat-library-close',type:'button',textContent:'×',title:'Fechar biblioteca'});
     close.setAttribute('aria-label','Voltar ao chat');
     if(root.classList.contains('up-theme-light'))modal.classList.add('up-theme-light');
     var grid=node('div',{className:'up-chat-library-grid'});
     head.appendChild(title);head.appendChild(close);
-    if(!items.length){grid.innerHTML='<div class="up-chat-library-empty">As imagens e os vídeos enviados no chat aparecerão aqui.</div>';grid.style.display='block';}
+    if(!items.length){grid.innerHTML='<div class="up-chat-library-empty">Nenhuma mídia enviada no chat.</div>';grid.style.display='block';}
     items.forEach(function(item){
       var url=String(item.imageUrl||''),isVideo=item.type==='video'||/^video\//i.test(String(item.mime||'')),isGif=item.type==='gif'||/\.gif(?:[?#]|$)/i.test(url)||/^image\/gif$/i.test(String(item.mime||'')),sender=node('div',{className:'up-chat-library-sender',textContent:item.user||'Usuário'}),date=node('div',{className:'up-chat-library-date',textContent:fmtDay(item.createdAt)}),meta=node('div',{className:'up-chat-library-meta'});
       var card=node('button',{className:'up-chat-library-item',type:'button',title:'Abrir mídia para visualizar'}),media;
@@ -2357,6 +2357,17 @@
       }).catch(function(){});
       card.onclick=function(){if(isVideo){openChatLibraryVideoLightbox(item,modal);return;}var openImage=function(src){var box=chatLightbox||chat.querySelector('.up-chat-lightbox');if(box&&box.parentNode===document.body)document.body.appendChild(box);modal.classList.add('up-chat-library-viewing-image');openChatLightbox(src);};if(media.src&&media.complete!==false&&media.naturalWidth>0){openImage(media.src);}else{loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(src){if(card.isConnected)openImage(src);}).catch(function(){});}};
     });
+    if(documents.length){
+      var docsTitle=node('div',{className:'up-chat-library-section-title',textContent:'Documentos'});
+      var docsList=node('div',{className:'up-chat-library-documents'});
+      documents.forEach(function(item){
+        var link=node('button',{className:'up-chat-library-document',type:'button',textContent:'📄 '+String(item.message||'Documento')+' • '+(item.user||'Usuário')+' • '+fmtDay(item.createdAt)});
+        link.title='Baixar documento';
+        link.onclick=function(){loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(url){var a=document.createElement('a');a.href=url;a.download=String(item.message||'documento').replace(/^.*[\\/]/,'');document.body.appendChild(a);a.click();a.remove();}).catch(function(){showToast('Não foi possível baixar o documento.','error');});};
+        docsList.appendChild(link);
+      });
+      panel.appendChild(docsTitle);panel.appendChild(docsList);
+    }
     panel.appendChild(head);panel.appendChild(grid);modal.appendChild(panel);document.body.appendChild(modal);
     close.onclick=closeChatLibrary;modal.addEventListener('click',function(e){if(e.target===modal)closeChatLibrary();});
     var onKey=function(e){var box=chatLightbox||document.querySelector('.up-chat-lightbox'),videoBox=document.querySelector('.up-chat-library-video-lightbox');if(e.key==='Escape'&&((box&&!box.classList.contains('hidden'))||(videoBox&&videoBox.isConnected)))return;if(e.key==='Escape'&&modal.isConnected){closeChatLibrary();document.removeEventListener('keydown',onKey,true);}};document.addEventListener('keydown',onKey,true);
