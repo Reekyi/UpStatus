@@ -1,5 +1,14 @@
 ## 2026-10-21
 
+### 3.0.50-beta11
+- Created isolated beta11 endpoint so beta10 remains untouched.
+- Added active-call discovery and the "Entrar na chamada" team-card action.
+- Joining an active call requests microphone permission and notifies current participants to establish WebRTC mesh connections.
+- Screen sharing is not included in this beta yet.
+- Test environment only; production function unchanged.
+
+## 2026-10-21
+
 ### 3.0.50-beta10
 - Added realtime discovery of active group calls and a visible "Entrar na chamada" action in team member cards.
 - Joining an active call requests microphone access and notifies current participants to establish the WebRTC mesh.
