@@ -42,9 +42,9 @@ const oldMessages=[
   assert(h.toasts.length===0,"repeated messages must not notify twice");
   h.processChatNotifications([{id:"new-1",user:"Lohan",type:"text",mentions:[]}]);
   assert(h.toasts.length===1&&h.toasts[0]==="new-1","new incoming messages must trigger one in-page notification");
-  assert(h.external.length===1&&h.external[0]==="chat:new-1","new incoming messages must be passed to desktop-notification gating");
+  assert(h.external.length===0,"external notifications remain intentionally disabled in the current chat flow");
   h.processChatNotifications([{id:"new-1",user:"Lohan",type:"text",mentions:[]}]);
-  assert(h.toasts.length===1&&h.external.length===1,"duplicate realtime events must not notify twice");
+  assert(h.toasts.length===1&&h.external.length===0,"duplicate realtime events must not create duplicate in-page notifications");
 }
 {
   const h=makeHarness();
@@ -69,4 +69,18 @@ assert(source.includes("chatPendingInitialScroll=true;chatOpenScrollUntil=Date.n
 assert(source.includes("var currentMenu=document.querySelector('.up-chat-emoji-menu'),currentBtn=document.querySelector('.up-chat-emoji-btn')"),"emoji picker outside-click handler must use the current menu and button");
 assert(source.includes("document.body.appendChild(box)"),"image lightbox must be mounted at page level");
 assert(serverTemplate.includes('.in("state_key",["remote-status"])'),"health state query must use the correct Supabase in-filter arguments");
+
+
+assert(source.includes("chatUserScrollInterruptedUntil=0"),"opening scroll must track user upward-scroll interruption");
+assert(source.includes("list.addEventListener('wheel',function(e){if(e.deltaY<0)markUserScrollIntent();}"),"upward wheel input must interrupt forced bottom scrolling");
+assert(source.includes("list.addEventListener('touchmove'"),"touch scrolling must be able to interrupt forced bottom scrolling");
+assert(source.includes("chatPendingInitialScroll=false;\n        chatForceScrollBottom=false;"),"manual upward scroll must cancel pending initial forced scrolling");
+assert(source.includes("!list._upstatusUserScrolling&&(chatPendingInitialScroll||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil))"),"DOM/resize retries must respect user scroll intent");
+assert(source.includes("if(Date.now()<chatUserScrollInterruptedUntil&&!chatForceScrollBottom)"),"non-forced scrolling must respect the user-scroll interruption window");
+assert(source.includes("function openChat(){\n    if(!token)return;\n    chatUserScrollInterruptedUntil=0;"),"opening the chat must reset an older scroll-interruption window");
+
+assert(source.includes("(member==='Ricardo'?'<button class=\"up-chat-clear\" type=\"button\" title=\"Limpar chat\">'+iconSvg('trash')+'</button>':'')+'<button class=\"up-chat-library\""),"Ricardo must see the clear-chat action before the media library; other members must not see the clear action");
+assert(source.includes(".up-chat-photo{display:block;box-sizing:border-box;min-width:0;max-width:min(260px,100%);max-height:210px;width:auto;height:auto;"),"chat images must shrink to fit narrow bubbles without forcing horizontal overflow");
+assert(source.includes(".up-chat-media{display:block;box-sizing:border-box;min-width:0;width:auto;height:auto;max-width:min(220px,100%);max-height:150px;"),"chat media must stay within the available bubble width while preserving intrinsic proportions");
+assert(source.includes(".up-chat-media-video{width:min(220px,100%);height:auto;aspect-ratio:4/3;max-height:150px}"),"chat videos must use responsive width and preserve a stable aspect ratio");
 console.log("Chat regression tests passed: baseline notifications, duplicate suppression, mentions, retry, immediate reopen rendering, desktop notification focus, and unread indicators.");
