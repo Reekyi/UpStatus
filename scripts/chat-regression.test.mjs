@@ -93,4 +93,9 @@ assert(source.includes("up-chat-document-blue")&&source.includes("up-chat-docume
 assert(source.includes("docKind=")&&source.includes("'blue'")&&source.includes("'green'")&&source.includes("'red'"),"document extension-to-color mapping must cover blue, green and red groups");
 assert(source.includes("documents=allItems.filter(function(m){return m.type==='document';})"),"library must separate documents from image/video media");
 assert(source.includes("up-chat-library-documents")&&source.includes("Baixar documento"),"library must render a dedicated document list with download action");
+assert(source.includes("function callPublishPresence()")&&source.includes("function callReceivePresence(p)"),"active calls must be announced and discovered through realtime presence");
+assert(source.includes("async function callJoinActiveCall(callId)"),"team members must be able to join an existing active call");
+assert(source.includes("joinExisting:true")&&source.includes("callSendTo(n,'join'"),"joining a call must notify current participants so the WebRTC mesh can be established");
+assert(source.includes("up-member-join-call")&&source.includes("Entrar na chamada"),"team cards must expose an active-call join action");
+assert(source.includes("if(p.type==='presence'){callReceivePresence(p);return;}"),"call presence must be handled before normal call-session signal filtering");
 console.log("Chat regression tests passed: baseline notifications, duplicate suppression, mentions, retry, immediate reopen rendering, desktop notification focus, and unread indicators.");
