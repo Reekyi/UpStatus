@@ -2173,7 +2173,7 @@
     if(!list)return;
     function apply(){
       try{
-        if(list._upstatusUserScrolling&&Date.now()<chatOpenScrollUntil){chatPendingInitialScroll=false;return;}
+        if(list._upstatusUserScrolling&&Date.now()<chatUserScrollInterruptedUntil){chatPendingInitialScroll=false;return;}
         list.style.scrollBehavior='auto';
         var target=Math.max(0,list.scrollHeight-list.clientHeight);
         list.scrollTop=target;
