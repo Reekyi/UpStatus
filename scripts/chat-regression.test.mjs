@@ -84,6 +84,9 @@ assert(source.includes(".up-chat-photo{display:block;box-sizing:border-box;min-w
 assert(source.includes(".up-chat-media{display:block;box-sizing:border-box;min-width:0;width:auto;height:auto;max-width:min(220px,100%);max-height:150px;"),"chat media must stay within the available bubble width while preserving intrinsic proportions");
 assert(source.includes(".up-chat-media-video{width:min(220px,100%);height:auto;aspect-ratio:4/3;max-height:150px}"),"chat videos must use responsive width and preserve a stable aspect ratio");
 assert(source.includes("pdf:'application/pdf'")&&source.includes("csv:'text/csv'")&&source.includes("docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'"),"document extensions must resolve to supported MIME types");
+assert(source.includes("function positionReadTooltip(e)"),"read tooltip position helper must exist before event handlers use it");
+assert(source.includes("up-chat-document-blue")&&source.includes("up-chat-document-red")&&source.includes("up-chat-document-green"),"document cards must use distinct color families by file type");
+assert(source.includes("docKind=")&&source.includes("'blue'")&&source.includes("'green'")&&source.includes("'red'"),"document extension-to-color mapping must cover blue, green and red groups");
 assert(source.includes("documents=allItems.filter(function(m){return m.type==='document';})"),"library must separate documents from image/video media");
 assert(source.includes("up-chat-library-documents")&&source.includes("Baixar documento"),"library must render a dedicated document list with download action");
 console.log("Chat regression tests passed: baseline notifications, duplicate suppression, mentions, retry, immediate reopen rendering, desktop notification focus, and unread indicators.");
