@@ -1,15 +1,11 @@
 ## 2026-10-21
 
-### 3.0.49-beta4
-- Constrain chat images and videos to the available message bubble width on narrow screens.
-- Keep intrinsic image proportions, the existing GIF image path, and the full-screen image viewer.
-- Use a responsive video width with a stable aspect ratio.
-- Includes beta3 header ordering; test environment only.
+### 3.0.50-beta1
+- Add chat document attachments for PDF, DOC/DOCX, XLS/XLSX, CSV, PPT/PPTX, TXT, and RTF.
+- Limit document uploads to 10 MB and retain existing image/video limits.
+- Render document cards with the original filename and a download action.
+- Based on validated 3.0.49-beta4; test environment only.
 
-## 3.0.49-beta3
-- For Ricardo only, place the clear-chat button before the media library button in the chat header.
-- Keep the media library button in its existing position for other team members, without exposing the clear-chat action.
-- Includes the beta2 chat-scroll behavior; no production deployment.
 
 ## 2026-10-20
 
