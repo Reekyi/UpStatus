@@ -65,7 +65,8 @@
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
   // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
   // Mantido isolado do chat, status e demais recursos do UpStatus.
-  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,overlay:null,callId:'',peer:'',role:'',initiator:'',participants:[],pendingInvites:{},pendingOffers:{},pendingInvite:null,peers:{},active:false,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0,waitingForConnection:false,notice:'',ringtoneTimer:null,ringtoneCtx:null,ringtoneAllowed:false,ringtoneLoadId:0,ringtoneSource:null,ringtoneGain:null};
+  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,overlay:null,callId:'',peer:'',role:'',initiator:'',participants:[],pendingInvites:{},pendingOffers:{},pendingInvite:null,peers:{},active:false,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0,waitingForConnection:false,notice:'',ringtoneTimer:null,ringtoneCtx:null,ringtoneAllowed:false,ringtoneLoadId:0,ringtoneSource:null,ringtoneGain:null,presenceTimer:null};
+  var upCallDirectory={};
   // Controle global do ringtone: evita áudio órfão quando há mais de uma instância do userscript na página.
   var upRingtoneGlobal=window.__upstatusRingtoneGlobal||(window.__upstatusRingtoneGlobal={generation:0,sources:[],gains:[]});
   // Coordenação do ringtone entre instâncias/contextos do UpStatus.
@@ -1491,6 +1492,20 @@
   function callConnectionId(remote){
     return String(upCall.callId)+'::'+[String(member||''),String(remote||'')].sort().join('::');
   }
+  function callPublishPresence(){
+    if(!upCall.active||!upCall.callId)return;
+    sendRealtimeEvent('call_signal',{type:'presence',callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false});
+  }
+  function callStartPresence(){
+    if(upCall.presenceTimer)clearInterval(upCall.presenceTimer);
+    callPublishPresence();upCall.presenceTimer=setInterval(callPublishPresence,5000);
+  }
+  function callReceivePresence(p){
+    if(!p||!p.callId||!p.from||!Array.isArray(p.participants))return;
+    var old=upCallDirectory[p.callId]||{callId:p.callId,participants:[]};
+    old.callId=p.callId;old.participants=p.participants.slice();if(old.participants.indexOf(p.from)<0)old.participants.push(p.from);
+    old.initiator=p.initiator||old.initiator||p.from;old.updatedAt=Date.now();old.sharing=!!p.sharing;old.screenSharer=p.screenSharer||'';upCallDirectory[p.callId]=old;
+  }
   function callSendTo(to,type,extra){
     if(!to||!upCall.callId)return false;
     var p=Object.assign({type:type,callId:upCall.callId,from:member,to:to,connectionId:callConnectionId(to),participants:upCall.participants.slice()},extra||{});
@@ -1522,6 +1537,8 @@
   }
   function callCleanup(sendSignal,signalType){
     var callId=upCall.callId;
+    if(callId&&upCall.active)sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now()});
+    if(upCall.presenceTimer){clearInterval(upCall.presenceTimer);upCall.presenceTimer=null;}
     if(sendSignal&&callId){
       try{
         if(signalType==='hangup'&&upCall.peer)callSend('hangup');
@@ -1611,12 +1628,26 @@
       {label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}
     ]);
   }
+  async function callJoinActiveCall(callId){
+    var entry=upCallDirectory[callId];
+    if(upCall.active){message('Você já está em uma chamada.',true);return;}
+    if(!entry||!entry.participants||entry.participants.length<2){message('Esta chamada não está mais disponível. Atualize a lista e tente novamente.',true);return;}
+    upCall.callId=callId;upCall.peer=entry.participants.find(function(n){return n!==member;})||'';upCall.role='member';upCall.initiator=entry.initiator||upCall.peer;upCall.participants=entry.participants.slice();if(upCall.participants.indexOf(member)<0)upCall.participants.push(member);
+    upCall.pendingInvites={};upCall.pendingOffers={};upCall.pendingInvite=null;upCall.peers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
+    try{
+      await callGetMicrophone();
+      callRender(callNames(' + '),'Entrando na chamada…',[{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true,'leave');}}]);
+      var others=upCall.participants.filter(function(n){return n&&n!==member;});
+      others.forEach(function(n){callSendTo(n,'join',{phase:'mesh',joinExisting:true});});
+      callStartPresence();
+    }catch(e){callCleanup(false);message(e.message||'Não foi possível entrar na chamada.',true);}
+  }
   async function startOutgoingCall(target){
     if(!target||target===member)return;
     if(upCall.active){message('Voc\u00ea j\u00e1 est\u00e1 em uma chamada.',true);return;}
     upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
     upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
-    callPrimeAudio();callStartRingtone();callRender(target,'Chamando\u2026',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true,'hangup');}}]);
+    callStartPresence();callPrimeAudio();callStartRingtone();callRender(target,'Chamando\u2026',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true,'hangup');}}]);
     upCall.timer=setTimeout(function(){if(upCall.active&&!upCall.connected){callFail('Sem resposta.');try{callSend('hangup');}catch(e){}}},30000);
     try{
       await callGetMicrophone();var p=await callCreatePeer(target);var offer=await p.pc.createOffer();await p.pc.setLocalDescription(offer);p.offerSent=true;
@@ -1625,6 +1656,7 @@
   }
   async function callAcceptIncomingOffer(remoteName){
     var p=callGetPeer(remoteName),sdp=upCall.pendingOffers[remoteName];if(!p||!sdp)return;
+    callStartPresence();
     try{
       upCall.waitingForConnection=true;await callGetMicrophone();await callCreatePeer(remoteName);
       await p.pc.setRemoteDescription(new RTCSessionDescription(sdp));await callAddQueuedCandidates(p);
@@ -1638,7 +1670,7 @@
   }
   async function callAcceptGroupInvite(){
     var invite=upCall.pendingInvite;if(!invite||!upCall.active)return;
-    upCall.pendingInvite=null;upCall.role='member';callMergeParticipants(invite.participants||[invite.from]);
+    upCall.pendingInvite=null;upCall.role='member';callMergeParticipants(invite.participants||[invite.from]);callStartPresence();
     try{
       await callGetMicrophone();upCall.waitingForConnection=true;
       upCall.participants.filter(function(n){return n!==member;}).forEach(function(n){callSendTo(n,'join',{phase:'mesh'});});
@@ -1655,6 +1687,8 @@
   async function receiveCallSignal(p){
     if(!p||!p.type||!p.callId||!p.from||p.from===member)return;
     if(p.to&&p.to!==member)return;
+    if(p.type==='presence'){callReceivePresence(p);return;}
+    if(p.type==='ended'){delete upCallDirectory[p.callId];return;}
     if(p.type==='offer'){
       if(!upCall.active){
         upCall.callId=p.callId;upCall.peer=p.from;upCall.role='callee';upCall.initiator=p.from;
@@ -2872,15 +2906,18 @@
       team.innerHTML=memberNames.map(function(k){
         var m=d.members[k],presence=profilePresenceState(m.name,m);
         if(m.name===member)currentStatus=m.status;
+        var activeEntry=null;Object.keys(upCallDirectory).forEach(function(id){var c=upCallDirectory[id];if(c&&Date.now()-c.updatedAt<18000&&c.participants&&c.participants.indexOf(m.name)>=0&&c.participants.indexOf(member)<0)activeEntry=c;});
+        var joinControl=activeEntry&&!upCall.active?'<button type="button" class="up-member-join-call" data-call-id="'+esc(activeEntry.callId)+'" title="Entrar na chamada de '+esc(m.name)+'">Entrar na chamada</button>':'';
         var controls=(role==='implementation_admin'&&m.name!==member)
           ? '<button type="button" class="up-member-barui" data-target="'+esc(m.name)+'" title="Ligar para '+esc(m.name)+'" aria-label="Ligar para '+esc(m.name)+'">'+iconSvg('phone')+'</button><button type="button" class="up-member-power" data-target="'+esc(m.name)+'" title="Controlar fila de '+esc(m.name)+'" aria-label="Controlar fila de '+esc(m.name)+'">'+iconSvg('power')+'</button>'
           : '';
+        var callSummary=activeEntry?'<div class="up-member-sub up-member-call-active">Em chamada: '+esc(activeEntry.participants.join(', '))+'</div>':'';
         var version=m.version?'<span class="up-member-version">v'+esc(m.version)+'</span>':'<span class="up-member-version">v?</span>';
         var sub=[];
         if(m.reason)sub.push(reasonIcon(m.reason)+' '+esc(reasonLabel(m.reason)));
         if(m.updatedAt)sub.push('Desde '+fmtTime(m.updatedAt));
         var presenceTitle=presence==='chat'?'No bate-papo':presence==='active'?'UpStatus Ativo':'Offline';
-        return '<div class="up-member"><div class="up-member-main"><img class="up-member-avatar presence-'+presence+'" data-member-avatar="'+esc(m.name)+'" data-presence-name="'+esc(m.name)+'" title="'+presenceTitle+'" alt=""><div class="up-member-info"><div class="up-member-top"><b>'+esc(m.name)+'</b>'+version+'</div><div class="up-member-sub">'+(sub.length?sub.join(' <span class="up-member-separator">•</span> '):'Sem atualização registrada')+'</div></div></div><div class="up-member-actions">'+controls+'<span class="up-badge b-'+m.status+'" title="Status da fila do Sale Smartly">'+labels[m.status]+'</span></div></div>';
+        return '<div class="up-member"><div class="up-member-main"><img class="up-member-avatar presence-'+presence+'" data-member-avatar="'+esc(m.name)+'" data-presence-name="'+esc(m.name)+'" title="'+presenceTitle+'" alt=""><div class="up-member-info"><div class="up-member-top"><b>'+esc(m.name)+'</b>'+version+'</div><div class="up-member-sub">'+(sub.length?sub.join(' <span class="up-member-separator">•</span> '):'Sem atualização registrada')+'</div>'+callSummary+'</div></div><div class="up-member-actions">'+joinControl+controls+'<span class="up-badge b-'+m.status+'" title="Status da fila do Sale Smartly">'+labels[m.status]+'</span></div></div>';
       }).join('');
       team.querySelectorAll('.up-member-avatar').forEach(function(a){
         hydrateAvatar(a,a.getAttribute('data-member-avatar')||'');
@@ -2889,6 +2926,7 @@
         a.addEventListener('mousemove',positionChatProfileHover);
         a.addEventListener('mouseleave',hideChatProfileHover);
       });
+      team.querySelectorAll('.up-member-join-call').forEach(function(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();callJoinActiveCall(btn.getAttribute('data-call-id'));};});
       team.querySelectorAll('.up-member-barui').forEach(function(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();startOutgoingCall(btn.getAttribute('data-target'));};});
       team.querySelectorAll('.up-member-power').forEach(function(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();openRemoteControl(btn.getAttribute('data-target'));};});
       setBubbleStatus(currentStatus);
