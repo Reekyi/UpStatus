@@ -1,5 +1,13 @@
 ## 2026-10-21
 
+### 3.0.51-beta3
+- Fix active-call discovery across stable 3.0.50 and beta test builds by listening on the shared call-presence topic.
+- Keep beta3 storage and ringtone identifiers isolated from stable and beta builds.
+- Includes beta2 light-theme document styles, animated call indicator, and request-to-join flow.
+- Test-only build; production 3.0.50 and Beta 10/11 endpoints remain unchanged.
+
+## 2026-10-21
+
 ### 3.0.51-beta2
 - Improve light-theme styling for shared documents and document attachments.
 - Add animated green phone indicator on team avatars for detected active calls.
