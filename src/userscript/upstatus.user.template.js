@@ -133,7 +133,7 @@
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
   var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
-  var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,pendingChatNotificationMessages=[],chatScrollObserver=null,chatScrollObservedList=null,chatLightbox=null,chatHasUnreadBelow=false;
+  var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,chatUserScrollInterruptedUntil=0,pendingChatNotificationMessages=[],chatScrollObserver=null,chatScrollObservedList=null,chatLightbox=null,chatHasUnreadBelow=false;
   var remoteResultCache={},remoteResultWaiters={};
   var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
 
@@ -1854,7 +1854,7 @@
   function renderChat(){
     var list=chat.querySelector('.up-chat-list');if(!list)return;
     dedupeChatCache();
-    var forceScrollBottom=chatForceScrollBottom||Date.now()<chatOpenScrollUntil;
+    var forceScrollBottom=chatForceScrollBottom||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil);
     chatForceScrollBottom=false;
     var renderKey=chatDataKey(chatCache);
     if(renderKey===chatLastRenderKey&&list.getAttribute('data-render-key')===renderKey){
@@ -1898,7 +1898,7 @@
     chatLastRenderKey=renderKey;
     requestAnimationFrame(function(){
       if(forceScrollBottom)scrollChatToBottom(true);
-      else list.scrollTop=wasAtBottom?list.scrollHeight:previousScrollTop;
+      else if(!list._upstatusUserScrolling)list.scrollTop=wasAtBottom?list.scrollHeight:previousScrollTop;
     });
   }
   var lightboxPreviousFocus=null,lightboxPreviousOverflow='',lightboxRootFilter='',lightboxRootPointerEvents='',lightboxPreviousRootZIndex='';
@@ -2044,6 +2044,7 @@
 
   function openChat(){
     if(!token)return;
+    chatUserScrollInterruptedUntil=0;
     if(quickChatBubble)quickChatBubble.classList.remove('has-unread');
     // Keep the chat DOM and its listeners alive between openings. Only the first open after F5 builds it.
     if(chat.querySelector('.up-chat-list')&&(chatDomMember===member||chat.getAttribute('data-upstatus-chat-member')===member)){
@@ -2059,7 +2060,7 @@
     setUnread(0);
     chat.classList.remove('hidden');card.classList.add('hidden');history.classList.add('hidden');broadcastChatPresence(true);refresh();
     chat.setAttribute('data-upstatus-chat-member',member);
-    chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><button type="button" class="up-chat-profile-btn" title="Alterar foto de perfil"><img alt="Minha foto"></button><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">●</span> 0 online · 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+'<button class="up-chat-library" type="button" title="Biblioteca de imagens" aria-label="Biblioteca de imagens">'+iconSvg('folder')+'</button>'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'<button class="up-chat-back" type="button" aria-label="Voltar" title="Voltar">←</button></div></div><div class="up-chat-lucca-alert hidden">🔴 ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregando…</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">×</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando <span class="up-chat-recording-time">0:00</span> • clique novamente para enviar <button type="button" class="up-chat-record-cancel" aria-label="Cancelar gravação" title="Cancelar gravação e descartar áudio">×</button></div><div class="up-chat-input-wrap"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">'+iconSvg('clip')+'</button><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">'+iconSvg('mic')+'</button><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-scroll-latest" aria-label="Ir para a última mensagem" title="Ir para a última mensagem"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-6-6 6 6 6-6"/></svg></button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" hidden></div></div><div class="up-chat-lightbox hidden"><img alt="Imagem ampliada"></div>';
+    chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><button type="button" class="up-chat-profile-btn" title="Alterar foto de perfil"><img alt="Minha foto"></button><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">●</span> 0 online · 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'<button class="up-chat-library" type="button" title="Biblioteca de imagens" aria-label="Biblioteca de imagens">'+iconSvg('folder')+'</button>'+'<button class="up-chat-back" type="button" aria-label="Voltar" title="Voltar">←</button></div></div><div class="up-chat-lucca-alert hidden">🔴 ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregando…</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">×</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando <span class="up-chat-recording-time">0:00</span> • clique novamente para enviar <button type="button" class="up-chat-record-cancel" aria-label="Cancelar gravação" title="Cancelar gravação e descartar áudio">×</button></div><div class="up-chat-input-wrap"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">'+iconSvg('clip')+'</button><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">'+iconSvg('mic')+'</button><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-scroll-latest" aria-label="Ir para a última mensagem" title="Ir para a última mensagem"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-6-6 6 6 6-6"/></svg></button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" hidden></div></div><div class="up-chat-lightbox hidden"><img alt="Imagem ampliada"></div>';
     var chatOpeningLoader=document.createElement('div');chatOpeningLoader.className='up-chat-opening-loader';chatOpeningLoader.innerHTML='<span class="up-chat-opening-spinner"></span>';chatOpeningLoader.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,16,28,.98);z-index:999;pointer-events:none';if(getComputedStyle(chat).position==='static')chat.style.position='relative';var openingLoaderStyle=document.getElementById('up-chat-opening-loader-style');if(!openingLoaderStyle){openingLoaderStyle=document.createElement('style');openingLoaderStyle.id='up-chat-opening-loader-style';openingLoaderStyle.textContent='.up-chat-opening-spinner{width:26px;height:26px;border:3px solid rgba(160,180,210,.25);border-top-color:#8baeff;border-radius:50%;animation:upChatOpenSpin .65s linear infinite}@keyframes upChatOpenSpin{to{transform:rotate(360deg)}}';document.head.appendChild(openingLoaderStyle);}chat.appendChild(chatOpeningLoader);
     var profileBtn=chat.querySelector('.up-chat-profile-btn');if(profileBtn){hydrateAvatar(profileBtn.querySelector('img'),member);profileBtn.onclick=function(e){e.stopPropagation();openProfileModal();};profileBtn.addEventListener('mouseenter',function(e){showChatProfileHover(profileBtn.querySelector('img'),member,e);});profileBtn.addEventListener('mousemove',positionChatProfileHover);profileBtn.addEventListener('mouseleave',hideChatProfileHover);}
     var input=chat.querySelector('.up-chat-input'),photoBtn=chat.querySelector('.up-chat-attach'),photoFile=chat.querySelector('.up-chat-file'),emojiBtn=chat.querySelector('.up-chat-emoji-btn'),emojiMenu=chat.querySelector('.up-chat-emoji-menu'),recordBtn=chat.querySelector('.up-chat-record');
@@ -2168,10 +2169,12 @@
   function clearChatRicardo(){if(member!=='Ricardo')return;if(!confirm('Limpar todo o chat para a equipe?'))return;api('POST','/api/chat/clear',{}).then(function(){chatCache=[];chatLastRenderKey='';return api('GET','/api/chat');}).then(function(d){chatCache=d.messages||[];if(d.profiles)profileCache=d.profiles;renderChat();}).catch(function(e){message(e.message,true);});}
   function scrollChatToBottom(force){
     if(force===false)return;
+    if(Date.now()<chatUserScrollInterruptedUntil&&!chatForceScrollBottom){chatPendingInitialScroll=false;return;}
     var list=chat.querySelector('.up-chat-list');
     if(!list)return;
     function apply(){
       try{
+        if(list._upstatusUserScrolling&&Date.now()<chatUserScrollInterruptedUntil){chatPendingInitialScroll=false;return;}
         list.style.scrollBehavior='auto';
         var target=Math.max(0,list.scrollHeight-list.clientHeight);
         list.scrollTop=target;
@@ -2193,10 +2196,31 @@
         }
       }catch(e){}
     }
+    if(!list._upstatusUserScrollBound){
+      list._upstatusUserScrollBound=true;
+      list._upstatusUserScrolling=false;
+      var userScrollClearTimer=null;
+      function markUserScrollIntent(){
+        list._upstatusUserScrolling=true;
+        chatUserScrollInterruptedUntil=Date.now()+1800;
+        chatPendingInitialScroll=false;
+        chatForceScrollBottom=false;
+        if(userScrollClearTimer)clearTimeout(userScrollClearTimer);
+        userScrollClearTimer=setTimeout(function(){list._upstatusUserScrolling=false;userScrollClearTimer=null;},1800);
+      }
+      list.addEventListener('wheel',function(e){if(e.deltaY<0)markUserScrollIntent();},{passive:true});
+      list.addEventListener('pointerdown',function(e){if(e.target===list||e.target===list.firstElementChild)list._upstatusPointerStartY=e.clientY;},{passive:true});
+      list.addEventListener('pointermove',function(e){if(e.buttons&&list._upstatusPointerStartY!=null&&e.clientY>list._upstatusPointerStartY)markUserScrollIntent();},{passive:true});
+      list.addEventListener('pointerup',function(){list._upstatusPointerStartY=null;},{passive:true});
+      list.addEventListener('touchstart',function(e){list._upstatusTouchStartY=e.touches&&e.touches.length?e.touches[0].clientY:null;},{passive:true});
+      list.addEventListener('touchmove',function(e){var y=e.touches&&e.touches.length?e.touches[0].clientY:null;if(y!=null&&list._upstatusTouchStartY!=null&&y>list._upstatusTouchStartY)markUserScrollIntent();list._upstatusTouchStartY=y;},{passive:true});
+      list.addEventListener('keydown',function(e){if(e.key==='ArrowUp'||e.key==='PageUp'||e.key==='Home')markUserScrollIntent();});
+      list.addEventListener('scroll',function(){list._upstatusLastScrollTop=list.scrollTop;},{passive:true});
+    }
     if(!list._upstatusContentObserverBound&&typeof MutationObserver!=='undefined'){
       try{
         var contentObserver=new MutationObserver(function(){
-          if(!chat.classList.contains('hidden')&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil))requestAnimationFrame(apply);
+          if(!chat.classList.contains('hidden')&&!list._upstatusUserScrolling&&(chatPendingInitialScroll||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil)))requestAnimationFrame(apply);
         });
         contentObserver.observe(list,{childList:true,subtree:true,characterData:true});
         list._upstatusContentObserverBound=true;
@@ -2205,7 +2229,7 @@
     if(!list._upstatusBottomScrollBound){
       list._upstatusBottomScrollBound=true;
       list.addEventListener('load',function(){
-        if(!chat.classList.contains('hidden')&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil))apply();
+        if(!chat.classList.contains('hidden')&&!list._upstatusUserScrolling&&(chatPendingInitialScroll||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil)))apply();
       },true);
     }
     if(typeof ResizeObserver!=='undefined'&&chatScrollObservedList!==list){
@@ -2213,7 +2237,7 @@
         if(chatScrollObserver)chatScrollObserver.disconnect();
         chatScrollObserver=new ResizeObserver(function(){
           if(chat.classList.contains('hidden'))return;
-          if(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil)apply();
+          if(!list._upstatusUserScrolling&&(chatPendingInitialScroll||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil)))apply();
         });
         chatScrollObserver.observe(list);
         chatScrollObservedList=list;
@@ -2223,11 +2247,11 @@
     requestAnimationFrame(apply);
     requestAnimationFrame(function(){requestAnimationFrame(apply);});
     // Recheck after DOM/media layout settles; retries are limited to chat opening.
-    if(!list._upstatusBottomRetryScheduled&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil)){
+    if(!list._upstatusBottomRetryScheduled&&(chatPendingInitialScroll||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil))){
       list._upstatusBottomRetryScheduled=true;
       [50,150,300,600,1000].forEach(function(delay){
         setTimeout(function(){
-          if(!chat.classList.contains('hidden')&&(chatPendingInitialScroll||Date.now()<chatOpenScrollUntil))apply();
+          if(!chat.classList.contains('hidden')&&!list._upstatusUserScrolling&&(chatPendingInitialScroll||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil)))apply();
           if(delay===1000)list._upstatusBottomRetryScheduled=false;
         },delay);
       });
