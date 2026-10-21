@@ -1,3 +1,90 @@
+## 2026-10-21
+
+### 3.0.52 (stable)
+- Promote the validated Beta 6 team voice-room interface and synchronized session timer to the official release.
+- Tighten spacing between Sale Smartly sync status and the voice room; hide empty message space.
+- Place member version labels beside names and center the red hang-up handset icon.
+- Preserve the 3.0.51 call-discovery/request-to-join flow, chat reliability, and document styling improvements.
+- Production deployment targets `upstatus`; the isolated `upstatus-test-3-0-52-beta6` endpoint remains available for testing.
+- Real-time voice audio and timer synchronization should still be verified with multiple live participants.
+
+## 2026-10-21
+
+### 3.0.51 (stable)
+- Added an animated green phone indicator on team avatars when an active group call is detected.
+- Added targeted requests to join an existing group call, with accept/decline handling before attempting to connect.
+- Improved cross-version active-call discovery using the shared Realtime presence topic.
+- Strengthened light-mode document card gradients in chat messages and the shared-document library, with distinct blue, red and green file-type treatments.
+- Preserved the vivid dark-mode document styling and improved light-mode contrast for icons and download controls.
+- Production stable release. Call admission and audio still require validation with multiple live users; this release does not claim screen-share forwarding support.
+
+## 2026-10-21
+
+### 3.0.51-beta3
+- Fix active-call discovery across stable 3.0.50 and beta test builds by listening on the shared call-presence topic.
+- Keep beta3 storage and ringtone identifiers isolated from stable and beta builds.
+- Includes beta2 light-theme document styles, animated call indicator, and request-to-join flow.
+- Test-only build; production 3.0.50 and Beta 10/11 endpoints remain unchanged.
+
+## 2026-10-21
+
+### 3.0.51-beta2
+- Improve light-theme styling for shared documents and document attachments.
+- Add animated green phone indicator on team avatars for detected active calls.
+- Add targeted request-to-join flow with accept/decline and approval before starting group mesh connection.
+- Test-only build; production 3.0.50 and Beta 10/11 endpoints remain unchanged.
+
+## 2026-10-21
+
+### 3.0.50 (stable)
+- Promote the current 3.0.50 candidate to the official stable channel.
+- Includes document attachment and shared-document UI fixes, the restored WebRTC group-call engine, and active-call discovery/join signaling.
+- Limitation: screen-share transmission and remote screen display are not included in this release.
+- Production deployment targets `upstatus`; beta10 test endpoint remains unchanged.
+
+## 2026-10-21
+
+### 3.0.50-beta11
+- Created isolated beta11 endpoint so beta10 remains untouched.
+- Added active-call discovery and the "Entrar na chamada" team-card action.
+- Joining an active call requests microphone permission and notifies current participants to establish WebRTC mesh connections.
+- Screen sharing is not included in this beta yet.
+- Test environment only; production function unchanged.
+
+## 2026-10-21
+
+### 3.0.50-beta10
+- Added realtime discovery of active group calls and a visible "Entrar na chamada" action in team member cards.
+- Joining an active call requests microphone access and notifies current participants to establish the WebRTC mesh.
+- Screen-share streaming is not yet included in this change; it requires the separate display-capture and remote-video integration.
+- Test environment only; production function unchanged.
+
+## 2026-10-21
+
+### 3.0.50-beta10
+- Fix userscript startup syntax error in chat document rendering.
+- Distinguish document icons by file type and fix shared-document list height and scrolling.
+- Restore the WebRTC mesh group-call engine, participant invitations, and group-call controls in the test build.
+- Test environment only; production function unchanged.
+
+### 3.0.50-beta10
+- Fix userscript startup syntax error in chat document rendering.
+- Distinguish document icons by file type and improve spreadsheet/CSV labels.
+- Fix the shared-document list height so it fills the available library panel and scrolls instead of being capped.
+- Test environment only; production function unchanged.
+
+### 3.0.50-beta10
+- Fix a duplicated `else` in chat message rendering that caused a JavaScript syntax error and prevented the entire userscript from starting.
+- Validate the generated production and test userscripts by parsing the complete artifacts before release.
+- Test environment only; production function unchanged.
+
+### 3.0.50-beta1
+- Add chat document attachments for PDF, DOC/DOCX, XLS/XLSX, CSV, PPT/PPTX, TXT, and RTF.
+- Limit document uploads to 10 MB and retain existing image/video limits.
+- Render document cards with the original filename and a download action.
+- Based on validated 3.0.49-beta4; test environment only.
+
+
 ## 2026-10-20
 
 ### 3.0.48
