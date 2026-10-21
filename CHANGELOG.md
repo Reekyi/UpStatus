@@ -1,5 +1,13 @@
 ## 2026-10-21
 
+### 3.0.50 (stable)
+- Promote the current 3.0.50 candidate to the official stable channel.
+- Includes document attachment and shared-document UI fixes, the restored WebRTC group-call engine, and active-call discovery/join signaling.
+- Limitation: screen-share transmission and remote screen display are not included in this release.
+- Production deployment targets `upstatus`; beta10 test endpoint remains unchanged.
+
+## 2026-10-21
+
 ### 3.0.50-beta11
 - Created isolated beta11 endpoint so beta10 remains untouched.
 - Added active-call discovery and the "Entrar na chamada" team-card action.
