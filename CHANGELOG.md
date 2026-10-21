@@ -2,6 +2,12 @@
 
 ### 3.0.50-beta10
 - Fix userscript startup syntax error in chat document rendering.
+- Distinguish document icons by file type and fix shared-document list height and scrolling.
+- Restore the WebRTC mesh group-call engine, participant invitations, and group-call controls in the test build.
+- Test environment only; production function unchanged.
+
+### 3.0.50-beta10
+- Fix userscript startup syntax error in chat document rendering.
 - Distinguish document icons by file type and improve spreadsheet/CSV labels.
 - Fix the shared-document list height so it fills the available library panel and scrolls instead of being capped.
 - Test environment only; production function unchanged.
