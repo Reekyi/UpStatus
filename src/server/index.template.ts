@@ -481,7 +481,7 @@ async function profileRoute(req:Request,name:string) {
   await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:saved.url,updated_at:new Date().toISOString()},{onConflict:"user_name"});
   return response({ok:true,avatarUrl:saved.url});
 }
-async function mediaRoute(req:Request,kind:"image"|"audio") {
+async function mediaRoute(req:Request,kind:"image"|"audio"|"document") {
   const p:any=await readBody(req);
   const max=kind==="audio"?5*1024*1024:kind==="document"?10*1024*1024:25*1024*1024;
   const allowed=kind==="audio"?new Set(["audio/webm","audio/ogg","audio/mp4","audio/mpeg","audio/wav","audio/x-wav","audio/x-m4a"]):kind==="document"?new Set(["application/pdf","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","text/csv","application/vnd.ms-powerpoint","application/vnd.openxmlformats-officedocument.presentationml.presentation","text/plain","text/rtf","application/rtf"]):new Set(["image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"]);
