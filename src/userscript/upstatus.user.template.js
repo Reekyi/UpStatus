@@ -2363,7 +2363,7 @@
         var name=String(item.message||'Documento'),ext=(name.split('.').pop()||'').toLowerCase(),kind=/^(doc|docx|txt|rtf|odt)$/.test(ext)?'blue':/^(xls|xlsx|csv|ods)$/.test(ext)?'green':/^(pdf|html?|ppt|pptx|odp)$/.test(ext)?'red':'blue';
         var iconName=/^(xls|xlsx|csv|ods)$/.test(ext)?'▦':/^(ppt|pptx|odp)$/.test(ext)?'▥':/^(txt|rtf)$/.test(ext)?'≡':'▤';
         var card=node('div',{className:'up-chat-library-document-card '+ 'up-chat-library-doc-'+kind}),iconBox=node('div',{className:'up-chat-library-doc-icon',textContent:iconName}),info=node('div',{className:'up-chat-library-doc-info'}),fileName=node('div',{className:'up-chat-library-doc-name',textContent:name}),meta=node('div',{className:'up-chat-library-doc-meta',textContent:docMeta(item)}),download=node('button',{className:'up-chat-library-download',type:'button',textContent:'Baixar'});
-        info.appendChild(fileName);info.appendChild(meta);download.onclick=function(){loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(url){var a=document.createElement('a');a.href=url;a.download=name.replace(/^.*[\\\\/]/,'');document.body.appendChild(a);a.click();a.remove();}).catch(function(){showToast('Não foi possível baixar o documento.','error');});};
+        info.appendChild(fileName);info.appendChild(meta);download.onclick=function(){loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(url){var a=document.createElement('a');a.href=url;a.download=name.replace(/^.*[\\/]/,'');document.body.appendChild(a);a.click();a.remove();}).catch(function(){showToast('Não foi possível baixar o documento.','error');});};
         card.appendChild(iconBox);card.appendChild(info);card.appendChild(download);docsList.appendChild(card);
       });
     }
