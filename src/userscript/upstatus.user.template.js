@@ -2337,41 +2337,59 @@
   }
   function openChatLibrary(){
     closeChatLibrary();
-    var allItems=chatCache.filter(function(m){return m&&m.imageUrl;}),items=allItems.filter(function(m){return m.type==='image'||m.type==='video'||m.type==='gif'||/\.gif(?:[?#]|$)/i.test(String(m.imageUrl));}).slice().reverse(),documents=allItems.filter(function(m){return m.type==='document';}).slice().reverse();
+    var allItems=chatCache.filter(function(m){return m&&m.imageUrl;});
+    var items=allItems.filter(function(m){return m.type==='image'||m.type==='video'||m.type==='gif'||/\\.gif(?:[?#]|$)/i.test(String(m.imageUrl));}).slice().reverse();
+    var documents=allItems.filter(function(m){return m.type==='document';}).slice().reverse();
     var modal=node('div',{className:'up-chat-library-modal'}),panel=node('div',{className:'up-chat-library-panel'}),head=node('div',{className:'up-chat-library-head'});
-    var title=node('div',{className:'up-chat-library-title',textContent:'Biblioteca'}),close=node('button',{className:'up-chat-library-close',type:'button',textContent:'×',title:'Fechar biblioteca'});
-    close.setAttribute('aria-label','Voltar ao chat');
+    var heading=node('div',{className:'up-chat-library-heading'}),eyebrow=node('div',{className:'up-chat-library-eyebrow',textContent:'ARQUIVOS COMPARTILHADOS'}),title=node('div',{className:'up-chat-library-title',textContent:'Biblioteca'});
+    var close=node('button',{className:'up-chat-library-close',type:'button',textContent:'×',title:'Fechar biblioteca'});
+    close.setAttribute('aria-label','Fechar biblioteca');heading.appendChild(eyebrow);heading.appendChild(title);head.appendChild(heading);head.appendChild(close);
     if(root.classList.contains('up-theme-light'))modal.classList.add('up-theme-light');
-    var grid=node('div',{className:'up-chat-library-grid'});
-    head.appendChild(title);head.appendChild(close);
-    if(!items.length){grid.innerHTML='<div class="up-chat-library-empty">Nenhuma mídia enviada no chat.</div>';grid.style.display='block';}
-    items.forEach(function(item){
-      var url=String(item.imageUrl||''),isVideo=item.type==='video'||/^video\//i.test(String(item.mime||'')),isGif=item.type==='gif'||/\.gif(?:[?#]|$)/i.test(url)||/^image\/gif$/i.test(String(item.mime||'')),sender=node('div',{className:'up-chat-library-sender',textContent:item.user||'Usuário'}),date=node('div',{className:'up-chat-library-date',textContent:fmtDay(item.createdAt)}),meta=node('div',{className:'up-chat-library-meta'});
-      var card=node('button',{className:'up-chat-library-item',type:'button',title:'Abrir mídia para visualizar'}),media;
-      if(isVideo){media=node('video',{className:'up-chat-library-thumb',muted:true,preload:'metadata',playsInline:true});}
-      else media=node('img',{className:'up-chat-library-thumb',alt:isGif?'GIF enviado':'Imagem enviada',loading:'lazy'});
-      var libraryBytes=item.size!=null?item.size:item.fileSize!=null?item.fileSize:item.bytes!=null?item.bytes:null;var name=node('span',{className:'up-chat-library-name',textContent:(isVideo?'Vídeo':isGif?'GIF':'Imagem')+' • '+fmtTime(item.createdAt)+' • '+formatLibraryBytes(libraryBytes)});
-      meta.appendChild(sender);meta.appendChild(date);card.appendChild(meta);card.appendChild(media);card.appendChild(name);grid.appendChild(card);
-      loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(blobUrl){
-        if(!media.isConnected)return;media.src=blobUrl;if(libraryBytes==null&&mediaBlobSizeCache['chat:'+item.imageUrl]!=null){libraryBytes=mediaBlobSizeCache['chat:'+item.imageUrl];name.textContent=(isVideo?'Vídeo':isGif?'GIF':'Imagem')+' • '+fmtTime(item.createdAt)+' • '+formatLibraryBytes(libraryBytes);}
-        if(isVideo){media.addEventListener('loadedmetadata',function(){var dur=Number(media.duration);if(isFinite(dur)&&dur>0){name.textContent='Vídeo • '+Math.floor(dur/60)+':'+String(Math.floor(dur%60)).padStart(2,'0')+' • '+formatLibraryBytes(item.size||item.fileSize||item.bytes);}}, {once:true});}
-      }).catch(function(){});
-      card.onclick=function(){if(isVideo){openChatLibraryVideoLightbox(item,modal);return;}var openImage=function(src){var box=chatLightbox||chat.querySelector('.up-chat-lightbox');if(box&&box.parentNode===document.body)document.body.appendChild(box);modal.classList.add('up-chat-library-viewing-image');openChatLightbox(src);};if(media.src&&media.complete!==false&&media.naturalWidth>0){openImage(media.src);}else{loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(src){if(card.isConnected)openImage(src);}).catch(function(){});}};
-    });
-    if(documents.length){
-      var docsTitle=node('div',{className:'up-chat-library-section-title',textContent:'Documentos'});
-      var docsList=node('div',{className:'up-chat-library-documents'});
-      documents.forEach(function(item){
-        var link=node('button',{className:'up-chat-library-document',type:'button',textContent:'📄 '+String(item.message||'Documento')+' • '+(item.user||'Usuário')+' • '+fmtDay(item.createdAt)});
-        link.title='Baixar documento';
-        link.onclick=function(){loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(url){var a=document.createElement('a');a.href=url;a.download=String(item.message||'documento').replace(/^.*[\\/]/,'');document.body.appendChild(a);a.click();a.remove();}).catch(function(){showToast('Não foi possível baixar o documento.','error');});};
-        docsList.appendChild(link);
+    var toolbar=node('div',{className:'up-chat-library-toolbar'}),tabs=node('div',{className:'up-chat-library-tabs'}),mediaTab=node('button',{className:'up-chat-library-tab active',type:'button',textContent:'Mídias ('+items.length+')'}),docsTab=node('button',{className:'up-chat-library-tab',type:'button',textContent:'Documentos ('+documents.length+')'});
+    tabs.appendChild(mediaTab);tabs.appendChild(docsTab);toolbar.appendChild(tabs);
+    var mediaContent=node('div',{className:'up-chat-library-content'}),filters=node('div',{className:'up-chat-library-filters'}),search=node('input',{className:'up-chat-library-search',type:'search',placeholder:'Buscar arquivo…','aria-label':'Buscar na biblioteca'}),filterSelect=node('select',{className:'up-chat-library-filter','aria-label':'Filtrar mídias'});
+    ['Todos','Fotos','Vídeos','GIFs'].forEach(function(label){var opt=node('option',{textContent:label});opt.value=label;filterSelect.appendChild(opt);});
+    filters.appendChild(search);filters.appendChild(filterSelect);mediaContent.appendChild(filters);
+    var grid=node('div',{className:'up-chat-library-grid'});mediaContent.appendChild(grid);
+    var docsContent=node('div',{className:'up-chat-library-content up-chat-library-docs-content'});docsContent.style.display='none';
+    var docsSearch=node('input',{className:'up-chat-library-search',type:'search',placeholder:'Buscar documentos…','aria-label':'Buscar documentos'}),docsFilters=node('div',{className:'up-chat-library-filters'});docsFilters.appendChild(docsSearch);docsContent.appendChild(docsFilters);
+    var docsList=node('div',{className:'up-chat-library-documents'});docsContent.appendChild(docsList);
+    function docMeta(item){return (item.user||'Usuário')+' • '+fmtDay(item.createdAt);}
+    function renderDocs(){
+      docsList.innerHTML='';
+      var filtered=documents.filter(function(item){var name=String(item.message||'Documento'),q=String(docsSearch.value||'').toLowerCase();return name.toLowerCase().indexOf(q)>=0||String(item.user||'').toLowerCase().indexOf(q)>=0;});
+      if(!filtered.length){docsList.appendChild(node('div',{className:'up-chat-library-empty',textContent:documents.length?'Nenhum documento corresponde à busca.':'Os documentos enviados no chat aparecerão aqui.'}));return;}
+      filtered.forEach(function(item){
+        var name=String(item.message||'Documento'),ext=(name.split('.').pop()||'').toLowerCase(),kind=/^(doc|docx|txt|rtf|odt)$/.test(ext)?'blue':/^(xls|xlsx|csv|ods)$/.test(ext)?'green':/^(pdf|html?|ppt|pptx|odp)$/.test(ext)?'red':'blue';
+        var iconName=/^(xls|xlsx|csv|ods)$/.test(ext)?'▦':/^(ppt|pptx|odp)$/.test(ext)?'▥':/^(txt|rtf)$/.test(ext)?'≡':'▤';
+        var card=node('div',{className:'up-chat-library-document-card '+ 'up-chat-library-doc-'+kind}),iconBox=node('div',{className:'up-chat-library-doc-icon',textContent:iconName}),info=node('div',{className:'up-chat-library-doc-info'}),fileName=node('div',{className:'up-chat-library-doc-name',textContent:name}),meta=node('div',{className:'up-chat-library-doc-meta',textContent:docMeta(item)}),download=node('button',{className:'up-chat-library-download',type:'button',textContent:'Baixar'});
+        info.appendChild(fileName);info.appendChild(meta);download.onclick=function(){loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(url){var a=document.createElement('a');a.href=url;a.download=name.replace(/^.*[\\\\/]/,'');document.body.appendChild(a);a.click();a.remove();}).catch(function(){showToast('Não foi possível baixar o documento.','error');});};
+        card.appendChild(iconBox);card.appendChild(info);card.appendChild(download);docsList.appendChild(card);
       });
-      panel.appendChild(docsTitle);panel.appendChild(docsList);
     }
-    panel.appendChild(head);panel.appendChild(grid);modal.appendChild(panel);document.body.appendChild(modal);
+    function renderMedia(){
+      grid.innerHTML='';
+      var q=String(search.value||'').toLowerCase(),kind=filterSelect.value;
+      var filtered=items.filter(function(item){var url=String(item.imageUrl||''),isVideo=item.type==='video'||/^video\\//i.test(String(item.mime||'')),isGif=item.type==='gif'||/\\.gif(?:[?#]|$)/i.test(url)||/^image\\/gif$/i.test(String(item.mime||'')),label=isVideo?'Vídeo':isGif?'GIF':'Imagem';return (kind==='Todos'||kind==='Fotos'&&!isVideo&&!isGif||kind==='Vídeos'&&isVideo||kind==='GIFs'&&isGif)&&((label+' '+(item.user||'')+' '+fmtDay(item.createdAt)).toLowerCase().indexOf(q)>=0);});
+      if(!filtered.length){grid.style.display='block';grid.appendChild(node('div',{className:'up-chat-library-empty',textContent:items.length?'Nenhuma mídia corresponde ao filtro.':'As fotos, vídeos e GIFs enviados no chat aparecerão aqui.'}));return;}
+      grid.style.display='grid';
+      filtered.forEach(function(item){
+        var url=String(item.imageUrl||''),isVideo=item.type==='video'||/^video\\//i.test(String(item.mime||'')),isGif=item.type==='gif'||/\\.gif(?:[?#]|$)/i.test(url)||/^image\\/gif$/i.test(String(item.mime||'')),sender=node('div',{className:'up-chat-library-sender',textContent:item.user||'Usuário'}),date=node('div',{className:'up-chat-library-date',textContent:fmtDay(item.createdAt)}),meta=node('div',{className:'up-chat-library-meta'}),card=node('button',{className:'up-chat-library-item',type:'button',title:'Abrir mídia para visualizar'}),media;
+        if(isVideo)media=node('video',{className:'up-chat-library-thumb',muted:true,preload:'metadata',playsInline:true});else media=node('img',{className:'up-chat-library-thumb',alt:isGif?'GIF enviado':'Imagem enviada',loading:'lazy'});
+        var bytes=item.size!=null?item.size:item.fileSize!=null?item.fileSize:item.bytes!=null?item.bytes:null,label=node('span',{className:'up-chat-library-name',textContent:(isVideo?'Vídeo':isGif?'GIF':'Imagem')+' • '+fmtTime(item.createdAt)+' • '+formatLibraryBytes(bytes)});
+        meta.appendChild(sender);meta.appendChild(date);card.appendChild(meta);card.appendChild(media);card.appendChild(label);grid.appendChild(card);
+        loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(blobUrl){if(!media.isConnected)return;media.src=blobUrl;if(bytes==null&&mediaBlobSizeCache['chat:'+item.imageUrl]!=null)label.textContent=(isVideo?'Vídeo':isGif?'GIF':'Imagem')+' • '+fmtTime(item.createdAt)+' • '+formatLibraryBytes(mediaBlobSizeCache['chat:'+item.imageUrl]);}).catch(function(){});
+        card.onclick=function(){if(isVideo){openChatLibraryVideoLightbox(item,modal);return;}var openImage=function(src){var box=chatLightbox||chat.querySelector('.up-chat-lightbox');if(box&&box.parentNode===document.body)document.body.appendChild(box);modal.classList.add('up-chat-library-viewing-image');openChatLightbox(src);};if(media.src&&media.complete!==false&&media.naturalWidth>0)openImage(media.src);else loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(src){if(card.isConnected)openImage(src);}).catch(function(){});};
+      });
+    }
+    function switchTab(which){var docs=which==='documents';mediaTab.classList.toggle('active',!docs);docsTab.classList.toggle('active',docs);mediaContent.style.display=docs?'none':'flex';docsContent.style.display=docs?'flex':'none';}
+    mediaTab.onclick=function(){switchTab('media');};docsTab.onclick=function(){switchTab('documents');};
+    search.addEventListener('input',renderMedia);filterSelect.addEventListener('change',renderMedia);docsSearch.addEventListener('input',renderDocs);
+    renderMedia();renderDocs();
+    panel.appendChild(head);panel.appendChild(toolbar);panel.appendChild(mediaContent);panel.appendChild(docsContent);modal.appendChild(panel);document.body.appendChild(modal);
     close.onclick=closeChatLibrary;modal.addEventListener('click',function(e){if(e.target===modal)closeChatLibrary();});
-    var onKey=function(e){var box=chatLightbox||document.querySelector('.up-chat-lightbox'),videoBox=document.querySelector('.up-chat-library-video-lightbox');if(e.key==='Escape'&&((box&&!box.classList.contains('hidden'))||(videoBox&&videoBox.isConnected)))return;if(e.key==='Escape'&&modal.isConnected){closeChatLibrary();document.removeEventListener('keydown',onKey,true);}};document.addEventListener('keydown',onKey,true);
+    var onKey=function(e){var box=chatLightbox||document.querySelector('.up-chat-lightbox'),videoBox=document.querySelector('.up-chat-library-video-lightbox');if(e.key==='Escape'&&((box&&!box.classList.contains('hidden'))||(videoBox&&videoBox.isConnected)))return;if(e.key==='Escape'&&modal.isConnected){closeChatLibrary();document.removeEventListener('keydown',onKey,true);}};
+    document.addEventListener('keydown',onKey,true);
   }
   function openChatLibraryVideoLightbox(item,libraryModal){
     if(!item||!item.imageUrl)return;
