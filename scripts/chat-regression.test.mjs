@@ -71,7 +71,7 @@ assert(source.includes("document.body.appendChild(box)"),"image lightbox must be
 assert(serverTemplate.includes('.in("state_key",["remote-status"])'),"health state query must use the correct Supabase in-filter arguments");
 
 
-assert(source.includes("var chatUserScrollInterruptedUntil=0"),"opening scroll must track user upward-scroll interruption");
+assert(source.includes("chatUserScrollInterruptedUntil=0"),"opening scroll must track user upward-scroll interruption");
 assert(source.includes("list.addEventListener('wheel',function(e){if(e.deltaY<0)markUserScrollIntent();}"),"upward wheel input must interrupt forced bottom scrolling");
 assert(source.includes("list.addEventListener('touchmove'"),"touch scrolling must be able to interrupt forced bottom scrolling");
 assert(source.includes("chatPendingInitialScroll=false;\n        chatForceScrollBottom=false;"),"manual upward scroll must cancel pending initial forced scrolling");
