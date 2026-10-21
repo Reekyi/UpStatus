@@ -1,3 +1,37 @@
+## 2026-10-21
+
+### 3.0.50-beta10
+- Added realtime discovery of active group calls and a visible "Entrar na chamada" action in team member cards.
+- Joining an active call requests microphone access and notifies current participants to establish the WebRTC mesh.
+- Screen-share streaming is not yet included in this change; it requires the separate display-capture and remote-video integration.
+- Test environment only; production function unchanged.
+
+## 2026-10-21
+
+### 3.0.50-beta10
+- Fix userscript startup syntax error in chat document rendering.
+- Distinguish document icons by file type and fix shared-document list height and scrolling.
+- Restore the WebRTC mesh group-call engine, participant invitations, and group-call controls in the test build.
+- Test environment only; production function unchanged.
+
+### 3.0.50-beta10
+- Fix userscript startup syntax error in chat document rendering.
+- Distinguish document icons by file type and improve spreadsheet/CSV labels.
+- Fix the shared-document list height so it fills the available library panel and scrolls instead of being capped.
+- Test environment only; production function unchanged.
+
+### 3.0.50-beta10
+- Fix a duplicated `else` in chat message rendering that caused a JavaScript syntax error and prevented the entire userscript from starting.
+- Validate the generated production and test userscripts by parsing the complete artifacts before release.
+- Test environment only; production function unchanged.
+
+### 3.0.50-beta1
+- Add chat document attachments for PDF, DOC/DOCX, XLS/XLSX, CSV, PPT/PPTX, TXT, and RTF.
+- Limit document uploads to 10 MB and retain existing image/video limits.
+- Render document cards with the original filename and a download action.
+- Based on validated 3.0.49-beta4; test environment only.
+
+
 ## 2026-10-20
 
 ### 3.0.48
