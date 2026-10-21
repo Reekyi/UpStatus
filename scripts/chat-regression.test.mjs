@@ -85,6 +85,10 @@ assert(source.includes(".up-chat-media{display:block;box-sizing:border-box;min-w
 assert(source.includes(".up-chat-media-video{width:min(220px,100%);height:auto;aspect-ratio:4/3;max-height:150px}"),"chat videos must use responsive width and preserve a stable aspect ratio");
 assert(source.includes("pdf:'application/pdf'")&&source.includes("csv:'text/csv'")&&source.includes("docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'"),"document extensions must resolve to supported MIME types");
 assert(source.includes("function positionReadTooltip(e)"),"read tooltip position helper must exist before event handlers use it");
+assert(source.includes("up-chat-library-tabs")&&source.includes("Mídias ('+items.length+')")&&source.includes("Documentos ('+documents.length+')"),"library must use a top-level media/documents tab layout");
+assert(source.includes("up-chat-library-search")&&source.includes("up-chat-library-filter"),"library must include search and media type filters");
+assert(source.includes("function renderDocs()")&&source.includes("function renderMedia()"),"library tabs must render independent document and media collections");
+assert(source.includes("up-chat-library-doc-blue")&&source.includes("up-chat-library-doc-red")&&source.includes("up-chat-library-doc-green"),"library document cards must use distinct color families");
 assert(source.includes("up-chat-document-blue")&&source.includes("up-chat-document-red")&&source.includes("up-chat-document-green"),"document cards must use distinct color families by file type");
 assert(source.includes("docKind=")&&source.includes("'blue'")&&source.includes("'green'")&&source.includes("'red'"),"document extension-to-color mapping must cover blue, green and red groups");
 assert(source.includes("documents=allItems.filter(function(m){return m.type==='document';})"),"library must separate documents from image/video media");
