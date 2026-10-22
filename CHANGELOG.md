@@ -1,5 +1,12 @@
 ## 2026-10-22
 
+### 3.0.56 (stable)
+- Compact the empty Chat de Voz card into a three-row layout with the join button aligned beside the empty-state text.
+- Reconcile participant chips by identity and update only changed state, preventing the shared timer from rebuilding avatars and names every second.
+- Use the handset hang-up icon consistently in maximized and minimized call controls, with red treatment in light and dark themes.
+- Fine-tune the minimized call-control bubble alignment and retain existing voice analysis, wave, WebRTC and Realtime behavior.
+- Preserve existing production namespace, storage keys, Realtime topic, chat, documents, status management and other features.
+
 ### 3.0.55 (stable)
 - Replace the floating call-status badge with a compact call-control bubble to the left of the UpStatus avatar while minimized.
 - Add microphone and hang-up controls to the floating call bubble, plus the current speaker avatar with an organic audio wave behind it.
