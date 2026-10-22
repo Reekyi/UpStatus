@@ -1,5 +1,12 @@
 ## 2026-10-22
 
+### 3.1.0 (stable)
+- Replace the Ricardo-only legacy test panel with a shared Audio Diagnostics panel accessible to all users from Settings.
+- Add real microphone capture testing with device selection when supported, live input-level metering, permission/error feedback, and explicit cleanup.
+- Add local output-tone testing with adjustable volume and playback-block feedback.
+- Add live WebRTC/Realtime diagnostics and a copyable technical report without recording or uploading audio.
+- Remove obsolete simulated-call and ringtone test controls; isolate microphone and output test AudioContexts so stopping one test does not interrupt the other.
+
 ### 3.0.62 (stable)
 - Fix ICE candidate ufrag matching: parse the candidate and remote SDP with correctly escaped regular expressions so valid ICE candidates are not silently discarded.
 - Reset stale failed peer connections when receiving a fresh offer and tune bounded recovery backoff.
