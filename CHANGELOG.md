@@ -1,5 +1,8 @@
 ## 2026-10-22
 
+### 3.0.60 (stable)
+- Restore the ICE candidate-to-remote-description matcher required by WebRTC signaling; the missing helper caused `voiceRoomCandidateMatchesRemote is not defined` and stopped audio negotiation.
+
 ### 3.0.59 (stable)
 - Add per-tab voice session IDs and ignore stale presence/leave events so older broadcasts cannot remove a participant from a newer session.
 - Keep each remote audio stream stable across track events, create one analyser per peer, and clean up peer audio resources on disconnect.
