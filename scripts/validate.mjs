@@ -41,7 +41,7 @@ assert(testFn.includes('const marker="/upstatus-screen-share-3-1-1-beta1";'),"te
 assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not match build output");
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
-checkSyntax(testUser,"dist/upstatus-test.user.js");
+checkSyntax(testUser,"dist/upstatus-screen-share-beta1.user.js");
 
 const luccaHtml=fs.readFileSync(path.join(ROOT,"lucca-site/index.html"),"utf8");
 const ycaroHtml=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
