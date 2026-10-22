@@ -31,9 +31,9 @@
     }
     function ready(){var r=document.getElementById('upstatus-root'),b=document.getElementById('upstatus-bubble');return !!(r&&b&&visible(r)&&visible(b));}
     function create(){
-      recovery=document.getElementById('upstatus-beta80-recovery')||document.getElementById('upstatus-beta9-recovery');
+      recovery=document.getElementById('upstatus-beta8-recovery')||document.getElementById('upstatus-beta9-recovery');
       if(recovery)return;
-      recovery=document.createElement('button');recovery.id='upstatus-beta80-recovery';recovery.type='button';
+      recovery=document.createElement('button');recovery.id='upstatus-beta8-recovery';recovery.type='button';
       recovery.title='Abrir UpStatus';recovery.setAttribute('aria-label','Abrir UpStatus');recovery.textContent='U';
       recovery.style.cssText='position:fixed!important;right:24px!important;bottom:24px!important;width:46px!important;height:46px!important;min-width:46px!important;min-height:46px!important;padding:0!important;border:3px solid #8b95a4!important;border-radius:50%!important;background:#273247!important;color:#fff!important;font:800 16px Segoe UI,Arial,sans-serif!important;box-shadow:0 5px 18px #0009!important;z-index:2147483647!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;';
       recovery.addEventListener('click',function(){var bubble=document.getElementById('upstatus-bubble');if(ready()&&bubble){bubble.click();return;}recovery.textContent='!';recovery.title='O UpStatus está se recuperando. Aguarde alguns segundos ou recarregue a página.';recovery.style.setProperty('background','#713448','important');});
