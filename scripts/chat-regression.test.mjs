@@ -96,6 +96,6 @@ assert(source.includes("up-chat-library-documents")&&source.includes("Baixar"),"
 assert(source.includes("function callPublishPresence()")&&source.includes("function callReceivePresence(p)"),"active calls must be announced and discovered through realtime presence");
 assert(source.includes("async function callJoinActiveCall(callId)"),"team members must be able to join an existing active call");
 assert(source.includes("joinExisting:true")&&source.includes("callSendTo(n,'join'"),"joining a call must notify current participants so the WebRTC mesh can be established");
-assert(source.includes("up-member-join-call")&&source.includes("Entrar na chamada"),"team cards must expose an active-call join action");
+assert(source.includes("function callRequestToJoin(callId,target)")&&source.includes("type:'join_request'")&&source.includes("p.type==='join_approved'"),"active-call join request and approval flow must exist");
 assert(source.includes("if(p.type==='presence'){callReceivePresence(p);return;}"),"call presence must be handled before normal call-session signal filtering");
 console.log("Chat regression tests passed: baseline notifications, duplicate suppression, mentions, retry, immediate reopen rendering, desktop notification focus, and unread indicators.");
