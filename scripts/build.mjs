@@ -14,13 +14,13 @@ const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.t
 const ycaroPage=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
 const PROJECT="dlfvkawaiqduhlazsszm";
 const PROD_FUNCTION="upstatus";
-const TEST_FUNCTION="upstatus-screen-share-3-1-1-beta3";
+const TEST_FUNCTION="upstatus-screen-share-3-1-1-beta4";
 const PROD_TOPIC="upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0";
-const TEST_TOPIC="upstatus-screen-share-live-3-1-1-beta3";
+const TEST_TOPIC="upstatus-screen-share-live-3-1-1-beta4";
 const PROD_RINGTONE_CHANNEL="upstatus-call-ringtone-stop-v1";
-const TEST_RINGTONE_CHANNEL="upstatus-screen-share-3-1-1-beta3-ringtone-stop-v1";
+const TEST_RINGTONE_CHANNEL="upstatus-screen-share-3-1-1-beta4-ringtone-stop-v1";
 const PROD_RINGTONE_STORAGE="upstatus_call_ringtone_stop_bus";
-const TEST_RINGTONE_STORAGE="upstatus_screen_share_beta3_ringtone_stop_bus";
+const TEST_RINGTONE_STORAGE="upstatus_screen_share_beta4_ringtone_stop_bus";
 
 function render(template,replacements){
   let out=template;
@@ -31,9 +31,9 @@ function render(template,replacements){
 function hexEncode(text){return Buffer.from(text,"utf8").toString("hex");}
 function renderUser({version,test}){
   const fn=test?TEST_FUNCTION:PROD_FUNCTION;
-  const name=test?"UpStatus Screen Share Beta 3.1.1-beta3 - Sale Smartly":"UpStatus - Sale Smartly";
-  const namespace=test?"upseller-screen-share-beta3":"upseller";
-  const prefix=test?"upstatus_screen_share_beta3_":"upstatus_";
+  const name=test?"UpStatus Screen Share Beta 3.1.1-beta4 - Sale Smartly":"UpStatus - Sale Smartly";
+  const namespace=test?"upseller-screen-share-beta4":"upseller";
+  const prefix=test?"upstatus_screen_share_beta4_":"upstatus_";
   const topic=test?TEST_TOPIC:PROD_TOPIC;
   const ringtoneChannel=test?TEST_RINGTONE_CHANNEL:PROD_RINGTONE_CHANNEL;
   const ringtoneStorage=test?TEST_RINGTONE_STORAGE:PROD_RINGTONE_STORAGE;
@@ -75,7 +75,7 @@ const dist=path.join(ROOT,"dist");
 fs.rmSync(dist,{recursive:true,force:true});
 fs.mkdirSync(dist,{recursive:true});
 fs.writeFileSync(path.join(dist,"upstatus.user.js"),prodUser,"utf8");
-fs.writeFileSync(path.join(dist,"upstatus-screen-share-beta3.user.js"),testUser,"utf8");
+fs.writeFileSync(path.join(dist,"upstatus-screen-share-beta4.user.js"),testUser,"utf8");
 fs.writeFileSync(path.join(dist,"build-manifest.json"),JSON.stringify({
   baseVersion,testVersion:fullVersion,channel:preRelease?"pre-release":"stable",
   productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION
