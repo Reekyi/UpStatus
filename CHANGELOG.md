@@ -1,5 +1,10 @@
 ## 2026-10-22
 
+### 3.0.58 (stable)
+- Style the empty-room message as subdued, left-aligned supporting copy instead of a centered bold heading.
+- Restore bullet separators between connection state, call duration, and ping.
+- Queue ICE candidates until a remote description is ready and discard candidates whose ICE ufrag belongs to a stale negotiation, reducing intermittent WebRTC negotiation failures.
+
 ### 3.0.57 (stable)
 - Use ASCII-safe voice-room labels and separators to prevent replacement glyphs in the empty state and call status.
 - Disable accidental text selection across UpStatus controls while preserving selection in inputs, textareas, editable fields and chat message text.
