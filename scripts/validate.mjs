@@ -12,9 +12,9 @@ const baseVersion=String(release.version).trim();
 const preRelease=String(release.preRelease||"").trim();
 const testVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
 const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.ts"),"utf8");
-const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
+const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-screen-share-3-1-1-beta4/index.ts"),"utf8");
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
-const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
+const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-screen-share-beta4.user.js"),"utf8");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
@@ -22,26 +22,26 @@ function checkSyntax(text,label){new vm.Script(text,{filename:label});}
 assert(headerValue(prodUser,"version")===baseVersion,"production userscript version mismatch");
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
-assert(headerValue(testUser,"namespace")==="upseller-test","test namespace mismatch");
+assert(headerValue(testUser,"namespace")==="upseller-screen-share-beta4","test namespace mismatch");
 assert(headerValue(prodUser,"updateURL").includes("/upstatus/upstatus.user.js"),"production updateURL mismatch");
-assert(headerValue(testUser,"updateURL").includes("/upstatus-test/upstatus.user.js"),"test updateURL mismatch");
+assert(headerValue(testUser,"updateURL").includes("/upstatus-screen-share-3-1-1-beta4/upstatus.user.js"),"test updateURL mismatch");
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
 assert(prodUser.includes("var key='upstatus_';"),"production storage prefix mismatch");
-assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
+assert(testUser.includes("var key='upstatus_screen_share_beta4_';"),"test storage prefix mismatch");
 assert(prodUser.includes("var UP_REALTIME_TOPIC='upstatus-live-"),"production realtime topic missing");
-assert(testUser.includes("var UP_REALTIME_TOPIC='upstatus-test-live-"),"test realtime topic missing");
+assert(testUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta4"),"test realtime topic missing");
 assert(prodUser.includes("var UP_RINGTONE_CHANNEL='upstatus-call-ringtone-stop-v1';"),"production ringtone channel mismatch");
-assert(testUser.includes("var UP_RINGTONE_CHANNEL='upstatus-test-call-ringtone-stop-v1';"),"test ringtone channel mismatch");
+assert(testUser.includes("var UP_RINGTONE_CHANNEL='upstatus-screen-share-3-1-1-beta4-ringtone-stop-v1';"),"test ringtone channel mismatch");
 assert(prodUser.includes("var upRingtoneStorageKey='upstatus_call_ringtone_stop_bus';"),"production ringtone storage mismatch");
-assert(testUser.includes("var upRingtoneStorageKey='upstatus_test_call_ringtone_stop_bus';"),"test ringtone storage mismatch");
+assert(testUser.includes("var upRingtoneStorageKey='upstatus_screen_share_beta4_ringtone_stop_bus';"),"test ringtone storage mismatch");
 assert(prodFn.includes('const VERSION = "'+baseVersion+'";'),"production backend version mismatch");
 assert(testFn.includes('const VERSION = "'+testVersion+'";'),"test backend version mismatch");
 assert(prodFn.includes('const marker="/upstatus";'),"production path marker mismatch");
-assert(testFn.includes('const marker="/upstatus-test";'),"test path marker mismatch");
+assert(testFn.includes('const marker="/upstatus-screen-share-3-1-1-beta4";'),"test path marker mismatch");
 assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not match build output");
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
-checkSyntax(testUser,"dist/upstatus-test.user.js");
+checkSyntax(testUser,"dist/upstatus-screen-share-beta4.user.js");
 
 const luccaHtml=fs.readFileSync(path.join(ROOT,"lucca-site/index.html"),"utf8");
 const ycaroHtml=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
@@ -70,6 +70,15 @@ for(const artifact of [prodUser,testUser]){
   assert(artifact.includes("s.style.fontWeight='normal'"),"Waveform bar weight should remain normal");
 }
 assert(prodFn.includes("unreadCount:unreadCount||0"),"Fast chat endpoint must include unread count");
+assert(testUser.includes('class="up-screen-share-controls up-screen-share-controls-visible"'),"screen-share start control must exist outside collapsed preview panel");
+assert(testUser.indexOf("up-screen-share-controls-visible",370000)<testUser.indexOf("up-screen-share-panel",370000),"screen-share controls must be placed before collapsed preview panel");
+assert(testUser.includes("getDisplayMedia({video:{frameRate:{ideal:15,max:24}},audio:false})"),"screen-share capture must disable audio");
+assert(testUser.includes('class="up-screen-share-toggle hidden"'),"screen-share control must be a hidden icon button until the user joins the voice room");
+assert(testUser.includes("is-sharing"),"screen-share toggle must use active styling to indicate stopping the share");
+assert(!testUser.includes('class="up-screen-share-stop hidden"'),"separate screen-share stop button must not exist");
+assert(testUser.includes(".up-voice-actions .up-screen-share-toggle.is-sharing"),"screen-share toggle must turn red while sharing");
+
+
 
 assert(prodUser.includes("function upStatusSaleDeselectActiveChat()"),"native conversation deselection action missing from production artifact");
 assert(testUser.includes("function upStatusSaleDeselectActiveChat()"),"native conversation deselection action missing from test artifact");
@@ -88,3 +97,9 @@ assert(prodUser.includes("button.style.margin='0 8px 0 0'"),"production back-arr
 assert(prodUser.includes("endButton.parentElement.insertBefore(button,endButton)"),"production back-arrow must sit immediately before native end-session control");
 execFileSync(process.execPath,[path.join(ROOT,"scripts/chat-regression.test.mjs")],{stdio:"inherit"});
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
+
+assert(testUser.includes("function voiceRoomToggleSpeakers()"),"received-audio mute must be implemented locally");
+assert(testUser.includes('class="up-voice-speakers hidden"'),"received-audio mute button must be hidden outside calls");
+assert(testUser.includes("chip.title=n;chip.setAttribute('aria-label',n);"),"avatar-only participants must expose their names via tooltip");
+assert(!testUser.includes("chip.append(img,label)"),"voice participants must not display text names");
+assert(testUser.includes("p.audio.muted=!!voiceRoom.speakersMuted"),"new remote audio players must respect received-audio mute");
