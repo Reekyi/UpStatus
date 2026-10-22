@@ -1,3 +1,13 @@
+## 2026-10-22
+
+### 3.0.55 (stable)
+- Replace the floating call-status badge with a compact call-control bubble to the left of the UpStatus avatar while minimized.
+- Add microphone and hang-up controls to the floating call bubble, plus the current speaker avatar with an organic audio wave behind it.
+- Drive the speaker wave from existing local and remote audio analysis; keep it subtle when nobody speaks and muted when the microphone is silenced.
+- Animate call-card transitions between joining, connected, and idle states, and animate the floating controls as the panel is minimized or restored.
+- Size participant chips to their names while retaining a single row for up to three participants.
+- Preserve existing production namespace, storage keys, realtime topic, call negotiation, chat and other features.
+
 ## 2026-10-21
 
 ### 3.0.54 (stable)
