@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Screen Share Beta 3.1.1-beta7 - Sale Smartly
 // @namespace    upseller-screen-share-beta7
-// @version      3.1.1-beta7
+// @version      3.1.1-beta7.1
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
