@@ -1,5 +1,9 @@
 ## 2026-10-22
 
+### 3.0.61 (stable)
+- Add bounded automatic peer recovery on WebRTC connection/ICE disconnection or failure, using backoff and the existing deterministic offer initiator.
+- Clear retry timers and attempt counters when leaving the voice room to avoid stale retries or reconnect loops.
+
 ### 3.0.60 (stable)
 - Restore the ICE candidate-to-remote-description matcher required by WebRTC signaling; the missing helper caused `voiceRoomCandidateMatchesRemote is not defined` and stopped audio negotiation.
 
