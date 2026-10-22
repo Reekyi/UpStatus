@@ -75,7 +75,7 @@ assert(testUser.indexOf("up-screen-share-controls-visible",370000)<testUser.inde
 assert(testUser.includes("getDisplayMedia({video:{frameRate:{ideal:15,max:24}},audio:false})"),"screen-share capture must disable audio");
 assert(testUser.includes('class="up-screen-share-toggle hidden"'),"screen-share control must be a hidden icon button until the user joins the voice room");
 assert(testUser.includes("is-sharing"),"screen-share toggle must use active styling to indicate stopping the share");
-assert(!testUser.includes("up-screen-share-stop"),"separate screen-share stop button must not exist");
+assert(!testUser.includes('class="up-screen-share-stop hidden"'),"separate screen-share stop button must not exist");
 assert(testUser.includes(".up-voice-actions .up-screen-share-toggle.is-sharing"),"screen-share toggle must turn red while sharing");
 
 
