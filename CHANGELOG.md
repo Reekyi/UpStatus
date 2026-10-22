@@ -1,5 +1,11 @@
 ## 2026-10-22
 
+### 3.0.59 (stable)
+- Add per-tab voice session IDs and ignore stale presence/leave events so older broadcasts cannot remove a participant from a newer session.
+- Keep each remote audio stream stable across track events, create one analyser per peer, and clean up peer audio resources on disconnect.
+- Disable automatic gain control and browser noise suppression for voice capture to reduce audio pumping and voice gating; keep echo cancellation enabled.
+- Extend the participant heartbeat expiry window to 30 seconds to tolerate transient missed broadcasts.
+
 ### 3.0.58 (stable)
 - Style the empty-room message as subdued, left-aligned supporting copy instead of a centered bold heading.
 - Restore bullet separators between connection state, call duration, and ping.
