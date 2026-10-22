@@ -1,5 +1,9 @@
 ## 2026-10-22
 
+### 3.0.62 (stable)
+- Fix ICE candidate ufrag matching: parse the candidate and remote SDP with correctly escaped regular expressions so valid ICE candidates are not silently discarded.
+- Reset stale failed peer connections when receiving a fresh offer and tune bounded recovery backoff.
+
 ### 3.0.61 (stable)
 - Add bounded automatic peer recovery on WebRTC connection/ICE disconnection or failure, using backoff and the existing deterministic offer initiator.
 - Clear retry timers and attempt counters when leaving the voice room to avoid stale retries or reconnect loops.
