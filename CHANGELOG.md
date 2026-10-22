@@ -1,5 +1,11 @@
 ## 2026-10-22
 
+### 3.0.57 (stable)
+- Use ASCII-safe voice-room labels and separators to prevent replacement glyphs in the empty state and call status.
+- Disable accidental text selection across UpStatus controls while preserving selection in inputs, textareas, editable fields and chat message text.
+- Align the minimized call control panel with the floating UpStatus bubble and add a small connector tail toward the avatar.
+- Preserve the 3.0.56 compact empty-state layout and stable participant DOM reuse.
+
 ### 3.0.56 (stable)
 - Compact the empty Chat de Voz card into a three-row layout with the join button aligned beside the empty-state text.
 - Reconcile participant chips by identity and update only changed state, preventing the shared timer from rebuilding avatars and names every second.
