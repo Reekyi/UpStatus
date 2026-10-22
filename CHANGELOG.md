@@ -1,5 +1,12 @@
 ## 2026-10-21
 
+### 3.0.53 (stable)
+- Rename the shared team voice room to “Chat de Voz” for a clearer, more natural label.
+- Preserve the 3.0.52 synchronized voice-room timer, compact layout, member version labels, and centered hang-up icon.
+- Voice join/leave sound cues are being prepared separately for testing before stable inclusion.
+
+## 2026-10-21
+
 ### 3.0.52 (stable)
 - Promote the validated Beta 6 team voice-room interface and synchronized session timer to the official release.
 - Tighten spacing between Sale Smartly sync status and the voice room; hide empty message space.
