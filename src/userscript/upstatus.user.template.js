@@ -3540,4 +3540,18 @@ style.textContent += '#upstatus-card,#upstatus-history,#upstatus-chat,.up-health
   setInterval(function(){loadChat();},3000);
   setInterval(pollChatTyping,1000);  setInterval(pollRemoteStatus,5000);
   setInterval(checkUpdate,60000);
+
+  // 3.2.5-beta1: repair the muted-microphone badge in light mode only.
+  (function upStatusMicBadgeLight325Beta1(){
+    if (document.getElementById('upstatus-mic-badge-light-325-beta1')) return;
+    var style = document.createElement('style');
+    style.id = 'upstatus-mic-badge-light-325-beta1';
+    style.textContent = [
+      '#upstatus-root.up-theme-light .up-voice-person .up-voice-mic-muted{display:flex!important;align-items:center!important;justify-content:center!important;width:19px!important;height:19px!important;min-width:19px!important;min-height:19px!important;padding:0!important;box-sizing:border-box!important;overflow:visible!important;background:#c62845!important;border:1px solid #e34b62!important;border-radius:50%!important;color:#fff!important}',
+      '#upstatus-root.up-theme-light .up-voice-person .up-voice-mic-muted svg{display:block!important;visibility:visible!important;opacity:1!important;width:12px!important;height:12px!important;min-width:12px!important;min-height:12px!important;max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;overflow:visible!important;box-sizing:border-box!important;color:#fff!important;fill:none!important;stroke:#fff!important;stroke-width:2!important;stroke-linecap:round!important;stroke-linejoin:round!important}',
+      '#upstatus-root.up-theme-light .up-voice-person .up-voice-mic-muted svg path{fill:none!important;stroke:#fff!important;stroke-width:2!important;stroke-linecap:round!important;stroke-linejoin:round!important}'
+    ].join('');
+    (document.head || document.documentElement).appendChild(style);
+  })();
+
 })();
