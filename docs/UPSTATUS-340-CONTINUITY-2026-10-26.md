@@ -6,11 +6,11 @@
 - GitHub PR #73: merged into `master`; merge commit `d8f05561e20e38fb7bc800d3c6dd6dc270bd3475`.
 - Validation workflow: `UpStatus Validate` passed on the release branch head `a357ed02df2c79c69414a98a6866cc2e5f981b85` (run `40421235502`).
 - Supabase project: `dlfvkawaiqduhlazsszm`.
-- Production Edge Function: `upstatus`, deployment version `461`, `verify_jwt=false`.
-- Production backend SHA-256: `c2fb8b953fbfc6486442db4c36801d0a4285b6975d1c3230de83859d28de98a0`.
+- Production Edge Function: `upstatus`, deployment version `462`, `verify_jwt=false`.
+- Production backend SHA-256: `2a95d5869d7b9d7e6fb87ff1e679fc7ca1118ee40e81057cf1ed1f81f968a51d`.
 - Production backend and embedded userscript both report version `3.4.0`; the embedded userscript exactly matches the rendered build artifact.
 - Public production userscript: https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js
-- Test Edge Function: `upstatus-test`, deployment version `239`, serving version `3.4.0` in the test namespace.
+- Test Edge Function: `upstatus-test`, deployment version `240`, serving version `3.4.0` in the test namespace.
 - Public test userscript: https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test/upstatus.user.js
 
 ## Production safety snapshot
@@ -19,7 +19,7 @@ Before the 3.4.0 deployment, production was confirmed as version `3.3.1`, deploy
 
 ## Compatibility correction included
 
-The production userscript historically used the Realtime topic `upstatus-screen-share-live-3-1-1-beta8`. The initial 3.4.0 deployment briefly used the repository's former `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0` topic, which could prevent existing 3.3.1 clients from communicating with 3.4.0. This was corrected immediately in deployment `461`; the build now preserves the production topic and `scripts/validate.mjs` guards against changing it unintentionally.
+The production userscript historically used the Realtime topic `upstatus-screen-share-live-3-1-1-beta8`. The initial 3.4.0 deployment briefly used the repository's former `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0` topic, which could prevent existing 3.3.1 clients from communicating with 3.4.0. This was corrected in deployment `461`, and the final clean-text build was redeployed as `462`; the build now preserves the production topic and `scripts/validate.mjs` guards against changing it unintentionally.
 
 ## Features restored and preserved in 3.4.0
 
@@ -31,7 +31,7 @@ The production userscript historically used the Realtime topic `upstatus-screen-
 - Message timestamps/read indicators and existing chat behavior.
 - Role-based administrator message deletion and the existing backend authorization checks.
 
-The stable production endpoint was fetched after deployment and returned the `3.4.0` userscript header and correct production update/download URLs. The built script passed JavaScript syntax parsing, and the live Edge Function was checked to confirm that its embedded script matched the rendered artifact.
+Both stable production and isolated test endpoints were fetched after the final deployment and returned the `3.4.0` userscript header. The production endpoint also returned the correct production update/download URLs; the final artifact contains no stray encoding characters. The built script passed JavaScript syntax parsing, and the live Edge Function was checked to confirm that its embedded script matched the rendered artifact.
 
 ## Follow-up
 
