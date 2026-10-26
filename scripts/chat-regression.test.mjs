@@ -109,7 +109,13 @@ assert(source.includes("fileName:String(record.file_name"),"filename is separate
 assert(serverTemplate.includes('file_name:type==="document"&&fileName?fileName:null'),"file name is saved to separate database column");
 assert(source.includes("var incomingTime=!own?"),"received messages show per-message timestamps");
 assert(source.includes("var ownMeta=own?'<span class=\"up-chat-own-meta\"><span class=\"up-chat-own-time\">"),"sent time appears with ticks");
-console.log("Chat regression tests passed: baseline notifications, duplicate suppression, mentions, retry, immediate reopen rendering, desktop notification focus, and unread indicators.");
+assert(source.includes("function screenShareStart()"),"screen-sharing start handler missing");
+assert(source.includes("function screenShareReceive(p)"),"screen-sharing signal handler missing");
+assert(source.includes("SCREEN_ROOM_EVENT"),"screen-sharing realtime event missing");
+assert(source.includes("function voiceRoomToggleSpeakers()"),"speaker output mute handler missing");
+assert(source.includes("function chatSenderColors(name)"),"per-sender chat color palette missing");
+assert(source.includes("data-sender-color"),"per-sender chat color rendering missing");
+console.log("Chat regression tests passed: composer, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");
 
 assert(source.includes("function requestPublicChatLinkTitle(url,callback)"),"stable Google Docs link-title hydration helper missing");
 assert(source.includes('class="up-chat-link-card"'),"stable chat link-card renderer missing");
