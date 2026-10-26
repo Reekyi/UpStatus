@@ -110,3 +110,8 @@ assert(serverTemplate.includes('file_name:type==="document"&&fileName?fileName:n
 assert(source.includes("var incomingTime=!own?"),"received messages show per-message timestamps");
 assert(source.includes("var ownMeta=own?'<span class=\"up-chat-own-meta\"><span class=\"up-chat-own-time\">"),"sent time appears with ticks");
 console.log("Chat regression tests passed: baseline notifications, duplicate suppression, mentions, retry, immediate reopen rendering, desktop notification focus, and unread indicators.");
+
+assert(source.includes("function requestPublicChatLinkTitle(url,callback)"),"stable Google Docs link-title hydration helper missing");
+assert(source.includes('class="up-chat-link-card"'),"stable chat link-card renderer missing");
+assert(source.includes("hydrateChatLinkTitles(list);"),"chat link-card hydration hook missing");
+assert(source.includes("upstatus-340-chat-link-card-compat"),"chat link-card compatibility styles missing");
