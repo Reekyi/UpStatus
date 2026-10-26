@@ -18,9 +18,9 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - name: Reject pre-release builds
+      - name: Require explicitly approved stable release
         run: |
-          node -e "const r=require('./release.json'); if(r.preRelease) { console.error('Production requires release.json.preRelease to be empty.'); process.exit(1); }"
+          node -e "const r=require('./release.json'); if(r.preRelease || r.version !== '3.3.1') { console.error('Production locked: only approved stable release 3.3.1 may be deployed.'); process.exit(1); }"
       - name: Validate stable build
         run: node scripts/validate.mjs
       - name: Setup Supabase CLI
