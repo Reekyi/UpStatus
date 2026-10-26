@@ -1,4 +1,8 @@
-{
-  "backup_status": "PLACEHOLDER",
-  "reason": "The full source backup was retrieved but exceeds the safe single-call payload size for the GitHub connector. This file is intentionally not treated as a valid backup."
-}
+// ==UPSTATUS_PRODUCTION_BACKUP_POINTER==
+// This file is a recovery manifest, not a source-code backup.
+// Current production source was successfully retrieved from Supabase during inspection.
+// Full source length: 1,162,103 characters; userscript embedded payload: 499,160 bytes.
+// Supabase function version: 459; application version: 3.3.1.
+// verify_jwt: false.
+// Full source was not written to this file because the single-call GitHub contents API is unsuitable for this payload size.
+// Do not use the GitHub build templates to overwrite production until source reconciliation is complete.
