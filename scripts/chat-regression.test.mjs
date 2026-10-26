@@ -115,9 +115,8 @@ assert(source.includes("SCREEN_ROOM_EVENT"),"screen-sharing realtime event missi
 assert(source.includes("function voiceRoomToggleSpeakers()"),"speaker output mute handler missing");
 assert(source.includes("function chatSenderColors(name)"),"per-sender chat color palette missing");
 assert(source.includes("data-sender-color"),"per-sender chat color rendering missing");
-console.log("Chat regression tests passed: composer, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");
-
 assert(source.includes("function requestPublicChatLinkTitle(url,callback)"),"stable Google Docs link-title hydration helper missing");
 assert(source.includes('class="up-chat-link-card"'),"stable chat link-card renderer missing");
 assert(source.includes("hydrateChatLinkTitles(list);"),"chat link-card hydration hook missing");
 assert(source.includes("upstatus-340-chat-link-card-compat"),"chat link-card compatibility styles missing");
+console.log("Chat regression tests passed: composer, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");
