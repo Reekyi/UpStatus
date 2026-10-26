@@ -953,11 +953,47 @@ style.textContent += '#upstatus-card,#upstatus-history,#upstatus-chat,.up-health
     });
     return found;
   }
-  function renderChatText(text){
+  var chatLinkTitleCache=Object.create(null),chatLinkTitlePending=Object.create(null);
+function requestPublicChatLinkTitle(url,callback){
+  var parsed;try{parsed=new URL(url);}catch(_){callback('');return;}
+  if(parsed.protocol!=='https:'||parsed.hostname!=='docs.google.com'||!/^\/(spreadsheets|document|presentation)\/d\/[^/]+/i.test(parsed.pathname)){callback('');return;}
+  var key=parsed.href;
+  if(Object.prototype.hasOwnProperty.call(chatLinkTitleCache,key)){callback(chatLinkTitleCache[key]);return;}
+  if(chatLinkTitlePending[key]){chatLinkTitlePending[key].push(callback);return;}
+  chatLinkTitlePending[key]=[callback];
+  function finish(title){chatLinkTitleCache[key]=title||'';var callbacks=chatLinkTitlePending[key]||[];delete chatLinkTitlePending[key];callbacks.forEach(function(fn){try{fn(title||'');}catch(_){}});}
+  if(typeof GM_xmlhttpRequest!=='function'){finish('');return;}
+  GM_xmlhttpRequest({method:'GET',url:key,anonymous:true,timeout:6000,onload:function(resp){
+    var title='';try{if(resp.status>=200&&resp.status<300&&resp.responseText){var parsedDoc=new DOMParser().parseFromString(resp.responseText,'text/html');title=(parsedDoc.querySelector('meta[property="og:title"]')&&parsedDoc.querySelector('meta[property="og:title"]').content)||parsedDoc.title||'';title=title.replace(/\s*[-|·]\s*Google (Sheets|Docs|Slides|Drive).*$/i,'').trim();if(/^(sign in|google accounts|google drive|google sheets|google docs|google slides)$/i.test(title))title='';if(title.length>120)title=title.slice(0,117)+'...';}}catch(_){}finish(title);
+  },onerror:function(){finish('');},ontimeout:function(){finish('');}});
+}
+function hydrateChatLinkTitles(list){
+  if(!list||typeof GM_xmlhttpRequest!=='function')return;
+  list.querySelectorAll('.up-chat-link-card[data-preview-url]').forEach(function(card){var url=card.getAttribute('data-preview-url')||'',titleNode=card.querySelector('.up-chat-link-copy strong');if(!url||!titleNode)return;requestPublicChatLinkTitle(url,function(title){if(title&&card.isConnected&&titleNode.isConnected)titleNode.textContent=title;});});
+}
+function renderChatText(text){
     var safe=esc(text);
     (window.__upstatusMembers||[]).forEach(function(name){
       var re=new RegExp('(^|[^\\w])(@'+name.replace(/[.*+?^${}()|[\]\\/]/g,'\\$&')+')(?![\\w])','gi');
       safe=safe.replace(re,'$1<span class=\"up-chat-mention\">$2</span>');
+    });
+    safe=safe.replace(/https?:\/\/[^\s<]+/gi,function(raw){
+      var url=raw,trailing='';
+      while(/[),.!?;:]$/.test(url)){trailing=url.slice(-1)+trailing;url=url.slice(0,-1);}
+      var decoded=url.replace(/&amp;/g,'&');
+      var match=decoded.match(/^https?:\/\/([^\/?#]+)/i);
+      if(!match)return raw;
+      var host=match[1].replace(/^www\./i,'');
+      var display=decoded.length>68?decoded.slice(0,64)+'...':decoded;
+      var linkPath='';try{linkPath=new URL(decoded).pathname;}catch(_){}
+      var linkTitle=host,linkType='';
+      if(host==='docs.google.com'&&linkPath.indexOf('/spreadsheets/d/')>=0){linkTitle='Planilha do Google';linkType='sheets';}
+      else if(host==='docs.google.com'&&linkPath.indexOf('/document/d/')>=0){linkTitle='Documento Google';linkType='docs';}
+      else if(host==='docs.google.com'&&linkPath.indexOf('/presentation/d/')>=0){linkTitle='Apresentação Google';linkType='slides';}
+      var previewAttr=linkType?' data-preview-url="'+esc(decoded)+'"':'';
+      var favicon=linkType==='sheets'?'https://ssl.gstatic.com/docs/spreadsheets/favicon3.ico':linkType==='docs'?'https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico':linkType==='slides'?'https://ssl.gstatic.com/docs/presentations/images/favicon5.ico':'https://www.google.com/s2/favicons?domain='+encodeURIComponent(host)+'&sz=64';
+      var card='<a class="up-chat-link-card"'+previewAttr+' href="'+esc(decoded)+'" target="_blank" rel="noopener noreferrer"><span class="up-chat-link-icon"><img src="'+esc(favicon)+'" alt="" loading="lazy" referrerpolicy="no-referrer"></span><span class="up-chat-link-copy"><strong>'+esc(linkTitle)+'</strong><span>'+esc(host)+' · '+esc(display)+'</span></span><span class="up-chat-link-open" aria-hidden="true">&#8599;</span></a>';
+      return card+esc(trailing);
     });
     return safe;
   }
@@ -2176,6 +2212,7 @@ style.textContent += '#upstatus-card,#upstatus-history,#upstatus-chat,.up-health
       html+='<div class="up-chat-item '+(own?'own ':'')+(m.user==='Lucca'?'lucca ':'')+(groupStart?'group-start ':'')+(groupEnd?'group-end ':'')+(!groupStart&&!groupEnd?'group-middle ':'')+'" data-message-id="'+esc(m.id)+'">'+avatar+bubble+(own?'<button type="button" class="up-delete-action hidden">'+iconSvg('trash')+'</button>':'')+'</div>';
     });
     list.innerHTML=html;
+    hydrateChatLinkTitles(list);
     list.setAttribute('data-render-key',renderKey);
     list.querySelectorAll('[data-avatar-name]').forEach(function(img){hydrateAvatar(img,img.getAttribute('data-avatar-name'));});
     list.querySelectorAll('[data-avatar-name]').forEach(function(img){var name=img.getAttribute('data-avatar-name')||'';img.addEventListener('mouseenter',function(e){showChatProfileHover(img,name,e);});img.addEventListener('mousemove',positionChatProfileHover);img.addEventListener('mouseleave',hideChatProfileHover);});
@@ -3567,6 +3604,34 @@ style.textContent += '#upstatus-card,#upstatus-history,#upstatus-chat,.up-health
   window.addEventListener('resize',upStatusSaleScheduleEmptyImageApply);window.addEventListener('scroll',upStatusSaleScheduleEmptyImageApply,true);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',upStatusSaleApplyEmptyImage,{once:true});else upStatusSaleApplyEmptyImage();
 
+
+
+  /* Preserve stable 3.3.1 link cards and message metadata in the 3.4.0 renderer. */
+  (function upStatusChatLinkCardCompatibility(){
+    if(document.getElementById('upstatus-340-chat-link-card-compat'))return;
+    var style=document.createElement('style');
+    style.id='upstatus-340-chat-link-card-compat';
+    style.textContent=[
+      '.up-chat-link-card{display:flex;align-items:center;gap:10px;max-width:100%;min-width:0;box-sizing:border-box;margin:8px 0 3px;padding:10px;border:1px solid #354b6a;border-radius:11px;background:rgba(9,17,29,.30);color:inherit;text-decoration:none;transition:background .15s,border-color .15s}',
+      '.up-chat-link-card:hover{background:rgba(55,85,127,.3);border-color:#5c8bc9}',
+      '.up-chat-link-icon{width:36px;height:36px;flex:0 0 36px;border-radius:9px;background:#233b5a;display:flex;align-items:center;justify-content:center;overflow:hidden}',
+      '.up-chat-link-icon img{width:24px;height:24px;object-fit:contain}',
+      '.up-chat-link-copy{display:flex;flex:1;flex-direction:column;min-width:0;gap:4px}',
+      '.up-chat-link-copy strong{font-size:11px;font-weight:800;color:#a9c7ef;overflow-wrap:anywhere}',
+      '.up-chat-link-copy span{font-size:11px;line-height:1.35;color:#b8c7dc;overflow-wrap:anywhere;word-break:break-word}',
+      '.up-chat-link-open{font-size:18px;color:#93b9ee;align-self:flex-start}',
+      '#upstatus-root.up-theme-light .up-chat-link-card{background:#f4f7fb;border-color:#cbd8e8;color:#1e293b}',
+      '#upstatus-root.up-theme-light .up-chat-link-copy strong{color:#31598b}',
+      '#upstatus-root.up-theme-light .up-chat-link-copy span{color:#526176}',
+      '.up-chat-bubble{position:relative;padding-bottom:8px}',
+      '.up-chat-item.own .up-chat-own-meta{display:flex!important;justify-content:flex-end!important;align-items:center!important;gap:2px!important;float:none!important;clear:both!important;margin:6px 0 0 auto!important;width:max-content!important;max-width:100%!important;position:static!important;vertical-align:middle!important}',
+      '.up-chat-read{font-size:10px!important;line-height:10px!important;letter-spacing:-1px!important;font-weight:400!important}',
+      '.up-chat-read.read,.up-chat-read.read-all{color:#168bff!important;text-shadow:0 0 4px rgba(22,139,255,.35)!important}',
+      '#upstatus-root.up-theme-light .up-chat-read.read,#upstatus-root.up-theme-light .up-chat-read.read-all{color:#168bff!important;text-shadow:0 0 4px rgba(22,139,255,.25)!important}',
+      '.up-chat-incoming-time{display:block;text-align:right;margin-top:4px;font-size:10px;color:#93a4bb}'
+    ].join('');
+    (document.head||document.documentElement).appendChild(style);
+  })();
 
   setInterval(function(){loadChat();},3000);
   setInterval(pollChatTyping,1000);  setInterval(pollRemoteStatus,5000);
