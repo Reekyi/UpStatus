@@ -1,8 +1,21 @@
-// ==UPSTATUS_PRODUCTION_BACKUP_POINTER==
-// This file is a recovery manifest, not a source-code backup.
-// Current production source was successfully retrieved from Supabase during inspection.
-// Full source length: 1,162,103 characters; userscript embedded payload: 499,160 bytes.
-// Supabase function version: 459; application version: 3.3.1.
-// verify_jwt: false.
-// Full source was not written to this file because the single-call GitHub contents API is unsuitable for this payload size.
-// Do not use the GitHub build templates to overwrite production until source reconciliation is complete.
+{
+  "type": "backup-pointer",
+  "production_version": "3.3.1",
+  "supabase_project_id": "dlfvkawaiqduhlazsszm",
+  "edge_function": "upstatus",
+  "deployment_version": 459,
+  "verify_jwt": false,
+  "source_length_characters": 1162103,
+  "source_sha256": "12e0237c98957b203e5f0bdb3cd81aebf04916ae419836abd98446faabca390a",
+  "backup_branch": "backup/production-3.3.1-2026-10-26",
+  "manifest_path": "docs/backups/production-upstatus-3.3.1-2026-10-26/manifest.json",
+  "parts": [
+    "docs/backups/production-upstatus-3.3.1-2026-10-26/index.ts.part-01.txt",
+    "docs/backups/production-upstatus-3.3.1-2026-10-26/index.ts.part-02.txt",
+    "docs/backups/production-upstatus-3.3.1-2026-10-26/index.ts.part-03.txt",
+    "docs/backups/production-upstatus-3.3.1-2026-10-26/index.ts.part-04.txt",
+    "docs/backups/production-upstatus-3.3.1-2026-10-26/index.ts.part-05.txt"
+  ],
+  "exact_reconstruction_verified": true,
+  "note": "Full production source is stored on the backup branch. This file is a pointer, not the source itself."
+}
