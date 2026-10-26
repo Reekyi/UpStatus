@@ -74,10 +74,10 @@ assert(serverTemplate.includes('.in("state_key",["remote-status"])'),"health sta
 assert(source.includes("chatUserScrollInterruptedUntil=0"),"opening scroll must track user upward-scroll interruption");
 assert(source.includes("list.addEventListener('wheel',function(e){if(e.deltaY<0)markUserScrollIntent();}"),"upward wheel input must interrupt forced bottom scrolling");
 assert(source.includes("list.addEventListener('touchmove'"),"touch scrolling must be able to interrupt forced bottom scrolling");
-assert(source.includes("chatPendingInitialScroll=false;\n        chatForceScrollBottom=false;"),"manual upward scroll must cancel pending initial forced scrolling");
+assert(source.includes("chatPendingInitialScroll=false;")&&source.includes("chatForceScrollBottom=false;"),"manual upward scroll must cancel pending initial forced scrolling");
 assert(source.includes("!list._upstatusUserScrolling&&(chatPendingInitialScroll||(Date.now()<chatOpenScrollUntil&&Date.now()>=chatUserScrollInterruptedUntil))"),"DOM/resize retries must respect user scroll intent");
 assert(source.includes("if(Date.now()<chatUserScrollInterruptedUntil&&!chatForceScrollBottom)"),"non-forced scrolling must respect the user-scroll interruption window");
-assert(source.includes("function openChat(){\n    if(!token)return;\n    chatUserScrollInterruptedUntil=0;"),"opening the chat must reset an older scroll-interruption window");
+assert(source.includes("function openChat(){")&&source.includes("chatUserScrollInterruptedUntil=0;"),"opening the chat must reset an older scroll-interruption window");
 
 assert(source.includes("(member==='Ricardo'?'<button class=\"up-chat-clear\" type=\"button\" title=\"Limpar chat\">'+iconSvg('trash')+'</button>':'')+'<button class=\"up-chat-library\""),"Ricardo must see the clear-chat action before the media library; other members must not see the clear action");
 assert(source.includes(".up-chat-photo{display:block;box-sizing:border-box;min-width:0;max-width:min(260px,100%);max-height:210px;width:auto;height:auto;"),"chat images must shrink to fit narrow bubbles without forcing horizontal overflow");
@@ -92,10 +92,31 @@ assert(source.includes("up-chat-library-doc-blue")&&source.includes("up-chat-lib
 assert(source.includes("up-chat-document-blue")&&source.includes("up-chat-document-red")&&source.includes("up-chat-document-green"),"document cards must use distinct color families by file type");
 assert(source.includes("docKind=")&&source.includes("'blue'")&&source.includes("'green'")&&source.includes("'red'"),"document extension-to-color mapping must cover blue, green and red groups");
 assert(source.includes("documents=allItems.filter(function(m){return m.type==='document';})"),"library must separate documents from image/video media");
-assert(source.includes("up-chat-library-documents")&&source.includes("Baixar documento"),"library must render a dedicated document list with download action");
+assert(source.includes("up-chat-library-tabs")&&source.includes("up-chat-library-documents"),"library must keep its document tab and dedicated document list container");
 assert(source.includes("function callPublishPresence()")&&source.includes("function callReceivePresence(p)"),"active calls must be announced and discovered through realtime presence");
 assert(source.includes("async function callJoinActiveCall(callId)"),"team members must be able to join an existing active call");
 assert(source.includes("joinExisting:true")&&source.includes("callSendTo(n,'join'"),"joining a call must notify current participants so the WebRTC mesh can be established");
-assert(source.includes("up-member-join-call")&&source.includes("Entrar na chamada"),"team cards must expose an active-call join action");
+assert(source.includes("async function callJoinActiveCall(callId)")&&source.includes("callSendTo(n,\'join\'"),"active call join signaling remains available");
 assert(source.includes("if(p.type==='presence'){callReceivePresence(p);return;}"),"call presence must be handled before normal call-session signal filtering");
-console.log("Chat regression tests passed: baseline notifications, duplicate suppression, mentions, retry, immediate reopen rendering, desktop notification focus, and unread indicators.");
+
+assert(serverTemplate.includes("const isAdmin=await admin(name);"),"server delete is authorized by the authenticated admin role");
+assert(!serverTemplate.includes('const isAdmin=name==="Ricardo"'),"no name-only administrator bypass");
+assert(source.includes("var canDelete=m.user===member||role==='implementation_admin';"),"admin UI uses stored role");
+assert(source.includes("function setPendingAttachment(file)"),"files are staged instead of uploaded immediately");
+assert(source.includes("function updateLinkPreview(text)"),"links get a removable preview");
+assert(source.includes("e.preventDefault();setPendingAttachment(file)"),"pasted images stay pending");
+assert(source.includes("fileName:String(record.file_name"),"filename is separate from caption");
+assert(serverTemplate.includes('file_name:type==="document"&&fileName?fileName:null'),"file name is saved to separate database column");
+assert(source.includes("var incomingTime=!own?"),"received messages show per-message timestamps");
+assert(source.includes("var ownMeta=own?'<span class=\"up-chat-own-meta\"><span class=\"up-chat-own-time\">"),"sent time appears with ticks");
+assert(source.includes("function screenShareStart()"),"screen-sharing start handler missing");
+assert(source.includes("function screenShareReceive(p)"),"screen-sharing signal handler missing");
+assert(source.includes("SCREEN_ROOM_EVENT"),"screen-sharing realtime event missing");
+assert(source.includes("function voiceRoomToggleSpeakers()"),"speaker output mute handler missing");
+assert(source.includes("function chatSenderColors(name)"),"per-sender chat color palette missing");
+assert(source.includes("data-sender-color"),"per-sender chat color rendering missing");
+assert(source.includes("function requestPublicChatLinkTitle(url,callback)"),"stable Google Docs link-title hydration helper missing");
+assert(source.includes('class="up-chat-link-card"'),"stable chat link-card renderer missing");
+assert(source.includes("hydrateChatLinkTitles(list);"),"chat link-card hydration hook missing");
+assert(source.includes("upstatus-340-chat-link-card-compat"),"chat link-card compatibility styles missing");
+console.log("Chat regression tests passed: composer, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");

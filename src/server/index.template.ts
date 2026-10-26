@@ -216,13 +216,13 @@ async function mentions(text:string){
 }
 async function chatRows(name:string,since?:string){
   const cutoff=new Date(Date.now()-48*60*60*1000).toISOString();
-  let query=db.from("messages").select("id,user_name,message,type,system_type,created_at,edited_at,image_url,mentions,reply_to,reactions").gte("created_at",cutoff);
+  let query=db.from("messages").select("id,user_name,message,type,system_type,created_at,edited_at,image_url,file_name,mentions,reply_to,reactions").gte("created_at",cutoff);
   if(since)query=query.gt("created_at",since);
   const {data,error}=await query.order("created_at",{ascending:true}).limit(since?200:1000);
   if(error)throw error;
   return (data||[]).map((m:any)=>({
     id:String(m.id),user:m.user_name,message:m.message||"",type:m.type||"text",systemType:m.system_type||"",
-    createdAt:m.created_at,imageUrl:m.image_url||"",mentions:Array.isArray(m.mentions)?m.mentions:[],
+    createdAt:m.created_at,imageUrl:m.image_url||"",fileName:m.file_name||"",mentions:Array.isArray(m.mentions)?m.mentions:[],
     replyTo:m.reply_to||null,reactions:m.reactions||{},readBy:[]
   }));
 }
@@ -388,6 +388,7 @@ async function chatRoute(req:Request,name:string){
   const p:any=await readBody(req);
   const message=String(p.message||"").trim();
   const imageUrl=String(p.imageUrl||"").trim();
+  const fileName=String(p.fileName||"").trim().slice(0,255);
   const type=p.type==="document"?"document":p.type==="video"?"video":p.type==="audio"?"audio":imageUrl?"image":"text";
   if(!message&&!imageUrl)return response({error:"Digite uma mensagem ou envie um arquivo."},400);
   if(message.length>1000)return response({error:"A mensagem deve ter no máximo 1000 caracteres."},400);
@@ -402,10 +403,10 @@ async function chatRoute(req:Request,name:string){
   const mentionList=await mentions(message);
   const {error}=await db.from("messages").insert({
     id,user_name:name,message,type,system_type:"",
-    created_at:createdAt,image_url:imageUrl,mentions:mentionList,reply_to:replyTo,reactions:{}
+    created_at:createdAt,image_url:imageUrl,file_name:type==="document"&&fileName?fileName:null,mentions:mentionList,reply_to:replyTo,reactions:{}
   });
   if(error)throw error;
-  return response({ok:true,message:{id,user:name,user_name:name,message,type,systemType:"",system_type:"",createdAt,imageUrl,image_url:imageUrl,mentions:mentionList,replyTo,reactions:{},readBy:[]}});
+  return response({ok:true,message:{id,user:name,user_name:name,message,type,systemType:"",system_type:"",createdAt,imageUrl,image_url:imageUrl,fileName:type==="document"?fileName:"",file_name:type==="document"?fileName:"",mentions:mentionList,replyTo,reactions:{},readBy:[]}});
 }
 async function readRoute(req:Request,name:string){
   const p:any=await readBody(req);
@@ -469,9 +470,10 @@ async function editRoute(req:Request,name:string,id:string){
 async function deleteRoute(name:string,id:string){
   const {data}=await db.from("messages").select("id,user_name").eq("id",id).maybeSingle();
   if(!data)return response({error:"Mensagem não encontrada."},404);
-  if(data.user_name!==name)return response({error:"Você só pode excluir suas próprias mensagens."},403);
+  const isAdmin=await admin(name);
+  if(data.user_name!==name&&!isAdmin)return response({error:"Você só pode excluir suas próprias mensagens."},403);
   const {error}=await db.from("messages").delete().eq("id",id);if(error)throw error;
-  return response({ok:true,id});
+  return response({ok:true,id,deletedByAdmin:data.user_name!==name});
 }
 
 async function profileRoute(req:Request,name:string) {
