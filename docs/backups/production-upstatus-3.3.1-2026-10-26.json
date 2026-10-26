@@ -1,0 +1,4 @@
+{
+  "backup_status": "PLACEHOLDER",
+  "reason": "The full source backup was retrieved but exceeds the safe single-call payload size for the GitHub connector. This file is intentionally not treated as a valid backup."
+}
