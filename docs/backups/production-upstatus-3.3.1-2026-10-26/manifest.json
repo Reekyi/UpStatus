@@ -1,0 +1,33 @@
+{
+  "backup_type": "Exact source snapshot retrieved from Supabase Edge Function",
+  "function_slug": "upstatus",
+  "project_id": "dlfvkawaiqduhlazsszm",
+  "production_version": "3.3.1",
+  "function_deployment_version": 459,
+  "verify_jwt": false,
+  "source_length_characters": 1162103,
+  "source_sha256": "12e0237c98957b203e5f0bdb3cd81aebf04916ae419836abd98446faabca390a",
+  "chunks": [
+    {
+      "path": "docs/backups/production-upstatus-3.3.1-2026-10-26/index.ts.part-01.txt",
+      "characters": 280000
+    },
+    {
+      "path": "docs/backups/production-upstatus-3.3.1-2026-10-26/index.ts.part-02.txt",
+      "characters": 280000
+    },
+    {
+      "path": "docs/backups/production-upstatus-3.3.1-2026-10-26/index.ts.part-03.txt",
+      "characters": 280000
+    },
+    {
+      "path": "docs/backups/production-upstatus-3.3.1-2026-10-26/index.ts.part-04.txt",
+      "characters": 256185
+    },
+    {
+      "path": "docs/backups/production-upstatus-3.3.1-2026-10-26/index.ts.part-05.txt",
+      "characters": 65918
+    }
+  ],
+  "reassembly": "Concatenate part files in ascending numeric order with no added separators. The split points preserve the original source exactly."
+}
