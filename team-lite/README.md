@@ -6,6 +6,7 @@
 3. Entre no Sale Smartly e pressione **Shift + C**.
 4. Selecione Luca ou Ícaro, informe a senha individual e entre.
 5. Teste mensagens, entrada/saída da sala de voz, microfone mutado e retorno à página depois de ocultar o painel.
+6. Para testar o anel de presença na bolha oficial em computadores de teste, instale também o userscript auxiliar **UpStatus Team Lite Presence (TEST)**. Ele não cria botões nem abre sites e consulta apenas a presença no backend TEST. Remova-o depois do teste ou mantenha-o desativado até a validação.
 
 ## Versões
 - Core atual: `3.4.0`.
@@ -18,5 +19,5 @@
 - O servidor TEST força o filtro de mensagens dos convidados pelo início da sessão; não confia apenas no filtro visual do navegador.
 - Mensagens novas dos líderes continuam compartilhadas com o chat da equipe. O início de uma sessão futura não recupera mensagens anteriores e não apaga histórico.
 - Ocultar com × não encerra a chamada nem a sessão. Use **Sair** para encerrar a sessão e a presença; use **Sair da voz** para desligar a chamada.
-- O indicador roxo/laranja no balão do UpStatus oficial foi adicionado somente ao userscript servido pelo canal TEST. Ele ainda precisa de validação visual no Sale Smartly antes de qualquer alteração em produção.
+- O indicador roxo/laranja no balão do UpStatus oficial tem um helper temporário separado para teste. Ele ainda precisa de validação visual no Sale Smartly antes de integrar a alteração ao userscript oficial.
 - A voz usa o canal Supabase Realtime e o protocolo da sala de voz oficial; chamadas WebRTC dependem das permissões do microfone e da rede dos participantes.
