@@ -8,6 +8,8 @@
     "Painel interno via Shift+C, sem site externo ou botão na barra lateral.",
     "Chat de texto compartilhado com a equipe, iniciando a visualização na sessão atual.",
     "Sala de voz WebRTC integrada à sinalização Realtime existente.",
-    "Verificação manual de atualizações com confirmação antes de abrir o instalador."
+    "Verificação manual de atualizações com confirmação antes de abrir o instalador.",
+    "Indicador de presença roxo/laranja no balão do UpStatus oficial no canal TEST.",
+    "O backend TEST limita o histórico de convidados ao início da sessão."
   ]
 }
