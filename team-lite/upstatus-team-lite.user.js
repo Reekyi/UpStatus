@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.0.8
+// @version      3.4.0.9
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -434,7 +434,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.0.8'
+  var CURRENT_VERSION='3.4.0.9'
   var UPDATE_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -762,6 +762,11 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   setBubbleStatus('offline');
   root.appendChild(readTooltip);
   document.documentElement.appendChild(root);
+  (function applyLiteLayout(){
+    var st=document.createElement('style');st.id='upstatus-team-lite-layout-v3409';
+    st.textContent='#upstatus-team-lite-root .up-team-title-row,#upstatus-team-lite-root .up-team{display:none!important}#upstatus-team-lite-root .up-chat-btn{display:none!important}#upstatus-team-lite-root .up-title,#upstatus-team-lite-root .up-you,#upstatus-team-lite-root .up-head,#upstatus-team-lite-root .up-head *{color:#e8eef8!important}#upstatus-team-lite-root .up-title{cursor:grab!important;touch-action:none!important;user-select:none!important}#upstatus-team-lite-root .up-member,#upstatus-team-lite-root .up-team-title{color:#e8eef8!important}#upstatus-team-lite-root .up-card{color:#e8eef8!important}';
+    (document.head||document.documentElement).appendChild(st);
+  })();
   // Remove the legacy floating "U" recovery button. Team Lite is opened only with Shift+C.
   (function removeLegacyLauncher(){
     function remove(){['upstatus-beta8-recovery','upstatus-beta9-recovery'].forEach(function(id){var el=document.getElementById(id);if(el)el.remove();});document.querySelectorAll('button').forEach(function(el){if(el.textContent.trim()==='U'&&el.getAttribute('aria-label')==='Abrir UpStatus')el.remove();});}
