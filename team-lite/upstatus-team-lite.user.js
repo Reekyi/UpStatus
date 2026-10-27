@@ -25,14 +25,14 @@ const API = 'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test
 const RELEASE_URL = 'https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/release.json';
 const SCRIPT_URL = 'https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js';
 const STORE_KEY = 'upstatus_team_lite_session_v1';
-const REALTIME_URL = 'https://dlfvkawaiqduhlazssszm.supabase.co';
+const REALTIME_URL = 'https://dlfvkawaiqduhlazsszm.supabase.co';
 const REALTIME_KEY = 'sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
 const REALTIME_TOPIC = 'upstatus-screen-share-live-3-1-1-beta10';
 const VOICE_EVENT = 'voice_room_signal';
 const VOICE_ROOM_ID = 'upstatus-team-room-v1';
 const $ = (s) => root.querySelector(s);
 let session = null, pollTimer = null, heartbeatTimer = null, realtimeClient = null, realtimeChannel = null;
-let voiceActive = false, voiceMuted = false, localStream = null, peers = Object.create(null), participants = Object.create(null);
+let voiceActive = false, voiceMuted = false, localStream = null, voicePresenceTimer = null, peers = Object.create(null), participants = Object.create(null);
 const root = document.createElement('section');
 root.id = 'upstatus-team-lite';
 root.style.cssText = 'position:fixed;right:22px;bottom:22px;width:min(390px,calc(100vw - 24px));height:min(600px,calc(100vh - 28px));z-index:2147483647;background:#182232;color:#edf3fc;border:1px solid #34445a;border-radius:15px;box-shadow:0 18px 50px #0009;font:13px Segoe UI,Arial,sans-serif;display:none;flex-direction:column;overflow:hidden';
@@ -141,8 +141,9 @@ async function checkUpdates(){
 }
 async function ensureRealtime(){
   if(realtimeChannel)return;
-  if(!window.supabase||typeof window.supabase.createClient!=='function'){setStatus('Chat conectado, mas o módulo de voz não carregou.');return;}
-  realtimeClient=window.supabase.createClient(REALTIME_URL,REALTIME_KEY,{auth:{persistSession:false}});
+  const sb=(typeof supabase!=='undefined'?supabase:window.supabase);
+  if(!sb||typeof sb.createClient!=='function'){setStatus('Chat conectado, mas o módulo de voz não carregou.');return;}
+  realtimeClient=sb.createClient(REALTIME_URL,REALTIME_KEY,{auth:{persistSession:false}});
   realtimeChannel=realtimeClient.channel(REALTIME_TOPIC);
   realtimeChannel.on('broadcast',{event:VOICE_EVENT},ev=>handleVoiceSignal(ev&&ev.payload||{}));
   await new Promise((resolve,reject)=>{
@@ -194,7 +195,7 @@ async function joinVoice(){
     localStream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
     voiceStartedAt=Date.now();voiceMuted=false;voiceActive=true;participants[session.name]={at:Date.now(),muted:false};
     $('#utl-voice').hidden=true;$('#utl-mute').hidden=false;$('#utl-leave').hidden=false;renderVoiceStatus();
-    voiceSend('join','',{});voiceSend('presence','',{});
+    voiceSend('join','',{});voiceSend('presence','',{});if(voicePresenceTimer)clearInterval(voicePresenceTimer);voicePresenceTimer=setInterval(()=>{if(voiceActive)voiceSend('presence','',{});},5000);
     Object.keys(participants).forEach(n=>{if(n!==session.name&&Date.now()-participants[n].at<16000)makeOffer(n).catch(()=>{});});
   }catch(e){setStatus('Não foi possível entrar na voz: '+e.message);if(localStream)localStream.getTracks().forEach(t=>t.stop());localStream=null;}
   finally{$('#utl-voice').disabled=false;}
@@ -210,6 +211,7 @@ function toggleMute(){
 async function leaveVoice(){
   if(!voiceActive&&!localStream)return;
   voiceSend('leave','',{});
+  if(voicePresenceTimer)clearInterval(voicePresenceTimer);voicePresenceTimer=null;
   voiceActive=false;voiceMuted=false;
   Object.keys(peers).forEach(dropPeer);participants=Object.create(null);
   if(localStream)localStream.getTracks().forEach(t=>t.stop());localStream=null;voiceStartedAt=0;
