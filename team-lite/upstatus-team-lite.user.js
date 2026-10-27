@@ -19,43 +19,8 @@
 (function(){function install(){if(document.getElementById('upstatus-3-1-5-voice-visual-fixes'))return;var style=document.createElement('style');style.id='upstatus-3-1-5-voice-visual-fixes';style.textContent="#upstatus-team-lite-root .up-voice-person{position:relative!important;display:inline-flex!important;align-items:center!important;justify-content:flex-start!important;gap:7px!important;width:auto!important;height:auto!important;min-width:0!important;min-height:34px!important;max-width:100%!important;box-sizing:border-box!important;padding:4px 10px 4px 5px!important;border:1px solid #34445a!important;border-radius:999px!important;background:#1b2738!important;color:#e4edf8!important;overflow:visible!important;white-space:nowrap!important;flex:0 1 auto!important;font-size:10px!important;line-height:1.2!important;cursor:default!important;transition:border-color .18s,box-shadow .18s,background .18s!important}#upstatus-root .up-voice-avatar{display:block!important;flex:0 0 30px!important;width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;border-radius:50%!important;object-fit:cover!important;border:1px solid #526783!important;box-sizing:border-box!important}#upstatus-root .up-voice-person b{display:block!important;max-width:180px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:11px!important;font-weight:750!important;line-height:1.2!important}#upstatus-root .up-voice-person.is-speaking{background:#183a65!important;border-color:#4f9bff!important;box-shadow:0 0 0 2px rgba(79,155,255,.16)!important;animation:upStatusVoiceChipSpeaking .8s ease-in-out infinite!important}#upstatus-root .up-voice-person.is-muted{border-color:#ff596d!important;background:rgba(120,20,40,.12)!important;box-shadow:0 0 0 2px rgba(255,89,109,.2)!important}#upstatus-root .up-voice-person .up-voice-status-muted{position:absolute!important;left:24px!important;top:-5px!important;transform:none!important;display:flex!important;align-items:center!important;justify-content:center!important;width:19px!important;height:19px!important;min-width:19px!important;min-height:19px!important;border:1px solid #ff9aa7!important;border-radius:50%!important;background:rgba(170,28,52,.98)!important;color:#fff!important;z-index:7!important;box-shadow:0 2px 8px #0008!important;pointer-events:none!important}#upstatus-root .up-voice-person .up-voice-status-muted svg{width:12px!important;height:12px!important}@keyframes upStatusVoiceChipSpeaking{0%,100%{box-shadow:0 0 0 2px rgba(79,155,255,.13)}50%{box-shadow:0 0 0 3px rgba(79,155,255,.28),0 0 9px rgba(79,155,255,.24)}}#upstatus-root.up-theme-light .up-voice-room{background:linear-gradient(135deg,#f7faff,#eaf2fc)!important;border-color:#c5d6ed!important;box-shadow:0 5px 15px rgba(38,68,112,.10)!important;color:#172033!important}#upstatus-root.up-theme-light .up-voice-title{color:#172033!important}#upstatus-root.up-theme-light .up-voice-title .up-icon{color:#334155!important}#upstatus-root.up-theme-light .up-voice-state,#upstatus-root.up-theme-light .up-voice-connection,#upstatus-root.up-theme-light .up-voice-duration,#upstatus-root.up-theme-light .up-voice-message,#upstatus-root.up-theme-light .up-voice-empty{color:#52647c!important}#upstatus-root.up-theme-light .up-voice-connection.is-connected{color:#07875a!important}#upstatus-root.up-theme-light .up-voice-connection.is-connecting{color:#ad6700!important}#upstatus-root.up-theme-light .up-voice-participants{color:#233047!important}#upstatus-root.up-theme-light .up-voice-person{background:#fff!important;border-color:#c5d4e6!important;color:#233047!important;box-shadow:0 1px 2px rgba(20,40,70,.06)!important}#upstatus-root.up-theme-light .up-voice-person.is-speaking{background:#e4f1ff!important;border-color:#3b82f6!important;box-shadow:0 0 0 2px rgba(59,130,246,.14)!important}#upstatus-root.up-theme-light .up-voice-person.is-muted{background:#fff0f2!important;border-color:#e34b62!important}#upstatus-root.up-theme-light .up-voice-avatar{border-color:#b8cce4!important}#upstatus-root.up-theme-light .up-voice-actions button{background:#dbe6f4!important;border:1px solid #c5d4e6!important;color:#233047!important}#upstatus-root.up-theme-light .up-voice-actions .up-voice-join{background:#18794e!important;border-color:#18794e!important;color:#fff!important}#upstatus-root.up-theme-light .up-voice-actions .up-voice-mute.is-muted,#upstatus-root.up-theme-light .up-voice-actions .up-voice-leave,#upstatus-root.up-theme-light .up-voice-actions .up-screen-share-toggle.is-sharing{background:#b4233d!important;border-color:#e34b62!important;color:#fff!important}#upstatus-root.up-theme-light .up-voice-actions button:hover{filter:brightness(.97)}#upstatus-root.up-theme-light .up-screen-share-panel{background:rgba(255,255,255,.72)!important;border-color:#c5d6ed!important;border-radius:12px!important}#upstatus-root.up-theme-light .up-screen-share-heading{color:#172033!important}#upstatus-root.up-theme-light .up-screen-share-status,#upstatus-root.up-theme-light .up-screen-share-message{color:#52647c!important}#upstatus-root.up-theme-light .up-screen-share-grid{color:#233047!important}#upstatus-root.up-theme-light .up-screen-share-tile{background:#fff!important;border-color:#c5d6ed!important;color:#233047!important;box-shadow:0 2px 8px rgba(20,40,70,.06)!important}#upstatus-root.up-theme-light .up-screen-share-tile *{color:inherit}#upstatus-root.up-theme-light .up-screen-share-tile video{background:#e2e8f0!important}#upstatus-root.up-theme-light .up-voice-control-bubble{background:rgba(246,249,253,.97)!important;border-color:#c7d5e5!important;box-shadow:0 7px 20px rgba(25,40,60,.18)!important}#upstatus-root.up-theme-light .up-voice-control-bubble>button:not(.up-voice-control-leave):not(.is-muted){background:#dbe6f4!important;color:#233047!important;border:1px solid #c5d4e6!important}#upstatus-root.up-theme-light .up-voice-control-bubble>button.is-muted,#upstatus-root.up-theme-light .up-voice-control-bubble>.up-voice-control-leave{background:#b4233d!important;border-color:#e34b62!important;color:#fff!important}";(document.head||document.documentElement).appendChild(style)}if(document.documentElement)install();else document.addEventListener('DOMContentLoaded',install,{once:true})})();
 (function(){function install(){if(document.getElementById('upstatus-beta9-3-visual-fixes'))return;var style=document.createElement('style');style.id='upstatus-beta9-3-visual-fixes';style.textContent='#upstatus-root .up-voice-person{position:relative!important;border:2px solid #526783!important;border-radius:50%!important;box-shadow:0 0 0 2px rgba(82,103,131,.16)!important;overflow:visible!important;transition:border-color .18s,box-shadow .18s!important}#upstatus-root .up-voice-person.is-speaking{border-color:#4ade80!important;box-shadow:0 0 0 3px rgba(74,222,128,.24),0 0 14px rgba(74,222,128,.55)!important;animation:upBeta92Speaking .85s ease-in-out infinite!important}#upstatus-root .up-voice-mic-muted{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;display:flex!important;align-items:center!important;justify-content:center!important;width:20px!important;height:20px!important;border:1px solid #ff9aa7!important;border-radius:50%!important;background:rgba(120,20,40,.96)!important;color:#fff!important;z-index:5!important;box-shadow:0 2px 8px #0008!important}#upstatus-root .up-voice-mic-muted svg{width:13px!important;height:13px!important}@keyframes upBeta92Speaking{0%,100%{box-shadow:0 0 0 2px rgba(74,222,128,.18),0 0 7px rgba(74,222,128,.25)}50%{box-shadow:0 0 0 4px rgba(74,222,128,.34),0 0 17px rgba(74,222,128,.6)}}';style.textContent+='#upstatus-root .up-voice-person.is-muted{border-color:#ff596d!important;background:rgba(120,20,40,.12)!important;box-shadow:0 0 0 2px rgba(255,89,109,.2)!important}#upstatus-root .up-voice-person .up-voice-status-muted{position:absolute!important;left:24px!important;top:-5px!important;transform:none!important;display:flex!important;align-items:center!important;justify-content:center!important;width:19px!important;height:19px!important;border:1px solid #ff9aa7!important;border-radius:50%!important;background:rgba(170,28,52,.98)!important;color:#fff!important;z-index:7!important;box-shadow:0 2px 8px #0008!important;pointer-events:none!important}#upstatus-root .up-voice-person .up-voice-status-muted svg{width:12px!important;height:12px!important}#upstatus-root .up-voice-actions .up-voice-speakers.is-muted{background:#a9243b!important;border-color:#e34b62!important;color:#fff!important}';style.textContent+='.up-voice-control-bubble{position:absolute!important;right:50px!important;bottom:0!important;padding:5px 7px!important;display:flex!important;align-items:center!important;gap:6px!important}.up-voice-control-bubble>button:not(.up-voice-control-screen){position:relative;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 38px;border:1px solid #405673;border-radius:11px;background:#2b3d54;color:#e5edf8;cursor:pointer;transition:background .18s,border-color .18s}.up-voice-control-bubble>button.is-muted{background:#a9243b!important;border:1px solid #e34b62!important;color:#fff!important}.up-voice-control-bubble .up-voice-control-leave{background:#a9243b!important;border-color:#e34b62!important;color:#fff!important}.up-voice-control-bubble .up-voice-control-screen{position:absolute!important;left:-8px!important;top:-10px!important;width:25px!important;height:25px!important;min-width:25px!important;flex:0 0 25px!important;border-radius:50%!important;background:#17865b!important;border:2px solid #83e6ba!important;color:#fff!important;z-index:12!important;box-shadow:0 2px 8px #0009!important}.up-voice-control-bubble .up-voice-control-screen.hidden{display:none!important}.up-voice-control-bubble .up-voice-control-screen svg{width:13px!important;height:13px!important}#upstatus-root.up-theme-light .up-voice-control-bubble>button:not(.up-voice-control-leave):not(.up-voice-control-screen):not(.is-muted){background:#dbe6f4;color:#233047}#upstatus-root.up-theme-light .up-voice-control-bubble>button.is-muted{background:#a9243b!important;border-color:#e34b62!important;color:#fff!important}#upstatus-root .up-quick-chat-bubble{z-index:2147483647!important}#upstatus-root .up-voice-control-bubble{z-index:8!important}';(document.head||document.documentElement).appendChild(style)}if(document.documentElement)install();else document.addEventListener('DOMContentLoaded',install,{once:true})})();
 
-  // Beta10 recovery launcher: independent watchdog keeps a clickable fallback visible until the real bubble is visible.
-  (function(){
-    if(window.__upstatusRecoveryStarted)return;
-    window.__upstatusRecoveryStarted=true;
-    var recovery=null,observer=null,queued=false,booted=false;
-    function visible(el){
-      if(!el||!el.isConnected)return false;
-      try{var r=el.getBoundingClientRect();if(r.width<8||r.height<8)return false;
-        for(var n=el;n&&n.nodeType===1;n=n.parentElement){var s=getComputedStyle(n);if(s.display==='none'||s.visibility==='hidden'||s.visibility==='collapse'||Number(s.opacity||1)<=.05||n.hidden)return false;}
-        return true;
-      }catch(_){return false;}
-    }
-    function ready(){var r=document.getElementById('upstatus-root'),b=document.getElementById('upstatus-bubble');return !!(r&&b&&visible(r)&&visible(b));}
-    function create(){
-      recovery=document.getElementById('upstatus-beta8-recovery')||document.getElementById('upstatus-beta9-recovery');
-      if(recovery)return;
-      recovery=document.createElement('button');recovery.id='upstatus-beta8-recovery';recovery.type='button';
-      recovery.title='Abrir UpStatus';recovery.setAttribute('aria-label','Abrir UpStatus');recovery.textContent='U';
-      recovery.style.cssText='position:fixed!important;right:24px!important;bottom:24px!important;width:46px!important;height:46px!important;min-width:46px!important;min-height:46px!important;padding:0!important;border:3px solid #8b95a4!important;border-radius:50%!important;background:#273247!important;color:#fff!important;font:800 16px Segoe UI,Arial,sans-serif!important;box-shadow:0 5px 18px #0009!important;z-index:2147483647!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;';
-      recovery.addEventListener('click',function(){var bubble=document.getElementById('upstatus-bubble');if(ready()&&bubble){bubble.click();return;}recovery.textContent='!';recovery.title='O UpStatus está se recuperando. Aguarde alguns segundos ou recarregue a página.';recovery.style.setProperty('background','#713448','important');});
-      (document.body||document.documentElement).appendChild(recovery);
-    }
-    function check(){
-      var host=document.body||document.documentElement;if(!host)return;
-      if(!recovery||!recovery.isConnected)create();if(!recovery||!recovery.isConnected)return;
-      if(ready()){recovery.style.setProperty('display','none','important');recovery.style.setProperty('visibility','hidden','important');return;}
-      recovery.textContent='U';recovery.title='Abrir UpStatus';
-      recovery.style.setProperty('display','flex','important');recovery.style.setProperty('visibility','visible','important');recovery.style.setProperty('opacity','1','important');recovery.style.setProperty('background','#273247','important');
-      if(recovery.parentNode!==host||host.lastElementChild!==recovery)host.appendChild(recovery);
-    }
-    function schedule(){if(queued)return;queued=true;setTimeout(function(){queued=false;try{check();}catch(_){}},0);}
-    function boot(){if(booted)return;if(!document.documentElement){setTimeout(boot,50);return;}booted=true;try{check();}catch(_){}
-      if(typeof MutationObserver!=='undefined')try{observer=new MutationObserver(schedule);observer.observe(document.documentElement,{childList:true,subtree:true});}catch(_){observer=null;}
-      setInterval(function(){try{check();}catch(_){}},900);
-    }
-    if(document.documentElement)boot();else{document.addEventListener('readystatechange',boot);document.addEventListener('DOMContentLoaded',boot,{once:true});setTimeout(boot,0);}
-  })();
+  // Team Lite não usa o launcher de recuperação herdado do UpStatus oficial.
+
 
   var key='upstatus_team_lite_';
   var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
@@ -797,6 +762,43 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   setBubbleStatus('offline');
   root.appendChild(readTooltip);
   document.documentElement.appendChild(root);
+  // Remove the legacy floating "U" recovery button. Team Lite is opened only with Shift+C.
+  (function removeLegacyLauncher(){
+    function remove(){['upstatus-beta8-recovery','upstatus-beta9-recovery'].forEach(function(id){var el=document.getElementById(id);if(el)el.remove();});}
+    remove();
+    if(typeof MutationObserver!=='undefined'){var mo=new MutationObserver(remove);mo.observe(document.documentElement,{childList:true,subtree:true});setTimeout(function(){mo.disconnect();},10000);}
+  })();
+  // Allow dragging the Team Lite window by its title, without interfering with inputs or chat controls.
+  (function enableTeamLiteDrag(){
+    var handle=card.querySelector('.up-title');
+    if(!handle)return;
+    handle.style.setProperty('cursor','grab','important');
+    handle.style.setProperty('touch-action','none','important');
+    handle.style.setProperty('user-select','none','important');
+    var active=null;
+    handle.addEventListener('pointerdown',function(e){
+      if(e.button!==0||e.target.closest('button,a,input,select,textarea'))return;
+      var rect=root.getBoundingClientRect();
+      active={id:e.pointerId,x:e.clientX,y:e.clientY,left:rect.left,top:rect.top};
+      try{handle.setPointerCapture(e.pointerId);}catch(_){}
+      handle.style.setProperty('cursor','grabbing','important');
+      e.preventDefault();
+    });
+    handle.addEventListener('pointermove',function(e){
+      if(!active||e.pointerId!==active.id)return;
+      var dx=e.clientX-active.x,dy=e.clientY-active.y;
+      if(Math.abs(dx)+Math.abs(dy)<2)return;
+      var left=Math.max(0,Math.min(window.innerWidth-root.offsetWidth,active.left+dx));
+      var top=Math.max(0,Math.min(window.innerHeight-Math.min(root.offsetHeight,80),active.top+dy));
+      root.style.setProperty('left',left+'px','important');
+      root.style.setProperty('top',top+'px','important');
+      root.style.setProperty('right','auto','important');
+      root.style.setProperty('bottom','auto','important');
+    });
+    function stop(e){if(!active||e.pointerId!==active.id)return;active=null;handle.style.setProperty('cursor','grab','important');}
+    handle.addEventListener('pointerup',stop);
+    handle.addEventListener('pointercancel',stop);
+  })();
   // Team Lite keeps the official components but removes the general-purpose dashboard shortcuts.
   bubble.style.display='none';
   quickChatBubble.style.display='none';
