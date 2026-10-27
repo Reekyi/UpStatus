@@ -64,7 +64,7 @@ function gmGet(url) {
     GM_xmlhttpRequest({method:'GET',url,headers:{'Cache-Control':'no-cache'},onload:r=>r.status>=200&&r.status<300?resolve(r.responseText):reject(new Error('Falha ao consultar atualização (HTTP '+r.status+').')),onerror:()=>reject(new Error('Não foi possível consultar atualizações.')),ontimeout:()=>reject(new Error('Tempo esgotado ao consultar atualizações.')),timeout:12000});
   });
 }
-function say(text){$('#utl-error').textContent=text||'';}
+function say(text){$('#utl-error').textContent=text||'';if($('#utl-chat').style.display==='flex')setStatus(text||'');}
 function showChat(){ $('#utl-login').style.display='none'; $('#utl-chat').style.display='flex'; say(''); }
 function showLogin(){ $('#utl-login').style.display='flex'; $('#utl-chat').style.display='none'; }
 function setStatus(text){$('#utl-status').textContent=text;}
