@@ -1,7 +1,7 @@
 {
   "product": "UpStatus Team Lite",
   "coreVersion": "3.4.0",
-  "buildVersion": "3.4.0.1",
+  "buildVersion": "3.4.0.2",
   "channel": "test",
   "scriptUrl": "https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js",
   "releaseNotes": [
@@ -10,6 +10,7 @@
     "Sala de voz WebRTC integrada à sinalização Realtime existente.",
     "Verificação manual de atualizações com confirmação antes de abrir o instalador.",
     "Indicador de presença roxo/laranja no balão do UpStatus oficial no canal TEST.",
-    "O backend TEST limita o histórico de convidados ao início da sessão."
+    "O backend TEST limita o histórico de convidados ao início da sessão.",
+    "O verificador consulta a versão oficial em tempo real e bloqueia a instalação se o pacote Team Lite ainda não estiver sincronizado."
   ]
 }
