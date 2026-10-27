@@ -87,7 +87,7 @@ async function login(req:Request,setup:boolean){
   const p:any=await readBody(req);
   const name=String(p.name||"");
   const password=String(p.password||"");
-  if(!name||password.length<6)return response({error:"Use um usuário válido e uma senha de pelo menos 6 caracteres."},400);
+  if(!name||password.length<4)return response({error:"Use um usuário válido e uma senha de pelo menos 4 caracteres."},400);
   const a=await account(name);
   if(!a)return response({error:"Use um usuário válido e uma senha de pelo menos 6 caracteres."},400);
   if(setup){
