@@ -10,8 +10,8 @@
 
 ## Versões
 - Core atual: `3.4.0`.
-- Build do userscript: `3.4.0.1`. O sufixo identifica correções específicas do Team Lite para que o gerenciador consiga atualizar mesmo quando a versão do core não muda.
-- O botão ↻ consulta `release.json`. Se houver uma build superior, ele abre o instalador para confirmação, sem atualizar silenciosamente.
+- Build do userscript: `3.4.0.2`. O sufixo identifica correções específicas do Team Lite para que o gerenciador consiga atualizar mesmo quando a versão do core não muda.
+- O botão ↻ consulta `release.json` e lê a versão do userscript oficial em produção. Se o manifesto Team Lite não estiver sincronizado com a versão oficial, bloqueia a instalação e avisa. Se houver uma build superior sincronizada, abre o instalador para confirmação, sem atualizar silenciosamente.
 - Releases de chat/voz precisam ser refletidos neste script e no manifesto antes de divulgar a atualização para os líderes.
 
 ## Segurança e limites
