@@ -4,13 +4,13 @@
 1. Abra o link do userscript Team Lite no navegador com o Tampermonkey instalado.
 2. Confirme a instalação do script **UpStatus Team Lite**. Ele tem namespace próprio e não substitui o UpStatus oficial.
 3. Entre no Sale Smartly e pressione **Shift + C**.
-4. Selecione Luca ou Ícaro, informe a senha individual e entre.
-5. Teste mensagens, entrada/saída da sala de voz, microfone mutado e retorno à página depois de ocultar o painel.
+4. Selecione Lucca ou Ycaro, informe a senha individual e entre.
+5. Teste mensagens, entrada/saída da sala de voz, microfone mutado e retorno à página depois de ocultar o painel. O painel pode ser movido pelo cabeçalho e redimensionado pelo canto inferior direito; posição e tamanho são lembrados neste navegador.
 6. Para testar o anel de presença na bolha oficial em computadores de teste, instale também o userscript auxiliar **UpStatus Team Lite Presence (TEST)**. Ele não cria botões nem abre sites e consulta apenas a presença no backend TEST. Remova-o depois do teste ou mantenha-o desativado até a validação.
 
 ## Versões
 - Core atual: `3.4.0`.
-- Build do userscript: `3.4.0.2`. O sufixo identifica correções específicas do Team Lite para que o gerenciador consiga atualizar mesmo quando a versão do core não muda.
+- Build do userscript: `3.4.0.3`. O sufixo identifica correções específicas do Team Lite para que o gerenciador consiga atualizar mesmo quando a versão do core não muda.
 - O botão ↻ consulta `release.json` e lê a versão do userscript oficial em produção. Se o manifesto Team Lite não estiver sincronizado com a versão oficial, bloqueia a instalação e avisa. Se houver uma build superior sincronizada, abre o instalador para confirmação, sem atualizar silenciosamente.
 - Releases de chat/voz precisam ser refletidos neste script e no manifesto antes de divulgar a atualização para os líderes.
 
