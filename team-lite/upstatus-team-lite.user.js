@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         UpStatus Team Lite
 // @namespace    upseller-team-lite
-// @version      3.4.0.2
-// @description  Chat de texto e voz para Luca e Ícaro dentro do Sale Smartly.
+// @version      3.4.0.3
+// @description  Chat de texto e voz para Lucca e Ycaro dentro do Sale Smartly.
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-idle
@@ -20,7 +20,7 @@ if (window.__UPSTATUS_TEAM_LITE__) return;
 window.__UPSTATUS_TEAM_LITE__ = true;
 
 const CORE_VERSION = '3.4.0';
-const BUILD_VERSION = '3.4.0.2';
+const BUILD_VERSION = '3.4.0.3';
 const API = 'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test';
 const RELEASE_URL = 'https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/release.json';
 const OFFICIAL_SCRIPT_URL = 'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js';
@@ -36,16 +36,27 @@ let session = null, pollTimer = null, heartbeatTimer = null, realtimeClient = nu
 let voiceActive = false, voiceMuted = false, localStream = null, voicePresenceTimer = null, peers = Object.create(null), participants = Object.create(null);
 const root = document.createElement('section');
 root.id = 'upstatus-team-lite';
-root.style.cssText = 'position:fixed;right:22px;bottom:22px;width:min(390px,calc(100vw - 24px));height:min(600px,calc(100vh - 28px));z-index:2147483647;background:#182232;color:#edf3fc;border:1px solid #34445a;border-radius:15px;box-shadow:0 18px 50px #0009;font:13px Segoe UI,Arial,sans-serif;display:none;flex-direction:column;overflow:hidden';
+root.style.cssText = 'position:fixed;right:22px;bottom:22px;width:min(440px,calc(100vw - 24px));height:min(680px,calc(100vh - 28px));min-width:320px;min-height:380px;max-width:calc(100vw - 12px);max-height:calc(100vh - 12px);resize:both;z-index:2147483647;background:var(--upstatus-panel-bg,#f7f9fc);color:var(--upstatus-text,#1f2937);border:1px solid var(--upstatus-border,#d8dee8);border-radius:14px;box-shadow:0 12px 38px #10182835;font:13px Inter,Segoe UI,Arial,sans-serif;display:none;flex-direction:column;overflow:hidden';
 root.innerHTML = `
 <style>
-#upstatus-team-lite *{box-sizing:border-box}#upstatus-team-lite button,#upstatus-team-lite input,#upstatus-team-lite textarea,#upstatus-team-lite select{font:inherit}#upstatus-team-lite button{cursor:pointer;border:1px solid #42546d;border-radius:8px;padding:7px 10px;background:#29394f;color:#f5f8ff}#upstatus-team-lite button:disabled{opacity:.5;cursor:wait}#upstatus-team-lite .utl-head{display:flex;align-items:center;gap:6px;padding:10px;background:#202d40;border-bottom:1px solid #35445a}#upstatus-team-lite .utl-title{font-weight:750;flex:1}#upstatus-team-lite .utl-sub{font-size:10px;color:#a9b8cd;margin-top:2px}#upstatus-team-lite .utl-tools{display:flex;gap:5px}#upstatus-team-lite .utl-tools button{padding:5px 7px}#upstatus-team-lite .utl-login{padding:16px;display:flex;flex-direction:column;gap:8px}#upstatus-team-lite input,#upstatus-team-lite select,#upstatus-team-lite textarea{background:#111a27;color:#f5f8ff;border:1px solid #42546d;border-radius:8px;padding:9px;min-width:0}#upstatus-team-lite .utl-error{color:#ff9b9b;min-height:16px;white-space:pre-wrap}#upstatus-team-lite .utl-chat{display:none;flex:1;min-height:0;flex-direction:column}#upstatus-team-lite .utl-status{padding:7px 10px;color:#b6c5d8;font-size:11px;border-bottom:1px solid #2e3d52}#upstatus-team-lite .utl-messages{flex:1;overflow:auto;padding:10px;min-height:0}#upstatus-team-lite .utl-msg{background:#26364b;border:1px solid #35465d;border-radius:10px;padding:7px 9px;margin:0 0 8px;overflow-wrap:anywhere}#upstatus-team-lite .utl-msg .meta{font-size:10px;color:#9fb0c7;margin-bottom:4px}#upstatus-team-lite .utl-compose{display:flex;gap:6px;padding:9px;border-top:1px solid #2e3d52}#upstatus-team-lite .utl-compose textarea{resize:none;flex:1;height:42px}#upstatus-team-lite .utl-foot{display:flex;align-items:center;gap:6px;padding:8px 9px;border-top:1px solid #2e3d52}#upstatus-team-lite .utl-foot .utl-spacer{flex:1}#upstatus-team-lite .utl-call{display:flex;align-items:center;gap:7px;flex:1;min-width:0;color:#b9c7da;font-size:11px}#upstatus-team-lite .utl-live{width:8px;height:8px;border-radius:50%;background:#738096;flex:0 0 8px}#upstatus-team-lite .utl-live.on{background:#40d6a3;box-shadow:0 0 0 3px #40d6a322}#upstatus-team-lite .utl-primary{background:#167b62!important;border-color:#1a9b7b!important}#upstatus-team-lite .utl-danger{background:#8c3446!important;border-color:#b84c62!important}#upstatus-team-lite .utl-muted{color:#9fadc0}
+#upstatus-team-lite *{box-sizing:border-box}#upstatus-team-lite button,#upstatus-team-lite input,#upstatus-team-lite textarea,#upstatus-team-lite select{font:inherit}#upstatus-team-lite button{cursor:pointer;border:1px solid #d0d5dd;border-radius:7px;padding:7px 10px;background:#fff;color:#344054}#upstatus-team-lite button:hover{background:#f2f4f7}#upstatus-team-lite button:disabled{opacity:.5;cursor:wait}#upstatus-team-lite .utl-head{display:flex;align-items:center;gap:8px;padding:11px 12px;background:var(--upstatus-header-bg,#fff);border-bottom:1px solid #e4e7ec;cursor:move;user-select:none}#upstatus-team-lite .utl-title{font-weight:700;flex:1;color:#101828;font-size:14px}#upstatus-team-lite .utl-sub{font-size:10px;color:#667085;margin-top:3px;font-weight:400}#upstatus-team-lite .utl-tools{display:flex;gap:5px}#upstatus-team-lite .utl-tools button{padding:4px 8px;font-size:15px}#upstatus-team-lite .utl-login{padding:16px;display:flex;flex-direction:column;gap:8px;background:#fff}#upstatus-team-lite input,#upstatus-team-lite select,#upstatus-team-lite textarea{background:#fff;color:#101828;border:1px solid #d0d5dd;border-radius:7px;padding:9px;min-width:0}#upstatus-team-lite .utl-error{color:#b42318;min-height:16px;white-space:pre-wrap}#upstatus-team-lite .utl-chat{display:none;flex:1;min-height:0;flex-direction:column;background:#f8fafc}#upstatus-team-lite .utl-status{padding:7px 10px;color:#667085;font-size:11px;background:#fff;border-bottom:1px solid #eaecf0}#upstatus-team-lite .utl-messages{flex:1;overflow:auto;padding:12px;min-height:0}#upstatus-team-lite .utl-msg{background:#fff;border:1px solid #e4e7ec;border-radius:10px;padding:8px 10px;margin:0 0 8px;overflow-wrap:anywhere;box-shadow:0 1px 2px #1018280a}#upstatus-team-lite .utl-msg .meta{font-size:10px;color:#667085;margin-bottom:4px}#upstatus-team-lite .utl-compose{display:flex;gap:6px;padding:9px;background:#fff;border-top:1px solid #e4e7ec}#upstatus-team-lite .utl-compose textarea{resize:none;flex:1;height:42px}#upstatus-team-lite .utl-foot{display:flex;align-items:center;gap:6px;padding:8px 9px;background:#fff;border-top:1px solid #e4e7ec;flex-wrap:wrap}#upstatus-team-lite .utl-foot .utl-spacer{flex:1}#upstatus-team-lite .utl-call{display:flex;align-items:center;gap:7px;flex:1;min-width:0;color:#667085;font-size:11px}#upstatus-team-lite .utl-live{width:8px;height:8px;border-radius:50%;background:#98a2b3;flex:0 0 8px}#upstatus-team-lite .utl-live.on{background:#12b76a;box-shadow:0 0 0 3px #12b76a22}#upstatus-team-lite .utl-primary{background:#1677ff!important;border-color:#1677ff!important;color:#fff!important}#upstatus-team-lite .utl-primary:hover{background:#0958d9!important}#upstatus-team-lite .utl-danger{background:#fff!important;border-color:#fda29b!important;color:#b42318!important}#upstatus-team-lite .utl-muted{color:#667085}#upstatus-team-lite .utl-head button{cursor:pointer}
 </style>
-<header class="utl-head"><div class="utl-title">UpStatus · Team Lite<div class="utl-sub">Core ${CORE_VERSION} · build ${BUILD_VERSION}</div></div><div class="utl-tools"><button id="utl-update" title="Verificar atualização">↻</button><button id="utl-hide" title="Ocultar painel">×</button></div></header>
-<div class="utl-login" id="utl-login"><label for="utl-name">Entrar como</label><select id="utl-name"><option value="Luca">Luca</option><option value="Ícaro">Ícaro</option></select><label for="utl-pass">Senha</label><input id="utl-pass" type="password" autocomplete="current-password" placeholder="Senha individual"><button class="utl-primary" id="utl-enter">Entrar no chat</button><div class="utl-error" id="utl-error"></div><small class="utl-muted">Somente chat de texto e voz. O painel não abre nenhum site externo.</small></div>
+<header class="utl-head"><div class="utl-title">UpStatus<div class="utl-sub">Core ${CORE_VERSION} · build ${BUILD_VERSION}</div></div><div class="utl-tools"><button id="utl-update" title="Verificar atualização">↻</button><button id="utl-hide" title="Ocultar painel">×</button></div></header>
+<div class="utl-login" id="utl-login"><label for="utl-name">Entrar como</label><select id="utl-name"><option value="Lucca">Lucca</option><option value="Ycaro">Ycaro</option></select><label for="utl-pass">Senha</label><input id="utl-pass" type="password" autocomplete="current-password" placeholder="Senha individual"><button class="utl-primary" id="utl-enter">Entrar no chat</button><div class="utl-error" id="utl-error"></div><small class="utl-muted">Chat de equipe · texto e voz</small></div>
 <div class="utl-chat" id="utl-chat"><div class="utl-status" id="utl-status">Conectando…</div><div class="utl-messages" id="utl-messages"></div><div class="utl-compose"><textarea id="utl-text" maxlength="4000" placeholder="Escreva uma mensagem"></textarea><button class="utl-primary" id="utl-send">Enviar</button></div><div class="utl-foot"><div class="utl-call"><span class="utl-live" id="utl-live"></span><span id="utl-voice-status">Voz desconectada</span></div><button id="utl-voice" class="utl-primary">Entrar na voz</button><button id="utl-mute" hidden>Mutar</button><button id="utl-leave" class="utl-danger" hidden>Sair da voz</button><button id="utl-logout" title="Encerrar sessão">Sair</button></div></div>
 `;
+
 document.documentElement.appendChild(root);
+const PANEL_GEOMETRY_KEY='upstatus_team_lite_geometry_v1';
+try{const g=JSON.parse(localStorage.getItem(PANEL_GEOMETRY_KEY)||'null');if(g&&Number.isFinite(g.width)&&Number.isFinite(g.height)){root.style.width=Math.max(320,Math.min(g.width,window.innerWidth-12))+'px';root.style.height=Math.max(380,Math.min(g.height,window.innerHeight-12))+'px';if(Number.isFinite(g.left)&&Number.isFinite(g.top)){root.style.left=Math.max(0,Math.min(g.left,window.innerWidth-root.offsetWidth))+'px';root.style.top=Math.max(0,Math.min(g.top,window.innerHeight-root.offsetHeight))+'px';root.style.right='auto';root.style.bottom='auto';}}}catch(_){}
+let utlDrag=null;
+root.querySelector('.utl-head').addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;if(e.button!==0)return;const r=root.getBoundingClientRect();utlDrag={x:e.clientX,y:e.clientY,left:r.left,top:r.top};root.style.left=r.left+'px';root.style.top=r.top+'px';root.style.right='auto';root.style.bottom='auto';root.querySelector('.utl-head').setPointerCapture(e.pointerId);e.preventDefault();});
+root.querySelector('.utl-head').addEventListener('pointermove',e=>{if(!utlDrag)return;const r=root.getBoundingClientRect();root.style.left=Math.max(0,Math.min(window.innerWidth-r.width,utlDrag.left+e.clientX-utlDrag.x))+'px';root.style.top=Math.max(0,Math.min(window.innerHeight-r.height,utlDrag.top+e.clientY-utlDrag.y))+'px';});
+function stopUtlDrag(){if(!utlDrag)return;utlDrag=null;saveUtlGeometry();}
+root.querySelector('.utl-head').addEventListener('pointerup',stopUtlDrag);root.querySelector('.utl-head').addEventListener('pointercancel',stopUtlDrag);
+function saveUtlGeometry(){const r=root.getBoundingClientRect();try{localStorage.setItem(PANEL_GEOMETRY_KEY,JSON.stringify({left:r.left,top:r.top,width:r.width,height:r.height}));}catch(_){}}
+if(typeof ResizeObserver==='function'){let resizeTimer;new ResizeObserver(()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(saveUtlGeometry,250);}).observe(root);}
+window.addEventListener('resize',()=>{const r=root.getBoundingClientRect();if(r.left+r.width>innerWidth)root.style.left=Math.max(0,innerWidth-r.width)+'px';if(r.top+r.height>innerHeight)root.style.top=Math.max(0,innerHeight-r.height)+'px';});
 
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function request(path, opts={}) {
@@ -69,7 +80,7 @@ function say(text){$('#utl-error').textContent=text||'';if($('#utl-chat').style.
 function showChat(){ $('#utl-login').style.display='none'; $('#utl-chat').style.display='flex'; say(''); }
 function showLogin(){ $('#utl-login').style.display='flex'; $('#utl-chat').style.display='none'; }
 function setStatus(text){$('#utl-status').textContent=text;}
-function labelName(name){return name==='Lucca'?'Luca':name==='Ycaro'?'Ícaro':name;}
+function labelName(name){return name==='Lucca'?'Lucca':name==='Ycaro'?'Ycaro':name;}
 function drawMessages(messages){
   const box=$('#utl-messages'), oldBottom=box.scrollHeight-box.scrollTop-box.clientHeight<70;
   box.innerHTML=(messages||[]).map(m=>'<article class="utl-msg"><div class="meta">'+esc(labelName(m.user))+' · '+esc(new Date(m.createdAt||Date.now()).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}))+'</div><div>'+esc(m.message)+'</div></article>').join('')||'<div class="utl-muted" style="text-align:center;padding:22px 6px">Esta sessão ainda não tem mensagens.</div>';
@@ -89,7 +100,7 @@ async function sendMessage(){
   finally{$('#utl-send').disabled=false;input.focus();}
 }
 async function startSession(){
-  const label=$('#utl-name').value, endpoint=label==='Luca'?'/api/lucca/login':'/api/ycaro/login';
+  const label=$('#utl-name').value, endpoint=label==='Lucca'?'/api/lucca/login':'/api/ycaro/login';
   $('#utl-enter').disabled=true;say('Entrando…');
   try{
     const d=await request(endpoint,{method:'POST',body:JSON.stringify({password:$('#utl-pass').value})});
