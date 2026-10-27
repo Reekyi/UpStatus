@@ -1,7 +1,7 @@
 {
   "product": "UpStatus Team Lite",
   "coreVersion": "3.4.0",
-  "buildVersion": "3.4.0.2",
+  "buildVersion": "3.4.0.3",
   "channel": "test",
   "scriptUrl": "https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js",
   "releaseNotes": [
@@ -11,6 +11,7 @@
     "Verificação manual de atualizações com confirmação antes de abrir o instalador.",
     "Indicador de presença roxo/laranja no balão do UpStatus oficial no canal TEST.",
     "O backend TEST limita o histórico de convidados ao início da sessão.",
-    "O verificador consulta a versão oficial em tempo real e bloqueia a instalação se o pacote Team Lite ainda não estiver sincronizado."
+    "O verificador consulta a versão oficial em tempo real e bloqueia a instalação se o pacote Team Lite ainda não estiver sincronizado.",
+    "Login corrigido para os nomes Lucca e Ycaro; painel pode ser arrastado e redimensionado, com geometria salva localmente."
   ]
 }
