@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite
 // @namespace    upseller-team-lite
-// @version      3.4.0.4
+// @version      3.4.0.5
 // @description  Chat de texto e voz para Lucca e Ycaro dentro do Sale Smartly.
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
@@ -20,7 +20,7 @@ if (window.__UPSTATUS_TEAM_LITE__) return;
 window.__UPSTATUS_TEAM_LITE__ = true;
 
 const CORE_VERSION = '3.4.0';
-const BUILD_VERSION = '3.4.0.4';
+const BUILD_VERSION = '3.4.0.5';
 const API = 'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test';
 const RELEASE_URL = 'https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/release.json';
 const OFFICIAL_SCRIPT_URL = 'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js';
@@ -33,7 +33,7 @@ const VOICE_EVENT = 'voice_room_signal';
 const VOICE_ROOM_ID = 'upstatus-team-room-v1';
 const $ = (s) => root.querySelector(s);
 let session = null, pollTimer = null, heartbeatTimer = null, realtimeClient = null, realtimeChannel = null;
-let voiceActive = false, voiceMuted = false, localStream = null, voicePresenceTimer = null, peers = Object.create(null), participants = Object.create(null);
+let voiceActive = false, voiceMuted = false, localStream = null, voicePresenceTimer = null, peers = Object.create(null), participants = Object.create(null), voiceSessionId = '', voiceOfferLocks = Object.create(null);
 const root = document.createElement('section');
 root.id = 'upstatus-team-lite';
 root.style.cssText = 'position:fixed;right:22px;bottom:22px;width:min(440px,calc(100vw - 24px));height:min(680px,calc(100vh - 28px));min-width:320px;min-height:380px;max-width:calc(100vw - 12px);max-height:calc(100vh - 12px);resize:none;z-index:2147483647;background:var(--upstatus-panel-bg,#f7f9fc);color:var(--upstatus-text,#1f2937);border:1px solid var(--upstatus-border,#d8dee8);border-radius:14px;box-shadow:0 12px 38px #10182835;font:13px Inter,Segoe UI,Arial,sans-serif;display:none;flex-direction:column;overflow:hidden';
@@ -182,7 +182,7 @@ async function ensureRealtime(){
 }
 function voiceSend(type,to,data){
   if(!realtimeChannel||!session)return;
-  try{realtimeChannel.send({type:'broadcast',event:VOICE_EVENT,payload:Object.assign({roomId:VOICE_ROOM_ID,type,from:session.name,to:to||'',active:voiceActive,muted:voiceMuted,speakersMuted:false,version:CORE_VERSION,sessionId:session.token.slice(0,12),at:Date.now(),sessionStartedAt:voiceStartedAt||0},data||{})});}catch(e){}
+  try{realtimeChannel.send({type:'broadcast',event:VOICE_EVENT,payload:Object.assign({roomId:VOICE_ROOM_ID,type,from:session.name,to:to||'',active:voiceActive,muted:voiceMuted,speakersMuted:false,version:CORE_VERSION,sessionId:voiceSessionId||session.token.slice(0,12),at:Date.now(),sessionStartedAt:voiceStartedAt||0},data||{})});}catch(e){}
 }
 let voiceStartedAt=0;
 function ensurePeer(name){
@@ -197,22 +197,30 @@ function ensurePeer(name){
 }
 async function makeOffer(name){
   if(!voiceActive||!name||name===session.name||String(session.name).localeCompare(String(name),'pt-BR')>=0)return;
-  const p=ensurePeer(name);if(p.pc.signalingState!=='stable'||p.pc.localDescription)return;
-  const offer=await p.pc.createOffer();await p.pc.setLocalDescription(offer);voiceSend('offer',name,{sdp:p.pc.localDescription});
+  if(voiceOfferLocks[name])return;voiceOfferLocks[name]=true;
+  try{const p=ensurePeer(name);if(p.pc.signalingState!=='stable'||p.pc.localDescription)return;const offer=await p.pc.createOffer();await p.pc.setLocalDescription(offer);voiceSend('offer',name,{sdp:p.pc.localDescription});}finally{delete voiceOfferLocks[name];}
 }
+function updateVoiceParticipant(p){const name=String(p.from||''),sid=String(p.sessionId||'legacy'),sentAt=Number(p.at)||Date.now(),current=participants[name];if(current&&current.sessionId&&sid==='legacy')return false;if(current&&current.sessionId&&sid!==current.sessionId&&sentAt<Number(current.lastSignalAt||0))return false;participants[name]={at:Date.now(),muted:!!p.muted,sessionId:sid,lastSignalAt:sentAt};return true;}
+function removeVoiceParticipant(p){const name=String(p.from||''),current=participants[name];if(!current)return;if(current.sessionId&&p.sessionId&&String(p.sessionId)!==String(current.sessionId)&&Number(p.at||0)<Number(current.lastSignalAt||0))return;dropPeer(name);delete participants[name];renderVoiceStatus();}
 async function handleVoiceSignal(p){
   if(!p||p.roomId!==VOICE_ROOM_ID||!p.from||p.from===session?.name||(p.to&&p.to!==session?.name))return;
   if(p.type==='presence'||p.type==='join'){
-    if(p.active){participants[p.from]={at:Date.now(),muted:!!p.muted};renderVoiceStatus();if(!p.to)voiceSend('presence',p.from,{});if(voiceActive&&String(session.name).localeCompare(String(p.from),'pt-BR')<0)makeOffer(p.from).catch(e=>setStatus('Falha ao iniciar áudio: '+e.message));}
+    if(!p.active){removeVoiceParticipant(p);return;}
+    if(!updateVoiceParticipant(p))return;
+    renderVoiceStatus();
+    if(p.type==='presence'&&!p.to)voiceSend('presence',p.from,{});
+    if(voiceActive&&String(session.name).localeCompare(String(p.from),'pt-BR')<0)makeOffer(p.from).catch(e=>setStatus('Falha ao iniciar áudio: '+e.message));
     return;
   }
-  if(p.type==='leave'){dropPeer(p.from);delete participants[p.from];renderVoiceStatus();return;}
+  if(p.type==='leave'){removeVoiceParticipant(p);return;}
   if(!voiceActive)return;
   if(p.type==='offer'&&p.sdp){
-    try{const peer=ensurePeer(p.from);await peer.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));while(peer.pending.length)await peer.pc.addIceCandidate(peer.pending.shift());const answer=await peer.pc.createAnswer();await peer.pc.setLocalDescription(answer);voiceSend('answer',p.from,{sdp:peer.pc.localDescription});}catch(e){setStatus('Falha ao aceitar áudio de '+labelName(p.from)+': '+e.message);}
+    if(String(session.name).localeCompare(String(p.from),'pt-BR')<0)return;
+    try{let peer=peers[p.from];if(peer?.pc&&peer.pc.signalingState==='have-local-offer'){try{await peer.pc.setLocalDescription({type:'rollback'});}catch(_){dropPeer(p.from);}}peer=ensurePeer(p.from);await peer.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));while(peer.pending.length)await peer.pc.addIceCandidate(peer.pending.shift());const answer=await peer.pc.createAnswer();await peer.pc.setLocalDescription(answer);voiceSend('answer',p.from,{sdp:peer.pc.localDescription});}
+    catch(e){setStatus('Falha ao aceitar áudio de '+labelName(p.from)+': '+e.message);}
     return;
   }
-  if(p.type==='answer'&&p.sdp){const peer=peers[p.from];if(peer&&peer.pc&&!peer.pc.remoteDescription){try{await peer.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));while(peer.pending.length)await peer.pc.addIceCandidate(peer.pending.shift());}catch(e){setStatus('Falha ao concluir áudio: '+e.message);}}return;}
+  if(p.type==='answer'&&p.sdp){const peer=peers[p.from];if(peer&&peer.pc&&peer.pc.signalingState==='have-local-offer'){try{await peer.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));while(peer.pending.length)await peer.pc.addIceCandidate(peer.pending.shift());}catch(e){setStatus('Falha ao concluir áudio: '+e.message);}}return;}
   if(p.type==='ice'&&p.candidate){const peer=ensurePeer(p.from);if(peer.pc.remoteDescription){try{await peer.pc.addIceCandidate(new RTCIceCandidate(p.candidate));}catch(e){}}else if(peer.pending.length<128)peer.pending.push(p.candidate);}
 }
 function dropPeer(name){const p=peers[name];if(!p)return;try{if(p.pc)p.pc.close();}catch(e){}try{if(p.audio){p.audio.pause();p.audio.srcObject=null;p.audio.remove();}}catch(e){}delete peers[name];}
@@ -222,7 +230,7 @@ async function joinVoice(){
   try{
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Este navegador não disponibiliza microfone.');
     localStream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
-    voiceStartedAt=Date.now();voiceMuted=false;voiceActive=true;participants[session.name]={at:Date.now(),muted:false};
+    voiceStartedAt=Date.now();voiceSessionId='tl-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);voiceMuted=false;voiceActive=true;participants[session.name]={at:Date.now(),muted:false,sessionId:voiceSessionId,lastSignalAt:Date.now()};
     $('#utl-voice').hidden=true;$('#utl-mute').hidden=false;$('#utl-leave').hidden=false;renderVoiceStatus();
     voiceSend('join','',{});voiceSend('presence','',{});if(voicePresenceTimer)clearInterval(voicePresenceTimer);voicePresenceTimer=setInterval(()=>{if(voiceActive)voiceSend('presence','',{});},5000);
     Object.keys(participants).forEach(n=>{if(n!==session.name&&Date.now()-participants[n].at<16000)makeOffer(n).catch(()=>{});});
@@ -239,11 +247,11 @@ function toggleMute(){
 }
 async function leaveVoice(){
   if(!voiceActive&&!localStream)return;
-  voiceSend('leave','',{});
+  voiceSend('leave','',{active:false,sessionId:voiceSessionId});
   if(voicePresenceTimer)clearInterval(voicePresenceTimer);voicePresenceTimer=null;
   voiceActive=false;voiceMuted=false;
   Object.keys(peers).forEach(dropPeer);participants=Object.create(null);
-  if(localStream)localStream.getTracks().forEach(t=>t.stop());localStream=null;voiceStartedAt=0;
+  if(localStream)localStream.getTracks().forEach(t=>t.stop());localStream=null;voiceStartedAt=0;voiceSessionId='';voiceOfferLocks=Object.create(null);
   $('#utl-voice').hidden=false;$('#utl-mute').hidden=true;$('#utl-leave').hidden=true;$('#utl-mute').textContent='Mutar';renderVoiceStatus();
 }
 document.addEventListener('keydown',e=>{
