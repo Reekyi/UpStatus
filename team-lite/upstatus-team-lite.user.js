@@ -1045,7 +1045,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     modal.querySelector('.up-update-prompt-now').onclick=function(){closePopupAnimated(modal,function(){modal.remove();openUpdate();});};
   }
   function checkUpdate(){
-    fetch('https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/api/update-info',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('update-info '+r.status);return r.json();}).then(function(d){
+    fetch(CLOUD_SERVER+'/api/update-info',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('update-info '+r.status);return r.json();}).then(function(d){
       var statuses=card.querySelectorAll('.up-update-status');
       var manuals=card.querySelectorAll('.up-update-now');
       var remote=d&&d.version?String(d.version):'';
