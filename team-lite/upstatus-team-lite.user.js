@@ -764,7 +764,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   document.documentElement.appendChild(root);
   (function applyLiteLayout(){
     var st=document.createElement('style');st.id='upstatus-team-lite-layout-v3409';
-    st.textContent='#upstatus-team-lite-root .up-team-title-row,#upstatus-team-lite-root .up-team{display:none!important}#upstatus-team-lite-root .up-chat-btn{display:none!important}#upstatus-team-lite-root .up-title,#upstatus-team-lite-root .up-you,#upstatus-team-lite-root .up-head,#upstatus-team-lite-root .up-head *{color:#e8eef8!important}#upstatus-team-lite-root .up-title{cursor:grab!important;touch-action:none!important;user-select:none!important}#upstatus-team-lite-root .up-member,#upstatus-team-lite-root .up-team-title{color:#e8eef8!important}#upstatus-team-lite-root .up-card{color:#e8eef8!important}';
+    st.textContent='#upstatus-team-lite-root .up-team-title-row,#upstatus-team-lite-root .up-team{display:none!important}#upstatus-team-lite-root .up-title,#upstatus-team-lite-root .up-you,#upstatus-team-lite-root .up-head,#upstatus-team-lite-root .up-head *{color:#e8eef8!important}#upstatus-team-lite-root .up-title{cursor:grab!important;touch-action:none!important;user-select:none!important}#upstatus-team-lite-root .up-member,#upstatus-team-lite-root .up-team-title{color:#e8eef8!important}#upstatus-team-lite-root .up-card{color:#e8eef8!important}';
     (document.head||document.documentElement).appendChild(st);
   })();
   // Remove the legacy floating "U" recovery button. Team Lite is opened only with Shift+C.
