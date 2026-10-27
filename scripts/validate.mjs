@@ -44,6 +44,19 @@ checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
 assert(prodUser.includes("upStatusSaleChatClose"),"Sale Smartly close integration missing from production artifact");
 assert(testUser.includes("upStatusSaleChatClose"),"Sale Smartly close integration missing from test artifact");
+
+assert(testFn.includes("async function signedUploadRoute(req:Request,kind:\"chat\"|\"avatar\")"),"signed upload route missing from TEST backend");
+assert(testFn.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");'),"chat signed-upload endpoint missing from TEST backend");
+assert(testFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");'),"avatar signed-upload endpoint missing from TEST backend");
+assert(testFn.includes("createSignedUploadUrl(path,{upsert:true})"),"Storage signed URL must be generated with upsert enabled");
+assert(testFn.includes('const max=20*1024*1024;'),"TEST signed upload limit must be 20 MiB");
+assert(testFn.includes('if(!uploadToken||!signedUrl||signedPath!==path)'),"TEST backend must verify signed upload response fields");
+assert(testFn.includes('if(p.dataUrl){'),"legacy avatar dataUrl compatibility missing from TEST backend");
+assert(testUser.includes("function uploadFileDirect(file,route)"),"client signed upload helper missing");
+assert(testUser.includes("headers:{'Content-Type':info.mime,'x-upsert':'true','authorization':'Bearer '+ticket.token}"),"client signed upload authorization headers missing");
+assert(testUser.includes("uploadFileDirect(file,'/api/chat/upload-url')"),"client chat upload endpoint mismatch");
+assert(testUser.includes("uploadFileDirect(file,'/api/profile/avatar-upload-url')"),"client avatar upload endpoint mismatch");
+
 assert(prodUser.includes("UPSTATUS_SALE_DESELECT_CHAT"),"Sale Smartly deselect bridge missing from production artifact");
 assert(testUser.includes("UPSTATUS_SALE_DESELECT_CHAT"),"Sale Smartly deselect bridge missing from test artifact");
 assert(prodUser.includes("chatStore.setActiveUser('')"),"native active-chat deselection action missing from production artifact");
