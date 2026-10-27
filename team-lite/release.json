@@ -1,7 +1,7 @@
 {
   "product": "UpStatus Team Lite",
   "coreVersion": "3.4.0",
-  "buildVersion": "3.4.0.4",
+  "buildVersion": "3.4.0.6",
   "channel": "test",
   "scriptUrl": "https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js",
   "releaseNotes": [
@@ -13,6 +13,8 @@
     "O backend TEST limita o histórico de convidados ao início da sessão.",
     "O verificador consulta a versão oficial em tempo real e bloqueia a instalação se o pacote Team Lite ainda não estiver sincronizado.",
     "Login corrigido para os nomes Lucca e Ycaro; painel pode ser arrastado e redimensionado, com geometria salva localmente.",
-    "Alternância entre modo claro e escuro; redimensionamento pelas quatro bordas e quatro cantos."
+    "Sinalização de voz reforçada com identificador de sessão exclusivo e prevenção de ofertas WebRTC duplicadas.",
+    "Chat com envio de imagens, GIFs, vídeos e documentos de até 20 MB; gravação e envio de mensagens de voz.",
+    "Foto de perfil no cabeçalho, com envio de imagem ou GIF de até 20 MB."
   ]
 }
