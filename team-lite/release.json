@@ -1,0 +1,13 @@
+{
+  "product": "UpStatus Team Lite",
+  "coreVersion": "3.4.0",
+  "buildVersion": "3.4.0.1",
+  "channel": "test",
+  "scriptUrl": "https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js",
+  "releaseNotes": [
+    "Painel interno via Shift+C, sem site externo ou botão na barra lateral.",
+    "Chat de texto compartilhado com a equipe, iniciando a visualização na sessão atual.",
+    "Sala de voz WebRTC integrada à sinalização Realtime existente.",
+    "Verificação manual de atualizações com confirmação antes de abrir o instalador."
+  ]
+}
