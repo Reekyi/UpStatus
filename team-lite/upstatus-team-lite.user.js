@@ -149,7 +149,7 @@ async function ensureRealtime(){
   await new Promise((resolve,reject)=>{
     const timer=setTimeout(()=>reject(new Error('Tempo esgotado ao conectar a voz.')),10000);
     realtimeChannel.subscribe(status=>{if(status==='SUBSCRIBED'){clearTimeout(timer);resolve();}else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){clearTimeout(timer);reject(new Error('Não foi possível conectar à sinalização de voz.'));}});
-  }).catch(e=>setStatus(e.message));
+  }).catch(e=>{setStatus(e.message);const failed=realtimeChannel;realtimeChannel=null;if(realtimeClient&&failed)realtimeClient.removeChannel(failed).catch(()=>{});});
 }
 function voiceSend(type,to,data){
   if(!realtimeChannel||!session)return;
