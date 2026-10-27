@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.0.9
+// @version      3.4.0.10
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -179,6 +179,34 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var member=GM_getValue(key+'member','');
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
+  // End a minimized Team Lite session after three minutes without activity.
+  var teamLiteIdleTimer=null,teamLiteMinimizedAt=0,teamLiteSessionEnded=false;
+  var TEAM_LITE_IDLE_TIMEOUT=180000;
+  function teamLiteClearIdleTimer(){if(teamLiteIdleTimer){clearTimeout(teamLiteIdleTimer);teamLiteIdleTimer=null;}}
+  async function teamLiteEndSession(){
+    if(teamLiteSessionEnded||!token)return;
+    teamLiteSessionEnded=true;teamLiteClearIdleTimer();
+    try{if(!chat.classList.contains('hidden')){saveChatDraft();stopTypingHeartbeat();broadcastChatPresence(false);}}catch(e){}
+    try{if(voiceRoom&&voiceRoom.active)await voiceRoomLeave();}catch(e){}
+    try{await api('POST','/api/logout',{});}catch(e){}
+    stopRealtime();token='';member='';role='implementation_user';
+    GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');
+    chat.classList.add('hidden');card.classList.add('hidden');login();
+  }
+  function teamLiteStartIdleTimer(){
+    teamLiteClearIdleTimer();if(!token||!member||!card.classList.contains('hidden'))return;
+    teamLiteMinimizedAt=Date.now();
+    teamLiteIdleTimer=setTimeout(function(){
+      if(!token||!member||!card.classList.contains('hidden'))return;
+      if(Date.now()-teamLiteMinimizedAt>=TEAM_LITE_IDLE_TIMEOUT)teamLiteEndSession();
+    },TEAM_LITE_IDLE_TIMEOUT);
+  }
+  function teamLiteTouchActivity(){
+    if(!token||!member)return;
+    if(card.classList.contains('hidden'))teamLiteStartIdleTimer();
+    else{teamLiteClearIdleTimer();teamLiteMinimizedAt=0;teamLiteSessionEnded=false;}
+  }
+
   var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
   var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,chatUserScrollInterruptedUntil=0,pendingChatNotificationMessages=[],chatScrollObserver=null,chatScrollObservedList=null,chatLightbox=null,chatHasUnreadBelow=false;
   var remoteResultCache={},remoteResultWaiters={};
@@ -3118,7 +3146,7 @@ function chatAvatarPresence(name){
     card.querySelector('.up-screen-share-toggle').onclick=function(e){e.preventDefault();e.stopPropagation();if(screenShare.active)screenShareStop(true);else screenShareStart();};
     voiceRoomRender();
     document.addEventListener('click',function(e){if(box&&!box.contains(e.target))menu.classList.add('hidden')});
-    card.querySelector('.up-logout').onclick=function(){voiceRoomLeave();broadcastChatPresence(false);stopRealtime();token='';member='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');history.classList.add('hidden');health.classList.add('hidden');img.src=profileFallback();login()};
+    card.querySelector('.up-logout').onclick=function(){voiceRoomLeave();broadcastChatPresence(false);teamLiteEndSession();};
     history.querySelector('.up-close').onclick=function(){history.classList.add('hidden')};
     history.querySelector('.up-export').onclick=function(){exportHistoryTxt()};
     if(settingsBtn)settingsBtn.onclick=function(e){e.stopPropagation();settingsMenu.classList.toggle('hidden');};
@@ -3131,10 +3159,7 @@ function chatAvatarPresence(name){
     quickChatBubble.onclick=function(e){e.preventDefault();e.stopPropagation();toggleTeamLitePanel();};
     updateNotificationPermissionUI();
     applyTheme();
-    card.insertAdjacentHTML('beforeend','<div class="up-update up-update-compact"><div class="up-update-version">'+iconSvg('update')+'<div><b>Versão v'+CURRENT_VERSION+'</b><a href="#" class="up-patch-link">O que há de novo?</a><span class="up-update-status"></span></div></div><div class="up-update-actions"><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div></div>');
-    card.querySelector('.up-update-check').onclick=checkUpdate;
-    card.querySelector('.up-patch-link').onclick=function(e){e.preventDefault();openPatchNotes();};
-    checkUpdate();
+    // Team Lite intentionally omits the official dashboard update strip.
   }
 
 
@@ -3391,23 +3416,30 @@ function chatAvatarPresence(name){
     card.classList.add('team-lite-chat-mode');chat.classList.remove('hidden');
   }
   function toggleTeamLitePanel(){
-    if(!card.classList.contains('hidden')){if(!chat.classList.contains('hidden')){saveChatDraft();stopTypingHeartbeat();broadcastChatPresence(false);}card.classList.add('hidden');voiceControlSyncVisibility();return;}
-    card.classList.remove('hidden');ensureTeamLiteChatIntegrated();if(!chat.querySelector('.up-chat-list'))openChat();else{chat.classList.remove('hidden');renderChat();setUnread(0);broadcastChatPresence(true);refresh();loadChat(true);pollChatTyping();markVisibleChatRead();}voiceControlSyncVisibility();
+    if(!card.classList.contains('hidden')){
+      if(!chat.classList.contains('hidden')){saveChatDraft();stopTypingHeartbeat();broadcastChatPresence(false);}
+      card.classList.add('hidden');voiceControlSyncVisibility();teamLiteStartIdleTimer();return;
+    }
+    teamLiteClearIdleTimer();teamLiteMinimizedAt=0;teamLiteSessionEnded=false;card.classList.remove('hidden');ensureTeamLiteChatIntegrated();
+    if(!chat.querySelector('.up-chat-list'))openChat();
+    else{chat.classList.remove('hidden');renderChat();setUnread(0);broadcastChatPresence(true);refresh();loadChat(true);pollChatTyping();markVisibleChatRead();}
+    voiceControlSyncVisibility();
   }
   function openUpStatusPanel(){
-    history.classList.add('hidden');health.classList.add('hidden');remoteOverlay.classList.add('hidden');card.classList.remove('hidden');ensureTeamLiteChatIntegrated();
-    if(!chat.querySelector('.up-chat-list'))openChat();else{chat.classList.remove('hidden');renderChat();setUnread(0);broadcastChatPresence(true);refresh();loadChat(true);pollChatTyping();markVisibleChatRead();}voiceControlSyncVisibility();
+    history.classList.add('hidden');health.classList.add('hidden');remoteOverlay.classList.add('hidden');card.classList.remove('hidden');
+    teamLiteClearIdleTimer();teamLiteMinimizedAt=0;teamLiteSessionEnded=false;ensureTeamLiteChatIntegrated();
+    if(!chat.querySelector('.up-chat-list'))openChat();
+    else{chat.classList.remove('hidden');renderChat();setUnread(0);broadcastChatPresence(true);refresh();loadChat(true);pollChatTyping();markVisibleChatRead();}
+    voiceControlSyncVisibility();
   }
   document.addEventListener('pointerdown',function(e){
     callUnlockAudio();
-    if(!root.contains(e.target)){
+    if(!root.contains(e.target)&&!card.classList.contains('hidden')){
       if(!chat.classList.contains('hidden'))saveChatDraft();
-      card.classList.add('hidden');
-      history.classList.add('hidden');
-      chat.classList.add('hidden');
-      stopHealthMonitor();
-      health.classList.add('hidden');
-      broadcastChatPresence(false);
+      if(!chat.classList.contains('hidden')){stopTypingHeartbeat();broadcastChatPresence(false);}
+      card.classList.add('hidden');history.classList.add('hidden');
+      if(!card.classList.contains('team-lite-chat-mode'))chat.classList.add('hidden');
+      stopHealthMonitor();health.classList.add('hidden');voiceControlSyncVisibility();teamLiteStartIdleTimer();
     }
   },true);
   bubble.addEventListener('pointerdown',function(e){
@@ -3440,7 +3472,11 @@ function chatAvatarPresence(name){
   }else login();
 
   setInterval(refresh,5000);
-  setInterval(function(){if(member){broadcastChatPresence(!chat.classList.contains('hidden'));Object.keys(chatPresence).forEach(function(name){if(chatPresence[name]&&chatPresence[name]<Date.now())delete chatPresence[name];});if(!chat.classList.contains('hidden'))updateChatHeaderPresence();}},10000);
+  setInterval(function(){if(member){broadcastChatPresence(!card.classList.contains('hidden')&&!chat.classList.contains('hidden'));Object.keys(chatPresence).forEach(function(name){if(chatPresence[name]&&chatPresence[name]<Date.now())delete chatPresence[name];});if(!chat.classList.contains('hidden'))updateChatHeaderPresence();}},10000);
+  document.addEventListener('pointerdown',teamLiteTouchActivity,true);
+  document.addEventListener('keydown',teamLiteTouchActivity,true);
+  document.addEventListener('input',teamLiteTouchActivity,true);
+  document.addEventListener('focusin',teamLiteTouchActivity,true);
   document.addEventListener('keydown',function(e){
     var activeLightbox=chatLightbox||document.querySelector('.up-chat-lightbox');if(e.key==='Escape'&&activeLightbox&&!activeLightbox.classList.contains('hidden')){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();closeChatLightbox();return;}
     if(e.key==='Escape'){
