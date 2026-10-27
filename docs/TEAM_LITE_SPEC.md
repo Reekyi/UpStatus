@@ -45,7 +45,7 @@ Criar um userscript separado do UpStatus oficial para Luca e Ícaro, usando a me
 ## Versionamento e distribuição
 - O Team Lite permanece um userscript separado, com namespace próprio.
 - A versão principal exibida deve acompanhar a versão oficial do UpStatus (no momento, core 3.4.0).
-- O gerenciador de userscripts precisa de um identificador de build crescente para reconhecer correções do Team Lite entre lançamentos do core. Por isso, a metadata usa o formato `core.build` (atualmente `3.4.0.1`), enquanto a interface mostra claramente `Core 3.4.0 · build 3.4.0.1`.
+- O gerenciador de userscripts precisa de um identificador de build crescente para reconhecer correções do Team Lite entre lançamentos do core. Por isso, a metadata usa o formato `core.build` (atualmente `3.4.0.2`), enquanto a interface mostra claramente `Core 3.4.0 · build 3.4.0.1`.
 - `team-lite/release.json` é o manifesto do canal de teste e alimenta o botão de verificação manual.
 - O botão de atualização nunca instala silenciosamente: apresenta a versão disponível e abre o instalador do Tampermonkey para confirmação.
 - Alterações comuns de texto/voz devem ser aplicadas aos dois scripts; recursos exclusivos do painel completo não devem ser expostos no Team Lite.
