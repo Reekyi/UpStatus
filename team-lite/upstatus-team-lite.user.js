@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.0.7
+// @version      3.4.0.8
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -434,7 +434,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.0.7'
+  var CURRENT_VERSION='3.4.0.8'
   var UPDATE_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -764,9 +764,9 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   document.documentElement.appendChild(root);
   // Remove the legacy floating "U" recovery button. Team Lite is opened only with Shift+C.
   (function removeLegacyLauncher(){
-    function remove(){['upstatus-beta8-recovery','upstatus-beta9-recovery'].forEach(function(id){var el=document.getElementById(id);if(el)el.remove();});}
+    function remove(){['upstatus-beta8-recovery','upstatus-beta9-recovery'].forEach(function(id){var el=document.getElementById(id);if(el)el.remove();});document.querySelectorAll('button').forEach(function(el){if(el.textContent.trim()==='U'&&el.getAttribute('aria-label')==='Abrir UpStatus')el.remove();});}
     remove();
-    if(typeof MutationObserver!=='undefined'){var mo=new MutationObserver(remove);mo.observe(document.documentElement,{childList:true,subtree:true});setTimeout(function(){mo.disconnect();},10000);}
+    if(typeof MutationObserver!=='undefined'){var mo=new MutationObserver(remove);mo.observe(document.documentElement,{childList:true,subtree:true});setTimeout(function(){mo.disconnect();},60000);}
   })();
   // Allow dragging the Team Lite window by its title, without interfering with inputs or chat controls.
   (function enableTeamLiteDrag(){
