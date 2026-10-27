@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite
 // @namespace    upseller-team-lite
-// @version      3.4.0.1
+// @version      3.4.0.2
 // @description  Chat de texto e voz para Luca e Ícaro dentro do Sale Smartly.
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
@@ -20,9 +20,10 @@ if (window.__UPSTATUS_TEAM_LITE__) return;
 window.__UPSTATUS_TEAM_LITE__ = true;
 
 const CORE_VERSION = '3.4.0';
-const BUILD_VERSION = '3.4.0.1';
+const BUILD_VERSION = '3.4.0.2';
 const API = 'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test';
 const RELEASE_URL = 'https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/release.json';
+const OFFICIAL_SCRIPT_URL = 'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js';
 const SCRIPT_URL = 'https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js';
 const STORE_KEY = 'upstatus_team_lite_session_v1';
 const REALTIME_URL = 'https://dlfvkawaiqduhlazsszm.supabase.co';
@@ -125,13 +126,19 @@ async function logout(){
 async function checkUpdates(){
   const b=$('#utl-update');b.disabled=true;b.textContent='…';say('Verificando atualização…');
   try{
-    const manifest=JSON.parse(await gmGet(RELEASE_URL));
+    const pair=await Promise.all([gmGet(RELEASE_URL),gmGet(OFFICIAL_SCRIPT_URL)]);
+    const manifest=JSON.parse(pair[0]);
+    const officialMatch=pair[1].match(/@version\\s+([^\\r\\n]+)/i);
+    const officialCore=officialMatch?officialMatch[1].trim():'';
     const remote=String(manifest.buildVersion||'');
     const core=String(manifest.coreVersion||'');
-    if(!remote||!manifest.scriptUrl)throw new Error('Manifesto de atualização incompleto.');
-    if(remote===BUILD_VERSION){say('Você já está na versão mais recente (core '+CORE_VERSION+').');}
+    if(!remote||!manifest.scriptUrl||!core)throw new Error('Manifesto de atualização incompleto.');
+    if(!officialCore)throw new Error('Não consegui ler a versão do UpStatus oficial.');
+    if(core!==officialCore){
+      say('A versão oficial é '+officialCore+', mas o pacote Team Lite está sincronizado com '+core+'. A atualização compartilhada ainda precisa ser preparada; não instalei uma build incompatível.');
+    }else if(remote===BUILD_VERSION){say('Tudo sincronizado. UpStatus core '+officialCore+' · Team Lite build '+BUILD_VERSION+'.');}
     else if(remote.localeCompare(BUILD_VERSION,undefined,{numeric:true,sensitivity:'base'})>0){
-      if(!confirm('Há uma atualização disponível: core '+core+' / build '+remote+'. Abrir o instalador do Team Lite?'))return;
+      if(!confirm('Há uma atualização sincronizada disponível: core '+core+' / build '+remote+'. Abrir o instalador do Team Lite?'))return;
       if(typeof GM_openInTab==='function')GM_openInTab(manifest.scriptUrl,{active:true,insert:true,setParent:true});
       else window.open(manifest.scriptUrl,'_blank','noopener');
       say('O instalador foi aberto. Confirme a atualização no Tampermonkey.');
