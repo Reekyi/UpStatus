@@ -1,20 +1,13 @@
 {
   "product": "UpStatus Team Lite",
   "coreVersion": "3.4.0",
-  "buildVersion": "3.4.0.6",
+  "buildVersion": "3.4.0.7",
   "channel": "test",
   "scriptUrl": "https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js",
   "releaseNotes": [
-    "Painel interno via Shift+C, sem site externo ou botão na barra lateral.",
-    "Chat de texto compartilhado com a equipe, iniciando a visualização na sessão atual.",
-    "Sala de voz WebRTC integrada à sinalização Realtime existente.",
-    "Verificação manual de atualizações com confirmação antes de abrir o instalador.",
-    "Indicador de presença roxo/laranja no balão do UpStatus oficial no canal TEST.",
-    "O backend TEST limita o histórico de convidados ao início da sessão.",
-    "O verificador consulta a versão oficial em tempo real e bloqueia a instalação se o pacote Team Lite ainda não estiver sincronizado.",
-    "Login corrigido para os nomes Lucca e Ycaro; painel pode ser arrastado e redimensionado, com geometria salva localmente.",
-    "Sinalização de voz reforçada com identificador de sessão exclusivo e prevenção de ofertas WebRTC duplicadas.",
-    "Chat com envio de imagens, GIFs, vídeos e documentos de até 20 MB; gravação e envio de mensagens de voz.",
-    "Foto de perfil no cabeçalho, com envio de imagem ou GIF de até 20 MB."
+    "Baseado diretamente no userscript oficial publicado do UpStatus 3.4.0, reaproveitando os componentes originais de chat, anexos, perfil, áudio e sala de voz.",
+    "Restrito às contas Lucca e Ycaro; status, histórico, configurações administrativas e compartilhamento de tela ficam ocultos.",
+    "Backend mantido em upstatus-test, armazenamento local separado e sala de voz exclusiva do Team Lite.",
+    "Shift+C abre e fecha o painel limitado; no painel, a navegação entre chat e sala de voz usa os componentes oficiais."
   ]
 }
