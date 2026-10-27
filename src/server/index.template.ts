@@ -103,9 +103,12 @@ async function login(req:Request,setup:boolean){
 async function members(){
   const now=Date.now();
   if(membersCache&&now-membersCache.at<10000)return membersCache.data;
-  const {data,error}=await db.from("users").select("name").order("name");
+  // Official roster is allow-listed. Lite accounts share auth/chat storage only.
+  const officialNames=["Ricardo","Guilherme","Lohan"];
+  const {data,error}=await db.from("users").select("name").in("name",officialNames);
   if(error)throw error;
-  const out=(data||[]).map((x:any)=>({name:String(x.name)}));
+  const found=new Set((data||[]).map((x:any)=>String(x.name)));
+  const out=officialNames.filter((name)=>found.has(name)).map((name)=>({name}));
   membersCache={at:now,data:out};
   return out;
 }
@@ -156,7 +159,8 @@ async function statusRoute(req:Request,name:string){
     const presenceUpdate:Record<string,unknown>={client_seen_at:now};
     if(clientVersion)presenceUpdate.client_version=clientVersion;
     await db.from("users").update(presenceUpdate).eq("name",name);
-    const {data,error}=await db.from("users").select("name,status,reason,updated_at,sync,client_version,client_seen_at").order("name");
+    const officialNames=["Ricardo","Guilherme","Lohan"];
+    const {data,error}=await db.from("users").select("name,status,reason,updated_at,sync,client_version,client_seen_at").in("name",officialNames);
     if(error)throw error;
     const members:Record<string,unknown>={};
     const nowMs=Date.now();
