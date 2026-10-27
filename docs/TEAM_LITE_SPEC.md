@@ -41,3 +41,18 @@ Criar um userscript separado do UpStatus oficial para Luca e Ícaro, usando a me
 - Desenvolver primeiro em TEST, sem alterações na Edge Function de produção ou no userscript oficial até validação.
 - Manter o userscript Team Lite separado, sem atualizar/substituir o script da equipe de implementação.
 - Validar sintaxe, login, restrições backend, mensagens, presença, chamadas, sessão temporária e preservação do histórico oficial antes de considerar concluído.
+
+## Versionamento e distribuição
+- O Team Lite permanece um userscript separado, com namespace próprio.
+- A versão principal exibida deve acompanhar a versão oficial do UpStatus (no momento, core 3.4.0).
+- O gerenciador de userscripts precisa de um identificador de build crescente para reconhecer correções do Team Lite entre lançamentos do core. Por isso, a metadata usa o formato `core.build` (atualmente `3.4.0.1`), enquanto a interface mostra claramente `Core 3.4.0 · build 3.4.0.1`.
+- `team-lite/release.json` é o manifesto do canal de teste e alimenta o botão de verificação manual.
+- O botão de atualização nunca instala silenciosamente: apresenta a versão disponível e abre o instalador do Tampermonkey para confirmação.
+- Alterações comuns de texto/voz devem ser aplicadas aos dois scripts; recursos exclusivos do painel completo não devem ser expostos no Team Lite.
+
+## Implementação inicial em TEST
+- O script de teste usa a Edge Function `upstatus-test`; não deve apontar para a função de produção.
+- O backend de TEST força o limite de mensagens de convidados para o horário de início da sessão, mesmo que o cliente peça um intervalo anterior.
+- O script Team Lite inclui chat de texto, sinalização Realtime e WebRTC de voz, com o mesmo identificador de sala/evento da sala de voz oficial.
+- A bolha do userscript oficial no canal TEST pode indicar presença ativa de Luca (roxo), Ícaro (laranja) ou ambos (alternância entre as cores).
+- O estado de presença deve expirar quando os heartbeats cessarem. Ocultar o painel não encerra uma chamada; sair da sessão encerra explicitamente a presença.
