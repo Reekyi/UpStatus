@@ -89,7 +89,7 @@ async function login(req:Request,setup:boolean){
   const password=String(p.password||"");
   if(!name||password.length<4)return response({error:"Use um usuário válido e uma senha de pelo menos 4 caracteres."},400);
   const a=await account(name);
-  if(!a)return response({error:"Use um usuário válido e uma senha de pelo menos 6 caracteres."},400);
+  if(!a)return response({error:"Use um usuário válido e uma senha de pelo menos 4 caracteres."},400);
   if(setup){
     if(a.password_hash)return response({error:"Esta conta já foi configurada."},409);
     const role=a.role||(["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin":"implementation_user");
