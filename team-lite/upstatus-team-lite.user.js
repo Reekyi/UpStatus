@@ -128,7 +128,7 @@ async function checkUpdates(){
   try{
     const pair=await Promise.all([gmGet(RELEASE_URL),gmGet(OFFICIAL_SCRIPT_URL)]);
     const manifest=JSON.parse(pair[0]);
-    const officialMatch=pair[1].match(/@version\\s+([^\\r\\n]+)/i);
+    const officialMatch=pair[1].match(/@version\s+([^\r\n]+)/i);
     const officialCore=officialMatch?officialMatch[1].trim():'';
     const remote=String(manifest.buildVersion||'');
     const core=String(manifest.coreVersion||'');
