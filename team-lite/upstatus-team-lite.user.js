@@ -1208,7 +1208,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     var existing=root.querySelector('.up-update-prompt');
     if(existing)existing.remove();
     var modal=node('div',{className:'up-update-prompt'});
-    modal.innerHTML='<div class="up-update-prompt-box"><div class="up-update-prompt-title">Nova versão disponível</div><div class="up-update-prompt-text">O UpStatus <b>v'+esc(version)+'</b> já está disponível.</div><div class="up-update-prompt-actions"><button type="button" class="up-update-prompt-later">Depois</button><button type="button" class="up-update-prompt-now">Atualizar agora</button></div></div>';
+    modal.innerHTML='<div class="up-update-prompt-box"><div class="up-update-prompt-title">Ricardo lançou uma atualização</div><div class="up-update-prompt-text">A versão <b>v'+esc(version)+'</b> do UpStatus Team está pronta para instalar.</div><div class="up-update-prompt-actions"><button type="button" class="up-update-prompt-later">Deixar para depois</button><button type="button" class="up-update-prompt-now">Atualizar</button></div></div>';
     root.appendChild(modal);
     modal.querySelector('.up-update-prompt-later').onclick=function(){closePopupAnimated(modal,function(){modal.remove();});};
     modal.querySelector('.up-update-prompt-now').onclick=function(){closePopupAnimated(modal,function(){modal.remove();openUpdate();});};
@@ -3735,7 +3735,7 @@ function chatAvatarPresence(name){
       chat.classList.add('hidden');card.classList.remove('team-lite-chat-mode');card.classList.remove('hidden');login();return;
     }
     history.classList.add('hidden');health.classList.add('hidden');remoteOverlay.classList.add('hidden');card.classList.remove('hidden');
-    teamLiteClearIdleTimer();teamLiteMinimizedAt=0;teamLiteSessionEnded=false;ensureTeamLiteChatIntegrated();startTeamLiteEphemeralChatIfNeeded();
+    teamLiteClearIdleTimer();teamLiteMinimizedAt=0;teamLiteSessionEnded=false;ensureTeamLiteChatIntegrated();startTeamLiteEphemeralChatIfNeeded();updatePromptShown=false;try{checkUpdate();}catch(_){};
     if(!chat.querySelector('.up-chat-list'))openChat();
     else{chat.classList.remove('hidden');renderChat();setUnread(0);broadcastChatPresence(true);refresh();loadChat(true);pollChatTyping();markVisibleChatRead();}
     voiceControlSyncVisibility();
