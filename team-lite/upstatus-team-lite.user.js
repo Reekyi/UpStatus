@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.22
+// @version      3.4.23
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -483,7 +483,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.14'
+  var CURRENT_VERSION='3.4.23'
   var UPDATE_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -539,7 +539,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
           }
           return u;
         })(),
-        headers:Object.assign({'Content-Type':'application/json','X-UpStatus-Version':CURRENT_VERSION},token?{'X-UpStatus-Token':token}:{}),
+        headers:Object.assign({'Content-Type':'application/json','apikey':UP_REALTIME_KEY,'X-UpStatus-Version':CURRENT_VERSION},token?{'X-UpStatus-Token':token}:{}),
         data:data?JSON.stringify(data):undefined,
         onload:function(r){
           var x;
