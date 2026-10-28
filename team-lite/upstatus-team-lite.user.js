@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.18
+// @version      3.4.19
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -4904,5 +4904,13 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
  (document.head||document.documentElement).appendChild(st);
 })();
 
-/* 3.4.17: keep call title readable and pin active-call controls to the top-right. */
-;(function(){if(document.getElementById('team-lite-voice-header-fix-3417'))return;var st=document.createElement('style');st.id='team-lite-voice-header-fix-3417';st.textContent='#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-head{display:block!important;position:relative!important;min-height:40px!important;padding-right:0!important}#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-head>div:first-child{display:block!important;max-width:100%!important;padding-right:0!important}#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-title{display:block!important;width:auto!important;max-width:100%!important;padding-right:0!important;white-space:normal!important;overflow-wrap:normal!important}#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-actions{top:0!important;right:0!important;transform:none!important;z-index:10!important}#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-state{max-width:calc(100% - 145px)!important;white-space:normal!important}';(document.head||document.documentElement).appendChild(st);})();
+/* 3.4.19: restore the voice header row and pin controls to its upper-right corner. */
+;(function(){if(document.getElementById('team-lite-voice-header-fix-3419'))return;var st=document.createElement('style');st.id='team-lite-voice-header-fix-3419';st.textContent=
+'#upstatus-team-lite-root .up-voice-room.is-joined{position:relative!important;padding-top:10px!important}'+
+'#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-head{display:flex!important;position:relative!important;align-items:flex-start!important;justify-content:flex-start!important;gap:0!important;min-height:42px!important;padding:0!important;margin:0 0 6px!important}'+
+'#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-title{display:block!important;flex:1 1 auto!important;width:auto!important;max-width:none!important;min-width:0!important;padding:0!important;margin:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;line-height:17px!important}'+
+'#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-state{position:absolute!important;left:0!important;top:18px!important;max-width:calc(100% - 154px)!important;margin:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;line-height:14px!important}'+
+'#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-actions{position:absolute!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:5px!important;top:0!important;right:0!important;bottom:auto!important;left:auto!important;margin:0!important;padding:0!important;transform:none!important;z-index:10!important}'+
+'#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-actions button{width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;flex:0 0 30px!important;padding:0!important}'+
+'#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-participants{position:relative!important;display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:7px!important;padding-right:0!important;margin-top:0!important;min-height:34px!important}';
+(document.head||document.documentElement).appendChild(st);})();
