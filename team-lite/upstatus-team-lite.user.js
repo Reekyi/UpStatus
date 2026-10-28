@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.4
+// @version      3.4.5
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -481,7 +481,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.4'
+  var CURRENT_VERSION='3.4.5'
   var UPDATE_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -3523,6 +3523,18 @@ function chatAvatarPresence(name){
     card.querySelectorAll('.up-chat-btn,.up-history-btn,.up-settings-btn,.up-settings-menu,.up-logout,.up-statuses,.up-reasons,.up-notice,.up-update,.up-team-title-row,.up-team').forEach(function(el){el.remove();});
     var title=card.querySelector('.up-head .up-title');if(title)title.textContent='UpStatus Team';
     var actions=card.querySelector('.up-head .up-actions');
+    // Barra independente dos botões do cabeçalho: evita que re-renderizações/estilos escondam sair e tema.
+    var utility=card.querySelector('.team-lite-utility-controls');
+    if(!utility){
+      utility=document.createElement('div');utility.className='team-lite-utility-controls';
+      utility.style.cssText='display:flex!important;visibility:visible!important;opacity:1!important;position:relative;z-index:50;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;margin:0 0 8px;padding:0 0 8px;border-bottom:1px solid rgba(148,163,184,.22);';
+      var themeControl=document.createElement('button');themeControl.type='button';themeControl.className='team-lite-utility-theme';themeControl.textContent=theme==='dark'?'☼ Modo claro':'☾ Modo escuro';themeControl.style.cssText='display:inline-flex!important;visibility:visible!important;opacity:1!important;align-items:center;justify-content:center;border:1px solid #46556c;border-radius:7px;padding:6px 9px;background:#273247;color:#e6edf7;cursor:pointer;font:600 11px Segoe UI,Arial,sans-serif';
+      themeControl.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();toggleTheme();themeControl.textContent=theme==='dark'?'☼ Modo claro':'☾ Modo escuro';});
+      var logoutControl=document.createElement('button');logoutControl.type='button';logoutControl.className='team-lite-utility-logout';logoutControl.textContent='Sair';logoutControl.title='Sair da conta';logoutControl.style.cssText='display:inline-flex!important;visibility:visible!important;opacity:1!important;align-items:center;justify-content:center;border:1px solid #7f3344;border-radius:7px;padding:6px 10px;background:#3a2730;color:#ffb0bc;cursor:pointer;font:700 11px Segoe UI,Arial,sans-serif';
+      logoutControl.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();voiceRoomLeave();broadcastChatPresence(false);teamLiteEndSession();});
+      utility.append(themeControl,logoutControl);
+      var head=card.querySelector('.up-head');if(head&&head.parentNode===card)head.insertAdjacentElement('afterend',utility);else card.insertBefore(utility,card.firstChild);
+    }
     if(actions&&!actions.querySelector('.team-lite-theme')){
       var themeButton=document.createElement('button');themeButton.type='button';themeButton.className='team-lite-theme';themeButton.title='Alternar modo claro/escuro';themeButton.setAttribute('aria-label',themeButton.title);themeButton.textContent=theme==='dark'?'☼':'☾';themeButton.style.cssText='border:0;border-radius:7px;padding:7px 9px;height:34px;min-width:34px;background:#273247;color:#e6edf7;cursor:pointer;font-size:17px';themeButton.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();toggleTheme();themeButton.textContent=theme==='dark'?'☼':'☾';});actions.appendChild(themeButton);
     }
@@ -3533,6 +3545,15 @@ function chatAvatarPresence(name){
       var minimize=document.createElement('button');minimize.type='button';minimize.className='team-lite-minimize';minimize.title='Minimizar';minimize.setAttribute('aria-label','Minimizar');minimize.textContent='−';minimize.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();toggleTeamLitePanel();});actions.appendChild(minimize);
       var close=document.createElement('button');close.type='button';close.className='team-lite-close';close.title='Fechar painel';close.setAttribute('aria-label','Fechar painel');close.textContent='×';close.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();teamLiteClosePanel();});actions.appendChild(close);
     }
+
+    // Cores por remetente: somente borda, mantendo o fundo padrão do balão.
+    if(!document.getElementById('team-lite-sender-border-colors')){
+      var senderStyle=document.createElement('style');senderStyle.id='team-lite-sender-border-colors';
+      senderStyle.textContent='#upstatus-team-lite-root .up-chat-item.lucca .up-chat-bubble{background:linear-gradient(145deg,#2a3549,#252f41)!important;border:1px solid #a855f7!important;box-shadow:0 0 0 1px rgba(168,85,247,.18),0 0 8px rgba(168,85,247,.3),0 4px 14px rgba(0,0,0,.18)!important}#upstatus-team-lite-root .up-chat-item.icaro .up-chat-bubble{background:linear-gradient(145deg,#2a3549,#252f41)!important;border:1px solid #f97316!important;box-shadow:0 0 0 1px rgba(249,115,22,.18),0 0 8px rgba(249,115,22,.3),0 4px 14px rgba(0,0,0,.18)!important}';
+      document.head.appendChild(senderStyle);
+    }
+    var chatItems=chat.querySelectorAll('.up-chat-item');
+    chatItems.forEach(function(item){var name=item.querySelector('.up-chat-meta b');if(!name)return;var n=(name.textContent||'').trim().toLowerCase();item.classList.toggle('lucca',n==='lucca');item.classList.toggle('icaro',n==='ícaro'||n==='icaro');});
     card.classList.add('team-lite-chat-mode');
     // Permite arrastar o painel pelo cabeçalho sem interferir nos botões.
     var dragHead=card.querySelector('.up-head');
