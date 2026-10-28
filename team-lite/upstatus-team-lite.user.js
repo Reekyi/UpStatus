@@ -10,8 +10,8 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_openInTab
-// @updateURL    https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js
-// @downloadURL  https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js
+// @updateURL    https://raw.githubusercontent.com/Reekyi/UpStatus/team-lite-official/team-lite/upstatus-team-lite.user.js
+// @downloadURL  https://raw.githubusercontent.com/Reekyi/UpStatus/team-lite-official/team-lite/upstatus-team-lite.user.js
 // @connect      *
 // ==/UserScript==
 (function () {
@@ -24,7 +24,7 @@
 
   var key='upstatus_team_lite_';
   var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
-  var CLOUD_SERVER='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test';
+  var CLOUD_SERVER='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-team-lite';
   var server=CLOUD_SERVER;
   var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';
   var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
