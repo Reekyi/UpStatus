@@ -10,8 +10,8 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_openInTab
-// @updateURL    https://github.com/Reekyi/UpStatus/raw/refs/heads/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js
-// @downloadURL  https://github.com/Reekyi/UpStatus/raw/refs/heads/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js
+// @updateURL    https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js
+// @downloadURL  https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js
 // @connect      *
 // ==/UserScript==
 (function () {
@@ -3634,24 +3634,9 @@ function chatAvatarPresence(name){
     var chatItems=chat.querySelectorAll('.up-chat-item');
     chatItems.forEach(function(item){var name=item.querySelector('.up-chat-meta b');if(!name)return;var n=(name.textContent||'').trim().toLowerCase();item.classList.toggle('lucca',n==='lucca');item.classList.toggle('icaro',n==='ícaro'||n==='icaro');});
     card.classList.add('team-lite-chat-mode');
-    // Permite arrastar o painel pelo cabeçalho sem interferir nos botões.
-    var dragHead=card.querySelector('.up-head');
-    if(dragHead&&!dragHead.dataset.teamLiteDrag){
-      dragHead.dataset.teamLiteDrag='1';dragHead.style.cursor='grab';
-      dragHead.addEventListener('pointerdown',function(e){
-        if(e.button!==0||e.target.closest('button,input,a'))return;
-        var rect=root.getBoundingClientRect();var sx=e.clientX,sy=e.clientY;
-        var startRight=Math.max(0,window.innerWidth-rect.right),startBottom=Math.max(0,window.innerHeight-rect.bottom);
-        root.style.left='auto';root.style.top='auto';root.style.right=startRight+'px';root.style.bottom=startBottom+'px';
-        function move(ev){
-          var nextRight=Math.max(0,Math.min(window.innerWidth-root.offsetWidth,startRight-(ev.clientX-sx)));
-          var nextBottom=Math.max(0,Math.min(window.innerHeight-root.offsetHeight,startBottom-(ev.clientY-sy)));
-          root.style.right=nextRight+'px';root.style.bottom=nextBottom+'px';
-        }
-        function up(){window.removeEventListener('pointermove',move,true);window.removeEventListener('pointerup',up,true);GM_setValue(key+'right',root.style.right);GM_setValue(key+'bottom',root.style.bottom);}
-        window.addEventListener('pointermove',move,true);window.addEventListener('pointerup',up,true);
-      });
-    }
+    // O arraste do painel é controlado exclusivamente por enableTeamLiteDrag().
+  // Dois listeners concorrentes (left/top contra right/bottom) causavam conflito
+  // com o redimensionamento após mover a janela.
     if(isAuthenticated())chat.classList.remove('hidden');else chat.classList.add('hidden');
   }
   function teamLiteClosePanel(){
