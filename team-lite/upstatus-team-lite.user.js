@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.12
+// @version      3.4.13
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -481,7 +481,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.12'
+  var CURRENT_VERSION='3.4.13'
   var UPDATE_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -734,8 +734,15 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   root.appendChild(profileModal);
   var img=node('img',{className:'up-bubble-avatar',src:'',alt:'Foto de perfil'});
   img.src=profileFallback();
-  root.style.right=GM_getValue(key+'right','24px');
-  root.style.bottom=GM_getValue(key+'bottom','24px');
+  var savedPanelLeft=GM_getValue(key+'left','');
+  var savedPanelTop=GM_getValue(key+'top','');
+  if(savedPanelLeft!==''&&savedPanelTop!==''){
+    root.style.left=savedPanelLeft;root.style.top=savedPanelTop;
+    root.style.right='auto';root.style.bottom='auto';
+  }else{
+    root.style.right=GM_getValue(key+'right','24px');
+    root.style.bottom=GM_getValue(key+'bottom','24px');
+  }
   bubble.innerHTML='<span class="up-notify-dot"></span><span class="up-update-dot" role="button" tabindex="0" aria-label="Instalar atualização"></span>';
   quickChatBubble.innerHTML='<span class="up-quick-chat-content up-quick-chat-symbol" aria-hidden="true"><svg class="up-quick-chat-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="up-chat-icon-bubble" d="M12 2.5C6.35 2.5 1.8 6.45 1.8 11.35c0 2.28.98 4.35 2.63 5.92-.4 1.72-1.38 3.15-2.55 4.3 3.1.14 5.68-.63 7.63-1.77.8.2 1.65.3 2.49.3 5.65 0 10.2-3.95 10.2-8.75S17.65 2.5 12 2.5Z" fill="currentColor"/><circle cx="7.7" cy="11.4" r="1.45" fill="var(--up-chat-icon-cutout,#273247)"/><circle cx="12" cy="11.4" r="1.45" fill="var(--up-chat-icon-cutout,#273247)"/><circle cx="16.3" cy="11.4" r="1.45" fill="var(--up-chat-icon-cutout,#273247)"/></svg></span>';
   bubble.appendChild(img);
@@ -846,7 +853,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
       root.style.setProperty('left',left+'px','important');root.style.setProperty('top',top+'px','important');
       root.style.setProperty('right','auto','important');root.style.setProperty('bottom','auto','important');
     },true);
-    function stop(e){if(!active||e.pointerId!==active.id)return;active.title.style.setProperty('cursor','grab','important');active=null;}
+    function stop(e){if(!active||e.pointerId!==active.id)return;active.title.style.setProperty('cursor','grab','important');if(root.style.left&&root.style.left!=='auto')GM_setValue(key+'left',root.style.left);if(root.style.top&&root.style.top!=='auto')GM_setValue(key+'top',root.style.top);GM_setValue(key+'right','');GM_setValue(key+'bottom','');active=null;}
     window.addEventListener('pointerup',stop,true);window.addEventListener('pointercancel',stop,true);
   })();
   // Team Lite keeps the official components but removes the general-purpose dashboard shortcuts.
@@ -4776,14 +4783,14 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
 })();
 
 
-/* 3.4.12: keep the active-room controls and resize anchoring consistent with runtime state. */
-;(function installTeamLiteJoinedVoiceAndDragFix3412(){
- if(document.getElementById('upstatus-team-lite-joined-voice-drag-fix-3412'))return;
+/* 3.4.13: fix room controls without shifting participants; persist one drag coordinate system. */
+;(function installTeamLiteJoinedVoiceAndDragFix3413(){
+ if(document.getElementById('upstatus-team-lite-joined-voice-drag-fix-3413'))return;
  var st=document.createElement('style');st.id='upstatus-team-lite-joined-voice-drag-fix-3412';
  st.textContent=
  '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-actions .up-voice-join,#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-join{display:none!important}'+
- '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined{position:relative!important;padding-top:48px!important;box-sizing:border-box!important}'+
- '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-head{position:relative!important;display:block!important;min-height:30px!important;padding-right:0!important;margin:0 0 8px!important;box-sizing:border-box!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined{position:relative!important;box-sizing:border-box!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-head{position:relative!important;display:block!important;min-height:30px!important;padding-right:150px!important;margin:0 0 8px!important;box-sizing:border-box!important}'+
  '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-actions{position:absolute!important;top:7px!important;right:8px!important;left:auto!important;bottom:auto!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:4px!important;width:auto!important;max-width:100%!important;margin:0!important;padding:0!important;transform:none!important;z-index:5!important}'+
  '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-actions button:not(.up-voice-join){position:static!important;flex:0 0 auto!important;margin:0!important;transform:none!important}'+
  '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-persons,#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-participants{position:relative!important;margin-top:6px!important;padding-right:0!important}';
