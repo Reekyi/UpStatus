@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.14
+// @version      3.4.15
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -912,6 +912,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
       '#upstatus-team-lite-root .up-head .up-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto;position:relative}'+
       '#upstatus-team-lite-root .team-lite-head-status{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 9px;border:1px solid #236b49;border-radius:8px;background:#173f2b;color:#9ce5b8;font-size:11px;font-weight:750;white-space:nowrap}'+
       '#upstatus-team-lite-root .team-lite-head-status i{width:7px;height:7px;border-radius:50%;background:#55e58b}'+
+      '#upstatus-team-lite-root .team-lite-options{position:relative;display:inline-flex;align-items:center}#upstatus-team-lite-root .team-lite-options-toggle{height:34px;min-width:34px;border:0;border-radius:7px;padding:6px 9px;background:#273247;color:#c6d1e1;cursor:pointer;font-size:20px;line-height:1}#upstatus-team-lite-root .team-lite-options-menu{position:absolute;top:calc(100% + 7px);right:0;z-index:2147483647;min-width:155px;padding:5px;border:1px solid #40506a;border-radius:10px;background:#182130;box-shadow:0 10px 28px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:3px}#upstatus-team-lite-root .team-lite-options-menu.hidden{display:none!important}#upstatus-team-lite-root .team-lite-options-menu button{display:flex;align-items:center;gap:8px;width:100%;border:0;border-radius:7px;padding:9px 10px;background:transparent;color:#e6edf7;text-align:left;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}#upstatus-team-lite-root .team-lite-options-menu button:hover{background:#2b3a50}#upstatus-team-lite-root.up-theme-light .team-lite-options-toggle{background:#dbe6f4;color:#233047}#upstatus-team-lite-root.up-theme-light .team-lite-options-menu{background:#fff;border-color:#cbd5e1;box-shadow:0 10px 28px rgba(15,23,42,.18)}#upstatus-team-lite-root.up-theme-light .team-lite-options-menu button{color:#233047}#upstatus-team-lite-root.up-theme-light .team-lite-options-menu button:hover{background:#eef2f7}'+
       '#upstatus-team-lite-root .team-lite-minimize,#upstatus-team-lite-root .team-lite-close{height:34px;min-width:34px;box-sizing:border-box;border:0;border-radius:7px;padding:7px 9px;background:#273247;color:#c6d1e1;cursor:pointer;font-size:18px;line-height:1}'+
       '#upstatus-team-lite-root .up-voice-room{flex:0 0 auto;margin:0 0 10px;padding:10px;border:1px solid #2d3b50;border-radius:10px;background:#151e2b;color:#edf2fb}'+
       '#upstatus-team-lite-root .up-voice-title{font-size:14px;font-weight:750;color:#edf2fb}'+
@@ -3242,13 +3243,23 @@ function chatAvatarPresence(name){
     loadSavedPassword();
     api('GET','/api/members').then(function(r){setLoginMembers((r.members||[]).map(function(x){return x.name;}));}).catch(function(){});
     card.querySelector('#up-enter').onclick=async function(){
+      var button=card.querySelector('#up-enter');
+      if(button&&button.disabled)return;
       var attempt=++authGeneration;
       authenticated=false;
       if(quickChatBubble)quickChatBubble.disabled=true;
+      var passwordInput=card.querySelector('#up-password');
+      var nameInput=card.querySelector('#up-name');
+      var originalLabel=button?button.textContent:'Entrar';
+      if(button){button.disabled=true;button.setAttribute('aria-busy','true');button.innerHTML='<span class="up-login-spinner" aria-hidden="true"></span> Entrando…';button.style.opacity='.85';button.style.cursor='wait';}
+      if(passwordInput)passwordInput.disabled=true;
+      if(nameInput)nameInput.disabled=true;
+      var loginStarted=Date.now();
       try{
         server=CLOUD_SERVER;
         var name=loginMember;
-        var password=card.querySelector('#up-password').value;
+        var password=passwordInput?passwordInput.value:'';
+        if(!password)throw new Error('Digite sua senha para entrar.');
         var account=await api('GET','/api/account?name='+encodeURIComponent(name));
         if(attempt!==authGeneration)return;
         var r=await api('POST',account.needsSetup?'/api/setup':'/api/login',{name:name,password:password});
@@ -3263,6 +3274,12 @@ function chatAvatarPresence(name){
         if(attempt!==authGeneration)return;
         authenticated=false;chat.classList.add('hidden');card.classList.remove('team-lite-chat-mode');
         message(e.message,true);
+      }finally{
+        if(attempt===authGeneration||!authenticated){
+          if(button&&button.isConnected){button.disabled=false;button.removeAttribute('aria-busy');button.textContent=originalLabel;button.style.opacity='';button.style.cursor='pointer';}
+          if(passwordInput&&passwordInput.isConnected)passwordInput.disabled=false;
+          if(nameInput&&nameInput.isConnected)nameInput.disabled=false;
+        }
       }
     };
     card.querySelector('#up-password').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();card.querySelector('#up-enter').click();}});
@@ -3597,11 +3614,24 @@ function chatAvatarPresence(name){
     var actions=card.querySelector('.up-head .up-actions');
     // Remove a barra redundante da versão anterior. Tema e sair ficam apenas no cabeçalho.
     card.querySelectorAll('.team-lite-utility-controls').forEach(function(el){el.remove();});
-    if(actions&&!actions.querySelector('.team-lite-theme')){
-      var themeButton=document.createElement('button');themeButton.type='button';themeButton.className='team-lite-theme';themeButton.title='Alternar modo claro/escuro';themeButton.setAttribute('aria-label',themeButton.title);themeButton.textContent=theme==='dark'?'☼':'☾';themeButton.style.cssText='border:0;border-radius:7px;padding:7px 9px;height:34px;min-width:34px;background:#273247;color:#e6edf7;cursor:pointer;font-size:17px';themeButton.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();toggleTheme();themeButton.textContent=theme==='dark'?'☼':'☾';});actions.appendChild(themeButton);
-    }
-    if(actions&&!actions.querySelector('.team-lite-logout')){
-      var logout=document.createElement('button');logout.type='button';logout.className='team-lite-logout';logout.title='Sair da conta';logout.setAttribute('aria-label','Sair da conta');logout.textContent='Sair';logout.style.cssText='border:0;border-radius:7px;padding:7px 10px;height:34px;background:#3a2730;color:#ffb0bc;cursor:pointer;font:inherit;font-size:12px;font-weight:600';logout.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();voiceRoomLeave();broadcastChatPresence(false);teamLiteEndSession();});actions.appendChild(logout);
+    // Tema e sair ficam agrupados no menu de opções do cabeçalho.
+    if(actions){
+      var oldTheme=actions.querySelector('.team-lite-theme');
+      var oldLogout=actions.querySelector('.team-lite-logout');
+      if(oldTheme)oldTheme.remove();if(oldLogout)oldLogout.remove();
+      var menu=actions.querySelector('.team-lite-options');
+      if(!menu){
+        menu=document.createElement('div');menu.className='team-lite-options';
+        var menuToggle=document.createElement('button');menuToggle.type='button';menuToggle.className='team-lite-options-toggle';menuToggle.title='Mais opções';menuToggle.setAttribute('aria-label','Mais opções');menuToggle.setAttribute('aria-expanded','false');menuToggle.innerHTML='⌄';
+        var menuPanel=document.createElement('div');menuPanel.className='team-lite-options-menu hidden';menuPanel.setAttribute('role','menu');
+        var themeButton=document.createElement('button');themeButton.type='button';themeButton.className='team-lite-theme';themeButton.setAttribute('role','menuitem');themeButton.textContent=(theme==='dark'?'☼ Modo claro':'☾ Modo escuro');
+        themeButton.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();toggleTheme();themeButton.textContent=(theme==='dark'?'☼ Modo claro':'☾ Modo escuro');menuPanel.classList.add('hidden');menuToggle.setAttribute('aria-expanded','false');});
+        var logout=document.createElement('button');logout.type='button';logout.className='team-lite-logout';logout.setAttribute('role','menuitem');logout.textContent='Sair';
+        logout.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();menuPanel.classList.add('hidden');menuToggle.setAttribute('aria-expanded','false');voiceRoomLeave();broadcastChatPresence(false);teamLiteEndSession();});
+        menuPanel.append(themeButton,logout);menu.append(menuToggle,menuPanel);actions.appendChild(menu);
+        menuToggle.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var open=menuPanel.classList.contains('hidden');menuPanel.classList.toggle('hidden',!open);menuToggle.setAttribute('aria-expanded',open?'true':'false');});
+        document.addEventListener('pointerdown',function(e){if(!menu.contains(e.target)){menuPanel.classList.add('hidden');menuToggle.setAttribute('aria-expanded','false');}},true);
+      }
     }
     if(actions&&!actions.querySelector('.team-lite-close')){
       var minimize=document.createElement('button');minimize.type='button';minimize.className='team-lite-minimize';minimize.title='Minimizar';minimize.setAttribute('aria-label','Minimizar');minimize.textContent='−';minimize.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();toggleTeamLitePanel();});actions.appendChild(minimize);
