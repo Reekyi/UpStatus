@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.0.26
+// @version      3.0.27-beta1
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -10,7 +10,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_openInTab
-// @updateURL    https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js
+// @updateURL    https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test/upstatus.user.js
 // @downloadURL  https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js
 // @connect      *
 // ==/UserScript==
@@ -38,7 +38,7 @@
 
   var key='upstatus_';
   var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
-  var CLOUD_SERVER='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus';
+  var CLOUD_SERVER='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test';
   var server=CLOUD_SERVER;
   var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';
   var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
@@ -512,6 +512,7 @@
   });
   style.textContent += '.up-update-prompt{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(4,8,15,.58);backdrop-filter:blur(3px)}.up-update-prompt-box{width:min(360px,calc(100vw - 32px));box-sizing:border-box;background:#19212e;border:1px solid #3a4b66;border-radius:14px;padding:18px;box-shadow:0 20px 55px #000b;color:#edf2fb}.up-update-prompt-title{font-size:16px;font-weight:800;margin-bottom:7px}.up-update-prompt-text{font-size:12px;line-height:1.5;color:#aebbd0}.up-update-prompt-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:16px}.up-update-prompt-actions button{border:1px solid #33445c;border-radius:7px;padding:7px 10px;background:#1e2b3f;color:#cbd7e7;cursor:pointer}.up-update-prompt-actions .up-update-prompt-now{background:#4f7dff;border-color:#4f7dff;color:#fff}.up-chat-list{flex:1 1 0;height:0;min-height:0;overflow-y:scroll;overflow-x:hidden;scroll-behavior:auto;overscroll-behavior:contain}.up-chat-compose{flex:0 0 auto;min-height:0}.up-chat-typing{flex:0 0 auto}';
   style.textContent += '.up-patch-link{display:block;margin-top:3px;font-size:10px;color:#7f9dca;text-decoration:none;cursor:pointer;width:max-content}.up-patch-link:hover{text-decoration:underline;color:#a9c7ff}.up-patch-modal{position:fixed;inset:0;z-index:2147483647;background:rgba(4,8,14,.62);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}.up-patch-dialog{width:min(430px,calc(100vw - 40px));max-height:min(560px,calc(100vh - 40px));overflow:auto;box-sizing:border-box;border:1px solid #33445c;border-radius:16px;background:linear-gradient(145deg,#172131,#101722);color:#edf2fb;box-shadow:0 18px 55px rgba(0,0,0,.5);padding:18px}.up-patch-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.up-patch-title{font-size:15px;font-weight:800}.up-patch-close{border:0;background:#273247;color:#c6d1e1;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:16px}.up-patch-close:hover{background:#35425a}.up-patch-version{margin-top:14px;padding-top:13px;border-top:1px solid #29374b}.up-patch-version:first-of-type{margin-top:0;padding-top:0;border-top:0}.up-patch-version-title{font-size:12px;font-weight:800;color:#dbe5f5}.up-patch-list{margin:7px 0 0;padding-left:17px;color:#9eacc0;font-size:11px;line-height:1.55}.up-patch-list li{margin:2px 0}.up-theme-light .up-patch-link{color:#356fe8}.up-theme-light .up-patch-link:hover{color:#245fc4}.up-theme-light .up-patch-modal{background:rgba(15,23,42,.35)}.up-theme-light .up-patch-dialog{background:#fff;border-color:#d7dee9;color:#1e293b;box-shadow:0 18px 55px rgba(0,0,0,.2)}.up-theme-light .up-patch-close{background:#eef2f7;color:#334155}.up-theme-light .up-patch-close:hover{background:#e2e8f0}.up-theme-light .up-patch-version{border-color:#e2e8f0}.up-theme-light .up-patch-version-title{color:#1e293b}.up-theme-light .up-patch-list{color:#64748b}';
+  style.textContent += '#upstatus-root .up-chat-item.lucca .up-chat-bubble{background:linear-gradient(145deg,#2a3549,#252f41)!important;border:1px solid #a855f7!important;box-shadow:0 0 0 1px rgba(168,85,247,.22),0 0 8px rgba(168,85,247,.35),0 4px 14px rgba(0,0,0,.18)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}#upstatus-root .up-chat-item.lucca .up-chat-meta b{color:#d8b4fe!important}#upstatus-root .up-chat-item.icaro .up-chat-bubble{background:linear-gradient(145deg,#2a3549,#252f41)!important;border:1px solid #f97316!important;box-shadow:0 0 0 1px rgba(249,115,22,.2),0 0 8px rgba(249,115,22,.32),0 4px 14px rgba(0,0,0,.18)!important}#upstatus-root .up-chat-item.icaro .up-chat-meta b{color:#fdba74!important}#upstatus-root .up-chat-lucca-alert{margin:4px 0 0!important;padding:3px 0!important;border:0!important;border-radius:0!important;background:transparent!important;color:#aebbd0!important;font-size:10px!important;font-weight:500!important;letter-spacing:0!important;box-shadow:none!important}#upstatus-root .up-chat-system-event.join span{background:transparent!important;border:0!important;color:#aebbd0!important;font-weight:500!important;padding:2px 0!important}';
   style.textContent += '.up-chat-bubble{position:relative;padding-bottom:8px}.up-chat-own-meta{display:inline-flex;align-items:center;gap:2px;margin-left:6px;vertical-align:baseline;line-height:10px;font-size:10px;float:right;position:relative;top:2px}.up-chat-read{font-size:10px;line-height:10px;letter-spacing:-1px}.up-chat-reactions{clear:both}.up-chat-profile-hover-since{font-size:9px;color:#718096;margin-top:1px}.up-health-ping{font-variant-numeric:tabular-nums;font-weight:700;color:#8fa0b8}.up-health-ping.good{color:#75dba0}.up-health-ping.warn{color:#e7c56a}.up-health-ping.bad{color:#ff8499}.up-health-ping.pending{color:#7f8ea4}.up-health-member{display:flex;align-items:center;justify-content:space-between;gap:8px}.up-health-member .up-health-ping{margin-left:auto}';
   var root=node('div',{id:'upstatus-root'});
   var bubble=node('button',{id:'upstatus-bubble',title:'Abrir UpStatus'});
@@ -1663,7 +1664,7 @@
       var readers=Array.isArray(m.readBy)?m.readBy.filter(function(n){return n!==member;}):[],title=readers.length?'Lido por: '+readers.join(', '):'Não lido ainda',tick=own?'<span class="up-chat-read '+(readers.length?'read':'')+'" data-readers="'+esc(title)+'">✓✓</span>':'';
       var meta=groupStart?'<div class="up-chat-meta"><b>'+esc(m.user)+'</b><span>'+fmtTime(m.createdAt)+'</span></div>':'';
       var bubble='<div class="up-chat-bubble">'+replyPreview(m)+meta+body+(own?'<span class="up-chat-own-meta">'+tick+'</span>':'')+'<div class="up-chat-reactions">'+renderReactions(m)+'</div></div>';
-      html+='<div class="up-chat-item '+(own?'own ':'')+(m.user==='Lucca'?'lucca ':'')+(groupStart?'group-start ':'')+(groupEnd?'group-end ':'')+(!groupStart&&!groupEnd?'group-middle ':'')+'" data-message-id="'+esc(m.id)+'">'+avatar+bubble+(own?'<button type="button" class="up-delete-action hidden">'+iconSvg('trash')+'</button>':'')+'</div>';
+      html+='<div class="up-chat-item '+(own?'own ':'')+(m.user==='Lucca'?'lucca ':'')+(m.user==='Ícaro'||m.user==='Icaro'?'icaro ':'')+(groupStart?'group-start ':'')+(groupEnd?'group-end ':'')+(!groupStart&&!groupEnd?'group-middle ':'')+'" data-message-id="'+esc(m.id)+'">'+avatar+bubble+(own?'<button type="button" class="up-delete-action hidden">'+iconSvg('trash')+'</button>':'')+'</div>';
     });
     list.innerHTML=html;
     list.querySelectorAll('[data-avatar-name]').forEach(function(img){hydrateAvatar(img,img.getAttribute('data-avatar-name'));});
