@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.7
+// @version      3.4.8
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -481,7 +481,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.7'
+  var CURRENT_VERSION='3.4.8'
   var UPDATE_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -3578,23 +3578,24 @@ function chatAvatarPresence(name){
       '#upstatus-team-lite-root.up-theme-light .team-lite-logout{background:#fce7eb!important;color:#9f1239!important}';
       document.head.appendChild(polish);
     }
-    // Team Lite 3.4.7: align participant chips with the in-call style and pin Join button.
-    if(!document.getElementById('team-lite-voice-chip-fix-347')){
-      var voiceFix=document.createElement('style');voiceFix.id='team-lite-voice-chip-fix-347';
+    // Team Lite 3.4.8: room .is-joined means someone is in the room, not that the viewer joined.
+    // Apply preview styling to every populated room, including rooms already active for another person.
+    if(!document.getElementById('team-lite-voice-chip-fix-348')){
+      var voiceFix=document.createElement('style');voiceFix.id='team-lite-voice-chip-fix-348';
       voiceFix.textContent=
-      '#upstatus-team-lite-root .up-voice-room:not(.is-joined) .up-voice-participants{position:relative!important;display:flex!important;align-items:center!important;flex-wrap:wrap!important;min-width:0!important;padding-right:84px!important;box-sizing:border-box!important}'+
-      '#upstatus-team-lite-root .up-voice-room:not(.is-joined) .up-voice-person{display:inline-flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:7px!important;width:auto!important;height:auto!important;min-width:0!important;min-height:38px!important;max-width:100%!important;padding:4px 12px 4px 5px!important;border:1px solid #344b60!important;border-radius:999px!important;background:#202c3d!important;color:#e5edf8!important;box-shadow:none!important;animation:none!important;overflow:visible!important;box-sizing:border-box!important}'+
-      '#upstatus-team-lite-root .up-voice-room:not(.is-joined) .up-voice-avatar{display:block!important;width:28px!important;height:28px!important;min-width:28px!important;min-height:28px!important;flex:0 0 28px!important;aspect-ratio:1/1!important;border:2px solid #526783!important;border-radius:50%!important;object-fit:cover!important;box-sizing:border-box!important}'+
-      '#upstatus-team-lite-root .up-voice-room:not(.is-joined) .up-voice-person b{display:block!important;max-width:160px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;color:#e5edf8!important;font-size:11px!important;font-weight:700!important;line-height:16px!important}'+
-      '#upstatus-team-lite-root .up-voice-room:not(.is-joined) .up-voice-person.is-speaking{border-color:#344b60!important;box-shadow:none!important;animation:none!important}'+
-      '#upstatus-team-lite-root .up-voice-room:not(.is-joined) .up-voice-person.is-speaking .up-voice-avatar{border-color:#4ade80!important;box-shadow:0 0 0 3px rgba(74,222,128,.24),0 0 14px rgba(74,222,128,.55)!important}'+
-      '#upstatus-team-lite-root .up-voice-room:not(.is-joined) .up-voice-actions{position:absolute!important;right:9px!important;top:50%!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;margin:0!important;padding:0!important;transform:translateY(-50%)!important;z-index:4!important}'+
-      '#upstatus-team-lite-root .up-voice-room:not(.is-joined) .up-voice-actions .up-voice-join{position:static!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;align-self:center!important;transform:none!important;margin:0!important;white-space:nowrap!important;flex:0 0 auto!important}'+
-      '#upstatus-team-lite-root.up-theme-light .up-voice-room:not(.is-joined) .up-voice-person{background:#fff!important;border:1px solid #c9d8ea!important;color:#233047!important;box-shadow:none!important}'+
-      '#upstatus-team-lite-root.up-theme-light .up-voice-room:not(.is-joined) .up-voice-person b{color:#233047!important}'+
-      '#upstatus-team-lite-root.up-theme-light .up-voice-room:not(.is-joined) .up-voice-person.is-speaking{background:#fff!important;border-color:#c9d8ea!important;box-shadow:none!important}'+
-      '#upstatus-team-lite-root.up-theme-light .up-voice-room:not(.is-joined) .up-voice-person.is-speaking .up-voice-avatar{border-color:#526783!important;box-shadow:0 0 0 3px rgba(74,222,128,.2)!important}';
-      document.head.appendChild(voiceFix);
+      '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty) .up-voice-participants{position:relative!important;display:flex!important;align-items:center!important;flex-wrap:wrap!important;min-width:0!important;padding-right:88px!important;box-sizing:border-box!important;overflow:visible!important}'+
+      '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty) .up-voice-person{position:relative!important;display:inline-flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:7px!important;width:auto!important;height:auto!important;min-width:0!important;min-height:38px!important;max-width:calc(100% - 2px)!important;flex:0 1 auto!important;padding:4px 12px 4px 5px!important;border:1px solid #344b60!important;border-radius:999px!important;background:#202c3d!important;color:#e5edf8!important;box-shadow:none!important;animation:none!important;overflow:visible!important;box-sizing:border-box!important}'+
+      '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty) .up-voice-avatar{display:block!important;width:28px!important;height:28px!important;min-width:28px!important;min-height:28px!important;flex:0 0 28px!important;aspect-ratio:1/1!important;border:2px solid #526783!important;border-radius:50%!important;object-fit:cover!important;box-sizing:border-box!important}'+
+      '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty) .up-voice-person b{display:block!important;max-width:160px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;color:#e5edf8!important;font-size:11px!important;font-weight:700!important;line-height:16px!important}'+
+      '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty) .up-voice-person.is-speaking{border:1px solid #344b60!important;border-radius:999px!important;box-shadow:none!important;animation:none!important}'+
+      '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty) .up-voice-person.is-speaking .up-voice-avatar{border-color:#4ade80!important;box-shadow:0 0 0 2px rgba(74,222,128,.2)!important}'+
+      '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty) .up-voice-actions{position:absolute!important;right:9px!important;top:50%!important;bottom:auto!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;margin:0!important;padding:0!important;transform:translateY(-50%)!important;z-index:4!important}'+
+      '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty) .up-voice-actions .up-voice-join{position:static!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;align-self:center!important;transform:none!important;margin:0!important;white-space:nowrap!important;flex:0 0 auto!important}'+
+      '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-room:not(.is-empty) .up-voice-person{background:#fff!important;border:1px solid #c9d8ea!important;border-radius:999px!important;color:#233047!important;box-shadow:none!important}'+
+      '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-room:not(.is-empty) .up-voice-person b{color:#233047!important}'+
+      '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-room:not(.is-empty) .up-voice-person.is-speaking{background:#fff!important;border:1px solid #c9d8ea!important;box-shadow:none!important}'+
+      '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-room:not(.is-empty) .up-voice-person.is-speaking .up-voice-avatar{border-color:#526783!important;box-shadow:0 0 0 2px rgba(74,222,128,.18)!important}';
+      (document.head||document.documentElement).appendChild(voiceFix);
     }
     var chatItems=chat.querySelectorAll('.up-chat-item');
     chatItems.forEach(function(item){var name=item.querySelector('.up-chat-meta b');if(!name)return;var n=(name.textContent||'').trim().toLowerCase();item.classList.toggle('lucca',n==='lucca');item.classList.toggle('icaro',n==='ícaro'||n==='icaro');});
