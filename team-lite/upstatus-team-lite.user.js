@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.26
+// @version      3.4.27
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -483,7 +483,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.26'
+  var CURRENT_VERSION='3.4.27'
   var UPDATE_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/team-lite-official/team-lite/upstatus-team-lite.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -4974,4 +4974,26 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
    }
  };
  voiceControlSyncVisibility();
+
+/* 3.4.27: final sender borders, neutral tails, and compact system events. */
+;(function installTeamLiteChatPolish3427(){
+  if(document.getElementById('upstatus-team-lite-chat-polish-3427'))return;
+  var st=document.createElement('style');
+  st.id='upstatus-team-lite-chat-polish-3427';
+  st.textContent=
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-item.lucca:not(.own) .up-chat-bubble{border:1px solid #a855f7!important;box-shadow:0 0 0 1px rgba(168,85,247,.14),0 4px 14px rgba(0,0,0,.16)!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-item.ycaro:not(.own) .up-chat-bubble{border:1px solid #f97316!important;box-shadow:0 0 0 1px rgba(249,115,22,.14),0 4px 14px rgba(0,0,0,.16)!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-item.group-start.lucca:not(.own) .up-chat-bubble:before,#upstatus-team-lite-root #upstatus-chat .up-chat-item.group-start.ycaro:not(.own) .up-chat-bubble:before{background:#2a3549!important;border:0!important;box-shadow:none!important;filter:none!important}'+
+    '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-item.group-start.lucca:not(.own) .up-chat-bubble:before,#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-item.group-start.ycaro:not(.own) .up-chat-bubble:before{background:#e7edf5!important;border:0!important;box-shadow:none!important;filter:none!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-system-event{display:flex!important;justify-content:center!important;align-items:center!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important;margin:2px 0!important;padding:1px 0!important;min-height:0!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-system-event span{display:inline-block!important;width:auto!important;max-width:88%!important;box-sizing:border-box!important;padding:2px 7px!important;margin:0!important;border:1px solid rgba(148,163,184,.22)!important;border-radius:999px!important;background:rgba(100,116,139,.08)!important;color:#8f9db2!important;font-size:10px!important;font-weight:500!important;line-height:1.25!important;letter-spacing:0!important;text-align:center!important;white-space:normal!important;box-shadow:none!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-system-event.join span{background:rgba(34,197,94,.06)!important;border-color:rgba(34,197,94,.18)!important;color:#8fae9e!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-system-event.leave span{background:rgba(148,163,184,.07)!important;border-color:rgba(148,163,184,.2)!important;color:#9aa4b4!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-system-event.clear span{background:rgba(79,125,255,.07)!important;border-color:rgba(79,125,255,.2)!important;color:#a9c2ff!important}'+
+    '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-system-event span{background:rgba(100,116,139,.04)!important;border-color:rgba(100,116,139,.2)!important;color:#64748b!important}'+
+    '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-system-event.join span{background:rgba(22,163,74,.045)!important;border-color:rgba(22,163,74,.18)!important;color:#527b62!important}'+
+    '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-system-event.leave span{background:rgba(100,116,139,.04)!important;border-color:rgba(100,116,139,.2)!important;color:#64748b!important}'+
+    '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-system-event.clear span{background:rgba(79,125,255,.05)!important;border-color:rgba(79,125,255,.2)!important;color:#5875ac!important}';
+  (document.head||document.documentElement).appendChild(st);
+})();
 })();
