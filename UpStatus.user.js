@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus - Sale Smartly
 // @namespace    upseller
-// @version      3.4.1-beta1
+// @version      3.4.1
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -11,7 +11,7 @@
 // @grant        GM_setValue
 // @grant        GM_openInTab
 // @updateURL    https://raw.githubusercontent.com/Reekyi/UpStatus/feature/upstatus-release-test-1/UpStatus.user.js
-// @downloadURL  https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js
+// @downloadURL  https://raw.githubusercontent.com/Reekyi/UpStatus/feature/upstatus-release-test-1/UpStatus.user.js
 // @connect      *
 // ==/UserScript==
 (function () {
@@ -342,7 +342,7 @@
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.1-beta1';
+  var CURRENT_VERSION='3.4.1';
   var UPDATE_URL=server+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
