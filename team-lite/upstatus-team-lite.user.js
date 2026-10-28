@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.0.22
+// @version      3.4.0.23
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -181,7 +181,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var role=GM_getValue(key+'role','implementation_user');
   // End a minimized Team Lite session after three minutes without activity.
   var teamLiteIdleTimer=null,teamLiteMinimizedAt=0,teamLiteSessionEnded=false;
-  var TEAM_LITE_IDLE_TIMEOUT=150000;
+  var TEAM_LITE_IDLE_TIMEOUT=180000;
   function teamLiteClearIdleTimer(){if(teamLiteIdleTimer){clearTimeout(teamLiteIdleTimer);teamLiteIdleTimer=null;}}
   async function teamLiteEndSession(){
     if(teamLiteSessionEnded||!token)return;
@@ -194,16 +194,19 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     chat.classList.add('hidden');card.classList.add('hidden');login();
   }
   function teamLiteStartIdleTimer(){
+    if(isTeamLiteEphemeralMember()&&teamLiteIdleTimer&&card.classList.contains('hidden'))return;
     teamLiteClearIdleTimer();if(!token||!member||!card.classList.contains('hidden'))return;
     teamLiteMinimizedAt=Date.now();
+    var idleDelay=isTeamLiteEphemeralMember()?150000:TEAM_LITE_IDLE_TIMEOUT;
     teamLiteIdleTimer=setTimeout(function(){
+      teamLiteIdleTimer=null;
       if(!token||!member||!card.classList.contains('hidden'))return;
-      if(Date.now()-teamLiteMinimizedAt>=TEAM_LITE_IDLE_TIMEOUT){if(isTeamLiteEphemeralMember())clearTeamLiteEphemeralChat();else teamLiteEndSession();}
-    },TEAM_LITE_IDLE_TIMEOUT);
+      if(Date.now()-teamLiteMinimizedAt>=idleDelay){if(isTeamLiteEphemeralMember())clearTeamLiteEphemeralChat();else teamLiteEndSession();}
+    },idleDelay);
   }
   function teamLiteTouchActivity(){
     if(!token||!member)return;
-    if(card.classList.contains('hidden'))teamLiteStartIdleTimer();
+    if(card.classList.contains('hidden')){if(!isTeamLiteEphemeralMember())teamLiteStartIdleTimer();else if(!teamLiteIdleTimer)teamLiteStartIdleTimer();}
     else{teamLiteClearIdleTimer();teamLiteMinimizedAt=0;teamLiteSessionEnded=false;}
   }
 
@@ -3482,21 +3485,21 @@ function chatAvatarPresence(name){
   function teamLiteClosePanel(){
     if(!chat.classList.contains('hidden')){try{stopTypingHeartbeat();broadcastChatPresence(false);}catch(e){}}
     if(isTeamLiteEphemeralMember())clearTeamLiteEphemeralChat();
-    card.classList.add('hidden');voiceControlSyncVisibility();teamLiteClearIdleTimer();teamLiteMinimizedAt=0;
+    card.classList.add('hidden');voiceControlSyncVisibility();teamLiteClearIdleTimer();teamLiteMinimizedAt=0;teamLiteStartIdleTimer();
   }
   function toggleTeamLitePanel(){
     if(!card.classList.contains('hidden')){
       if(!chat.classList.contains('hidden')){saveChatDraft();stopTypingHeartbeat();broadcastChatPresence(false);}
       card.classList.add('hidden');voiceControlSyncVisibility();teamLiteStartIdleTimer();return;
     }
-    teamLiteClearIdleTimer();teamLiteMinimizedAt=0;teamLiteSessionEnded=false;card.classList.remove('hidden');ensureTeamLiteChatIntegrated();
+    teamLiteClearIdleTimer();teamLiteMinimizedAt=0;teamLiteSessionEnded=false;card.classList.remove('hidden');ensureTeamLiteChatIntegrated();startTeamLiteEphemeralChatIfNeeded();
     if(!chat.querySelector('.up-chat-list'))openChat();
     else{chat.classList.remove('hidden');renderChat();setUnread(0);broadcastChatPresence(true);refresh();loadChat(true);pollChatTyping();markVisibleChatRead();}
     voiceControlSyncVisibility();
   }
   function openUpStatusPanel(){
     history.classList.add('hidden');health.classList.add('hidden');remoteOverlay.classList.add('hidden');card.classList.remove('hidden');
-    teamLiteClearIdleTimer();teamLiteMinimizedAt=0;teamLiteSessionEnded=false;ensureTeamLiteChatIntegrated();
+    teamLiteClearIdleTimer();teamLiteMinimizedAt=0;teamLiteSessionEnded=false;ensureTeamLiteChatIntegrated();startTeamLiteEphemeralChatIfNeeded();
     if(!chat.querySelector('.up-chat-list'))openChat();
     else{chat.classList.remove('hidden');renderChat();setUnread(0);broadcastChatPresence(true);refresh();loadChat(true);pollChatTyping();markVisibleChatRead();}
     voiceControlSyncVisibility();
