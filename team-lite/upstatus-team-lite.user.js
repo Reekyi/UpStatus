@@ -939,16 +939,44 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
       if(e.button!==undefined&&e.button!==0)return;
       var dir=edgeAt(e);if(!dir)return;
       e.preventDefault();e.stopPropagation();
-      resizing={dir:dir,startW:panel.offsetWidth,startH:panel.offsetHeight,startX:e.clientX,startY:e.clientY};
+      var rootRect=root.getBoundingClientRect(),panelRect=panel.getBoundingClientRect();
+      resizing={
+        dir:dir,startW:panel.offsetWidth,startH:panel.offsetHeight,
+        startX:e.clientX,startY:e.clientY,
+        anchorRight:panelRect.right,anchorBottom:panelRect.bottom,
+        rootLeft:rootRect.left,rootTop:rootRect.top,
+        rootUsesLeft:getComputedStyle(root).left!=='auto',
+        rootUsesTop:getComputedStyle(root).top!=='auto',
+        rootUsesRight:getComputedStyle(root).right!=='auto',
+        rootUsesBottom:getComputedStyle(root).bottom!=='auto',
+        positionedRoot:panel===card
+      };
       panel.style.cursor={n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize',ne:'nesw-resize',sw:'nesw-resize',nw:'nwse-resize',se:'nwse-resize'}[dir]||'';
       function move(ev){
         if(!resizing)return;
-        var dx=ev.clientX-resizing.startX,dy=ev.clientY-resizing.startY,nextW=resizing.startW,nextH=resizing.startH;
-        if(dir.indexOf('e')>=0)nextW=resizing.startW+dx;
-        if(dir.indexOf('w')>=0)nextW=resizing.startW-dx;
-        if(dir.indexOf('s')>=0)nextH=resizing.startH+dy;
-        if(dir.indexOf('n')>=0)nextH=resizing.startH-dy;
+        var dx=ev.clientX-resizing.startX,dy=ev.clientY-resizing.startY;
+        var b=panelBounds(panel),nextW=resizing.startW,nextH=resizing.startH;
+        var west=dir.indexOf('w')>=0,east=dir.indexOf('e')>=0,north=dir.indexOf('n')>=0,south=dir.indexOf('s')>=0;
+        if(east)nextW=resizing.startW+dx;
+        if(west)nextW=resizing.startW-dx;
+        if(south)nextH=resizing.startH+dy;
+        if(north)nextH=resizing.startH-dy;
+        nextW=Math.max(b.minW,Math.min(b.maxW,Math.round(nextW)));
+        nextH=Math.max(b.minH,Math.min(b.maxH,Math.round(nextH)));
         clampPanelSize(panel,nextW,nextH);
+        // Keep the opposite edge anchored when resizing the main floating panel.
+        if(resizing.positionedRoot&&(west||north)){
+          var actualW=panel.offsetWidth,actualH=panel.offsetHeight;
+          var left=resizing.rootLeft,top=resizing.rootTop;
+          if(west)left=resizing.anchorRight-actualW;
+          if(north)top=resizing.anchorBottom-actualH;
+          left=Math.max(0,Math.min(window.innerWidth-root.offsetWidth,left));
+          top=Math.max(0,Math.min(window.innerHeight-root.offsetHeight,top));
+          if(resizing.rootUsesLeft)root.style.setProperty('left',left+'px','important');
+          else if(resizing.rootUsesRight)root.style.setProperty('right',Math.max(0,window.innerWidth-(left+root.offsetWidth))+'px','important');
+          if(resizing.rootUsesTop)root.style.setProperty('top',top+'px','important');
+          else if(resizing.rootUsesBottom)root.style.setProperty('bottom',Math.max(0,window.innerHeight-(top+root.offsetHeight))+'px','important');
+        }
         ev.preventDefault();
       }
       function done(){
@@ -958,6 +986,12 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
         if(resizing){
           GM_setValue(key+'width_'+storageKey,panel.offsetWidth);
           GM_setValue(key+'height_'+storageKey,panel.offsetHeight);
+          if(resizing.positionedRoot){
+            GM_setValue(key+'right',root.style.right||'');
+            GM_setValue(key+'bottom',root.style.bottom||'');
+            if(root.style.left&&root.style.left!=='auto')GM_setValue(key+'left',root.style.left);
+            if(root.style.top&&root.style.top!=='auto')GM_setValue(key+'top',root.style.top);
+          }
         }
         resizing=null;panel.style.cursor='';
       }
