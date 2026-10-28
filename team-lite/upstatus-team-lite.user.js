@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.16
+// @version      3.4.17
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -4889,8 +4889,8 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
  '#upstatus-team-lite-root #upstatus-card{margin:0!important;transform:none!important}'+
  '#upstatus-team-lite-root #upstatus-card .up-login,#upstatus-team-lite-root #upstatus-card .up-login-wrap,#upstatus-team-lite-root #upstatus-card .up-login-panel{box-sizing:border-box!important;width:100%!important;max-width:100%!important;margin:0!important}'+
  '#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-head{padding-right:0!important;margin:0 0 8px!important;min-height:0!important}'+
- '#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-title{padding-right:150px!important;box-sizing:border-box!important}'+
- '#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-actions{top:6px!important;right:7px!important;bottom:auto!important;left:auto!important;align-self:flex-start!important;transform:none!important;margin:0!important}'+
+ '#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-title{padding-right:0!important;box-sizing:border-box!important;max-width:calc(100% - 150px)!important;overflow-wrap:normal!important}'+
+ '#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-actions{position:absolute!important;top:8px!important;right:8px!important;bottom:auto!important;left:auto!important;align-self:flex-start!important;transform:none!important;margin:0!important;z-index:5!important}'+
  '#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-actions button{width:30px!important;height:30px!important;min-height:30px!important;padding:5px!important}'+
  '#upstatus-team-lite-root .up-voice-control-bubble{position:fixed!important;right:24px!important;bottom:24px!important;left:auto!important;top:auto!important;display:none!important;align-items:center!important;justify-content:center!important;gap:6px!important;min-width:0!important;min-height:0!important;padding:7px 9px 7px 36px!important;border:1px solid #405673!important;border-radius:15px!important;background:#172233!important;box-shadow:0 12px 34px #0008!important;z-index:2147483647!important;cursor:grab!important;touch-action:none!important}'+
  '#upstatus-team-lite-root .up-voice-control-bubble.show{display:flex!important}'+
@@ -4903,3 +4903,6 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
  '#upstatus-team-lite-root .up-voice-control-bubble:not(.show){display:none!important}';
  (document.head||document.documentElement).appendChild(st);
 })();
+
+/* 3.4.17: keep call title readable and pin active-call controls to the top-right. */
+;(function(){if(document.getElementById('team-lite-voice-header-fix-3417'))return;var st=document.createElement('style');st.id='team-lite-voice-header-fix-3417';st.textContent='#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-head{display:block!important;position:relative!important;min-height:40px!important;padding-right:0!important}#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-head>div:first-child{display:block!important;max-width:100%!important;padding-right:0!important}#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-title{display:block!important;width:auto!important;max-width:100%!important;padding-right:0!important;white-space:normal!important;overflow-wrap:normal!important}#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-actions{top:0!important;right:0!important;transform:none!important;z-index:10!important}#upstatus-team-lite-root .up-voice-room.is-joined .up-voice-state{max-width:calc(100% - 145px)!important;white-space:normal!important}';(document.head||document.documentElement).appendChild(st);})();
