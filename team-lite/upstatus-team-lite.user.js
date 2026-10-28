@@ -10,8 +10,8 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_openInTab
-// @updateURL    https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js
-// @downloadURL  https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js
+// @updateURL    https://github.com/Reekyi/UpStatus/raw/refs/heads/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js
+// @downloadURL  https://github.com/Reekyi/UpStatus/raw/refs/heads/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js
 // @connect      *
 // ==/UserScript==
 (function () {
