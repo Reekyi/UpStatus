@@ -3523,6 +3523,9 @@ function chatAvatarPresence(name){
     card.querySelectorAll('.up-chat-btn,.up-history-btn,.up-settings-btn,.up-settings-menu,.up-logout,.up-statuses,.up-reasons,.up-notice,.up-update,.up-team-title-row,.up-team').forEach(function(el){el.remove();});
     var title=card.querySelector('.up-head .up-title');if(title)title.textContent='UpStatus Team';
     var actions=card.querySelector('.up-head .up-actions');
+    if(actions&&!actions.querySelector('.team-lite-logout')){
+      var logout=document.createElement('button');logout.type='button';logout.className='team-lite-logout';logout.title='Sair da conta';logout.setAttribute('aria-label','Sair da conta');logout.textContent='Sair';logout.style.cssText='border:0;border-radius:7px;padding:7px 10px;height:34px;background:#3a2730;color:#ffb0bc;cursor:pointer;font:inherit;font-size:12px;font-weight:600';logout.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();voiceRoomLeave();broadcastChatPresence(false);teamLiteEndSession();});actions.appendChild(logout);
+    }
     if(actions&&!actions.querySelector('.team-lite-close')){
       var minimize=document.createElement('button');minimize.type='button';minimize.className='team-lite-minimize';minimize.title='Minimizar';minimize.setAttribute('aria-label','Minimizar');minimize.textContent='−';minimize.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();toggleTeamLitePanel();});actions.appendChild(minimize);
       var close=document.createElement('button');close.type='button';close.className='team-lite-close';close.title='Fechar painel';close.setAttribute('aria-label','Fechar painel');close.textContent='×';close.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();teamLiteClosePanel();});actions.appendChild(close);
