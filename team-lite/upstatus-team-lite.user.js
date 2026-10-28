@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.0.24
+// @version      3.4.0.25
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -4506,7 +4506,7 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
     '#upstatus-team-lite-root #upstatus-chat .up-chat-library,#upstatus-team-lite-root #upstatus-chat .up-chat-back{display:none!important}'+
     '#upstatus-team-lite-root #upstatus-chat .up-chat-recording-label{position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;display:none!important;flex:0 1 auto!important;align-self:center!important;max-width:100%!important;min-width:0!important;margin:0 6px 0 0!important;padding:4px 6px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;box-sizing:border-box!important;z-index:2!important}'+
     '#upstatus-team-lite-root #upstatus-chat .up-chat-recording-label.show{display:inline-flex!important}'+
-    '#upstatus-team-lite-root .up-chat-emoji-menu{display:flex!important;flex-direction:column!important;min-height:0!important;overflow:hidden!important}'+
+    '#upstatus-team-lite-root .up-chat-emoji-menu:not(.hidden){display:flex!important;flex-direction:column!important;min-height:0!important;overflow:hidden!important}'+
     '#upstatus-team-lite-root .up-chat-emoji-categories{position:relative!important;z-index:5!important;display:flex!important;flex:0 0 32px!important;min-height:32px!important;height:32px!important;align-items:center!important;overflow:visible!important;background:#182130!important;padding:0 0 5px!important;box-sizing:border-box!important}'+
     '#upstatus-team-lite-root .up-chat-emoji-categories button{position:relative!important;z-index:6!important;flex:0 0 28px!important;min-width:28px!important;height:28px!important}'+
     '#upstatus-team-lite-root .up-chat-emoji-grid{position:relative!important;z-index:1!important;display:block!important;flex:1 1 0!important;min-height:0!important;height:0!important;overflow-y:auto!important;overflow-x:hidden!important;padding-top:2px!important;box-sizing:border-box!important}'+
