@@ -4791,16 +4791,16 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
 })();
 
 
-/* 3.4.12: joined voice room has no join button; controls anchor top-right. */
+/* 3.4.12: keep the active-room controls and resize anchoring consistent with runtime state. */
 ;(function installTeamLiteJoinedVoiceAndDragFix3412(){
  if(document.getElementById('upstatus-team-lite-joined-voice-drag-fix-3412'))return;
  var st=document.createElement('style');st.id='upstatus-team-lite-joined-voice-drag-fix-3412';
  st.textContent=
  '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-actions .up-voice-join,#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-join{display:none!important}'+
- '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined{position:relative!important;padding-top:10px!important;box-sizing:border-box!important}'+
- '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-head{position:relative!important;display:block!important;min-height:28px!important;padding-right:0!important;margin:0 0 8px!important;box-sizing:border-box!important}'+
- '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-actions{position:absolute!important;top:8px!important;right:8px!important;left:auto!important;bottom:auto!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:4px!important;width:auto!important;max-width:calc(100% - 100px)!important;margin:0!important;padding:0!important;transform:none!important;z-index:5!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined{position:relative!important;padding-top:48px!important;box-sizing:border-box!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-head{position:relative!important;display:block!important;min-height:30px!important;padding-right:0!important;margin:0 0 8px!important;box-sizing:border-box!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-actions{position:absolute!important;top:7px!important;right:8px!important;left:auto!important;bottom:auto!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:4px!important;width:auto!important;max-width:100%!important;margin:0!important;padding:0!important;transform:none!important;z-index:5!important}'+
  '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-actions button:not(.up-voice-join){position:static!important;flex:0 0 auto!important;margin:0!important;transform:none!important}'+
- '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-persons,#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-participants{position:relative!important;margin-top:6px!important}';
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-persons,#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-participants{position:relative!important;margin-top:6px!important;padding-right:0!important}';
  (document.head||document.documentElement).appendChild(st);
 })();
