@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.10
+// @version      3.4.11
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -481,7 +481,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.10'
+  var CURRENT_VERSION='3.4.11'
   var UPDATE_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -2651,7 +2651,7 @@ function chatAvatarPresence(name){
     setUnread(0);
     if(chat.parentNode!==card)card.appendChild(chat);chat.classList.remove('hidden');card.classList.remove('hidden');history.classList.add('hidden');broadcastChatPresence(true);refresh();
     chat.setAttribute('data-upstatus-chat-member',member);
-    chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">●</span> 0 online · 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'</div></div><div class="up-chat-lucca-alert hidden">🔴 ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregando…</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">×</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando áudio <span class="up-chat-recording-time">0:00</span></div><div class="up-chat-input-wrap"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">'+iconSvg('clip')+'</button><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">'+iconSvg('mic')+'</button><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-scroll-latest" aria-label="Ir para a última mensagem" title="Ir para a última mensagem"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-6-6 6 6 6-6"/></svg></button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.rtf" hidden></div></div><div class="up-chat-lightbox hidden"><img alt="Imagem ampliada"></div>';
+    chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">●</span> 0 online · 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'</div></div><div class="up-chat-lucca-alert hidden">🔴 ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregando…</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">×</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-input-wrap"><div class="up-chat-recording-label" aria-live="polite">Gravando áudio <span class="up-chat-recording-time">0:00</span></div><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">'+iconSvg('clip')+'</button><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">'+iconSvg('mic')+'</button><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-scroll-latest" aria-label="Ir para a última mensagem" title="Ir para a última mensagem"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-6-6 6 6 6-6"/></svg></button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.rtf" hidden></div></div><div class="up-chat-lightbox hidden"><img alt="Imagem ampliada"></div>';
     var chatOpeningLoader=document.createElement('div');chatOpeningLoader.className='up-chat-opening-loader';chatOpeningLoader.innerHTML='<span class="up-chat-opening-spinner"></span>';chatOpeningLoader.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,16,28,.98);z-index:999;pointer-events:none';if(getComputedStyle(chat).position==='static')chat.style.position='relative';var openingLoaderStyle=document.getElementById('up-chat-opening-loader-style');if(!openingLoaderStyle){openingLoaderStyle=document.createElement('style');openingLoaderStyle.id='up-chat-opening-loader-style';openingLoaderStyle.textContent='.up-chat-opening-spinner{width:26px;height:26px;border:3px solid rgba(160,180,210,.25);border-top-color:#8baeff;border-radius:50%;animation:upChatOpenSpin .65s linear infinite}@keyframes upChatOpenSpin{to{transform:rotate(360deg)}}';document.head.appendChild(openingLoaderStyle);}chat.appendChild(chatOpeningLoader);
     var profileBtn=chat.querySelector('.up-chat-profile-btn');if(profileBtn){hydrateAvatar(profileBtn.querySelector('img'),member);profileBtn.onclick=function(e){e.stopPropagation();openProfileModal();};profileBtn.addEventListener('mouseenter',function(e){showChatProfileHover(profileBtn.querySelector('img'),member,e);});profileBtn.addEventListener('mousemove',positionChatProfileHover);profileBtn.addEventListener('mouseleave',hideChatProfileHover);}
     var input=chat.querySelector('.up-chat-input'),photoBtn=chat.querySelector('.up-chat-attach'),photoFile=chat.querySelector('.up-chat-file'),emojiBtn=chat.querySelector('.up-chat-emoji-btn'),emojiMenu=chat.querySelector('.up-chat-emoji-menu'),recordBtn=chat.querySelector('.up-chat-record');
@@ -4726,41 +4726,27 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
 })();
 
 
-/* 3.4.10: keep recording status inside the composer and align voice-room join action. */
-;(function installTeamLiteRecordingAndVoiceFix3410(){
- if(document.getElementById('upstatus-team-lite-record-voice-fix-3410'))return;
- var st=document.createElement('style');st.id='upstatus-team-lite-record-voice-fix-3410';
+
+
+/* 3.4.11: deterministic composer and voice-room layout. */
+;(function installTeamLiteComposerVoiceFix3411(){
+ if(document.getElementById('upstatus-team-lite-composer-voice-fix-3411'))return;
+ var st=document.createElement('style');st.id='upstatus-team-lite-composer-voice-fix-3411';
  st.textContent=
- '#upstatus-team-lite-root #upstatus-chat .up-chat-compose{position:relative!important;display:flex!important;flex-direction:column!important;min-width:0!important;box-sizing:border-box!important}'+
- '#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap{position:relative!important;display:flex!important;flex-flow:row nowrap!important;align-items:center!important;gap:4px!important;min-width:0!important;width:100%!important;max-width:100%!important;overflow:hidden!important;box-sizing:border-box!important}'+
- '#upstatus-team-lite-root #upstatus-chat .up-chat-recording-label{position:static!important;inset:auto!important;transform:none!important;display:none!important;flex:1 1 auto!important;order:3!important;align-self:center!important;min-width:0!important;max-width:100%!important;margin:0 4px!important;padding:0 4px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;box-sizing:border-box!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;line-height:1.2!important;pointer-events:none!important}'+
- '#upstatus-team-lite-root #upstatus-chat .up-chat-recording-label.show{display:inline-flex!important;align-items:center!important}'+
- '#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap:has(.up-chat-recording-label.show) .up-chat-input{display:none!important}'+
- '#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap:has(.up-chat-recording-label.show) .up-chat-emoji-btn,#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap:has(.up-chat-recording-label.show) .up-chat-attach{display:none!important}'+
- '#upstatus-team-lite-root #upstatus-chat .up-chat-record{flex:0 0 34px!important;width:34px!important;min-width:34px!important;height:34px!important;order:4!important;margin-left:auto!important}'+
- '#upstatus-team-lite-root #upstatus-chat .up-chat-send{flex:0 0 34px!important;width:34px!important;min-width:34px!important;height:34px!important;order:5!important}'+
- '#upstatus-team-lite-root #upstatus-chat .up-chat-recording-label.show~.up-chat-input-wrap{gap:4px!important}'+
- '#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap .up-chat-recording-label{order:3!important}'+
- '#upstatus-team-lite-root #upstatus-chat .up-chat-compose>.up-chat-recording-label{display:none!important}'+
- '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined){position:relative!important;display:block!important;box-sizing:border-box!important;padding:10px!important;min-width:0!important;overflow:hidden!important}'+
- '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined) .up-voice-head{position:relative!important;display:block!important;width:100%!important;min-width:0!important;min-height:28px!important;padding:0 94px 0 0!important;margin:0 0 8px!important;box-sizing:border-box!important}'+
- '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined) .up-voice-actions{position:absolute!important;top:0!important;right:0!important;bottom:auto!important;left:auto!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;width:auto!important;max-width:88px!important;margin:0!important;padding:0!important;z-index:3!important}'+
- '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined) .up-voice-actions .up-voice-join{position:static!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;align-self:center!important;flex:0 0 auto!important;min-height:30px!important;height:30px!important;padding:5px 10px!important;margin:0!important;transform:none!important;white-space:nowrap!important;line-height:1!important}'+
- '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined) .up-voice-persons,#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined) .up-voice-participants{position:relative!important;display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:6px!important;width:100%!important;min-width:0!important;margin-top:4px!important;box-sizing:border-box!important}';
+ '#upstatus-team-lite-root #upstatus-chat .up-chat-compose{display:block!important;width:100%!important;min-width:0!important;box-sizing:border-box!important}'+
+ '#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap{position:relative!important;display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;gap:5px!important;width:100%!important;min-width:0!important;max-width:100%!important;min-height:44px!important;overflow:hidden!important;box-sizing:border-box!important}'+
+ '#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap>.up-chat-recording-label{display:none!important;position:static!important;inset:auto!important;transform:none!important;flex:1 1 auto!important;order:2!important;align-items:center!important;justify-content:flex-start!important;min-width:0!important;max-width:none!important;margin:0!important;padding:0 5px!important;overflow:hidden!important;white-space:nowrap!important;text-overflow:ellipsis!important;line-height:1.25!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;pointer-events:none!important}'+
+ '#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap>.up-chat-recording-label.show{display:flex!important}'+
+ '#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap:has(>.up-chat-recording-label.show)>.up-chat-input{display:none!important}'+
+ '#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap:has(>.up-chat-recording-label.show)>.up-chat-emoji-btn,#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap:has(>.up-chat-recording-label.show)>.up-chat-attach{display:none!important}'+
+ '#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap>.up-chat-record{order:3!important;flex:0 0 34px!important;width:34px!important;min-width:34px!important;height:34px!important;margin:0!important}'+
+ '#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap>.up-chat-send{order:4!important;flex:0 0 34px!important;width:34px!important;min-width:34px!important;height:34px!important;margin:0!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined){display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-rows:auto auto!important;column-gap:10px!important;row-gap:8px!important;align-items:start!important;position:relative!important;min-width:0!important;padding:10px!important;overflow:hidden!important;box-sizing:border-box!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined)>.up-voice-head{grid-column:1!important;grid-row:1!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;gap:3px!important;position:static!important;width:auto!important;min-width:0!important;min-height:34px!important;margin:0!important;padding:0!important;box-sizing:border-box!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined)>.up-voice-actions{grid-column:2!important;grid-row:1!important;position:static!important;inset:auto!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:4px!important;width:auto!important;max-width:none!important;margin:0!important;padding:0!important;transform:none!important;z-index:2!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined)>.up-voice-actions>.up-voice-join{position:static!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;width:auto!important;min-width:0!important;max-width:none!important;height:30px!important;min-height:30px!important;margin:0!important;padding:5px 10px!important;transform:none!important;white-space:nowrap!important;line-height:1!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined)>.up-voice-participants{grid-column:1/-1!important;grid-row:2!important;position:static!important;display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:6px!important;width:100%!important;min-width:0!important;margin:0!important;padding:0!important;overflow:visible!important;box-sizing:border-box!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined)>.up-voice-message{grid-column:1/-1!important;grid-row:3!important;min-width:0!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined)>.up-screen-share-panel{grid-column:1/-1!important;min-width:0!important}';
  (document.head||document.documentElement).appendChild(st);
-})();
-
-
-;(function moveTeamLiteRecordingLabelIntoComposer3410(){
- function move(){
-  document.querySelectorAll('#upstatus-team-lite-root #upstatus-chat .up-chat-compose').forEach(function(compose){
-   var label=compose.querySelector(':scope>.up-chat-recording-label');
-   var wrap=compose.querySelector(':scope>.up-chat-input-wrap');
-   var record=wrap&&wrap.querySelector('.up-chat-record');
-   if(label&&wrap&&!wrap.contains(label)&&record)wrap.insertBefore(label,record);
-  });
- }
- move();
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',move,{once:true});
- new MutationObserver(move).observe(document.documentElement,{childList:true,subtree:true});
 })();
