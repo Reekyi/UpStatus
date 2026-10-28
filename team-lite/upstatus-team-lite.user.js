@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.21
+// @version      3.4.22
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -4938,5 +4938,42 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
    voiceControlSyncVisibility();
  };
  if(voiceControlBubble&&document.body&&voiceControlBubble.parentElement!==document.body)document.body.appendChild(voiceControlBubble);
+ voiceControlSyncVisibility();
+})();
+
+/* 3.4.22: hide the floating call controls outside an active, minimized call and remove decorative tail. */
+;(function(){
+ if(document.getElementById('team-lite-minimized-call-guard-3422'))return;
+ var st=document.createElement('style');st.id='team-lite-minimized-call-guard-3422';
+ st.textContent=
+ '#upstatus-team-lite-root .up-voice-control-bubble:before,#upstatus-team-lite-root .up-voice-control-bubble:after,body>.up-voice-control-bubble:before,body>.up-voice-control-bubble:after{content:none!important;display:none!important}'+
+ '#upstatus-team-lite-root .up-voice-control-bubble{border-radius:14px!important;padding-left:36px!important}'+
+ '#upstatus-team-lite-root .up-voice-control-bubble:not(.show){display:none!important}'+
+ 'body>.up-voice-control-bubble:not(.show){display:none!important}';
+ (document.head||document.documentElement).appendChild(st);
+ var priorSync=voiceControlSyncVisibility;
+ voiceControlSyncVisibility=function(){
+   if(voiceControlBubble&&document.body&&voiceControlBubble.parentElement!==document.body)document.body.appendChild(voiceControlBubble);
+   if(typeof priorSync==='function')priorSync();
+   if(!voiceControlBubble)return;
+   var panelOpen=!!((card&&!card.classList.contains('hidden'))||(history&&!history.classList.contains('hidden'))||(chat&&!chat.classList.contains('hidden'))||(health&&!health.classList.contains('hidden')));
+   var callActive=!!(voiceRoom&&voiceRoom.active);
+   var show=callActive&&!panelOpen;
+   voiceControlBubble.classList.toggle('show',show);
+   voiceControlBubble.style.setProperty('display',show?'flex':'none','important');
+   voiceControlBubble.setAttribute('aria-hidden',show?'false':'true');
+ };
+ // The screen-share icon is an action button, not a "currently sharing" indicator.
+ // Its active visual state must only reflect an actual local stream.
+ var priorScreenRender=screenShareRender;
+ screenShareRender=function(){
+   if(typeof priorScreenRender==='function')priorScreenRender();
+   var btn=card&&card.querySelector('.up-screen-share-toggle');
+   if(btn){
+     btn.classList.toggle('is-sharing',!!(screenShare&&screenShare.active&&screenShare.stream));
+     btn.setAttribute('aria-pressed',screenShare&&screenShare.active&&screenShare.stream?'true':'false');
+     btn.title=screenShare&&screenShare.active&&screenShare.stream?'Parar compartilhamento de tela':'Compartilhar tela';
+   }
+ };
  voiceControlSyncVisibility();
 })();
