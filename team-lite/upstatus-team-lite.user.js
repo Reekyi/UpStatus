@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.0.21
+// @version      3.4.0.22
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -181,7 +181,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var role=GM_getValue(key+'role','implementation_user');
   // End a minimized Team Lite session after three minutes without activity.
   var teamLiteIdleTimer=null,teamLiteMinimizedAt=0,teamLiteSessionEnded=false;
-  var TEAM_LITE_IDLE_TIMEOUT=180000;
+  var TEAM_LITE_IDLE_TIMEOUT=150000;
   function teamLiteClearIdleTimer(){if(teamLiteIdleTimer){clearTimeout(teamLiteIdleTimer);teamLiteIdleTimer=null;}}
   async function teamLiteEndSession(){
     if(teamLiteSessionEnded||!token)return;
@@ -198,7 +198,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     teamLiteMinimizedAt=Date.now();
     teamLiteIdleTimer=setTimeout(function(){
       if(!token||!member||!card.classList.contains('hidden'))return;
-      if(Date.now()-teamLiteMinimizedAt>=TEAM_LITE_IDLE_TIMEOUT)teamLiteEndSession();
+      if(Date.now()-teamLiteMinimizedAt>=TEAM_LITE_IDLE_TIMEOUT){if(isTeamLiteEphemeralMember())clearTeamLiteEphemeralChat();else teamLiteEndSession();}
     },TEAM_LITE_IDLE_TIMEOUT);
   }
   function teamLiteTouchActivity(){
@@ -208,6 +208,13 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   }
 
   var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
+  // Team Lite guests get a temporary, client-side chat view. Server messages remain untouched.
+  var teamLiteChatSessionStartedAt=0,teamLiteChatSessionActive=false;
+  function isTeamLiteEphemeralMember(){var n=String(member||'').toLowerCase().replace(/[^a-z0-9]/g,'');return n.indexOf('igor')===0||n.indexOf('luca')===0||n.indexOf('lucca')===0;}
+  function beginTeamLiteEphemeralChatSession(){if(!isTeamLiteEphemeralMember())return;teamLiteChatSessionStartedAt=Date.now();teamLiteChatSessionActive=true;chatCache=[];chatLastRenderKey='';chatFastSince='';chatInitialized=false;chatReplyTo=null;clearChatDraft();}
+  function clearTeamLiteEphemeralChat(){if(!isTeamLiteEphemeralMember())return;teamLiteChatSessionActive=false;teamLiteChatSessionStartedAt=0;chatCache=[];chatLastRenderKey='';chatFastSince='';chatInitialized=false;chatReplyTo=null;chatContextMessageId=null;clearChatDraft();var input=chat.querySelector('.up-chat-input');if(input)input.value='';var list=chat.querySelector('.up-chat-list');if(list){list.innerHTML='<div class="up-history-empty">Nenhuma mensagem nesta sessão.</div>';list.removeAttribute('data-render-key');}chat.setAttribute('data-upstatus-chat-member',member);}
+  function startTeamLiteEphemeralChatIfNeeded(){if(isTeamLiteEphemeralMember()&&!teamLiteChatSessionActive)beginTeamLiteEphemeralChatSession();}
+
   var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,chatUserScrollInterruptedUntil=0,pendingChatNotificationMessages=[],chatScrollObserver=null,chatScrollObservedList=null,chatLightbox=null,chatHasUnreadBelow=false;
   var remoteResultCache={},remoteResultWaiters={};
   var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
@@ -1464,7 +1471,7 @@ function renderChatText(text){
   }
   function realtimeMessage(record){return normalizeChatMessage(record);}
   function upsertRealtimeMessage(record){
-    var m=realtimeMessage(record);if(!m)return;
+    var m=realtimeMessage(record);if(!m)return;if(isTeamLiteEphemeralMember()&&(!teamLiteChatSessionActive||((Date.parse(m.createdAt)||0)<teamLiteChatSessionStartedAt-1500)))return;
     var idx=chatCache.findIndex(function(x){return String(x.id)===m.id;});
     if(idx<0){
       idx=chatCache.findIndex(function(x){
@@ -2227,6 +2234,10 @@ function renderChatText(text){
           return mergeChatMessage(existing,m);
         });
       }
+      if(isTeamLiteEphemeralMember()){
+        if(!teamLiteChatSessionActive)beginTeamLiteEphemeralChatSession();
+        nextMessages=nextMessages.filter(function(m){var ts=Date.parse(m.createdAt||m.created_at||0)||0;return ts>=teamLiteChatSessionStartedAt-1500;});
+      }
       updateLuccaPresence(!!d.luccaOnline);
       var latestLuccaJoin=null;
       for(var li=nextMessages.length-1;li>=0;li--){if(nextMessages[li].type==='system'&&nextMessages[li].systemType==='lucca_join'){latestLuccaJoin=nextMessages[li];break;}}
@@ -2596,6 +2607,7 @@ function chatAvatarPresence(name){
 
   function openChat(){
     if(!token)return;
+    startTeamLiteEphemeralChatIfNeeded();
     chatUserScrollInterruptedUntil=0;
     if(quickChatBubble)quickChatBubble.classList.remove('has-unread');
     // Keep the chat DOM and its listeners alive between openings. Only the first open after F5 builds it.
@@ -2612,7 +2624,7 @@ function chatAvatarPresence(name){
     setUnread(0);
     if(chat.parentNode!==card)card.appendChild(chat);chat.classList.remove('hidden');card.classList.remove('hidden');history.classList.add('hidden');broadcastChatPresence(true);refresh();
     chat.setAttribute('data-upstatus-chat-member',member);
-    chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><button type="button" class="up-chat-profile-btn" title="Alterar foto de perfil"><img alt="Minha foto"></button><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">●</span> 0 online · 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'<button class="up-chat-library" type="button" title="Biblioteca de imagens" aria-label="Biblioteca de imagens">'+iconSvg('folder')+'</button>'+'<button class="up-chat-back" type="button" aria-label="Voltar" title="Voltar">←</button></div></div><div class="up-chat-lucca-alert hidden">🔴 ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregando…</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">×</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando áudio <span class="up-chat-recording-time">0:00</span></div><div class="up-chat-input-wrap"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">'+iconSvg('clip')+'</button><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">'+iconSvg('mic')+'</button><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-scroll-latest" aria-label="Ir para a última mensagem" title="Ir para a última mensagem"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-6-6 6 6 6-6"/></svg></button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.rtf" hidden></div></div><div class="up-chat-lightbox hidden"><img alt="Imagem ampliada"></div>';
+    chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">●</span> 0 online · 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'</div></div><div class="up-chat-lucca-alert hidden">🔴 ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregando…</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">×</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando áudio <span class="up-chat-recording-time">0:00</span></div><div class="up-chat-input-wrap"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">'+iconSvg('clip')+'</button><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">'+iconSvg('mic')+'</button><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-scroll-latest" aria-label="Ir para a última mensagem" title="Ir para a última mensagem"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-6-6 6 6 6-6"/></svg></button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.rtf" hidden></div></div><div class="up-chat-lightbox hidden"><img alt="Imagem ampliada"></div>';
     var chatOpeningLoader=document.createElement('div');chatOpeningLoader.className='up-chat-opening-loader';chatOpeningLoader.innerHTML='<span class="up-chat-opening-spinner"></span>';chatOpeningLoader.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,16,28,.98);z-index:999;pointer-events:none';if(getComputedStyle(chat).position==='static')chat.style.position='relative';var openingLoaderStyle=document.getElementById('up-chat-opening-loader-style');if(!openingLoaderStyle){openingLoaderStyle=document.createElement('style');openingLoaderStyle.id='up-chat-opening-loader-style';openingLoaderStyle.textContent='.up-chat-opening-spinner{width:26px;height:26px;border:3px solid rgba(160,180,210,.25);border-top-color:#8baeff;border-radius:50%;animation:upChatOpenSpin .65s linear infinite}@keyframes upChatOpenSpin{to{transform:rotate(360deg)}}';document.head.appendChild(openingLoaderStyle);}chat.appendChild(chatOpeningLoader);
     var profileBtn=chat.querySelector('.up-chat-profile-btn');if(profileBtn){hydrateAvatar(profileBtn.querySelector('img'),member);profileBtn.onclick=function(e){e.stopPropagation();openProfileModal();};profileBtn.addEventListener('mouseenter',function(e){showChatProfileHover(profileBtn.querySelector('img'),member,e);});profileBtn.addEventListener('mousemove',positionChatProfileHover);profileBtn.addEventListener('mouseleave',hideChatProfileHover);}
     var input=chat.querySelector('.up-chat-input'),photoBtn=chat.querySelector('.up-chat-attach'),photoFile=chat.querySelector('.up-chat-file'),emojiBtn=chat.querySelector('.up-chat-emoji-btn'),emojiMenu=chat.querySelector('.up-chat-emoji-menu'),recordBtn=chat.querySelector('.up-chat-record');
@@ -2652,7 +2664,7 @@ function chatAvatarPresence(name){
         if(menu&&menu.classList.contains('show')&&!menu.contains(e.target))hideChatContextMenu();
       });
     }
-    chat.querySelector('.up-chat-back').onclick=function(e){e.stopPropagation();closeChat(true);};
+    var chatBack=chat.querySelector('.up-chat-back');if(chatBack)chatBack.onclick=function(e){e.stopPropagation();closeChat(true);};
     var clearBtn=chat.querySelector('.up-chat-clear');if(clearBtn)clearBtn.onclick=clearChatRicardo;
     var lightbox=chat.querySelector('.up-chat-lightbox');if(lightbox)chatLightbox=lightbox;
     chat.querySelector('.up-chat-send').onclick=function(e){e.stopPropagation();sendChat()};
@@ -3461,12 +3473,16 @@ function chatAvatarPresence(name){
     card.querySelectorAll('.up-chat-btn,.up-history-btn,.up-settings-btn,.up-settings-menu,.up-logout,.up-statuses,.up-reasons,.up-notice,.up-update,.up-team-title-row,.up-team').forEach(function(el){el.remove();});
     var title=card.querySelector('.up-head .up-title');if(title)title.textContent='UpStatus Team';
     var actions=card.querySelector('.up-head .up-actions');
-    if(actions&&!actions.querySelector('.team-lite-head-status')){
-      var badge=document.createElement('span');badge.className='team-lite-head-status';badge.innerHTML='<i></i> Online';actions.appendChild(badge);
+    if(actions&&!actions.querySelector('.team-lite-close')){
       var minimize=document.createElement('button');minimize.type='button';minimize.className='team-lite-minimize';minimize.title='Minimizar';minimize.setAttribute('aria-label','Minimizar');minimize.textContent='−';minimize.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();toggleTeamLitePanel();});actions.appendChild(minimize);
-      var close=document.createElement('button');close.type='button';close.className='team-lite-close';close.title='Fechar painel';close.setAttribute('aria-label','Fechar painel');close.textContent='×';close.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();toggleTeamLitePanel();});actions.appendChild(close);
+      var close=document.createElement('button');close.type='button';close.className='team-lite-close';close.title='Fechar painel';close.setAttribute('aria-label','Fechar painel');close.textContent='×';close.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();teamLiteClosePanel();});actions.appendChild(close);
     }
     card.classList.add('team-lite-chat-mode');chat.classList.remove('hidden');
+  }
+  function teamLiteClosePanel(){
+    if(!chat.classList.contains('hidden')){try{stopTypingHeartbeat();broadcastChatPresence(false);}catch(e){}}
+    if(isTeamLiteEphemeralMember())clearTeamLiteEphemeralChat();
+    card.classList.add('hidden');voiceControlSyncVisibility();teamLiteClearIdleTimer();teamLiteMinimizedAt=0;
   }
   function toggleTeamLitePanel(){
     if(!card.classList.contains('hidden')){
@@ -4473,5 +4489,25 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
     '#upstatus-team-lite-root #upstatus-chat .up-chat-item.own .up-chat-bubble.has-text:has(>.up-chat-text)>.up-chat-own-meta{gap:3px!important}'+
     '#upstatus-team-lite-root #upstatus-chat .up-chat-item:not(.own) .up-chat-bubble.has-text:has(>.up-chat-text)>.up-chat-meta{display:flex!important;flex:0 0 auto!important;width:100%!important;margin:0 0 2px!important}'+
     '#upstatus-team-lite-root #upstatus-chat .up-chat-item:not(.own) .up-chat-bubble.has-text:has(>.up-chat-text)>.up-chat-reactions,#upstatus-team-lite-root #upstatus-chat .up-chat-item.own .up-chat-bubble.has-text:has(>.up-chat-text)>.up-chat-reactions{flex:0 0 auto!important;width:100%!important;order:100!important}';
+  (document.head||document.documentElement).appendChild(st);
+})();
+
+/* 3.4.0.22: requested Team Lite guest behavior and compact controls. */
+;(function applyTeamLiteGuestPolish(){
+  if(document.getElementById('upstatus-team-lite-guest-polish-v3422'))return;
+  var st=document.createElement('style');st.id='upstatus-team-lite-guest-polish-v3422';
+  st.textContent=
+    '#upstatus-team-lite-root .team-lite-head-status{display:none!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-profile-btn{display:none!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-title-wrap{margin-left:0!important;gap:0!important;justify-content:flex-start!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-library,#upstatus-team-lite-root #upstatus-chat .up-chat-back{display:none!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-recording-label{position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;display:none!important;flex:0 1 auto!important;align-self:center!important;max-width:100%!important;min-width:0!important;margin:0 6px 0 0!important;padding:4px 6px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;box-sizing:border-box!important;z-index:2!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-recording-label.show{display:inline-flex!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-emoji-menu{display:flex!important;flex-direction:column!important;min-height:0!important;overflow:hidden!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-emoji-categories{position:relative!important;z-index:5!important;display:flex!important;flex:0 0 32px!important;min-height:32px!important;height:32px!important;align-items:center!important;overflow:visible!important;background:#182130!important;padding:0 0 5px!important;box-sizing:border-box!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-emoji-categories button{position:relative!important;z-index:6!important;flex:0 0 28px!important;min-width:28px!important;height:28px!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-emoji-grid{position:relative!important;z-index:1!important;display:block!important;flex:1 1 0!important;min-height:0!important;height:0!important;overflow-y:auto!important;overflow-x:hidden!important;padding-top:2px!important;box-sizing:border-box!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-emoji-group{position:relative!important;display:flex!important;flex-wrap:wrap!important;align-content:flex-start!important;scroll-margin-top:4px!important}'+
+    '#upstatus-team-lite-root #upstatus-chat .up-chat-emoji-heading{position:relative!important;z-index:2!important;display:block!important;flex:0 0 100%!important;width:100%!important;background:#182130!important;padding-top:7px!important}';
   (document.head||document.documentElement).appendChild(st);
 })();
