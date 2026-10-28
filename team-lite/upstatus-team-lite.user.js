@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.24
+// @version      3.4.25
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -224,7 +224,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
   // Team Lite guests get a temporary, client-side chat view. Server messages remain untouched.
   var teamLiteChatSessionStartedAt=0,teamLiteChatSessionActive=false;
-  function isTeamLiteEphemeralMember(){var n=String(member||'').toLowerCase().replace(/[^a-z0-9]/g,'');return n.indexOf('igor')===0||n.indexOf('luca')===0;}
+  function isTeamLiteEphemeralMember(){var n=String(member||'').toLowerCase().replace(/[^a-z0-9]/g,'');return n==='igor'||n==='luca';}
   function beginTeamLiteEphemeralChatSession(){if(!isTeamLiteEphemeralMember())return;teamLiteChatSessionStartedAt=Date.now();teamLiteChatSessionActive=true;chatCache=[];chatLastRenderKey='';chatFastSince='';chatInitialized=false;chatReplyTo=null;clearChatDraft();}
   function clearTeamLiteEphemeralChat(){if(!isTeamLiteEphemeralMember())return;teamLiteChatSessionActive=false;teamLiteChatSessionStartedAt=0;chatCache=[];chatLastRenderKey='';chatFastSince='';chatInitialized=false;chatReplyTo=null;chatContextMessageId=null;clearChatDraft();var input=chat.querySelector('.up-chat-input');if(input)input.value='';var list=chat.querySelector('.up-chat-list');if(list){list.innerHTML='<div class="up-history-empty">Nenhuma mensagem nesta sessão.</div>';list.removeAttribute('data-render-key');}chat.setAttribute('data-upstatus-chat-member',member);}
   function startTeamLiteEphemeralChatIfNeeded(){if(isTeamLiteEphemeralMember()&&!teamLiteChatSessionActive)beginTeamLiteEphemeralChatSession();}
@@ -483,7 +483,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.24'
+  var CURRENT_VERSION='3.4.25'
   var UPDATE_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
