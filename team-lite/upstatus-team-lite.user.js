@@ -4786,7 +4786,7 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
 /* 3.4.13: fix room controls without shifting participants; persist one drag coordinate system. */
 ;(function installTeamLiteJoinedVoiceAndDragFix3413(){
  if(document.getElementById('upstatus-team-lite-joined-voice-drag-fix-3413'))return;
- var st=document.createElement('style');st.id='upstatus-team-lite-joined-voice-drag-fix-3412';
+ var st=document.createElement('style');st.id='upstatus-team-lite-joined-voice-drag-fix-3413';
  st.textContent=
  '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-actions .up-voice-join,#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-join{display:none!important}'+
  '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined{position:relative!important;box-sizing:border-box!important}'+
