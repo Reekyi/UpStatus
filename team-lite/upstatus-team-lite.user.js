@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.11
+// @version      3.4.12
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -481,7 +481,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.11'
+  var CURRENT_VERSION='3.4.12'
   var UPDATE_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -3606,10 +3606,15 @@ function chatAvatarPresence(name){
       dragHead.dataset.teamLiteDrag='1';dragHead.style.cursor='grab';
       dragHead.addEventListener('pointerdown',function(e){
         if(e.button!==0||e.target.closest('button,input,a'))return;
-        var rect=root.getBoundingClientRect();var sx=e.clientX,sy=e.clientY,sl=root.offsetLeft,st=root.offsetTop;
-        root.style.left=rect.left+'px';root.style.top=rect.top+'px';root.style.right='auto';root.style.bottom='auto';
-        function move(ev){root.style.left=Math.max(0,Math.min(window.innerWidth-root.offsetWidth,rect.left+ev.clientX-sx))+'px';root.style.top=Math.max(0,Math.min(window.innerHeight-root.offsetHeight,rect.top+ev.clientY-sy))+'px';}
-        function up(){window.removeEventListener('pointermove',move,true);window.removeEventListener('pointerup',up,true);}
+        var rect=root.getBoundingClientRect();var sx=e.clientX,sy=e.clientY;
+        var startRight=Math.max(0,window.innerWidth-rect.right),startBottom=Math.max(0,window.innerHeight-rect.bottom);
+        root.style.left='auto';root.style.top='auto';root.style.right=startRight+'px';root.style.bottom=startBottom+'px';
+        function move(ev){
+          var nextRight=Math.max(0,Math.min(window.innerWidth-root.offsetWidth,startRight-(ev.clientX-sx)));
+          var nextBottom=Math.max(0,Math.min(window.innerHeight-root.offsetHeight,startBottom-(ev.clientY-sy)));
+          root.style.right=nextRight+'px';root.style.bottom=nextBottom+'px';
+        }
+        function up(){window.removeEventListener('pointermove',move,true);window.removeEventListener('pointerup',up,true);GM_setValue(key+'right',root.style.right);GM_setValue(key+'bottom',root.style.bottom);}
         window.addEventListener('pointermove',move,true);window.addEventListener('pointerup',up,true);
       });
     }
@@ -4748,5 +4753,20 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
  '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined)>.up-voice-participants{grid-column:1/-1!important;grid-row:2!important;position:static!important;display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:6px!important;width:100%!important;min-width:0!important;margin:0!important;padding:0!important;overflow:visible!important;box-sizing:border-box!important}'+
  '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined)>.up-voice-message{grid-column:1/-1!important;grid-row:3!important;min-width:0!important}'+
  '#upstatus-team-lite-root #upstatus-card .up-voice-room:not(.is-empty):not(.is-joined)>.up-screen-share-panel{grid-column:1/-1!important;min-width:0!important}';
+ (document.head||document.documentElement).appendChild(st);
+})();
+
+
+/* 3.4.12: joined voice room has no join button; controls anchor top-right. */
+;(function installTeamLiteJoinedVoiceAndDragFix3412(){
+ if(document.getElementById('upstatus-team-lite-joined-voice-drag-fix-3412'))return;
+ var st=document.createElement('style');st.id='upstatus-team-lite-joined-voice-drag-fix-3412';
+ st.textContent=
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-actions .up-voice-join,#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-join{display:none!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined{position:relative!important;padding-top:10px!important;box-sizing:border-box!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-head{position:relative!important;display:block!important;min-height:28px!important;padding-right:0!important;margin:0 0 8px!important;box-sizing:border-box!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-actions{position:absolute!important;top:8px!important;right:8px!important;left:auto!important;bottom:auto!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:4px!important;width:auto!important;max-width:calc(100% - 100px)!important;margin:0!important;padding:0!important;transform:none!important;z-index:5!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-actions button:not(.up-voice-join){position:static!important;flex:0 0 auto!important;margin:0!important;transform:none!important}'+
+ '#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-persons,#upstatus-team-lite-root #upstatus-card .up-voice-room.is-joined .up-voice-participants{position:relative!important;margin-top:6px!important}';
  (document.head||document.documentElement).appendChild(st);
 })();
