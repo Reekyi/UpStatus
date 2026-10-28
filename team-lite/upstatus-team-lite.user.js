@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.0.25
+// @version      3.4.0.26
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -35,7 +35,7 @@
   var upCall={pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,overlay:null,callId:'',peer:'',role:'',initiator:'',participants:[],pendingInvites:{},pendingOffers:{},pendingInvite:null,peers:{},active:false,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0,waitingForConnection:false,notice:'',ringtoneTimer:null,ringtoneCtx:null,ringtoneAllowed:false,ringtoneLoadId:0,ringtoneSource:null,ringtoneGain:null,presenceTimer:null};
   
 var upCallDirectory={};
-var voiceControlBubble=null,voiceControlAvatar=null,voiceControlWave=null,voiceControlSpeakerName=''; var voiceRoom={id:'upstatus-team-lite-room-v1',sessionId:'vr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10),active:false,muted:false,speakersMuted:false,stream:null,peers:{},participants:{},timer:null,joining:false,audioContext:null,levelTimer:null,sessionStartedAt:0,sessionTimer:null,pingTimer:null,pingMs:null,lastSpeaker:'',currentSpeaker:'',recoveryAttempts:{},recoveryTimers:{}};
+var voiceControlBubble=null,voiceControlAvatar=null,voiceControlWave=null,voiceControlSpeakerName=''; var voiceRoom={id:'upstatus-team-room-v1',sessionId:'vr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10),active:false,muted:false,speakersMuted:false,stream:null,peers:{},participants:{},timer:null,joining:false,audioContext:null,levelTimer:null,sessionStartedAt:0,sessionTimer:null,pingTimer:null,pingMs:null,lastSpeaker:'',currentSpeaker:'',recoveryAttempts:{},recoveryTimers:{}};
 var VOICE_ROOM_EVENT='voice_room_signal';
   // Dedicated video mesh for screen sharing. Do not reuse voiceRoom.stream or audio peers.
   var SCREEN_ROOM_EVENT='upstatus_screen_signal_3_1_1_beta8';
