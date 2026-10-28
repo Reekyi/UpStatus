@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.3
+// @version      3.4.4
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -481,7 +481,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.3'
+  var CURRENT_VERSION='3.4.4'
   var UPDATE_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -3523,6 +3523,9 @@ function chatAvatarPresence(name){
     card.querySelectorAll('.up-chat-btn,.up-history-btn,.up-settings-btn,.up-settings-menu,.up-logout,.up-statuses,.up-reasons,.up-notice,.up-update,.up-team-title-row,.up-team').forEach(function(el){el.remove();});
     var title=card.querySelector('.up-head .up-title');if(title)title.textContent='UpStatus Team';
     var actions=card.querySelector('.up-head .up-actions');
+    if(actions&&!actions.querySelector('.team-lite-theme')){
+      var themeButton=document.createElement('button');themeButton.type='button';themeButton.className='team-lite-theme';themeButton.title='Alternar modo claro/escuro';themeButton.setAttribute('aria-label',themeButton.title);themeButton.textContent=theme==='dark'?'☼':'☾';themeButton.style.cssText='border:0;border-radius:7px;padding:7px 9px;height:34px;min-width:34px;background:#273247;color:#e6edf7;cursor:pointer;font-size:17px';themeButton.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();toggleTheme();themeButton.textContent=theme==='dark'?'☼':'☾';});actions.appendChild(themeButton);
+    }
     if(actions&&!actions.querySelector('.team-lite-logout')){
       var logout=document.createElement('button');logout.type='button';logout.className='team-lite-logout';logout.title='Sair da conta';logout.setAttribute('aria-label','Sair da conta');logout.textContent='Sair';logout.style.cssText='border:0;border-radius:7px;padding:7px 10px;height:34px;background:#3a2730;color:#ffb0bc;cursor:pointer;font:inherit;font-size:12px;font-weight:600';logout.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();voiceRoomLeave();broadcastChatPresence(false);teamLiteEndSession();});actions.appendChild(logout);
     }
@@ -3531,6 +3534,19 @@ function chatAvatarPresence(name){
       var close=document.createElement('button');close.type='button';close.className='team-lite-close';close.title='Fechar painel';close.setAttribute('aria-label','Fechar painel');close.textContent='×';close.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();teamLiteClosePanel();});actions.appendChild(close);
     }
     card.classList.add('team-lite-chat-mode');
+    // Permite arrastar o painel pelo cabeçalho sem interferir nos botões.
+    var dragHead=card.querySelector('.up-head');
+    if(dragHead&&!dragHead.dataset.teamLiteDrag){
+      dragHead.dataset.teamLiteDrag='1';dragHead.style.cursor='grab';
+      dragHead.addEventListener('pointerdown',function(e){
+        if(e.button!==0||e.target.closest('button,input,a'))return;
+        var rect=root.getBoundingClientRect();var sx=e.clientX,sy=e.clientY,sl=root.offsetLeft,st=root.offsetTop;
+        root.style.left=rect.left+'px';root.style.top=rect.top+'px';root.style.right='auto';root.style.bottom='auto';
+        function move(ev){root.style.left=Math.max(0,Math.min(window.innerWidth-root.offsetWidth,rect.left+ev.clientX-sx))+'px';root.style.top=Math.max(0,Math.min(window.innerHeight-root.offsetHeight,rect.top+ev.clientY-sy))+'px';}
+        function up(){window.removeEventListener('pointermove',move,true);window.removeEventListener('pointerup',up,true);}
+        window.addEventListener('pointermove',move,true);window.addEventListener('pointerup',up,true);
+      });
+    }
     if(isAuthenticated())chat.classList.remove('hidden');else chat.classList.add('hidden');
   }
   function teamLiteClosePanel(){
