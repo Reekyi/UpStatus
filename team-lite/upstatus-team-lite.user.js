@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.0.17
+// @version      3.4.0.18
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -96,17 +96,19 @@ function voiceRoomRender(){
   if(voiceControlAvatar&&speakerName&&voiceControlSpeakerName!==speakerName){voiceControlSpeakerName=speakerName;voiceControlAvatar.alt=speakerName;hydrateAvatar(voiceControlAvatar,speakerName);}
   if(voiceControlBubble){voiceControlBubble.classList.toggle('is-speaking',!!speakingName);voiceControlBubble.classList.toggle('is-muted',!!voiceRoom.muted);var muteBtn=voiceControlBubble.querySelector('.up-voice-control-mute');if(muteBtn){var bubbleMuteSvg=iconSvg(voiceRoom.muted?'mic-off':'mic');if(muteBtn.innerHTML!==bubbleMuteSvg)muteBtn.innerHTML=bubbleMuteSvg;muteBtn.title=voiceRoom.muted?'Ativar microfone':'Silenciar microfone';muteBtn.setAttribute('aria-label',muteBtn.title);muteBtn.classList.toggle('is-muted',voiceRoom.muted);}var speakersBtn=voiceControlBubble.querySelector('.up-voice-control-speakers');if(speakersBtn){var miniSpeakerSvg=voiceRoom.speakersMuted?'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m16 9 5 6m0-6-5 6"/></svg>':'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';if(speakersBtn.innerHTML!==miniSpeakerSvg)speakersBtn.innerHTML=miniSpeakerSvg;speakersBtn.title=voiceRoom.speakersMuted?'Ativar ᵤio da chamada':'Silenciar ᵤio da chamada';speakersBtn.setAttribute('aria-label',speakersBtn.title);speakersBtn.classList.toggle('is-muted',voiceRoom.speakersMuted);}var waveLevel=speakingName?Math.max(0,Math.min(1,Number((voiceRoom.participants[speakingName]||{}).level||0)/32)):0;if(voiceControlWave){voiceControlWave.style.opacity=String((speakingName?0.22:0.13)+waveLevel*(speakingName?0.68:0.07));voiceControlWave.style.setProperty('--voice-level',String(waveLevel));}}
   screenShareRender();
-  // 3.4.0.17: mantém o histórico e o compositor dentro da altura útil do painel.
-  (function fixTeamLiteChatFlexBounds(){
+  // 3.4.0.18: layout em grid impede o histórico de empurrar/sobrepor o compositor.
+  (function fixTeamLiteChatGrid(){
     var st=document.createElement('style');
-    st.id='upstatus-team-lite-chat-bounds-v3417';
+    st.id='upstatus-team-lite-chat-grid-v3418';
     st.textContent=
-      '#upstatus-team-lite-root #upstatus-card.team-lite-chat-mode{box-sizing:border-box;min-height:0;overflow:hidden}'+
-      '#upstatus-team-lite-root #upstatus-card.team-lite-chat-mode #upstatus-chat{box-sizing:border-box;flex:1 1 0%;min-height:0;height:auto;max-height:100%;overflow:hidden}'+
-      '#upstatus-team-lite-root #upstatus-chat .up-chat-list{box-sizing:border-box;flex:1 1 0%;min-height:0;height:0;max-height:100%;overflow-y:auto;overflow-x:hidden}'+
-      '#upstatus-team-lite-root #upstatus-chat .up-chat-compose{position:relative;z-index:2;box-sizing:border-box;display:block;flex:0 0 auto;min-height:42px;max-height:none;margin-top:8px;padding:0;overflow:visible}'+
-      '#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap{box-sizing:border-box;width:100%;min-width:0;max-width:100%}'+
-      '#upstatus-team-lite-root #upstatus-chat .up-chat-input{box-sizing:border-box;min-width:0;max-width:100%}';
+      '#upstatus-team-lite-root #upstatus-card.team-lite-chat-mode{display:flex!important;flex-direction:column!important;min-height:0!important;overflow:hidden!important}'+
+      '#upstatus-team-lite-root #upstatus-card.team-lite-chat-mode #upstatus-chat{display:grid!important;grid-template-rows:auto minmax(0,1fr) auto!important;flex:1 1 0%!important;min-width:0!important;min-height:0!important;height:0!important;max-height:none!important;overflow:hidden!important}'+
+      '#upstatus-team-lite-root #upstatus-chat .up-history-head{grid-row:1;min-width:0;min-height:0}'+
+      '#upstatus-team-lite-root #upstatus-chat .up-chat-list{grid-row:2;display:flex!important;flex-direction:column!important;width:100%!important;min-width:0!important;min-height:0!important;height:auto!important;max-height:none!important;overflow-y:auto!important;overflow-x:hidden!important}'+
+      '#upstatus-team-lite-root #upstatus-chat .up-chat-compose{grid-row:3;position:relative!important;display:flex!important;flex:0 0 auto!important;width:100%!important;min-width:0!important;min-height:42px!important;margin-top:8px!important;overflow:visible!important}'+
+      '#upstatus-team-lite-root #upstatus-chat .up-chat-typing{grid-row:3;min-width:0}'+
+      '#upstatus-team-lite-root #upstatus-chat .up-chat-input-wrap{flex:1 1 auto;min-width:0;width:auto;max-width:100%}'+
+      '#upstatus-team-lite-root #upstatus-chat .up-chat-input{flex:1 1 auto;min-width:0;width:100%;max-width:100%}';
     (document.head||document.documentElement).appendChild(st);
   })();
   voiceControlSyncVisibility();
