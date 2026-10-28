@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.8
+// @version      3.4.9
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -481,7 +481,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.8'
+  var CURRENT_VERSION='3.4.9'
   var UPDATE_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -4665,5 +4665,62 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
     '#upstatus-team-lite-root .up-chat-emoji-grid{position:relative!important;z-index:1!important;display:block!important;flex:1 1 0!important;min-height:0!important;height:0!important;overflow-y:auto!important;overflow-x:hidden!important;padding-top:2px!important;box-sizing:border-box!important}'+
     '#upstatus-team-lite-root .up-chat-emoji-group{position:relative!important;display:flex!important;flex-wrap:wrap!important;align-content:flex-start!important;scroll-margin-top:4px!important}'+
     '#upstatus-team-lite-root .up-chat-emoji-heading{position:relative!important;z-index:2!important;display:block!important;flex:0 0 100%!important;width:100%!important;background:#182130!important;padding-top:7px!important}';
+  (document.head||document.documentElement).appendChild(st);
+})();
+
+
+/* 3.4.9: consolidated Team Lite light-theme contrast pass. This stylesheet is deliberately last to win over legacy overrides. */
+;(function installTeamLiteThemeAudit349(){
+  if(document.getElementById('upstatus-team-lite-theme-audit-349'))return;
+  var st=document.createElement('style');st.id='upstatus-team-lite-theme-audit-349';
+  st.textContent=
+  '#upstatus-team-lite-root.up-theme-light,#upstatus-team-lite-root.up-theme-light #upstatus-card.team-lite-chat-mode{color:#1e293b!important;background:#f7f9fc!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card.team-lite-chat-mode{background:linear-gradient(145deg,#fff 0%,#f3f6fb 100%)!important;border-color:#cbd5e1!important;box-shadow:0 18px 42px rgba(15,23,42,.16)!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-title,#upstatus-team-lite-root.up-theme-light #upstatus-card .up-head .up-title,#upstatus-team-lite-root.up-theme-light #upstatus-card .up-head .up-title *{color:#172033!important;text-shadow:none!important;opacity:1!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-you,#upstatus-team-lite-root.up-theme-light #upstatus-card .up-head .up-you{color:#526176!important;text-shadow:none!important;opacity:1!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-head,#upstatus-team-lite-root.up-theme-light #upstatus-card .up-head *{text-shadow:none!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .team-lite-theme,#upstatus-team-lite-root.up-theme-light #upstatus-card .team-lite-minimize,#upstatus-team-lite-root.up-theme-light #upstatus-card .team-lite-close{background:#e8edf4!important;border:1px solid #cbd5e1!important;color:#334155!important;box-shadow:none!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .team-lite-logout{background:#fce7eb!important;border:1px solid #f3bdc8!important;color:#9f1239!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-room{background:#f8fbff!important;border:1px solid #c5d5e8!important;color:#1e293b!important;box-shadow:0 2px 8px rgba(15,23,42,.06)!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-room *{text-shadow:none!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-title,#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-title *{color:#1e293b!important;opacity:1!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-state,#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-message,#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-empty,#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-empty *{color:#64748b!important;opacity:1!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-connection{color:#087443!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-person,#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-room.is-joined .up-voice-person{background:#fff!important;border:1px solid #9fb4ce!important;border-radius:999px!important;color:#1e293b!important;box-shadow:0 1px 3px rgba(15,23,42,.08)!important;opacity:1!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-person b,#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-person span{color:#1e293b!important;opacity:1!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-person.is-speaking,#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-room.is-joined .up-voice-person.is-speaking{background:#eff6ff!important;border:1px solid #3b82f6!important;border-radius:999px!important;color:#1e293b!important;box-shadow:0 0 0 2px rgba(59,130,246,.14)!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-person.is-speaking .up-voice-avatar{border:2px solid #3b82f6!important;box-shadow:0 0 0 2px rgba(59,130,246,.16)!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-person .up-voice-avatar{border-radius:50%!important;object-fit:cover!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-actions button:not(.up-voice-join):not(.up-voice-leave),#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-control-bubble button:not(.up-voice-control-leave){background:#e7eef8!important;border:1px solid #c5d3e5!important;color:#334155!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-actions button svg,#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-control-bubble button svg{color:currentColor!important;stroke:currentColor!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-actions .up-voice-join{background:#168153!important;border:1px solid #168153!important;color:#fff!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-actions .up-voice-leave,#upstatus-team-lite-root.up-theme-light #upstatus-card .up-voice-control-bubble .up-voice-control-leave{background:#c62845!important;border:1px solid #c62845!important;color:#fff!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat,#upstatus-team-lite-root.up-theme-light #upstatus-chat *{text-shadow:none!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat{background:transparent!important;color:#1e293b!important;border-color:#d7dee9!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-history-head,#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-history-head *{color:#1e293b!important;opacity:1!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-history-title{color:#172033!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-header-info,#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-date-divider{color:#64748b!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-list{background:transparent!important;color:#1e293b!important;scrollbar-color:#cbd5e1 transparent!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-text,#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-text *{color:#1e293b!important;opacity:1!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-meta,#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-meta b,#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-incoming-time,#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-own-time{color:#526176!important;opacity:1!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-item:not(.own) .up-chat-bubble{background:#fff!important;border-color:#d3dce8!important;color:#1e293b!important;box-shadow:0 1px 4px rgba(15,23,42,.06)!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-item.own .up-chat-bubble{background:#dbeafe!important;border-color:#a9c7f3!important;color:#1e293b!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-bubble:before{background:#fff!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-item.own .up-chat-bubble:before{background:#dbeafe!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-read{color:#64748b!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-read.read{color:#1677ff!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-system-event,#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-system-event span{background:transparent!important;border:0!important;box-shadow:none!important;color:#64748b!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-input-wrap{background:#fff!important;border:1px solid #cbd5e1!important;box-shadow:0 1px 4px rgba(15,23,42,.05)!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-input{background:transparent!important;color:#1e293b!important;caret-color:#1e293b!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-input::placeholder{color:#94a3b8!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-emoji-btn,#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-attach,#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-record{background:transparent!important;border-color:transparent!important;color:#475569!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-send{background:#4f7dff!important;border:0!important;color:#fff!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-quoted,#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-reply-bar,#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-reaction{background:#eef2f7!important;border-color:#cbd5e1!important;color:#334155!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-context-menu,#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-emoji-menu{background:#fff!important;border-color:#cbd5e1!important;color:#1e293b!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-context-action{color:#1e293b!important}'+
+  '#upstatus-team-lite-root.up-theme-light #upstatus-chat .up-chat-context-action:hover{background:#eef2f7!important}'+
+  '#upstatus-team-lite-root.up-theme-light .up-update-prompt-box,#upstatus-team-lite-root.up-theme-light .up-patch-dialog{background:#fff!important;border-color:#cbd5e1!important;color:#1e293b!important}'+
+  '#upstatus-team-lite-root.up-theme-light .up-update-prompt-title,#upstatus-team-lite-root.up-theme-light .up-update-prompt-text,#upstatus-team-lite-root.up-theme-light .up-patch-title,#upstatus-team-lite-root.up-theme-light .up-patch-version-title,#upstatus-team-lite-root.up-theme-light .up-patch-list{color:#1e293b!important}'+
+  '#upstatus-team-lite-root.up-theme-light .up-update-prompt-actions button,#upstatus-team-lite-root.up-theme-light .up-patch-close{background:#e8edf4!important;border-color:#cbd5e1!important;color:#334155!important}';
   (document.head||document.documentElement).appendChild(st);
 })();
