@@ -154,4 +154,9 @@ assert(source.includes("JSON.stringify(p.candidate).length>4096"),"oversized ICE
 assert(source.includes("(p.type==='offer'||p.type==='answer'||p.type==='ice')&&p.to!==member"),"voice and screen-share negotiation events must be directly targeted");
 assert(source.includes("function screenShareReceive(p)")&&source.includes("function voiceRoomReceive(p)"),"voice and screen-share handlers must remain present after hardening");
 
+
+assert(source.includes("p.participants.length>32"),"call roster broadcasts must be capped to 32 participants");
+assert(source.includes("p.callId.length>160")&&source.includes("p.from.length>80"),"call roster identifiers must be bounded");
+assert(source.includes("list.slice(0,32)")&&source.includes("out.length<32"),"merged call participants must be bounded and deduplicated");
+
 console.log("Chat regression tests passed: chat, updater, notifications, untrusted Realtime payload handling, and targeted media signaling.");
