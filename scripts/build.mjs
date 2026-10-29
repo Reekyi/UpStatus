@@ -35,11 +35,11 @@ function renderUser({version,test}){
   const fn=test?TEST_FUNCTION:PROD_FUNCTION;
   const name=test?"UpStatus TEST - Sale Smartly":"UpStatus - Sale Smartly";
   const namespace=test?"upseller-test":"upseller";
-  const prefix=test?"upstatus_test_":"upstatus_";
+  const prefix=test?"upstatus_test_":"upstatus_screen_share_beta8_";
   const topic=test?TEST_TOPIC:PROD_TOPIC;
   const ringtoneChannel=test?TEST_RINGTONE_CHANNEL:PROD_RINGTONE_CHANNEL;
   const ringtoneStorage=test?TEST_RINGTONE_STORAGE:PROD_RINGTONE_STORAGE;
-  const cloud="https://"+PROJECT+".supabase.co/functions/v1/"+fn;
+  const cloud=test?"https://"+PROJECT+".supabase.co/functions/v1/"+fn:"https://"+PROJECT+".supabase.co/functions/v1/upstatus-screen-share-3-1-1-beta10";
   const updateUrl=cloud+"/upstatus.user.js";
   return render(userTemplate,{
     "__UPSTATUS_NAME__":name,
