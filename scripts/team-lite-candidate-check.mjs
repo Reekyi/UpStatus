@@ -69,3 +69,57 @@ console.log("Team Lite candidate checks passed:", JSON.stringify({
   guestSessionIsolationChecks: true,
   separateLuccaYcaroAuthRoutes: true
 }));
+
+
+// Execute the candidate's actual updater logic with mocked network/DOM dependencies.
+// This catches behavior regressions that static string checks cannot detect.
+const versionStart = script.indexOf("  function versionParts(");
+const versionEnd = script.indexOf("  function mentionNames", versionStart);
+assert.ok(versionStart >= 0 && versionEnd > versionStart, "updater runtime test boundaries not found");
+const updaterCode = script.slice(versionStart, versionEnd) + "\\nthis.__candidateCheckUpdate = checkUpdate;";
+async function runUpdaterScenario({ installed, manifest, servedVersion, fetchFailureAt = 0 }) {
+  const calls = { prompts: [], availability: [], fetches: 0, opened: 0 };
+  const status = { textContent: "", innerHTML: "" };
+  const manual = { disabled: false, title: "", onclick: null };
+  const card = { querySelectorAll(selector) { return selector === ".up-update-status" ? [status] : [manual]; } };
+  const mockFetch = async function (url) {
+    calls.fetches++;
+    if (fetchFailureAt === calls.fetches) throw new Error("network unavailable");
+    if (calls.fetches === 1) return { ok: true, json: async () => manifest };
+    return { ok: true, text: async () => "// ==UserScript==\\n// @version      " + servedVersion + "\\n// ==/UserScript==\\" };
+  };
+  const context = {
+    CURRENT_VERSION: installed, card, fetch: mockFetch, esc: String,
+    setUpdateAvailable: (show, version) => calls.availability.push({ show, version }),
+    showUpdatePrompt: version => calls.prompts.push(version),
+    openUpdate: () => { calls.opened++; }
+  };
+  vm.runInNewContext(updaterCode, context, { timeout: 1000 });
+  context.__candidateCheckUpdate();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  return { calls, status, manual };
+}
+const candidateManifest = version => ({ product: "UpStatus Team Lite", buildVersion: version, scriptUrl: manifest.scriptUrl });
+const candidateNewer = await runUpdaterScenario({ installed: manifest.buildVersion.replace(/\\d+$/, n => String(Number(n) - 1)), manifest: candidateManifest(manifest.buildVersion), servedVersion: manifest.buildVersion });
+assert.equal(candidateNewer.calls.prompts.length, 1, "newer matching candidate release must show exactly one prompt");
+assert.equal(candidateNewer.calls.prompts[0], manifest.buildVersion);
+assert.equal(candidateNewer.manual.disabled, false, "manual update must be enabled for a newer matching release");
+candidateNewer.manual.onclick();
+assert.equal(candidateNewer.calls.opened, 1, "manual update must open the official update URL");
+const candidateCurrent = await runUpdaterScenario({ installed: manifest.buildVersion, manifest: candidateManifest(manifest.buildVersion), servedVersion: manifest.buildVersion });
+assert.equal(candidateCurrent.calls.prompts.length, 0, "current version must not show an update prompt");
+assert.equal(candidateCurrent.manual.disabled, true, "manual update must be disabled when current");
+const candidateMismatch = await runUpdaterScenario({ installed: "3.4.30", manifest: candidateManifest(manifest.buildVersion), servedVersion: "99.0.0" });
+assert.equal(candidateMismatch.calls.prompts.length, 0, "manifest/script mismatch must block prompt");
+assert.match(String(candidateMismatch.status.textContent), /Versões divergentes/, "mismatch should be visible in updater status");
+const candidateDowngrade = await runUpdaterScenario({ installed: "99.0.0", manifest: candidateManifest(manifest.buildVersion), servedVersion: manifest.buildVersion });
+assert.equal(candidateDowngrade.calls.prompts.length, 0, "older candidate must not trigger a downgrade prompt");
+const candidateManifestOffline = await runUpdaterScenario({ installed: "3.4.30", manifest: candidateManifest(manifest.buildVersion), servedVersion: manifest.buildVersion, fetchFailureAt: 1 });
+assert.equal(candidateManifestOffline.calls.prompts.length, 0, "manifest network failure must not show a prompt");
+assert.match(String(candidateManifestOffline.status.textContent), /Atualizador bloqueado/, "manifest network failure should be visible");
+const candidateScriptOffline = await runUpdaterScenario({ installed: "3.4.30", manifest: candidateManifest(manifest.buildVersion), servedVersion: manifest.buildVersion, fetchFailureAt: 2 });
+assert.equal(candidateScriptOffline.calls.prompts.length, 0, "script network failure must not show a prompt");
+assert.match(String(candidateScriptOffline.status.textContent), /Atualizador bloqueado/, "script network failure should be visible");
+const candidateInvalidManifest = await runUpdaterScenario({ installed: "3.4.30", manifest: { product: "Wrong product", buildVersion: manifest.buildVersion, scriptUrl: manifest.scriptUrl }, servedVersion: manifest.buildVersion });
+assert.equal(candidateInvalidManifest.calls.prompts.length, 0, "invalid manifest must not show a prompt");
+console.log("Candidate updater runtime scenarios passed: newer/current/mismatch/downgrade/manifest-offline/script-offline/invalid-manifest.");
