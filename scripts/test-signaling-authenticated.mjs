@@ -1,0 +1,145 @@
+#!/usr/bin/env node
+/**
+ * Opt-in authenticated integration test for the isolated UpStatus signaling prototype.
+ *
+ * Required environment:
+ *   UPSTATUS_SIGNAL_URL=https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
+ *   UPSTATUS_SIGNAL_ALLOW_MUTATION=1
+ *   UPSTATUS_SIGNAL_USER_A_NAME=...
+ *   UPSTATUS_SIGNAL_USER_A_TOKEN=...
+ *   UPSTATUS_SIGNAL_USER_B_NAME=...
+ *   UPSTATUS_SIGNAL_USER_B_TOKEN=...
+ *   UPSTATUS_SIGNAL_USER_C_NAME=...       # valid user who is NOT in the test room
+ *   UPSTATUS_SIGNAL_USER_C_TOKEN=...
+ *
+ * Tokens are read only from environment variables and never printed.
+ * This script intentionally refuses non-test project URLs.
+ */
+const base = (process.env.UPSTATUS_SIGNAL_URL || "").replace(/\/$/, "");
+const required = [
+  "UPSTATUS_SIGNAL_USER_A_NAME", "UPSTATUS_SIGNAL_USER_A_TOKEN",
+  "UPSTATUS_SIGNAL_USER_B_NAME", "UPSTATUS_SIGNAL_USER_B_TOKEN",
+  "UPSTATUS_SIGNAL_USER_C_NAME", "UPSTATUS_SIGNAL_USER_C_TOKEN",
+];
+if (!base || required.some(k => !process.env[k])) {
+  console.error("Missing test URL or one of the three test-user name/token pairs.");
+  process.exit(2);
+}
+if (process.env.UPSTATUS_SIGNAL_ALLOW_MUTATION !== "1") {
+  console.error("Refusing to create test data. Set UPSTATUS_SIGNAL_ALLOW_MUTATION=1 to opt in.");
+  process.exit(2);
+}
+const parsed = new URL(base);
+if (parsed.protocol !== "https:" || parsed.hostname !== "bfpjtfqlnypisxljoxkb.supabase.co" ||
+    !parsed.pathname.endsWith("/functions/v1/upstatus-signal-test")) {
+  console.error("Refusing to run: URL must target the isolated upstatus-security-test project.");
+  process.exit(2);
+}
+const users = {
+  A: { name: process.env.UPSTATUS_SIGNAL_USER_A_NAME, token: process.env.UPSTATUS_SIGNAL_USER_A_TOKEN },
+  B: { name: process.env.UPSTATUS_SIGNAL_USER_B_NAME, token: process.env.UPSTATUS_SIGNAL_USER_B_TOKEN },
+  C: { name: process.env.UPSTATUS_SIGNAL_USER_C_NAME, token: process.env.UPSTATUS_SIGNAL_USER_C_TOKEN },
+};
+if (new Set(Object.values(users).map(u => u.name)).size !== 3) {
+  console.error("The three test-user names must be distinct.");
+  process.exit(2);
+}
+async function request(user, route, body) {
+  const res = await fetch(base + route, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-upstatus-token": user.token },
+    body: JSON.stringify(body),
+  });
+  let json = null;
+  try { json = await res.json(); } catch {}
+  return { status: res.status, json };
+}
+const results = [];
+let roomId = "";
+function check(name, ok, detail = "") {
+  results.push({ name, ok });
+  console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " (" + detail + ")" : ""}`);
+}
+try {
+  const created = await request(users.A, "/room/create", { participants: [users.B.name] });
+  roomId = created.json?.roomId || "";
+  check("user A can create a room with user B", created.status === 201 && created.json?.ok === true &&
+    Array.isArray(created.json?.participants) && created.json.participants.includes(users.A.name) &&
+    created.json.participants.includes(users.B.name) && !created.json.participants.includes(users.C.name),
+    `HTTP ${created.status}`);
+
+  if (roomId) {
+    const sent = await request(users.A, "/signal", {
+      roomId, recipient: users.B.name, eventType: "offer",
+      payload: { sdp: "synthetic-test-offer", from: "spoofed-name", sender: "spoofed-name",
+        user: "spoofed-name", user_name: "spoofed-name", to: users.C.name,
+        target: users.C.name, roomId: "forged-room", room_id: "forged-room",
+        participants: [users.C.name], identity: "spoofed-name" },
+    });
+    check("room member can submit a recipient-scoped signal", sent.status === 202 && sent.json?.ok === true,
+      `HTTP ${sent.status}`);
+
+    const delivered = await request(users.B, "/poll", { roomId });
+    const events = Array.isArray(delivered.json?.events) ? delivered.json.events : [];
+    const event = events.find(e => e.event_type === "offer" && e.sender === users.A.name);
+    const payload = event?.payload || {};
+    const stripped = ["from", "sender", "user", "user_name", "to", "target", "roomId",
+      "room_id", "participants", "identity"].every(k => !(k in payload));
+    check("user B receives the event with server-derived sender and stripped identity claims",
+      delivered.status === 200 && !!event && payload.sdp === "synthetic-test-offer" && stripped,
+      `HTTP ${delivered.status}`);
+
+    const nonmemberSend = await request(users.A, "/signal", {
+      roomId, recipient: users.C.name, eventType: "offer", payload: { sdp: "must-not-deliver" },
+    });
+    check("sender cannot signal to a user outside the room", nonmemberSend.status === 403,
+      `HTTP ${nonmemberSend.status}`);
+
+    const nonmemberPoll = await request(users.C, "/poll", { roomId });
+    check("non-member cannot poll another room", nonmemberPoll.status === 403,
+      `HTTP ${nonmemberPoll.status}`);
+
+    if (event?.event_id) {
+      const ack = await request(users.B, "/ack", { roomId, eventIds: [event.event_id] });
+      check("recipient can acknowledge a handled event", ack.status === 200 &&
+        ack.json?.ok === true && ack.json?.acknowledged === 1, `HTTP ${ack.status}`);
+      const afterAck = await request(users.B, "/poll", { roomId });
+      const stillPresent = (afterAck.json?.events || []).some(e => e.event_id === event.event_id);
+      check("acknowledged event is no longer returned", afterAck.status === 200 && !stillPresent,
+        `HTTP ${afterAck.status}`);
+    } else {
+      check("recipient can acknowledge a handled event", false, "no delivered event ID");
+      check("acknowledged event is no longer returned", false, "no delivered event ID");
+    }
+
+    const closed = await request(users.A, "/room/close", { roomId });
+    check("room creator can close the room", closed.status === 200 && closed.json?.ok === true,
+      `HTTP ${closed.status}`);
+    const pollClosed = await request(users.B, "/poll", { roomId });
+    check("closed room no longer delivers events", pollClosed.status === 404,
+      `HTTP ${pollClosed.status}`);
+  } else {
+    for (const name of [
+      "room member can submit a recipient-scoped signal",
+      "user B receives the event with server-derived sender and stripped identity claims",
+      "sender cannot signal to a user outside the room",
+      "non-member cannot poll another room",
+      "recipient can acknowledge a handled event",
+      "acknowledged event is no longer returned",
+      "room creator can close the room",
+      "closed room no longer delivers events",
+    ]) check(name, false, "room creation failed; dependent test skipped");
+  }
+} catch (error) {
+  console.error("Integration request failed:", String(error));
+  results.push({ name: "test runner completed without transport error", ok: false });
+} finally {
+  if (roomId) {
+    // Best-effort cleanup, without printing response payloads or credentials.
+    try { await request(users.A, "/room/close", { roomId }); } catch {}
+  }
+}
+const passed = results.filter(r => r.ok).length;
+const failed = results.length - passed;
+console.log(`\n${passed}/${results.length} authenticated integration checks passed.`);
+if (failed) process.exit(1);
