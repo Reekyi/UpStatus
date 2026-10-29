@@ -68,6 +68,8 @@ The repository also has an `upstatus-team-lite` function in the current project 
 - The live Security Advisor reported broad EXECUTE grants on `public.upstatus_broadcast_messages()`, `public.upstatus_broadcast_remote_state()`, and `public.upstatus_broadcast_users()`. The PR includes a conditional migration revoking direct execution from `PUBLIC`, `anon`, and `authenticated`.
 - This migration is a proposed database change only. It has not been applied to production. Review trigger behavior and deployment rollback before applying it; do not treat a migration file in GitHub as a live database change.
 
+A separate read-only catalog query also found nine RLS-enabled public tables with no policies but unnecessary table grants to anon/authenticated: chat_reads, messages, reactions, status_history, upstatus_profiles, upstatus_sessions, upstatus_state, upstatus_typing, and users. With RLS enabled and no policies, those roles' direct table operations are denied by RLS, but the grants are needless exposure surface. The draft migration `20261029183000_revoke_unused_public_table_grants.sql` revokes table privileges from PUBLIC, anon and authenticated while preserving service_role/owner access. It is also unapplied and requires TEST validation and rollback review.
+
 ## Release safety invariants
 
 1. Never publish to production as a side effect of an ordinary code correction.
