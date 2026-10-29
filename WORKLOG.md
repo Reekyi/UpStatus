@@ -35,11 +35,11 @@ Establish a safe, fast, recoverable workflow for ongoing fixes to UpStatus norma
 - This branch is intended for the first reviewable documentation patch; production branch remains untouched.
 
 ### Immediate next steps
-1. Add and review `ARCHITECTURE.md`, `DEVELOPMENT.md`, and this `WORKLOG.md` on the documentation branch.
-2. Verify the docs-only diff and open a draft pull request for review.
-3. Compare the template and generated artifacts safely without invoking the destructive build.
-4. Establish a non-destructive verification command and baseline tests before modifying the build pipeline.
-5. Plan a separate, explicit synchronization strategy for `develop` and `team-lite-official`; do not merge across these lines blindly.
+1. Review the draft PR and inspect the complete diff for unintended changes.
+2. Get the PR validation workflow to run and confirm `node scripts/validate.mjs` passes on a clean runner.
+3. If validation passes, merge the safe build/validator fix into `master` only after review; no deployment is required for the code change itself.
+4. Reconcile the `develop` line with stable fixes using an explicit, reviewable strategy rather than blindly merging the old branch.
+5. Design independent parity checks and updater tests for `team-lite-official`, then separately investigate why its in-app update pop-up was not appearing.
 
 ### Deployment state
 - Production: not changed by this work.
