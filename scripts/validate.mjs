@@ -28,7 +28,7 @@ assert(buildSource.includes('process.argv.includes("--sync-root-artifact")'),"ro
 assert(buildSource.includes("compareVersions(baseVersion,currentVersion)<=0"),"root artifact sync must require a strictly newer release version");
 assert(buildSource.indexOf("let rootArtifactPath=null")<buildSource.indexOf("writeFunction(PROD_FUNCTION"),"root artifact release guard must run before destructive build writes");
 assert(buildSource.includes('fs.writeFileSync(rootArtifactPath,prodUser,"utf8")'),"root artifact sync must write the built production userscript");
-const rootArtifactVersion=(rootArtifactBefore.match(/^\/\/ @version\\s+(\\d+\\.\\d+\\.\\d+)$/m)||[])[1]||"";
+const rootArtifactVersion=(rootArtifactBefore.match(/^\/\/ @version\s+(\d+\.\d+\.\d+)$/m)||[])[1]||"";
 if(rootArtifactBefore!==prodUser&&(!rootArtifactVersion||compareVersions(baseVersion,rootArtifactVersion)<=0)){
   let sameVersionSyncBlocked=false;
   try{execFileSync(process.execPath,[path.join(ROOT,"scripts/build.mjs"),"--sync-root-artifact"],{stdio:"pipe"});}
