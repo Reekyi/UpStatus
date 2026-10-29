@@ -16,6 +16,9 @@ assert(String(release.buildVersion)===scriptVersion,"manifest buildVersion must 
 assert(script.includes("var CURRENT_VERSION='"+scriptVersion+"'"),"internal CURRENT_VERSION must match userscript @version");
 assert(headerValue(script,"updateURL")===release.scriptUrl,"userscript updateURL must match manifest scriptUrl");
 assert(headerValue(script,"downloadURL")===release.scriptUrl,"userscript downloadURL must match manifest scriptUrl");
+assert(script.includes("var UPDATE_URL='"+release.scriptUrl+"'"),"internal UPDATE_URL must match manifest scriptUrl");
+assert(script.includes("fetch('https://raw.githubusercontent.com/Reekyi/UpStatus/team-lite-official/team-lite/release.json?cb='"),"updater must fetch the official release manifest");
+assert(script.includes("if(url!=='"+release.scriptUrl+"')throw new Error"),"updater must pin the official script URL");
 assert(script.includes("function checkUpdate(){"),"checkUpdate function missing");
 assert(script.includes("showUpdatePrompt(served)"),"newer version must trigger update prompt");
 assert(script.includes("if(served!==remote)throw new Error("),"manifest/script version mismatch must block updates");
