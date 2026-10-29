@@ -6,8 +6,12 @@ import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
+const rootArtifactPath=path.join(ROOT,"UpStatus.user.js");
+const rootArtifactBefore=fs.readFileSync(rootArtifactPath,"utf8");
 execFileSync(process.execPath,[path.join(ROOT,"scripts/build.mjs")],{stdio:"inherit"});
+if(fs.readFileSync(rootArtifactPath,"utf8")!==rootArtifactBefore)throw new Error("Validation must not modify the tracked UpStatus.user.js artifact without an explicit release sync.");
 const release=JSON.parse(fs.readFileSync(path.join(ROOT,"release.json"),"utf8"));
+const buildSource=fs.readFileSync(path.join(ROOT,"scripts/build.mjs"),"utf8");
 const baseVersion=String(release.version).trim();
 const preRelease=String(release.preRelease||"").trim();
 const testVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
@@ -19,6 +23,9 @@ function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
 function checkSyntax(text,label){new vm.Script(text,{filename:label});}
+assert(buildSource.includes('process.argv.includes("--sync-root-artifact")'),"root artifact sync must remain opt-in");
+assert(buildSource.includes("compareVersions(baseVersion,currentVersion)<=0"),"root artifact sync must require a strictly newer release version");
+assert(buildSource.includes('fs.writeFileSync(rootArtifactPath,prodUser,"utf8")'),"root artifact sync must write the built production userscript");
 assert(headerValue(prodUser,"version")===baseVersion,"production userscript version mismatch");
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
