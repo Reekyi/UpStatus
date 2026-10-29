@@ -23,8 +23,9 @@ assert(headerValue(prodUser,"version")===baseVersion,"production userscript vers
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
 assert(headerValue(testUser,"namespace")==="upseller-test","test namespace mismatch");
-assert(headerValue(prodUser,"updateURL")===String(release.scriptUrl||"").trim(),"production updateURL must match release.json scriptUrl");
-assert(headerValue(prodUser,"downloadURL")===String(release.scriptUrl||"").trim(),"production downloadURL must match release.json scriptUrl");
+const expectedProductionUpdateUrl=String(release.scriptUrl||"https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js").trim();
+assert(headerValue(prodUser,"updateURL")===expectedProductionUpdateUrl,"production updateURL must match the configured stable endpoint");
+assert(headerValue(prodUser,"downloadURL")===expectedProductionUpdateUrl,"production downloadURL must match the configured stable endpoint");
 assert(headerValue(testUser,"updateURL")==="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test/upstatus.user.js","test updateURL mismatch");
 assert(headerValue(testUser,"downloadURL")==="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test/upstatus.user.js","test downloadURL mismatch");
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
