@@ -472,7 +472,7 @@ async function editRoute(req:Request,name:string,id:string){
 async function deleteRoute(name:string,id:string){
   const {data}=await db.from("messages").select("id,user_name").eq("id",id).maybeSingle();
   if(!data)return response({error:"Mensagem não encontrada."},404);
-  const isAdmin=name==="Ricardo"||await admin(name);
+  const isAdmin=await admin(name);
   if(data.user_name!==name&&!isAdmin)return response({error:"Você só pode excluir suas próprias mensagens."},403);
   const {error}=await db.from("messages").delete().eq("id",id);if(error)throw error;
   return response({ok:true,id,deletedByAdmin:data.user_name!==name});
