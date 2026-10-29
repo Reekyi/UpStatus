@@ -23,20 +23,23 @@ Establish a safe, fast, recoverable workflow for ongoing fixes to UpStatus norma
 ### Important build/validation behavior
 - `scripts/validate.mjs` calls `scripts/build.mjs` before validation.
 - `scripts/build.mjs` deletes and recreates generated `supabase/functions/upstatus`, `supabase/functions/upstatus-test`, and `dist` directories.
-- The source template `src/userscript/upstatus.user.template.js` is approximately 544 KB. **A mismatch was confirmed:** tracked `UpStatus.user.js` is 544,057 characters and points update/download URLs at `/functions/v1/upstatus/upstatus.user.js`; rendering the template with current `scripts/build.mjs` substitutions produces 544,109 characters and points them at `/functions/v1/upstatus-screen-share-3-1-1-beta10/upstatus.user.js`. First mismatch is in the header. Do not run build/validate until the intended route is confirmed and the mismatch is resolved.
+- The source template `src/userscript/upstatus.user.template.js` is approximately 544 KB. The old `master` build logic incorrectly derived production updater URLs from the legacy `upstatus-screen-share-3-1-1-beta10` API endpoint. The live `upstatus` Edge Function is version `3.4.7` and serves an embedded script whose update/download URLs point to `/functions/v1/upstatus/upstatus.user.js`; the legacy endpoint serves script version `3.1.1-beta8`.
 - The production deployment workflow is manual and contains a guard that currently allows only stable version `3.4.7`.
 - The TEST deployment workflow is also manual and deploys only `upstatus-test`.
 - The Team Lite release manifest and script are on a separate branch. Team Lite deployment behavior has not yet been independently verified.
 
 ### Changes made so far
-- No runtime code, script, manifest, release version, or deployment has been changed.
-- Compared the current production artifact with the actual substitutions in `scripts/build.mjs`; found an update/download URL mismatch at character 517. The build was not run.
-- A documentation-only branch named `chore/continuity-foundation` was created from `master`.
-- This branch is intended for the first reviewable documentation patch; production branch remains untouched.
+- No deployed runtime code, release version, or deployment has been changed.
+- Branch `chore/continuity-foundation` was created from `master`; production branch remains untouched.
+- Added `ARCHITECTURE.md`, `DEVELOPMENT.md`, and `WORKLOG.md` for durable project context and cross-chat handoff.
+- Patched `scripts/build.mjs` to use `release.json.scriptUrl` for production update/download URLs, preserving the separate legacy runtime API endpoint.
+- Strengthened `scripts/validate.mjs` to assert exact production and TEST update/download URLs.
+- Added `.github/workflows/validate-pr.yml` for build/validation checks on future PRs to `master` and `develop`.
+- Confirmed by deterministic template rendering that the corrected production substitutions match tracked `UpStatus.user.js` exactly (544,057 characters). The actual Node build/validator has not been executed here.
 
 ### Immediate next steps
 1. Review the draft PR and inspect the complete diff for unintended changes.
-2. Get the PR validation workflow to run and confirm `node scripts/validate.mjs` passes on a clean runner.
+2. Get `node scripts/validate.mjs` to run on a clean runner and confirm it passes. The newly added PR workflow may only run automatically for later PRs until the workflow is merged into a base branch.
 3. If validation passes, merge the safe build/validator fix into `master` only after review; no deployment is required for the code change itself.
 4. Reconcile the `develop` line with stable fixes using an explicit, reviewable strategy rather than blindly merging the old branch.
 5. Design independent parity checks and updater tests for `team-lite-official`, then separately investigate why its in-app update pop-up was not appearing.
