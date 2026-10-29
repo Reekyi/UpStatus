@@ -1,11 +1,51 @@
-[object Object]
+# UpStatus Work Log
 
-### Follow-up verification (2026-10-29, latest checked run)
-- Implemented pending attachment staging in the normal chat composer. File picker and pasted images now stage first; users can remove the pending attachment before sending. Sending supports an optional caption alongside the attachment.
-- Added a removable URL preview for the first HTTP(S) link in the draft message. The preview is visual-only and does not change the message text. Corrected the URL-matching regex after a source-level syntax check caught an escaping error.
-- Updated chat normalization to preserve `file_name`/ `fileName` as `fileName`, so document filenames remain distinct from captions.
-- Adjusted two brittle regression assertions to test the intended semantics (sent timestamp metadata and actual link-card renderer/styles), rather than requiring a particular variable declaration or an obsolete compatibility-style ID. No behavior assertion was removed.
-- Source-level syntax parsing passed for the userscript template. All 56 direct source/server assertions extracted from `scripts/chat-regression.test.mjs` passed, and additional checks confirmed attachment staging, pasted-image staging, caption forwarding, and removable link preview behavior.
-- GitHub Actions run `40906042287` for head `5550195b1a63a9aceccbd65fe4df10a73b6e29cd` completed successfully. Build and full `scripts/validate.mjs` pipeline passed.
-- PR #74 remains open and draft. No merge, deployment, release-version bump, or Supabase mutation was performed. Production, TEST, and Team Lite remain untouched.
-- Remaining before considering a release: review the final diff; verify the Ricardo account has the `implementation_admin` role in the database; separately validate browser-level chat UX and Team Lite updater behavior; confirm backend runtime parity before any deployment. Do not merge or deploy as part of the current work session.
+Last updated: 2026-10-29
+
+## Current workstream
+
+- Repository: `Reekyi/UpStatus`
+- Working branch: `chore/continuity-foundation`
+- Pull request: #74, draft and not merged
+- Baseline: `master` at `a9288ccfcb0f308d3a587bfca624418a395be07b` when the workstream began
+- Safety: no production, TEST, or Team Lite deployment performed during this workstream.
+
+## Work completed
+
+- Added `ARCHITECTURE.md` to map product/release lines, build chain, runtime differences, and release safety invariants.
+- Added `DEVELOPMENT.md` to document a repeatable inspect, patch, test, review, and release workflow.
+- Fixed production update/download URL generation to use the stable URL in `release.json.scriptUrl` or the stable production endpoint fallback, rather than the legacy runtime endpoint.
+- Added exact updater URL checks and important backend behavior assertions to the validator.
+- Reconciled the backend template with known live behavior while preserving signed upload routes, official-team filtering, guest-session history filtering, and document filename persistence.
+- Removed name-only admin privilege in favor of the stored `implementation_admin` role. The database role must be verified before any deployment.
+- Implemented pending attachment staging in the normal chat composer. File picker and pasted images now stage first; users can remove the pending attachment before sending. Sending supports an optional caption with the attachment.
+- Added a removable visual preview for the first HTTP(S) link in the draft message. The preview does not rewrite the message text.
+- Preserved `file_name`/`fileName` during chat message normalization, keeping document filenames separate from captions.
+- Replaced two brittle test assertions with semantic checks for sent timestamp metadata and the actual link-card renderer/styles. No behavior assertion was removed.
+
+## Validation
+
+- Userscript template source-level syntax parse: passed.
+- Direct static checks extracted from `scripts/chat-regression.test.mjs`: 56/56 passed on the current code at the time of checking.
+- Additional checks for file picker staging, pasted-image staging, caption forwarding, and removable link preview: passed.
+- GitHub Actions run `40906042287` for commit `5550195b1a63a9aceccbd65fe4df10a73b6e29cd`: passed, including the build and full `scripts/validate.mjs` pipeline.
+- Any commit after that run requires its own validation. The work-log cleanup and final PR metadata update may trigger a new CI run; verify it before reporting the branch as fully green.
+
+## Important findings and limitations
+
+- Production normal script observed at version 3.4.7; the build source previously generated an incorrect legacy update URL.
+- TEST's `develop` line was observed at `3.0.40-beta.22`, behind production. Do not assume TEST contains production fixes.
+- Team Lite is an independent release line. Its manifest/script were observed at Team Lite version 3.4.30; do not bump its official version just to force an update popup.
+- `scripts/validate.mjs` runs the build first. The build deletes and recreates generated `supabase/functions/*` and `dist` output. Do not treat validation as read-only.
+- Backend template reconciliation is source-level only. Generated/deployed runtime parity has not been fully established.
+- Browser-level behavior for attachment staging/link previews has not yet been verified manually.
+- The Team Lite update popup issue remains unverified against the user's installed script version and runtime; the official branch was not changed.
+
+## Next steps
+
+1. Inspect the final PR diff and verify the latest CI run after the last commit.
+2. Verify the account role for Ricardo is `implementation_admin` before deployment; never restore a name-only admin bypass.
+3. Validate chat attachment staging and removable link previews in a browser/TEST environment.
+4. Reconcile backend template against the live Edge Function and compile/check the generated function before any deployment.
+5. Investigate the Team Lite update popup in an isolated test branch without bumping the official raw-file version.
+6. Keep PR #74 draft until final review is complete. Do not merge or deploy without explicit approval.
