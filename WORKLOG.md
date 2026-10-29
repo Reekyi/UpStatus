@@ -149,3 +149,12 @@ Last updated: 2026-10-29
 - Re-ran Supabase Security Advisor and read-only catalog checks. The same three `SECURITY DEFINER` broadcast trigger functions remain directly executable by `anon` and `authenticated`; the candidate revoke migration is still unapplied (`0` migration-history rows for version `20261029170500`).
 - Read-only table privilege audit found `anon` and `authenticated` have table-level grants on nine RLS-enabled public tables with no policies. With RLS enabled and no policies, those table reads/writes are denied by RLS, but the grants are unnecessary exposure surface and should be reviewed separately. `upstatus_visual_config` has no anon/authenticated table grants. Do not add broad policies to silence the Advisor; the app's intended access path is through the authenticated Edge Function/service role.
 - Production Edge Function `upstatus` remains revision 480; TEST `upstatus-test` remains revision 281; Team Lite `upstatus-team-lite` remains revision 15. No deploy or database mutation was performed.
+
+
+## Remote command result authenticity hardening: 2026-10-29
+
+- Audited the public Realtime event handlers and found that `remote_result` could complete the UI waiter using a public broadcast payload when `result.sender === member`. This could forge the visual success/failure notification, even though the actual remote command is still retrieved through the authenticated backend poll.
+- Normal and Team Lite candidates now ignore the public `remote_result` payload as an authority. `waitRemoteResult()` continues polling `/api/remote-status/result`, which remains the canonical authenticated result source.
+- Added regression assertions to both candidate suites to ensure public result broadcasts are not applied and authenticated result polling remains present.
+- Validation: normal candidate build passed in [run 40936531809](https://github.com/Reekyi/UpStatus/actions/runs/40936531809); Team Lite candidate checks passed in [run 40936550825](https://github.com/Reekyi/UpStatus/actions/runs/40936550825).
+- This closes a spoofable UI confirmation path only. It does not authenticate Realtime senders or solve public-channel exposure for presence, health diagnostics, and call/media signaling. No deployment, migration, official version change, or merge occurred.
