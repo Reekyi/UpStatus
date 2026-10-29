@@ -81,3 +81,13 @@ Last updated: 2026-10-29
 - Updated draft PR #75 with the new runtime-test coverage. It remains review-only; Team Lite official remains untouched.
 
 - Read-only runtime version audit on 2026-10-29 decoded the embedded scripts from live Supabase functions: production `upstatus` is revision 480 with userscript 3.4.7; `upstatus-test` is revision 281 with userscript 3.3.28; `upstatus-team-lite` is revision 15 with Team Lite 3.4.30. The GitHub `develop` manifest was previously observed at 3.0.40-beta.22, so TEST source/runtime drift is confirmed and must be reconciled before deploying to TEST.
+
+
+## Continuation update: 2026-10-29 (live-state recheck)
+
+- Re-checked GitHub before further changes. PR #74 remains open/draft at `6802a89069e993cef0228e4a1e60441973920d1f`; validation run [40924054726](https://github.com/Reekyi/UpStatus/actions/runs/40924054726) passed. PR #75 remains open/draft, and the candidate branch moved after the previously documented passing head. A newer candidate check exposed a regression in the new runtime-test harness.
+- Investigated the candidate CI failure: the harness cut extracted code at `var updatePromptShown`, unintentionally excluding the actual `showUpdatePrompt()` implementation. The mocked updater therefore lacked a dependency and fell into its error handler, reporting zero prompts. Fixed the extraction boundary on isolated branch `team-lite/3.4.31-guest-fixes` so the actual prompt function is included; the test still requires exactly one prompt for a newer matching release.
+- The change is on candidate commit `2b12d6c31dd462b9319145373e628f7edd065667`; GitHub Actions run [40924895817](https://github.com/Reekyi/UpStatus/actions/runs/40924895817) was queued at last observation. CI has not yet been confirmed green for this commit.
+- Supabase Security Advisor re-check still reports three public-schema `SECURITY DEFINER` broadcast trigger functions directly executable by authenticated clients and 10 tables with RLS enabled but no policies. No database changes were made. Do not add broad policies without mapping the service-role/Edge Function access model.
+- Supabase documentation confirms private Realtime channels require RLS policies on `realtime.messages` and client channels configured with `private: true`. Switching one side alone is incomplete. Design authenticated identity/token issuance, sender authorization by event, call/screen-share signaling requirements, and rollout/rollback before changing the live channel.
+- All work in this continuation remains isolated from `team-lite-official` and deployed Supabase functions. No production/TEST deployments, version bumps, merges, migrations, or PR state changes were performed.
