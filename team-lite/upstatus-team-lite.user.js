@@ -2270,15 +2270,7 @@ function renderChatText(text){
         .on('broadcast',{event:'call_signal'},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)receiveCallSignal(payload&&payload.payload||{});})
         .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)voiceRoomReceive(payload&&payload.payload||{});})
         .on('broadcast',{event:SCREEN_ROOM_EVENT},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)screenShareReceive(payload&&payload.payload||{});})
-        .on('broadcast',{event:'remote_result'},function(payload){
-          if(!isAuthenticated()||realtimeGeneration!==authGeneration||realtimeMember!==member)return;
-          var r=payload&&payload.payload&&payload.payload.result;
-          if(r&&r.commandId&&r.sender===member){
-            remoteResultCache[String(r.commandId)]=r;
-            var waiter=remoteResultWaiters[String(r.commandId)];
-            if(waiter)waiter(r);
-          }
-        })
+        .on('broadcast',{event:'remote_result'},function(){ if(!isAuthenticated()||realtimeGeneration!==authGeneration||realtimeMember!==member)return; /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })
         .subscribe(function(status){
           if(!isAuthenticated()||realtimeGeneration!==authGeneration||realtimeMember!==member){stopRealtime();return;}
           if(status==='SUBSCRIBED'){realtimeActive=true;if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}broadcastChatPresence(!chat.classList.contains('hidden'));return;}
