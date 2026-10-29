@@ -12,42 +12,43 @@ Last updated: 2026-10-29
 
 ## Work completed
 
-- Added `ARCHITECTURE.md` to map product/release lines, build chain, runtime differences, and release safety invariants.
-- Added `DEVELOPMENT.md` to document a repeatable inspect, patch, test, review, and release workflow.
-- Fixed production update/download URL generation to use `release.json.scriptUrl` or the stable production endpoint fallback, rather than the legacy runtime endpoint.
-- Added exact updater URL checks and backend behavior assertions to `scripts/validate.mjs`.
-- Reconciled the backend template with known live behavior while preserving signed-upload routes and official-team filtering, and retaining guest-session history filtering and document filename persistence.
-- Removed name-only admin authorization for message deletion and removed name-based admin assignment during first-time account setup. The database was checked read-only on 2026-10-29: Ricardo, Guilherme, and Lohan each have a configured password and explicit `implementation_admin` role.
-- Implemented pending attachment staging for the normal chat composer. File picker and pasted images now stage before upload, can be removed before sending, and support an optional caption.
-- Kept the original document filename in the separate `fileName` payload field and backend `file_name` column.
-- Preserved the selected reply target when sending a staged attachment. If upload fails, the composer restores the attachment, caption, and reply target so the user can retry instead of losing the draft.
-- Added a removable visual preview for the first HTTP(S) link in the draft. The preview does not rewrite the message text; it clears after sending and stays synchronized when attachments are removed.
-- Replaced two brittle chat test assertions with semantic checks; added assertions for filename payloads, reply preservation, failed-upload recovery, and preview cleanup.
-- Added `scripts/team-lite-updater.test.mjs`. It reads the independent `team-lite-official` branch and checks manifest/script version and URL consistency, the newer-version prompt, equal versions, manifest/script mismatch, downgrade protection, and network failure behavior.
-- Updated the validation workflow to fetch all branches so the Team Lite regression test can inspect the official branch without copying its script into the normal product branch.
+- Added `ARCHITECTURE.md` to map release lines, build chain, runtime differences, and release safety invariants.
+- Expanded `DEVELOPMENT.md` with a repeatable workflow and Team Lite updater troubleshooting steps.
+- Fixed normal userscript update/download URL generation to use `release.json.scriptUrl` or the stable production endpoint fallback, rather than the legacy runtime endpoint.
+- Added exact updater URL checks and backend invariants to `scripts/validate.mjs`.
+- Reconciled the backend template with known live behavior for signed uploads and official-team filtering while retaining guest-session history filtering and document filename persistence.
+- Removed name-only admin privilege assignment during first-time setup. Message deletion requires the stored `implementation_admin` role; health diagnostics require that role in both server and UI. Clearing the entire shared chat remains owner-only, but now also requires Ricardo's explicit `implementation_admin` role on both server and UI.
+- Read-only database checks confirmed Ricardo, Guilherme, and Lohan each have a configured password and explicit `implementation_admin` role. The `public.messages.file_name` column was confirmed to exist. No database rows were modified.
+- Implemented staged attachment selection and paste support in the normal chat composer. Attachments can be removed before sending and can include a caption.
+- Preserved document filenames in the separate `fileName` payload and backend `file_name` column.
+- Preserved the reply target when sending staged attachments. Failed uploads restore the file, caption, and reply target for retry. The caption stays visible while an upload is pending.
+- Added a removable visual preview for the first HTTP(S) link in the draft. It does not rewrite the message; it clears after sending, preserves preview state when attachments are removed, hides invalid empty previews, and scopes dismissal to the specific URL.
+- Updated chat regression tests for filename payloads, reply preservation, upload-failure recovery, optimistic captions, preview cleanup, owner-only chat clearing, and role-gated health UI.
+- Added `scripts/team-lite-updater.test.mjs`. It checks the independent `team-lite-official` branch for manifest/header/internal version consistency, stable update/download URLs, the newer-version prompt, equal versions, mismatch/downgrade protection, manual update action, invalid manifests, and manifest/script network failures.
+- Updated CI checkout to fetch all branches so the Team Lite updater test can inspect the official branch without copying its large script into the normal release branch.
 
 ## Validation
 
 - Userscript template source-level syntax parsing passed during patching.
-- Chat regression suite passed, including the latest attachment and preview assertions.
+- Chat regression suite passed after the latest code changes.
 - Team Lite updater regression suite passed against the official branch source.
-- GitHub Actions run `40908353637` passed for current code head `8a0e449c34210aebabdc853bbe4d3f1bde67cf8f`, including the build, full `scripts/validate.mjs` pipeline, chat regression tests, and Team Lite updater regression tests.
-- The Supabase `public.messages.file_name` column was confirmed to exist using a read-only schema query.
-- The account-role verification used a read-only query only. No database rows were modified.
+- GitHub Actions run `40909876545` passed for code head `e1c4e0af0953676929581ef4cef05ce554cecb45`, including build, chat regression tests, Team Lite updater tests, and the full `scripts/validate.mjs` pipeline.
+- A subsequent architecture documentation update is being checked separately by CI.
+- The account-role and schema checks were read-only.
 
 ## Important findings and limitations
 
-- Production normal script was observed at version 3.4.7. The previous build logic generated updater URLs under the legacy runtime endpoint; this is corrected in the branch but not deployed.
+- Production normal script was observed at version 3.4.7. The old build logic generated update/download URLs under the legacy runtime endpoint; this branch corrects the build source but is not deployed.
 - TEST's `develop` line was observed at `3.0.40-beta.22`, behind production. Do not assume TEST contains production fixes.
-- Team Lite is an independent release line at version 3.4.30. Its updater correctly shows a popup only when the remote version is newer than the installed version and the manifest/script versions agree. The user's installed version and browser runtime are unknown, so the original missing-popup report is not conclusively diagnosed.
-- `scripts/validate.mjs` runs the build first. The build deletes and recreates generated `supabase/functions/*` and `dist` output; validation is not read-only.
+- Team Lite is an independent release line at version 3.4.30. Its updater only shows a popup when the official remote version is newer than the installed version and the manifest/script agree. The affected installation's version and browser runtime are unknown, so the original missing-popup report is not conclusively diagnosed.
+- `scripts/validate.mjs` runs the build first. The build deletes and recreates generated `supabase/functions/*` and `dist` outputs; validation is not read-only.
 - Backend template reconciliation is source-level only. Generated/deployed runtime parity has not been fully established.
-- Browser-level behavior for attachment staging and link previews has not been verified manually.
+- Browser-level behavior for attachment staging, upload-failure recovery, and link previews has not been manually verified.
 
 ## Next steps
 
 1. Keep PR #74 in draft pending final review.
-2. Test attachment staging, upload-failure recovery, reply handling, and link previews in a browser/TEST environment.
-3. Compare the generated backend against the live Edge Function and check the generated function with an appropriate TypeScript/Deno validation before any deployment.
-4. Diagnose the Team Lite popup on the affected installation by confirming the installed `@version`, updater status text, and whether the manifest/script fetch succeeds. Do not bump the official version merely to force a popup.
-5. Merge or deploy only after the runtime checks are complete and Ricardo explicitly authorizes the release.
+2. Test attachment staging, caption/reply preservation, failed-upload recovery, and link previews in a browser/TEST environment.
+3. Compare the generated backend against the live Edge Function and run an appropriate TypeScript/Deno check before any deployment.
+4. Diagnose the Team Lite popup on the affected installation by confirming its installed `@version`, updater status line, and whether manifest/script fetches succeed. Do not bump the official version merely to force a popup.
+5. Merge or deploy only after runtime checks are complete and Ricardo explicitly authorizes release.
