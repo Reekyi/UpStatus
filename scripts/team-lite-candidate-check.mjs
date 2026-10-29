@@ -56,6 +56,15 @@ assert.ok(script.includes("if(c&&c.target===member)pollRemoteStatus();"), "remot
 assert.ok(!script.includes("if(c&&c.target===member)executeRemoteCommand(c);"), "client must not execute untrusted remote command broadcast payloads");
 assert.ok(build.includes('writeFunction("upstatus-team-lite",renderTeamLiteFunction())'), "build must generate the Team Lite Edge Function");
 
+assert.ok(script.includes("function scheduleRealtimeChatRefresh()"), "Team Lite public chat broadcasts must use a canonical refresh scheduler");
+assert.ok(script.includes("var wait=Math.max(0,1000-(Date.now()-realtimeChatRefreshLastAt));"), "Team Lite public broadcast refreshes must be throttled");
+assert.ok(script.includes("function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}"), "Team Lite must not trust chat_fast payloads as canonical message data");
+assert.ok(script.includes(".on('broadcast',{event:'db_change'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)scheduleRealtimeChatRefresh();})"), "Team Lite database-change broadcasts must not apply supplied rows");
+assert.ok(script.includes(".on('broadcast',{event:'chat_fast'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)handleRealtimeChatFast();})"), "Team Lite chat_fast listener must ignore attacker-controlled payloads");
+assert.ok(script.includes(".on('broadcast',{event:'chat_read'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)scheduleRealtimeChatRefresh();})"), "Team Lite read receipts must be reconciled from the authenticated API");
+assert.ok(!script.includes(".on('broadcast',{event:'db_change'},function(payload){"), "Team Lite must not apply public database-change payload rows");
+assert.ok(script.includes("if(!isAuthenticated()||generation!==authGeneration||requestedMember!==member)return;") && script.includes("loadChat(true);"), "Team Lite canonical refresh must be scoped to the active authenticated session");
+
 const inlineCounts = {
   luccaSite: assertInlineScriptsParse(luccaSite, "lucca-site/index.html"),
   luccaStandalone: assertInlineScriptsParse(luccaStandalone, "lucca.html"),
