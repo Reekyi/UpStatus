@@ -1,12 +1,14 @@
 name: UpStatus Signaling Smoke Tests
 
 on:
+  push:
+    branches:
+      - chore/continuity-foundation
+    paths:
+      - "scripts/test-signaling-endpoint.mjs"
+      - ".github/workflows/signaling-smoke.yml"
+      - "supabase/functions/upstatus-signal-test/index.ts"
   workflow_dispatch:
-    inputs:
-      test_url:
-        description: "Base URL of the isolated upstatus-signal-test function (not production)"
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -17,7 +19,7 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-      - name: Run unauthenticated endpoint checks
+      - name: Run unauthenticated endpoint checks against isolated project
         env:
-          UPSTATUS_SIGNAL_URL: ${{ inputs.test_url }}
+          UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
         run: node scripts/test-signaling-endpoint.mjs
