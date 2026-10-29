@@ -1,13 +1,13 @@
 {
   "product": "UpStatus Team Lite",
-  "coreVersion": "3.4.0",
-  "buildVersion": "3.4.0.7",
-  "channel": "test",
-  "scriptUrl": "https://raw.githubusercontent.com/Reekyi/UpStatus/feature/team-lite-shift-c/team-lite/upstatus-team-lite.user.js",
+  "coreVersion": "3.4.7",
+  "buildVersion": "3.4.30",
+  "channel": "stable",
+  "scriptUrl": "https://raw.githubusercontent.com/Reekyi/UpStatus/team-lite-official/team-lite/upstatus-team-lite.user.js",
   "releaseNotes": [
-    "Baseado diretamente no userscript oficial publicado do UpStatus 3.4.0, reaproveitando os componentes originais de chat, anexos, perfil, áudio e sala de voz.",
-    "Restrito às contas Lucca e Ycaro; status, histórico, configurações administrativas e compartilhamento de tela ficam ocultos.",
-    "Backend mantido em upstatus-test, armazenamento local separado e sala de voz exclusiva do Team Lite.",
-    "Shift+C abre e fecha o painel limitado; no painel, a navegação entre chat e sala de voz usa os componentes oficiais."
+    "Bordas roxa e laranja de Lucca e Ycaro com preenchimento neutro adaptado aos temas claro e escuro.",
+    "Avisos de entrada e saída discretos e textuais para Lucca e Ycaro.",
+    "Filtro do histórico temporário aplicado no backend para carregamentos completos, incrementais e respostas vinculadas, sem excluir mensagens compartilhadas.",
+    "Atualizador compara manifesto e versão do script oficial e bloqueia inconsistências e downgrades."
   ]
 }
