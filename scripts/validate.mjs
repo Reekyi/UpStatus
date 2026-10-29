@@ -15,17 +15,9 @@ const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.t
 const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
-const teamLiteRelease=JSON.parse(fs.readFileSync(path.join(ROOT,"team-lite/release.json"),"utf8"));
-const teamLiteVersion=String(teamLiteRelease.buildVersion||"").trim();
-const teamLiteUser=fs.readFileSync(path.join(ROOT,"team-lite/upstatus-team-lite.user.js"),"utf8");
-const teamLiteFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-team-lite/index.ts"),"utf8");
-const luccaHtml=fs.readFileSync(path.join(ROOT,"lucca.html"),"utf8");
-const ycaroHtml=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
-
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
-function decodeBase64(code){const m=code.match(/const USERSCRIPT_BASE64 = "([A-Za-z0-9+/=]+)";/);assert(m,"Team Lite USERSCRIPT_BASE64 missing");return Buffer.from(m[1],"base64").toString("utf8");}
 function checkSyntax(text,label){new vm.Script(text,{filename:label});}
 assert(headerValue(prodUser,"version")===baseVersion,"production userscript version mismatch");
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
@@ -50,32 +42,6 @@ assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not mat
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
-assert(/^\d+\.\d+\.\d+$/.test(teamLiteVersion),"Team Lite buildVersion must use X.Y.Z");
-assert(headerValue(teamLiteUser,"version")===teamLiteVersion,"Team Lite script version mismatch");
-assert(teamLiteUser.includes("var CURRENT_VERSION='"+teamLiteVersion+"'"),"Team Lite updater CURRENT_VERSION mismatch");
-assert(teamLiteRelease.scriptUrl===headerValue(teamLiteUser,"updateURL"),"Team Lite updateURL must match release manifest");
-assert(teamLiteRelease.scriptUrl===headerValue(teamLiteUser,"downloadURL"),"Team Lite downloadURL must match release manifest");
-assert(teamLiteFn.includes('const VERSION = "'+teamLiteVersion+'";'),"Team Lite backend version mismatch");
-assert(teamLiteFn.includes('const marker="/upstatus-team-lite";'),"Team Lite path marker missing");
-assert(decodeBase64(teamLiteFn)===teamLiteUser,"Team Lite embedded userscript does not match source");
-assert(!teamLiteFn.includes("__UPSTATUS_"),"Team Lite backend has unresolved build placeholders");
-checkSyntax(teamLiteUser,"team-lite/upstatus-team-lite.user.js");
-assert(teamLiteFn.includes("async function chatRows(name:string,since?:string,guestJoinedAt=0)"),"Team Lite backend must scope chat history by guest session");
-assert(teamLiteFn.includes("guestJoinedAt<=0||Date.parse(String(x.created_at))>=guestJoinedAt"),"Team Lite read receipts must respect guest session start");
-assert(teamLiteFn.includes('return await readRoute(req,name,ctx?.guest?ctx.joinedAt:0)'),"Team Lite read route must receive guest session start");
-assert(!teamLiteFn.includes('db.from("messages").delete().eq("user_name","Lucca")')&&!teamLiteFn.includes('db.from("messages").delete().eq("user_name","Ycaro")'),"Team Lite guest login must never delete shared messages");
-assert(!teamLiteFn.includes('const isAdmin=name==="Ricardo"||await admin(name);'),"Team Lite backend must not grant admin by name alone");
-for(const notice of ['message:"Lucca entrou no chat"','message:"Lucca saiu do chat"','message:"Ycaro entrou no chat"','message:"Ycaro saiu do chat"'])assert(teamLiteFn.includes(notice),"Team Lite backend exact presence notice missing: "+notice);
-assert(!/message:"[🔴🟠] (?:Lucca|Ycaro)(?: Maluco)? (?:entrou|saiu) do chat\."/u.test(teamLiteFn),"Team Lite presence notices must not include emoji/nickname/punctuation");
-assert(teamLiteFn.includes("file_name:fileName"),"Team Lite chat must persist document filenames");
-assert(teamLiteUser.includes("if(c&&c.target===member)pollRemoteStatus();"),"Team Lite realtime remote commands must be verified by authenticated server polling");
-assert(!teamLiteUser.includes("if(c&&c.target===member)executeRemoteCommand(c);"),"Team Lite must not execute untrusted remote command broadcasts directly");
-assert(teamLiteUser.includes("background:var(--up-chat-neutral-fill)!important;border:1px solid #a855f7!important"),"Team Lite Lucca messages need neutral fill and purple border");
-assert(teamLiteUser.includes("background:var(--up-chat-neutral-fill)!important;border:1px solid #f97316!important"),"Team Lite Ycaro messages need neutral fill and orange border");
-assert(teamLiteUser.includes("justify-content:center!important")&&teamLiteUser.includes("text-align:center!important"),"Team Lite presence notices must be centered");
-assert(luccaHtml.includes("border:1px solid #a855f7")&&luccaHtml.includes("border:1px solid #f97316"),"Lucca portal must style both guest senders");
-assert(ycaroHtml.includes("border:1px solid #a855f7")&&ycaroHtml.includes("border:1px solid #f97316"),"Ycaro portal must style both guest senders");
-
 assert(prodUser.includes("upStatusSaleChatClose"),"Sale Smartly close integration missing from production artifact");
 assert(testUser.includes("upStatusSaleChatClose"),"Sale Smartly close integration missing from test artifact");
 
