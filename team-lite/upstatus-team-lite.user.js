@@ -1215,25 +1215,32 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     modal.querySelector('.up-update-prompt-now').onclick=function(){closePopupAnimated(modal,function(){modal.remove();openUpdate();});};
   }
   function checkUpdate(){
-    fetch(CLOUD_SERVER+'/api/update-info?v='+encodeURIComponent(CURRENT_VERSION)+'&t='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache'}}).then(function(r){if(!r.ok)throw new Error('update-info '+r.status);return r.json();}).then(function(d){
-      var statuses=card.querySelectorAll('.up-update-status');
-      var manuals=card.querySelectorAll('.up-update-now');
-      var remote=d&&d.version?String(d.version):'';
-      var cmp=compareVersions(remote,CURRENT_VERSION);
-
-      manuals.forEach(function(manual){manual.onclick=openUpdate;manual.disabled=cmp<=0;manual.title=cmp>0?'Atualizar para v'+remote:'Você já está na versão mais recente';});
-      if(remote&&cmp>0){
-        setUpdateAvailable(true,remote);
-        statuses.forEach(function(status){status.innerHTML=' • Nova versão: <b>v'+esc(remote)+'</b>';});
-        showUpdatePrompt(remote);
-      }else if(remote&&cmp<0){
-        setUpdateAvailable(false,'');
-        statuses.forEach(function(status){status.textContent=' • Servidor está em v'+esc(remote)+'; você está em v'+CURRENT_VERSION+'.';});
-      }else{
-        setUpdateAvailable(false,'');
-        statuses.forEach(function(status){status.textContent=' • Você está atualizado.';});
-      }
-    }).catch(function(){}).finally(function(){remotePolling=false;});
+    var statuses=card.querySelectorAll('.up-update-status'),manuals=card.querySelectorAll('.up-update-now');
+    var installed=String(CURRENT_VERSION||'').trim();
+    statuses.forEach(function(s){s.textContent=' • Verificando versão oficial…';});
+    manuals.forEach(function(m){m.disabled=true;m.title='Verificando versão oficial';m.onclick=function(){};});
+    fetch('https://raw.githubusercontent.com/Reekyi/UpStatus/team-lite-official/team-lite/release.json?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
+      .then(function(r){if(!r.ok)throw new Error('Manifesto oficial: HTTP '+r.status);return r.json();})
+      .then(function(manifest){
+        if(!manifest||manifest.product!=='UpStatus Team Lite')throw new Error('Manifesto inválido para este canal.');
+        var remote=String(manifest.buildVersion||'').trim();
+        var url=String(manifest.scriptUrl||'https://raw.githubusercontent.com/Reekyi/UpStatus/team-lite-official/team-lite/upstatus-team-lite.user.js').trim();
+        if(!remote||!/^\d+(?:\.\d+){1,3}(?:-[0-9A-Za-z.-]+)?$/.test(remote))throw new Error('Versão do manifesto inválida.');
+        if(url!=='https://raw.githubusercontent.com/Reekyi/UpStatus/team-lite-official/team-lite/upstatus-team-lite.user.js')throw new Error('Link do script não corresponde ao canal oficial.');
+        return fetch(url+'?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
+          .then(function(sr){if(!sr.ok)throw new Error('Script oficial: HTTP '+sr.status);return sr.text();})
+          .then(function(text){
+            var mt=text.match(/^\/\/ @version\s+([^\r\n]+)$/m),served=mt?String(mt[1]).trim():'';
+            if(!served)throw new Error('O script oficial não contém @version válido.');
+            if(served!==remote)throw new Error('Versões divergentes: manifesto '+remote+'; script servido '+served+'. Atualização bloqueada.');
+            var cmp=compareVersions(served,installed);
+            manuals.forEach(function(m){m.disabled=cmp<=0;m.title=cmp>0?'Atualizar para v'+served:'Você já está na versão mais recente';m.onclick=cmp>0?openUpdate:function(){};});
+            if(cmp>0){setUpdateAvailable(true,served);statuses.forEach(function(s){s.innerHTML=' • Nova versão: <b>v'+esc(served)+'</b> (instalada: v'+esc(installed)+')';});showUpdatePrompt(served);}
+            else if(cmp<0){setUpdateAvailable(false,'');statuses.forEach(function(s){s.textContent=' • Servidor em v'+served+'; instalada v'+installed+'. Atualização bloqueada para evitar downgrade.';});}
+            else{setUpdateAvailable(false,'');statuses.forEach(function(s){s.textContent=' • Atualizado: v'+served;});}
+          });
+      })
+      .catch(function(e){setUpdateAvailable(false,'');statuses.forEach(function(s){s.textContent=' • Atualizador bloqueado: '+String(e&&e.message||'não foi possível verificar a versão oficial.');});manuals.forEach(function(m){m.disabled=true;m.title='Atualização bloqueada por inconsistência';m.onclick=function(){};});});
   }
   function mentionNames(text){
     var found=[];
