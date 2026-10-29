@@ -17,7 +17,7 @@ Last updated: 2026-10-29
 - Fixed production update/download URL generation to use the stable URL in `release.json.scriptUrl` or the stable production endpoint fallback, rather than the legacy runtime endpoint.
 - Added exact updater URL checks and important backend behavior assertions to the validator.
 - Reconciled the backend template with known live behavior while preserving signed upload routes, official-team filtering, guest-session history filtering, and document filename persistence.
-- Removed name-only admin privilege in favor of the stored `implementation_admin` role. The database role must be verified before any deployment.
+- Removed name-only admin privilege in favor of the stored `implementation_admin` role. The database role was later verified read-only on 2026-10-29: `public.users` has Ricardo with role `implementation_admin`. Re-check if the account/role changes before deployment.
 - Implemented pending attachment staging in the normal chat composer. File picker and pasted images now stage first; users can remove the pending attachment before sending. Sending supports an optional caption with the attachment.
 - Added a removable visual preview for the first HTTP(S) link in the draft message. The preview does not rewrite the message text.
 - Preserved `file_name`/`fileName` during chat message normalization, keeping document filenames separate from captions.
