@@ -39,6 +39,12 @@ assert(testUser.includes("var upRingtoneStorageKey='upstatus_test_call_ringtone_
 assert(prodFn.includes('const VERSION = "'+baseVersion+'";'),"production backend version mismatch");
 assert(testFn.includes('const VERSION = "'+testVersion+'";'),"test backend version mismatch");
 assert(prodFn.includes('const marker="/upstatus";'),"production path marker mismatch");
+assert(prodFn.includes('const officialTeam=new Set(["Ricardo","Guilherme","Lohan"]);'),"member list must be restricted to official team members");
+assert(prodFn.includes('async function signedUploadRoute(req:Request,kind:"chat"|"avatar")'),"signed upload handler missing from production backend");
+assert(prodFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");'),"avatar signed-upload route missing");
+assert(prodFn.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");'),"chat signed-upload route missing");
+assert(prodFn.includes("async function chatRoute(req:Request,name:string,sessionStartedAt=0)"),"guest session history filter parameter missing");
+assert(prodFn.includes('const isAdmin=name==="Ricardo"||await admin(name);'),"Ricardo admin fallback missing");
 assert(testFn.includes('const marker="/upstatus-test";'),"test path marker mismatch");
 assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not match build output");
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
