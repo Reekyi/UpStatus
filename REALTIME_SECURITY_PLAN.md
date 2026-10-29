@@ -102,6 +102,31 @@ The staged migration `supabase/migrations/20261029170500_restrict_trigger_functi
 
 The second staged migration `supabase/migrations/20261029183000_revoke_unused_public_table_grants.sql` revokes unnecessary table privileges for PUBLIC, anon, and authenticated on nine tables currently accessed through the backend Edge Function. It has not been applied either. Validate direct client compatibility and service-role trigger behavior in TEST before considering it.
 
+## Database grant migration validation runbook (candidate only)
+
+### Preflight, before applying either migration
+
+1. Confirm the target environment/project ID and current migration history; do not infer TEST vs production from a function name alone.
+2. Capture the current results of the read-only catalog queries for table grants, function EXECUTE grants, and attached triggers. Save counts and object names, never tokens or secret values.
+3. Confirm no client or external automation calls the three `upstatus_broadcast_*` functions directly. The expected use is via triggers on `public.messages`, `public.upstatus_state`, and `public.users`.
+4. Verify the backend Edge Function's service-role access remains intact, and check any views/functions that depend on client-role table privileges.
+5. Prepare a rollback script reviewed against the exact grants that exist immediately before the migration. Do not blindly grant every privilege to PUBLIC.
+
+### Isolated TEST execution and postflight
+
+1. Apply the function EXECUTE-revocation migration first in an isolated TEST environment, then verify all three functions report `anon_exec=false` and `authenticated_exec=false` while their triggers remain attached.
+2. Perform representative INSERT/UPDATE/DELETE operations through the normal authenticated Edge Function flows and confirm messages, user status and remote-state broadcasts still fire. Confirm direct RPC calls using anon/authenticated are denied.
+3. Apply the table-grant-revocation migration only after step 2 passes. Verify the nine named tables no longer grant table privileges to PUBLIC, anon or authenticated, and that service-role Edge Function flows continue to work.
+4. Test login/setup, chat read/write, read receipts, reactions, typing, profile/status, session logout, remote-status flow and any UI paths that may access these tables directly. Confirm browser console/network errors are absent.
+5. Re-run the Security Advisor and catalog queries. RLS-without-policy INFO findings may remain because this candidate removes grants rather than adding broad policies; the three SECURITY DEFINER EXECUTE warnings should clear only after the first migration is applied.
+6. If any expected backend flow fails, stop and execute the specifically reviewed rollback. Do not proceed to production or official Team Lite without explicit approval.
+
+### Rollback discipline
+
+- Capture exact pre-migration grants and owners first; rollback only those grants, to the original roles and privileges.
+- Do not restore broad grants to PUBLIC unless the captured preflight proves they existed and the security impact has been consciously accepted.
+- Record migration version, environment, pre/post query outputs, regression results, and rollback result in the worklog without sensitive values.
+
 ## Safety invariants
 
 - Never publish or merge a candidate without explicit approval.
