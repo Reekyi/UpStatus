@@ -265,3 +265,9 @@ Last updated: 2026-10-29
 - Re-ran the Supabase Security Advisor. It reports 10 RLS-enabled tables without policies and three SECURITY DEFINER functions callable by anon. Nine of those tables are covered by the staged table-grant migration; `upstatus_visual_config` has no client grants in the earlier privilege check and is intentionally not included in the revoke list.
 - Normal candidate CI remains green on current head `6695357599532dc3298d5dfa587790ac22cf2bc6` (run 40943907867); Team Lite candidate CI remains green on `8ad76f4e8e195b7397f5b176dbb277f850f6ebf7` (run 40942731055). Both PRs remain draft and unmerged.
 - No migration, deployment, secret/configuration change, or merge was performed. Realtime sender authentication and cross-instance session revocation remain open security items; the current evidence does not justify declaring the project release-ready.
+
+## Database migration test planning: 2026-10-29
+
+- Added a candidate-only database grant migration runbook to `REALTIME_SECURITY_PLAN.md`: preflight inventory, staged TEST order, direct-RPC denial checks, trigger regression checks, service-role compatibility checks, rollback discipline, and post-migration Security Advisor verification.
+- The runbook is planning/documentation only. No migration was applied. Normal candidate validation passed on commit `3dba283131be0f4b59279603edf088e30ba5d7c5` (run 40944759137). Supabase Preview remains skipped because no Supabase branch database is attached to the PR.
+- Remaining blockers are unchanged: authenticated Realtime sender identity, cross-instance session revocation semantics, and live browser/runtime coverage. PR #74 and PR #75 remain open draft PRs and are not merged.
