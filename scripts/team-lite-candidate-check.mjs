@@ -43,10 +43,6 @@ assert.ok(ycaro.includes("/api/ycaro/login"), "Ycaro portal must use its separat
 assert.ok(ycaro.includes("/api/ycaro/heartbeat") && ycaro.includes("/api/ycaro/logout"), "Ycaro portal must use separate session lifecycle routes");
 assert.ok(!/(?:password|senha)\s*[:=]\s*['"][^'"]{8,}['"]/i.test(ycaro), "Ycaro page must not contain an obvious hardcoded password literal");
 
-const inlineCounts = {
-  luccaSite: assertInlineScriptsParse(luccaSite, "lucca-site/index.html"),
-  luccaStandalone: assertInlineScriptsParse(luccaStandalone, "lucca.html"),
-  ycaro: assertInlineScriptsParse(ycaro, "ycaro.html")
 assert.ok(backend.includes('const VERSION = "__UPSTATUS_VERSION__";'), "Team Lite backend version placeholder missing");
 assert.ok(backend.includes('const USERSCRIPT_BASE64 = "__UPSTATUS_USERSCRIPT_BASE64__";'), "Team Lite embedded userscript placeholder missing");
 assert.ok(backend.includes("async function chatRows(name:string,since?:string,guestJoinedAt=0)"), "guest chat history must be scoped to session start");
@@ -59,11 +55,17 @@ assert.ok(backend.includes("async function luccaRoute(req:Request)") && backend.
 assert.ok(script.includes("if(c&&c.target===member)pollRemoteStatus();"), "remote command broadcast must trigger authenticated polling only");
 assert.ok(!script.includes("if(c&&c.target===member)executeRemoteCommand(c);"), "client must not execute untrusted remote command broadcast payloads");
 assert.ok(build.includes('writeFunction("upstatus-team-lite",renderTeamLiteFunction())'), "build must generate the Team Lite Edge Function");
+
+const inlineCounts = {
+  luccaSite: assertInlineScriptsParse(luccaSite, "lucca-site/index.html"),
+  luccaStandalone: assertInlineScriptsParse(luccaStandalone, "lucca.html"),
+  ycaro: assertInlineScriptsParse(ycaro, "ycaro.html")
 };
 console.log("Team Lite candidate checks passed:", JSON.stringify({
   version: manifest.buildVersion,
   updaterManifestConsistency: true,
   userscriptSyntax: true,
   guestPortalSyntax: inlineCounts,
+  guestSessionIsolationChecks: true,
   separateLuccaYcaroAuthRoutes: true
 }));
