@@ -26,13 +26,14 @@ Last updated: 2026-10-29
 - Updated chat regression tests for filename payloads, reply preservation, upload-failure recovery, optimistic captions, preview cleanup, owner-only chat clearing, and role-gated health UI.
 - Added `scripts/team-lite-updater.test.mjs`. It checks the independent `team-lite-official` branch for manifest/header/internal version consistency, stable update/download URLs, the newer-version prompt, equal versions, mismatch/downgrade protection, manual update action, invalid manifests, and manifest/script network failures.
 - Updated CI checkout to fetch all branches so the Team Lite updater test can inspect the official branch without copying its large script into the normal release branch.
+- Added an explicit `--sync-root-artifact` build option with a preflight guard that requires `release.json.version` to be strictly newer before overwriting a changed tracked artifact. The validator confirms ordinary validation leaves `UpStatus.user.js` unchanged and exercises rejection of same-version sync.
 
 ## Validation
 
 - Userscript template source-level syntax parsing passed during patching.
 - Chat regression suite passed after the latest code changes.
 - Team Lite updater regression suite passed against the official branch source, including manifest/header/internal version consistency, the internal `UPDATE_URL`, and pinned official manifest/script URLs.
-- GitHub Actions run `40910713764` passed for code/test head `9e96282b5e8fe24532b4d03dc750765892840ae9`, including build, chat regression tests, Team Lite updater tests, and the full `scripts/validate.mjs` pipeline.
+- GitHub Actions run `40911932354` passed for code/test head `600431def2cfc74979bd153a36df98b541d8ebc8`, including build, chat regression tests, Team Lite updater tests, the root-artifact sync safety check, and the full `scripts/validate.mjs` pipeline.
 - Earlier architecture and work-log documentation updates passed in runs `40909976273` and `40910037380`.
 - The account-role and schema checks were read-only.
 
