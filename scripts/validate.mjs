@@ -98,6 +98,17 @@ checkSyntax(testUser,"dist/upstatus-test.user.js");
 
 const luccaHtml=fs.readFileSync(path.join(ROOT,"lucca-site/index.html"),"utf8");
 const ycaroHtml=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
+for(const guestHtml of [luccaHtml,ycaroHtml]){
+  assert(guestHtml.includes(".up-chat-item.lucca .up-chat-bubble{background:#273247;border:1px solid #a855f7"),"guest portals must use a neutral fill with Lucca's purple border");
+  assert(guestHtml.includes(".up-chat-item.ycaro .up-chat-bubble{background:#273247;border:1px solid #f97316"),"guest portals must use a neutral fill with Ycaro's orange border");
+  assert(guestHtml.includes(".up-chat-system-event span{display:inline-block;padding:0;border:0;border-radius:0;background:transparent"),"guest join/leave notices must be plain centered text without a pill or colored fill");
+  assert(guestHtml.includes("m.user==='Lucca'")&&guestHtml.includes("m.user==='Ycaro'"),"guest portals must style both Lucca and Ycaro messages consistently");
+}
+for(const notice of ['message:"Lucca entrou no chat"','message:"Lucca saiu do chat"','message:"Ycaro entrou no chat"','message:"Ycaro saiu do chat"']){
+  assert(prodFn.includes(notice),"backend must emit the exact plain-text guest presence notice: "+notice);
+}
+assert(!/message:"[🔴🟠] (?:Lucca|Ycaro)(?: Maluco)? (?:entrou|saiu) do chat\."/u.test(prodFn),"guest presence notices must not contain emojis, nicknames, or trailing punctuation");
+
 const luccaInline=[...luccaHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].find(m=>!/\bsrc\s*=/.test(m[1])&&m[2].trim());
 assert(!!luccaInline,"Lucca inline script missing");
 checkSyntax(luccaInline[2],"lucca-site/index.html inline script");
