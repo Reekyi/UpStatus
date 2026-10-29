@@ -31,6 +31,11 @@ function render(template,replacements){
   if(/__UPSTATUS_[A-Z0-9_]+__/.test(out))throw new Error("Unresolved build placeholder detected.");
   return out;
 }
+function compareVersions(a,b){
+  const left=String(a||"").split(".").map(Number),right=String(b||"").split(".").map(Number);
+  for(let i=0;i<3;i++){const x=left[i]||0,y=right[i]||0;if(x!==y)return x>y?1:-1;}
+  return 0;
+}
 function hexEncode(text){return Buffer.from(text,"utf8").toString("hex");}
 function renderUser({version,test}){
   const fn=test?TEST_FUNCTION:PROD_FUNCTION;
@@ -90,7 +95,7 @@ if(syncRootArtifact){
   const rootArtifactPath=path.join(ROOT,"UpStatus.user.js");
   const currentArtifact=fs.readFileSync(rootArtifactPath,"utf8");
   const currentVersion=(currentArtifact.match(/^\/\/ @version\s+(.+)$/m)||[])[1]||"";
-  if(currentArtifact!==prodUser&&currentVersion===baseVersion)throw new Error("Refusing to sync UpStatus.user.js while its version remains "+baseVersion+". Increment release.json.version before updating the tracked distribution artifact.");
+  if(currentArtifact!==prodUser&&(!/^\\d+\\.\\d+\\.\\d+$/.test(currentVersion)||compareVersions(baseVersion,currentVersion)<=0))throw new Error("Refusing to sync UpStatus.user.js unless release.json.version is greater than the tracked artifact version ("+currentVersion+"). Increment release.json.version before updating the tracked distribution artifact.");
   fs.writeFileSync(rootArtifactPath,prodUser,"utf8");
   console.log("Synchronized tracked UpStatus.user.js artifact.");
 }
