@@ -177,4 +177,6 @@ assert.equal(candidateScriptOffline.calls.prompts.length, 0, "script network fai
 assert.match(String(candidateScriptOffline.status.textContent), /Atualizador bloqueado/, "script network failure should be visible");
 const candidateInvalidManifest = await runUpdaterScenario({ installed: "3.4.30", manifest: { product: "Wrong product", buildVersion: manifest.buildVersion, scriptUrl: manifest.scriptUrl }, servedVersion: manifest.buildVersion });
 assert.equal(candidateInvalidManifest.calls.prompts.length, 0, "invalid manifest must not show a prompt");
+assert.ok(script.includes(".on('broadcast',{event:'remote_result'},function(){ if(!isAuthenticated()||realtimeGeneration!==authGeneration||realtimeMember!==member)return; /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"), "public remote_result broadcasts must not be treated as authoritative command results");
+assert.ok(script.includes("api('GET','/api/remote-status/result?id='+encodeURIComponent(id))"), "remote command completion must continue polling the authenticated result endpoint");
 console.log("Candidate updater runtime scenarios passed: newer/current/mismatch/downgrade/manifest-offline/script-offline/invalid-manifest.");
