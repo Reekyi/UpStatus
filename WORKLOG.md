@@ -32,7 +32,7 @@ Establish a safe, fast, recoverable workflow for ongoing fixes to UpStatus norma
 - No deployed runtime code, release version, or deployment has been changed.
 - Branch `chore/continuity-foundation` was created from `master`; production branch remains untouched.
 - Added `ARCHITECTURE.md`, `DEVELOPMENT.md`, and `WORKLOG.md` for durable project context and cross-chat handoff.
-- Patched `scripts/build.mjs` to use `release.json.scriptUrl` for production update/download URLs, preserving the separate legacy runtime API endpoint.
+- Patched `scripts/build.mjs` to use `release.json.scriptUrl` for production update/download URLs, with a stable-endpoint fallback for older manifests that omit that field, preserving the separate legacy runtime API endpoint.
 - Strengthened `scripts/validate.mjs` to assert exact production and TEST update/download URLs.
 - Added `.github/workflows/validate-pr.yml` for build/validation checks on future PRs to `master` and `develop`.
 - Confirmed by deterministic template rendering that the corrected production substitutions match tracked `UpStatus.user.js` exactly (544,057 characters). The actual Node build/validator has not been executed here.
