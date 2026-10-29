@@ -201,3 +201,10 @@ Last updated: 2026-10-29
 - Read-only query confirmed the current roles for Ricardo, Guilherme and Lohan are implementation_admin. Password hashes were not inspected. The account setup route only blocks setup when a password hash already exists, so the initial-setup state of privileged accounts must be verified through a safe boolean-only check before deciding whether there is an active account-claim risk. Do not expose hashes or reset credentials.
 - The differences may include intentional UX changes as well as security fixes. The draft source is not a deployable substitute at version 3.4.7; review each backend difference, test account provisioning and guest isolation in TEST, increment the version when authorized, and verify the served runtime after any approved deployment.
 - Updated ARCHITECTURE.md with this runtime comparison and corrected the build safety note. No production/TEST deployment, SQL migration, secret read, role change, password change, or merge occurred.
+
+## TEST backend parity audit: 2026-10-29
+
+- Read the live TEST Edge Function read-only: slug upstatus-test, revision 281, embedded userscript version 3.3.28. Compared its backend source with the current server template after normalizing embedded payloads and release-specific constants; 38 differing line groups remain.
+- TEST runtime has some distinct guest-session filtering and profile/upload behavior not identical to the current candidate template, but it also retains the name-based admin fallback and lacks document filename persistence and the candidate's full guest-session start-time filters for history/unread/read receipts.
+- This confirms TEST is not a clean drop-in validation target for the current candidate. Do not deploy to TEST merely to align versions; first reconcile the intended source baseline and explicitly choose which runtime behavior is authoritative.
+- Updated ARCHITECTURE.md. No TEST/production deployment, migration, secret read, or database mutation occurred.
