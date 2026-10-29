@@ -2,9 +2,9 @@ name: UpStatus Validate
 
 on:
   push:
-    branches: [master, develop]
+    branches: [master, develop, 'team-lite/**']
   pull_request:
-    branches: [master, develop]
+    branches: [master, develop, team-lite-official]
 
 permissions:
   contents: read
@@ -19,3 +19,5 @@ jobs:
           persist-credentials: false
       - name: Validate build
         run: node scripts/validate.mjs
+      - name: Validate Team Lite updater
+        run: node scripts/team-lite-updater.test.mjs
