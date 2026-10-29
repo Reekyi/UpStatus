@@ -13,6 +13,7 @@ function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+
 const scriptVersion=headerValue(script,"version");
 assert(release.product==="UpStatus Team Lite","manifest product mismatch");
 assert(String(release.buildVersion)===scriptVersion,"manifest buildVersion must match userscript @version");
+assert(script.includes("var CURRENT_VERSION='"+scriptVersion+"'"),"internal CURRENT_VERSION must match userscript @version");
 assert(headerValue(script,"updateURL")===release.scriptUrl,"userscript updateURL must match manifest scriptUrl");
 assert(headerValue(script,"downloadURL")===release.scriptUrl,"userscript downloadURL must match manifest scriptUrl");
 assert(script.includes("function checkUpdate(){"),"checkUpdate function missing");
