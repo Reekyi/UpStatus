@@ -43,8 +43,8 @@ Last updated: 2026-10-29
 
 ## Next steps
 
-1. Inspect the final PR diff and verify the latest CI run after the last commit.
-2. Verify the account role for Ricardo is `implementation_admin` before deployment; never restore a name-only admin bypass.
+1. Inspect the final PR diff and verify the latest CI run after the last commit (the latest code/test commit passed; documentation-only follow-ups are being rechecked).
+2. Account role check completed read-only on 2026-10-29: Ricardo is `implementation_admin`. Re-check if account configuration changes; never restore a name-only admin bypass.
 3. Validate chat attachment staging and removable link previews in a browser/TEST environment.
 4. Reconcile backend template against the live Edge Function and compile/check the generated function before any deployment.
 5. Investigate the Team Lite update popup in an isolated test branch without bumping the official raw-file version.
