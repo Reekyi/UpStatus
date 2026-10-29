@@ -65,6 +65,12 @@ assert.ok(script.includes(".on('broadcast',{event:'chat_read'},function(){if(isA
 assert.ok(!script.includes(".on('broadcast',{event:'db_change'},function(payload){"), "Team Lite must not apply public database-change payload rows");
 assert.ok(script.includes("if(!isAuthenticated()||generation!==authGeneration||requestedMember!==member)return;") && script.includes("loadChat(true);"), "Team Lite canonical refresh must be scoped to the active authenticated session");
 
+assert.ok(script.includes("p.type!=='presence'&&p.type!=='ended'&&p.to!==member"), "Team Lite call signaling must be addressed to the current member except public presence/end events");
+assert.ok(script.includes("p.callId.length>160") && script.includes("p.from.length>80"), "Team Lite call signaling identifiers must be bounded");
+assert.ok(script.includes("p.sdp.sdp.length>100000"), "Team Lite must reject oversized call SDP");
+assert.ok(script.includes("JSON.stringify(p.candidate).length>4096"), "Team Lite must reject oversized ICE candidates");
+assert.ok(script.includes("(p.type==='offer'||p.type==='answer'||p.type==='ice')&&p.to!==member"), "Team Lite voice and screen-share negotiation must be directly targeted");
+
 const inlineCounts = {
   luccaSite: assertInlineScriptsParse(luccaSite, "lucca-site/index.html"),
   luccaStandalone: assertInlineScriptsParse(luccaStandalone, "lucca.html"),
