@@ -1,9 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { createHash, randomBytes } from "node:crypto";
 
-const URL = Deno.env.get("SUPABASE_URL")!;
+const PROJECT_URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}").default || "";
-const db = createClient(URL, KEY, { auth: { persistSession: false } });
+const db = createClient(PROJECT_URL, KEY, { auth: { persistSession: false } });
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "content-type, x-upstatus-token, authorization, apikey",
