@@ -76,11 +76,9 @@ console.log("Team Lite candidate checks passed:", JSON.stringify({
 const versionStart = script.indexOf("  function versionParts(");
 const versionEnd = script.indexOf("  function mentionNames", versionStart);
 assert.ok(versionStart >= 0 && versionEnd > versionStart, "updater runtime test boundaries not found");
-const promptStart = script.indexOf("  var updatePromptShown", versionStart);
-const checkStart = script.indexOf("  function checkUpdate(){", promptStart);
-const promptFunctionEnd = script.indexOf("\n  function checkUpdate(){", promptStart);
-assert.ok(promptStart >= 0 && promptFunctionEnd > promptStart, "updater prompt function boundary not found");
-const updaterCode = script.slice(versionStart, promptFunctionEnd) + "\n" + script.slice(checkStart, versionEnd) + "\nthis.__candidateCheckUpdate = checkUpdate;";
+const checkStart = script.indexOf("  function checkUpdate(){", versionStart);
+assert.ok(checkStart > versionStart, "updater checkUpdate boundary not found");
+const updaterCode = script.slice(versionStart, checkStart) + script.slice(checkStart, versionEnd) + "\nthis.__candidateCheckUpdate = checkUpdate;";
 async function runUpdaterScenario({ installed, manifest, servedVersion, fetchFailureAt = 0 }) {
   const calls = { prompts: [], availability: [], fetches: 0, opened: 0 };
   const status = { textContent: "", innerHTML: "" };
