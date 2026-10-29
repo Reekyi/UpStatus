@@ -1379,7 +1379,7 @@ function renderChatText(text){
     return {
       id:String(record.id),user:String(rawUser||''),message:String(record.message||''),type:String(record.type||'text'),
       systemType:String(record.system_type!=null?record.system_type:(record.systemType||'')),createdAt:record.created_at||record.createdAt||new Date().toISOString(),
-      imageUrl:String(record.image_url!=null?record.image_url:(record.imageUrl||'')),mentions:Array.isArray(record.mentions)?record.mentions:[],
+      imageUrl:String(record.image_url!=null?record.image_url:(record.imageUrl||'')),fileName:String(record.file_name!=null?record.file_name:(record.fileName||'')),mentions:Array.isArray(record.mentions)?record.mentions:[],
       replyTo:record.reply_to!=null?record.reply_to:(record.replyTo||null),reactions:record.reactions||{},readBy:Array.isArray(record.readBy)?record.readBy:[]
     };
   }
