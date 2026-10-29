@@ -17,6 +17,7 @@ const preRelease=String(release.preRelease||"").trim();
 const testVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
 const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.ts"),"utf8");
 const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
+const triggerGrantMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261029170500_restrict_trigger_function_execute.sql"),"utf8");
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
@@ -82,6 +83,12 @@ assert(!prodFn.includes('if(!["Ricardo","Lohan","Guilherme"].includes(name))'),"
 assert(prodFn.includes('message:"🧹 "+name+" limpou o chat."'),"chat clear audit message must identify the acting admin");
 assert(!prodFn.includes('if(name!=="Ricardo")return response({error:"Somente Ricardo pode limpar o chat."}'),"chat clearing must not use a name-only admin check");
 assert(prodFn.includes('const role=a.role||"implementation_user";'),"account setup must preserve only explicit database roles");
+assert(triggerGrantMigration.includes("FROM PUBLIC, anon, authenticated"),"trigger broadcast migration must revoke direct execution from public client roles");
+for(const fn of ["upstatus_broadcast_messages","upstatus_broadcast_remote_state","upstatus_broadcast_users"]){
+  assert(triggerGrantMigration.includes("public."+fn+"()"),"trigger broadcast execution migration missing "+fn);
+}
+assert(triggerGrantMigration.includes("IF fn IS NOT NULL THEN"),"trigger execution migration must tolerate environments without every legacy function");
+
 assert(!prodFn.includes('["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin"'),"account setup must not grant admin by name");
 assert(testFn.includes('const marker="/upstatus-test";'),"test path marker mismatch");
 assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not match build output");
