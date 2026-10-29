@@ -466,6 +466,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var chatReplyTo=null;
   var chatPendingAttachment=null;
   var chatLinkPreviewDismissed=false;
+  var chatLinkPreviewDismissedUrl='';
   var chatContextMessageId=null;
   var luccaOnline=false;
   var lastLuccaJoinEventId='';
@@ -2790,15 +2791,15 @@ function chatAvatarPresence(name){
   function updateLinkPreview(text){
     var box=chat.querySelector('.up-chat-pending-preview');if(!box)return;var existing=box.querySelector('.up-chat-link-preview');if(existing)existing.remove();var match=String(text||'').match(/https?:\/\/[^\s<>"']+/i);
     if(!match){chatLinkPreviewDismissed=false;if(!chatPendingAttachment){box.classList.add('hidden');box.textContent='';}return;}
-    var raw=match[0].replace(/[),.!?]+$/,'');var url;try{url=new URL(raw);if(url.protocol!=='http:'&&url.protocol!=='https:')return;}catch(e){return;}if(chatLinkPreviewDismissed)return;
+    var raw=match[0].replace(/[),.!?]+$/,'');var url;try{url=new URL(raw);if(url.protocol!=='http:'&&url.protocol!=='https:'){if(!chatPendingAttachment)box.classList.add('hidden');return;}}catch(e){if(!chatPendingAttachment)box.classList.add('hidden');return;}if(chatLinkPreviewDismissed&&url.href===chatLinkPreviewDismissedUrl){if(!chatPendingAttachment)box.classList.add('hidden');return;}chatLinkPreviewDismissed=false;chatLinkPreviewDismissedUrl='';
     var preview=document.createElement('div');preview.className='up-chat-link-preview';preview.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 10px;margin:0 0 6px;border:1px solid #536784;border-radius:9px;background:rgba(79,125,255,.08);color:inherit;font:12px Segoe UI,Arial,sans-serif';var copy=document.createElement('div');copy.style.cssText='min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';copy.textContent=url.hostname+url.pathname;
-    var remove=document.createElement('button');remove.type='button';remove.className='up-chat-link-preview-remove';remove.setAttribute('aria-label','Ocultar prévia do link');remove.title='Ocultar prévia';remove.textContent='×';remove.style.cssText='border:0;border-radius:6px;padding:3px 8px;background:rgba(120,135,160,.18);color:inherit;cursor:pointer';remove.onclick=function(e){e.preventDefault();e.stopPropagation();chatLinkPreviewDismissed=true;preview.remove();if(!chatPendingAttachment)box.classList.add('hidden');};preview.appendChild(copy);preview.appendChild(remove);box.appendChild(preview);box.classList.remove('hidden');
+    var remove=document.createElement('button');remove.type='button';remove.className='up-chat-link-preview-remove';remove.setAttribute('aria-label','Ocultar prévia do link');remove.title='Ocultar prévia';remove.textContent='×';remove.style.cssText='border:0;border-radius:6px;padding:3px 8px;background:rgba(120,135,160,.18);color:inherit;cursor:pointer';remove.onclick=function(e){e.preventDefault();e.stopPropagation();chatLinkPreviewDismissed=true;chatLinkPreviewDismissedUrl=url.href;preview.remove();if(!chatPendingAttachment)box.classList.add('hidden');};preview.appendChild(copy);preview.appendChild(remove);box.appendChild(preview);box.classList.remove('hidden');
   }
   function sendChat(){
     if(mediaRecorder&&mediaRecorder.state==='recording'){stopAudioRecording(true);return;}
     var input=chat.querySelector('.up-chat-input'),text=input?(input.value||'').trim():'';
     if(!input||(!text&&!chatPendingAttachment))return;
-    if(chatPendingAttachment){var pending=chatPendingAttachment,reply=chatReplyTo;chatPendingAttachment=null;var previewBox=chat.querySelector('.up-chat-pending-preview');if(previewBox){previewBox.classList.add('hidden');previewBox.textContent='';}chatLinkPreviewDismissed=false;input.value='';clearChatDraft();setChatReply(null);sendChatMedia(pending,text,reply);return;}
+    if(chatPendingAttachment){var pending=chatPendingAttachment,reply=chatReplyTo;chatPendingAttachment=null;var previewBox=chat.querySelector('.up-chat-pending-preview');if(previewBox){previewBox.classList.add('hidden');previewBox.textContent='';}chatLinkPreviewDismissed=false;chatLinkPreviewDismissedUrl='';input.value='';clearChatDraft();setChatReply(null);sendChatMedia(pending,text,reply);return;}
     var btn=chat.querySelector('.up-chat-send');
     var tempId='local-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
     var tempReply=chatReplyTo;
