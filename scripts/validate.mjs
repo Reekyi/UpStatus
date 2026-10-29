@@ -44,6 +44,9 @@ assert(prodFn.includes('async function signedUploadRoute(req:Request,kind:"chat"
 assert(prodFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");'),"avatar signed-upload route missing");
 assert(prodFn.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");'),"chat signed-upload route missing");
 assert(prodFn.includes("async function chatRoute(req:Request,name:string,sessionStartedAt=0)"),"guest session history filter parameter missing");
+assert(prodFn.includes('if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&sessionStartedAt>0)'),"guest chat history must be filtered by server-side session start");
+assert(prodFn.includes('file_name:type==="document"&&fileName?fileName:null'),"document filename persistence missing from chat messages");
+assert(prodFn.includes('fileName:m.file_name||""'),"document filename hydration missing from chat history");
 assert(prodFn.includes('const isAdmin=name==="Ricardo"||await admin(name);'),"Ricardo admin fallback missing");
 assert(testFn.includes('const marker="/upstatus-test";'),"test path marker mismatch");
 assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not match build output");
