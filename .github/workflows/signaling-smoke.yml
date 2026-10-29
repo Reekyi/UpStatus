@@ -6,6 +6,7 @@ on:
       - chore/continuity-foundation
     paths:
       - "scripts/test-signaling-endpoint.mjs"
+      - "scripts/test-signaling-authenticated.mjs"
       - ".github/workflows/signaling-smoke.yml"
       - "supabase/functions/upstatus-signal-test/index.ts"
   workflow_dispatch:
