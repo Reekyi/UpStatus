@@ -55,7 +55,7 @@ Last updated: 2026-10-29
 
 ## Next steps
 
-1. Latest full validation passed after signed-upload security assertions; a new CI run is required for the added trigger-function privilege migration and its checks. Keep PR #74 in draft pending final review.
+1. Validation passed for the trigger-function privilege migration and its checks. README/work-log documentation-only follow-ups have been added since; verify the latest CI run for the current head before considering the PR green. Keep PR #74 in draft pending final review.
 2. Test attachment staging, caption/reply preservation, failed-upload recovery, and link previews in a browser/TEST environment.
 3. Compare the generated backend against the live Edge Function and run an appropriate TypeScript/Deno check before any deployment.
 4. Diagnose the Team Lite popup on the affected installation by confirming its installed `@version`, updater status line, and whether manifest/script fetches succeed. Do not bump the official version merely to force a popup.
