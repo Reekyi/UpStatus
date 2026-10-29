@@ -1752,10 +1752,13 @@ function renderChatText(text){
     callPublishPresence();upCall.presenceTimer=setInterval(callPublishPresence,5000);
   }
   function callReceivePresence(p){
-    if(!p||!p.callId||!p.from||!Array.isArray(p.participants))return;
+    if(!p||typeof p.callId!=='string'||!p.callId||p.callId.length>160||typeof p.from!=='string'||!p.from||p.from.length>80||!Array.isArray(p.participants)||p.participants.length>32)return;
+    if(p.participants.some(function(n){return typeof n!=='string'||!n||n.length>80;}))return;
+    var participants=[];p.participants.forEach(function(n){if(participants.indexOf(n)<0&&participants.length<32)participants.push(n);});
+    if(participants.indexOf(p.from)<0){if(participants.length>=32)return;participants.push(p.from);}
     var old=upCallDirectory[p.callId]||{callId:p.callId,participants:[]};
-    old.callId=p.callId;old.participants=p.participants.slice();if(old.participants.indexOf(p.from)<0)old.participants.push(p.from);
-    old.initiator=p.initiator||old.initiator||p.from;old.updatedAt=Date.now();old.sharing=!!p.sharing;old.screenSharer=p.screenSharer||'';upCallDirectory[p.callId]=old;
+    old.callId=p.callId;old.participants=participants;
+    old.initiator=typeof p.initiator==='string'&&p.initiator.length<=80?p.initiator:(old.initiator||p.from);old.updatedAt=Date.now();old.sharing=!!p.sharing;old.screenSharer=typeof p.screenSharer==='string'&&p.screenSharer.length<=80?p.screenSharer:'';upCallDirectory[p.callId]=old;
   }
   function callSendTo(to,type,extra){
     if(!to||!upCall.callId)return false;
@@ -1867,10 +1870,10 @@ function renderChatText(text){
     for(var i=0;i<q.length;i++){try{await p.pc.addIceCandidate(q[i]);}catch(e){}}
   }
   function callMergeParticipants(list){
-    var next=Array.isArray(list)?list.slice():[];if(member)next.push(member);
-    next=next.filter(function(n){return n;});
-    var out=[];next.forEach(function(n){if(out.indexOf(n)<0)out.push(n);});
-    if(member&&out.indexOf(member)<0)out.push(member);upCall.participants=out;
+    var out=[];
+    if(typeof member==='string'&&member&&member.length<=80)out.push(member);
+    (Array.isArray(list)?list.slice(0,32):[]).forEach(function(n){if(typeof n==='string'&&n&&n.length<=80&&out.indexOf(n)<0&&out.length<32)out.push(n);});
+    upCall.participants=out;
   }
   function callRenderConnected(){
     if(!upCall.active)return;
