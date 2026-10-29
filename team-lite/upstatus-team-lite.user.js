@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         UpStatus Team Lite - Sale Smartly
 // @namespace    upseller-team-lite
-// @version      3.4.29
+// @version      3.4.30
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
 // @run-at       document-start
@@ -225,7 +225,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   // Team Lite guests get a temporary, client-side chat view. Server messages remain untouched.
   var teamLiteChatSessionStartedAt=0,teamLiteChatSessionActive=false;
   function isTeamLiteEphemeralMember(){var n=String(member||'').toLowerCase().replace(/[^a-z0-9]/g,'');return n==='ycaro'||n==='lucca'||n==='luccamaluco';}
-  function beginTeamLiteEphemeralChatSession(){if(!isTeamLiteEphemeralMember())return;teamLiteChatSessionStartedAt=Date.now();teamLiteChatSessionActive=true;chatCache=[];chatLastRenderKey='';chatFastSince='';chatInitialized=false;chatReplyTo=null;clearChatDraft();}
+  function beginTeamLiteEphemeralChatSession(serverStartedAt){if(!isTeamLiteEphemeralMember())return;var parsed=serverStartedAt?Date.parse(serverStartedAt):NaN;teamLiteChatSessionStartedAt=Number.isFinite(parsed)&&parsed>0?parsed:Date.now();teamLiteChatSessionActive=true;chatCache=[];chatLastRenderKey='';chatFastSince='';chatInitialized=false;chatReplyTo=null;chatContextMessageId=null;clearChatDraft();}
   function clearTeamLiteEphemeralChat(){if(!isTeamLiteEphemeralMember())return;teamLiteChatSessionActive=false;teamLiteChatSessionStartedAt=0;chatCache=[];chatLastRenderKey='';chatFastSince='';chatInitialized=false;chatReplyTo=null;chatContextMessageId=null;clearChatDraft();var input=chat.querySelector('.up-chat-input');if(input)input.value='';var list=chat.querySelector('.up-chat-list');if(list){list.innerHTML='<div class="up-history-empty">Nenhuma mensagem nesta sessão.</div>';list.removeAttribute('data-render-key');}chat.setAttribute('data-upstatus-chat-member',member);}
   function startTeamLiteEphemeralChatIfNeeded(){if(isTeamLiteEphemeralMember()&&!teamLiteChatSessionActive)beginTeamLiteEphemeralChatSession();}
 
@@ -483,7 +483,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.29'
+  var CURRENT_VERSION='3.4.30'
   var UPDATE_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/team-lite-official/team-lite/upstatus-team-lite.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
@@ -2531,7 +2531,7 @@ function chatAvatarPresence(name){
     var html='',lastDate='';
     chatCache.forEach(function(m,idx){
       var day=chatDateKey(m.createdAt);if(day&&day!==lastDate){html+='<div class="up-chat-date-divider"><span>'+esc(chatDateLabel(m.createdAt))+'</span></div>';lastDate=day;}
-      if(m.type==='system'){html+='<div class="up-chat-system-event '+(m.systemType==='lucca_join'?'join':(m.systemType==='chat_clear'?'clear':'leave'))+'"><span>'+esc(m.message)+'</span></div>';return;}
+      if(m.type==='system'){var eventMessage=m.message||'';var eventTypes={lucca_join:'Lucca entrou no chat',lucca_leave:'Lucca saiu do chat',ycaro_join:'Ycaro entrou no chat',ycaro_leave:'Ycaro saiu do chat'};if(eventTypes[m.systemType])eventMessage=eventTypes[m.systemType];html+='<div class="up-chat-system-event '+(m.systemType==='lucca_join'||m.systemType==='ycaro_join'?'join':(m.systemType==='chat_clear'?'clear':'leave'))+'"><span>'+esc(eventMessage)+'</span></div>';return;}
       var own=m.user===member,prev=idx>0?chatCache[idx-1]:null,next=idx<chatCache.length-1?chatCache[idx+1]:null;
       var samePrev=!!prev&&prev.type!=='system'&&prev.user===m.user&&chatDateKey(prev.createdAt)===day,sameNext=!!next&&next.type!=='system'&&next.user===m.user&&chatDateKey(next.createdAt)===day;
       var groupStart=!samePrev,groupEnd=!sameNext;
@@ -2545,7 +2545,7 @@ function chatAvatarPresence(name){
       var ownMeta=own?'<div class="up-chat-own-meta"><span class="up-chat-own-time">'+fmtTime(m.createdAt)+'</span>'+tick+'</div>':'';
       var incomingTime=!own?'<span class="up-chat-incoming-time">'+fmtTime(m.createdAt)+'</span>':'';
       var bubbleKind=m.imageUrl?'has-media':(m.message?'has-text':'has-link');var bubble='<div class="up-chat-bubble '+bubbleKind+'">'+replyPreview(m)+meta+body+ownMeta+incomingTime+'<div class="up-chat-reactions">'+renderReactions(m)+'</div></div>';
-      var senderColors=own?null:chatSenderColors(m.user);html+='<div class="up-chat-item '+(own?'own ':'')+(m.user==='Lucca'?'lucca ':m.user==='Ycaro'?'ycaro ':'')+(groupStart?'group-start ':'')+(groupEnd?'group-end ':'')+(!groupStart&&!groupEnd?'group-middle ':'')+'"'+(!own?' data-sender-color="'+esc(m.user)+'" style="--up-chat-sender-color:'+senderColors.dark+';--up-chat-sender-color-light:'+senderColors.light+'"':'')+' data-message-id="'+esc(m.id)+'">'+avatar+bubble+(own?'<button type="button" class="up-delete-action hidden">'+iconSvg('trash')+'</button>':'')+'</div>';
+      var senderColors=own?null:chatSenderColors(m.user);html+='<div class="up-chat-item '+(own?'own ':'')+(/^(lucca|lucca maluco)$/i.test(String(m.user||'').trim())?'lucca ':(/^ycaro(?: maluco)?$/i.test(String(m.user||'').trim())?'ycaro ':'')+(groupStart?'group-start ':'')+(groupEnd?'group-end ':'')+(!groupStart&&!groupEnd?'group-middle ':'')+'"'+(!own?' data-sender-color="'+esc(m.user)+'" style="--up-chat-sender-color:'+senderColors.dark+';--up-chat-sender-color-light:'+senderColors.light+'"':'')+' data-message-id="'+esc(m.id)+'">'+avatar+bubble+(own?'<button type="button" class="up-delete-action hidden">'+iconSvg('trash')+'</button>':'')+'</div>';
     });
     list.innerHTML=html;
     hydrateChatLinkTitles(list);
@@ -4144,6 +4144,19 @@ function chatAvatarPresence(name){
       img.removeAttribute('src');img.style.display='none';overlay.style.display='block';overlay.style.pointerEvents='auto';
     }
   }
+
+ (function upStatusGuestMessageStyles347(){if(document.getElementById('upstatus-guest-message-styles-347'))return;var style=document.createElement('style');style.id='upstatus-guest-message-styles-347';style.textContent=[
+ '#upstatus-team-lite-root .up-chat-item.lucca .up-chat-bubble{background:var(--up-chat-neutral-fill)!important;border:1px solid #9664d8!important;box-shadow:none!important}',
+ '#upstatus-team-lite-root .up-chat-item.ycaro .up-chat-bubble{background:var(--up-chat-neutral-fill)!important;border:1px solid #e8892c!important;box-shadow:none!important}',
+ '#upstatus-team-lite-root .up-chat-item.lucca .up-chat-bubble:before,#upstatus-team-lite-root .up-chat-item.lucca .up-chat-bubble:after,#upstatus-team-lite-root .up-chat-item.ycaro .up-chat-bubble:before,#upstatus-team-lite-root .up-chat-item.ycaro .up-chat-bubble:after{background:var(--up-chat-neutral-fill)!important;border-color:var(--up-chat-neutral-fill)!important;box-shadow:none!important}',
+ '#upstatus-team-lite-root.up-theme-light{--up-chat-neutral-fill:#e7edf5;--up-chat-system-text:#64748b}',
+ '#upstatus-team-lite-root:not(.up-theme-light){--up-chat-neutral-fill:#202a39;--up-chat-system-text:#8391a5}',
+ '#upstatus-team-lite-root .up-chat-system-event{display:flex!important;justify-content:center!important;padding:4px 0!important;margin:0!important;background:transparent!important;border:0!important;box-shadow:none!important;line-height:1.25!important}',
+ '#upstatus-team-lite-root .up-chat-system-event span{display:inline!important;padding:0!important;margin:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:var(--up-chat-system-text)!important;font-size:10px!important;font-weight:500!important;letter-spacing:0!important;text-align:center!important}',
+ '#upstatus-team-lite-root .up-chat-system-event.join span,#upstatus-team-lite-root .up-chat-system-event.leave span{background:transparent!important;border-color:transparent!important;color:var(--up-chat-system-text)!important}',
+ '#upstatus-team-lite-root .up-chat-lucca-alert{display:none!important}'
+ ].join('');(document.head||document.documentElement).appendChild(style);})();
+ 
   var upStatusSaleEmptyImageTick=0;
   function upStatusSaleScheduleEmptyImageApply(){if(upStatusSaleEmptyImageTick)return;upStatusSaleEmptyImageTick=requestAnimationFrame(function(){upStatusSaleEmptyImageTick=0;upStatusSaleApplyEmptyImage();});}
   var upStatusSaleEmptyImageObserver=new MutationObserver(upStatusSaleScheduleEmptyImageApply);
