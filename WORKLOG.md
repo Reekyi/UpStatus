@@ -129,3 +129,14 @@ Last updated: 2026-10-29
 - Scope limitation: this closes a specific public-broadcast injection path for chat rows/read receipts. Public call signaling, voice-room signaling, screen-share signaling, health ping/pong, and presence remain untrusted and are not fixed by this patch. The Realtime channel is still public. Do not publish or deploy this candidate until tests and full event-by-event authorization work are complete.
 
 - Validation follow-up: GitHub Actions run [40926552969](https://github.com/Reekyi/UpStatus/actions/runs/40926552969) completed successfully for commit `60207b8d6a34b78f3df735432df0c8dedb9175b0`, including the new Realtime payload regression assertions. The subsequent `WORKLOG.md`-only commit does not alter tested source or test code.
+
+ 
+## Targeted call/media signaling hardening: 2026-10-29
+
+- Extended the candidate normal userscript to reject call signaling with missing/oversized identifiers, missing or oversized SDP, oversized ICE candidates, and non-presence/non-ended call events not explicitly addressed to the current member.
+- Voice-room and screen-share handlers now require offer/answer/ICE events to target the current member and reject oversized SDP/candidate payloads. Broadcast presence/leave-style events remain supported.
+- Call roster presence is now bounded: call IDs max 160 chars, member labels max 80 chars, roster max 32 members; invalid or duplicate entries are discarded. Participant merging is bounded and deduplicated.
+- Mirrored the same defensive checks into the Team Lite 3.4.31 candidate.
+- Candidate validation passed for normal source hardening in [run 40935056074](https://github.com/Reekyi/UpStatus/actions/runs/40935056074) and Team Lite in [run 40935072417](https://github.com/Reekyi/UpStatus/actions/runs/40935072417). These runs include the source edits; the newest test-only commits are awaiting/need their own CI confirmation.
+- Important limit: these checks reduce malformed, untargeted, and oversized signaling abuse. They do not authenticate the claimed sender. Because the Realtime topic is still public, a malicious sender can still spoof a legitimate member name. Full fix requires server-issued Realtime identity and authorization policies, or a server-mediated signaling path.
+- No deployment, SQL migration, official version, or merge changed.
