@@ -33,7 +33,7 @@ Last updated: 2026-10-29
 - Chat regression suite passed after the latest code changes.
 - Team Lite updater regression suite passed against the official branch source.
 - GitHub Actions run `40909876545` passed for code head `e1c4e0af0953676929581ef4cef05ce554cecb45`, including build, chat regression tests, Team Lite updater tests, and the full `scripts/validate.mjs` pipeline.
-- A subsequent architecture documentation update is being checked separately by CI.
+- The architecture documentation update passed in run `40909976273`; the subsequent work-log commit passed the full pipeline in run `40910037380`.
 - The account-role and schema checks were read-only.
 
 ## Important findings and limitations
