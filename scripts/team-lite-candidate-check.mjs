@@ -179,4 +179,6 @@ const candidateInvalidManifest = await runUpdaterScenario({ installed: "3.4.30",
 assert.equal(candidateInvalidManifest.calls.prompts.length, 0, "invalid manifest must not show a prompt");
 assert.ok(script.includes(".on('broadcast',{event:'remote_result'},function(){ if(!isAuthenticated()||realtimeGeneration!==authGeneration||realtimeMember!==member)return; /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"), "public remote_result broadcasts must not be treated as authoritative command results");
 assert.ok(script.includes("api('GET','/api/remote-status/result?id='+encodeURIComponent(id))"), "remote command completion must continue polling the authenticated result endpoint");
+assert.ok(script.includes("payload.sender!==p.name"), "health pong sender must match the member being measured");
+assert.ok(script.includes("payload.id.length>160")&&script.includes("payload.sender.length>80"), "health ping identifiers and sender labels must be bounded");
 console.log("Candidate updater runtime scenarios passed: newer/current/mismatch/downgrade/manifest-offline/script-offline/invalid-manifest.");
