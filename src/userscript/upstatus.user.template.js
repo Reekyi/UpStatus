@@ -2092,14 +2092,7 @@ function renderChatText(text){
         .on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{});})
         .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){voiceRoomReceive(payload&&payload.payload||{});})
         .on('broadcast',{event:SCREEN_ROOM_EVENT},function(payload){screenShareReceive(payload&&payload.payload||{});})
-        .on('broadcast',{event:'remote_result'},function(payload){
-          var r=payload&&payload.payload&&payload.payload.result;
-          if(r&&r.commandId&&r.sender===member){
-            remoteResultCache[String(r.commandId)]=r;
-            var waiter=remoteResultWaiters[String(r.commandId)];
-            if(waiter)waiter(r);
-          }
-        })
+        .on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })
         .subscribe(function(status){
           if(status==='SUBSCRIBED'){realtimeActive=true;if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}broadcastChatPresence(!chat.classList.contains('hidden'));return;}
           if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
