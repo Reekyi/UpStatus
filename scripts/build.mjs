@@ -17,11 +17,11 @@ const ycaroPage=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
 const PROJECT="dlfvkawaiqduhlazsszm";
 const PROD_FUNCTION="upstatus";
 const TEST_FUNCTION="upstatus-test";
-const PROD_TOPIC="upstatus-screen-share-live-3-1-1-beta8";
+const PROD_TOPIC="upstatus-screen-share-live-3-1-1-beta10";
 const TEST_TOPIC="upstatus-test-live-20261007-v1";
-const PROD_RINGTONE_CHANNEL="upstatus-call-ringtone-stop-v1";
+const PROD_RINGTONE_CHANNEL="upstatus-screen-share-3-1-1-beta9-2-ringtone-stop-v1";
 const TEST_RINGTONE_CHANNEL="upstatus-test-call-ringtone-stop-v1";
-const PROD_RINGTONE_STORAGE="upstatus_call_ringtone_stop_bus";
+const PROD_RINGTONE_STORAGE="upstatus_screen_share_beta8_ringtone_stop_bus";
 const TEST_RINGTONE_STORAGE="upstatus_test_call_ringtone_stop_bus";
 
 function render(template,replacements){
