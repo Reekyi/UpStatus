@@ -72,6 +72,17 @@ Gate: Do not implement until signing-key availability, claims, subject/role, exp
 
 Trade-off: this avoids introducing Realtime JWT identity into the custom-session system, but polling and durable event delivery can add latency and database load, especially for WebRTC signaling.
 
+### Signing-key feasibility check (official Supabase documentation, 2026-10-29)
+
+The official Supabase documentation confirms that private Realtime channels require both RLS policies on `realtime.messages` and client channels configured with `private: true`; the project's Realtime setting must also disable public access. Authorization is evaluated from the JWT claims, request headers, and topic. Supabase also documents that custom JWTs require a signing key whose private key or shared secret is held by the application that mints the token; asymmetric signing-key private material is not extractable from Supabase after import.
+
+References:
+- https://supabase.com/docs/guides/realtime/authorization
+- https://supabase.com/docs/guides/auth/signing-keys
+- https://supabase.com/docs/guides/functions/secrets
+
+This reinforces the current gate: the project has not been verified to have an app-controlled signing key suitable for UpStatus's custom session identities. Do not use the service-role API key or a role=`service_role` JWT as a shortcut. A viable private-channel route would require an intentionally provisioned signing key (with its private material securely stored as an Edge Function secret), an agreed custom-identity claim model, explicit Realtime public-access configuration, and policies tested in isolation. Those are auth/configuration changes and are not authorized as part of this candidate-only work. Until explicit approval and isolated validation are available, server-mediated signaling remains the alternative to investigate.
+
 ### Preliminary recommendation
 
 Do not flip existing channels to private yet. The read-only checks found no current RLS policy on `realtime.messages`, and the app's custom sessions are not Supabase Auth JWTs. Option A remains possible only after a supported signing and validation mechanism is proven. Option B is the lower-coupling fallback if a supported signing mechanism cannot be established without secrets/configuration changes, but it needs latency and throughput testing.
