@@ -69,7 +69,7 @@ async function isMember(roomId: string, name: string) {
 function cleanPayload(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const p = { ...(value as Record<string, unknown>) };
-  for (const k of ["from","sender","user","user_name","to","target","roomId","room_id","participants","member","identity"]) delete p[k];
+  for (const k of ["from","sender","user","user_name","to","target","roomId","room_id","participants","member","identity","created_by","recipient","sender_id","userId","user_id"]) delete p[k];
   if (JSON.stringify(p).length > 12 * 1024) return null;
   return p;
 }
