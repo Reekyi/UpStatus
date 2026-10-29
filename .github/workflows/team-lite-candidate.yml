@@ -1,0 +1,35 @@
+name: Team Lite Candidate Checks
+
+on:
+  push:
+    branches: [team-lite/3.4.31-guest-fixes]
+    paths:
+      - "team-lite/**"
+      - "lucca-site/**"
+      - "lucca.html"
+      - "ycaro.html"
+      - "scripts/team-lite-candidate-check.mjs"
+      - ".github/workflows/team-lite-candidate.yml"
+  pull_request:
+    branches: [team-lite-official]
+    paths:
+      - "team-lite/**"
+      - "lucca-site/**"
+      - "lucca.html"
+      - "ycaro.html"
+      - "scripts/team-lite-candidate-check.mjs"
+      - ".github/workflows/team-lite-candidate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Check candidate scripts and version metadata
+        run: node scripts/team-lite-candidate-check.mjs
