@@ -99,6 +99,21 @@ for(const table of ["chat_reads","messages","reactions","status_history","upstat
 }
 assert(publicTableGrantMigration.includes("FROM PUBLIC, anon, authenticated"),"public table grant migration must cover public client roles");
 
+
+// The public Realtime topic is not an authenticated trust boundary. These assertions
+// ensure broadcasts only invalidate/refetch canonical chat state and never become
+// authoritative remote-command or remote-result data.
+for(const artifact of [prodUser,testUser]){
+  assert(artifact.includes("function scheduleRealtimeChatRefresh(){"),"Realtime chat invalidation scheduler missing");
+  assert(artifact.includes("var wait=Math.max(0,1000-(Date.now()-realtimeChatRefreshLastAt));"),"Realtime chat invalidation must be throttled");
+  assert(artifact.includes("function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}"),"chat_fast payload must be treated as an invalidation hint");
+  assert(artifact.includes(".on('broadcast',{event:'db_change'},function(){scheduleRealtimeChatRefresh();})"),"db_change payload rows must not be applied directly");
+  assert(artifact.includes(".on('broadcast',{event:'chat_fast'},function(){handleRealtimeChatFast();})"),"chat_fast listener must not trust broadcast payloads");
+  assert(artifact.includes(".on('broadcast',{event:'chat_read'},function(){scheduleRealtimeChatRefresh();})"),"public read receipts must be reconciled through canonical chat state");
+  assert(artifact.includes("if(c&&c.target===member)pollRemoteStatus();"),"remote_command broadcasts must trigger authenticated polling only");
+  assert(artifact.includes(".on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"),"remote_result broadcasts must not be authoritative");
+}
+
 assert(!prodFn.includes('["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin"'),"account setup must not grant admin by name");
 assert(testFn.includes('const marker="/upstatus-test";'),"test path marker mismatch");
 assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not match build output");
