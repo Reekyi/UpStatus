@@ -706,7 +706,7 @@ Deno.serve(async(req)=>{
     if(path==="/api/chat/audio"&&req.method==="POST")return await mediaRoute(req,"audio");
     if(path.startsWith("/api/remote-status"))return await remoteRoute(req,name);
     if(path==="/api/chat/clear"&&req.method==="POST"){
-      if(name!=="Ricardo")return response({error:"Somente Ricardo pode limpar o chat."},403);
+      if(!(await admin(name)))return response({error:"Somente administradores podem limpar o chat."},403);
       const {data:oldMessages,error:readError}=await db.from("messages").select("image_url").gte("created_at","1970-01-01");
       if(readError)throw readError;
       const prefix=PROJECT_URL+"/storage/v1/object/public/chat-images/";
