@@ -1,0 +1,23 @@
+name: UpStatus Signaling Smoke Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_url:
+        description: "Base URL of the isolated upstatus-signal-test function (not production)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Run unauthenticated endpoint checks
+        env:
+          UPSTATUS_SIGNAL_URL: ${{ inputs.test_url }}
+        run: node scripts/test-signaling-endpoint.mjs
