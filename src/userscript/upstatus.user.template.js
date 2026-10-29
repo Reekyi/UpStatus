@@ -2788,7 +2788,7 @@ function chatAvatarPresence(name){
     box.classList.remove('hidden');box.querySelector('.up-chat-pending-remove').onclick=function(e){e.preventDefault();e.stopPropagation();chatPendingAttachment=null;box.classList.add('hidden');box.textContent='';};
   }
   function updateLinkPreview(text){
-    var box=chat.querySelector('.up-chat-pending-preview');if(!box)return;var existing=box.querySelector('.up-chat-link-preview');if(existing)existing.remove();var match=String(text||'').match(/https?:\\/\\/[^\\s<>"']+/i);
+    var box=chat.querySelector('.up-chat-pending-preview');if(!box)return;var existing=box.querySelector('.up-chat-link-preview');if(existing)existing.remove();var match=String(text||'').match(/https?:\/\/[^\s<>"']+/i);
     if(!match){chatLinkPreviewDismissed=false;if(!chatPendingAttachment){box.classList.add('hidden');box.textContent='';}return;}
     var raw=match[0].replace(/[),.!?]+$/,'');var url;try{url=new URL(raw);if(url.protocol!=='http:'&&url.protocol!=='https:')return;}catch(e){return;}if(chatLinkPreviewDismissed)return;
     var preview=document.createElement('div');preview.className='up-chat-link-preview';preview.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 10px;margin:0 0 6px;border:1px solid #536784;border-radius:9px;background:rgba(79,125,255,.08);color:inherit;font:12px Segoe UI,Arial,sans-serif';var copy=document.createElement('div');copy.style.cssText='min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';copy.textContent=url.hostname+url.pathname;
