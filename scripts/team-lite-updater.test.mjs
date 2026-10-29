@@ -38,7 +38,7 @@ async function runScenario({installed,manifest,servedVersion,fetchFailure=false}
     calls.fetches++;
     if(fetchFailure)throw new Error("network unavailable");
     if(calls.fetches===1)return {ok:true,json:async()=>manifest};
-    return {ok:true,text:async()=>"// ==UserScript==\\n// @version      "+servedVersion+"\\n// ==/UserScript=="};
+    return {ok:true,text:async()=>"// ==UserScript==\n// @version      "+servedVersion+"\n// ==/UserScript=="};
   };
   const context={CURRENT_VERSION:installed,card,fetch:mockFetch,esc:String,
     setUpdateAvailable:(show,version)=>calls.availability.push({show,version}),
