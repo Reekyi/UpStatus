@@ -79,3 +79,5 @@ Last updated: 2026-10-29
 
 - Extended the isolated Team Lite candidate checks to execute the candidate's actual updater logic in a mocked runtime. The suite covers newer/current versions, manifest/script mismatch, downgrade protection, invalid manifest, and manifest/script network failures. After correcting test-harness escaping and version-fixture issues, the candidate CI passed on `503ad93a339bc9cad3ff7a19fc14b1074a038cd2` (run [40923258203](https://github.com/Reekyi/UpStatus/actions/runs/40923258203)).
 - Updated draft PR #75 with the new runtime-test coverage. It remains review-only; Team Lite official remains untouched.
+
+- Read-only runtime version audit on 2026-10-29 decoded the embedded scripts from live Supabase functions: production `upstatus` is revision 480 with userscript 3.4.7; `upstatus-test` is revision 281 with userscript 3.3.28; `upstatus-team-lite` is revision 15 with Team Lite 3.4.30. The GitHub `develop` manifest was previously observed at 3.0.40-beta.22, so TEST source/runtime drift is confirmed and must be reconciled before deploying to TEST.
