@@ -185,3 +185,11 @@ Last updated: 2026-10-29
 - Added validation assertions that prohibit recursive cleanup and verify the two known production sidecars remain present after the build.
 - Commits: build fix `9391ec113c5583471f96368eb7d070fc2a0b70ec`; regression assertions `26db1386c63b1a7e97b2ecb5550077b4c9d3dee4`.
 - CI has not yet reported a run for these latest API-created commits. The existing CI workflow only runs on pull requests targeting `master` or `develop`; the PR targets `master`, but the connector has not returned a new run. Do not claim the latest change is CI-verified until a run on this head is observed. No runtime deployment or release artifact was changed.
+
+## Realtime security design captured: 2026-10-29
+
+- Added REALTIME_SECURITY_PLAN.md and linked it from README. It inventories the normal candidate's chat, presence, health, remote-command/result, call, voice-room and screen-share event families; separates already mitigated UI trust issues from unresolved sender spoofing; and documents private-channel/JWT and server-mediated signaling alternatives with decision gates and negative-test cases.
+- No signing key or secret was read. The plan explicitly prohibits assuming a service-role key can sign Realtime tokens and requires verification of the project's signing configuration before implementation.
+- Build safety fix and regression checks passed in GitHub Actions run 40939791684 (commit 26db1386c63b1a7e97b2ecb5550077b4c9d3dee4). The subsequent WORKLOG-only commit was picked up by run 40939827026, which also completed successfully.
+- PR #74 has returned to mergeable=true and remains open/draft/unmerged. PR #75 remains open/draft/unmerged. Neither PR was merged and no deployment or migration occurred.
+- The public-channel sender-authentication issue remains an explicit release blocker; documentation does not claim the risk is fixed.
