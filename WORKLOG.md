@@ -65,3 +65,14 @@ Last updated: 2026-10-29
 4. Compare the generated backend against the live Edge Function and run an appropriate TypeScript/Deno check before any deployment.
 5. Diagnose the Team Lite popup on the affected installation by confirming its installed `@version`, updater status line, and whether manifest/script fetches succeed. Do not bump the official version merely to force a popup.
 6. Merge or deploy only after runtime checks are complete and Ricardo explicitly authorizes release.
+
+
+## Additional work during the 2026-10-29 continuation
+
+- Created draft [PR #75](https://github.com/Reekyi/UpStatus/pull/75) from the isolated `team-lite/3.4.31-guest-fixes` branch into `team-lite-official`. It is a review-only candidate and has not been merged; the official branch and served Team Lite script remain unchanged.
+- Added `scripts/team-lite-candidate-check.mjs` and `.github/workflows/team-lite-candidate.yml` on the candidate branch. This provides CI coverage for userscript syntax, manifest/header/internal version parity, updater URL parity and mismatch/newer-version guards, guest portal inline-script syntax, and separate Lucca/Ycaro auth routes.
+- Candidate checks passed in GitHub Actions run `40920479779` for candidate head `f4c43ecb4921ec7266a9e77abf569961889b0a44`.
+- The existing `Deploy Lucca Portal` workflow failed before upload/deploy because GitHub Pages is not enabled/configured for Actions. Its `Upload Lucca site` and `Deploy` steps were skipped; no portal deployment occurred. This needs a deliberate hosting decision, not a code workaround.
+- The first candidate-check attempts exposed a regex-escaping bug in the newly added test script; it was corrected and the subsequent candidate workflow passed.
+- Updated PR #74's validation reference to its current head `675afdd521c0ac00c031c1a07f3f47390feef8fe` and documented the separate candidate PR.
+- High-priority security follow-up remains: the shared Supabase Realtime topic is public and carries more than remote commands. The PR's remote-status polling mitigation narrows one command-injection path only. Do not claim that public broadcast confidentiality or call/signaling authenticity has been fully fixed.
