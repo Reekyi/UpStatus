@@ -1,0 +1,13 @@
+{
+  "product": "UpStatus Team Lite",
+  "coreVersion": "3.4.7",
+  "buildVersion": "3.4.31",
+  "channel": "stable",
+  "scriptUrl": "https://raw.githubusercontent.com/Reekyi/UpStatus/team-lite-official/team-lite/upstatus-team-lite.user.js",
+  "releaseNotes": [
+    "Lucca e Ycaro usam preenchimento neutro, bordas roxa/laranja e caudas sem cores ou sombras personalizadas.",
+    "Avisos de entrada e saída são textos centralizados e discretos, sem emoji, caixa, borda ou sombra.",
+    "Eventos públicos de comando remoto passam a acionar apenas uma consulta autenticada ao backend, com limite de frequência.",
+    "Mantém histórico temporário por sessão no backend sem apagar mensagens compartilhadas."
+  ]
+}
