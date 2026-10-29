@@ -26,6 +26,10 @@ The immediate goal is to prevent sensitive chat and call/media signaling from be
 
 No secrets, signing keys, or raw secret values were read or printed. A read-only probe for JWT-related database settings returned no rows; that is not proof that a suitable signing key is unavailable, since signing configuration may be managed outside SQL-visible settings.
 
+### Custom-session revocation timing
+
+The current candidate Edge Function caches a successfully resolved custom session in memory and skips the database re-check for up to 30 seconds (`sessionCache`, guarded by `now-cached.checkedAt<30000`). Expired sessions are rejected by the cached expiry, but a server-side session deletion, account disablement, or role change may not take effect on an already warm function instance until that cache entry is revalidated or expires. This is a separate authorization freshness issue from Realtime sender identity. Any future credential-issuing endpoint must either revalidate the session and member status at issuance, keep issued tokens very short-lived, and define revocation expectations, or introduce an explicit revocation/version mechanism. Do not treat cache expiry alone as immediate logout or member-removal revocation.
+
 ## Current event inventory
 
 The normal userscript's generated Realtime channel uses `upstatus-screen-share-live-3-1-1-beta10` in the production build and the TEST topic configured by `scripts/build.mjs`. The runtime topic observed in the deployed production bundle differs from the candidate build topic and must be treated separately.
