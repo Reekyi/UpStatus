@@ -22,6 +22,7 @@ const testVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
 const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.ts"),"utf8");
 const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
 const triggerGrantMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261029170500_restrict_trigger_function_execute.sql"),"utf8");
+const publicTableGrantMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261029183000_revoke_unused_public_table_grants.sql"),"utf8");
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
@@ -92,6 +93,11 @@ for(const fn of ["upstatus_broadcast_messages","upstatus_broadcast_remote_state"
   assert(triggerGrantMigration.includes("public."+fn+"()"),"trigger broadcast execution migration missing "+fn);
 }
 assert(triggerGrantMigration.includes("IF fn IS NOT NULL THEN"),"trigger execution migration must tolerate environments without every legacy function");
+assert(publicTableGrantMigration.includes("REVOKE ALL PRIVILEGES ON TABLE"),"public table grant migration must revoke unnecessary client grants");
+for(const table of ["chat_reads","messages","reactions","status_history","upstatus_profiles","upstatus_sessions","upstatus_state","upstatus_typing","users"]){
+  assert(publicTableGrantMigration.includes("public."+table),"public table grant migration missing "+table);
+}
+assert(publicTableGrantMigration.includes("FROM PUBLIC, anon, authenticated"),"public table grant migration must cover public client roles");
 
 assert(!prodFn.includes('["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin"'),"account setup must not grant admin by name");
 assert(testFn.includes('const marker="/upstatus-test";'),"test path marker mismatch");
