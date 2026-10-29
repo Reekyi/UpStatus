@@ -353,9 +353,10 @@ async function chatRoute(req:Request,name:string,sessionStartedAt=0){
         db.from("chat_reads").select("last_read_at").eq("user_name",name).maybeSingle()
       ]);
       const lastReadAt=(readRes.data as any)?.last_read_at||cutoff;
-      const unreadQuery=db.from("messages").select("id",{count:"exact",head:true})
+      let unreadQuery=db.from("messages").select("id",{count:"exact",head:true})
         .gte("created_at",cutoff).gt("created_at",lastReadAt)
         .neq("user_name",name).neq("type","system");
+      if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&sessionStartedAt>0)unreadQuery=unreadQuery.gte("created_at",new Date(Math.max(sessionStartedAt,Date.parse(cutoff))).toISOString());
       const {count:unreadCount,error:unreadError}=await unreadQuery;
       if(unreadError)throw unreadError;
       const profileMap:Record<string,string>={};
