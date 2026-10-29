@@ -214,7 +214,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var member=GM_getValue(key+'member','');
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
-  var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
+  var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,remoteLastPollAt=0,refreshing=false,readSentKey='',chatFastSince='';
   var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,chatUserScrollInterruptedUntil=0,pendingChatNotificationMessages=[],chatScrollObserver=null,chatScrollObservedList=null,chatLightbox=null,chatHasUnreadBelow=false;
   var remoteResultCache={},remoteResultWaiters={};
   var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
@@ -2079,7 +2079,7 @@ function renderChatText(text){
         .on('broadcast',{event:'health_pong'},function(payload){handleHealthPong(payload&&payload.payload||{});})
         .on('broadcast',{event:'remote_command'},function(payload){
           var c=payload&&payload.payload&&payload.payload.command;
-          if(c&&c.target===member)executeRemoteCommand(c);
+          if(c&&c.target===member)pollRemoteStatus();
         })
         .on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{});})
         .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){voiceRoomReceive(payload&&payload.payload||{});})
@@ -3247,8 +3247,8 @@ function chatAvatarPresence(name){
   }
 
   function pollRemoteStatus(){
-    if(!token||remotePolling)return;
-    remotePolling=true;
+    var now=Date.now();if(!token||remotePolling||now-remoteLastPollAt<1000)return;
+    remoteLastPollAt=now;remotePolling=true;
     api('GET','/api/remote-status').then(function(d){
       if(!d.pending||!d.command)return;
       executeRemoteCommand(d.command);
