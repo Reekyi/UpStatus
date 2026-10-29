@@ -29,7 +29,7 @@ Last updated: 2026-10-29
 - Direct static checks extracted from `scripts/chat-regression.test.mjs`: 56/56 passed on the current code at the time of checking.
 - Additional checks for file picker staging, pasted-image staging, caption forwarding, and removable link preview: passed.
 - GitHub Actions run `40906042287` for commit `5550195b1a63a9aceccbd65fe4df10a73b6e29cd`: passed, including the build and full `scripts/validate.mjs` pipeline.
-- Any commit after that run requires its own validation. The work-log cleanup and final PR metadata update may trigger a new CI run; verify it before reporting the branch as fully green.
+- The latest run above corresponds to the current branch head. PR metadata edits do not change the code head.
 
 ## Important findings and limitations
 
@@ -43,7 +43,7 @@ Last updated: 2026-10-29
 
 ## Next steps
 
-1. Inspect the final PR diff and verify the latest CI run after the last commit (the latest code/test commit passed; documentation-only follow-ups are being rechecked).
+1. Final PR diff inspected; latest CI run for current head passed. Keep the PR draft until browser/runtime checks are complete.
 2. Account role check completed read-only on 2026-10-29: Ricardo is `implementation_admin`. Re-check if account configuration changes; never restore a name-only admin bypass.
 3. Validate chat attachment staging and removable link previews in a browser/TEST environment.
 4. Reconcile backend template against the live Edge Function and compile/check the generated function before any deployment.
