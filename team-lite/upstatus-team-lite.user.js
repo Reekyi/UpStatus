@@ -3171,12 +3171,12 @@ function chatAvatarPresence(name){
     });
   }
   function handleHealthPing(payload){
-    if(!payload||payload.target!==member||!realtimeActive||!realtimeChannel)return;
+    if(!payload||payload.target!==member||typeof payload.sender!=='string'||!payload.sender||payload.sender.length>80||typeof payload.id!=='string'||!payload.id||payload.id.length>160||!realtimeActive||!realtimeChannel)return;
     try{realtimeChannel.send({type:'broadcast',event:'health_pong',payload:{id:payload.id,target:payload.sender,sender:member,createdAt:Date.now()}});}catch(e){}
   }
   function handleHealthPong(payload){
-    if(!payload||payload.target!==member||!payload.id)return;
-    var p=healthPingPending[payload.id];if(!p)return;delete healthPingPending[payload.id];
+    if(!payload||payload.target!==member||typeof payload.sender!=='string'||!payload.sender||payload.sender.length>80||typeof payload.id!=='string'||!payload.id||payload.id.length>160)return;
+    var p=healthPingPending[payload.id];if(!p||payload.sender!==p.name)return;delete healthPingPending[payload.id];
     healthPingResults[p.name]=Math.max(0,performance.now()-p.startedAt);
     if(health.classList.contains('hidden'))return;
     var el=health.querySelector('[data-health-ping="'+CSS.escape(p.name)+'"]');if(el)el.innerHTML=healthPingLabel(p.name);
