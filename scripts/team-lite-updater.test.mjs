@@ -87,4 +87,4 @@ assert(invalid.calls.prompt.length===0,"invalid manifest must not show an update
 assert(invalid.manual.disabled===true,"invalid manifest must disable manual update");
 
 function statusText(result){return String(result.status.textContent||result.status.innerHTML||"");}
-console.log("Team Lite updater tests passed: manifest consistency, newer release prompt, current version, mismatch, downgrade, and network failure.");
+console.log("Team Lite updater tests passed: manifest consistency, newer release prompt, current version, mismatch, downgrade, invalid manifest, and network failures.");
