@@ -1,72 +1,8 @@
-# UpStatus Worklog
+[object Object]
 
-This is the durable handoff point across conversations. Update it after each meaningful implementation or release step. Always verify repository state before acting on entries here.
-
-## Current objective
-
-Establish a safe, fast, recoverable workflow for ongoing fixes to UpStatus normal and Team Lite, avoiding unnecessary full-script reads and preventing work from being lost when a chat reaches its context limit.
-
-## Initial inventory (2026-10-29)
-
-### Repository and branch state observed
-- Repository: `Reekyi/UpStatus`
-- Default branch: `master`
-- `master` head observed: `a9288ccfcb0f308d3a587bfca624418a395be07b`
-- `develop` head observed: `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`
-- `team-lite-official` head observed: `9065bc1536fde64f437f6f12b7abb9b072cb8281`
-
-### Versions observed
-- Normal production manifest on `master`: `3.4.7`
-- Normal `develop` manifest: `3.0.40-beta.22`
-- Team Lite manifest on `team-lite-official`: core `3.4.7`, build `3.4.30`
-
-### Important build/validation behavior
-- `scripts/validate.mjs` calls `scripts/build.mjs` before validation.
-- `scripts/build.mjs` deletes and recreates generated `supabase/functions/upstatus`, `supabase/functions/upstatus-test`, and `dist` directories.
-- The source template `src/userscript/upstatus.user.template.js` is approximately 544 KB. The old `master` build logic incorrectly derived production updater URLs from the legacy `upstatus-screen-share-3-1-1-beta10` API endpoint. The live `upstatus` Edge Function is version `3.4.7` and serves an embedded script whose update/download URLs point to `/functions/v1/upstatus/upstatus.user.js`; the legacy endpoint serves script version `3.1.1-beta8`.
-- The production deployment workflow is manual and contains a guard that currently allows only stable version `3.4.7`.
-- The TEST deployment workflow is also manual and deploys only `upstatus-test`.
-- The Team Lite release manifest and script are on a separate branch. Team Lite deployment behavior has not yet been independently verified.
-
-### Changes made so far
-- No deployed runtime code, release version, or deployment has been changed.
-- Branch `chore/continuity-foundation` was created from `master`; production branch remains untouched.
-- Added `ARCHITECTURE.md`, `DEVELOPMENT.md`, and `WORKLOG.md` for durable project context and cross-chat handoff.
-- Patched `scripts/build.mjs` to use `release.json.scriptUrl` for production update/download URLs, with a stable-endpoint fallback for older manifests that omit that field, preserving the separate legacy runtime API endpoint.
-- Strengthened `scripts/validate.mjs` to assert exact production and TEST update/download URLs.
-- Added `.github/workflows/validate-pr.yml` for build/validation checks on future PRs to `master` and `develop`.
-- Confirmed by deterministic template rendering that the corrected production substitutions match tracked `UpStatus.user.js` exactly (544,057 characters). The actual Node build/validator has not been executed here.
-- Compared the deployed `upstatus` backend with the rendered server template after normalizing the embedded script block. Found live-only behaviors missing from the template (signed upload handler/routes, official-team member filtering, and Ricardo admin fallback) and template-only behaviors missing from live (server-authoritative guest-session history filtering and document filename persistence).
-- Ported the live-only backend behaviors into `src/server/index.template.ts` on this branch while preserving the template-only guest-session and document metadata behavior. Added validation assertions for upload routes, member filtering, admin fallback, guest-session filtering, and document filename persistence. This is source reconciliation only; the Edge Function was not deployed.
-
-### Immediate next steps
-1. Review the draft PR and inspect the complete diff for unintended changes.
-2. Get `node scripts/validate.mjs` to run on a clean runner and confirm it passes. The newly added PR workflow may only run automatically for later PRs until the workflow is merged into a base branch.
-3. If validation passes, merge the safe build/validator fix into `master` only after review; no deployment is required for the code change itself.
-4. Reconcile the `develop` line with stable fixes using an explicit, reviewable strategy rather than blindly merging the old branch.
-5. Design independent parity checks and updater tests for `team-lite-official`, then separately investigate why its in-app update pop-up was not appearing.
-
-### Validation feedback (2026-10-29)
-- GitHub Actions ran the build and validator on PR merge commit `9d92d025ae7e213023babe200bb9705d8acea830`. The build completed, then validation failed at the broad assertion `!testUser.includes("/functions/v1/upstatus/upstatus.user.js")`. That check scanned the entire TEST userscript and could match unrelated embedded/runtime text, even though the TEST updater metadata was already checked exactly.
-- Replaced that broad check with explicit negative assertions against only the TEST userscript's `@updateURL` and `@downloadURL` metadata. Fix commit: `aba5596ab9596ea57541720e3f5ecf48f210799b`.
-- A new workflow result for the updated head has not yet been confirmed. Do not treat the validation as passing until the updated PR check completes successfully.
-- The workflow build recreates generated output directories in its clean GitHub runner, so it does not risk local uncommitted/generated artifacts.
-
-### Follow-up validation feedback (2026-10-29)
-- The latest GitHub Actions logs showed the build succeeds, but the regression suite then failed on a stale emoji-picker assertion. The implementation now binds the outside-click handler per menu using `m.__upstatusEmojiButton`; the test incorrectly expected an older single-menu query (`currentMenu/currentBtn`).
-- Updated `scripts/chat-regression.test.mjs` to assert the current per-menu ownership behavior instead of the obsolete implementation detail. Commit: `2012863d092f76ae13b179ad1340395eb978347d`.
-- Removed the newly added duplicate `.github/workflows/validate-pr.yml`; the base `master` already has `.github/workflows/validate.yml` configured for both `pull_request` and pushes to `master`/ `develop`. This avoids running the same validation twice.
-- The latest head needs a fresh CI run after these changes. Do not merge until the current head's validation is green and the backend template diff has been reviewed.
-
-- Next CI run exposed a third stale/inconsistent regression: `chat-regression.test.mjs` explicitly forbids name-only admin bypass, but the template had been changed to grant admin deletion to anyone whose supplied name was `Ricardo`. Reverted that bypass in the template and strengthened `validate.mjs` to require `const isAdmin=await admin(name);`. This deliberately prioritizes role-based authorization; before deployment, verify Ricardo's admin role is configured in the database so legitimate admin deletion remains available. Commits: `1f21ef943dee116124634d56f13be619a875f4eb`, `3a837493d2bc06dfc53ca78042cb73b03e6db078`.
-- Following the server-side authorization correction, CI exposed a matching UI inconsistency: the chat delete control also granted Ricardo admin affordances by name (`member==='Ricardo'`) instead of relying on the stored `implementation_admin` role. Removed that name-only UI bypass so the client and server agree. Confirm Ricardo's stored role before deployment; if it is missing, fix the role configuration rather than reintroducing a name-based authorization bypass. Commit: `1a61036bf7cdd91e969247febfadde3be7772e43`.
-- Latest clean-runner validation progressed through build and the updater assertions, then stopped at `CHAT REGRESSION FAILED: files are staged instead of uploaded immediately`. The current userscript template does not define `setPendingAttachment(file)`, and subsequent existing assertions also expect `updateLinkPreview(text)` and pasted-image staging. These are feature-level expectations in the existing regression suite, not consequences of the continuity/updater patch. Do not weaken/remove these assertions merely to get a green CI; decide whether to implement that separate attachment/link-preview behavior or split the pre-existing failing suite into a separately tracked fix. The PR is still draft and must not merge while validation is red.
-### Team Lite updater investigation (2026-10-29)
-- Current `team-lite-official` script header and `team-lite/release.json` agree on build version `3.4.30`; both point to the same raw GitHub script URL. The updater fetches the manifest with cache-busting/no-store, fetches the script the same way, validates that manifest and served `@version` match, and only displays the modal when remote version compares greater than `CURRENT_VERSION`.
-- The current script has `CURRENT_VERSION='3.4.30'`, so an installation already reporting 3.4.30 will not show an update prompt for the current official files, even if the file contents changed without a version bump. This is a plausible explanation, not a proven diagnosis of the user's installed copy; that exact installed version is not available from repository data.
-- Do not bump Team Lite's official version or write to the official branch without explicit confirmation, because the raw branch URL is live and a version bump would immediately advertise a new update to users. Recommended next step is to test the installed version/status message and, if the intended new build is indeed different from the currently installed 3.4.30, prepare it as 3.4.31 in an isolated test copy before official publication.
-
-### Deployment state
-- Production: not changed by this work.
-- TEST: not changed by this work.
-- Team Lite: not changed by this work.
+### Follow-up verification (2026-10-29, latest checked run)
+- Re-checked the latest available PR validation run (`40904384768`, commit `54684cf9ea32765c0f5cd582a08b71bd1d90df89`). The build succeeds and URL assertions pass; validation still fails at `CHAT REGRESSION FAILED: files are staged instead of uploaded immediately` (`scripts/chat-regression.test.mjs:105`).
+- Confirmed against the current branch template that `setPendingAttachment(file)` and `updateLinkPreview(text)` are absent. The test expects pending-file staging and pasted-image staging, but the current implementation uploads files immediately. This is a real unresolved behavioral/test contract, not an updater URL regression.
+- Next safe step: inspect the current chat composer/upload flow and the test's intended UX, then decide whether to implement staging and removable link previews as a separate feature patch with targeted tests. Do not weaken the existing assertions just to make CI pass. Keep PR #74 draft and do not merge until the test contract is resolved and all checks pass.
+- Corrected architecture notes: the patch intentionally removes the name-only Ricardo admin fallback and uses the stored `implementation_admin` role instead. Confirm the database role before deployment; do not restore name-based privilege checks.
+- Latest run remains failed; production, TEST, and Team Lite deployments remain untouched.
