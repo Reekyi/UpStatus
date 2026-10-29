@@ -51,7 +51,7 @@ async function runScenario({installed,manifest,servedVersion,fetchFailure=false}
 }
 const valid=(version)=>({product:"UpStatus Team Lite",buildVersion:version,scriptUrl:release.scriptUrl});
 const newer=await runScenario({installed:"3.4.30",manifest:valid("3.4.31"),servedVersion:"3.4.31"});
-assert(newer.calls.prompt.length===1&&newer.calls.prompt[0]==="3.4.31","newer matching release must show exactly one prompt");
+assert(newer.calls.prompt.length===1&&newer.calls.prompt[0]==="3.4.31","newer matching release must show exactly one prompt; debug="+JSON.stringify({calls:newer.calls,status:newer.status,manual:{disabled:newer.manual.disabled,title:newer.manual.title}}));
 assert(newer.manual.disabled===false,"manual update must be enabled for a newer matching release");
 assert(newer.status.innerHTML.includes("3.4.31"),"status must announce the available version");
 
