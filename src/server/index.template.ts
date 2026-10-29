@@ -214,9 +214,10 @@ async function mentions(text:string){
   }
   return found;
 }
-async function chatRows(name:string,since?:string){
+async function chatRows(name:string,since?:string,sessionStartedAt?:number){
   const cutoff=new Date(Date.now()-48*60*60*1000).toISOString();
   let query=db.from("messages").select("id,user_name,message,type,system_type,created_at,edited_at,image_url,file_name,mentions,reply_to,reactions").gte("created_at",cutoff);
+  if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&sessionStartedAt>0)query=query.gte("created_at",new Date(Math.max(sessionStartedAt,Date.parse(cutoff))).toISOString());
   if(since)query=query.gt("created_at",since);
   const {data,error}=await query.order("created_at",{ascending:true}).limit(since?200:1000);
   if(error)throw error;
@@ -333,7 +334,7 @@ async function contextName(req:Request) {
   if(yc&&ys.online&&ys.session===yc)return {name:"Ycaro",guest:true,joinedAt:Date.parse(String(ys.joinedAt))||Date.now()};
   return null;
 }
-async function chatRoute(req:Request,name:string){
+async function chatRoute(req:Request,name:string,sessionStartedAt=0){
   if(req.method==="GET"){
     const url=new URL(req.url);
     const fast=url.searchParams.get("fast")==="1";
@@ -344,7 +345,7 @@ async function chatRoute(req:Request,name:string){
       const cutoffTyping=new Date(Date.now()-4500).toISOString();
       const cutoff=new Date(Date.now()-48*60*60*1000).toISOString();
       const [messages,profileRes,typingRes,luccaStateNow,readRes]=await Promise.all([
-        chatRows(name,effectiveSince),
+        chatRows(name,effectiveSince,sessionStartedAt),
         db.from("upstatus_profiles").select("user_name,avatar_url"),
         db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name),
         expireLucca(),
@@ -362,7 +363,7 @@ async function chatRoute(req:Request,name:string){
     }
     const cutoffTyping=new Date(Date.now()-4500).toISOString();
     const [messages,readRes,profileRes,typingRes,luccaStateNow]=await Promise.all([
-      chatRows(name),
+      chatRows(name,undefined,sessionStartedAt),
       db.from("chat_reads").select("user_name,last_read_at,messages"),
       db.from("upstatus_profiles").select("user_name,avatar_url"),
       db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name),
@@ -394,7 +395,7 @@ async function chatRoute(req:Request,name:string){
   if(message.length>1000)return response({error:"A mensagem deve ter no máximo 1000 caracteres."},400);
   let replyTo:any=null;
   if(p.replyTo?.id){
-    const rows=await chatRows(name);
+    const rows=await chatRows(name,undefined,sessionStartedAt);
     const hit=rows.find((x:any)=>x.id===String(p.replyTo.id));
     if(hit)replyTo={id:hit.id,user:hit.user,message:hit.message,type:hit.type,imageUrl:hit.imageUrl};
   }
@@ -665,7 +666,7 @@ Deno.serve(async(req)=>{
     if(path==="/api/health"&&req.method==="GET")return await healthRoute(req,name);
     if(path==="/api/status")return await statusRoute(req,name);
     if(path==="/api/history")return await historyRoute(req,name);
-    if(path==="/api/chat")return await chatRoute(req,name);
+    if(path==="/api/chat")return await chatRoute(req,name,ctx.guest?ctx.joinedAt:0);
     if(path==="/api/chat/read"&&req.method==="POST")return await readRoute(req,name);
     if(path==="/api/chat/typing")return await typingRoute(req,name);
     if(path==="/api/chat/reaction"&&req.method==="POST")return await reactionRoute(req,name);
