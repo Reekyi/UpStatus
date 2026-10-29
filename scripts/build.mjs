@@ -12,6 +12,12 @@ const fullVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
 
 const userTemplate=fs.readFileSync(path.join(ROOT,"src/userscript/upstatus.user.template.js"),"utf8");
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
+const teamLiteServerTemplate=fs.readFileSync(path.join(ROOT,"src/server/team-lite-index.template.ts"),"utf8");
+const teamLiteScript=fs.readFileSync(path.join(ROOT,"team-lite/upstatus-team-lite.user.js"),"utf8");
+const teamLiteRelease=JSON.parse(fs.readFileSync(path.join(ROOT,"team-lite/release.json"),"utf8"));
+const luccaHtml=fs.readFileSync(path.join(ROOT,"lucca.html"),"utf8");
+const ycaroHtml=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
+
 
 const PROJECT="dlfvkawaiqduhlazsszm";
 const PROD_FUNCTION="upstatus";
@@ -62,6 +68,16 @@ function renderFunction({version,test}){
     "__UPSTATUS_PATH_MARKER__":"/"+fn
   });
 }
+function renderTeamLiteFunction(){
+  const version=String(teamLiteRelease.buildVersion||"").trim();
+  if(!/^\d+\.\d+\.\d+$/.test(version))throw new Error("team-lite/release.json: buildVersion must use X.Y.Z");
+  return render(teamLiteServerTemplate,{
+    "__UPSTATUS_VERSION__":version,
+    "__UPSTATUS_USERSCRIPT_BASE64__":Buffer.from(teamLiteScript,"utf8").toString("base64"),
+    "__UPSTATUS_LUCCA_HTML_EXPR__":JSON.stringify(luccaHtml),
+    "__UPSTATUS_YCARO_HTML_EXPR__":JSON.stringify(ycaroHtml)
+  });
+}
 function writeFunction(fn,source){
   const dir=path.join(ROOT,"supabase/functions",fn);
   fs.rmSync(dir,{recursive:true,force:true});
@@ -72,6 +88,7 @@ const prodUser=renderUser({version:baseVersion,test:false});
 const testUser=renderUser({version:fullVersion,test:true});
 writeFunction(PROD_FUNCTION,renderFunction({version:baseVersion,test:false}));
 writeFunction(TEST_FUNCTION,renderFunction({version:fullVersion,test:true}));
+writeFunction("upstatus-team-lite",renderTeamLiteFunction());
 const dist=path.join(ROOT,"dist");
 fs.rmSync(dist,{recursive:true,force:true});
 fs.mkdirSync(dist,{recursive:true});
@@ -79,6 +96,7 @@ fs.writeFileSync(path.join(dist,"upstatus.user.js"),prodUser,"utf8");
 fs.writeFileSync(path.join(dist,"upstatus-test.user.js"),testUser,"utf8");
 fs.writeFileSync(path.join(dist,"build-manifest.json"),JSON.stringify({
   baseVersion,testVersion:fullVersion,channel:preRelease?"pre-release":"stable",
-  productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION
+  productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION,
+  teamLiteVersion:String(teamLiteRelease.buildVersion||""),teamLiteFunction:"upstatus-team-lite"
 },null,2)+"\n","utf8");
-console.log("Built UpStatus "+baseVersion+" / TEST "+fullVersion);
+console.log("Built UpStatus "+baseVersion+" / TEST "+fullVersion+" / Team Lite "+teamLiteRelease.buildVersion);
