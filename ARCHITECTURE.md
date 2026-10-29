@@ -28,9 +28,9 @@ These SHAs were read from GitHub during the initial inventory. Re-check branch h
 
 The build embeds the generated userscript as hex inside the Edge Function. The validator checks versions, update URLs, namespaces, storage prefixes, realtime identifiers, embedded artifact equality, syntax, and selected regression conditions.
 
-**Important safety warning:** `scripts/validate.mjs` invokes `scripts/build.mjs` before running its checks. The build script deletes and recreates the generated `supabase/functions/upstatus`, `supabase/functions/upstatus-test`, and `dist` directories. Do not treat validation as read-only. Do not run the current build/validator as a first step in a production recovery workflow until the template/artifact baseline has been reconciled.
+**Important safety warning:** `scripts/validate.mjs` invokes `scripts/build.mjs` before running its checks. The build script deletes and recreates the generated `supabase/functions/upstatus`, `supabase/functions/upstatus-test`, and `dist` directories. Do not treat validation as read-only. Production userscript template/artifact parity has now been confirmed for the recorded `master` snapshot, but the build remains destructive to generated output directories and does not itself verify the currently deployed Supabase runtime.
 
-The current `src/userscript/upstatus.user.template.js` is approximately 544 KB. The existence of a large template and generated artifacts means that file provenance and equality checks are critical; do not overwrite a known-good generated artifact merely to make the build pass.
+The current `src/userscript/upstatus.user.template.js` is approximately 544 KB. During the initial inventory, rendering this template with the production substitutions from `scripts/build.mjs` produced an exact byte-for-byte match with `UpStatus.user.js` on `master` (544,057 characters). This confirms parity for the normal production userscript at that snapshot. It does not confirm deployed Supabase runtime parity, because generated `supabase/functions/*/index.ts` files are not tracked at those paths in the repository. Re-run the parity check after changes and before releases.
 
 ## Team Lite
 
