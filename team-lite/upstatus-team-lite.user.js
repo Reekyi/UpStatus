@@ -2340,7 +2340,7 @@ function renderChatText(text){
         });
       }
       if(isTeamLiteEphemeralMember()&&!teamLiteChatSessionActive)beginTeamLiteEphemeralChatSession();
-      if(isTeamLiteEphemeralMember()){var sessionStart=teamLiteChatSessionStartedAt;nextMessages=nextMessages.filter(function(m){return (Date.parse(m.createdAt)||0)>=sessionStart;});incoming=incoming.filter(function(m){return (Date.parse(m.createdAt)||0)>=sessionStart;});}
+      // O backend filtra mensagens pela sessão autenticada (joinedAt do servidor). Não reaplicar um timestamp local: isso ocultaria mensagens válidas após reload.
       updateLuccaPresence(!!d.luccaOnline);
       var latestLuccaJoin=null;
       for(var li=nextMessages.length-1;li>=0;li--){if(nextMessages[li].type==='system'&&nextMessages[li].systemType==='lucca_join'){latestLuccaJoin=nextMessages[li];break;}}
