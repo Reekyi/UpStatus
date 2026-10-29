@@ -1218,7 +1218,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     var statuses=card.querySelectorAll('.up-update-status'),manuals=card.querySelectorAll('.up-update-now');
     var installed=String(CURRENT_VERSION||'').trim();
     statuses.forEach(function(s){s.textContent=' • Verificando versão oficial…';});
-    manuals.forEach(function(m){m.disabled=true;m.title='Verificando versão oficial';m.onclick=function(){};});
+    manuals.forEach(function(x){x.disabled=true;x.title='Verificando versão oficial';x.onclick=function(){};});
     fetch('https://raw.githubusercontent.com/Reekyi/UpStatus/team-lite-official/team-lite/release.json?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
       .then(function(r){if(!r.ok)throw new Error('Manifesto oficial: HTTP '+r.status);return r.json();})
       .then(function(manifest){
@@ -1234,13 +1234,13 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
             if(!served)throw new Error('O script oficial não contém @version válido.');
             if(served!==remote)throw new Error('Versões divergentes: manifesto '+remote+'; script servido '+served+'. Atualização bloqueada.');
             var cmp=compareVersions(served,installed);
-            manuals.forEach(function(m){m.disabled=cmp<=0;m.title=cmp>0?'Atualizar para v'+served:'Você já está na versão mais recente';m.onclick=cmp>0?openUpdate:function(){};});
-            if(cmp>0){setUpdateAvailable(true,served);statuses.forEach(function(s){s.innerHTML=' • Nova versão: <b>v'+esc(served)+'</b> (instalada: v'+esc(installed)+')';});showUpdatePrompt(served);}
-            else if(cmp<0){setUpdateAvailable(false,'');statuses.forEach(function(s){s.textContent=' • Servidor em v'+served+'; instalada v'+installed+'. Atualização bloqueada para evitar downgrade.';});}
-            else{setUpdateAvailable(false,'');statuses.forEach(function(s){s.textContent=' • Atualizado: v'+served;});}
+            manuals.forEach(function(x){x.disabled=cmp<=0;x.title=cmp>0?'Atualizar para v'+served:'Você já está na versão mais recente';x.onclick=cmp>0?openUpdate:function(){};});
+            if(cmp>0){setUpdateAvailable(true,served);statuses.forEach(function(x){x.innerHTML=' • Nova versão: <b>v'+esc(served)+'</b> (instalada: v'+esc(installed)+')';});showUpdatePrompt(served);}
+            else if(cmp<0){setUpdateAvailable(false,'');statuses.forEach(function(x){x.textContent=' • Servidor em v'+served+'; instalada v'+installed+'. Atualização bloqueada para evitar downgrade.';});}
+            else{setUpdateAvailable(false,'');statuses.forEach(function(x){x.textContent=' • Atualizado: v'+served;});}
           });
       })
-      .catch(function(e){setUpdateAvailable(false,'');statuses.forEach(function(s){s.textContent=' • Atualizador bloqueado: '+String(e&&e.message||'não foi possível verificar a versão oficial.');});manuals.forEach(function(m){m.disabled=true;m.title='Atualização bloqueada por inconsistência';m.onclick=function(){};});});
+      .catch(function(e){setUpdateAvailable(false,'');statuses.forEach(function(x){x.textContent=' • Atualizador bloqueado: '+String(e&&e.message||'não foi possível verificar a versão oficial.');});manuals.forEach(function(x){x.disabled=true;x.title='Atualização bloqueada por inconsistência';x.onclick=function(){};});});
   }
   function mentionNames(text){
     var found=[];
