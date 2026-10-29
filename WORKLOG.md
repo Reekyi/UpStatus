@@ -236,3 +236,11 @@ Last updated: 2026-10-29
 
 - Additional authorization finding documented in `REALTIME_SECURITY_PLAN.md` commit `3b969a73509a7021ee3483722bdd3d79398f7bf1`: the candidate Edge Function caches custom-session validation for up to 30 seconds. A server-side session deletion, account disablement or role change may therefore not take effect immediately on a warm instance. This needs explicit revocation semantics before issuing Realtime credentials. The commit's validation check is still pending at the time of this note; Supabase Preview was skipped because no preview branch is attached.
 
+
+## Follow-up permission cross-check: 2026-10-29
+
+- Rechecked effective table privileges in the live production database with read-only catalog queries. The nine tables listed in `20261029183000_revoke_unused_public_table_grants.sql` still grant table privileges to both `anon` and `authenticated`; the migration's target list matches those nine tables. `upstatus_visual_config` also has RLS enabled without policies, but currently grants none of the tested table privileges to either client role, so it was intentionally not added to the revoke list.
+- Rechecked the three trigger-only broadcast functions: `upstatus_broadcast_messages()`, `upstatus_broadcast_remote_state()`, and `upstatus_broadcast_users()` still grant EXECUTE to PUBLIC, `anon`, and `authenticated`. The staged revoke migration targets all three. No migration was applied.
+- The live `realtime.messages` catalog has no policies. This remains a blocking authorization design issue for a secure private-channel migration; do not switch existing clients to private channels until a supported identity/signing path and complete policy tests are proven.
+- CI now passes on current normal head `58fc97eb4ae889ad80fed86c6eea1dd132c553f2` (run 40943314984) and Team Lite head `8ad76f4e8e195b7397f5b176dbb277f850f6ebf7` (run 40942731055). Supabase Preview is skipped because neither PR has an associated Supabase branch database. These are candidate CI results, not live browser or deployment validation.
+- No production/TEST/Team Lite deployment, database migration, secret/configuration change, or PR merge occurred.
