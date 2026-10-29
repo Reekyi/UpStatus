@@ -58,6 +58,7 @@ Establish a safe, fast, recoverable workflow for ongoing fixes to UpStatus norma
 - Removed the newly added duplicate `.github/workflows/validate-pr.yml`; the base `master` already has `.github/workflows/validate.yml` configured for both `pull_request` and pushes to `master`/ `develop`. This avoids running the same validation twice.
 - The latest head needs a fresh CI run after these changes. Do not merge until the current head's validation is green and the backend template diff has been reviewed.
 
+- Next CI run exposed a third stale/inconsistent regression: `chat-regression.test.mjs` explicitly forbids name-only admin bypass, but the template had been changed to grant admin deletion to anyone whose supplied name was `Ricardo`. Reverted that bypass in the template and strengthened `validate.mjs` to require `const isAdmin=await admin(name);`. This deliberately prioritizes role-based authorization; before deployment, verify Ricardo's admin role is configured in the database so legitimate admin deletion remains available. Commits: `1f21ef943dee116124634d56f13be619a875f4eb`, `3a837493d2bc06dfc53ca78042cb73b03e6db078`.
 ### Deployment state
 - Production: not changed by this work.
 - TEST: not changed by this work.
