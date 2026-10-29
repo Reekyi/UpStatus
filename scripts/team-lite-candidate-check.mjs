@@ -78,7 +78,9 @@ const versionEnd = script.indexOf("  function mentionNames", versionStart);
 assert.ok(versionStart >= 0 && versionEnd > versionStart, "updater runtime test boundaries not found");
 const checkStart = script.indexOf("  function checkUpdate(){", versionStart);
 assert.ok(checkStart > versionStart, "updater checkUpdate boundary not found");
-const updaterCode = script.slice(versionStart, checkStart) + script.slice(checkStart, versionEnd) + "\nthis.__candidateCheckUpdate = checkUpdate;";
+const promptEnd = script.indexOf("\n  function mentionNames", checkStart);
+assert.ok(promptEnd > checkStart, "updater body boundary not found");
+const updaterCode = script.slice(versionStart, checkStart) + "\n" + script.slice(checkStart, promptEnd) + "\nthis.__candidateCheckUpdate = checkUpdate;";
 async function runUpdaterScenario({ installed, manifest, servedVersion, fetchFailureAt = 0 }) {
   const calls = { prompts: [], availability: [], fetches: 0, opened: 0 };
   const status = { textContent: "", innerHTML: "" };
