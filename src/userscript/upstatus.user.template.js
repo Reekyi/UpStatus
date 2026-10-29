@@ -2856,7 +2856,7 @@ function chatAvatarPresence(name){
     chatCache.push(optimistic);chatForceScrollBottom=true;chatOpenScrollUntil=Date.now()+1200;
     try{renderChat();scrollChatToBottom(true);}catch(e){}
     uploadFileDirect(file,'/api/chat/upload-url').then(function(upload){
-      return api('POST','/api/chat',{message:isDocument?(String(caption||'').trim()||String(file.name||'Documento')):String(caption||'').trim(),imageUrl:upload.publicUrl,type:isDocument?'document':isVideo?'video':'image',replyTo:reply});
+      return api('POST','/api/chat',{message:isDocument?(String(caption||'').trim()||String(file.name||'Documento')):String(caption||'').trim(),fileName:isDocument?String(file.name||'Documento'):'',imageUrl:upload.publicUrl,type:isDocument?'document':isVideo?'video':'image',replyTo:reply});
     }).then(function(r){
       var created=normalizeChatMessage(r&&r.message);
       if(!created)throw new Error('O anexo foi enviado, mas não recebemos a confirmação da mensagem.');
