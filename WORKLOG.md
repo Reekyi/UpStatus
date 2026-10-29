@@ -36,6 +36,8 @@ Establish a safe, fast, recoverable workflow for ongoing fixes to UpStatus norma
 - Strengthened `scripts/validate.mjs` to assert exact production and TEST update/download URLs.
 - Added `.github/workflows/validate-pr.yml` for build/validation checks on future PRs to `master` and `develop`.
 - Confirmed by deterministic template rendering that the corrected production substitutions match tracked `UpStatus.user.js` exactly (544,057 characters). The actual Node build/validator has not been executed here.
+- Compared the deployed `upstatus` backend with the rendered server template after normalizing the embedded script block. Found live-only behaviors missing from the template (signed upload handler/routes, official-team member filtering, and Ricardo admin fallback) and template-only behaviors missing from live (server-authoritative guest-session history filtering and document filename persistence).
+- Ported the live-only backend behaviors into `src/server/index.template.ts` on this branch while preserving the template-only guest-session and document metadata behavior. Added validation assertions for upload routes, member filtering, admin fallback, guest-session filtering, and document filename persistence. This is source reconciliation only; the Edge Function was not deployed.
 
 ### Immediate next steps
 1. Review the draft PR and inspect the complete diff for unintended changes.
