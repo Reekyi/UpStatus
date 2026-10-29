@@ -89,7 +89,7 @@ fs.writeFileSync(path.join(dist,"build-manifest.json"),JSON.stringify({
 if(syncRootArtifact){
   const rootArtifactPath=path.join(ROOT,"UpStatus.user.js");
   const currentArtifact=fs.readFileSync(rootArtifactPath,"utf8");
-  const currentVersion=(currentArtifact.match(/^\/\/ @version\\s+(.+)$/m)||[])[1]||"";
+  const currentVersion=(currentArtifact.match(/^\/\/ @version\s+(.+)$/m)||[])[1]||"";
   if(currentArtifact!==prodUser&&currentVersion===baseVersion)throw new Error("Refusing to sync UpStatus.user.js while its version remains "+baseVersion+". Increment release.json.version before updating the tracked distribution artifact.");
   fs.writeFileSync(rootArtifactPath,prodUser,"utf8");
   console.log("Synchronized tracked UpStatus.user.js artifact.");
