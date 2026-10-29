@@ -28,7 +28,7 @@ assert(headerValue(testUser,"updateURL").includes("/upstatus-test/upstatus.user.
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
 assert(prodUser.includes("var key='upstatus_';"),"production storage prefix mismatch");
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
-assert(prodUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta8';"),"production realtime topic must remain compatible with the stable 3.3.1 client channel");
+assert(prodUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta8';"),"production realtime topic compatibility check");
 assert(testUser.includes("var UP_REALTIME_TOPIC='upstatus-test-live-"),"test realtime topic missing");
 assert(prodUser.includes("var UP_RINGTONE_CHANNEL='upstatus-call-ringtone-stop-v1';"),"production ringtone channel mismatch");
 assert(testUser.includes("var UP_RINGTONE_CHANNEL='upstatus-test-call-ringtone-stop-v1';"),"test ringtone channel mismatch");
