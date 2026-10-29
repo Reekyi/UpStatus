@@ -208,3 +208,10 @@ Last updated: 2026-10-29
 - TEST runtime has some distinct guest-session filtering and profile/upload behavior not identical to the current candidate template, but it also retains the name-based admin fallback and lacks document filename persistence and the candidate's full guest-session start-time filters for history/unread/read receipts.
 - This confirms TEST is not a clean drop-in validation target for the current candidate. Do not deploy to TEST merely to align versions; first reconcile the intended source baseline and explicitly choose which runtime behavior is authoritative.
 - Updated ARCHITECTURE.md. No TEST/production deployment, migration, secret read, or database mutation occurred.
+
+## Team Lite backend parity audit: 2026-10-29
+
+- Read the live upstatus-team-lite Edge Function read-only: revision 15, embedded version 3.4.30. A normalized comparison with the Team Lite candidate backend template found 17 differing line groups.
+- Material differences: live runtime does not persist/return document filenames; read receipts do not enforce the candidate's guest-session start-time filter; an admin check includes a name-based Ricardo bypass; guest join/leave notice text differs. Candidate and runtime must be reconciled rather than assuming version 3.4.31 alone makes them equivalent.
+- The Team Lite userscript candidate's latest checks remain passed on head fcc638e308730742f1280a39803d94e36706b662 in run 40937631921. This validates candidate checks, not the live browser updater popup or backend parity.
+- Updated ARCHITECTURE.md with the live Team Lite comparison. No Team Lite deployment, official branch change, migration, or merge occurred.
