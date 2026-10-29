@@ -16,7 +16,7 @@ function header(name) {
 }
 function assertInlineScriptsParse(html, file) {
   let count = 0;
-  for (const match of html.matchAll(/<script\\b[^>]*>([\\s\\S]*?)<\\/script>/gi)) {
+  for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) {
     const code = match[1].trim();
     if (!code) continue;
     new vm.Script(code, { filename: file + "#inline-" + (++count) });
@@ -39,7 +39,7 @@ assert.ok(luccaSite.includes("/api/lucca/login"), "Lucca portal must use the Luc
 assert.ok(luccaStandalone.includes("/api/lucca/login"), "standalone Lucca page must use the Lucca login route");
 assert.ok(ycaro.includes("/api/ycaro/login"), "Ycaro portal must use its separate login route");
 assert.ok(ycaro.includes("/api/ycaro/heartbeat") && ycaro.includes("/api/ycaro/logout"), "Ycaro portal must use separate session lifecycle routes");
-assert.ok(!/(?:password|senha)\\s*[:=]\\s*['"][^'"]{8,}['"]/i.test(ycaro), "Ycaro page must not contain an obvious hardcoded password literal");
+assert.ok(!/(?:password|senha)\s*[:=]\s*['"][^'"]{8,}['"]/i.test(ycaro), "Ycaro page must not contain an obvious hardcoded password literal");
 
 const inlineCounts = {
   luccaSite: assertInlineScriptsParse(luccaSite, "lucca-site/index.html"),
