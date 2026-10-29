@@ -2785,7 +2785,7 @@ function chatAvatarPresence(name){
     if(!file)return;var info=resolveFileMime(file,true);if(!info.ok){showChatError('Tipo de arquivo não suportado.');return;}if(file.size>20*1024*1024){showChatError('O arquivo deve ter no máximo 20 MB.');return;}
     chatPendingAttachment=file;var box=chat.querySelector('.up-chat-pending-preview');if(!box)return;var name=String(file.name||'Imagem colada'),size=file.size?' · '+(file.size/1024/1024).toFixed(1)+' MB':'';
     box.innerHTML='<div class="up-chat-pending-card" style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin:0 0 6px;border:1px solid #536784;border-radius:9px;background:rgba(79,125,255,.10);color:inherit;font:12px Segoe UI,Arial,sans-serif"><span aria-hidden="true">📎</span><span style="min-width:0;flex:1;overflow-wrap:anywhere">'+esc(name)+esc(size)+'</span><button type="button" class="up-chat-pending-remove" aria-label="Remover anexo" title="Remover anexo" style="border:0;border-radius:6px;padding:3px 8px;background:rgba(120,135,160,.18);color:inherit;cursor:pointer">×</button></div>';
-    box.classList.remove('hidden');box.querySelector('.up-chat-pending-remove').onclick=function(e){e.preventDefault();e.stopPropagation();chatPendingAttachment=null;box.classList.add('hidden');box.textContent='';};
+    box.classList.remove('hidden');box.querySelector('.up-chat-pending-remove').onclick=function(e){e.preventDefault();e.stopPropagation();chatPendingAttachment=null;box.textContent='';var input=chat.querySelector('.up-chat-input');if(input)updateLinkPreview(input.value||'');else box.classList.add('hidden');};
   }
   function updateLinkPreview(text){
     var box=chat.querySelector('.up-chat-pending-preview');if(!box)return;var existing=box.querySelector('.up-chat-link-preview');if(existing)existing.remove();var match=String(text||'').match(/https?:\/\/[^\s<>"']+/i);
@@ -2805,6 +2805,7 @@ function chatAvatarPresence(name){
     var optimistic={id:tempId,user:member,message:text,type:'text',systemType:'',createdAt:new Date().toISOString(),imageUrl:'',mentions:[],replyTo:tempReply,reactions:{},readBy:[],optimistic:true};
     chatCache.push(optimistic);
     input.value='';
+    updateLinkPreview('');
     chatForceScrollBottom=true;
     chatOpenScrollUntil=Date.now()+1500;
     clearChatDraft();
