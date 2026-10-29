@@ -146,4 +146,12 @@ assert(source.includes(".on('broadcast',{event:'chat_read'},function(){scheduleR
 assert(!source.includes(".on('broadcast',{event:'db_change'},function(payload){"),"public database-change events must not apply broadcast-supplied rows");
 assert(source.includes("realtimeChatRefreshLastAt=Date.now();")&&source.includes("loadChat(true);"),"broadcast refreshes must fetch authoritative chat state from the server");
 
-console.log("Chat regression tests passed: chat, updater, notifications, and untrusted Realtime payload handling.");
+
+assert(source.includes("p.type!=='presence'&&p.type!=='ended'&&p.to!==member"),"call signaling except public presence/end events must be addressed to the current member");
+assert(source.includes("p.callId.length>160")&&source.includes("p.from.length>80"),"call signaling identifiers must be bounded");
+assert(source.includes("p.sdp.sdp.length>100000"),"oversized call SDP must be rejected");
+assert(source.includes("JSON.stringify(p.candidate).length>4096"),"oversized ICE candidates must be rejected");
+assert(source.includes("(p.type==='offer'||p.type==='answer'||p.type==='ice')&&p.to!==member"),"voice and screen-share negotiation events must be directly targeted");
+assert(source.includes("function screenShareReceive(p)")&&source.includes("function voiceRoomReceive(p)"),"voice and screen-share handlers must remain present after hardening");
+
+console.log("Chat regression tests passed: chat, updater, notifications, untrusted Realtime payload handling, and targeted media signaling.");
