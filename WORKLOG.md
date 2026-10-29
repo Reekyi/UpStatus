@@ -244,3 +244,10 @@ Last updated: 2026-10-29
 - The live `realtime.messages` catalog has no policies. This remains a blocking authorization design issue for a secure private-channel migration; do not switch existing clients to private channels until a supported identity/signing path and complete policy tests are proven.
 - CI now passes on current normal head `58fc97eb4ae889ad80fed86c6eea1dd132c553f2` (run 40943314984) and Team Lite head `8ad76f4e8e195b7397f5b176dbb277f850f6ebf7` (run 40942731055). Supabase Preview is skipped because neither PR has an associated Supabase branch database. These are candidate CI results, not live browser or deployment validation.
 - No production/TEST/Team Lite deployment, database migration, secret/configuration change, or PR merge occurred.
+
+## Publicly served artifact parity check: 2026-10-29
+
+- Read the currently served userscript artifacts over HTTPS without modifying any runtime. Production serves version `3.4.7`, TEST serves `3.3.28`, and the official Team Lite raw artifact serves `3.4.30`. These match their currently configured release manifests, but they do not include the unmerged candidate changes on PRs #74 and #75.
+- Team Lite candidate `3.4.31` is intentionally not served by the official Team Lite branch yet; therefore the new candidate updater/security behavior cannot be considered live or browser-verified. Do not alter the official update endpoint or publish the candidate without explicit approval.
+- Added normal candidate validation assertions that the public Realtime `db_change`, `chat_fast`, and `chat_read` broadcasts are only invalidation hints, and that `remote_command` / `remote_result` broadcast payloads do not become authoritative command/result data. Latest normal CI passed on commit `990954a04a71859ac5298e0932f05433b89b94a9` (run 40943754357). Team Lite candidate CI remains passed on `8ad76f4e8e195b7397f5b176dbb277f850f6ebf7` (run 40942731055).
+- The Realtime sender-authentication issue remains unresolved: client-side filtering does not authenticate call, voice-room, or screen-share signaling. No deployment, database migration, official branch change, or merge occurred.
