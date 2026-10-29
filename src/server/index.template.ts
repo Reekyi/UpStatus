@@ -411,14 +411,14 @@ async function chatRoute(req:Request,name:string,sessionStartedAt=0){
   if(error)throw error;
   return response({ok:true,message:{id,user:name,user_name:name,message,type,systemType:"",system_type:"",createdAt,imageUrl,image_url:imageUrl,fileName:type==="document"?fileName:"",file_name:type==="document"?fileName:"",mentions:mentionList,replyTo,reactions:{},readBy:[]}});
 }
-async function readRoute(req:Request,name:string){
+async function readRoute(req:Request,name:string,sessionStartedAt=0){
   const p:any=await readBody(req);
   const ids=Array.isArray(p.messageIds)?p.messageIds.map(String).filter(Boolean).slice(0,1000):[];
   const {data:current}=await db.from("chat_reads").select("messages").eq("user_name",name).maybeSingle();
   const map=current?.messages&&typeof current.messages==="object"?{...current.messages}:{};
   if(ids.length){
-    const {data:valid}=await db.from("messages").select("id,user_name").in("id",ids);
-    const validIds=new Set((valid||[]).filter((x:any)=>x.user_name!==name).map((x:any)=>String(x.id)));
+    const {data:valid}=await db.from("messages").select("id,user_name,created_at").in("id",ids);
+    const validIds=new Set((valid||[]).filter((x:any)=>x.user_name!==name&&(!sessionStartedAt||!Number.isFinite(sessionStartedAt)||sessionStartedAt<=0||Date.parse(x.created_at)>=sessionStartedAt)).map((x:any)=>String(x.id)));
     for(const id of ids)if(validIds.has(id)){
       const list=Array.isArray(map[id])?[...map[id]]:[];
       if(!list.includes(name))list.push(name);
@@ -693,7 +693,7 @@ Deno.serve(async(req)=>{
     if(path==="/api/status")return await statusRoute(req,name);
     if(path==="/api/history")return await historyRoute(req,name);
     if(path==="/api/chat")return await chatRoute(req,name,ctx.guest?ctx.joinedAt:0);
-    if(path==="/api/chat/read"&&req.method==="POST")return await readRoute(req,name);
+    if(path==="/api/chat/read"&&req.method==="POST")return await readRoute(req,name,ctx.guest?ctx.joinedAt:0);
     if(path==="/api/chat/typing")return await typingRoute(req,name);
     if(path==="/api/chat/reaction"&&req.method==="POST")return await reactionRoute(req,name);
     if(path.startsWith("/api/chat/")&&req.method==="PATCH")return await editRoute(req,name,path.slice("/api/chat/".length));
