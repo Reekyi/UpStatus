@@ -2053,26 +2053,29 @@ function renderChatText(text){
     if(changed&&!chat.classList.contains('hidden'))renderChat();
   }
 
-  function handleRealtimeChatFast(payload){
-    var m=payload&&payload.message;
-    if(!m||!m.id)return;
-    upsertRealtimeMessage(m);
+  var realtimeChatRefreshTimer=null,realtimeChatRefreshLastAt=0;
+  function scheduleRealtimeChatRefresh(){
+    if(!token||realtimeChatRefreshTimer)return;
+    var wait=Math.max(0,1000-(Date.now()-realtimeChatRefreshLastAt));
+    realtimeChatRefreshTimer=setTimeout(function(){
+      realtimeChatRefreshTimer=null;
+      if(!token)return;
+      realtimeChatRefreshLastAt=Date.now();
+      loadChat(true);
+    },wait);
   }
+  // The shared Realtime topic is public. Treat broadcast payloads as untrusted hints,
+  // and reconcile chat state only from the authenticated API.
+  function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}
   function startRealtime(){
     if(!token||realtimeClient||typeof supabase==='undefined'||!supabase.createClient)return;
     try{
       realtimeClient=supabase.createClient(UP_REALTIME_URL,UP_REALTIME_KEY,{auth:{persistSession:false}});
       realtimeChannel=realtimeClient.channel(UP_REALTIME_TOPIC);
       realtimeChannel
-        .on('broadcast',{event:'db_change'},function(payload){
-          var p=payload&&payload.payload||{};
-          var record=p.record;
-          if(!record)return;
-          if(p.op==='DELETE')handleRealtimeDelete(record);
-          else upsertRealtimeMessage(record);
-        })
-        .on('broadcast',{event:'chat_fast'},function(payload){handleRealtimeChatFast(payload&&payload.payload||{});})
-        .on('broadcast',{event:'chat_read'},function(payload){handleRealtimeChatRead(payload&&payload.payload||{});})
+        .on('broadcast',{event:'db_change'},function(){scheduleRealtimeChatRefresh();})
+        .on('broadcast',{event:'chat_fast'},function(){handleRealtimeChatFast();})
+        .on('broadcast',{event:'chat_read'},function(){scheduleRealtimeChatRefresh();})
         .on('broadcast',{event:'user_status'},function(){refresh();})
         .on('broadcast',{event:'chat_presence'},function(payload){var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();})
         .on('broadcast',{event:'health_ping'},function(payload){handleHealthPing(payload&&payload.payload||{});})
