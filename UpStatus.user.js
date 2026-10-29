@@ -1046,7 +1046,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
       .then(function(manifest){
         if(!manifest||!Object.prototype.hasOwnProperty.call(manifest,'version'))throw new Error('Manifesto inválido para este canal.');
         var remote=String(manifest.version||'').trim();
-        var url=String(manifest.''||'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js').trim();
+        var url=String(manifest.scriptUrl||'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js').trim();
         if(!remote||!/^\d+(?:\.\d+){1,3}(?:-[0-9A-Za-z.-]+)?$/.test(remote))throw new Error('Versão do manifesto inválida.');
         if(url!=='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js')throw new Error('Link do script não corresponde ao canal oficial.');
         return fetch(url+'?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
