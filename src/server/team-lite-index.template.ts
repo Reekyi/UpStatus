@@ -92,7 +92,7 @@ async function login(req:Request,setup:boolean){
   if(!a)return response({error:"Conta não encontrada no Team Lite. Verifique o usuário autorizado."},400);
   if(setup){
     if(a.password_hash)return response({error:"Esta conta já foi configurada."},409);
-    const role=a.role||(["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin":"implementation_user");
+    const role=a.role||"implementation_user";
     const {error}=await db.from("users").update({password_hash:passwordHash(password),role}).eq("name",name);
     if(error)throw error;
     return createSession(name,{...a,password_hash:undefined,role});
@@ -114,7 +114,7 @@ async function members(){
 }
 async function healthRoute(req:Request,name:string){
   if(req.method!=="GET")return response({error:"Método não permitido."},405);
-  if(!["Ricardo","Lohan","Guilherme"].includes(name))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);
+  if(!(await admin(name)))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);
   const started=Date.now();
   const dbStarted=Date.now();
   const usersQ=await db.from("users").select("name,status,reason,client_version,client_seen_at").order("name");
