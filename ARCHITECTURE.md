@@ -74,3 +74,30 @@ The repository also has an `upstatus-team-lite` function in the current project 
 4. A code change is not complete until its targeted tests and artifact checks have run; clearly label checks that could not be performed.
 5. Do not report a deployment as complete without checking the deployment result and the served artifact.
 6. Prefer small changes on a dedicated branch and reviewable diff over replacing an entire large userscript.
+
+
+### Realtime audit checkpoint: 2026-10-29
+
+A read-only catalog query against the connected Supabase project confirmed that all three broadcast functions are `SECURITY DEFINER`, each is attached to an existing trigger, and both `anon` and `authenticated` currently have `EXECUTE`. The candidate migration `20261029170500_restrict_trigger_function_execute.sql` revokes those direct grants while preserving trigger execution. It remains unapplied. This is a narrow defense-in-depth change; it does not mitigate the public broadcast topic.
+
+Before changing the channel, preserve the following event families and explicitly assign authorization rules:
+
+| Event family | Data / capability | Required authorization before release |
+| --- | --- | --- |
+| Chat messages, read receipts, reactions, typing, presence | User activity and message metadata | Only active, authorized UpStatus sessions; validate sender identity server-side |
+| Voice/group-call signaling and presence | Call membership, SDP/ICE or session negotiation | Authenticated participants in the same active call; reject forged sender/target IDs |
+| Screen-share signaling | Session control and screen-share negotiation | Same call-membership check plus explicit share permissions |
+| Health/diagnostic events | Runtime health and potentially internal state | Implementation administrators only; do not broadcast details to every client |
+| Remote status commands/results | Remote action requests and outcomes | Never trust broadcast payload as a command; fetch authoritative command state from the authenticated backend |
+| Generic refresh/status hints | Presence or cache invalidation | Minimize payload to non-sensitive identifiers; treat events as hints, not authority |
+
+#### Safe migration sequence for Realtime authorization
+
+1. **Inventory and tests:** enumerate every `.on('broadcast', ...)`, `.send(...)`, `realtime.send(...)`, and Presence handler in both normal and Team Lite clients. Add tests for forged sender, wrong target, non-member, expired session, and cross-call signaling.
+2. **Server identity:** issue a short-lived Realtime-compatible JWT only after validating the existing UpStatus session. Do not reuse the public `anon` key as user identity. Keep signing secrets server-side and never put them in a userscript.
+3. **Policy design:** add narrowly scoped `realtime.messages` SELECT/INSERT policies that verify the signed subject and topic/event permissions. A blanket `USING (true)` / `WITH CHECK (true)` policy is not an acceptable final policy for private channels.
+4. **Dual-compatible rollout:** add backend credential issuance and authorization policies first, then ship a candidate client that sets `config: { private: true }` and supplies the token to Realtime. Test unauthorized subscribe and publish attempts before migrating server-side `realtime.send` calls to private broadcasts.
+5. **Data minimization and cutover:** remove sensitive fields from broadcasts where clients can fetch the canonical data through authenticated endpoints. Migrate all active clients, then disable public-channel compatibility only after measured adoption and a rollback plan.
+6. **Verification:** use two valid accounts plus an unauthenticated client to prove allowed same-team events work, and cross-team, wrong-target, expired-token, anonymous subscribe, and anonymous publish attempts fail. Re-run the Security Advisor and inspect actual deployed function/source versions after any approved migration.
+
+**Do not apply the channel cutover as a one-line `false` to `true` edit.** The current application uses its own session system rather than Supabase Auth, so private-channel policies cannot safely assume the standard `authenticated` role represents a valid UpStatus user. Until the credential and policy work is implemented and tested, the public channel remains an acknowledged high-priority exposure.
