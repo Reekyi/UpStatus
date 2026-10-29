@@ -27,6 +27,13 @@ assert(buildSource.includes('process.argv.includes("--sync-root-artifact")'),"ro
 assert(buildSource.includes("compareVersions(baseVersion,currentVersion)<=0"),"root artifact sync must require a strictly newer release version");
 assert(buildSource.indexOf("let rootArtifactPath=null")<buildSource.indexOf("writeFunction(PROD_FUNCTION"),"root artifact release guard must run before destructive build writes");
 assert(buildSource.includes('fs.writeFileSync(rootArtifactPath,prodUser,"utf8")'),"root artifact sync must write the built production userscript");
+if(rootArtifactBefore!==prodUser){
+  let sameVersionSyncBlocked=false;
+  try{execFileSync(process.execPath,[path.join(ROOT,"scripts/build.mjs"),"--sync-root-artifact"],{stdio:"pipe"});}
+  catch(error){sameVersionSyncBlocked=String(error&&error.stderr||error&&error.message||"").includes("unless release.json.version is greater");}
+  assert(sameVersionSyncBlocked,"same-version root artifact sync must be rejected when generated content differs");
+  assert(fs.readFileSync(rootArtifactPath,"utf8")===rootArtifactBefore,"rejected root artifact sync must leave the tracked artifact unchanged");
+}
 assert(headerValue(prodUser,"version")===baseVersion,"production userscript version mismatch");
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
