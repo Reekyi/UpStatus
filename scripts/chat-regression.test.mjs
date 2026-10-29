@@ -122,6 +122,10 @@ assert(source.includes("setPendingAttachment(file);if(input)updateLinkPreview(in
 assert(serverTemplate.includes('file_name:type==="document"&&fileName?fileName:null'),"file name is saved to separate database column");
 assert(source.includes("var incomingTime=!own?"),"received messages show per-message timestamps");
 assert(source.includes("up-chat-own-meta")&&source.includes("up-chat-own-time"),"sent time appears with ticks");
+assert(source.includes("if(c&&c.target===member)pollRemoteStatus();"),"untrusted realtime remote-command events must trigger authenticated server polling instead of direct execution");
+assert(!source.includes("if(c&&c.target===member)executeRemoteCommand(c);"),"untrusted realtime remote-command payloads must never be executed directly");
+assert(source.includes("remoteLastPollAt=0"),"remote command polling must have a throttle timestamp");
+assert(source.includes("now-remoteLastPollAt<1000"),"remote command poll trigger must be throttled against public broadcast spam");
 assert(source.includes("function screenShareStart()"),"screen-sharing start handler missing");
 assert(source.includes("function screenShareReceive(p)"),"screen-sharing signal handler missing");
 assert(source.includes("SCREEN_ROOM_EVENT"),"screen-sharing realtime event missing");
