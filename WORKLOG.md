@@ -16,7 +16,7 @@ Last updated: 2026-10-29
 - Expanded `DEVELOPMENT.md` with a repeatable workflow and Team Lite updater troubleshooting steps.
 - Fixed normal userscript update/download URL generation to use `release.json.scriptUrl` or the stable production endpoint fallback, rather than the legacy runtime endpoint.
 - Added exact updater URL checks and backend invariants to `scripts/validate.mjs`.
-- Reconciled the backend template with known live behavior for signed uploads and official-team filtering while retaining guest-session history filtering and document filename persistence.
+- Reconciled the backend template with known live behavior for signed uploads and official-team filtering while retaining guest-session history filtering and document filename persistence. Guest session start times now scope message history, fast unread counts, and read receipts so a returning guest cannot carry unread/read state across sessions.
 - Removed name-only admin privilege assignment during first-time setup. Message deletion requires the stored `implementation_admin` role; health diagnostics require that role in both server and UI. Clearing the entire shared chat remains owner-only, but now also requires Ricardo's explicit `implementation_admin` role on both server and UI.
 - Read-only database checks confirmed Ricardo, Guilherme, and Lohan each have a configured password and explicit `implementation_admin` role. The `public.messages.file_name` column was confirmed to exist. No database rows were modified.
 - Implemented staged attachment selection and paste support in the normal chat composer. Attachments can be removed before sending and can include a caption.
@@ -32,8 +32,8 @@ Last updated: 2026-10-29
 - Userscript template source-level syntax parsing passed during patching.
 - Chat regression suite passed after the latest code changes.
 - Team Lite updater regression suite passed against the official branch source, including manifest/header/internal version consistency, the internal `UPDATE_URL`, and pinned official manifest/script URLs.
-- GitHub Actions run `40910284725` passed for code/test head `4c654a73b8e9822227e2a795988bf154508fbd31`, including build, chat regression tests, Team Lite updater tests, and the full `scripts/validate.mjs` pipeline.
-- The architecture documentation update passed in run `40909976273`; the subsequent work-log commit passed in run `40910037380`.
+- GitHub Actions run `40910713764` passed for code/test head `9e96282b5e8fe24532b4d03dc750765892840ae9`, including build, chat regression tests, Team Lite updater tests, and the full `scripts/validate.mjs` pipeline.
+- Earlier architecture and work-log documentation updates passed in runs `40909976273` and `40910037380`.
 - The account-role and schema checks were read-only.
 
 ## Important findings and limitations
