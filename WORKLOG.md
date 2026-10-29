@@ -52,6 +52,12 @@ Establish a safe, fast, recoverable workflow for ongoing fixes to UpStatus norma
 - A new workflow result for the updated head has not yet been confirmed. Do not treat the validation as passing until the updated PR check completes successfully.
 - The workflow build recreates generated output directories in its clean GitHub runner, so it does not risk local uncommitted/generated artifacts.
 
+### Follow-up validation feedback (2026-10-29)
+- The latest GitHub Actions logs showed the build succeeds, but the regression suite then failed on a stale emoji-picker assertion. The implementation now binds the outside-click handler per menu using `m.__upstatusEmojiButton`; the test incorrectly expected an older single-menu query (`currentMenu/currentBtn`).
+- Updated `scripts/chat-regression.test.mjs` to assert the current per-menu ownership behavior instead of the obsolete implementation detail. Commit: `2012863d092f76ae13b179ad1340395eb978347d`.
+- Removed the newly added duplicate `.github/workflows/validate-pr.yml`; the base `master` already has `.github/workflows/validate.yml` configured for both `pull_request` and pushes to `master`/ `develop`. This avoids running the same validation twice.
+- The latest head needs a fresh CI run after these changes. Do not merge until the current head's validation is green and the backend template diff has been reviewed.
+
 ### Deployment state
 - Production: not changed by this work.
 - TEST: not changed by this work.
