@@ -6,6 +6,8 @@ Last verified: 2026-10-29. This document records observed repository state, not 
 
 - **UpStatus normal (production):** branch `master`; `release.json` reports version `3.4.7`; production Edge Function is `upstatus`.
 - **UpStatus TEST:** the README describes `develop` as the integration line and `upstatus-test` as the TEST Edge Function. The GitHub `develop` branch manifest was observed at `3.0.40-beta.22`, but a read-only inspection of the live Supabase Edge Function on 2026-10-29 found its embedded userscript at `3.3.28` (deployment revision 281). This is a material branch/runtime mismatch. Do not assume the `develop` branch reflects the live TEST deployment or deploy a new build until the intended TEST source/version is reconciled.
+
+A separate read-only comparison of the live TEST backend (revision 281) with the current candidate server template found 38 differing line groups after normalizing embedded payloads and constants. TEST has some guest-session filtering and profile/upload behavior not identical to the candidate template, while it also retains the name-based admin fallback and lacks document filename persistence and the candidate's full guest-session history/read-receipt filters. TEST is therefore not a clean validation target for this candidate until the intended source baseline is reconciled. Do not deploy to TEST merely to make versions match.
 - **UpStatus Team Lite:** branch `team-lite-official`; `team-lite/release.json` reports core version `3.4.7` and Team Lite build version `3.4.30`. It is a separate script/release line and must be validated independently.
 
 ## Observed branch heads
