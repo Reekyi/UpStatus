@@ -102,4 +102,5 @@ assert(prodUser.includes("button.style.background='#2563eb'"),"production back-a
 assert(prodUser.includes("button.style.margin='0 8px 0 0'"),"production back-arrow button must have spacing before native end-session control");
 assert(prodUser.includes("endButton.parentElement.insertBefore(button,endButton)"),"production back-arrow must sit immediately before native end-session control");
 execFileSync(process.execPath,[path.join(ROOT,"scripts/chat-regression.test.mjs")],{stdio:"inherit"});
+execFileSync(process.execPath,[path.join(ROOT,"scripts/team-lite-updater.test.mjs")],{stdio:"inherit"});
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
