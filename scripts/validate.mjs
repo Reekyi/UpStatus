@@ -50,7 +50,7 @@ assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not mat
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
-assert(/^\\d+\\.\\d+\\.\\d+$/.test(teamLiteVersion),"Team Lite buildVersion must use X.Y.Z");
+assert(/^\d+\.\d+\.\d+$/.test(teamLiteVersion),"Team Lite buildVersion must use X.Y.Z");
 assert(headerValue(teamLiteUser,"version")===teamLiteVersion,"Team Lite script version mismatch");
 assert(teamLiteUser.includes("var CURRENT_VERSION='"+teamLiteVersion+"'"),"Team Lite updater CURRENT_VERSION mismatch");
 assert(teamLiteRelease.scriptUrl===headerValue(teamLiteUser,"updateURL"),"Team Lite updateURL must match release manifest");
@@ -66,7 +66,7 @@ assert(teamLiteFn.includes('return await readRoute(req,name,ctx?.guest?ctx.joine
 assert(!teamLiteFn.includes('db.from("messages").delete().eq("user_name","Lucca")')&&!teamLiteFn.includes('db.from("messages").delete().eq("user_name","Ycaro")'),"Team Lite guest login must never delete shared messages");
 assert(!teamLiteFn.includes('const isAdmin=name==="Ricardo"||await admin(name);'),"Team Lite backend must not grant admin by name alone");
 for(const notice of ['message:"Lucca entrou no chat"','message:"Lucca saiu do chat"','message:"Ycaro entrou no chat"','message:"Ycaro saiu do chat"'])assert(teamLiteFn.includes(notice),"Team Lite backend exact presence notice missing: "+notice);
-assert(!/message:"[🔴🟠] (?:Lucca|Ycaro)(?: Maluco)? (?:entrou|saiu) do chat\\."/u.test(teamLiteFn),"Team Lite presence notices must not include emoji/nickname/punctuation");
+assert(!/message:"[🔴🟠] (?:Lucca|Ycaro)(?: Maluco)? (?:entrou|saiu) do chat\."/u.test(teamLiteFn),"Team Lite presence notices must not include emoji/nickname/punctuation");
 assert(teamLiteFn.includes("file_name:fileName"),"Team Lite chat must persist document filenames");
 assert(teamLiteUser.includes("if(c&&c.target===member)pollRemoteStatus();"),"Team Lite realtime remote commands must be verified by authenticated server polling");
 assert(!teamLiteUser.includes("if(c&&c.target===member)executeRemoteCommand(c);"),"Team Lite must not execute untrusted remote command broadcasts directly");
