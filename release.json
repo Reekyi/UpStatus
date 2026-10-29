@@ -1,4 +1,5 @@
 {
   "version": "3.4.7",
-  "preRelease": ""
+  "preRelease": "",
+  "scriptUrl": "https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js"
 }
