@@ -43,6 +43,7 @@ async function runScenario({installed,manifest,servedVersion,fetchFailure=false}
   const context={CURRENT_VERSION:installed,card,fetch:mockFetch,esc:String,
     setUpdateAvailable:(show,version)=>calls.availability.push({show,version}),
     showUpdatePrompt:version=>calls.prompt.push(version),
+    openUpdate:()=>{calls.openUpdate=(calls.openUpdate||0)+1;},
     setTimeout,clearTimeout,Promise,URL};
   vm.runInNewContext(executable,context,{timeout:1000});
   context.__runCheckUpdate();
