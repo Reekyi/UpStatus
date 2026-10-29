@@ -59,8 +59,9 @@ Last updated: 2026-10-29
 
 ## Next steps
 
-1. Validation passed for the trigger-function privilege migration and its checks. README/work-log documentation-only follow-ups have been added since; verify the latest CI run for the current head before considering the PR green. Keep PR #74 in draft pending final review.
-2. Test attachment staging, caption/reply preservation, failed-upload recovery, and link previews in a browser/TEST environment.
-3. Compare the generated backend against the live Edge Function and run an appropriate TypeScript/Deno check before any deployment.
-4. Diagnose the Team Lite popup on the affected installation by confirming its installed `@version`, updater status line, and whether manifest/script fetches succeed. Do not bump the official version merely to force a popup.
-5. Merge or deploy only after runtime checks are complete and Ricardo explicitly authorizes release.
+1. Treat public Realtime broadcast confidentiality/signaling as the highest-priority follow-up: design and test private-channel authorization, authenticated sender identity, and server validation before changing the shared channel.
+2. Verify the latest CI run for the current head; the latest code/test run passed, and later work-log commits require their own check. Keep PR #74 in draft pending final review.
+3. Test attachment staging, caption/reply preservation, failed-upload recovery, and link previews in a browser/TEST environment.
+4. Compare the generated backend against the live Edge Function and run an appropriate TypeScript/Deno check before any deployment.
+5. Diagnose the Team Lite popup on the affected installation by confirming its installed `@version`, updater status line, and whether manifest/script fetches succeed. Do not bump the official version merely to force a popup.
+6. Merge or deploy only after runtime checks are complete and Ricardo explicitly authorizes release.
