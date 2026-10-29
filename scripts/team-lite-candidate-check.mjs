@@ -136,7 +136,8 @@ async function runUpdaterScenario({ installed, manifest, servedVersion, fetchFai
 const candidateManifest = version => ({ product: "UpStatus Team Lite", buildVersion: version, scriptUrl: manifest.scriptUrl });
 const candidateNewer = await runUpdaterScenario({ installed: manifest.buildVersion.replace(/\d+$/, n => String(Number(n) - 1)), manifest: candidateManifest(manifest.buildVersion), servedVersion: manifest.buildVersion });
 assert.equal(candidateNewer.calls.prompts.length, 1, "newer matching candidate release must show exactly one prompt");
-assert.equal(candidateNewer.calls.prompts[0], manifest.buildVersion);
+assert.equal(candidateNewer.calls.prompts.length, 1, "actual modal was created by the extracted prompt implementation");
+assert.ok(String(candidateNewer.calls.prompts[0].innerHTML).includes("v" + manifest.buildVersion), "prompt modal must name the newer version");
 assert.equal(candidateNewer.manual.disabled, false, "manual update must be enabled for a newer matching release");
 candidateNewer.manual.onclick();
 assert.equal(candidateNewer.calls.opened, 1, "manual update must open the official update URL");
