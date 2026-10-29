@@ -25,6 +25,8 @@ function response(body: unknown, status=200) {
 }
 function hash(t: string) { return createHash("sha256").update(t).digest("hex"); }
 async function body(req: Request) {
+  const declaredLength = Number(req.headers.get("content-length") || "0");
+  if (declaredLength > MAX_BODY) throw new Error("PAYLOAD_TOO_LARGE");
   const raw = await req.text();
   if (raw.length > MAX_BODY) throw new Error("PAYLOAD_TOO_LARGE");
   if (!raw) return {};
@@ -35,6 +37,12 @@ function rateLimit(name: string) {
   const old = rate.get(name);
   if (!old || now - old.start >= 60_000) { rate.set(name, { start: now, count: 1 }); return true; }
   old.count++;
+  // Bound memory growth across many distinct user names on warm isolates.
+  if (rate.size > 2000) {
+    for (const [key, value] of rate) {
+      if (now - value.start >= 60_000) rate.delete(key);
+    }
+  }
   return old.count <= MAX_EVENTS_PER_MINUTE;
 }
 async function auth(req: Request): Promise<string|null> {
@@ -119,7 +127,9 @@ Deno.serve(async (req: Request) => {
       if (!(await room(roomId))) return response({ error: "Room unavailable" }, 404);
       if (!(await isMember(roomId, sender)) || !(await isMember(roomId, recipient)))
         return response({ error: "Sender and recipient must be room members" }, 403);
-      const expiresAt = new Date(Math.min(Date.now() + TTL_MS, Date.parse((await room(roomId))!.expires_at))).toISOString();
+      const activeRoom = await room(roomId);
+      if (!activeRoom) return response({ error: "Room unavailable" }, 404);
+      const expiresAt = new Date(Math.min(Date.now() + TTL_MS, Date.parse(activeRoom.expires_at))).toISOString();
       const { error } = await db.from("upstatus_signal_events").insert({
         room_id: roomId, sender, recipient, event_type: eventType, payload, expires_at: expiresAt
       });
@@ -136,13 +146,23 @@ Deno.serve(async (req: Request) => {
         .eq("room_id", roomId).eq("recipient", sender).gt("expires_at", new Date().toISOString())
         .order("event_id", { ascending: true }).limit(100);
       if (error) throw error;
-      const rows = events || [];
-      if (rows.length) {
-        const { error: deleteError } = await db.from("upstatus_signal_events")
-          .delete().in("event_id", rows.map((e: {event_id:number}) => e.event_id)).eq("recipient", sender);
-        if (deleteError) throw deleteError;
-      }
-      return response({ events: rows });
+      // Poll is non-destructive. Clients must deduplicate event_id and acknowledge
+      // only after handling the event, avoiding silent loss if a response is interrupted.
+      return response({ events: events || [] });
+    }
+
+    if (path.endsWith("/ack")) {
+      const ids = Array.isArray(p.eventIds) ? [...new Set(p.eventIds.map(Number))] : [];
+      if (!ids.length || ids.length > 100 || ids.some(id => !Number.isSafeInteger(id) || id <= 0))
+        return response({ error: "Invalid event IDs" }, 400);
+      const { data: membership, error: membershipError } = await db.from("upstatus_signal_room_members")
+        .select("room_id").eq("room_id", String(p.roomId || "")).eq("user_name", sender).maybeSingle();
+      if (membershipError || !membership) return response({ error: "Room membership required" }, 403);
+      const { error } = await db.from("upstatus_signal_events")
+        .delete().in("event_id", ids).eq("room_id", String(p.roomId || "")).eq("recipient", sender);
+      if (error) throw error;
+      return response({ ok: true, acknowledged: ids.length });
+
     }
 
     return response({ error: "Not found" }, 404);
