@@ -106,6 +106,7 @@ assert(source.includes("function setPendingAttachment(file)"),"files are staged 
 assert(source.includes("function updateLinkPreview(text)"),"links get a removable preview");
 assert(source.includes("e.preventDefault();setPendingAttachment(file)"),"pasted images stay pending");
 assert(source.includes("fileName:String(record.file_name"),"filename is separate from caption");
+assert(source.includes("fileName:isDocument?String(file.name||'Documento'):''"),"document uploads must send the original filename separately from the caption");
 assert(serverTemplate.includes('file_name:type==="document"&&fileName?fileName:null'),"file name is saved to separate database column");
 assert(source.includes("var incomingTime=!own?"),"received messages show per-message timestamps");
 assert(source.includes("up-chat-own-meta")&&source.includes("up-chat-own-time"),"sent time appears with ticks");
