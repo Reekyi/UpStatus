@@ -47,6 +47,8 @@ assert(prodFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==
 assert(prodFn.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");'),"chat signed-upload route missing");
 assert(prodFn.includes("async function chatRoute(req:Request,name:string,sessionStartedAt=0)"),"guest session history filter parameter missing");
 assert(prodFn.includes('if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&sessionStartedAt>0)'),"guest chat history must be filtered by server-side session start");
+assert(prodFn.includes('if(path==="/api/chat")return await chatRoute(req,name,ctx.guest?ctx.joinedAt:0);'),"guest chat requests must pass their session start time");
+assert(prodFn.includes('if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&sessionStartedAt>0)unreadQuery=unreadQuery.gte("created_at",new Date(Math.max(sessionStartedAt,Date.parse(cutoff))).toISOString());'),"guest unread counts must be scoped to the current session");
 assert(prodFn.includes('file_name:type==="document"&&fileName?fileName:null'),"document filename persistence missing from chat messages");
 assert(prodFn.includes('fileName:m.file_name||""'),"document filename hydration missing from chat history");
 assert(prodFn.includes("const isAdmin=await admin(name);"),"message deletion must require the authenticated admin role");
