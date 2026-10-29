@@ -159,4 +159,6 @@ assert(source.includes("p.participants.length>32"),"call roster broadcasts must 
 assert(source.includes("p.callId.length>160")&&source.includes("p.from.length>80"),"call roster identifiers must be bounded");
 assert(source.includes("list.slice(0,32)")&&source.includes("out.length<32"),"merged call participants must be bounded and deduplicated");
 
+assert(source.includes(".on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"),"public remote_result broadcasts must not be treated as authoritative command results");
+assert(source.includes("api('GET','/api/remote-status/result?id='+encodeURIComponent(id))"),"remote command completion must continue polling the authenticated result endpoint");
 console.log("Chat regression tests passed: chat, updater, notifications, untrusted Realtime payload handling, and targeted media signaling.");
