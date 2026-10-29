@@ -158,3 +158,13 @@ Last updated: 2026-10-29
 - Added regression assertions to both candidate suites to ensure public result broadcasts are not applied and authenticated result polling remains present.
 - Validation: normal candidate build passed in [run 40936531809](https://github.com/Reekyi/UpStatus/actions/runs/40936531809); Team Lite candidate checks passed in [run 40936550825](https://github.com/Reekyi/UpStatus/actions/runs/40936550825).
 - This closes a spoofable UI confirmation path only. It does not authenticate Realtime senders or solve public-channel exposure for presence, health diagnostics, and call/media signaling. No deployment, migration, official version change, or merge occurred.
+
+
+## Health diagnostic spoof-resistance and Realtime auth design: 2026-10-29
+
+- Tightened the health ping/pong handlers in both candidate userscripts. They now require bounded string IDs and sender labels; a pong is accepted only when its sender label matches the member the client originally pinged. This reduces accidental/malicious misattribution of latency results, but sender labels remain spoofable on a public channel and are not identity proof.
+- Added regression assertions to both candidate test suites.
+- Validation: normal candidate validation passed in [run 40937604488](https://github.com/Reekyi/UpStatus/actions/runs/40937604488); Team Lite candidate checks passed in [run 40937631921](https://github.com/Reekyi/UpStatus/actions/runs/40937631921).
+- Confirmed from the current Supabase docs that public channels permit any user to subscribe, send, and receive messages; private-channel authorization requires RLS policies on `realtime.messages`, private channel configuration, and access tokens with claims Realtime can authorize. See [Realtime Concepts](https://supabase.com/docs/guides/realtime/concepts) and [Realtime Authorization](https://supabase.com/docs/guides/realtime/authorization).
+- The current userscripts create Realtime clients using the publishable key with `persistSession:false`, while application authentication is a separate custom session handled by the UpStatus Edge Function. Therefore simply flipping the client channel to private would break connectivity and would not authenticate the app's custom identity. A safe design needs a server-issued, short-lived Realtime-compatible JWT, verified claims/role mapping, per-topic RLS policies, and coordinated client migration. No JWT secret was read or exposed, and no database or Realtime settings were changed.
+- No deploy, migration, official version change, or merge occurred.
