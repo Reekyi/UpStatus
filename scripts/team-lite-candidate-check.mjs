@@ -92,8 +92,12 @@ async function runUpdaterScenario({ installed, manifest, servedVersion, fetchFai
   };
   const root = {
     children: [],
-    querySelector(selector) { return this.children.find(child => child.className === selector.slice(1)) || null; },
-    appendChild(child) { this.children.push(child); child.parentElement = this; },
+    querySelector(selector) { return this.children.find(child => (" " + child.className + " ").includes(" " + selector.slice(1) + " ")) || null; },
+    appendChild(child) {
+      this.children.push(child);
+      child.parentElement = this;
+      if (child.className && child.className.split(/\\s+/).includes("up-update-prompt")) calls.prompts.push(child);
+    },
   };
   const document = {
     createElement(tag) {
