@@ -127,3 +127,5 @@ Last updated: 2026-10-29
 - Commits: source hardening `0d4fce82c9f6a883126eb062b248588006d4d85b`; regression coverage `60207b8d6a34b78f3df735432df0c8dedb9175b0`.
 - Validation status: CI is expected to run against the latest branch head; do not call this verified until the actual run is green.
 - Scope limitation: this closes a specific public-broadcast injection path for chat rows/read receipts. Public call signaling, voice-room signaling, screen-share signaling, health ping/pong, and presence remain untrusted and are not fixed by this patch. The Realtime channel is still public. Do not publish or deploy this candidate until tests and full event-by-event authorization work are complete.
+
+- Validation follow-up: GitHub Actions run [40926552969](https://github.com/Reekyi/UpStatus/actions/runs/40926552969) completed successfully for commit `60207b8d6a34b78f3df735432df0c8dedb9175b0`, including the new Realtime payload regression assertions. The subsequent `WORKLOG.md`-only commit does not alter tested source or test code.
