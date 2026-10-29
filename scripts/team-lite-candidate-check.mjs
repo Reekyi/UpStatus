@@ -102,7 +102,7 @@ async function runUpdaterScenario({ installed, manifest, servedVersion, fetchFai
   return { calls, status, manual };
 }
 const candidateManifest = version => ({ product: "UpStatus Team Lite", buildVersion: version, scriptUrl: manifest.scriptUrl });
-const candidateNewer = await runUpdaterScenario({ installed: manifest.buildVersion.replace(/\\d+$/, n => String(Number(n) - 1)), manifest: candidateManifest(manifest.buildVersion), servedVersion: manifest.buildVersion });
+const candidateNewer = await runUpdaterScenario({ installed: manifest.buildVersion.replace(/\d+$/, n => String(Number(n) - 1)), manifest: candidateManifest(manifest.buildVersion), servedVersion: manifest.buildVersion });
 assert.equal(candidateNewer.calls.prompts.length, 1, "newer matching candidate release must show exactly one prompt");
 assert.equal(candidateNewer.calls.prompts[0], manifest.buildVersion);
 assert.equal(candidateNewer.manual.disabled, false, "manual update must be enabled for a newer matching release");
