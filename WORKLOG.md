@@ -118,3 +118,12 @@ Last updated: 2026-10-29
 - Added a detailed event-family authorization matrix and a staged private-channel migration plan to `ARCHITECTURE.md` in commit `a2fad4ea03f3bbfcb9b901265e944edd96ff3c65`.
 - Key implementation constraint: UpStatus uses its own session system, not Supabase Auth. Do not add blanket `authenticated` policies or flip the existing database broadcasts to private until a server-issued short-lived Realtime identity, scoped RLS policies, cross-account negative tests, and a rollback path exist.
 - Next engineering work: inventory all normal and Team Lite Realtime subscribe/send handlers, identify which payloads contain data versus refresh hints, and add regression tests for sender spoofing, target mismatch, non-member signaling, expired sessions, and anonymous publish/subscribe. Then implement server-side token issuance and policies as a separate candidate change, without deployment.
+
+
+## Public Realtime payload hardening candidate: 2026-10-29
+
+- Changed `src/userscript/upstatus.user.template.js` so the public `db_change`, `chat_fast`, and `chat_read` broadcasts are treated as refresh hints only. The client no longer inserts a broadcast-supplied chat row, deletes a row based on an unauthenticated payload, or trusts broadcast-supplied read receipts. It schedules a throttled full refresh from the authenticated `/api/chat` route instead.
+- Added regression assertions to `scripts/chat-regression.test.mjs` for payload non-trust, canonical refresh, and one-second throttling.
+- Commits: source hardening `0d4fce82c9f6a883126eb062b248588006d4d85b`; regression coverage `60207b8d6a34b78f3df735432df0c8dedb9175b0`.
+- Validation status: CI is expected to run against the latest branch head; do not call this verified until the actual run is green.
+- Scope limitation: this closes a specific public-broadcast injection path for chat rows/read receipts. Public call signaling, voice-room signaling, screen-share signaling, health ping/pong, and presence remain untrusted and are not fixed by this patch. The Realtime channel is still public. Do not publish or deploy this candidate until tests and full event-by-event authorization work are complete.
