@@ -109,6 +109,7 @@ assert(source.includes("function updateLinkPreview(text)"),"links get a removabl
 assert(source.includes("e.preventDefault();setPendingAttachment(file)"),"pasted images stay pending");
 assert(source.includes("fileName:String(record.file_name"),"filename is separate from caption");
 assert(source.includes("fileName:isDocument?String(file.name||'Documento'):''"),"document uploads must send the original filename separately from the caption");
+assert(source.includes("message:isDocument?(String(caption||'').trim()||String(file.name||'Documento')):String(caption||'').trim(),type:isDocument?'document'"),"attachment captions must remain visible during upload and on document fallback");
 assert(source.includes("sendChatMedia(pending,text,reply)"),"pending attachment sends must preserve the selected reply target");
 assert(source.includes("reply=replyOverride!==undefined?replyOverride:chatReplyTo"),"attachment upload must use the reply target captured before clearing the composer");
 assert(source.includes("setPendingAttachment(file);if(input)updateLinkPreview(input.value||'');setChatReply(reply)"),"failed attachment uploads must restore the file, caption preview, and reply target");
