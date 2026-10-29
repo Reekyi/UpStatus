@@ -62,6 +62,11 @@ assert(prodFn.includes('const officialTeam=new Set(["Ricardo","Guilherme","Lohan
 assert(prodFn.includes('async function signedUploadRoute(req:Request,kind:"chat"|"avatar")'),"signed upload handler missing from production backend");
 assert(prodFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");'),"avatar signed-upload route missing");
 assert(prodFn.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");'),"chat signed-upload route missing");
+assert(prodFn.includes('if(!allowed.has(mime))return response({error:"Tipo de arquivo não suportado."},400);'),"signed uploads must enforce a MIME allowlist");
+assert(prodFn.includes('if(!Number.isFinite(size)||size<1||size>max)return response({error:"O arquivo deve ter no máximo 20 MB."},400);'),"signed uploads must reject invalid or oversized declared sizes");
+assert(prodFn.includes('if(!uploadToken||!signedUrl||signedPath!==path)throw new Error("O Storage não retornou uma URL assinada válida.");'),"signed upload URLs must be validated before returning them");
+assert(prodFn.includes('if(!uploadUrl.searchParams.has("token"))uploadUrl.searchParams.set("token",uploadToken);'),"signed upload URL must include its upload token");
+assert(prodFn.includes('const bucket=kind==="avatar"?"profile-images":"chat-images";'),"signed upload must use only the intended storage buckets");
 assert(prodFn.includes("async function chatRoute(req:Request,name:string,sessionStartedAt=0)"),"guest session history filter parameter missing");
 assert(prodFn.includes('if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&sessionStartedAt>0)'),"guest chat history must be filtered by server-side session start");
 assert(prodFn.includes('if(path==="/api/chat")return await chatRoute(req,name,ctx.guest?ctx.joinedAt:0);'),"guest chat requests must pass their session start time");
