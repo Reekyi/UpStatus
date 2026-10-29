@@ -30,6 +30,8 @@ Last updated: 2026-10-29
 
 ## Validation
 
+- Latest validation after signed-upload security assertions: GitHub Actions run `40917000057` passed for commit `9f6bff310ec847a0a5e214bb08c2658e8653aa2b`.
+
 - Userscript template source-level syntax parsing passed during patching.
 - Chat regression suite passed after the latest code changes.
 - Team Lite updater regression suite passed against the official branch source, including manifest/header/internal version consistency, the internal `UPDATE_URL`, and pinned official manifest/script URLs.
@@ -45,12 +47,13 @@ Last updated: 2026-10-29
 - Team Lite is an independent release line at version 3.4.30. Its updater only shows a popup when the official remote version is newer than the installed version and the manifest/script agree. The affected installation's version and browser runtime are unknown, so the original missing-popup report is not conclusively diagnosed.
 - `scripts/validate.mjs` runs the build first. The build deletes and recreates generated `supabase/functions/*` and `dist` outputs; validation is not read-only.
 - A normalized comparison of the live Edge Function and template, excluding embedded script/HTML and build substitutions, surfaced the intentional logic differences: role-based authorization, guest-session filtering for history/unread counts/read receipts, and document filename persistence. No other distinct route-level differences were identified in that comparison.
+- Read-only Storage configuration check on 2026-10-29 confirmed `chat-images` has a 20 MiB file-size limit and an explicit MIME allowlist, while `profile-images` has a 20 MiB limit and image-only MIME allowlist. This provides a storage-side size/MIME ceiling in addition to signed-upload route checks.
 - Backend template reconciliation is source-level only. Generated/deployed runtime parity has not been fully established.
 - Browser-level behavior for attachment staging, upload-failure recovery, and link previews has not been manually verified.
 
 ## Next steps
 
-1. Keep PR #74 in draft pending final review.
+1. Latest full validation passed after signed-upload security assertions. Keep PR #74 in draft pending final review.
 2. Test attachment staging, caption/reply preservation, failed-upload recovery, and link previews in a browser/TEST environment.
 3. Compare the generated backend against the live Edge Function and run an appropriate TypeScript/Deno check before any deployment.
 4. Diagnose the Team Lite popup on the affected installation by confirming its installed `@version`, updater status line, and whether manifest/script fetches succeed. Do not bump the official version merely to force a popup.
