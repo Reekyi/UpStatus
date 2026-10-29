@@ -12,6 +12,10 @@ execFileSync(process.execPath,[path.join(ROOT,"scripts/build.mjs")],{stdio:"inhe
 if(fs.readFileSync(rootArtifactPath,"utf8")!==rootArtifactBefore)throw new Error("Validation must not modify the tracked UpStatus.user.js artifact without an explicit release sync.");
 const release=JSON.parse(fs.readFileSync(path.join(ROOT,"release.json"),"utf8"));
 const buildSource=fs.readFileSync(path.join(ROOT,"scripts/build.mjs"),"utf8");
+assert(!buildSource.includes("fs.rmSync"),"build must not recursively delete function or dist directories");
+for(const sidecar of ["supabase/functions/upstatus/index_v25_loader.ts","supabase/functions/upstatus/backend_v25_bundle.ts"]){
+  assert(fs.existsSync(path.join(ROOT,sidecar)),"build must preserve tracked function sidecar: "+sidecar);
+}
 const baseVersion=String(release.version).trim();
 const preRelease=String(release.preRelease||"").trim();
 const testVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
