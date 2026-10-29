@@ -20,7 +20,7 @@ jobs:
           persist-credentials: false
       - name: Require explicitly approved stable release
         run: |
-          node -e "const r=require('./release.json'); if(r.preRelease || r.version !== '3.3.1') { console.error('Production locked: only approved stable release 3.3.1 may be deployed.'); process.exit(1); }"
+          node -e "const r=require('./release.json'); if(r.preRelease || r.version !== '3.4.7') { console.error('Production locked: only explicitly approved stable release 3.4.7 may be deployed.'); process.exit(1); }"
       - name: Validate stable build
         run: node scripts/validate.mjs
       - name: Setup Supabase CLI
