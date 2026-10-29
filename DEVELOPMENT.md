@@ -47,3 +47,20 @@ A correction is done only when:
 - the correct product artifact is generated and consistent with its source;
 - any unavailable browser/runtime verification is disclosed;
 - deployment and version state are recorded accurately.
+
+
+## Team Lite updater troubleshooting
+
+The Team Lite updater is independent of the normal UpStatus release. Diagnose it before changing a release version.
+
+1. Open the Team Lite panel and click **Verificar atualização**.
+2. Read the status line:
+   - **Atualizado: vX** means the installed script and official release are considered equal. No popup is expected.
+   - **Nova versão: vX (instalada: vY)** means the updater detected a newer official build and should open the prompt.
+   - **Servidor em vX; instalada vY. Atualização bloqueada...** means the remote version is older; the updater intentionally blocks a downgrade.
+   - **Atualizador bloqueado: ...** means the manifest/script fetch failed validation or the network request failed. Preserve the exact message for diagnosis.
+3. Compare the installed script's `@version` header and internal `CURRENT_VERSION` with `team-lite/release.json` `buildVersion` and the official script header. The manifest and served script must agree.
+4. The current official Team Lite line was observed at `3.4.30`. If the installed version is also `3.4.30`, no update popup is expected. Do not increment the official version merely to force the popup.
+5. If the issue persists, capture the installed `@version`, the updater status line, browser/extension manager, and whether the official raw manifest/script requests succeed. Reproduce any fix on an isolated branch first.
+
+The regression suite `scripts/team-lite-updater.test.mjs` checks manifest/script consistency and the prompt, current-version, mismatch, downgrade, and network-failure paths. Passing that suite does not replace testing the affected browser installation.
