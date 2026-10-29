@@ -15,6 +15,8 @@ The goal is to make small corrections quickly without rereading or rewriting the
 9. **Prepare a release summary.** Include files changed, behavior changed, tests and results, version implications, deployment destination, and rollback instructions.
 10. **Deploy only with explicit approval.** Production publication is a separate action from editing code. After deployment, verify the served script/version and runtime where possible.
 
+For a release that updates the tracked root `UpStatus.user.js`, increment `release.json.version` first, then run `node scripts/build.mjs --sync-root-artifact`. The flag is opt-in; it refuses to overwrite different code under the same version. Ordinary validation does not update the root artifact.
+
 ## Do not do these things
 
 - Do not paste or regenerate a 500 KB userscript in chat when a small patch to the relevant source file will do.
