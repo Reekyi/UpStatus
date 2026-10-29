@@ -106,6 +106,9 @@ assert(source.includes("function setPendingAttachment(file)"),"files are staged 
 assert(source.includes("input.value='';\n    updateLinkPreview('');"),"sending a text message must clear its draft link preview");
 assert(source.includes("if(input)updateLinkPreview(input.value||'');else box.classList.add('hidden')"),"removing an attachment must preserve any link preview for the remaining draft");
 assert(source.includes("function updateLinkPreview(text)"),"links get a removable preview");
+assert(source.includes("chatLinkPreviewDismissedUrl=url.href"),"dismissed link preview must be scoped to the URL the user dismissed");
+assert(source.includes("if(chatLinkPreviewDismissed&&url.href===chatLinkPreviewDismissedUrl)"),"a different URL must be allowed to show a new preview");
+assert(source.includes("catch(e){if(!chatPendingAttachment)box.classList.add('hidden');return;}"),"invalid URL drafts must not leave an empty visible preview container");
 assert(source.includes("e.preventDefault();setPendingAttachment(file)"),"pasted images stay pending");
 assert(source.includes("fileName:String(record.file_name"),"filename is separate from caption");
 assert(source.includes("fileName:isDocument?String(file.name||'Documento'):''"),"document uploads must send the original filename separately from the caption");
