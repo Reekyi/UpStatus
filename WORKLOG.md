@@ -39,6 +39,7 @@ Last updated: 2026-10-29
 ## Important findings and limitations
 
 - Production normal script was observed at version 3.4.7. The old build logic generated update/download URLs under the legacy runtime endpoint; this branch corrects the build source but is not deployed.
+- The tracked root `UpStatus.user.js` matched the `master` baseline but intentionally remains unchanged on this branch: the working template now contains unversioned chat/auth changes. Do not distribute the working branch under `3.4.7`; a release must regenerate the root artifact, increment the appropriate version, validate parity, and receive explicit release approval.
 - TEST's `develop` line was observed at `3.0.40-beta.22`, behind production. Do not assume TEST contains production fixes.
 - Team Lite is an independent release line at version 3.4.30. Its updater only shows a popup when the official remote version is newer than the installed version and the manifest/script agree. The affected installation's version and browser runtime are unknown, so the original missing-popup report is not conclusively diagnosed.
 - `scripts/validate.mjs` runs the build first. The build deletes and recreates generated `supabase/functions/*` and `dist` outputs; validation is not read-only.
