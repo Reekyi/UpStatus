@@ -2,11 +2,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
-const script=fs.readFileSync(path.join(ROOT,"team-lite/upstatus-team-lite.user.js"),"utf8");
-const release=JSON.parse(fs.readFileSync(path.join(ROOT,"team-lite/release.json"),"utf8"));
+const script=execFileSync("git",["show","origin/team-lite-official:team-lite/upstatus-team-lite.user.js"],{cwd:ROOT,encoding:"utf8"});
+const release=JSON.parse(execFileSync("git",["show","origin/team-lite-official:team-lite/release.json"],{cwd:ROOT,encoding:"utf8"}));
 function assert(ok,message){if(!ok)throw new Error("TEAM LITE UPDATER TEST FAILED: "+message);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
 
