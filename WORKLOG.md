@@ -215,3 +215,10 @@ Last updated: 2026-10-29
 - Material differences: live runtime does not persist/return document filenames; read receipts do not enforce the candidate's guest-session start-time filter; an admin check includes a name-based Ricardo bypass; guest join/leave notice text differs. Candidate and runtime must be reconciled rather than assuming version 3.4.31 alone makes them equivalent.
 - The Team Lite userscript candidate's latest checks remain passed on head fcc638e308730742f1280a39803d94e36706b662 in run 40937631921. This validates candidate checks, not the live browser updater popup or backend parity.
 - Updated ARCHITECTURE.md with the live Team Lite comparison. No Team Lite deployment, official branch change, migration, or merge occurred.
+
+## Public table grant hardening staged: 2026-10-29
+
+- Read-only catalog audit identified nine RLS-enabled public tables with no RLS policies but broad table grants for anon/authenticated: chat_reads, messages, reactions, status_history, upstatus_profiles, upstatus_sessions, upstatus_state, upstatus_typing, and users. RLS currently denies direct table operations when no policies apply, so this is unnecessary grant surface rather than proof of an exploitable direct read.
+- Added unapplied migration supabase/migrations/20261029183000_revoke_unused_public_table_grants.sql to revoke table privileges from PUBLIC, anon and authenticated while leaving service_role/owner privileges untouched. Added static validation assertions for the migration's target table list and revoke scope.
+- Updated ARCHITECTURE.md. The migration has not been applied; validate the migration in an isolated TEST baseline, confirm all application reads/writes go through the Edge Function, and prepare rollback before any authorized application.
+- Latest CI for the migration/test commit has not yet been observed. Do not describe this addition as validated until GitHub Actions reports success on the relevant code/test head. No database mutation occurred.
