@@ -48,12 +48,14 @@ Last updated: 2026-10-29
 - `scripts/validate.mjs` runs the build first. The build deletes and recreates generated `supabase/functions/*` and `dist` outputs; validation is not read-only.
 - A normalized comparison of the live Edge Function and template, excluding embedded script/HTML and build substitutions, surfaced the intentional logic differences: role-based authorization, guest-session filtering for history/unread counts/read receipts, and document filename persistence. No other distinct route-level differences were identified in that comparison.
 - Read-only Storage configuration check on 2026-10-29 confirmed `chat-images` has a 20 MiB file-size limit and an explicit MIME allowlist, while `profile-images` has a 20 MiB limit and image-only MIME allowlist. This provides a storage-side size/MIME ceiling in addition to signed-upload route checks.
+- Supabase Security Advisor reported three `SECURITY DEFINER` trigger broadcast functions with direct `EXECUTE` grants to `PUBLIC`, `anon`, and `authenticated`. Added a conditional, idempotent privilege-revocation migration and static validation checks in this PR. The migration has **not** been applied to the live database; review its effect on the deployed trigger setup before applying it.
+- The advisor also reports 10 tables with RLS enabled and no policies. With no policies, direct client access is denied by default; verify this is intentional because UpStatus accesses these tables through its Edge Function/service role.
 - Backend template reconciliation is source-level only. Generated/deployed runtime parity has not been fully established.
 - Browser-level behavior for attachment staging, upload-failure recovery, and link previews has not been manually verified.
 
 ## Next steps
 
-1. Latest full validation passed after signed-upload security assertions. Keep PR #74 in draft pending final review.
+1. Latest full validation passed after signed-upload security assertions; a new CI run is required for the added trigger-function privilege migration and its checks. Keep PR #74 in draft pending final review.
 2. Test attachment staging, caption/reply preservation, failed-upload recovery, and link previews in a browser/TEST environment.
 3. Compare the generated backend against the live Edge Function and run an appropriate TypeScript/Deno check before any deployment.
 4. Diagnose the Team Lite popup on the affected installation by confirming its installed `@version`, updater status line, and whether manifest/script fetches succeed. Do not bump the official version merely to force a popup.
