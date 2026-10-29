@@ -60,7 +60,7 @@ Last updated: 2026-10-29
 ## Next steps
 
 1. Treat public Realtime broadcast confidentiality/signaling as the highest-priority follow-up: design and test private-channel authorization, authenticated sender identity, and server validation before changing the shared channel.
-2. Verify the latest CI run for the current head; the latest code/test run passed, and later work-log commits require their own check. Keep PR #74 in draft pending final review.
+2. Latest GitHub Actions validation passed for current head `b09d27b76f7e8ef192c268d7437fff3c2410924a` in run [40923519832](https://github.com/Reekyi/UpStatus/actions/runs/40923519832). Keep PR #74 in draft pending runtime/security review.
 3. Test attachment staging, caption/reply preservation, failed-upload recovery, and link previews in a browser/TEST environment.
 4. Compare the generated backend against the live Edge Function and run an appropriate TypeScript/Deno check before any deployment.
 5. Diagnose the Team Lite popup on the affected installation by confirming its installed `@version`, updater status line, and whether manifest/script fetches succeed. Do not bump the official version merely to force a popup.
