@@ -2853,7 +2853,7 @@ function chatAvatarPresence(name){
   function sendChatMedia(file,caption,replyOverride){
     if(!file)return;
     var tempId='local-upload-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),reply=replyOverride!==undefined?replyOverride:chatReplyTo,info=resolveFileMime(file,true),isVideo=String(info.mime||'').indexOf('video/')===0,isDocument=/^(application\/|text\/)/i.test(info.mime||''),label=isDocument?'Enviando documento…':isVideo?'Enviando vídeo…':'Enviando imagem…';
-    var optimistic={id:tempId,user:member,message:'',type:isDocument?'document':isVideo?'video':'image',systemType:'',createdAt:new Date().toISOString(),imageUrl:'',mentions:[],replyTo:reply,reactions:{},readBy:[],optimistic:true,pendingUpload:true,uploadLabel:label};
+    var optimistic={id:tempId,user:member,message:isDocument?(String(caption||'').trim()||String(file.name||'Documento')):String(caption||'').trim(),type:isDocument?'document':isVideo?'video':'image',systemType:'',createdAt:new Date().toISOString(),imageUrl:'',mentions:[],replyTo:reply,reactions:{},readBy:[],optimistic:true,pendingUpload:true,uploadLabel:label};
     chatCache.push(optimistic);chatForceScrollBottom=true;chatOpenScrollUntil=Date.now()+1200;
     try{renderChat();scrollChatToBottom(true);}catch(e){}
     uploadFileDirect(file,'/api/chat/upload-url').then(function(upload){
