@@ -25,6 +25,7 @@ function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)
 function checkSyntax(text,label){new vm.Script(text,{filename:label});}
 assert(buildSource.includes('process.argv.includes("--sync-root-artifact")'),"root artifact sync must remain opt-in");
 assert(buildSource.includes("compareVersions(baseVersion,currentVersion)<=0"),"root artifact sync must require a strictly newer release version");
+assert(buildSource.indexOf("let rootArtifactPath=null")<buildSource.indexOf("writeFunction(PROD_FUNCTION"),"root artifact release guard must run before destructive build writes");
 assert(buildSource.includes('fs.writeFileSync(rootArtifactPath,prodUser,"utf8")'),"root artifact sync must write the built production userscript");
 assert(headerValue(prodUser,"version")===baseVersion,"production userscript version mismatch");
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
