@@ -51,7 +51,7 @@ A focused Team Lite updater regression suite now runs from `scripts/validate.mjs
 
 The normal product uses the Supabase project `dlfvkawaiqduhlazsszm`. Repository documentation identifies `upstatus` as production and `upstatus-test` as TEST. Do not infer that a GitHub file change has reached Supabase; deployment status must be checked separately.
 
-The repository also has an `upstatus-team-lite` function in the current project context. Its current deployed content/version must be verified independently before any Team Lite backend release.
+The repository also has an `upstatus-team-lite` function in the current project context. A read-only inspection found revision 15, embedded version 3.4.30. A normalized comparison with the Team Lite candidate backend template found 17 differing line groups. The live function lacks document filename persistence and guest-session read-receipt filters present in the candidate, and retains a Ricardo name-based admin bypass. It also has older Lucca/Ycaro join/leave notice text. Reconcile these differences and test guest behavior before any Team Lite backend release; do not assume version alignment implies source parity.
 
 ## Security risk register
 
