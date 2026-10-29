@@ -49,7 +49,7 @@ const cases = [
     expected: 401,
   },
   {
-    name: "unknown routes are rejected after authentication",
+    name: "invalid tokens are rejected before route processing",
     run: () => fetch(base + "/not-a-route", {
       method: "POST", headers: { "content-type": "application/json", "x-upstatus-token": "invalid-test-token" },
       body: "{}",
