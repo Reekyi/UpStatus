@@ -50,6 +50,8 @@ assert(prodFn.includes('if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&
 assert(prodFn.includes('file_name:type==="document"&&fileName?fileName:null'),"document filename persistence missing from chat messages");
 assert(prodFn.includes('fileName:m.file_name||""'),"document filename hydration missing from chat history");
 assert(prodFn.includes("const isAdmin=await admin(name);"),"message deletion must require the authenticated admin role");
+assert(prodFn.includes('if(!(await admin(name)))return response({error:"Somente administradores podem limpar o chat."},403);'),"clearing shared chat must require the stored admin role");
+assert(!prodFn.includes('if(name!=="Ricardo")return response({error:"Somente Ricardo pode limpar o chat."}'),"chat clearing must not use a name-only admin check");
 assert(prodFn.includes('const role=a.role||"implementation_user";'),"account setup must preserve only explicit database roles");
 assert(!prodFn.includes('["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin"'),"account setup must not grant admin by name");
 assert(testFn.includes('const marker="/upstatus-test";'),"test path marker mismatch");
