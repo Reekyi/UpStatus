@@ -91,3 +91,13 @@ Last updated: 2026-10-29
 - Supabase Security Advisor re-check still reports three public-schema `SECURITY DEFINER` broadcast trigger functions directly executable by authenticated clients and 10 tables with RLS enabled but no policies. No database changes were made. Do not add broad policies without mapping the service-role/Edge Function access model.
 - Supabase documentation confirms private Realtime channels require RLS policies on `realtime.messages` and client channels configured with `private: true`. Switching one side alone is incomplete. Design authenticated identity/token issuance, sender authorization by event, call/screen-share signaling requirements, and rollout/rollback before changing the live channel.
 - All work in this continuation remains isolated from `team-lite-official` and deployed Supabase functions. No production/TEST deployments, version bumps, merges, migrations, or PR state changes were performed.
+
+
+## Candidate updater test follow-up: 2026-10-29
+
+- The earlier attempted harness fixes on candidate commits `2b12d6c`, `4b99e07`, `aa6d2d0`, `ccd2864`, and `351479b` failed CI and are superseded by the latest test-only correction. Review the full branch history if auditing; do not treat the earlier runs as green.
+- Root causes identified from CI logs: the extracted test did not exercise the real update prompt reliably, then the mock DOM was used but an assertion incorrectly compared the created modal element to a version string. The current harness now counts actual modal creation and verifies the modal HTML contains the candidate version, keeping the newer-version prompt assertion intact.
+- Latest candidate head: `9215510179ca6a4bc1ee274b76bc8d1befbec82b`. Candidate checks succeeded in [run 40925496334](https://github.com/Reekyi/UpStatus/actions/runs/40925496334) and [run 40925508281](https://github.com/Reekyi/UpStatus/actions/runs/40925508281). This is still a mocked-runtime CI test, not a live browser verification.
+- PR #75 remains open and draft, base `team-lite-official`; official Team Lite version remains 3.4.30. No change was made to the official branch. Do not merge or deploy without explicit approval.
+- PR #74's WORKLOG update is commit `0bad8e7ebbb645f01b4f0ca87747c7f144a410e2`; its validation passed in [run 40924931689](https://github.com/Reekyi/UpStatus/actions/runs/40924931689). Both PRs remain drafts.
+- No Supabase functions, database migrations, table data, production, or TEST runtime were changed. Security Advisor remains as previously recorded; the public Realtime channel and SECURITY DEFINER grants remain unresolved.
