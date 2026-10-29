@@ -80,7 +80,7 @@ function renderTeamLiteFunction(){
 }
 function writeFunction(fn,source){
   const dir=path.join(ROOT,"supabase/functions",fn);
-  fs.rmSync(dir,{recursive:true,force:true});
+  // Preserve tracked sidecar files; only the generated entrypoint belongs to this build.
   fs.mkdirSync(dir,{recursive:true});
   fs.writeFileSync(path.join(dir,"index.ts"),source,"utf8");
 }
@@ -90,7 +90,6 @@ writeFunction(PROD_FUNCTION,renderFunction({version:baseVersion,test:false}));
 writeFunction(TEST_FUNCTION,renderFunction({version:fullVersion,test:true}));
 writeFunction("upstatus-team-lite",renderTeamLiteFunction());
 const dist=path.join(ROOT,"dist");
-fs.rmSync(dist,{recursive:true,force:true});
 fs.mkdirSync(dist,{recursive:true});
 fs.writeFileSync(path.join(dist,"upstatus.user.js"),prodUser,"utf8");
 fs.writeFileSync(path.join(dist,"upstatus-test.user.js"),testUser,"utf8");
