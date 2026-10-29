@@ -12,6 +12,7 @@ Last updated: 2026-10-29
 
 ## Work completed
 
+- Refreshed `README.md` with links to the architecture/development/work log guides, corrected stale version examples, and clarified the independent Team Lite release line.
 - Added `ARCHITECTURE.md` to map release lines, build chain, runtime differences, and release safety invariants.
 - Expanded `DEVELOPMENT.md` with a repeatable workflow and Team Lite updater troubleshooting steps.
 - Fixed normal userscript update/download URL generation to use `release.json.scriptUrl` or the stable production endpoint fallback, rather than the legacy runtime endpoint.
