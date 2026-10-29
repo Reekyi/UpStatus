@@ -58,7 +58,10 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 - [ ] Latency/load/retention cleanup tests.
 - [ ] Security review and explicit release approval.
 
-## Known prototype limitations
+
+- [x] Added an opt-in authenticated integration harness at `scripts/test-signaling-authenticated.mjs`. It is hard-pinned to the isolated test project, requires an explicit mutation opt-in, reads three test-user tokens from environment variables, and never prints token values.
+- [ ] Authenticated integration harness has **not** been run yet: three valid test sessions and distinct test users are not available to this automated session. Do not count its scenarios as passed until it is run and the output is reviewed.
+\n## Known prototype limitations
 
 - Rate limiting is in-memory per Edge Function instance, not a global distributed quota.
 - Event queue cleanup/retention needs a scheduled cleanup or bounded cleanup strategy; TTL filters prevent delivery after expiry but expired rows still need cleanup.
