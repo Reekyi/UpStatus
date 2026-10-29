@@ -23,7 +23,7 @@ Establish a safe, fast, recoverable workflow for ongoing fixes to UpStatus norma
 ### Important build/validation behavior
 - `scripts/validate.mjs` calls `scripts/build.mjs` before validation.
 - `scripts/build.mjs` deletes and recreates generated `supabase/functions/upstatus`, `supabase/functions/upstatus-test`, and `dist` directories.
-- The source template `src/userscript/upstatus.user.template.js` is approximately 544 KB.
+- The source template `src/userscript/upstatus.user.template.js` is approximately 544 KB. Rendering it with the production substitutions from `scripts/build.mjs` exactly matched the tracked `UpStatus.user.js` artifact (544,057 characters) at the recorded `master` snapshot.
 - The production deployment workflow is manual and contains a guard that currently allows only stable version `3.4.7`.
 - The TEST deployment workflow is also manual and deploys only `upstatus-test`.
 - The Team Lite release manifest and script are on a separate branch. Team Lite deployment behavior has not yet been independently verified.
