@@ -102,6 +102,7 @@ assert(source.includes("if(p.type==='presence'){callReceivePresence(p);return;}"
 assert(serverTemplate.includes("const isAdmin=await admin(name);"),"server delete is authorized by the authenticated admin role");
 assert(!serverTemplate.includes('const isAdmin=name==="Ricardo"'),"no name-only administrator bypass");
 assert(source.includes("var canDelete=m.user===member||role==='implementation_admin';"),"admin UI uses stored role");
+assert(source.includes("(role==='implementation_admin'?'<button class=\"up-chat-clear\""),"clear-chat control must be role-gated in the UI");
 assert(source.includes("function setPendingAttachment(file)"),"files are staged instead of uploaded immediately");
 assert(source.includes("input.value='';\n    updateLinkPreview('');"),"sending a text message must clear its draft link preview");
 assert(source.includes("if(input)updateLinkPreview(input.value||'');else box.classList.add('hidden')"),"removing an attachment must preserve any link preview for the remaining draft");
