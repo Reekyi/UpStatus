@@ -50,7 +50,7 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 - [x] Added content-length guard and stale in-memory rate-map cleanup.
 - [x] Added a manual GitHub Actions smoke test for unauthenticated access and method restrictions.
 - [x] Source and test harness saved in this repository branch.
-- [ ] Execute the new unauthenticated smoke workflow against the test URL and confirm all cases pass.
+- [x] Unauthenticated smoke workflow executed against the isolated test URL: 7/7 checks passed (health 200; unauthenticated create/signal/poll/close rejected with 401; invalid token rejected with 401; unsupported method rejected with 405).
 - [ ] Positive API tests with two valid custom sessions.
 - [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting.
 - [ ] Multi-client WebRTC tests for offer/answer/ICE, calls, voice rooms and screen sharing.
