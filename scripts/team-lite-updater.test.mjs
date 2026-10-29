@@ -30,14 +30,14 @@ assert(versionStart>=0&&versionEnd>versionStart,"version comparison functions no
 assert(checkStart>=0&&checkEnd>checkStart,"checkUpdate boundaries not found");
 const executable=script.slice(versionStart,versionEnd)+"\n"+script.slice(checkStart,checkEnd)+"\nthis.__runCheckUpdate=checkUpdate;";
 
-async function runScenario({installed,manifest,servedVersion,fetchFailure=false}){
+async function runScenario({installed,manifest,servedVersion,fetchFailureAt=0}){
   const calls={prompt:[],availability:[],fetches:0};
   const status={textContent:"",innerHTML:""};
   const manual={disabled:false,title:"",onclick:null};
   const card={querySelectorAll(selector){return selector===".up-update-status"?[status]:[manual];}};
   const mockFetch=async function(url){
     calls.fetches++;
-    if(fetchFailure)throw new Error("network unavailable");
+    if(fetchFailureAt===calls.fetches)throw new Error("network unavailable");
     if(calls.fetches===1)return {ok:true,json:async()=>manifest};
     return {ok:true,text:async()=>"// ==UserScript==\n// @version      "+servedVersion+"\n// ==/UserScript=="};
   };
@@ -56,6 +56,8 @@ const newer=await runScenario({installed:"3.4.30",manifest:valid("3.4.31"),serve
 assert(newer.calls.prompt.length===1&&newer.calls.prompt[0]==="3.4.31","newer matching release must show exactly one prompt");
 assert(newer.manual.disabled===false,"manual update must be enabled for a newer matching release");
 assert(newer.status.innerHTML.includes("3.4.31"),"status must announce the available version");
+newer.manual.onclick();
+assert(newer.calls.openUpdate===1,"manual update button must open the official update URL when enabled");
 
 const current=await runScenario({installed:"3.4.30",manifest:valid("3.4.30"),servedVersion:"3.4.30"});
 assert(current.calls.prompt.length===0,"equal installed and remote versions must not show a prompt");
@@ -70,10 +72,19 @@ const downgrade=await runScenario({installed:"3.4.30",manifest:valid("3.4.29"),s
 assert(downgrade.calls.prompt.length===0,"older remote version must not show a prompt");
 assert(downgrade.manual.disabled===true,"older remote version must not enable manual update");
 
-const offline=await runScenario({installed:"3.4.30",manifest:valid("3.4.31"),servedVersion:"3.4.31",fetchFailure:true});
-assert(offline.calls.prompt.length===0,"network failure must not show a false update prompt");
-assert(offline.manual.disabled===true,"network failure must disable manual update");
-assert(statusText(offline).includes("Atualizador bloqueado"),"network failure must show an updater diagnostic");
+const manifestOffline=await runScenario({installed:"3.4.30",manifest:valid("3.4.31"),servedVersion:"3.4.31",fetchFailureAt:1});
+assert(manifestOffline.calls.prompt.length===0,"manifest network failure must not show a false update prompt");
+assert(manifestOffline.manual.disabled===true,"manifest network failure must disable manual update");
+assert(statusText(manifestOffline).includes("Atualizador bloqueado"),"manifest network failure must show an updater diagnostic");
+
+const scriptOffline=await runScenario({installed:"3.4.30",manifest:valid("3.4.31"),servedVersion:"3.4.31",fetchFailureAt:2});
+assert(scriptOffline.calls.prompt.length===0,"script network failure must not show a false update prompt");
+assert(scriptOffline.manual.disabled===true,"script network failure must disable manual update");
+assert(statusText(scriptOffline).includes("Atualizador bloqueado"),"script network failure must show an updater diagnostic");
+
+const invalid=await runScenario({installed:"3.4.30",manifest:{product:"Other",buildVersion:"3.4.31",scriptUrl:release.scriptUrl},servedVersion:"3.4.31"});
+assert(invalid.calls.prompt.length===0,"invalid manifest must not show an update prompt");
+assert(invalid.manual.disabled===true,"invalid manifest must disable manual update");
 
 function statusText(result){return String(result.status.textContent||result.status.innerHTML||"");}
 console.log("Team Lite updater tests passed: manifest consistency, newer release prompt, current version, mismatch, downgrade, and network failure.");
