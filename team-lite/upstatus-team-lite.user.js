@@ -483,7 +483,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
-  var CURRENT_VERSION='3.4.30'
+  var CURRENT_VERSION='3.4.31'
   var UPDATE_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/team-lite-official/team-lite/upstatus-team-lite.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
