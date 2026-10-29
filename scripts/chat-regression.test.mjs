@@ -136,4 +136,14 @@ assert(source.includes("function requestPublicChatLinkTitle(url,callback)"),"sta
 assert(source.includes('class="up-chat-link-card"'),"stable chat link-card renderer missing");
 assert(source.includes("hydrateChatLinkTitles(list);"),"chat link-card hydration hook missing");
 assert(source.includes(".up-chat-link-card{display:flex")&&source.includes('class="up-chat-link-card"'),"chat link-card renderer and styles must exist");
-console.log("Chat regression tests passed: composer, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");
+
+assert(source.includes("function scheduleRealtimeChatRefresh()"),"public chat broadcasts must use a canonical refresh scheduler");
+assert(source.includes("var wait=Math.max(0,1000-(Date.now()-realtimeChatRefreshLastAt));"),"public broadcast spam must be throttled before it triggers authenticated chat refreshes");
+assert(source.includes("function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}"),"chat_fast payloads must not be trusted as canonical message data");
+assert(source.includes(".on('broadcast',{event:'db_change'},function(){scheduleRealtimeChatRefresh();})"),"database-change broadcasts must trigger an authenticated refresh instead of applying the supplied row");
+assert(source.includes(".on('broadcast',{event:'chat_fast'},function(){handleRealtimeChatFast();})"),"chat_fast listener must ignore attacker-controlled payloads");
+assert(source.includes(".on('broadcast',{event:'chat_read'},function(){scheduleRealtimeChatRefresh();})"),"read receipt broadcasts must be reconciled from the authenticated API");
+assert(!source.includes(".on('broadcast',{event:'db_change'},function(payload){"),"public database-change events must not apply broadcast-supplied rows");
+assert(source.includes("realtimeChatRefreshLastAt=Date.now();")&&source.includes("loadChat(true);"),"broadcast refreshes must fetch authoritative chat state from the server");
+
+console.log("Chat regression tests passed: chat, updater, notifications, and untrusted Realtime payload handling.");
