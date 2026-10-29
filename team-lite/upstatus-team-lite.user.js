@@ -2228,11 +2228,21 @@ function renderChatText(text){
     if(changed&&!chat.classList.contains('hidden'))renderChat();
   }
 
-  function handleRealtimeChatFast(payload){
-    var m=payload&&payload.message;
-    if(!m||!m.id)return;
-    upsertRealtimeMessage(m);
+  var realtimeChatRefreshTimer=null,realtimeChatRefreshLastAt=0;
+  function scheduleRealtimeChatRefresh(){
+    if(!isAuthenticated()||chat.classList.contains('hidden')||realtimeChatRefreshTimer)return;
+    var generation=authGeneration,requestedMember=member;
+    var wait=Math.max(0,1000-(Date.now()-realtimeChatRefreshLastAt));
+    realtimeChatRefreshTimer=setTimeout(function(){
+      realtimeChatRefreshTimer=null;
+      if(!isAuthenticated()||generation!==authGeneration||requestedMember!==member)return;
+      realtimeChatRefreshLastAt=Date.now();
+      loadChat(true);
+    },wait);
   }
+  // The shared Realtime topic is public. Treat broadcast payloads as untrusted hints,
+  // and reconcile chat state only from the authenticated API.
+  function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}
   function startRealtime(){
     if(!isAuthenticated()||realtimeClient||typeof supabase==='undefined'||!supabase.createClient)return;
     var realtimeGeneration=authGeneration,realtimeMember=member;
@@ -2240,16 +2250,9 @@ function renderChatText(text){
       realtimeClient=supabase.createClient(UP_REALTIME_URL,UP_REALTIME_KEY,{auth:{persistSession:false}});
       realtimeChannel=realtimeClient.channel(UP_REALTIME_TOPIC);
       realtimeChannel
-        .on('broadcast',{event:'db_change'},function(payload){
-          if(!isAuthenticated()||realtimeGeneration!==authGeneration||realtimeMember!==member)return;
-          var p=payload&&payload.payload||{};
-          var record=p.record;
-          if(!record)return;
-          if(p.op==='DELETE')handleRealtimeDelete(record);
-          else upsertRealtimeMessage(record);
-        })
-        .on('broadcast',{event:'chat_fast'},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)handleRealtimeChatFast(payload&&payload.payload||{});})
-        .on('broadcast',{event:'chat_read'},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)handleRealtimeChatRead(payload&&payload.payload||{});})
+        .on('broadcast',{event:'db_change'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)scheduleRealtimeChatRefresh();})
+        .on('broadcast',{event:'chat_fast'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)handleRealtimeChatFast();})
+        .on('broadcast',{event:'chat_read'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)scheduleRealtimeChatRefresh();})
         .on('broadcast',{event:'user_status'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)refresh();})
         .on('broadcast',{event:'chat_presence'},function(payload){if(!isAuthenticated()||realtimeGeneration!==authGeneration||realtimeMember!==member)return;var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();})
         .on('broadcast',{event:'health_ping'},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration)handleHealthPing(payload&&payload.payload||{});})
