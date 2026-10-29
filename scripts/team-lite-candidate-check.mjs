@@ -90,10 +90,38 @@ async function runUpdaterScenario({ installed, manifest, servedVersion, fetchFai
     if (calls.fetches === 1) return { ok: true, json: async () => manifest };
     return { ok: true, text: async () => "// ==UserScript==\n// @version      " + servedVersion + "\n// ==/UserScript==" };
   };
+  const root = {
+    children: [],
+    querySelector(selector) { return this.children.find(child => child.className === selector.slice(1)) || null; },
+    appendChild(child) { this.children.push(child); child.parentElement = this; },
+  };
+  const document = {
+    createElement(tag) {
+      const handlers = {};
+      const classes = new Set();
+      return {
+        tagName: tag.toUpperCase(), className: "", style: { setProperty() {} },
+        children: [], parentElement: null, innerHTML: "",
+        classList: {
+          add(name) { classes.add(name); },
+          remove(name) { classes.delete(name); },
+          contains(name) { return classes.has(name); },
+        },
+        querySelector(selector) {
+          if (selector === ".up-update-prompt-later") return { onclick: null };
+          if (selector === ".up-update-prompt-now") return { onclick: null };
+          return null;
+        },
+        remove() { if (this.parentElement) this.parentElement.children = this.parentElement.children.filter(item => item !== this); },
+      };
+    }
+  };
   const context = {
     CURRENT_VERSION: installed, card, fetch: mockFetch, esc: String,
+    root, document,
+    node: (tag, attrs) => Object.assign(document.createElement(tag), attrs || {}),
+    closePopupAnimated: (element, finish) => finish && finish(),
     setUpdateAvailable: (show, version) => calls.availability.push({ show, version }),
-    showUpdatePrompt: version => calls.prompts.push(version),
     openUpdate: () => { calls.opened++; }
   };
   vm.runInNewContext(updaterCode, context, { timeout: 1000 });
