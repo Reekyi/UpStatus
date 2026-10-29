@@ -5,6 +5,7 @@
 - [Architecture map](ARCHITECTURE.md): products, release lines, build chain, and source-of-truth boundaries.
 - [Development workflow](DEVELOPMENT.md): how to investigate, patch, validate, and release safely.
 - [Work log](WORKLOG.md): current workstream, known risks, validation results, and handoff notes.
+- [Realtime security plan](REALTIME_SECURITY_PLAN.md): public-channel risk inventory, architecture decision gates, and staged rollout.
 
 ## Release model
 
