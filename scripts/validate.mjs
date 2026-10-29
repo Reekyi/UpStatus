@@ -21,17 +21,19 @@ const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
+function compareVersions(a,b){const left=String(a||"").split(".").map(Number),right=String(b||"").split(".").map(Number);for(let i=0;i<3;i++){const x=left[i]||0,y=right[i]||0;if(x!==y)return x>y?1:-1;}return 0;}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
 function checkSyntax(text,label){new vm.Script(text,{filename:label});}
 assert(buildSource.includes('process.argv.includes("--sync-root-artifact")'),"root artifact sync must remain opt-in");
 assert(buildSource.includes("compareVersions(baseVersion,currentVersion)<=0"),"root artifact sync must require a strictly newer release version");
 assert(buildSource.indexOf("let rootArtifactPath=null")<buildSource.indexOf("writeFunction(PROD_FUNCTION"),"root artifact release guard must run before destructive build writes");
 assert(buildSource.includes('fs.writeFileSync(rootArtifactPath,prodUser,"utf8")'),"root artifact sync must write the built production userscript");
-if(rootArtifactBefore!==prodUser){
+const rootArtifactVersion=(rootArtifactBefore.match(/^\/\/ @version\\s+(\\d+\\.\\d+\\.\\d+)$/m)||[])[1]||"";
+if(rootArtifactBefore!==prodUser&&(!rootArtifactVersion||compareVersions(baseVersion,rootArtifactVersion)<=0)){
   let sameVersionSyncBlocked=false;
   try{execFileSync(process.execPath,[path.join(ROOT,"scripts/build.mjs"),"--sync-root-artifact"],{stdio:"pipe"});}
   catch(error){sameVersionSyncBlocked=String(error&&error.stderr||error&&error.message||"").includes("unless release.json.version is greater");}
-  assert(sameVersionSyncBlocked,"same-version root artifact sync must be rejected when generated content differs");
+  assert(sameVersionSyncBlocked,"root artifact sync must be rejected unless the release version is strictly newer");
   assert(fs.readFileSync(rootArtifactPath,"utf8")===rootArtifactBefore,"rejected root artifact sync must leave the tracked artifact unchanged");
 }
 assert(headerValue(prodUser,"version")===baseVersion,"production userscript version mismatch");
