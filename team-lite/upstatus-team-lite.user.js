@@ -1222,7 +1222,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     fetch('https://raw.githubusercontent.com/Reekyi/UpStatus/team-lite-official/team-lite/release.json?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
       .then(function(r){if(!r.ok)throw new Error('Manifesto oficial: HTTP '+r.status);return r.json();})
       .then(function(manifest){
-        if(!manifest||manifest.product!=='UpStatus Team Lite')throw new Error('Manifesto inválido para este canal.');
+        if(!manifest||manifest.product!=='UpStatus Team Lite'||!Object.prototype.hasOwnProperty.call(manifest,'buildVersion'))throw new Error('Manifesto inválido para este canal.');
         var remote=String(manifest.buildVersion||'').trim();
         var url=String(manifest.scriptUrl||'https://raw.githubusercontent.com/Reekyi/UpStatus/team-lite-official/team-lite/upstatus-team-lite.user.js').trim();
         if(!remote||!/^\d+(?:\.\d+){1,3}(?:-[0-9A-Za-z.-]+)?$/.test(remote))throw new Error('Versão do manifesto inválida.');
