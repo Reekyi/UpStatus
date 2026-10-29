@@ -51,6 +51,21 @@ The normal product uses the Supabase project `dlfvkawaiqduhlazsszm`. Repository 
 
 The repository also has an `upstatus-team-lite` function in the current project context. Its current deployed content/version must be verified independently before any Team Lite backend release.
 
+## Security risk register
+
+### High priority: public Supabase Realtime topic
+
+- The normal userscript currently joins a shared Realtime topic without private-channel authorization. The topic identifier and public client key are present in the userscript, so topic naming is not an access-control boundary.
+- The topic carries more than harmless refresh signals: chat/read/presence events, call and voice-room signaling, screen-share signaling, health diagnostics, and remote-status command notifications have used this channel. Treat broadcast payload confidentiality and sender authenticity as untrusted until proven otherwise.
+- The current branch changes the remote-status path so a `remote_command` broadcast only triggers a throttled poll of the authenticated backend; it no longer executes the broadcast's command payload directly. This narrows one injection path, but does **not** make the channel private or protect other broadcast events.
+- Do not claim this exposure is fixed by the current PR. A complete remediation needs a coordinated design: private channel authorization, authenticated sender identity and authorization for each event, validation of call/screen-share signaling targets and payloads, and a migration plan that does not strand existing users. Since the current userscript uses the application's own login rather than Supabase Auth, private-channel auth may require a short-lived server-issued Realtime credential or a server-mediated signaling path.
+- Before implementing the full change, document event-by-event data requirements and test cross-user subscription/publishing with unauthorized clients. Do not simply toggle `private: true` without compatible Realtime authorization policies and a staged rollout.
+
+### Defense in depth: trigger-only SECURITY DEFINER functions
+
+- The live Security Advisor reported broad EXECUTE grants on `public.upstatus_broadcast_messages()`, `public.upstatus_broadcast_remote_state()`, and `public.upstatus_broadcast_users()`. The PR includes a conditional migration revoking direct execution from `PUBLIC`, `anon`, and `authenticated`.
+- This migration is a proposed database change only. It has not been applied to production. Review trigger behavior and deployment rollback before applying it; do not treat a migration file in GitHub as a live database change.
+
 ## Release safety invariants
 
 1. Never publish to production as a side effect of an ordinary code correction.
