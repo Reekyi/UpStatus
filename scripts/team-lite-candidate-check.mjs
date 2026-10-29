@@ -76,7 +76,9 @@ console.log("Team Lite candidate checks passed:", JSON.stringify({
 const versionStart = script.indexOf("  function versionParts(");
 const versionEnd = script.indexOf("  function mentionNames", versionStart);
 assert.ok(versionStart >= 0 && versionEnd > versionStart, "updater runtime test boundaries not found");
-const promptStart = script.indexOf("  var updatePromptShown", versionStart);\nconst checkStart = script.indexOf("  function checkUpdate(){", promptStart);\nconst updaterCode = script.slice(versionStart, promptStart) + "\\n" + script.slice(checkStart, versionEnd) + "\\nthis.__candidateCheckUpdate = checkUpdate;";
+const promptStart = script.indexOf("  var updatePromptShown", versionStart);
+const checkStart = script.indexOf("  function checkUpdate(){", promptStart);
+const updaterCode = script.slice(versionStart, promptStart) + "\n" + script.slice(checkStart, versionEnd) + "\nthis.__candidateCheckUpdate = checkUpdate;";
 async function runUpdaterScenario({ installed, manifest, servedVersion, fetchFailureAt = 0 }) {
   const calls = { prompts: [], availability: [], fetches: 0, opened: 0 };
   const status = { textContent: "", innerHTML: "" };
@@ -86,7 +88,7 @@ async function runUpdaterScenario({ installed, manifest, servedVersion, fetchFai
     calls.fetches++;
     if (fetchFailureAt === calls.fetches) throw new Error("network unavailable");
     if (calls.fetches === 1) return { ok: true, json: async () => manifest };
-    return { ok: true, text: async () => "// ==UserScript==\\n// @version      " + servedVersion + "\\n// ==/UserScript==\\" };
+    return { ok: true, text: async () => "// ==UserScript==\n// @version      " + servedVersion + "\n// ==/UserScript==" };
   };
   const context = {
     CURRENT_VERSION: installed, card, fetch: mockFetch, esc: String,
