@@ -46,6 +46,12 @@ Establish a safe, fast, recoverable workflow for ongoing fixes to UpStatus norma
 4. Reconcile the `develop` line with stable fixes using an explicit, reviewable strategy rather than blindly merging the old branch.
 5. Design independent parity checks and updater tests for `team-lite-official`, then separately investigate why its in-app update pop-up was not appearing.
 
+### Validation feedback (2026-10-29)
+- GitHub Actions ran the build and validator on PR merge commit `9d92d025ae7e213023babe200bb9705d8acea830`. The build completed, then validation failed at the broad assertion `!testUser.includes("/functions/v1/upstatus/upstatus.user.js")`. That check scanned the entire TEST userscript and could match unrelated embedded/runtime text, even though the TEST updater metadata was already checked exactly.
+- Replaced that broad check with explicit negative assertions against only the TEST userscript's `@updateURL` and `@downloadURL` metadata. Fix commit: `aba5596ab9596ea57541720e3f5ecf48f210799b`.
+- A new workflow result for the updated head has not yet been confirmed. Do not treat the validation as passing until the updated PR check completes successfully.
+- The workflow build recreates generated output directories in its clean GitHub runner, so it does not risk local uncommitted/generated artifacts.
+
 ### Deployment state
 - Production: not changed by this work.
 - TEST: not changed by this work.
