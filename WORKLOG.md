@@ -31,9 +31,9 @@ Last updated: 2026-10-29
 
 - Userscript template source-level syntax parsing passed during patching.
 - Chat regression suite passed after the latest code changes.
-- Team Lite updater regression suite passed against the official branch source.
-- GitHub Actions run `40909876545` passed for code head `e1c4e0af0953676929581ef4cef05ce554cecb45`, including build, chat regression tests, Team Lite updater tests, and the full `scripts/validate.mjs` pipeline.
-- The architecture documentation update passed in run `40909976273`; the subsequent work-log commit passed the full pipeline in run `40910037380`.
+- Team Lite updater regression suite passed against the official branch source, including manifest/header/internal version consistency, the internal `UPDATE_URL`, and pinned official manifest/script URLs.
+- GitHub Actions run `40910284725` passed for code/test head `4c654a73b8e9822227e2a795988bf154508fbd31`, including build, chat regression tests, Team Lite updater tests, and the full `scripts/validate.mjs` pipeline.
+- The architecture documentation update passed in run `40909976273`; the subsequent work-log commit passed in run `40910037380`.
 - The account-role and schema checks were read-only.
 
 ## Important findings and limitations
