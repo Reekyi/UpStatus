@@ -9,6 +9,7 @@ const baseVersion=String(release.version||"").trim();
 const preRelease=String(release.preRelease||"").trim();
 if(!/^\d+\.\d+\.\d+$/.test(baseVersion))throw new Error("release.json: version must use X.Y.Z");
 const fullVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
+const syncRootArtifact=process.argv.includes("--sync-root-artifact");
 
 const userTemplate=fs.readFileSync(path.join(ROOT,"src/userscript/upstatus.user.template.js"),"utf8");
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
@@ -85,4 +86,12 @@ fs.writeFileSync(path.join(dist,"build-manifest.json"),JSON.stringify({
   baseVersion,testVersion:fullVersion,channel:preRelease?"pre-release":"stable",
   productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION
 },null,2)+"\n","utf8");
+if(syncRootArtifact){
+  const rootArtifactPath=path.join(ROOT,"UpStatus.user.js");
+  const currentArtifact=fs.readFileSync(rootArtifactPath,"utf8");
+  const currentVersion=(currentArtifact.match(/^\/\/ @version\\s+(.+)$/m)||[])[1]||"";
+  if(currentArtifact!==prodUser&&currentVersion===baseVersion)throw new Error("Refusing to sync UpStatus.user.js while its version remains "+baseVersion+". Increment release.json.version before updating the tracked distribution artifact.");
+  fs.writeFileSync(rootArtifactPath,prodUser,"utf8");
+  console.log("Synchronized tracked UpStatus.user.js artifact.");
+}
 console.log("Built UpStatus "+baseVersion+" / TEST "+fullVersion);
