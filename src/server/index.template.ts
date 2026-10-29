@@ -112,7 +112,7 @@ async function members(){
 }
 async function healthRoute(req:Request,name:string){
   if(req.method!=="GET")return response({error:"Método não permitido."},405);
-  if(!["Ricardo","Lohan","Guilherme"].includes(name))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);
+  if(!(await admin(name)))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);
   const started=Date.now();
   const dbStarted=Date.now();
   const usersQ=await db.from("users").select("name,status,reason,client_version,client_seen_at").order("name");
@@ -720,7 +720,7 @@ Deno.serve(async(req)=>{
         if(removeError)console.error("Chat media cleanup failed",removeError);
         else removedFiles+=batch.length;
       }
-      await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🧹 Ricardo limpou o chat.",type:"system",system_type:"chat_clear",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
+      await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🧹 "+name+" limpou o chat.",type:"system",system_type:"chat_clear",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
       return response({ok:true,removedFiles});
     }
     return response({error:"Não encontrado."},404);
