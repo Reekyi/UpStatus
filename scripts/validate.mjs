@@ -50,7 +50,7 @@ assert(prodFn.includes('if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&
 assert(prodFn.includes('file_name:type==="document"&&fileName?fileName:null'),"document filename persistence missing from chat messages");
 assert(prodFn.includes('fileName:m.file_name||""'),"document filename hydration missing from chat history");
 assert(prodFn.includes("const isAdmin=await admin(name);"),"message deletion must require the authenticated admin role");
-assert(prodFn.includes('if(!(await admin(name)))return response({error:"Somente administradores podem limpar o chat."},403);'),"clearing shared chat must require the stored admin role");
+assert(prodFn.includes('if(name!=="Ricardo"||!(await admin(name)))return response({error:"Somente o administrador responsável pode limpar o chat."},403);'),"clearing shared chat must require both the owner identity and stored admin role");
 assert(prodFn.includes('if(!(await admin(name)))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);'),"health diagnostics must require the stored admin role");
 assert(!prodFn.includes('if(!["Ricardo","Lohan","Guilherme"].includes(name))'),"health diagnostics must not use a name-only access check");
 assert(prodFn.includes('message:"🧹 "+name+" limpou o chat."'),"chat clear audit message must identify the acting admin");
