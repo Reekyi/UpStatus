@@ -80,6 +80,13 @@ function writeFunction(fn,source){
 }
 const prodUser=renderUser({version:baseVersion,test:false});
 const testUser=renderUser({version:fullVersion,test:true});
+let rootArtifactPath=null;
+if(syncRootArtifact){
+  rootArtifactPath=path.join(ROOT,"UpStatus.user.js");
+  const currentArtifact=fs.readFileSync(rootArtifactPath,"utf8");
+  const currentVersion=(currentArtifact.match(/^\/\/ @version\s+(.+)$/m)||[])[1]||"";
+  if(currentArtifact!==prodUser&&(!/^\d+\.\d+\.\d+$/.test(currentVersion)||compareVersions(baseVersion,currentVersion)<=0))throw new Error("Refusing to sync UpStatus.user.js unless release.json.version is greater than the tracked artifact version ("+currentVersion+"). Increment release.json.version before updating the tracked distribution artifact.");
+}
 writeFunction(PROD_FUNCTION,renderFunction({version:baseVersion,test:false}));
 writeFunction(TEST_FUNCTION,renderFunction({version:fullVersion,test:true}));
 const dist=path.join(ROOT,"dist");
@@ -92,10 +99,6 @@ fs.writeFileSync(path.join(dist,"build-manifest.json"),JSON.stringify({
   productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION
 },null,2)+"\n","utf8");
 if(syncRootArtifact){
-  const rootArtifactPath=path.join(ROOT,"UpStatus.user.js");
-  const currentArtifact=fs.readFileSync(rootArtifactPath,"utf8");
-  const currentVersion=(currentArtifact.match(/^\/\/ @version\s+(.+)$/m)||[])[1]||"";
-  if(currentArtifact!==prodUser&&(!/^\d+\.\d+\.\d+$/.test(currentVersion)||compareVersions(baseVersion,currentVersion)<=0))throw new Error("Refusing to sync UpStatus.user.js unless release.json.version is greater than the tracked artifact version ("+currentVersion+"). Increment release.json.version before updating the tracked distribution artifact.");
   fs.writeFileSync(rootArtifactPath,prodUser,"utf8");
   console.log("Synchronized tracked UpStatus.user.js artifact.");
 }
