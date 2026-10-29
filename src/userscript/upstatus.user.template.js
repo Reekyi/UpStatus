@@ -2966,7 +2966,7 @@ function chatAvatarPresence(name){
   profileModal.querySelector('.up-chat-profile-save').onclick=function(){var file=profileModal.querySelector('.up-chat-profile-file').files&&profileModal.querySelector('.up-chat-profile-file').files[0],msg=profileModal.querySelector('.up-chat-profile-message'),btn=this;if(!file){msg.textContent='Escolha uma foto.';return;}btn.disabled=true;msg.textContent='Salvando…';uploadFileDirect(file,'/api/profile/avatar-upload-url').then(function(upload){return api('POST','/api/profile/avatar',{avatarUrl:upload.publicUrl});}).then(function(r){var ck='profile:'+member;if(mediaBlobCache[ck]){try{URL.revokeObjectURL(mediaBlobCache[ck]);}catch(e){}delete mediaBlobCache[ck];}GM_setValue(key+ck,r.avatarUrl);profileCache[member]=r.avatarUrl;hydrateAvatar(profileModal.querySelector('.up-chat-profile-preview'),member);updateBubbleAvatar(false);closeProfileModal();loadChat();}).catch(function(e){msg.textContent=e.message;}).finally(function(){btn.disabled=false;});};
 
   var healthPingPending={},healthPingResults={},healthRefreshTimer=null,healthLoading=false;
-  function canViewHealth(){return ['Ricardo','Lohan','Guilherme'].indexOf(member)>=0;}
+  function canViewHealth(){return role==='implementation_admin';}
   function healthLed(ok,kind){return '<span class="up-health-led '+(ok?'ok':kind||'bad')+'"></span>';}
   function healthPingLabel(name){
     if(name===member)return '<span class="up-health-ping good">local</span>';
