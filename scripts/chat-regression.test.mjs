@@ -161,4 +161,6 @@ assert(source.includes("list.slice(0,32)")&&source.includes("out.length<32"),"me
 
 assert(source.includes(".on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"),"public remote_result broadcasts must not be treated as authoritative command results");
 assert(source.includes("api('GET','/api/remote-status/result?id='+encodeURIComponent(id))"),"remote command completion must continue polling the authenticated result endpoint");
+assert(source.includes("payload.sender!==p.name"),"health pong sender must match the member being measured");
+assert(source.includes("payload.id.length>160")&&source.includes("payload.sender.length>80"),"health ping identifiers and sender labels must be bounded");
 console.log("Chat regression tests passed: chat, updater, notifications, untrusted Realtime payload handling, and targeted media signaling.");
