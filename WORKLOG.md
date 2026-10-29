@@ -76,3 +76,6 @@ Last updated: 2026-10-29
 - The first candidate-check attempts exposed a regex-escaping bug in the newly added test script; it was corrected and the subsequent candidate workflow passed.
 - Updated PR #74's validation reference to its current head `675afdd521c0ac00c031c1a07f3f47390feef8fe` and documented the separate candidate PR.
 - High-priority security follow-up remains: the shared Supabase Realtime topic is public and carries more than remote commands. The PR's remote-status polling mitigation narrows one command-injection path only. Do not claim that public broadcast confidentiality or call/signaling authenticity has been fully fixed.
+
+- Extended the isolated Team Lite candidate checks to execute the candidate's actual updater logic in a mocked runtime. The suite covers newer/current versions, manifest/script mismatch, downgrade protection, invalid manifest, and manifest/script network failures. After correcting test-harness escaping and version-fixture issues, the candidate CI passed on `503ad93a339bc9cad3ff7a19fc14b1074a038cd2` (run [40923258203](https://github.com/Reekyi/UpStatus/actions/runs/40923258203)).
+- Updated draft PR #75 with the new runtime-test coverage. It remains review-only; Team Lite official remains untouched.
