@@ -140,3 +140,12 @@ Last updated: 2026-10-29
 - Candidate validation passed for normal source hardening in [run 40935056074](https://github.com/Reekyi/UpStatus/actions/runs/40935056074) and Team Lite in [run 40935072417](https://github.com/Reekyi/UpStatus/actions/runs/40935072417). These runs include the source edits; the newest test-only commits are awaiting/need their own CI confirmation.
 - Important limit: these checks reduce malformed, untargeted, and oversized signaling abuse. They do not authenticate the claimed sender. Because the Realtime topic is still public, a malicious sender can still spoof a legitimate member name. Full fix requires server-issued Realtime identity and authorization policies, or a server-mediated signaling path.
 - No deployment, SQL migration, official version, or merge changed.
+
+
+## Post-change validation and database privilege recheck: 2026-10-29
+
+- Latest normal candidate head `42db6fd8f63ace33db118a30193a6c8ccbeeffa7` passed CI in [run 40935146528](https://github.com/Reekyi/UpStatus/actions/runs/40935146528). The source hardening and test assertions also passed in [run 40935093186](https://github.com/Reekyi/UpStatus/actions/runs/40935093186).
+- Team Lite candidate head `f12264aee00f9a66abbd63fda2c4e915b1e36748` passed candidate checks in [run 40935103623](https://github.com/Reekyi/UpStatus/actions/runs/40935103623). The corresponding source changes passed in [run 40935072417](https://github.com/Reekyi/UpStatus/actions/runs/40935072417).
+- Re-ran Supabase Security Advisor and read-only catalog checks. The same three `SECURITY DEFINER` broadcast trigger functions remain directly executable by `anon` and `authenticated`; the candidate revoke migration is still unapplied (`0` migration-history rows for version `20261029170500`).
+- Read-only table privilege audit found `anon` and `authenticated` have table-level grants on nine RLS-enabled public tables with no policies. With RLS enabled and no policies, those table reads/writes are denied by RLS, but the grants are unnecessary exposure surface and should be reviewed separately. `upstatus_visual_config` has no anon/authenticated table grants. Do not add broad policies to silence the Advisor; the app's intended access path is through the authenticated Edge Function/service role.
+- Production Edge Function `upstatus` remains revision 480; TEST `upstatus-test` remains revision 281; Team Lite `upstatus-team-lite` remains revision 15. No deploy or database mutation was performed.
