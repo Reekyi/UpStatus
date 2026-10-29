@@ -55,6 +55,7 @@ assert.ok(backend.includes("async function luccaRoute(req:Request)") && backend.
 assert.ok(script.includes("if(c&&c.target===member)pollRemoteStatus();"), "remote command broadcast must trigger authenticated polling only");
 assert.ok(!script.includes("if(c&&c.target===member)executeRemoteCommand(c);"), "client must not execute untrusted remote command broadcast payloads");
 assert.ok(build.includes('writeFunction("upstatus-team-lite",renderTeamLiteFunction())'), "build must generate the Team Lite Edge Function");
+assert.ok(!build.includes("fs.rmSync"), "build must not recursively delete function or dist directories");
 
 assert.ok(script.includes("function scheduleRealtimeChatRefresh()"), "Team Lite public chat broadcasts must use a canonical refresh scheduler");
 assert.ok(script.includes("var wait=Math.max(0,1000-(Date.now()-realtimeChatRefreshLastAt));"), "Team Lite public broadcast refreshes must be throttled");
