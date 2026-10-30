@@ -76,7 +76,7 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 - [ ] Authenticated integration harness has not been run: three valid test sessions and distinct test users are not available to this session. Do not count its scenarios as passed until it runs and its output is reviewed.
 - [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting. The authenticated harness now includes malformed JSON, oversized-body, deep-payload and wide-payload cases, but these HTTP cases remain unexecuted. Bounded streaming body reads, JSON shape validation, payload depth/width limits, and a bounded per-isolate rate-limit map are deployed to revision 16; only health has been runtime-checked against the deployed endpoint.
 - [x] Isolated test schema default updated to `accepted` for legacy membership inserts; verified in the database catalog.
-- [x] Earlier isolated revision deployed with atomic invitation transitions and accepted-member-only acknowledgement; the current isolated deployment is revision 15.
+- [x] Earlier isolated revision 10 deployed with atomic invitation transitions and accepted-member-only acknowledgement; the current isolated deployment is revision 16.
 - [x] Function revision 12 deployed with bounded streaming JSON body reads and non-object JSON rejection; health endpoint returned expected JSON.
 - [x] Function revision 13 deployed with recursive, case-insensitive removal of identity/recipient keys in nested payloads; health endpoint returned expected JSON.
 - [x] Function revision 16 deployed with payload nesting/traversal bounds and bounded per-isolate rate-limit state; health endpoint returned expected JSON.
