@@ -361,3 +361,11 @@ Last updated: 2026-10-29
 - Three groups of credential-free body parser unit cases pass in CI; static assertions cover migration safety, accepted-member authorization, runner isolation/cleanup, and recursive identity stripping.
 - Added a local one-command authenticated runner that provisions disposable test users and hashed sessions, runs the existing authenticated harness, and cleans up. It is deliberately not executed here because no isolated service-role key is available to the runner environment. Do not share that key in chat.
 - Remaining release blockers: authenticated E2E execution, real WebRTC multi-client tests, client integration in both normal and Team Lite, and final security/release review. Production and official TEST remain untouched.
+
+## Additional signaling payload complexity hardening: 2026-10-30
+
+- Hardened the candidate cleanPayload traversal with a maximum nesting depth of 64 and a maximum of 4,096 visited child elements, in addition to the existing 20 KiB request and 12 KiB cleaned-payload limits. Serialization failures now reject the payload instead of escaping into a generic 500 response.
+- Expanded scripts/signaling-static.test.mjs to assert the depth, traversal and serialization-failure guards.
+- Changes are committed to chore/continuity-foundation in commits 984c63d and 731127e. GitHub Actions validation for the latest head has not yet been confirmed.
+- Read-only Supabase checks on isolated project bfpjtfqlnypisxljoxkb confirmed RLS enabled for all three signaling tables and direct table grants limited to service_role; no direct grants were found for anon or authenticated. Security Advisor no-policy notices are expected for these tables because access is intended to go through the service-mediated function.
+- This hardening is committed to the branch but has not been deployed to the isolated Edge Function yet. The currently deployed revision remains 13. Production and official TEST remain untouched; no PR merged.
