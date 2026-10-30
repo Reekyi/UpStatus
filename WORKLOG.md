@@ -314,4 +314,13 @@ Last updated: 2026-10-29
 - Updated invitation transitions to use a conditional database update with a returned row; a stale/concurrent transition now returns HTTP 409 rather than falsely reporting success. Acknowledgement now requires accepted membership.
 - Corrected the not-yet-production invitation migration to use an `accepted` default for legacy membership inserts and removed the broad backfill that would turn every `pending` invitation into `accepted` if the migration were manually re-run. New invitees are explicitly inserted as `pending` by the Edge Function.
 - Expanded the opt-in authenticated harness to cover repeat acceptance, explicit decline, and ensuring a declined invitee cannot poll or later accept.
-- Changes are on `chore/continuity-foundation` only. The test project schema/function still needs the follow-up default adjustment and redeployment before runtime verification. Authenticated E2E remains blocked until three distinct test-user sessions are available. Production, PR merge, and official TEST deployment remain untouched.
+- Changes are on `chore/continuity-foundation` only. Added and applied a follow-up migration to set the legacy membership default to `accepted` in the isolated project, then deployed function revision 10. The health endpoint returned the expected JSON and the unauthenticated smoke workflow passed on commits through `38546f2`; the new migration path was added to the workflow trigger so subsequent migration changes are covered. Authenticated E2E remains blocked until three distinct test-user sessions are available. Production, PR merge, and official TEST deployment remain untouched.
+
+
+## Signaling audit follow-up: 2026-10-30
+
+- Added `20261030150000_signal_membership_legacy_default.sql` and applied the same default-only migration to isolated test project `bfpjtfqlnypisxljoxkb`; catalog query confirmed `status` defaults to `accepted`. The original invitation migration now avoids a broad pending-to-accepted backfill, so rerunning it cannot silently accept new invitations.
+- Deployed function revision 10 only to the isolated test project. It uses atomic conditional invitation state transitions and requires accepted membership for acknowledgement. Health endpoint returned `{"ok":true,"service":"upstatus-signal-test"}`.
+- Added authenticated harness cases for repeated acceptance, explicit decline, and rejection of poll/accept after decline. The harness passes Node syntax checks in CI, but the authenticated requests remain unexecuted because three valid test sessions are not available.
+- Updated the smoke workflow path filter to include all SQL migrations. Runs #23 through #26 passed; a new run is expected for the latest workflow update.
+- Production and official TEST remain untouched. No PR was merged.
