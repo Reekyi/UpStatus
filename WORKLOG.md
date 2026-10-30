@@ -375,3 +375,9 @@ Last updated: 2026-10-29
 - After revision 15 deployment, a focused source-level check exercised the candidate payload sanitizer logic for nested/case-variant identity removal, nesting rejection, and wide-array rejection; all 7 focused assertions (including source guard assertions) passed in the orchestration runtime.
 - The live health endpoint returned the expected JSON, and a read-only query confirmed the isolated project has zero signaling rooms, memberships, events, temporary test users, or temporary test sessions.
 - This focused check is not a substitute for the repository's Node test suite or authenticated HTTP E2E. The latest GitHub Actions result is still unconfirmed, and the authenticated runner still requires the isolated project's service-role key locally.
+
+## Additional negative-case coverage: 2026-10-30
+
+- Expanded the authenticated harness to test malformed JSON (400), oversized bodies (413), deeply nested payloads (400), and excessively wide payloads (400) with a valid test session. These HTTP-level cases are authored but have not been executed against the endpoint because the isolated service-role key is not available in this session.
+- Parsed the changed Node harness, static test and fixture runner in the orchestration runtime: 3/3 syntax checks passed. Focused checks against the exact sanitizer logic and its regression assertions passed 7/7.
+- Exercised the actual body-reader module with a mock streaming request: 6/6 checks passed for valid object JSON, malformed JSON, null, arrays, declared-size rejection, and streaming overflow cancellation. These focused checks complement but do not replace the repository's full CI run.
