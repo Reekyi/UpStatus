@@ -81,6 +81,7 @@ console.log("PASS bounded streaming body reads and JSON body shape validation");
 console.log("PASS recursive case-insensitive identity payload sanitization");
 console.log("PASS payload nesting and traversal bounds");
 console.log("PASS bounded per-isolate rate-limit state");
+console.log("PASS legacy call/voice/screen envelope types are explicitly allowlisted");
 console.log("PASS authenticated negative cases cover JSON/body/payload limits");
-console.log("8/8 signaling static regression groups passed.");
+console.log("9/9 signaling static regression groups passed.");
 
