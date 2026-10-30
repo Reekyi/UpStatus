@@ -2234,7 +2234,7 @@ function renderChatText(text){
       upCall.pendingOffers={};upCall.peers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;
       callStartRingtone();
       var inviteNames=Array.isArray(p.participants)?p.participants.filter(function(n){return n&&n!==member;}).join(', '):p.from;
-      callRender('Convite para chamada em grupo','Participantes: '+inviteNames,[
+      callRender(Array.isArray(p.participants)&&p.participants.length>2?'Convite para chamada em grupo':'Chamada recebida','Participantes: '+inviteNames,[
         {label:'Atender',icon:'phone',onClick:function(){callAcceptIncomingCall();}},
         {label:'Recusar',icon:'hangup',danger:true,onClick:function(){var roomId=signalRoomByCallId[p.callId];if(signalTransport&&roomId){signalTransport.decline(roomId).catch(function(){}).finally(function(){callCleanup(false);});}else{callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}}
       ]);
