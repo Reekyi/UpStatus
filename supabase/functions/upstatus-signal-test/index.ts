@@ -18,7 +18,11 @@ const TTL_MS = 2 * 60 * 1000;
 const ROOM_TTL_MS = 2 * 60 * 60 * 1000;
 const MAX_BODY = 20 * 1024;
 const MAX_EVENTS_PER_MINUTE = 90;
+const CLEANUP_INTERVAL_MS = 60_000;
+const MAX_EXPIRED_EVENTS_PER_CLEANUP = 500;
+const MAX_EXPIRED_ROOMS_PER_CLEANUP = 100;
 const rate = new Map<string,{start:number,count:number}>();
+let lastCleanupAt = 0;
 
 function response(body: unknown, status=200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type":"application/json; charset=utf-8", ...CORS } });
@@ -45,6 +49,33 @@ function rateLimit(name: string) {
   }
   return old.count <= MAX_EVENTS_PER_MINUTE;
 }
+async function cleanupExpired(now = new Date()) {
+  const timestamp = now.toISOString();
+  if (Date.now() - lastCleanupAt < CLEANUP_INTERVAL_MS) return;
+  // Advance the cooldown before querying to avoid overlapping cleanup work on warm isolates.
+  lastCleanupAt = Date.now();
+  try {
+    const { data: expiredEvents, error: eventsError } = await db.from("upstatus_signal_events")
+      .select("event_id").lte("expires_at", timestamp)
+      .order("event_id", { ascending: true }).limit(MAX_EXPIRED_EVENTS_PER_CLEANUP);
+    if (!eventsError && expiredEvents?.length) {
+      await db.from("upstatus_signal_events").delete()
+        .in("event_id", expiredEvents.map(event => event.event_id));
+    }
+
+    const { data: expiredRooms, error: roomsError } = await db.from("upstatus_signal_rooms")
+      .select("room_id").lte("expires_at", timestamp)
+      .order("created_at", { ascending: true }).limit(MAX_EXPIRED_ROOMS_PER_CLEANUP);
+    if (!roomsError && expiredRooms?.length) {
+      // Room foreign keys cascade to memberships and queued events.
+      await db.from("upstatus_signal_rooms").delete()
+        .in("room_id", expiredRooms.map(room => room.room_id));
+    }
+  } catch {
+    // Cleanup is best-effort and must never block signaling requests.
+  }
+}
+
 async function auth(req: Request): Promise<string|null> {
   const raw = req.headers.get("x-upstatus-token") || "";
   if (!raw || raw.length > 512) return null;
@@ -83,6 +114,7 @@ Deno.serve(async (req: Request) => {
     const sender = await auth(req);
     if (!sender) return response({ error: "Valid UpStatus session required" }, 401);
     if (!rateLimit(sender)) return response({ error: "Rate limit exceeded" }, 429);
+    await cleanupExpired();
     const p = await body(req) as Record<string, unknown>;
 
     if (path.endsWith("/room/create")) {
