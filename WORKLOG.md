@@ -296,6 +296,6 @@ Last updated: 2026-10-29
 - Added authenticated `POST /room/invitations`, `POST /room/accept`, and `POST /room/decline` routes. The invitation listing returns only the caller's own active, unexpired invitations.
 - Deployed function revision 8 to the isolated test project. The health endpoint still returns the expected success JSON.
 - Expanded authenticated integration harness checks for invitation discovery, privacy from uninvited users, pre-accept polling denial, explicit acceptance, and acknowledgement count correctness. These tests remain unexecuted because valid test-session tokens are not available.
-- Expanded unauthenticated smoke tests to require authentication for invitation listing/acceptance/decline. Earlier CI run #16 passed after acceptance/decline routes were added; the latest invitation-listing smoke run is still pending at last inspection.
+- Expanded unauthenticated smoke tests to require authentication for invitation listing/acceptance/decline. Latest CI run #19 passed after invitation listing was added; all unauthenticated smoke checks passed, including the new invitation auth gates.
 - Updated the migration to preserve existing room memberships as accepted when upgrading, while new invitations are explicitly inserted as pending by the function.
 - No production or official TEST function was changed. No PR was merged.
