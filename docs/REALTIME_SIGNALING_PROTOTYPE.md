@@ -48,10 +48,10 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 
 - [x] Test project created separately from production.
 - [x] Tables created; RLS and direct grants verified by SQL catalog query.
-- [x] Function deployed to the isolated project, currently revision 8.
+- [x] Function deployed to the isolated project, currently revision 9.
 - [x] Health endpoint returned HTTP success and expected JSON.
 - [x] Polling is non-destructive; acknowledgement is scoped to the room and recipient.
-- [x] Payload size guard and stale in-memory rate-map cleanup added.
+- [x] Payload size guard, stale in-memory rate-map cleanup, and bounded opportunistic expiry cleanup added.
 - [x] Unauthenticated smoke workflow previously passed 7/7 checks against the isolated test endpoint.
 - [x] Explicit invite listing, acceptance and decline routes and pending-membership gating implemented in the isolated prototype.
 - [x] Authenticated integration harness expanded to test invitation discovery/privacy, invite consent and accurate acknowledgement counts.
@@ -66,7 +66,7 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 ## Known prototype limitations
 
 - Rate limiting is in-memory per Edge Function instance, not a global distributed quota.
-- Event queue cleanup/retention needs a scheduled cleanup or bounded cleanup strategy; TTL filters prevent delivery after expiry but expired rows still need cleanup.
+- Expired events (up to 500) and rooms (up to 100) are now cleaned opportunistically at most once per minute per warm function isolate. This is bounded best-effort cleanup, not a global scheduler; inactive projects/isolates can retain expired rows until the next authenticated request, and cleanup behavior still needs runtime/retention testing.
 - Polling is at-least-once until acknowledgement; clients must deduplicate `event_id` and acknowledge only after handling each event.
 - Polling latency and ICE throughput have not been measured.
 - Event-type authorization still needs a formal state machine, particularly for call acceptance, rejection and ending a room.
