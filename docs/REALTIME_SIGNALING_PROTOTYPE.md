@@ -5,7 +5,7 @@ Status: isolated prototype only. Not integrated with either userscript. Not appr
 ## Environment
 
 - Supabase project: `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`)
-- Function: `upstatus-signal-test`, isolated deployment revision 10 (latest deployed version; newer branch hardening awaits test deployment).
+- Function: `upstatus-signal-test`, isolated deployment revision 12 (bounded streaming JSON body reader included).
 - Endpoint health check: `GET /functions/v1/upstatus-signal-test/health` returned `{"ok":true,"service":"upstatus-signal-test"}`.
 - No production user/session rows or production data were copied into this test project.
 - The project is on the free tier; usage limits still apply.
@@ -61,7 +61,9 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 - [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting. The branch now adds bounded streaming body reads and rejects valid JSON that is not an object; deploy and runtime checks are pending.
 - [x] Isolated test schema default updated to `accepted` for legacy membership inserts; verified in the database catalog.
 - [x] Function revision 10 deployed to the isolated project with atomic invitation transitions and accepted-member-only acknowledgement; health endpoint returned expected JSON.
-- [ ] Runtime re-check of atomic invitation transitions, including concurrent accept/decline, accepted-member-only acknowledgement, and streaming body size rejection.
+- [x] Function revision 12 deployed with bounded streaming JSON body reads and non-object JSON rejection; health endpoint returned expected JSON.
+- [x] Body parser unit tests exercise valid/empty bodies, malformed JSON, non-object JSON, declared-size rejection, and streaming cancellation; GitHub Actions run #38 passed.
+- [ ] Authenticated runtime re-check of invitation transitions and accepted-member-only acknowledgement. The body parser itself has credential-free unit coverage; HTTP-level authenticated endpoint tests remain pending.
 - [ ] Multi-client WebRTC tests for offer/answer/ICE, calls, voice rooms and screen sharing.
 - [ ] Client integration for normal and Team Lite.
 - [ ] Latency/load/retention cleanup tests.
