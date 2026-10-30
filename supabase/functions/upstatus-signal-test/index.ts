@@ -13,7 +13,9 @@ const CORS = {
 };
 const TYPES = new Set([
   "offer","answer","ice","presence","join_request","join_approved","join_declined","invite","reject","hangup","leave","ended",
-  "screen_offer","screen_answer","screen_ice","screen_presence","voice_join","voice_leave","voice_mute"
+  "screen_offer","screen_answer","screen_ice","screen_presence","voice_join","voice_leave","voice_mute",
+  // Transport envelope types used by the existing userscript channels during migration.
+  "call_signal","voice_room_signal","screen_signal"
 ]);
 const TTL_MS = 2 * 60 * 1000;
 const ROOM_TTL_MS = 2 * 60 * 60 * 1000;
