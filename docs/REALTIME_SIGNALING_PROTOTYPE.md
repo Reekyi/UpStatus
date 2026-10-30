@@ -5,7 +5,7 @@ Status: isolated prototype only. Not integrated with either userscript. Not appr
 ## Environment
 
 - Supabase project: `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`)
-- Function: `upstatus-signal-test`, isolated deployment revision 14 (bounded streaming JSON body reader, recursive identity sanitization, and nesting/traversal limits included).
+- Function: `upstatus-signal-test`, isolated deployment revision 15 (bounded streaming JSON body reader, recursive identity sanitization, and nesting/traversal limits included).
 - Endpoint health check: `GET /functions/v1/upstatus-signal-test/health` returned `{"ok":true,"service":"upstatus-signal-test"}`.
 - No production user/session rows or production data were copied into this test project.
 - The project is on the free tier; usage limits still apply.
@@ -65,8 +65,8 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 - [x] Function deployed to the isolated project, currently revision 10.
 - [x] Health endpoint returned HTTP success and expected JSON.
 - [x] Polling is non-destructive; acknowledgement is scoped to the room and recipient.
-- [x] Payload size guard, stale in-memory rate-map cleanup, and bounded opportunistic expiry cleanup added.\n- [x] Bounded streaming body reads reject non-object JSON bodies and stop on oversized streams; deployed to isolated revision 14 and health endpoint verified.
-- [x] Payload sanitizer rejects nesting deeper than 64 and traversal wider than 4,096 child elements; serialization failures are rejected safely. Static regression assertions were added; latest CI status is pending.
+- [x] Payload size guard, stale in-memory rate-map cleanup, and bounded opportunistic expiry cleanup added.\n- [x] Bounded streaming body reads reject non-object JSON bodies and stop on oversized streams; deployed to isolated revision 15 and health endpoint verified.
+- [x] Payload sanitizer rejects nesting deeper than 64 and traversal wider than 4,096 child elements; serialization failures are rejected safely. The in-memory rate-limit map is capped at 2,000 active buckets without evicting active counters. Static regression assertions were added; latest CI status is pending.
 - [x] Unauthenticated smoke workflow previously passed 7/7 checks against the isolated test endpoint.
 - [x] Explicit invite listing, acceptance and decline routes and pending-membership gating implemented in the isolated prototype.
 - [x] Authenticated integration harness expanded to test invitation discovery/privacy, invite consent, accurate acknowledgement counts, repeat acceptance, and decline access denial.
