@@ -41,6 +41,14 @@ const cases = [
     expected: 401,
   },
   {
+    name: "accepted room member listing requires a valid UpStatus session",
+    run: () => fetch(base + "/room/members", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ roomId: "forged" }),
+    }),
+    expected: 401,
+  },
+  {
     name: "room invitation status requires a valid UpStatus session",
     run: () => fetch(base + "/room/status", {
       method: "POST", headers: { "content-type": "application/json" },
