@@ -176,16 +176,10 @@ export function createSignalingTransport({
   async function sendToRoom({ roomId, eventType, payload, senderName }) {
     if (typeof senderName !== "string" || !senderName || senderName.length > 80)
       throw new TypeError("Invalid sender name");
-    const members = await roomMembers(roomId);
-    const recipients = [...new Set(members.filter(name => name !== senderName))];
-    const results = await Promise.allSettled(recipients.map(recipient =>
-      sendSignal({ roomId, recipient, eventType, payload })
-    ));
-    return {
-      attempted: recipients.length,
-      delivered: results.filter(result => result.status === "fulfilled").length,
-      failed: results.filter(result => result.status === "rejected").length,
-    };
+    const result = await post("/broadcast", { roomId, eventType, payload });
+    const attempted = Number(result.attempted) || 0;
+    const delivered = Number(result.delivered) || 0;
+    return { attempted, delivered, failed: Math.max(0, attempted - delivered) };
   }
 
   async function poll(roomId, options = {}) {
