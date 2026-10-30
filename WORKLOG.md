@@ -343,3 +343,12 @@ Last updated: 2026-10-29
 - Updated CI to run the body-parser unit test. GitHub Actions run #38 (commit `862c08f`) passed; run #37 also passed static authorization checks. A few earlier iterations (#32, #33, #36) failed while assertions were being refactored; subsequent runs passed after fixes.
 - Deployed Edge Function revision 12 to the isolated project with both `index.ts` and `body.mjs`; health endpoint returns the expected JSON. No production or official TEST changes.
 - Authenticated end-to-end signaling still needs three valid test sessions; no claim of E2E completion is made.
+
+
+## Recursive payload sanitization and authenticated runner: 2026-10-30
+
+- Hardened `cleanPayload` to remove identity/recipient fields at all nesting levels and regardless of key casing, using an iterative walk to avoid recursion-depth failures. Added nested spoofing to the authenticated integration harness.
+- Deployed function revision 13 only to the isolated test project. The health endpoint had already confirmed revision 12; final health verification for revision 13 is pending.
+- Added `scripts/run-signaling-authenticated.mjs`: it refuses non-test project URLs, creates three temporary users and SHA-256 session records, runs the authenticated harness, then attempts to remove test rooms/sessions/users in a finally block. Tokens and service key are not printed. Added local instructions to the prototype docs.
+- CI now syntax-checks the fixture runner and includes the body parser unit tests. Earlier body parser test run #38 passed; the latest commits add nested-payload checks and will be confirmed separately.
+- Production and official TEST remain untouched; no PR merged. Authenticated E2E has not been run from this session because no isolated service-role key is available to the runner.
