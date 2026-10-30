@@ -38,4 +38,28 @@ const failing = createSignalingTransport({
 });
 await assert.rejects(() => failing.poll("sig_123"), error => error.status === 403 && error.message === "Room membership required");
 
-console.log("signaling transport adapter: 18 assertions passed");
+console.log("signaling transport adapter: 9 assertions passed");
+
+const pollCalls = [];
+let handled = 0;
+const pollClient = createSignalingTransport({
+  enabled: true,
+  pollIntervalMs: 5,
+  maxBackoffMs: 10,
+  request: async (path, body, options) => {
+    pollCalls.push({ path, body, options });
+    if (path === "/poll") return { status: 200, body: { events: [{ event_id: 7, payload: { type: "invite" } }] } };
+    return { status: 200, body: { ok: true } };
+  },
+});
+const stop = pollClient.startPolling("sig_poll", async event => {
+  assert.equal(event.event_id, 7);
+  handled++;
+});
+await new Promise(resolve => setTimeout(resolve, 35));
+stop();
+await new Promise(resolve => setTimeout(resolve, 5));
+assert.equal(handled, 1, "duplicate event must be delivered only once");
+assert.ok(pollCalls.some(call => call.path === "/ack" && call.body.eventIds.includes(7)), "handled event must be acknowledged");
+assert.ok(pollCalls.filter(call => call.path === "/poll").every(call => call.options.signal instanceof AbortSignal), "poll request must receive an abort signal");
+console.log("signaling transport polling: 3 assertions passed");
