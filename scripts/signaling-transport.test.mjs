@@ -108,3 +108,39 @@ releaseDelayedPoll();
 await new Promise(resolve => setTimeout(resolve, 10));
 assert.equal(staleHandlerCalls, 0, "a response arriving after cancellation must not dispatch stale events");
 console.log("signaling polling cancellation: 1 assertion passed");
+
+const callSequence = [];
+let callStatusReads = 0;
+const callSetupClient = createSignalingTransport({
+  enabled: true,
+  request: async (path, body) => {
+    callSequence.push(path);
+    if (path === "/room/create") return { status: 201, body: { ok: true, roomId: "sig_call_1" } };
+    if (path === "/room/status") {
+      callStatusReads++;
+      return { status: 200, body: { participants: [{ name: "mari", status: callStatusReads === 1 ? "pending" : "accepted" }] } };
+    }
+    return { status: 200, body: { ok: true } };
+  },
+});
+const prepared = await callSetupClient.prepareCallRoom("call:logical-1", "mari", { intervalMs: 1, timeoutMs: 100 });
+assert.equal(prepared.roomId, "sig_call_1");
+assert.deepEqual(callSequence.slice(0, 3), ["/room/create", "/room/bind", "/room/status"]);
+assert.equal(callSequence[3], "/room/status", "call setup must observe accepted state before returning to offer creation");
+
+const declineSequence = [];
+const declinedSetupClient = createSignalingTransport({
+  enabled: true,
+  request: async path => {
+    declineSequence.push(path);
+    if (path === "/room/create") return { status: 201, body: { roomId: "sig_call_declined" } };
+    if (path === "/room/status") return { status: 200, body: { participants: [{ name: "mari", status: "declined" }] } };
+    return { status: 200, body: { ok: true } };
+  },
+});
+await assert.rejects(
+  () => declinedSetupClient.prepareCallRoom("call:logical-2", "mari", { intervalMs: 1, timeoutMs: 100 }),
+  error => error.code === "SIGNALING_INVITATION_DECLINED",
+);
+assert.ok(declineSequence.includes("/room/close"), "declined calls must clean up the temporary room");
+console.log("signaling call setup gate: 4 assertions passed");
