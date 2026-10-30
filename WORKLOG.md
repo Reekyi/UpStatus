@@ -440,3 +440,12 @@ Last updated: 2026-10-29
 - Added `scripts/signaling-transport.test.mjs` and wired it into the signaling smoke workflow. CI run [41116543497](https://github.com/Reekyi/UpStatus/actions/runs/41116543497) passed: adapter tests (9 assertions), polling tests (3 assertions), static regression 11/11, body reader 3/3, envelope validator 3/3, unauthenticated HTTP 10/10. Validation run [41116543629](https://github.com/Reekyi/UpStatus/actions/runs/41116543629) passed.
 - The authenticated E2E step still skips because `UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY` is not configured. The adapter is a tested building block, not proof of full browser/WebRTC integration. Do not enable it or wire it into production paths until the authenticated room invitation and media state machine is validated with isolated test identities.
 - No production or official TEST deployment, merge, or release was performed.
+
+
+### Explicit acceptance gate and isolated revision 21 (2026-10-30)
+
+- Added creator-only `POST /room/status` so the caller can check the server-authoritative membership state. The route refuses non-creators with 403 and returns only the current room's participants/statuses to the creator.
+- Added `waitForAcceptance` to the default-off client adapter. It waits through pending state, returns only after explicit acceptance, and handles decline, timeout, and abort. Polling cancellation now suppresses stale responses and removes external abort listeners.
+- Expanded tests for pending-to-accepted transitions, decline, and stale events after cancellation. Latest validated workflow before the final cancellation regression was [41116945967](https://github.com/Reekyi/UpStatus/actions/runs/41116945967), with adapter (10 assertions), polling (3 assertions), invitation gate (3 assertions), static (11/11), body parser (3/3), envelope validator (3/3), and unauthenticated HTTP (10/10) passing. The final cancellation test has been added and its workflow result is being checked.
+- Deployed isolated Edge Function revision 21 only and verified its health response. Production and official TEST remain untouched.
+- Remaining blockers: authenticated E2E still skips because the isolated CI secret is not configured; the adapter has not been integrated into the userscript; real browser/WebRTC flows are not yet verified. Keep PR #74 draft and unmerged.
