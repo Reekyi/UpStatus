@@ -357,6 +357,31 @@ Deno.serve(async (req: Request) => {
       return response({ ok: true }, 202);
     }
 
+    if (path.endsWith("/broadcast")) {
+      const roomId = String(p.roomId || "");
+      const eventType = String(p.eventType || "");
+      const payload = cleanPayload(p.payload);
+      if (!roomId || roomId.length > 128 || !TYPES.has(eventType) || !payload)
+        return response({ error: "Invalid signaling event" }, 400);
+      if (!isAllowedLegacyEnvelope(eventType, payload))
+        return response({ error: "Invalid legacy signaling subtype" }, 400);
+      const activeRoom = await room(roomId);
+      if (!activeRoom || !(await isMember(roomId, sender)))
+        return response({ error: "Accepted room membership required" }, 404);
+      const { data: members, error: membersError } = await db.from("upstatus_signal_room_members")
+        .select("user_name").eq("room_id", roomId).eq("status", "accepted").limit(32);
+      if (membersError) throw membersError;
+      const recipients = [...new Set((members || []).map(item => item.user_name).filter(name => name !== sender))];
+      if (!recipients.length) return response({ ok: true, attempted: 0, delivered: 0 }, 202);
+      const expiresAt = new Date(Math.min(Date.now() + TTL_MS, Date.parse(activeRoom.expires_at))).toISOString();
+      const rows = recipients.map(recipient => ({
+        room_id: roomId, sender, recipient, event_type: eventType, payload, expires_at: expiresAt
+      }));
+      const { error } = await db.from("upstatus_signal_events").insert(rows);
+      if (error) throw error;
+      return response({ ok: true, attempted: recipients.length, delivered: recipients.length }, 202);
+    }
+
     if (path.endsWith("/poll")) {
       const roomId = String(p.roomId || "");
       if (!roomId || !(await isMember(roomId, sender))) return response({ error: "Room membership required" }, 403);
