@@ -10,7 +10,9 @@ on:
       - "scripts/run-signaling-authenticated.mjs"
       - "scripts/signaling-static.test.mjs"
       - "scripts/signaling-body.test.mjs"
+      - "scripts/signaling-envelope.test.mjs"
       - "supabase/functions/upstatus-signal-test/body.mjs"
+      - "supabase/functions/upstatus-signal-test/legacy-envelope.mjs"
       - ".github/workflows/signaling-smoke.yml"
       - "supabase/functions/upstatus-signal-test/index.ts"
       - "src/userscript/upstatus.user.template.js"
@@ -51,6 +53,8 @@ jobs:
           node scripts/signaling-static.test.mjs
           node --check scripts/signaling-body.test.mjs
           node scripts/signaling-body.test.mjs
+          node --check scripts/signaling-envelope.test.mjs
+          node scripts/signaling-envelope.test.mjs
       - name: Run unauthenticated endpoint checks against isolated project
         env:
           UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
