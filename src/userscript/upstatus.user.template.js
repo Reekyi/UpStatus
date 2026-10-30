@@ -1919,9 +1919,11 @@ function renderChatText(text){
       signalRoomByCallId[transportCallId]=room.roomId;signalCallIdByRoom[room.roomId]=transportCallId;
       signalStartCallPolling(room.roomId,transportCallId);
       await callGetMicrophone();
+      if(!upCall.active||upCall.signalAbortController.signal.aborted){callCleanup(false);return;}
       var p=await callCreatePeer(target),offer=await p.pc.createOffer();
-      await p.pc.setLocalDescription(offer);p.offerSent=true;
-      callStartPresence();callSendTo(target,'offer',{sdp:p.pc.localDescription,phase:'initial'});
+      await p.pc.setLocalDescription(offer);
+      if(!upCall.active||upCall.signalAbortController.signal.aborted){callCleanup(false);return;}
+      p.offerSent=true;callStartPresence();callSendTo(target,'offer',{sdp:p.pc.localDescription,phase:'initial'});
     }catch(e){
       if(upCall.active)callFail(e.message||'Não foi possível iniciar a chamada.');
     }
