@@ -111,6 +111,22 @@ Deno.serve(async (req: Request) => {
       }, 201);
     }
 
+    if (path.endsWith("/room/invitations")) {
+      const { data: invitations, error } = await db.from("upstatus_signal_room_members")
+        .select("room_id,joined_at").eq("user_name", sender).eq("status", "pending")
+        .order("joined_at", { ascending: false }).limit(50);
+      if (error) throw error;
+      const roomIds = (invitations || []).map(item => item.room_id);
+      if (!roomIds.length) return response({ invitations: [] });
+      const { data: rooms, error: roomsError } = await db.from("upstatus_signal_rooms")
+        .select("room_id,created_by,expires_at,status").in("room_id", roomIds)
+        .eq("status", "active").gt("expires_at", new Date().toISOString());
+      if (roomsError) throw roomsError;
+      return response({ invitations: (rooms || []).map(item => ({
+        roomId: item.room_id, invitedBy: item.created_by, expiresAt: item.expires_at
+      })) });
+    }
+
     if (path.endsWith("/room/accept") || path.endsWith("/room/decline")) {
       const roomId = String(p.roomId || "");
       if (!roomId || !(await room(roomId))) return response({ error: "Room unavailable" }, 404);
