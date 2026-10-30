@@ -251,7 +251,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
       var endpoint=new URL(signalTransportEndpoint),sessionServer=new URL(server);
       if(endpoint.protocol!=='https:'||endpoint.origin!==sessionServer.origin||endpoint.search||endpoint.hash||
         !/\/functions\/v1\/upstatus-signal(?:-test)?$/.test(endpoint.pathname))return;
-      signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});
+      signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});signalStartInvitationPolling();
     }catch(e){signalTransport=null;}
   }
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
@@ -1847,6 +1847,8 @@ function renderChatText(text){
   }
   function callPublishPresence(){
     if(!upCall.active||!upCall.callId)return;
+    var roomId=signalRoomByCallId[upCall.callId];
+    if(signalTransport&&roomId){callSendAll('presence',{initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false});return;}
     sendRealtimeEvent('call_signal',{type:'presence',callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false});
   }
   function callStartPresence(){
@@ -1865,6 +1867,23 @@ function renderChatText(text){
   function callSendTo(to,type,extra){
     if(!to||!upCall.callId)return false;
     var p=Object.assign({type:type,callId:upCall.callId,from:member,to:to,connectionId:callConnectionId(to),participants:upCall.participants.slice()},extra||{});
+    var signalRoomId=signalRoomByCallId[upCall.callId];
+    if(signalTransport&&signalRoomId){
+      if(type==='invite'){
+        signalTransport.invite(signalRoomId,to).then(function(){
+          return signalTransport.waitForAcceptance(signalRoomId,to,{timeoutMs:30000,intervalMs:900});
+        }).then(function(){
+          if(upCall.participants.indexOf(to)<0)upCall.participants.push(to);
+          signalStartCallPolling(signalRoomId,upCall.callId);
+          return callStartOffer(to);
+        }).catch(function(e){upCall.notice='Não foi possível adicionar '+to+': '+(e.message||e);callRenderConnected();});
+        return true;
+      }
+      signalTransport.sendSignal({roomId:signalRoomId,recipient:to,eventType:'call_signal',payload:p}).catch(function(e){
+        if(upCall.active){upCall.notice='Falha no sinal para '+to+': '+(e.message||e);callRenderConnected();}
+      });
+      return true;
+    }
     return sendRealtimeEvent('call_signal',p);
   }
   function callSend(type,extra){return callSendTo(upCall.peer,type,extra);}
@@ -2000,6 +2019,7 @@ function renderChatText(text){
   }
   async function startOutgoingCall(target){
     if(!target||target===member)return;
+    if(signalTransport&&signalTransportFlag)return startOutgoingCallWithTransport(target);
     if(upCall.active){message('Voc\u00ea j\u00e1 est\u00e1 em uma chamada.',true);return;}
     upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
     upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
