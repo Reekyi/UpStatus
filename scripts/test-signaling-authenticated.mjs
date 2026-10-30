@@ -125,9 +125,22 @@ try {
     check("user without an invitation cannot accept a room", uninvitedAccept.status === 404,
       `HTTP ${uninvitedAccept.status}`);
 
+    const pendingStatus = await request(users.A, "/room/status", { roomId });
+    check("room creator can see pending invitation status", pendingStatus.status === 200 &&
+      pendingStatus.json?.participants?.some(p => p.name === users.B.name && p.status === "pending"),
+      "HTTP " + pendingStatus.status);
+    const nonCreatorStatus = await request(users.B, "/room/status", { roomId });
+    check("non-creator cannot inspect room invitation status", nonCreatorStatus.status === 403,
+      "HTTP " + nonCreatorStatus.status);
+
     const accepted = await request(users.B, "/room/accept", { roomId });
     check("invited user can explicitly accept the room", accepted.status === 200 &&
       accepted.json?.ok === true && accepted.json?.status === "accepted", `HTTP ${accepted.status}`);
+
+    const acceptedStatus = await request(users.A, "/room/status", { roomId });
+    check("room creator sees accepted membership before signaling", acceptedStatus.status === 200 &&
+      acceptedStatus.json?.participants?.some(p => p.name === users.B.name && p.status === "accepted"),
+      "HTTP " + acceptedStatus.status);
 
     const logicalCallId = "call-" + roomId;
     const bound = await request(users.A, "/room/bind", { roomId, bindingType: "call", logicalId: logicalCallId });
