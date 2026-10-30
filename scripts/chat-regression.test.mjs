@@ -66,7 +66,7 @@ assert(source.includes("function setChatNewMessageIndicator(show)"),"chat must e
 assert(source.includes("btn.appendChild(dot)"),"new-message indicator must create a visible dot element on the latest-message arrow");
 assert(source.includes("hasNewExternalMessage=nextMessages.some"),"polling must detect incoming messages when realtime events are missed");
 assert(source.includes("chatPendingInitialScroll=true;chatOpenScrollUntil=Date.now()+2400;chatForceScrollBottom=true;"),"reopening chat must request scrolling to the latest message");
-assert(source.includes("var currentMenu=document.querySelector('.up-chat-emoji-menu'),currentBtn=document.querySelector('.up-chat-emoji-btn')"),"emoji picker outside-click handler must use the current menu and button");
+assert(source.includes("var b=m.__upstatusEmojiButton;if(!m.contains(ev.target)&&(!b||!b.contains(ev.target)))"),"emoji picker outside-click handler must use each menu and its owning button");
 assert(source.includes("document.body.appendChild(box)"),"image lightbox must be mounted at page level");
 assert(serverTemplate.includes('.in("state_key",["remote-status"])'),"health state query must use the correct Supabase in-filter arguments");
 
@@ -79,7 +79,7 @@ assert(source.includes("!list._upstatusUserScrolling&&(chatPendingInitialScroll|
 assert(source.includes("if(Date.now()<chatUserScrollInterruptedUntil&&!chatForceScrollBottom)"),"non-forced scrolling must respect the user-scroll interruption window");
 assert(source.includes("function openChat(){")&&source.includes("chatUserScrollInterruptedUntil=0;"),"opening the chat must reset an older scroll-interruption window");
 
-assert(source.includes("(member==='Ricardo'?'<button class=\"up-chat-clear\" type=\"button\" title=\"Limpar chat\">'+iconSvg('trash')+'</button>':'')+'<button class=\"up-chat-library\""),"Ricardo must see the clear-chat action before the media library; other members must not see the clear action");
+assert(source.includes("(member==='Ricardo'&&role==='implementation_admin'?'<button class=\"up-chat-clear\" type=\"button\" title=\"Limpar chat\">'+iconSvg('trash')+'</button>':'')+'<button class=\"up-chat-library\""),"only the owner with the admin role must see the clear-chat action");
 assert(source.includes(".up-chat-photo{display:block;box-sizing:border-box;min-width:0;max-width:min(260px,100%);max-height:210px;width:auto;height:auto;"),"chat images must shrink to fit narrow bubbles without forcing horizontal overflow");
 assert(source.includes(".up-chat-media{display:block;box-sizing:border-box;min-width:0;width:auto;height:auto;max-width:min(220px,100%);max-height:150px;"),"chat media must stay within the available bubble width while preserving intrinsic proportions");
 assert(source.includes(".up-chat-media-video{width:min(220px,100%);height:auto;aspect-ratio:4/3;max-height:150px}"),"chat videos must use responsive width and preserve a stable aspect ratio");
@@ -102,13 +102,30 @@ assert(source.includes("if(p.type==='presence'){callReceivePresence(p);return;}"
 assert(serverTemplate.includes("const isAdmin=await admin(name);"),"server delete is authorized by the authenticated admin role");
 assert(!serverTemplate.includes('const isAdmin=name==="Ricardo"'),"no name-only administrator bypass");
 assert(source.includes("var canDelete=m.user===member||role==='implementation_admin';"),"admin UI uses stored role");
+assert(source.includes("function clearChatAdmin(){if(member!=='Ricardo'||role!=='implementation_admin')return;"),"clear-chat action handler must require owner identity and admin role");
+assert(source.includes("function canViewHealth(){return role==='implementation_admin';}"),"health diagnostics control must be role-gated in the UI");
+assert(!source.includes("function clearChatRicardo()"),"clear-chat handler must not be tied to a person's name");
 assert(source.includes("function setPendingAttachment(file)"),"files are staged instead of uploaded immediately");
+assert(source.includes("input.value='';\n    updateLinkPreview('');"),"sending a text message must clear its draft link preview");
+assert(source.includes("if(input)updateLinkPreview(input.value||'');else box.classList.add('hidden')"),"removing an attachment must preserve any link preview for the remaining draft");
 assert(source.includes("function updateLinkPreview(text)"),"links get a removable preview");
+assert(source.includes("chatLinkPreviewDismissedUrl=url.href"),"dismissed link preview must be scoped to the URL the user dismissed");
+assert(source.includes("if(chatLinkPreviewDismissed&&url.href===chatLinkPreviewDismissedUrl)"),"a different URL must be allowed to show a new preview");
+assert(source.includes("catch(e){if(!chatPendingAttachment)box.classList.add('hidden');return;}"),"invalid URL drafts must not leave an empty visible preview container");
 assert(source.includes("e.preventDefault();setPendingAttachment(file)"),"pasted images stay pending");
 assert(source.includes("fileName:String(record.file_name"),"filename is separate from caption");
+assert(source.includes("fileName:isDocument?String(file.name||'Documento'):''"),"document uploads must send the original filename separately from the caption");
+assert(source.includes("message:isDocument?(String(caption||'').trim()||String(file.name||'Documento')):String(caption||'').trim(),type:isDocument?'document'"),"attachment captions must remain visible during upload and on document fallback");
+assert(source.includes("sendChatMedia(pending,text,reply)"),"pending attachment sends must preserve the selected reply target");
+assert(source.includes("reply=replyOverride!==undefined?replyOverride:chatReplyTo"),"attachment upload must use the reply target captured before clearing the composer");
+assert(source.includes("setPendingAttachment(file);if(input)updateLinkPreview(input.value||'');setChatReply(reply)"),"failed attachment uploads must restore the file, caption preview, and reply target");
 assert(serverTemplate.includes('file_name:type==="document"&&fileName?fileName:null'),"file name is saved to separate database column");
 assert(source.includes("var incomingTime=!own?"),"received messages show per-message timestamps");
-assert(source.includes("var ownMeta=own?'<span class=\"up-chat-own-meta\"><span class=\"up-chat-own-time\">"),"sent time appears with ticks");
+assert(source.includes("up-chat-own-meta")&&source.includes("up-chat-own-time"),"sent time appears with ticks");
+assert(source.includes("if(c&&c.target===member)pollRemoteStatus();"),"untrusted realtime remote-command events must trigger authenticated server polling instead of direct execution");
+assert(!source.includes("if(c&&c.target===member)executeRemoteCommand(c);"),"untrusted realtime remote-command payloads must never be executed directly");
+assert(source.includes("remoteLastPollAt=0"),"remote command polling must have a throttle timestamp");
+assert(source.includes("now-remoteLastPollAt<1000"),"remote command poll trigger must be throttled against public broadcast spam");
 assert(source.includes("function screenShareStart()"),"screen-sharing start handler missing");
 assert(source.includes("function screenShareReceive(p)"),"screen-sharing signal handler missing");
 assert(source.includes("SCREEN_ROOM_EVENT"),"screen-sharing realtime event missing");
@@ -118,5 +135,32 @@ assert(source.includes("data-sender-color"),"per-sender chat color rendering mis
 assert(source.includes("function requestPublicChatLinkTitle(url,callback)"),"stable Google Docs link-title hydration helper missing");
 assert(source.includes('class="up-chat-link-card"'),"stable chat link-card renderer missing");
 assert(source.includes("hydrateChatLinkTitles(list);"),"chat link-card hydration hook missing");
-assert(source.includes("upstatus-340-chat-link-card-compat"),"chat link-card compatibility styles missing");
-console.log("Chat regression tests passed: composer, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");
+assert(source.includes(".up-chat-link-card{display:flex")&&source.includes('class="up-chat-link-card"'),"chat link-card renderer and styles must exist");
+
+assert(source.includes("function scheduleRealtimeChatRefresh()"),"public chat broadcasts must use a canonical refresh scheduler");
+assert(source.includes("var wait=Math.max(0,1000-(Date.now()-realtimeChatRefreshLastAt));"),"public broadcast spam must be throttled before it triggers authenticated chat refreshes");
+assert(source.includes("function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}"),"chat_fast payloads must not be trusted as canonical message data");
+assert(source.includes(".on('broadcast',{event:'db_change'},function(){scheduleRealtimeChatRefresh();})"),"database-change broadcasts must trigger an authenticated refresh instead of applying the supplied row");
+assert(source.includes(".on('broadcast',{event:'chat_fast'},function(){handleRealtimeChatFast();})"),"chat_fast listener must ignore attacker-controlled payloads");
+assert(source.includes(".on('broadcast',{event:'chat_read'},function(){scheduleRealtimeChatRefresh();})"),"read receipt broadcasts must be reconciled from the authenticated API");
+assert(!source.includes(".on('broadcast',{event:'db_change'},function(payload){"),"public database-change events must not apply broadcast-supplied rows");
+assert(source.includes("realtimeChatRefreshLastAt=Date.now();")&&source.includes("loadChat(true);"),"broadcast refreshes must fetch authoritative chat state from the server");
+
+
+assert(source.includes("p.type!=='presence'&&p.type!=='ended'&&p.to!==member"),"call signaling except public presence/end events must be addressed to the current member");
+assert(source.includes("p.callId.length>160")&&source.includes("p.from.length>80"),"call signaling identifiers must be bounded");
+assert(source.includes("p.sdp.sdp.length>100000"),"oversized call SDP must be rejected");
+assert(source.includes("JSON.stringify(p.candidate).length>4096"),"oversized ICE candidates must be rejected");
+assert(source.includes("(p.type==='offer'||p.type==='answer'||p.type==='ice')&&p.to!==member"),"voice and screen-share negotiation events must be directly targeted");
+assert(source.includes("function screenShareReceive(p)")&&source.includes("function voiceRoomReceive(p)"),"voice and screen-share handlers must remain present after hardening");
+
+
+assert(source.includes("p.participants.length>32"),"call roster broadcasts must be capped to 32 participants");
+assert(source.includes("p.callId.length>160")&&source.includes("p.from.length>80"),"call roster identifiers must be bounded");
+assert(source.includes("list.slice(0,32)")&&source.includes("out.length<32"),"merged call participants must be bounded and deduplicated");
+
+assert(source.includes(".on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"),"public remote_result broadcasts must not be treated as authoritative command results");
+assert(source.includes("api('GET','/api/remote-status/result?id='+encodeURIComponent(id))"),"remote command completion must continue polling the authenticated result endpoint");
+assert(source.includes("payload.sender!==p.name"),"health pong sender must match the member being measured");
+assert(source.includes("payload.id.length>160")&&source.includes("payload.sender.length>80"),"health ping identifiers and sender labels must be bounded");
+console.log("Chat regression tests passed: chat, updater, notifications, untrusted Realtime payload handling, and targeted media signaling.");

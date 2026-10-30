@@ -1,0 +1,75 @@
+name: UpStatus Signaling Smoke Tests
+
+on:
+  push:
+    branches:
+      - chore/continuity-foundation
+    paths:
+      - "scripts/test-signaling-endpoint.mjs"
+      - "scripts/test-signaling-authenticated.mjs"
+      - "scripts/run-signaling-authenticated.mjs"
+      - "scripts/signaling-static.test.mjs"
+      - "scripts/signaling-body.test.mjs"
+      - "scripts/signaling-envelope.test.mjs"
+      - "scripts/signaling-transport.test.mjs"
+      - "src/userscript/signaling-transport.mjs"
+      - "supabase/functions/upstatus-signal-test/body.mjs"
+      - "supabase/functions/upstatus-signal-test/legacy-envelope.mjs"
+      - ".github/workflows/signaling-smoke.yml"
+      - "supabase/functions/upstatus-signal-test/index.ts"
+      - "src/userscript/upstatus.user.template.js"
+      - "supabase/migrations/**"
+      - "docs/REALTIME_SIGNALING_PROTOTYPE.md"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "scripts/test-signaling-endpoint.mjs"
+      - "scripts/test-signaling-authenticated.mjs"
+      - "scripts/run-signaling-authenticated.mjs"
+      - "scripts/signaling-static.test.mjs"
+      - "scripts/signaling-body.test.mjs"
+      - "supabase/functions/upstatus-signal-test/body.mjs"
+      - ".github/workflows/signaling-smoke.yml"
+      - "supabase/functions/upstatus-signal-test/index.ts"
+      - "src/userscript/upstatus.user.template.js"
+      - "supabase/migrations/**"
+      - "docs/REALTIME_SIGNALING_PROTOTYPE.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Syntax-check signaling test harnesses
+        run: |
+          node --check scripts/test-signaling-endpoint.mjs
+          node --check scripts/test-signaling-authenticated.mjs
+          node --check scripts/run-signaling-authenticated.mjs
+          node --check scripts/signaling-static.test.mjs
+          node scripts/signaling-static.test.mjs
+          node --check scripts/signaling-body.test.mjs
+          node scripts/signaling-body.test.mjs
+          node --check scripts/signaling-envelope.test.mjs
+          node scripts/signaling-envelope.test.mjs
+          node --check scripts/signaling-transport.test.mjs
+          node scripts/signaling-transport.test.mjs
+      - name: Run unauthenticated endpoint checks against isolated project
+        env:
+          UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
+        run: node scripts/test-signaling-endpoint.mjs
+      - name: Run authenticated tests when isolated test secret is configured
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "SKIP: UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY is not configured; authenticated HTTP tests were not run."
+            exit 0
+          fi
+          node scripts/run-signaling-authenticated.mjs
