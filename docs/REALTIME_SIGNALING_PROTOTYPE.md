@@ -65,7 +65,8 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 - [x] Function deployed to the isolated project, currently revision 15.
 - [x] Health endpoint returned HTTP success and expected JSON.
 - [x] Polling is non-destructive; acknowledgement is scoped to the room and recipient.
-- [x] Payload size guard, stale in-memory rate-map cleanup, and bounded opportunistic expiry cleanup added.\n- [x] Bounded streaming body reads reject non-object JSON bodies and stop on oversized streams; deployed to isolated revision 15 and health endpoint verified.
+- [x] Payload size guard, stale in-memory rate-map cleanup, and bounded opportunistic expiry cleanup added.
+- [x] Bounded streaming body reads reject non-object JSON bodies and stop on oversized streams; deployed to isolated revision 15 and health endpoint verified.
 - [x] Payload sanitizer rejects nesting deeper than 64 and traversal wider than 4,096 child elements; serialization failures are rejected safely. The in-memory rate-limit map is capped at 2,000 active buckets without evicting active counters. Static regression assertions were added; latest CI status is pending.
 - [x] Unauthenticated smoke workflow previously passed 7/7 checks against the isolated test endpoint.
 - [x] Explicit invite listing, acceptance and decline routes and pending-membership gating implemented in the isolated prototype.
