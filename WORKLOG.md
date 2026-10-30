@@ -333,3 +333,13 @@ Last updated: 2026-10-29
 - GitHub Actions run #29 for commit `63035dd` completed successfully in 12 seconds. This validates the test harness syntax and static assertions plus the unauthenticated smoke checks; it does not substitute for authenticated E2E.
 - Isolated function revision 10 health endpoint continues to return the expected JSON. Database catalog checks confirm RLS enabled on all three signaling tables and no direct SELECT privilege for `anon` or `authenticated`.
 - Authenticated E2E, actual WebRTC offer/answer/ICE flows, retention expiry, and load/latency remain outstanding. Production and official TEST remain untouched.
+
+
+## Bounded request-body parser and unit tests: 2026-10-30
+
+- Replaced full-body buffering with a streaming reader that stops and cancels the request stream as soon as the 20 KiB byte cap is crossed. Valid JSON must be an object; malformed JSON and primitives/arrays/null return a client error instead of an accidental internal server error.
+- Extracted the reader into `supabase/functions/upstatus-signal-test/body.mjs` so the exact parser can be exercised in Node without Supabase credentials.
+- Added `scripts/signaling-body.test.mjs`: valid/empty object, malformed JSON, non-object JSON, declared Content-Length overflow, streaming overflow and cancellation.
+- Updated CI to run the body-parser unit test. GitHub Actions run #38 (commit `862c08f`) passed; run #37 also passed static authorization checks. A few earlier iterations (#32, #33, #36) failed while assertions were being refactored; subsequent runs passed after fixes.
+- Deployed Edge Function revision 12 to the isolated project with both `index.ts` and `body.mjs`; health endpoint returns the expected JSON. No production or official TEST changes.
+- Authenticated end-to-end signaling still needs three valid test sessions; no claim of E2E completion is made.
