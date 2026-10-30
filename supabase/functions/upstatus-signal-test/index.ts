@@ -248,6 +248,13 @@ Deno.serve(async (req: Request) => {
       const { data: existing, error: existingError } = await db.from("upstatus_signal_room_members")
         .select("status").eq("room_id", roomId).eq("user_name", recipient).maybeSingle();
       if (existingError) throw existingError;
+      if (existing?.status === "declined") {
+        const { error: reissueError } = await db.from("upstatus_signal_room_members")
+          .update({ status: "pending", joined_at: new Date().toISOString() })
+          .eq("room_id", roomId).eq("user_name", recipient).eq("status", "declined");
+        if (reissueError) throw reissueError;
+        return response({ ok: true, status: "pending", reissued: true }, 201);
+      }
       if (existing) return response({ error: "Participant already invited or a room member" }, 409);
       const { error } = await db.from("upstatus_signal_room_members").insert({
         room_id: roomId, user_name: recipient, status: "pending"
