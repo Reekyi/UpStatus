@@ -5,7 +5,7 @@ Status: isolated prototype only. Not integrated with either userscript. Not appr
 ## Environment
 
 - Supabase project: `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`)
-- Function: `upstatus-signal-test`, isolated deployment revision 12 (bounded streaming JSON body reader included).
+- Function: `upstatus-signal-test`, isolated deployment revision 13 (bounded streaming JSON body reader and recursive payload sanitization included).
 - Endpoint health check: `GET /functions/v1/upstatus-signal-test/health` returned `{"ok":true,"service":"upstatus-signal-test"}`.
 - No production user/session rows or production data were copied into this test project.
 - The project is on the free tier; usage limits still apply.
@@ -76,7 +76,10 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 - [x] Isolated test schema default updated to `accepted` for legacy membership inserts; verified in the database catalog.
 - [x] Function revision 10 deployed to the isolated project with atomic invitation transitions and accepted-member-only acknowledgement; health endpoint returned expected JSON.
 - [x] Function revision 12 deployed with bounded streaming JSON body reads and non-object JSON rejection; health endpoint returned expected JSON.
+- [x] Function revision 13 deployed with recursive, case-insensitive removal of identity/recipient keys in nested payloads; health endpoint returned expected JSON.
 - [x] Body parser unit tests exercise valid/empty bodies, malformed JSON, non-object JSON, declared-size rejection, and streaming cancellation; GitHub Actions run #38 passed.
+- [x] Authenticated test runner added to create temporary users/sessions in the isolated project, execute the existing harness, and clean up fixtures; requires the isolated project's service-role key locally and has not yet been executed by this session.
+- [x] Authenticated harness now includes nested/case-variant identity spoofing assertions; the latest workflow runs are being checked.
 - [ ] Authenticated runtime re-check of invitation transitions and accepted-member-only acknowledgement. The body parser itself has credential-free unit coverage; HTTP-level authenticated endpoint tests remain pending.
 - [ ] Multi-client WebRTC tests for offer/answer/ICE, calls, voice rooms and screen sharing.
 - [ ] Client integration for normal and Team Lite.
