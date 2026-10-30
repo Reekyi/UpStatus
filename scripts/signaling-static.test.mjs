@@ -57,11 +57,18 @@ assert.ok(functionSource.includes('message === "INVALID_JSON" || message === "IN
 
 assert.ok(functionSource.includes("IDENTITY_PAYLOAD_KEYS.has(key.toLowerCase())"),
   "identity/recipient payload keys must be stripped recursively and case-insensitively");
+assert.match(functionSource, /entry\.depth > 64/,
+  "payload sanitizer must reject excessive nesting before serialization");
+assert.match(functionSource, /visitedNodes > 4096/,
+  "payload sanitizer must bound traversal work for very wide JSON");
+assert.match(functionSource, /try \{[\s\S]*JSON\.stringify\(p\)\.length[\s\S]*catch \{\s*return null;/,
+  "payload serialization failures must be rejected as invalid payloads");
 
 console.log("PASS signaling migration idempotency and compatibility defaults");
 console.log("PASS atomic invitation transitions and accepted-member authorization");
 console.log("PASS authenticated harness is mutation-gated and test-project scoped");
 console.log("PASS bounded streaming body reads and JSON body shape validation");
 console.log("PASS recursive case-insensitive identity payload sanitization");
-console.log("5/5 signaling static regression groups passed.");
+console.log("PASS payload nesting and traversal bounds");
+console.log("6/6 signaling static regression groups passed.");
 
