@@ -73,11 +73,12 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 - [x] Static regression tests cover migration idempotency/default compatibility, atomic invitation transitions, accepted-member authorization, and test-project mutation guards.
 - [x] Unauthenticated smoke workflow passed through run #30, including static regression checks and syntax checks for both integration harnesses.
 - [ ] Authenticated integration harness has not been run: three valid test sessions and distinct test users are not available to this session. Do not count its scenarios as passed until it runs and its output is reviewed.
-- [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting. The branch now adds bounded streaming body reads and rejects valid JSON that is not an object; deploy and runtime checks are pending.
+- [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting. Bounded streaming body reads, JSON shape validation, payload depth/width limits, and a bounded per-isolate rate-limit map are deployed to revision 15; only health has been runtime-checked so far, not the authenticated negative cases.
 - [x] Isolated test schema default updated to `accepted` for legacy membership inserts; verified in the database catalog.
 - [x] Function revision 10 deployed to the isolated project with atomic invitation transitions and accepted-member-only acknowledgement; health endpoint returned expected JSON.
 - [x] Function revision 12 deployed with bounded streaming JSON body reads and non-object JSON rejection; health endpoint returned expected JSON.
 - [x] Function revision 13 deployed with recursive, case-insensitive removal of identity/recipient keys in nested payloads; health endpoint returned expected JSON.
+- [x] Function revision 15 deployed with payload nesting/traversal bounds and bounded per-isolate rate-limit state; health endpoint returned expected JSON.
 - [x] GitHub Actions run #49 passed after the recursive payload-sanitization and authenticated harness changes.
 - [x] Body parser unit tests exercise valid/empty bodies, malformed JSON, non-object JSON, declared-size rejection, and streaming cancellation; GitHub Actions run #38 passed.
 - [x] Authenticated test runner added to create temporary users/sessions in the isolated project, execute the existing harness, and clean up fixtures; requires the isolated project's service-role key locally and has not yet been executed by this session.
