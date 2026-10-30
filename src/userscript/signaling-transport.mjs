@@ -255,6 +255,7 @@ export function createSignalingTransport({
         if (state.cancelled || activePolls.get(roomId) !== state) return;
         const ackIds = [];
         for (const event of events) {
+          if (state.cancelled || activePolls.get(roomId) !== state) return;
           const id = Number(event && event.event_id);
           if (!Number.isSafeInteger(id) || id <= 0 || seen.has(id)) {
             if (Number.isSafeInteger(id) && id > 0) ackIds.push(id);
@@ -262,6 +263,7 @@ export function createSignalingTransport({
           }
           // Mark only after successful handling; failed handlers must be retried.
           await onEvent(event);
+          if (state.cancelled || activePolls.get(roomId) !== state) return;
           seen.add(id);
           ackIds.push(id);
         }
