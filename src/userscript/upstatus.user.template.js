@@ -1935,7 +1935,12 @@ function renderChatText(text){
   function callPublishPresence(){
     if(!upCall.active||!upCall.callId)return;
     var roomId=signalRoomByCallId[upCall.callId];
-    if(signalTransport&&roomId){callSendAll('presence',{initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false});return;}
+    if(signalTransport&&roomId){
+      callSendAll('presence',{initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false});
+      // Public Realtime is retained only as a discovery hint; all call control and media signals use the authenticated room.
+      sendRealtimeEvent('call_signal',{type:'presence',callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false,discoveryOnly:true});
+      return;
+    }
     sendRealtimeEvent('call_signal',{type:'presence',callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false});
   }
   function callStartPresence(){
@@ -2180,6 +2185,14 @@ function renderChatText(text){
     var entry=upCallDirectory[callId];
     if(upCall.active){message('Você já está em uma chamada.',true);return;}
     if(!entry||!entry.participants||entry.participants.indexOf(target)<0){message('A chamada não está mais disponível. Atualize a equipe.',true);return;}
+    if(signalTransport&&signalTransportFlag){
+      signalTransport.requestInvite(callId).then(function(){
+        message('Pedido para entrar enviado a '+target+'. Aguarde a confirmação.',false);
+      }).catch(function(e){
+        message(e.status===409?'Já existe um convite ou pedido pendente para esta chamada.':e.status===404?'A chamada não está mais disponível.':'Não foi possível enviar o pedido de entrada.',true);
+      });
+      return;
+    }
     var sent=sendRealtimeEvent('call_signal',{type:'join_request',callId:callId,from:member,to:target,target:target,participants:entry.participants.slice(),updatedAt:Date.now()});
     if(sent)message('Pedido para entrar enviado a '+target+'. Aguarde a confirmação.',false);
     else message('Não foi possível enviar o pedido de entrada.',true);
@@ -2196,8 +2209,11 @@ function renderChatText(text){
       var requester=String(p.from);
       var accepted=false;
       try{accepted=window.confirm(requester+' quer entrar na sua chamada em grupo.\n\nPermitir a entrada?');}catch(e){}
-      sendRealtimeEvent('call_signal',{type:accepted?'join_approved':'join_declined',callId:p.callId,from:member,to:requester,participants:upCall.participants.slice(),updatedAt:Date.now()});
-      if(accepted)message('Você aceitou o pedido de '+requester+'. Conectando à sala…',false);
+      if(signalTransport&&signalRoomByCallId[p.callId]){
+        if(accepted)callSendTo(requester,'invite',{participants:upCall.participants.slice(),initiator:upCall.initiator||member});
+        else sendRealtimeEvent('call_signal',{type:'join_declined',callId:p.callId,from:member,to:requester,updatedAt:Date.now()});
+      }else sendRealtimeEvent('call_signal',{type:accepted?'join_approved':'join_declined',callId:p.callId,from:member,to:requester,participants:upCall.participants.slice(),updatedAt:Date.now()});
+      if(accepted)message('Você aceitou o pedido de '+requester+'. Enviando convite para entrar…',false);
       return;
     }
     if(p.type==='join_approved'){callJoinActiveCall(p.callId);return;}
