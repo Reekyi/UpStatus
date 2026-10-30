@@ -410,3 +410,10 @@ Last updated: 2026-10-29
 - A guarded temporary runner made authenticated requests against isolated revision 17. Edge logs showed expected HTTP classes across room create/accept, pending-member access, all three envelope sends, invalid outer/inner types, malformed/oversized/deep/wide payloads, polling, acknowledgement, and room close.
 - The web extraction layer timed out and did not return the runner's assertion summary, so I am not counting the whole run as a certified pass. Read-only database counts afterward confirmed zero temporary users/sessions and zero signaling rooms/memberships/events.
 - The temporary runner was redeployed as an inert 404 handler; it no longer performs tests. Production and official TEST were untouched.
+## Logical room binding API and revision 19: 2026-10-30
+
+- Added `upstatus_signal_room_bindings` and applied its migration only to the isolated test project. The table has RLS enabled and direct grants limited to service_role.
+- Added creator-only `/room/bind`, accepted-member-only `/room/resolve`, and accepted-member `/room/invite` routes. Invitation responses now include server-owned binding metadata; closing a room removes its bindings.
+- Extended the authenticated harness for binding idempotency/conflicts, membership resolution, dynamic invitation and duplicate rejection, invitation metadata, and close cleanup. Runtime execution of these new cases still awaits the authenticated CI secret.
+- Deployed isolated function revision 19; health returned the expected response. CI run [41114707783](https://github.com/Reekyi/UpStatus/actions/runs/41114707783) passed static 11/11, body-reader 3/3, envelope validator 3/3, and unauthenticated HTTP 10/10. Validation run [41114707797](https://github.com/Reekyi/UpStatus/actions/runs/41114707797) also succeeded.
+- Client integration remains the major outstanding work; no production or official TEST changes were made.
