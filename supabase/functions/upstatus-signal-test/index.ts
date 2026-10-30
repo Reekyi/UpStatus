@@ -22,6 +22,7 @@ const TTL_MS = 2 * 60 * 1000;
 const ROOM_TTL_MS = 2 * 60 * 60 * 1000;
 const MAX_BODY = 20 * 1024;
 const MAX_EVENTS_PER_MINUTE = 90;
+const MAX_READS_PER_MINUTE = 240;
 const CLEANUP_INTERVAL_MS = 60_000;
 const MAX_EXPIRED_EVENTS_PER_CLEANUP = 500;
 const MAX_EXPIRED_ROOMS_PER_CLEANUP = 100;
@@ -32,12 +33,12 @@ function response(body: unknown, status=200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type":"application/json; charset=utf-8", ...CORS } });
 }
 function hash(t: string) { return createHash("sha256").update(t).digest("hex"); }
-function rateLimit(name: string) {
+function rateLimit(name: string, limit = MAX_EVENTS_PER_MINUTE) {
   const now = Date.now();
   const old = rate.get(name);
   if (old && now - old.start < 60_000) {
     old.count++;
-    return old.count <= MAX_EVENTS_PER_MINUTE;
+    return old.count <= limit;
   }
 
   // Keep the per-isolate map bounded without evicting active counters, which
@@ -148,7 +149,10 @@ Deno.serve(async (req: Request) => {
     if (req.method !== "POST") return response({ error: "Method not allowed" }, 405);
     const sender = await auth(req);
     if (!sender) return response({ error: "Valid UpStatus session required" }, 401);
-    if (!rateLimit(sender)) return response({ error: "Rate limit exceeded" }, 429);
+    const readRoute = ["/poll", "/ack", "/room/status", "/room/members", "/room/invitations"].some(suffix => path.endsWith(suffix));
+    const bucket = sender + (readRoute ? ":read" : ":write");
+    if (!rateLimit(bucket, readRoute ? MAX_READS_PER_MINUTE : MAX_EVENTS_PER_MINUTE))
+      return response({ error: "Rate limit exceeded" }, 429);
     await cleanupExpired();
     const p = await readJsonObject(req) as Record<string, unknown>;
 
