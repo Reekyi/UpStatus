@@ -417,3 +417,9 @@ Last updated: 2026-10-29
 - Extended the authenticated harness for binding idempotency/conflicts, membership resolution, dynamic invitation and duplicate rejection, invitation metadata, and close cleanup. Runtime execution of these new cases still awaits the authenticated CI secret.
 - Deployed isolated function revision 19; health returned the expected response. CI run [41114707783](https://github.com/Reekyi/UpStatus/actions/runs/41114707783) passed static 11/11, body-reader 3/3, envelope validator 3/3, and unauthenticated HTTP 10/10. Validation run [41114707797](https://github.com/Reekyi/UpStatus/actions/runs/41114707797) also succeeded.
 - Client integration remains the major outstanding work; no production or official TEST changes were made.
+## Binding/input hardening and isolated revision 20: 2026-10-30
+
+- Optimized `/room/resolve` to avoid duplicate database lookups and made invalid invitation input return HTTP 400 separately from authorization failures.
+- Expanded the authenticated harness for invalid binding types, unknown mappings, non-member resolution/invitation, self-invitation, duplicate invitation, and binding cleanup after room close.
+- Deployed isolated function revision 20; health remains good. CI run [41114967596](https://github.com/Reekyi/UpStatus/actions/runs/41114967596) passed static 11/11, body-reader 3/3, envelope validator 3/3, unauthenticated HTTP 10/10; validation run [41114967992](https://github.com/Reekyi/UpStatus/actions/runs/41114967992) succeeded.
+- Authenticated CI still skips because the isolated-only service-role secret is not configured. The userscript has not been switched to server-mediated signaling.
