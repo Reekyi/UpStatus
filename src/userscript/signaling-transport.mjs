@@ -173,6 +173,21 @@ export function createSignalingTransport({
     return post("/signal", { roomId, recipient, eventType, payload });
   }
 
+  async function sendToRoom({ roomId, eventType, payload, senderName }) {
+    if (typeof senderName !== "string" || !senderName || senderName.length > 80)
+      throw new TypeError("Invalid sender name");
+    const members = await roomMembers(roomId);
+    const recipients = [...new Set(members.filter(name => name !== senderName))];
+    const results = await Promise.allSettled(recipients.map(recipient =>
+      sendSignal({ roomId, recipient, eventType, payload })
+    ));
+    return {
+      attempted: recipients.length,
+      delivered: results.filter(result => result.status === "fulfilled").length,
+      failed: results.filter(result => result.status === "rejected").length,
+    };
+  }
+
   async function poll(roomId, options = {}) {
     if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
     const result = await post("/poll", { roomId }, options);
@@ -303,7 +318,7 @@ export function createSignalingTransport({
 
   return Object.freeze({
     createRoom, bindRoom, resolveRoom, invite, invitations, roomStatus, roomMembers, waitForAcceptance, accept, decline,
-    sendSignal, poll, ack, close, prepareCallRoom, startPolling, stopPolling, stopAll,
+    sendSignal, sendToRoom, poll, ack, close, prepareCallRoom, startPolling, stopPolling, stopAll,
     get enabled() { return enabled; },
     get activePollCount() { return activePolls.size; },
     get now() { return now(); },
