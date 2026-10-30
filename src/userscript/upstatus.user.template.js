@@ -215,7 +215,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   // Server-mediated signaling is an opt-in migration path. It is inert by default.
   var signalTransportFlag=GM_getValue(key+'signaling_transport_enabled',false)===true;
   var signalTransportEndpoint=String(GM_getValue(key+'signaling_transport_endpoint','')||'').trim();
-  var signalTransport=null,signalInvitationTimer=null;
+  var signalTransport=null,signalInvitationTimer=null,signalInvitationPollBusy=false;
   var signalRoomByCallId=Object.create(null),signalCallIdByRoom=Object.create(null);
   var signalPollStops=Object.create(null),signalCreatorCallIds=Object.create(null);
   function signalTransportRequest(route,payload,options){
@@ -1799,7 +1799,8 @@ function renderChatText(text){
     var stop=signalPollStops[roomId];if(stop){try{stop();}catch(e){}delete signalPollStops[roomId];}
   }
   async function signalPollInvitations(){
-    if(!signalTransport||!signalTransportFlag)return;
+    if(!signalTransport||!signalTransportFlag||signalInvitationPollBusy)return;
+    signalInvitationPollBusy=true;
     try{
       var invitations=await signalTransport.invitations();
       for(var i=0;i<invitations.length;i++){
@@ -1813,7 +1814,7 @@ function renderChatText(text){
         }
         await receiveCallSignal({type:'invite',callId:callId,from:invitation.invitedBy,initiator:invitation.invitedBy,participants:[invitation.invitedBy,member],to:member});
       }
-    }catch(e){}
+    }catch(e){}finally{signalInvitationPollBusy=false;}
   }
   function signalStartInvitationPolling(){
     if(!signalTransport||signalInvitationTimer)return;
