@@ -50,6 +50,11 @@ assert.ok(functionSource.includes('from("upstatus_signal_room_bindings").delete(
   "closing a room must remove its logical bindings");
 assert.ok(authenticatedHarness.includes("closed room binding is removed and cannot be resolved"),
   "authenticated harness must cover binding cleanup on room close");
+assert.ok(functionSource.includes('path.endsWith("/broadcast")') &&
+  functionSource.includes("filter(name => name !== sender)") &&
+  authenticatedHarness.includes("server broadcast fans out only to accepted members") &&
+  authenticatedHarness.includes("broadcast payload identity claims are stripped"),
+  "broadcast delivery must be server-derived, accepted-member-only, and identity-sanitized");
 assert.ok(functionSource.includes('path.endsWith("/room/members")') &&
   functionSource.includes('eq("status", "accepted")') &&
   authenticatedHarness.includes("accepted member can list accepted room participants") &&
