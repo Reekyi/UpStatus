@@ -90,10 +90,29 @@ async function isMember(roomId: string, name: string) {
     .eq("room_id", roomId).eq("user_name", name).eq("status", "accepted").maybeSingle();
   return !error && !!data;
 }
+const IDENTITY_PAYLOAD_KEYS = new Set([
+  "from","sender","user","user_name","to","target","roomid","room_id","participants",
+  "member","identity","created_by","recipient","sender_id","userid","user_id",
+]);
+
 function cleanPayload(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const p = { ...(value as Record<string, unknown>) };
-  for (const k of ["from","sender","user","user_name","to","target","roomId","room_id","participants","member","identity","created_by","recipient","sender_id","userId","user_id"]) delete p[k];
+  // Remove identity/recipient claims at every nesting level, including case variants.
+  // Payloads are JSON-decoded, so an iterative walk avoids recursion-depth failures.
+  const stack: unknown[] = [p];
+  while (stack.length) {
+    const current = stack.pop();
+    if (!current || typeof current !== "object") continue;
+    if (Array.isArray(current)) {
+      stack.push(...current);
+      continue;
+    }
+    for (const [key, child] of Object.entries(current)) {
+      if (IDENTITY_PAYLOAD_KEYS.has(key.toLowerCase())) delete (current as Record<string, unknown>)[key];
+      else if (child && typeof child === "object") stack.push(child);
+    }
+  }
   if (JSON.stringify(p).length > 12 * 1024) return null;
   return p;
 }
