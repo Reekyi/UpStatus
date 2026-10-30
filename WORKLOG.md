@@ -288,3 +288,14 @@ Last updated: 2026-10-29
 - Deployed the updated function as revision 6 only to the isolated Supabase project `bfpjtfqlnypisxljoxkb`. No production or official TEST function was changed.
 - Added documentation for the acknowledgement behavior and a confirmed design gap: room creation currently makes requested known users members immediately, without an invite-acceptance step. Before production use, introduce pending invitations and require acceptance before signaling.
 - The authenticated harness remains unexecuted because valid, distinct test-user sessions are not available in this session. The code change is not yet runtime-verified by that harness. No PR was merged and no production migration or deployment occurred.
+
+## Room invitation consent and discovery: 2026-10-30
+
+- Added a membership status column to the isolated signaling prototype (`pending`, `accepted`, `declined`) and applied the schema change only to test project `bfpjtfqlnypisxljoxkb`. No production database was touched.
+- Updated room creation so the creator is accepted immediately and invited users remain pending. Pending users cannot signal or poll until they accept their invitation.
+- Added authenticated `POST /room/invitations`, `POST /room/accept`, and `POST /room/decline` routes. The invitation listing returns only the caller's own active, unexpired invitations.
+- Deployed function revision 8 to the isolated test project. The health endpoint still returns the expected success JSON.
+- Expanded authenticated integration harness checks for invitation discovery, privacy from uninvited users, pre-accept polling denial, explicit acceptance, and acknowledgement count correctness. These tests remain unexecuted because valid test-session tokens are not available.
+- Expanded unauthenticated smoke tests to require authentication for invitation listing/acceptance/decline. Earlier CI run #16 passed after acceptance/decline routes were added; the latest invitation-listing smoke run is still pending at last inspection.
+- Updated the migration to preserve existing room memberships as accepted when upgrading, while new invitations are explicitly inserted as pending by the function.
+- No production or official TEST function was changed. No PR was merged.
