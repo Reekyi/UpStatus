@@ -139,5 +139,7 @@ console.log("PASS payload nesting and traversal bounds");
 console.log("PASS bounded per-isolate rate-limit state");
 console.log("PASS legacy call/voice/screen envelope types are explicitly allowlisted");
 console.log("PASS authenticated negative cases cover JSON/body/payload limits");
+console.log("PASS legacy envelope validator and client-change CI trigger");
+console.log("PASS logical room binding and dynamic invitation contracts");
 console.log("11/11 signaling static regression groups passed.");
 
