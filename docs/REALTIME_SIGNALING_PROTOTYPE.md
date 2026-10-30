@@ -5,7 +5,7 @@ Status: isolated prototype only. Not integrated with either userscript. Not appr
 ## Environment
 
 - Supabase project: `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`)
-- Function: `upstatus-signal-test`, isolated deployment revision 15 (bounded streaming JSON body reader, recursive identity sanitization, and nesting/traversal limits included).
+- Function: `upstatus-signal-test`, isolated deployment revision 16 (bounded streaming JSON body reader, recursive identity sanitization, and nesting/traversal limits included).
 - Endpoint health check: `GET /functions/v1/upstatus-signal-test/health` returned `{"ok":true,"service":"upstatus-signal-test"}`.
 - No production user/session rows or production data were copied into this test project.
 - The project is on the free tier; usage limits still apply.
@@ -62,11 +62,11 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 
 - [x] Test project created separately from production.
 - [x] Tables created; RLS and direct grants verified by SQL catalog query.
-- [x] Function deployed to the isolated project, currently revision 15.
+- [x] Function deployed to the isolated project, currently revision 16.
 - [x] Health endpoint returned HTTP success and expected JSON.
 - [x] Polling is non-destructive; acknowledgement is scoped to the room and recipient.
 - [x] Payload size guard, stale in-memory rate-map cleanup, and bounded opportunistic expiry cleanup added.
-- [x] Bounded streaming body reads reject non-object JSON bodies and stop on oversized streams; deployed to isolated revision 15 and health endpoint verified.
+- [x] Bounded streaming body reads reject non-object JSON bodies and stop on oversized streams; deployed to isolated revision 16 and health endpoint verified.
 - [x] Payload sanitizer rejects nesting deeper than 64 and traversal wider than 4,096 child elements; serialization failures are rejected safely. The in-memory rate-limit map is capped at 2,000 active buckets without evicting active counters. Static regression assertions were added; latest CI status is pending.
 - [x] Unauthenticated smoke workflow previously passed 7/7 checks against the isolated test endpoint.
 - [x] Explicit invite listing, acceptance and decline routes and pending-membership gating implemented in the isolated prototype.
@@ -74,12 +74,12 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 - [x] Static regression tests cover migration idempotency/default compatibility, atomic invitation transitions, accepted-member authorization, and test-project mutation guards.
 - [x] Unauthenticated smoke workflow passed through run #30, including static regression checks and syntax checks for both integration harnesses.
 - [ ] Authenticated integration harness has not been run: three valid test sessions and distinct test users are not available to this session. Do not count its scenarios as passed until it runs and its output is reviewed.
-- [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting. The authenticated harness now includes malformed JSON, oversized-body, deep-payload and wide-payload cases, but these HTTP cases remain unexecuted. Bounded streaming body reads, JSON shape validation, payload depth/width limits, and a bounded per-isolate rate-limit map are deployed to revision 15; only health has been runtime-checked against the deployed endpoint.
+- [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting. The authenticated harness now includes malformed JSON, oversized-body, deep-payload and wide-payload cases, but these HTTP cases remain unexecuted. Bounded streaming body reads, JSON shape validation, payload depth/width limits, and a bounded per-isolate rate-limit map are deployed to revision 16; only health has been runtime-checked against the deployed endpoint.
 - [x] Isolated test schema default updated to `accepted` for legacy membership inserts; verified in the database catalog.
 - [x] Earlier isolated revision deployed with atomic invitation transitions and accepted-member-only acknowledgement; the current isolated deployment is revision 15.
 - [x] Function revision 12 deployed with bounded streaming JSON body reads and non-object JSON rejection; health endpoint returned expected JSON.
 - [x] Function revision 13 deployed with recursive, case-insensitive removal of identity/recipient keys in nested payloads; health endpoint returned expected JSON.
-- [x] Function revision 15 deployed with payload nesting/traversal bounds and bounded per-isolate rate-limit state; health endpoint returned expected JSON.
+- [x] Function revision 16 deployed with payload nesting/traversal bounds and bounded per-isolate rate-limit state; health endpoint returned expected JSON.
 - [x] GitHub Actions run #49 passed after the recursive payload-sanitization and authenticated harness changes.
 - [x] Body parser unit tests exercise valid/empty bodies, malformed JSON, non-object JSON, declared-size rejection, and streaming cancellation; GitHub Actions run #38 passed.
 - [x] Authenticated test runner added to create temporary users/sessions in the isolated project, execute the existing harness, and clean up fixtures; requires the isolated project's service-role key locally and has not yet been executed by this session.
