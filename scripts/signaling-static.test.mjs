@@ -16,6 +16,9 @@ const invitationMigration = readFileSync(
 const legacyDefaultMigration = readFileSync(
   "supabase/migrations/20261030150000_signal_membership_legacy_default.sql", "utf8",
 );
+const envelopeMigration = readFileSync(
+  "supabase/migrations/20261030190000_allow_legacy_signaling_envelopes.sql", "utf8",
+);
 const authenticatedHarness = readFileSync("scripts/test-signaling-authenticated.mjs", "utf8");
 const authenticatedRunner = readFileSync("scripts/run-signaling-authenticated.mjs", "utf8");
 const signalingWorkflow = readFileSync(".github/workflows/signaling-smoke.yml", "utf8");
@@ -27,6 +30,8 @@ assert.doesNotMatch(invitationMigration,
   "migration must not silently accept pending invitations when re-run");
 assert.match(legacyDefaultMigration, /ALTER COLUMN status SET DEFAULT 'accepted'/,
   "follow-up migration must align the isolated schema with the compatibility default");
+assert.match(envelopeMigration, /'call_signal','voice_room_signal','screen_signal'/,
+  "database event-type constraint must permit the three legacy transport envelopes");
 
 assert.match(functionSource,
   /\.update\(\{ status \}\)[\s\S]{0,220}\.eq\("status", "pending"\)[\s\S]{0,100}\.select\("status"\)\.maybeSingle\(\)/,
