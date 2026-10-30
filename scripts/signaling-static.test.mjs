@@ -43,6 +43,14 @@ assert.match(authenticatedHarness, /parsed\.hostname !== "bfpjtfqlnypisxljoxkb\.
   "authenticated integration tests must refuse non-isolated projects");
 assert.match(authenticatedHarness, /invitee can explicitly decline their invitation/,
   "authenticated harness must cover invitation decline");
+assert.match(authenticatedHarness, /authenticated malformed JSON is rejected as a client error/,
+  "authenticated harness must exercise malformed JSON rejection");
+assert.match(authenticatedHarness, /authenticated oversized body is rejected before processing/,
+  "authenticated harness must exercise request-size enforcement");
+assert.match(authenticatedHarness, /excessively nested signaling payload is rejected/,
+  "authenticated harness must exercise payload nesting limits");
+assert.match(authenticatedHarness, /excessively wide signaling payload is rejected/,
+  "authenticated harness must exercise payload traversal limits");
 assert.match(authenticatedHarness, /declined invitee cannot poll the room/,
   "authenticated harness must cover declined-member access denial");
 
@@ -73,5 +81,6 @@ console.log("PASS bounded streaming body reads and JSON body shape validation");
 console.log("PASS recursive case-insensitive identity payload sanitization");
 console.log("PASS payload nesting and traversal bounds");
 console.log("PASS bounded per-isolate rate-limit state");
-console.log("7/7 signaling static regression groups passed.");
+console.log("PASS authenticated negative cases cover JSON/body/payload limits");
+console.log("8/8 signaling static regression groups passed.");
 
