@@ -179,9 +179,10 @@ async function signalPrepareVoiceRoom(){
     try{
       await signalTransport.bindRoom({roomId:roomId,bindingType:'voice',logicalId:voiceRoom.id});
       await signalTransport.bindRoom({roomId:roomId,bindingType:'screen',logicalId:voiceRoom.id});
-      if(voiceRoom.id==='upstatus-team-room-v1'){
-        await signalTransport.bindRoom({roomId:roomId,bindingType:'voice',logicalId:'upstatus-team-lite-room-v1'});
-        await signalTransport.bindRoom({roomId:roomId,bindingType:'screen',logicalId:'upstatus-team-lite-room-v1'});
+      var aliasRoomId=voiceRoom.id==='upstatus-team-room-v1'?'upstatus-team-lite-room-v1':'upstatus-team-room-v1';
+      if(aliasRoomId!==voiceRoom.id){
+        await signalTransport.bindRoom({roomId:roomId,bindingType:'voice',logicalId:aliasRoomId});
+        await signalTransport.bindRoom({roomId:roomId,bindingType:'screen',logicalId:aliasRoomId});
       }
     }catch(e){
       try{await signalTransport.close(roomId);}catch(_){}
