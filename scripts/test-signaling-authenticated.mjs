@@ -183,6 +183,18 @@ try {
       check("temporary conflict room can be closed", false, "second room creation failed");
     }
 
+    const broadcast = await request(users.A, "/broadcast", {
+      roomId, eventType: "call_signal", payload: { type: "presence", from: users.C.name, participants: [users.C.name] },
+    });
+    check("server broadcast fans out only to accepted members", broadcast.status === 202 && broadcast.json?.delivered === 1,
+      "HTTP " + broadcast.status + ", delivered=" + broadcast.json?.delivered);
+    const broadcastPoll = await request(users.B, "/poll", { roomId });
+    const presenceEvent = (broadcastPoll.json?.events || []).find(e => e.event_type === "call_signal" && e.payload?.type === "presence");
+    check("broadcast payload identity claims are stripped", broadcastPoll.status === 200 && !!presenceEvent &&
+      presenceEvent.sender === users.A.name && !("from" in presenceEvent.payload) && !("participants" in presenceEvent.payload),
+      "HTTP " + broadcastPoll.status);
+    if (presenceEvent) await request(users.B, "/ack", { roomId, eventIds: [presenceEvent.event_id] });
+
     const sent = await request(users.A, "/signal", {
       roomId, recipient: users.B.name, eventType: "offer",
       payload: { sdp: "synthetic-test-offer", from: "spoofed-name", sender: "spoofed-name",
