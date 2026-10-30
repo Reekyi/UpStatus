@@ -458,3 +458,12 @@ Last updated: 2026-10-29
 - Expanded tests for successful pending-to-accepted setup, decline cleanup, abort during invitation wait, and stale poll responses after cancellation.
 - Signaling CI run [41117936053](https://github.com/Reekyi/UpStatus/actions/runs/41117936053) passed: adapter 10 assertions, polling 3, invitation gate 3, cancellation 1, call setup gate 4, invitation abort 1, static 11/11, body reader 3/3, envelope 3/3, and unauthenticated HTTP 11/11. Validation run [41117936020](https://github.com/Reekyi/UpStatus/actions/runs/41117936020) passed.
 - Authenticated HTTP/WebRTC E2E remains unverified because the isolated CI secret is not configured. The client adapter is bundled but not connected to live call, voice-room, or screen-share flows. Production and official TEST remain untouched; PR #74 remains draft and unmerged.
+
+
+### Accepted-member roster and recipient fanout (2026-10-30)
+
+- Added authenticated `POST /room/members`. Only accepted room members can retrieve the accepted-member roster; pending invitees and non-members receive 404. This provides a server-derived recipient list for migrating legacy broadcast-style presence to per-recipient delivery.
+- Added `roomMembers` and `sendToRoom` to the bundled, default-off transport adapter. Fanout attempts each accepted recipient independently and reports delivered/failed counts.
+- Expanded the authenticated integration harness for pending/accepted roster access and added unit coverage for fanout behavior.
+- CI run [41118513244](https://github.com/Reekyi/UpStatus/actions/runs/41118513244) passed adapter (13 assertions), polling (3), invitation gate (3), cancellation (1), call setup gate (4), invitation abort (1), recipient fanout (2), static (11/11), body reader (3/3), envelope validator (3/3), and unauthenticated HTTP (12/12). Validation run [41118513236](https://github.com/Reekyi/UpStatus/actions/runs/41118513236) passed.
+- Deployed isolated signaling function revision 22 and verified its health endpoint. Production and official TEST remain untouched. Authenticated CI still skips due to the missing isolated secret, and no live client path has been switched.
