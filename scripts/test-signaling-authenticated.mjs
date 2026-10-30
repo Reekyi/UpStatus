@@ -273,6 +273,9 @@ try {
     const pollClosed = await request(users.B, "/poll", { roomId });
     check("closed room no longer delivers events", pollClosed.status === 404,
       `HTTP ${pollClosed.status}`);
+    const resolveClosed = await request(users.B, "/room/resolve", { bindingType: "call", logicalId: "call-" + roomId });
+    check("closed room binding is removed and cannot be resolved", resolveClosed.status === 404,
+      `HTTP ${resolveClosed.status}`);
 
     const repeatedAccept = await request(users.B, "/room/accept", { roomId });
     check("already accepted invitation cannot be accepted a second time",
