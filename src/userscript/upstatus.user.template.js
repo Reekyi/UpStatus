@@ -1888,6 +1888,14 @@ function renderChatText(text){
   }
   function callSend(type,extra){return callSendTo(upCall.peer,type,extra);}
   function callSendAll(type,extra){
+    var signalRoomId=signalRoomByCallId[upCall.callId];
+    if(signalTransport&&signalRoomId){
+      signalTransport.sendToRoom({
+        roomId:signalRoomId,eventType:'call_signal',senderName:member,
+        payload:Object.assign({type:type,callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now()},extra||{})
+      }).catch(function(e){if(upCall.active){upCall.notice='Falha ao enviar sinal para a sala: '+(e.message||e);callRenderConnected();}});
+      return true;
+    }
     var sent=false;
     upCall.participants.forEach(function(name){if(name&&name!==member)sent=callSendTo(name,type,extra)||sent;});
     return sent;
