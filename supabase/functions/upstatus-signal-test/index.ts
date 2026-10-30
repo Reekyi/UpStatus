@@ -285,6 +285,41 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    if (path.endsWith("/room/request-invite")) {
+      const bindingType = String(p.bindingType || "");
+      const logicalId = String(p.logicalId || "");
+      if (bindingType !== "call" || !/^[A-Za-z0-9._:-]{1,128}$/.test(logicalId))
+        return response({ error: "Invalid call reference" }, 400);
+      const { data: binding, error: bindingError } = await db.from("upstatus_signal_room_bindings")
+        .select("room_id").eq("binding_type", bindingType).eq("logical_id", logicalId).maybeSingle();
+      if (bindingError) throw bindingError;
+      if (!binding) return response({ error: "Call unavailable" }, 404);
+      const activeRoom = await room(binding.room_id);
+      if (!activeRoom) return response({ error: "Call unavailable" }, 404);
+      if (await isMember(binding.room_id, sender))
+        return response({ error: "Already a room member" }, 409);
+      const { data: membership, error: membershipError } = await db.from("upstatus_signal_room_members")
+        .select("status").eq("room_id", binding.room_id).eq("user_name", sender).maybeSingle();
+      if (membershipError) throw membershipError;
+      if (membership?.status === "pending")
+        return response({ error: "Invitation already pending" }, 409);
+      const { data: duplicate, error: duplicateError } = await db.from("upstatus_signal_events")
+        .select("event_id").eq("room_id", binding.room_id).eq("sender", sender)
+        .eq("recipient", activeRoom.created_by).eq("event_type", "call_signal")
+        .contains("payload", { type: "join_request", callId: logicalId })
+        .gt("expires_at", new Date().toISOString()).limit(1);
+      if (duplicateError) throw duplicateError;
+      if (duplicate?.length) return response({ error: "Join request already pending" }, 409);
+      const payload = cleanPayload({ type: "join_request", callId: logicalId });
+      const expiresAt = new Date(Math.min(Date.now() + TTL_MS, Date.parse(activeRoom.expires_at))).toISOString();
+      const { error } = await db.from("upstatus_signal_events").insert({
+        room_id: binding.room_id, sender, recipient: activeRoom.created_by,
+        event_type: "call_signal", payload, expires_at: expiresAt
+      });
+      if (error) throw error;
+      return response({ ok: true, status: "pending" }, 202);
+    }
+
     if (path.endsWith("/room/invitations")) {
       const { data: invitations, error } = await db.from("upstatus_signal_room_members")
         .select("room_id,joined_at").eq("user_name", sender).eq("status", "pending")
