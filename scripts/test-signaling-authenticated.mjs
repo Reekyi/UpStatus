@@ -142,6 +142,14 @@ try {
       acceptedStatus.json?.participants?.some(p => p.name === users.B.name && p.status === "accepted"),
       "HTTP " + acceptedStatus.status);
 
+    const acceptedMembers = await request(users.B, "/room/members", { roomId });
+    check("accepted member can list accepted room participants", acceptedMembers.status === 200 &&
+      acceptedMembers.json?.members?.includes(users.A.name) && acceptedMembers.json?.members?.includes(users.B.name),
+      "HTTP " + acceptedMembers.status);
+    const pendingMembers = await request(users.C, "/room/members", { roomId });
+    check("non-member cannot list accepted room participants", pendingMembers.status === 404,
+      "HTTP " + pendingMembers.status);
+
     const logicalCallId = "call-" + roomId;
     const bound = await request(users.A, "/room/bind", { roomId, bindingType: "call", logicalId: logicalCallId });
     check("room creator can bind a logical call ID", bound.status === 201 && bound.json?.roomId === roomId,
