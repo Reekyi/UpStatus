@@ -15,7 +15,7 @@ Status: isolated prototype only. Not integrated with either userscript. Not appr
 1. Every POST requires the UpStatus custom session in `x-upstatus-token`.
 2. The function hashes the presented token and looks it up in `upstatus_sessions`; it checks expiration and confirms the user still exists.
 3. `POST /room/create` creates a server-generated room ID. The creator is an accepted member; other requested users are invitations with `pending` status.
-4. `POST /room/accept` lets only the authenticated invitee accept their own pending invitation. `POST /room/decline` lets them decline it. Uninvited users cannot accept. Pending/declined users cannot signal or poll.
+4. `POST /room/invitations` lists the caller's own pending invitations, without exposing rooms they were not invited to. `POST /room/accept` lets only the authenticated invitee accept their own pending invitation. `POST /room/decline` lets them decline it. Uninvited users cannot accept. Pending/declined users cannot signal or poll.
 5. `POST /signal` derives the sender from the validated session. Client-supplied sender/target/room identity fields are stripped from event payloads. Sender and recipient must both be accepted members of the active room.
 6. Events are recipient-scoped, expire within two minutes, and are bounded by request/payload size and an in-memory per-user rate limit.
 7. `POST /poll` returns only unexpired events addressed to the authenticated user for an active room; polling does not delete events.
@@ -26,6 +26,7 @@ Status: isolated prototype only. Not integrated with either userscript. Not appr
 
 - `GET /health`: deployment health only; does not require a session.
 - `POST /room/create`: body `{"participants":["member name"]}`; caller is added automatically and invitees start as pending.
+- `POST /room/invitations`: body `{}`; returns up to 50 active, unexpired invitations addressed to the authenticated caller.
 - `POST /room/accept`: body `{"roomId":"..." }`; authenticated invitee accepts their own invitation.
 - `POST /room/decline`: body `{"roomId":"..." }`; authenticated invitee declines their own invitation.
 - `POST /signal`: body `{"roomId":"...","recipient":"...","eventType":"offer","payload":{...}}`.
@@ -47,14 +48,14 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 
 - [x] Test project created separately from production.
 - [x] Tables created; RLS and direct grants verified by SQL catalog query.
-- [x] Function deployed to the isolated project, currently revision 7.
+- [x] Function deployed to the isolated project, currently revision 8.
 - [x] Health endpoint returned HTTP success and expected JSON.
 - [x] Polling is non-destructive; acknowledgement is scoped to the room and recipient.
 - [x] Payload size guard and stale in-memory rate-map cleanup added.
 - [x] Unauthenticated smoke workflow previously passed 7/7 checks against the isolated test endpoint.
-- [x] Explicit invite acceptance/decline routes and pending-membership gating implemented in the isolated prototype.
-- [x] Authenticated integration harness expanded to test invite consent and accurate acknowledgement counts.
-- [ ] New smoke workflow run after the latest changes must finish successfully before counting the new unauthenticated checks as validated.
+- [x] Explicit invite listing, acceptance and decline routes and pending-membership gating implemented in the isolated prototype.
+- [x] Authenticated integration harness expanded to test invitation discovery/privacy, invite consent and accurate acknowledgement counts.
+- [ ] Latest smoke workflow run must finish successfully before counting invitation-discovery auth checks as validated.
 - [ ] Authenticated integration harness has not been run: three valid test sessions and distinct test users are not available to this session. Do not count its scenarios as passed until it runs and its output is reviewed.
 - [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting.
 - [ ] Multi-client WebRTC tests for offer/answer/ICE, calls, voice rooms and screen sharing.
