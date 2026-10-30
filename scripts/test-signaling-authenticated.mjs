@@ -191,6 +191,13 @@ try {
       check(`legacy ${eventType} envelope is accepted by the isolated transport`,
         envelopeSent.status === 202 && envelopeSent.json?.ok === true, `HTTP ${envelopeSent.status}`);
     }
+    const invalidLegacySubtype = await request(users.A, "/signal", {
+      roomId, recipient: users.B.name, eventType: "call_signal",
+      payload: { type: "arbitrary_admin_action", value: "must-not-be-queued" },
+    });
+    check("legacy envelope rejects an unsupported inner event type",
+      invalidLegacySubtype.status === 400, `HTTP ${invalidLegacySubtype.status}`);
+
     const legacyDelivery = await request(users.B, "/poll", { roomId });
     const legacyEvents = Array.isArray(legacyDelivery.json?.events) ? legacyDelivery.json.events : [];
     for (const eventType of legacyEnvelopeTypes) {
