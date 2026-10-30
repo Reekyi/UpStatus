@@ -237,9 +237,15 @@ try {
     check("invitation lists include server-owned logical binding metadata",
       invitationsC.status === 200 && invitationC?.bindings?.some(b =>
         b.bindingType === "call" && b.logicalId === logicalCallId), `HTTP ${invitationsC.status}`);
+    const pendingMemberList = await request(users.C, "/room/members", { roomId });
+    check("pending invitee cannot list accepted room participants", pendingMemberList.status === 404,
+      "HTTP " + pendingMemberList.status);
     const acceptC = await request(users.C, "/room/accept", { roomId });
     check("dynamically invited user can accept", acceptC.status === 200 &&
       acceptC.json?.status === "accepted", `HTTP ${acceptC.status}`);
+    const cMembers = await request(users.C, "/room/members", { roomId });
+    check("newly accepted member sees accepted roster", cMembers.status === 200 &&
+      cMembers.json?.members?.includes(users.C.name), "HTTP " + cMembers.status);
     const resolveC = await request(users.C, "/room/resolve", { bindingType: "call", logicalId: logicalCallId });
     check("newly accepted user can resolve the logical room", resolveC.status === 200 &&
       resolveC.json?.roomId === roomId, `HTTP ${resolveC.status}`);
