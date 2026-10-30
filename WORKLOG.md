@@ -280,3 +280,11 @@ Last updated: 2026-10-29
 - Confirmed the Team Lite candidate source is `team-lite/upstatus-team-lite.user.js`, which uses the same canonical refresh approach with authenticated-session generation guards. `scripts/team-lite-candidate-check.mjs` has explicit regression assertions for these handlers. The separate root `UpStatus.user.js` is not the Team Lite candidate artifact.
 - The apparent mismatch is explained by the intentionally preserved stable/root artifact versus the candidate source. This audit did not change code or any served artifact. Normal candidate validation passed on source/test commit `3dba283131be0f4b59279603edf088e30ba5d7c5` (run 40944759137); Team Lite candidate checks passed on `8ad76f4e8e195b7397f5b176dbb277f850f6ebf7` (run 40942731055).
 - No deployment, migration, secret/configuration change, official branch modification, or merge occurred. Public Realtime sender authentication, cross-instance session revocation, and live browser/runtime testing remain open release blockers.
+
+## Signaling acknowledgement correctness: 2026-10-30
+
+- Corrected `POST /ack` in the isolated `upstatus-signal-test` function so the response count comes from rows actually deleted by the database, rather than the submitted ID count. The delete is still scoped to the requested room and authenticated recipient.
+- Extended the opt-in authenticated integration harness to send one valid event ID plus a safe nonexistent ID and assert that only one event is acknowledged. Expanded payload-sanitization assertions to cover `created_by`, `recipient`, `sender_id`, `userId`, and `user_id`.
+- Deployed the updated function as revision 6 only to the isolated Supabase project `bfpjtfqlnypisxljoxkb`. No production or official TEST function was changed.
+- Added documentation for the acknowledgement behavior and a confirmed design gap: room creation currently makes requested known users members immediately, without an invite-acceptance step. Before production use, introduce pending invitations and require acceptance before signaling.
+- The authenticated harness remains unexecuted because valid, distinct test-user sessions are not available in this session. The code change is not yet runtime-verified by that harness. No PR was merged and no production migration or deployment occurred.
