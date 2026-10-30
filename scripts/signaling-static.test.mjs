@@ -65,6 +65,9 @@ assert.ok(functionSource.includes('message === "INVALID_JSON" || message === "IN
 
 assert.ok(functionSource.includes("IDENTITY_PAYLOAD_KEYS.has(key.toLowerCase())"),
   "identity/recipient payload keys must be stripped recursively and case-insensitively");
+assert.match(functionSource, /"call_signal","voice_room_signal","screen_signal"/,
+  "isolated endpoint must allow normalized envelopes for the legacy call, voice and screen channels");
+
 assert.match(functionSource, /entry\.depth > 64/,
   "payload sanitizer must reject excessive nesting before serialization");
 assert.match(functionSource, /visitedNodes > 4096/,
