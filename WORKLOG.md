@@ -306,3 +306,12 @@ Last updated: 2026-10-29
 - Cleanup is bounded and never intentionally blocks signaling when a cleanup query fails. It is opportunistic, not a global scheduler; expired rows may remain while the function receives no authenticated traffic.
 - Deployed function revision 9 only to the isolated test project. Production and the official TEST function remain unchanged.
 - Runtime retention behavior has not yet been validated with authenticated requests or expiry-wait tests.
+
+
+## Signaling authorization and migration idempotency audit: 2026-10-30
+
+- Read the deployed isolated function source against the development branch and found two hardening opportunities: invitation accept/decline previously could return success even if a concurrent state transition had already won, and acknowledgement membership checks did not explicitly require accepted status.
+- Updated invitation transitions to use a conditional database update with a returned row; a stale/concurrent transition now returns HTTP 409 rather than falsely reporting success. Acknowledgement now requires accepted membership.
+- Corrected the not-yet-production invitation migration to use an `accepted` default for legacy membership inserts and removed the broad backfill that would turn every `pending` invitation into `accepted` if the migration were manually re-run. New invitees are explicitly inserted as `pending` by the Edge Function.
+- Expanded the opt-in authenticated harness to cover repeat acceptance, explicit decline, and ensuring a declined invitee cannot poll or later accept.
+- Changes are on `chore/continuity-foundation` only. The test project schema/function still needs the follow-up default adjustment and redeployment before runtime verification. Authenticated E2E remains blocked until three distinct test-user sessions are available. Production, PR merge, and official TEST deployment remain untouched.
