@@ -431,3 +431,12 @@ Last updated: 2026-10-29
 - Audited the current userscript paths: `startOutgoingCall` sends an initial SDP offer immediately; group invitations, call signaling, voice-room signaling, and screen-share signaling all still use the public Realtime broadcast channel.
 - Confirmed that a global replacement of `sendRealtimeEvent` would be unsafe: the authenticated signaling service requires accepted room membership, while the current client protocol sends offers before recipient acceptance. Voice and screen share also need separate logical binding types and independent cleanup.
 - No transport was switched in this checkpoint. This is deliberate: the new path remains disabled until the authenticated invite/accept/offer sequence can be exercised end-to-end against test identities.
+
+
+### Authenticated signaling client adapter prototype (2026-10-30)
+
+- Added `src/userscript/signaling-transport.mjs`, a transport adapter that maps to the isolated API's room creation, binding, resolution, invite, accept/decline, signal, poll/ack, and close routes.
+- The adapter is deliberately disabled by default and is not wired into live call/voice/screen-share paths. It includes input validation, bounded event deduplication, acknowledgment after successful handling, abortable polling, and bounded retry backoff.
+- Added `scripts/signaling-transport.test.mjs` and wired it into the signaling smoke workflow. CI run [41116543497](https://github.com/Reekyi/UpStatus/actions/runs/41116543497) passed: adapter tests (9 assertions), polling tests (3 assertions), static regression 11/11, body reader 3/3, envelope validator 3/3, unauthenticated HTTP 10/10. Validation run [41116543629](https://github.com/Reekyi/UpStatus/actions/runs/41116543629) passed.
+- The authenticated E2E step still skips because `UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY` is not configured. The adapter is a tested building block, not proof of full browser/WebRTC integration. Do not enable it or wire it into production paths until the authenticated room invitation and media state machine is validated with isolated test identities.
+- No production or official TEST deployment, merge, or release was performed.
