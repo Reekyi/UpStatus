@@ -43,6 +43,8 @@ if(rootArtifactBefore!==prodUser&&(!rootArtifactVersion||compareVersions(baseVer
   assert(fs.readFileSync(rootArtifactPath,"utf8")===rootArtifactBefore,"rejected root artifact sync must leave the tracked artifact unchanged");
 }
 assert(prodUser.includes("function createSignalingTransport"),"production build must include the default-off signaling adapter");
+assert(prodUser.includes("signaling_transport_enabled',false)===true"),"production userscript must keep the transport disabled by default");
+assert(testUser.includes("signaling_transport_enabled',false)===true"),"TEST userscript must keep the transport disabled by default");
 assert(testUser.includes("function createSignalingTransport"),"TEST build must include the default-off signaling adapter");
 assert(headerValue(prodUser,"version")===baseVersion,"production userscript version mismatch");
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
