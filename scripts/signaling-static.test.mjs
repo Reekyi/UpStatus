@@ -61,6 +61,8 @@ assert.match(functionSource, /entry\.depth > 64/,
   "payload sanitizer must reject excessive nesting before serialization");
 assert.match(functionSource, /visitedNodes > 4096/,
   "payload sanitizer must bound traversal work for very wide JSON");
+assert.match(functionSource, /if \(!old && rate\.size >= 2000\)[\s\S]*if \(rate\.size >= 2000\) return false/,
+  "rate-limit buckets must remain bounded without evicting active counters");
 assert.match(functionSource, /try \{[\s\S]*JSON\.stringify\(p\)\.length[\s\S]*catch \{\s*return null;/,
   "payload serialization failures must be rejected as invalid payloads");
 
@@ -70,5 +72,6 @@ console.log("PASS authenticated harness is mutation-gated and test-project scope
 console.log("PASS bounded streaming body reads and JSON body shape validation");
 console.log("PASS recursive case-insensitive identity payload sanitization");
 console.log("PASS payload nesting and traversal bounds");
-console.log("6/6 signaling static regression groups passed.");
+console.log("PASS bounded per-isolate rate-limit state");
+console.log("7/7 signaling static regression groups passed.");
 
