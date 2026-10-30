@@ -1,11 +1,20 @@
--- Invitation consent for isolated server-mediated signaling rooms.
--- New room creators are accepted immediately; invited participants must explicitly accept.
+-- Invitation consent for server-mediated signaling rooms.
+-- New room creators are accepted immediately; invitees must explicitly accept.
 ALTER TABLE public.upstatus_signal_room_members
   ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'pending';
 
-ALTER TABLE public.upstatus_signal_room_members
-  ADD CONSTRAINT upstatus_signal_room_members_status_check
-  CHECK (status IN ('pending', 'accepted', 'declined'));
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'upstatus_signal_room_members_status_check'
+      AND conrelid = 'public.upstatus_signal_room_members'::regclass
+  ) THEN
+    ALTER TABLE public.upstatus_signal_room_members
+      ADD CONSTRAINT upstatus_signal_room_members_status_check
+      CHECK (status IN ('pending', 'accepted', 'declined'));
+  END IF;
+END $$;
 
 UPDATE public.upstatus_signal_room_members m
 SET status = 'accepted'
