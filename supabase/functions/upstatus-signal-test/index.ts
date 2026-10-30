@@ -17,6 +17,14 @@ const TYPES = new Set([
   // Transport envelope types used by the existing userscript channels during migration.
   "call_signal","voice_room_signal","screen_signal"
 ]);
+const LEGACY_ENVELOPE_TYPES = new Map<string, Set<string>>([
+  ["call_signal", new Set([
+    "presence", "ended", "join_request", "join_approved", "join_declined", "offer", "answer",
+    "ice", "invite", "join", "ringtone_stop", "reject", "busy", "hangup", "leave"
+  ])],
+  ["voice_room_signal", new Set(["presence", "join", "leave", "offer", "answer", "ice"])],
+  ["screen_signal", new Set(["presence", "leave", "offer", "answer", "ice"])]
+]);
 const TTL_MS = 2 * 60 * 1000;
 const ROOM_TTL_MS = 2 * 60 * 60 * 1000;
 const MAX_BODY = 20 * 1024;
@@ -229,6 +237,9 @@ Deno.serve(async (req: Request) => {
       const payload = cleanPayload(p.payload);
       if (!roomId || roomId.length > 128 || !recipient || recipient.length > 80 || !TYPES.has(eventType) || !payload)
         return response({ error: "Invalid signaling event" }, 400);
+      const legacyInnerTypes = LEGACY_ENVELOPE_TYPES.get(eventType);
+      if (legacyInnerTypes && (typeof payload.type !== "string" || !legacyInnerTypes.has(payload.type)))
+        return response({ error: "Invalid legacy signaling subtype" }, 400);
       if (!(await room(roomId))) return response({ error: "Room unavailable" }, 404);
       if (!(await isMember(roomId, sender)) || !(await isMember(roomId, recipient)))
         return response({ error: "Sender and recipient must be room members" }, 403);
