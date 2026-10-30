@@ -65,3 +65,28 @@ assert.equal(handled, 1, "duplicate event must be delivered only once");
 assert.ok(pollCalls.some(call => call.path === "/ack" && call.body.eventIds.includes(7)), "handled event must be acknowledged");
 assert.ok(pollCalls.filter(call => call.path === "/poll").every(call => call.options.signal instanceof AbortSignal), "poll request must receive an abort signal");
 console.log("signaling transport polling: 3 assertions passed");
+
+let statusReads = 0;
+const waitingClient = createSignalingTransport({
+  enabled: true,
+  request: async path => {
+    if (path === "/room/status") {
+      statusReads++;
+      return { status: 200, body: { participants: [{ name: "mari", status: statusReads < 2 ? "pending" : "accepted" }] } };
+    }
+    return { status: 200, body: { ok: true } };
+  },
+});
+const acceptedParticipant = await waitingClient.waitForAcceptance("sig_wait", "mari", { intervalMs: 1, timeoutMs: 100 });
+assert.equal(acceptedParticipant.status, "accepted", "caller must wait for explicit recipient acceptance");
+assert.equal(statusReads, 2, "pending membership must be rechecked before proceeding");
+
+const declinedClient = createSignalingTransport({
+  enabled: true,
+  request: async () => ({ status: 200, body: { participants: [{ name: "mari", status: "declined" }] } }),
+});
+await assert.rejects(
+  () => declinedClient.waitForAcceptance("sig_declined", "mari", { intervalMs: 1, timeoutMs: 100 }),
+  error => error.code === "SIGNALING_INVITATION_DECLINED",
+);
+console.log("signaling invitation gate: 3 assertions passed");
