@@ -150,6 +150,11 @@ export function createSignalingTransport({
     throw error;
   }
 
+  async function requestInvite(logicalId) {
+    validId(logicalId, "logical call ID");
+    return post("/room/request-invite", { bindingType: "call", logicalId });
+  }
+
   async function invitations() {
     const result = await post("/room/invitations");
     return Array.isArray(result.invitations) ? result.invitations : [];
@@ -311,7 +316,7 @@ export function createSignalingTransport({
   }
 
   return Object.freeze({
-    createRoom, bindRoom, resolveRoom, invite, invitations, roomStatus, roomMembers, waitForAcceptance, accept, decline,
+    createRoom, bindRoom, resolveRoom, invite, requestInvite, invitations, roomStatus, roomMembers, waitForAcceptance, accept, decline,
     sendSignal, sendToRoom, poll, ack, close, prepareCallRoom, startPolling, stopPolling, stopAll,
     get enabled() { return enabled; },
     get activePollCount() { return activePolls.size; },
