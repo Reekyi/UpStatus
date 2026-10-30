@@ -1,3 +1,20 @@
+assert.ok(bindingMigration.includes("PRIMARY KEY (binding_type, logical_id)"),
+  "logical room bindings must have a unique server-owned type/id key");
+assert.ok(bindingMigration.includes("ENABLE ROW LEVEL SECURITY") &&
+  bindingMigration.includes("REVOKE ALL PRIVILEGES") && bindingMigration.includes("GRANT ALL PRIVILEGES") &&
+  bindingMigration.includes("service_role"),
+  "logical room binding table must remain service-role-only");
+assert.ok(functionSource.includes('path.endsWith("/room/bind")'),
+  "endpoint must expose authorized logical room binding");
+assert.ok(functionSource.includes('path.endsWith("/room/resolve")'),
+  "endpoint must resolve bindings only for accepted room members");
+assert.ok(functionSource.includes('path.endsWith("/room/invite")'),
+  "endpoint must support explicit dynamic invitations");
+assert.ok(authenticatedHarness.includes("accepted member can resolve the logical call ID") &&
+  authenticatedHarness.includes("newly accepted user can resolve the logical room") &&
+  authenticatedHarness.includes("duplicate room invitation is rejected"),
+  "authenticated harness must cover bindings and dynamic invitation transitions");
+
 #!/usr/bin/env node
 /**
  * Static regression checks for the isolated server-mediated signaling prototype.
@@ -18,6 +35,9 @@ const legacyDefaultMigration = readFileSync(
 );
 const envelopeMigration = readFileSync(
   "supabase/migrations/20261030190000_allow_legacy_signaling_envelopes.sql", "utf8",
+);
+const bindingMigration = readFileSync(
+  "supabase/migrations/20261030192000_signal_room_bindings.sql", "utf8",
 );
 const authenticatedHarness = readFileSync("scripts/test-signaling-authenticated.mjs", "utf8");
 const authenticatedRunner = readFileSync("scripts/run-signaling-authenticated.mjs", "utf8");
@@ -119,5 +139,5 @@ console.log("PASS payload nesting and traversal bounds");
 console.log("PASS bounded per-isolate rate-limit state");
 console.log("PASS legacy call/voice/screen envelope types are explicitly allowlisted");
 console.log("PASS authenticated negative cases cover JSON/body/payload limits");
-console.log("10/10 signaling static regression groups passed.");
+console.log("11/11 signaling static regression groups passed.");
 
