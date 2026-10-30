@@ -517,6 +517,8 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   function reasonLabel(reason){var r=reasons.find(function(x){return x.value===reason});return r?r.label:reason}
   function reasonEmoji(reason){return reasonIcon(reason)}
 
+  __UPSTATUS_SIGNALING_TRANSPORT_CODE__
+
   function api(method,route,data){
     return new Promise(function(resolve,reject){
       GM_xmlhttpRequest({
