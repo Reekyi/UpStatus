@@ -67,6 +67,7 @@ async function requestRaw(user, route, rawBody) {
 const results = [];
 let roomId = "";
 let declineRoomId = "";
+let conflictRoomId = "";
 function check(name, ok, detail = "") {
   results.push({ name, ok });
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " (" + detail + ")" : ""}`);
@@ -128,6 +129,35 @@ try {
     check("invited user can explicitly accept the room", accepted.status === 200 &&
       accepted.json?.ok === true && accepted.json?.status === "accepted", `HTTP ${accepted.status}`);
 
+    const logicalCallId = "call-" + roomId;
+    const bound = await request(users.A, "/room/bind", { roomId, bindingType: "call", logicalId: logicalCallId });
+    check("room creator can bind a logical call ID", bound.status === 201 && bound.json?.roomId === roomId,
+      `HTTP ${bound.status}`);
+    const boundAgain = await request(users.A, "/room/bind", { roomId, bindingType: "call", logicalId: logicalCallId });
+    check("binding the same logical call ID is idempotent", boundAgain.status === 200 &&
+      boundAgain.json?.existing === true, `HTTP ${boundAgain.status}`);
+    const resolved = await request(users.B, "/room/resolve", { bindingType: "call", logicalId: logicalCallId });
+    check("accepted member can resolve the logical call ID", resolved.status === 200 &&
+      resolved.json?.roomId === roomId, `HTTP ${resolved.status}`);
+    const unauthorizedBind = await request(users.B, "/room/bind", { roomId, bindingType: "call", logicalId: "spoofed-" + roomId });
+    check("non-creator cannot bind a logical room", unauthorizedBind.status === 403, `HTTP ${unauthorizedBind.status}`);
+    const conflictRoom = await request(users.A, "/room/create", { participants: [users.B.name] });
+    conflictRoomId = conflictRoom.json?.roomId || "";
+    check("creator can create a second room for binding conflict coverage",
+      conflictRoom.status === 201 && !!conflictRoomId, `HTTP ${conflictRoom.status}`);
+    if (conflictRoomId) {
+      const conflictBind = await request(users.A, "/room/bind", {
+        roomId: conflictRoomId, bindingType: "call", logicalId: logicalCallId,
+      });
+      check("active logical call binding cannot be hijacked by another room",
+        conflictBind.status === 409, `HTTP ${conflictBind.status}`);
+      const closeConflict = await request(users.A, "/room/close", { roomId: conflictRoomId });
+      check("temporary conflict room can be closed", closeConflict.status === 200, `HTTP ${closeConflict.status}`);
+    } else {
+      check("active logical call binding cannot be hijacked by another room", false, "second room creation failed");
+      check("temporary conflict room can be closed", false, "second room creation failed");
+    }
+
     const sent = await request(users.A, "/signal", {
       roomId, recipient: users.B.name, eventType: "offer",
       payload: { sdp: "synthetic-test-offer", from: "spoofed-name", sender: "spoofed-name",
@@ -162,6 +192,29 @@ try {
     const nonmemberPoll = await request(users.C, "/poll", { roomId });
     check("non-member cannot poll another room", nonmemberPoll.status === 403,
       `HTTP ${nonmemberPoll.status}`);
+
+    const dynamicInvite = await request(users.A, "/room/invite", { roomId, recipient: users.C.name });
+    check("accepted room member can invite a new participant", dynamicInvite.status === 201 &&
+      dynamicInvite.json?.status === "pending", `HTTP ${dynamicInvite.status}`);
+    const duplicateInvite = await request(users.A, "/room/invite", { roomId, recipient: users.C.name });
+    check("duplicate room invitation is rejected", duplicateInvite.status === 409, `HTTP ${duplicateInvite.status}`);
+    const pendingResolve = await request(users.C, "/room/resolve", { bindingType: "call", logicalId: logicalCallId });
+    check("pending invitee cannot resolve a logical room", pendingResolve.status === 404, `HTTP ${pendingResolve.status}`);
+    const invitationsC = await request(users.C, "/room/invitations", {});
+    const invitationC = (invitationsC.json?.invitations || []).find(x => x.roomId === roomId);
+    check("invitation lists include server-owned logical binding metadata",
+      invitationsC.status === 200 && invitationC?.bindings?.some(b =>
+        b.bindingType === "call" && b.logicalId === logicalCallId), `HTTP ${invitationsC.status}`);
+    const acceptC = await request(users.C, "/room/accept", { roomId });
+    check("dynamically invited user can accept", acceptC.status === 200 &&
+      acceptC.json?.status === "accepted", `HTTP ${acceptC.status}`);
+    const resolveC = await request(users.C, "/room/resolve", { bindingType: "call", logicalId: logicalCallId });
+    check("newly accepted user can resolve the logical room", resolveC.status === 200 &&
+      resolveC.json?.roomId === roomId, `HTTP ${resolveC.status}`);
+    const sendC = await request(users.A, "/signal", {
+      roomId, recipient: users.C.name, eventType: "offer", payload: { sdp: "synthetic-test-offer-for-C" },
+    });
+    check("newly accepted member can receive signaling", sendC.status === 202, `HTTP ${sendC.status}`);
 
     if (event?.event_id) {
       // Mix one real event with a safe, nonexistent ID to ensure the API reports
@@ -266,6 +319,9 @@ try {
   }
   if (declineRoomId) {
     try { await request(users.A, "/room/close", { roomId: declineRoomId }); } catch {}
+  }
+  if (conflictRoomId) {
+    try { await request(users.A, "/room/close", { roomId: conflictRoomId }); } catch {}
   }
 }
 const passed = results.filter(r => r.ok).length;
