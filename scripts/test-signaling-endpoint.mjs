@@ -41,6 +41,14 @@ const cases = [
     expected: 401,
   },
   {
+    name: "requesting an invitation to a call requires a valid UpStatus session",
+    run: () => fetch(base + "/room/request-invite", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ bindingType: "call", logicalId: "forged" }),
+    }),
+    expected: 401,
+  },
+  {
     name: "room broadcast requires a valid UpStatus session",
     run: () => fetch(base + "/broadcast", {
       method: "POST", headers: { "content-type": "application/json" },
