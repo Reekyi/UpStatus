@@ -178,6 +178,79 @@ Deno.serve(async (req: Request) => {
       }, 201);
     }
 
+    if (path.endsWith("/room/bind")) {
+      const roomId = String(p.roomId || "");
+      const bindingType = String(p.bindingType || "");
+      const logicalId = String(p.logicalId || "");
+      if (!roomId || !["call", "voice", "screen"].includes(bindingType) ||
+          !/^[A-Za-z0-9._:-]{1,128}$/.test(logicalId))
+        return response({ error: "Invalid room binding" }, 400);
+      const activeRoom = await room(roomId);
+      if (!activeRoom) return response({ error: "Room unavailable" }, 404);
+      if (activeRoom.created_by !== sender || !(await isMember(roomId, sender)))
+        return response({ error: "Only the accepted room creator can bind a logical room" }, 403);
+      const { data: existing, error: lookupError } = await db.from("upstatus_signal_room_bindings")
+        .select("room_id").eq("binding_type", bindingType).eq("logical_id", logicalId).maybeSingle();
+      if (lookupError) throw lookupError;
+      if (existing?.room_id === roomId) return response({ ok: true, roomId, existing: true });
+      if (existing) {
+        if (await room(existing.room_id))
+          return response({ error: "Logical room is already bound" }, 409);
+        const { data: rebound, error } = await db.from("upstatus_signal_room_bindings")
+          .update({ room_id: roomId, created_by: sender, created_at: new Date().toISOString() })
+          .eq("binding_type", bindingType).eq("logical_id", logicalId).eq("room_id", existing.room_id)
+          .select("room_id").maybeSingle();
+        if (error) throw error;
+        if (!rebound) return response({ error: "Logical room binding changed concurrently" }, 409);
+        return response({ ok: true, roomId, rebound: true });
+      }
+      const { error } = await db.from("upstatus_signal_room_bindings").insert({
+        binding_type: bindingType, logical_id: logicalId, room_id: roomId, created_by: sender
+      });
+      if (error?.code === "23505") return response({ error: "Logical room is already bound" }, 409);
+      if (error) throw error;
+      return response({ ok: true, roomId }, 201);
+    }
+
+    if (path.endsWith("/room/resolve")) {
+      const bindingType = String(p.bindingType || "");
+      const logicalId = String(p.logicalId || "");
+      if (!["call", "voice", "screen"].includes(bindingType) ||
+          !/^[A-Za-z0-9._:-]{1,128}$/.test(logicalId))
+        return response({ error: "Invalid room binding" }, 400);
+      const { data: binding, error } = await db.from("upstatus_signal_room_bindings")
+        .select("room_id").eq("binding_type", bindingType).eq("logical_id", logicalId).maybeSingle();
+      if (error) throw error;
+      if (!binding || !(await room(binding.room_id)) || !(await isMember(binding.room_id, sender)))
+        return response({ error: "Logical room unavailable" }, 404);
+      const activeRoom = await room(binding.room_id);
+      if (!activeRoom) return response({ error: "Logical room unavailable" }, 404);
+      return response({ ok: true, roomId: binding.room_id, expiresAt: activeRoom.expires_at });
+    }
+
+    if (path.endsWith("/room/invite")) {
+      const roomId = String(p.roomId || "");
+      const recipient = String(p.recipient || "");
+      const activeRoom = roomId ? await room(roomId) : null;
+      if (!activeRoom) return response({ error: "Room unavailable" }, 404);
+      if (!(await isMember(roomId, sender)) || !recipient || recipient.length > 80 || recipient === sender)
+        return response({ error: "Accepted membership and a different recipient are required" }, 403);
+      const { data: known, error: knownError } = await db.from("users")
+        .select("name").eq("name", recipient).maybeSingle();
+      if (knownError) throw knownError;
+      if (!known) return response({ error: "Unknown participant" }, 404);
+      const { data: existing, error: existingError } = await db.from("upstatus_signal_room_members")
+        .select("status").eq("room_id", roomId).eq("user_name", recipient).maybeSingle();
+      if (existingError) throw existingError;
+      if (existing) return response({ error: "Participant already invited or a room member" }, 409);
+      const { error } = await db.from("upstatus_signal_room_members").insert({
+        room_id: roomId, user_name: recipient, status: "pending"
+      });
+      if (error?.code === "23505") return response({ error: "Participant already invited or a room member" }, 409);
+      if (error) throw error;
+      return response({ ok: true, status: "pending" }, 201);
+    }
+
     if (path.endsWith("/room/invitations")) {
       const { data: invitations, error } = await db.from("upstatus_signal_room_members")
         .select("room_id,joined_at").eq("user_name", sender).eq("status", "pending")
@@ -189,8 +262,15 @@ Deno.serve(async (req: Request) => {
         .select("room_id,created_by,expires_at,status").in("room_id", roomIds)
         .eq("status", "active").gt("expires_at", new Date().toISOString());
       if (roomsError) throw roomsError;
+      const activeRoomIds = (rooms || []).map(item => item.room_id);
+      const { data: bindings, error: bindingsError } = activeRoomIds.length
+        ? await db.from("upstatus_signal_room_bindings").select("room_id,binding_type,logical_id").in("room_id", activeRoomIds)
+        : { data: [], error: null };
+      if (bindingsError) throw bindingsError;
       return response({ invitations: (rooms || []).map(item => ({
-        roomId: item.room_id, invitedBy: item.created_by, expiresAt: item.expires_at
+        roomId: item.room_id, invitedBy: item.created_by, expiresAt: item.expires_at,
+        bindings: (bindings || []).filter(binding => binding.room_id === item.room_id)
+          .map(binding => ({ bindingType: binding.binding_type, logicalId: binding.logical_id }))
       })) });
     }
 
