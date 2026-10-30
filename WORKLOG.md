@@ -467,3 +467,11 @@ Last updated: 2026-10-29
 - Expanded the authenticated integration harness for pending/accepted roster access and added unit coverage for fanout behavior.
 - CI run [41118513244](https://github.com/Reekyi/UpStatus/actions/runs/41118513244) passed adapter (13 assertions), polling (3), invitation gate (3), cancellation (1), call setup gate (4), invitation abort (1), recipient fanout (2), static (11/11), body reader (3/3), envelope validator (3/3), and unauthenticated HTTP (12/12). Validation run [41118513236](https://github.com/Reekyi/UpStatus/actions/runs/41118513236) passed.
 - Deployed isolated signaling function revision 22 and verified its health endpoint. Production and official TEST remain untouched. Authenticated CI still skips due to the missing isolated secret, and no live client path has been switched.
+
+
+### Opt-in authenticated one-to-one call path (2026-10-30)
+
+- Added a GM_xmlhttpRequest bridge that sends the current UpStatus session token only to an explicitly configured HTTPS endpoint on the same Supabase origin as the active UpStatus backend. The feature flag defaults to false.
+- Wired the opt-in one-to-one call path through room creation, logical call binding, pending-invitation polling, explicit accept/decline, acceptance-gated offer creation, authenticated signal polling, per-recipient signal delivery, and delayed creator-side room closure. The existing Realtime path remains the default fallback.
+- Added a busy-poll guard for invitation polling and cleanup for cancelled setup/declined invites. Build validation and signaling CI passed on [41119407912](https://github.com/Reekyi/UpStatus/actions/runs/41119407912) and [41119408099](https://github.com/Reekyi/UpStatus/actions/runs/41119408099).
+- This is source-level and automated regression validation only. The feature remains off, the new function is not deployed to the production/official TEST project, and browser-level authenticated WebRTC behavior is not yet verified. Group-call discovery/join, voice-room, and screen-share signaling still require migration.
