@@ -100,8 +100,12 @@ try {
       `HTTP ${nonmemberPoll.status}`);
 
     if (event?.event_id) {
-      const ack = await request(users.B, "/ack", { roomId, eventIds: [event.event_id] });
-      check("recipient can acknowledge a handled event", ack.status === 200 &&
+      // Mix one real event with a safe, nonexistent ID to ensure the API reports
+      // rows actually deleted, not merely the number of IDs submitted.
+      const ack = await request(users.B, "/ack", {
+        roomId, eventIds: [event.event_id, 9007199254740000],
+      });
+      check("recipient acknowledgement count reflects only existing owned events", ack.status === 200 &&
         ack.json?.ok === true && ack.json?.acknowledged === 1, `HTTP ${ack.status}`);
       const afterAck = await request(users.B, "/poll", { roomId });
       const stillPresent = (afterAck.json?.events || []).some(e => e.event_id === event.event_id);
