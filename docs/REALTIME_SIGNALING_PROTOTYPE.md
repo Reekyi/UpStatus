@@ -5,7 +5,7 @@ Status: isolated prototype only. Not integrated with either userscript. Not appr
 ## Environment
 
 - Supabase project: `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`)
-- Function: `upstatus-signal-test`, isolated deployment revision 19 (bounded streaming JSON body reader, recursive identity sanitization, and nesting/traversal limits included).
+- Function: `upstatus-signal-test`, isolated deployment revision 20 (bounded streaming JSON body reader, recursive identity sanitization, and nesting/traversal limits included).
 - Endpoint health check: `GET /functions/v1/upstatus-signal-test/health` returned `{"ok":true,"service":"upstatus-signal-test"}`.
 - No production user/session rows or production data were copied into this test project.
 - The project is on the free tier; usage limits still apply.
@@ -62,7 +62,7 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 
 - [x] Test project created separately from production.
 - [x] Tables created; RLS and direct grants verified by SQL catalog query.
-- [x] Function deployed to the isolated project, currently revision 19.
+- [x] Function deployed to the isolated project, currently revision 20.
 - [x] Health endpoint returned HTTP success and expected JSON.
 - [x] Polling is non-destructive; acknowledgement is scoped to the room and recipient.
 - [x] Payload size guard, stale in-memory rate-map cleanup, and bounded opportunistic expiry cleanup added.
@@ -79,7 +79,7 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 - [x] Earlier isolated revision 10 deployed with atomic invitation transitions and accepted-member-only acknowledgement; the current isolated deployment is revision 16.
 - [x] Function revision 12 deployed with bounded streaming JSON body reads and non-object JSON rejection; health endpoint returned expected JSON.
 - [x] Function revision 13 deployed with recursive, case-insensitive removal of identity/recipient keys in nested payloads; health endpoint returned expected JSON.
-- [x] Function revision 19 deployed with payload nesting/traversal bounds and bounded per-isolate rate-limit state; health endpoint returned expected JSON.
+- [x] Function revision 20 deployed with payload nesting/traversal bounds and bounded per-isolate rate-limit state; health endpoint returned expected JSON.
 - [x] GitHub Actions run #49 passed after the recursive payload-sanitization and authenticated harness changes.
 - [x] Body parser unit tests exercise valid/empty bodies, malformed JSON, non-object JSON, declared-size rejection, and streaming cancellation; GitHub Actions run #38 passed.
 - [x] Authenticated test runner added to create temporary users/sessions in the isolated project, execute the existing harness, and clean up fixtures; requires the isolated project's service-role key locally and has not yet been executed by this session.
@@ -139,3 +139,9 @@ Current limitation: this is a migration contract and server allowlist only. No c
 - Extended the authenticated harness to cover idempotent binding, accepted-member resolution, non-creator denial, binding conflicts, dynamic invitation/duplicate rejection, invitation metadata, resolution after acceptance, and binding cleanup on close. These cases are authored but the CI authenticated job skips because the isolated service-role secret is not configured.
 - Deployed the endpoint to isolated revision 19; health returned the expected JSON. GitHub Actions run [41114707783](https://github.com/Reekyi/UpStatus/actions/runs/41114707783) passed static 11/11, body reader 3/3, envelope validator 3/3, and unauthenticated endpoint 10/10. The broader validation workflow [41114707797](https://github.com/Reekyi/UpStatus/actions/runs/41114707797) also succeeded.
 - The client transport has not been switched yet; the mapping/invitation APIs are server groundwork, not a completed migration.
+## Binding and invitation input hardening (2026-10-30)
+
+- Optimized logical room resolution to avoid a duplicate room lookup and separated malformed invitation input (HTTP 400) from authorization denial (HTTP 403).
+- Expanded the authenticated harness for invalid binding type, missing binding, non-member resolution/invitation, self-invitation, duplicate invitation, and binding cleanup when closing a room.
+- Deployed isolated function revision 20; health endpoint remains healthy. GitHub Actions run [41114967596](https://github.com/Reekyi/UpStatus/actions/runs/41114967596) passed static 11/11, body reader 3/3, envelope validator 3/3, and unauthenticated HTTP 10/10. Validation run [41114967992](https://github.com/Reekyi/UpStatus/actions/runs/41114967992) also succeeded.
+- Authenticated CI remains skipped until the isolated-only service-role secret is configured. No client transport migration or production/official TEST deployment has occurred.
