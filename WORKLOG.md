@@ -381,3 +381,9 @@ Last updated: 2026-10-29
 - Expanded the authenticated harness to test malformed JSON (400), oversized bodies (413), deeply nested payloads (400), and excessively wide payloads (400) with a valid test session. These HTTP-level cases are authored but have not been executed against the endpoint because the isolated service-role key is not available in this session.
 - Parsed the changed Node harness, static test and fixture runner in the orchestration runtime: 3/3 syntax checks passed. Focused checks against the exact sanitizer logic and its regression assertions passed 7/7.
 - Exercised the actual body-reader module with a mock streaming request: 6/6 checks passed for valid object JSON, malformed JSON, null, arrays, declared-size rejection, and streaming overflow cancellation. These focused checks complement but do not replace the repository's full CI run.
+## Legacy signaling envelope validation: 2026-10-30
+
+- Added per-envelope inner-event allowlists for call, voice-room, and screen-share signaling; unknown inner types now receive HTTP 400 before event insertion.
+- Extended the authenticated harness to cover all three envelope types through send, recipient polling, trusted routing metadata checks, acknowledgement, and invalid subtype rejection. These tests are authored, not yet executed against the live isolated endpoint.
+- Expanded static checks and corrected the signaling workflow so client template edits trigger it and the PR base filter matches `master`. The current workflow run still needs confirmation.
+- No client transport switch, logical room mapping, production deployment, official TEST deployment, or PR merge was performed.
