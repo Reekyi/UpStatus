@@ -69,6 +69,18 @@ try {
     `HTTP ${created.status}`);
 
   if (roomId) {
+    const pendingPoll = await request(users.B, "/poll", { roomId });
+    check("invited user cannot poll before accepting the room", pendingPoll.status === 403,
+      `HTTP ${pendingPoll.status}`);
+
+    const uninvitedAccept = await request(users.C, "/room/accept", { roomId });
+    check("user without an invitation cannot accept a room", uninvitedAccept.status === 404,
+      `HTTP ${uninvitedAccept.status}`);
+
+    const accepted = await request(users.B, "/room/accept", { roomId });
+    check("invited user can explicitly accept the room", accepted.status === 200 &&
+      accepted.json?.ok === true && accepted.json?.status === "accepted", `HTTP ${accepted.status}`);
+
     const sent = await request(users.A, "/signal", {
       roomId, recipient: users.B.name, eventType: "offer",
       payload: { sdp: "synthetic-test-offer", from: "spoofed-name", sender: "spoofed-name",
