@@ -54,8 +54,9 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 - [x] Payload size guard, stale in-memory rate-map cleanup, and bounded opportunistic expiry cleanup added.
 - [x] Unauthenticated smoke workflow previously passed 7/7 checks against the isolated test endpoint.
 - [x] Explicit invite listing, acceptance and decline routes and pending-membership gating implemented in the isolated prototype.
-- [x] Authenticated integration harness expanded to test invitation discovery/privacy, invite consent and accurate acknowledgement counts.
-- [x] Unauthenticated smoke workflow has passed after invitation discovery was added; it checks authentication gates for invitation listing, acceptance and decline alongside the prior endpoint checks.
+- [x] Authenticated integration harness expanded to test invitation discovery/privacy, invite consent, accurate acknowledgement counts, repeat acceptance, and decline access denial.
+- [x] Static regression tests cover migration idempotency/default compatibility, atomic invitation transitions, accepted-member authorization, and test-project mutation guards.
+- [x] Unauthenticated smoke workflow passed through run #29, including the static regression checks and syntax checks for both integration harnesses.
 - [ ] Authenticated integration harness has not been run: three valid test sessions and distinct test users are not available to this session. Do not count its scenarios as passed until it runs and its output is reviewed.
 - [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting.
 - [x] Isolated test schema default updated to `accepted` for legacy membership inserts; verified in the database catalog.
