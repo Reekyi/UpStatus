@@ -168,10 +168,14 @@ Deno.serve(async (req: Request) => {
       if (!invitation || invitation.status !== "pending")
         return response({ error: "Pending invitation not found" }, 404);
       const status = path.endsWith("/room/accept") ? "accepted" : "declined";
-      const { error } = await db.from("upstatus_signal_room_members")
-        .update({ status }).eq("room_id", roomId).eq("user_name", sender).eq("status", "pending");
+      const { data: updatedInvitation, error } = await db.from("upstatus_signal_room_members")
+        .update({ status }).eq("room_id", roomId).eq("user_name", sender).eq("status", "pending")
+        .select("status").maybeSingle();
       if (error) throw error;
-      return response({ ok: true, status });
+      // The conditional update is the state transition's atomic guard. A concurrent
+      // accept/decline may have won after the read above; do not report false success.
+      if (!updatedInvitation) return response({ error: "Invitation already handled" }, 409);
+      return response({ ok: true, status: updatedInvitation.status });
     }
 
     if (path.endsWith("/room/close")) {
@@ -223,7 +227,7 @@ Deno.serve(async (req: Request) => {
       if (!ids.length || ids.length > 100 || ids.some(id => !Number.isSafeInteger(id) || id <= 0))
         return response({ error: "Invalid event IDs" }, 400);
       const { data: membership, error: membershipError } = await db.from("upstatus_signal_room_members")
-        .select("room_id").eq("room_id", String(p.roomId || "")).eq("user_name", sender).maybeSingle();
+        .select("room_id").eq("room_id", String(p.roomId || "")).eq("user_name", sender).eq("status", "accepted").maybeSingle();
       if (membershipError || !membership) return response({ error: "Room membership required" }, 403);
       const { data: deleted, error } = await db.from("upstatus_signal_events")
         .delete().in("event_id", ids).eq("room_id", String(p.roomId || "")).eq("recipient", sender)
