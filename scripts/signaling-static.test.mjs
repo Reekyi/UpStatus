@@ -49,6 +49,13 @@ assert.ok(functionSource.includes('from("upstatus_signal_room_bindings").delete(
   "closing a room must remove its logical bindings");
 assert.ok(authenticatedHarness.includes("closed room binding is removed and cannot be resolved"),
   "authenticated harness must cover binding cleanup on room close");
+assert.ok(functionSource.includes('path.endsWith("/room/status")') &&
+  functionSource.includes("Only the room creator can inspect invitation status"),
+  "only the room creator may inspect invitation acceptance state");
+assert.ok(authenticatedHarness.includes("room creator can see pending invitation status") &&
+  authenticatedHarness.includes("room creator sees accepted membership before signaling") &&
+  authenticatedHarness.includes("non-creator cannot inspect room invitation status"),
+  "authenticated harness must cover invitation acceptance state and authorization");
 assert.ok(functionSource.includes('path.endsWith("/room/invite")'),
   "endpoint must support explicit dynamic invitations");
 assert.ok(authenticatedHarness.includes("unsupported logical binding type is rejected") &&
