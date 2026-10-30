@@ -81,10 +81,62 @@ export function createSignalingTransport({
     return post("/room/invite", { roomId, recipient });
   }
 
-  async function roomStatus(roomId) {
+  async function roomStatus(roomId, options = {}) {
     if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
-    const result = await post("/room/status", { roomId });
+    const result = await post("/room/status", { roomId }, options);
     return Array.isArray(result.participants) ? result.participants : [];
+  }
+
+  async function waitForAcceptance(roomId, recipient, {
+    timeoutMs = 60_000,
+    intervalMs = 900,
+    signal,
+  } = {}) {
+    if (typeof recipient !== "string" || !recipient || recipient.length > 80) throw new TypeError("Invalid recipient");
+    const deadline = now() + Math.max(0, timeoutMs);
+    while (now() <= deadline) {
+      if (signal?.aborted) {
+        const error = new Error("Invitation wait aborted");
+        error.name = "AbortError";
+        throw error;
+      }
+      const participants = await roomStatus(roomId, { signal });
+      const participant = participants.find(item => item && item.name === recipient);
+      if (!participant) {
+        const error = new Error("Invitee is not a member of this room");
+        error.code = "SIGNALING_INVITEE_NOT_FOUND";
+        throw error;
+      }
+      if (participant.status === "accepted") return participant;
+      if (participant.status === "declined") {
+        const error = new Error("Invitation was declined");
+        error.code = "SIGNALING_INVITATION_DECLINED";
+        throw error;
+      }
+      if (participant.status !== "pending") {
+        const error = new Error("Unexpected invitation state");
+        error.code = "SIGNALING_INVITATION_STATE_INVALID";
+        throw error;
+      }
+      await new Promise((resolve, reject) => {
+        if (signal?.aborted) {
+          const error = new Error("Invitation wait aborted");
+          error.name = "AbortError";
+          reject(error);
+          return;
+        }
+        const timer = setTimeout(resolve, Math.min(intervalMs, Math.max(0, deadline - now())));
+        if (signal) signal.addEventListener("abort", () => {
+          clearTimeout(timer);
+          const error = new Error("Invitation wait aborted");
+          error.name = "AbortError";
+          reject(error);
+        }, { once: true });
+      });
+    }
+    const error = new Error("Timed out waiting for invitation acceptance");
+    error.code = "SIGNALING_INVITATION_TIMEOUT";
+    throw error;
   }
 
   async function invitations() {
@@ -216,7 +268,7 @@ export function createSignalingTransport({
   }
 
   return Object.freeze({
-    createRoom, bindRoom, resolveRoom, invite, invitations, roomStatus, accept, decline,
+    createRoom, bindRoom, resolveRoom, invite, invitations, roomStatus, waitForAcceptance, accept, decline,
     sendSignal, poll, ack, close, startPolling, stopPolling, stopAll,
     get enabled() { return enabled; },
     get activePollCount() { return activePolls.size; },
