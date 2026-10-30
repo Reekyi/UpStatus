@@ -42,6 +42,8 @@ if(rootArtifactBefore!==prodUser&&(!rootArtifactVersion||compareVersions(baseVer
   assert(sameVersionSyncBlocked,"root artifact sync must be rejected unless the release version is strictly newer");
   assert(fs.readFileSync(rootArtifactPath,"utf8")===rootArtifactBefore,"rejected root artifact sync must leave the tracked artifact unchanged");
 }
+assert(prodUser.includes("function createSignalingTransport"),"production build must include the default-off signaling adapter");
+assert(testUser.includes("function createSignalingTransport"),"TEST build must include the default-off signaling adapter");
 assert(headerValue(prodUser,"version")===baseVersion,"production userscript version mismatch");
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
