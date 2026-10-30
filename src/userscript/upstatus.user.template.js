@@ -229,7 +229,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
       if(signal&&signal.aborted){var aborted=new Error('Signaling request aborted');aborted.name='AbortError';reject(aborted);return;}
       try{
         handle=GM_xmlhttpRequest({
-          method:'POST',url:signalTransportEndpoint.replace(/\\/$/,'')+route,
+          method:'POST',url:signalTransportEndpoint.replace(/\/$/,'')+route,
           headers:{'Content-Type':'application/json','X-UpStatus-Token':token,'Cache-Control':'no-store'},
           data:JSON.stringify(payload||{}),timeout:12000,
           onload:function(r){var body={};try{body=JSON.parse(r.responseText||'{}')}catch(e){body={error:'Invalid signaling response'}}finish(resolve,{status:Number(r.status)||0,body:body});},
@@ -250,7 +250,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     try{
       var endpoint=new URL(signalTransportEndpoint),sessionServer=new URL(server);
       if(endpoint.protocol!=='https:'||endpoint.origin!==sessionServer.origin||endpoint.search||endpoint.hash||
-        !/\\/functions\\/v1\\/upstatus-signal(?:-test)?$/.test(endpoint.pathname))return;
+        !/\/functions\/v1\/upstatus-signal(?:-test)?$/.test(endpoint.pathname))return;
       signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});
     }catch(e){signalTransport=null;}
   }
