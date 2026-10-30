@@ -63,7 +63,7 @@ async function room(roomId: string) {
 }
 async function isMember(roomId: string, name: string) {
   const { data, error } = await db.from("upstatus_signal_room_members").select("user_name")
-    .eq("room_id", roomId).eq("user_name", name).maybeSingle();
+    .eq("room_id", roomId).eq("user_name", name).eq("status", "accepted").maybeSingle();
   return !error && !!data;
 }
 function cleanPayload(value: unknown) {
@@ -98,13 +98,32 @@ Deno.serve(async (req: Request) => {
       });
       if (roomError) throw roomError;
       const { error: membersError } = await db.from("upstatus_signal_room_members").insert(
-        participants.map(user_name => ({ room_id: roomId, user_name }))
+        participants.map(user_name => ({
+          room_id: roomId, user_name, status: user_name === sender ? "accepted" : "pending"
+        }))
       );
       if (membersError) {
         await db.from("upstatus_signal_rooms").delete().eq("room_id", roomId);
         throw membersError;
       }
-      return response({ ok: true, roomId, participants, expiresAt }, 201);
+      return response({
+        ok: true, roomId, participants, invited: participants.filter(name => name !== sender), expiresAt
+      }, 201);
+    }
+
+    if (path.endsWith("/room/accept") || path.endsWith("/room/decline")) {
+      const roomId = String(p.roomId || "");
+      if (!roomId || !(await room(roomId))) return response({ error: "Room unavailable" }, 404);
+      const { data: invitation, error: invitationError } = await db.from("upstatus_signal_room_members")
+        .select("status").eq("room_id", roomId).eq("user_name", sender).maybeSingle();
+      if (invitationError) throw invitationError;
+      if (!invitation || invitation.status !== "pending")
+        return response({ error: "Pending invitation not found" }, 404);
+      const status = path.endsWith("/room/accept") ? "accepted" : "declined";
+      const { error } = await db.from("upstatus_signal_room_members")
+        .update({ status }).eq("room_id", roomId).eq("user_name", sender).eq("status", "pending");
+      if (error) throw error;
+      return response({ ok: true, status });
     }
 
     if (path.endsWith("/room/close")) {
