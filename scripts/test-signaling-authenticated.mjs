@@ -69,6 +69,18 @@ try {
     `HTTP ${created.status}`);
 
   if (roomId) {
+    const bInvitations = await request(users.B, "/room/invitations", {});
+    const bInviteList = Array.isArray(bInvitations.json?.invitations) ? bInvitations.json.invitations : [];
+    check("invited user can discover their pending room invitation",
+      bInvitations.status === 200 && bInviteList.some(invite => invite.roomId === roomId),
+      `HTTP ${bInvitations.status}`);
+
+    const cInvitations = await request(users.C, "/room/invitations", {});
+    const cInviteList = Array.isArray(cInvitations.json?.invitations) ? cInvitations.json.invitations : [];
+    check("uninvited user cannot discover another room invitation",
+      cInvitations.status === 200 && !cInviteList.some(invite => invite.roomId === roomId),
+      `HTTP ${cInvitations.status}`);
+
     const pendingPoll = await request(users.B, "/poll", { roomId });
     check("invited user cannot poll before accepting the room", pendingPoll.status === 403,
       `HTTP ${pendingPoll.status}`);
