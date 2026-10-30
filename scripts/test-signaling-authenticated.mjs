@@ -180,6 +180,33 @@ try {
       check("acknowledged event is no longer returned", false, "no delivered event ID");
     }
 
+    // Contract smoke for the three legacy channels. This verifies transport envelopes only;
+    // it does not claim that the userscript has been migrated to this endpoint.
+    const legacyEnvelopeTypes = ["call_signal", "voice_room_signal", "screen_signal"];
+    for (const eventType of legacyEnvelopeTypes) {
+      const envelopeSent = await request(users.A, "/signal", {
+        roomId, recipient: users.B.name, eventType,
+        payload: { type: "presence", logicalSession: "synthetic-test-session" },
+      });
+      check(`legacy ${eventType} envelope is accepted by the isolated transport`,
+        envelopeSent.status === 202 && envelopeSent.json?.ok === true, `HTTP ${envelopeSent.status}`);
+    }
+    const legacyDelivery = await request(users.B, "/poll", { roomId });
+    const legacyEvents = Array.isArray(legacyDelivery.json?.events) ? legacyDelivery.json.events : [];
+    for (const eventType of legacyEnvelopeTypes) {
+      check(`legacy ${eventType} envelope is delivered with server-owned routing metadata`,
+        legacyDelivery.status === 200 && legacyEvents.some(e =>
+          e.event_type === eventType && e.sender === users.A.name && e.recipient === users.B.name &&
+          e.payload?.type === "presence" && !("from" in e.payload) && !("to" in e.payload) &&
+          !("roomId" in e.payload)),
+        `HTTP ${legacyDelivery.status}`);
+    }
+    const legacyIds = legacyEvents.filter(e => legacyEnvelopeTypes.includes(e.event_type)).map(e => e.event_id);
+    const legacyAck = await request(users.B, "/ack", { roomId, eventIds: legacyIds });
+    check("all legacy envelope smoke events can be acknowledged",
+      legacyAck.status === 200 && legacyAck.json?.acknowledged === legacyEnvelopeTypes.length,
+      `HTTP ${legacyAck.status}`);
+
     const closed = await request(users.A, "/room/close", { roomId });
     check("room creator can close the room", closed.status === 200 && closed.json?.ok === true,
       `HTTP ${closed.status}`);
