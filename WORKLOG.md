@@ -352,3 +352,12 @@ Last updated: 2026-10-29
 - Added `scripts/run-signaling-authenticated.mjs`: it refuses non-test project URLs, creates three temporary users and SHA-256 session records, runs the authenticated harness, then attempts to remove test rooms/sessions/users in a finally block. Tokens and service key are not printed. Added local instructions to the prototype docs.
 - CI now syntax-checks the fixture runner and includes the body parser unit tests. Earlier body parser test run #38 passed; the latest commits add nested-payload checks and will be confirmed separately.
 - Production and official TEST remain untouched; no PR merged. Authenticated E2E has not been run from this session because no isolated service-role key is available to the runner.
+
+
+## Final validation checkpoint for this continuation: 2026-10-30
+
+- GitHub Actions run #49 (commit `69fbebc`) completed successfully after recursive payload sanitization and updated documentation. Runs #47 and #48 also passed on the relevant static-check updates.
+- Isolated Edge Function is ACTIVE at revision 13; retrieved deployment metadata confirms `index.ts` imports the bundled `body.mjs` module. The health endpoint returns `{"ok":true,"service":"upstatus-signal-test"}`.
+- Three groups of credential-free body parser unit cases pass in CI; static assertions cover migration safety, accepted-member authorization, runner isolation/cleanup, and recursive identity stripping.
+- Added a local one-command authenticated runner that provisions disposable test users and hashed sessions, runs the existing authenticated harness, and cleans up. It is deliberately not executed here because no isolated service-role key is available to the runner environment. Do not share that key in chat.
+- Remaining release blockers: authenticated E2E execution, real WebRTC multi-client tests, client integration in both normal and Team Lite, and final security/release review. Production and official TEST remain untouched.
