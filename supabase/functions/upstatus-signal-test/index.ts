@@ -100,20 +100,34 @@ function cleanPayload(value: unknown) {
   const p = { ...(value as Record<string, unknown>) };
   // Remove identity/recipient claims at every nesting level, including case variants.
   // Payloads are JSON-decoded, so an iterative walk avoids recursion-depth failures.
-  const stack: unknown[] = [p];
+  const stack: Array<{ value: unknown; depth: number }> = [{ value: p, depth: 0 }];
+  let visitedNodes = 0;
   while (stack.length) {
-    const current = stack.pop();
+    const entry = stack.pop()!;
+    const current = entry.value;
     if (!current || typeof current !== "object") continue;
+    // Deeply nested or extremely wide JSON can make later serialization expensive
+    // or overflow the runtime stack even when the raw request is within 20 KiB.
+    if (entry.depth > 64) return null;
+    const children = Array.isArray(current) ? current : Object.entries(current);
+    visitedNodes += children.length;
+    if (visitedNodes > 4096) return null;
     if (Array.isArray(current)) {
-      stack.push(...current);
+      for (const child of current) {
+        if (child && typeof child === "object") stack.push({ value: child, depth: entry.depth + 1 });
+      }
       continue;
     }
-    for (const [key, child] of Object.entries(current)) {
+    for (const [key, child] of children as Array<[string, unknown]>) {
       if (IDENTITY_PAYLOAD_KEYS.has(key.toLowerCase())) delete (current as Record<string, unknown>)[key];
-      else if (child && typeof child === "object") stack.push(child);
+      else if (child && typeof child === "object") stack.push({ value: child, depth: entry.depth + 1 });
     }
   }
-  if (JSON.stringify(p).length > 12 * 1024) return null;
+  try {
+    if (JSON.stringify(p).length > 12 * 1024) return null;
+  } catch {
+    return null;
+  }
   return p;
 }
 
