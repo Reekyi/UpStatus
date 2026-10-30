@@ -300,6 +300,8 @@ Deno.serve(async (req: Request) => {
       if (activeRoom.created_by !== sender) return response({ error: "Only the room creator can close it" }, 403);
       const { error } = await db.from("upstatus_signal_rooms").update({ status: "closed" }).eq("room_id", roomId);
       if (error) throw error;
+      const { error: bindingError } = await db.from("upstatus_signal_room_bindings").delete().eq("room_id", roomId);
+      if (bindingError) throw bindingError;
       return response({ ok: true });
     }
 
