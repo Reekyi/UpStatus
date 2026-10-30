@@ -29,9 +29,11 @@ The userscript currently has one public Supabase Realtime channel for several in
 - [x] Add isolated logical room bindings and explicit invitation endpoint.
 - [x] Add static and unauthenticated HTTP regression coverage.
 - [x] Add a default-off adapter with strict input validation, deduplication, acknowledgement, abortable polling, and bounded retry backoff.
-- [ ] Migrate one-to-one calls behind a default-off feature flag; preserve legacy path by default. The adapter can now query creator-only room invitation status and wait for explicit acceptance before any offer is sent.
+- [ ] Connect the bundled adapter to a GM_xmlhttpRequest wrapper using an explicitly configured, same-project signaling endpoint; keep it disabled by default.
+- [ ] Migrate one-to-one calls behind a default-off feature flag; preserve legacy path by default. The adapter now has a call-room preparation primitive that waits for creator-observed acceptance before returning to offer creation.
 - [ ] Test invitation acceptance, decline, timeout, simultaneous calls, hangup, ICE ordering, reconnect, and room closure using authenticated test identities.
 - [ ] Migrate group calls only after one-to-one flow is proven.
+- [ ] Migrate voice room and screen sharing only after the call path passes authenticated browser/WebRTC E2E.
 - [ ] Migrate voice room and screen sharing with distinct binding types and independent cleanup tests.
 - [ ] Configure the isolated CI service-role secret through GitHub/Supabase settings (never paste credentials into chat) and require the authenticated E2E job to pass. The authenticated job currently skips because the secret is absent.
 - [ ] Verify the built userscript, browser behavior, and rollback path before requesting release approval.
@@ -47,3 +49,9 @@ All current transport work remains on the development branch and isolated Supaba
 - Added adapter method `waitForAcceptance`, with timeout, decline handling, and abort support. Added tests for pending-to-accepted transitions, decline, and stale poll responses after cancellation.
 - Deployed the new route to isolated function revision 21 only. The isolated health endpoint returned `{"ok":true,"service":"upstatus-signal-test"}`.
 - The adapter remains disconnected from live userscript call/voice/screen handlers. Authenticated E2E and actual browser/WebRTC behavior remain release blockers.
+
+
+## Build integration (2026-10-30)
+
+- The shared build now bundles the adapter into normal and TEST userscript artifacts. Build validation checks both artifacts contain the adapter; the adapter remains disabled by default and has no runtime effect until a future caller explicitly initializes it.
+- CI passed on [41117936053](https://github.com/Reekyi/UpStatus/actions/runs/41117936053) and build validation passed on [41117936020](https://github.com/Reekyi/UpStatus/actions/runs/41117936020).
