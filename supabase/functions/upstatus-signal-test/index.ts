@@ -253,6 +253,22 @@ Deno.serve(async (req: Request) => {
       return response({ ok: true, status: "pending" }, 201);
     }
 
+    if (path.endsWith("/room/status")) {
+      const roomId = String(p.roomId || "");
+      const activeRoom = roomId ? await room(roomId) : null;
+      if (!activeRoom) return response({ error: "Room unavailable" }, 404);
+      if (activeRoom.created_by !== sender)
+        return response({ error: "Only the room creator can inspect invitation status" }, 403);
+      const { data: members, error } = await db.from("upstatus_signal_room_members")
+        .select("user_name,status").eq("room_id", roomId)
+        .order("joined_at", { ascending: true }).limit(32);
+      if (error) throw error;
+      return response({
+        ok: true, roomId,
+        participants: (members || []).map(item => ({ name: item.user_name, status: item.status }))
+      });
+    }
+
     if (path.endsWith("/room/invitations")) {
       const { data: invitations, error } = await db.from("upstatus_signal_room_members")
         .select("room_id,joined_at").eq("user_name", sender).eq("status", "pending")
