@@ -398,3 +398,9 @@ Last updated: 2026-10-29
 - Signaling workflow run [41112899354](https://github.com/Reekyi/UpStatus/actions/runs/41112899354) completed successfully. The static regression suite reported 10/10 groups passed, the body reader reported 3/3 groups passed, and all 10/10 unauthenticated HTTP checks passed against isolated revision 16.
 - The authenticated CI step was explicitly skipped because the repository secret `UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY` is not configured. Therefore the authenticated harness cases, including legacy envelope delivery and subtype rejection, remain unexecuted at runtime.
 - The broader UpStatus validation workflow run [41112898920](https://github.com/Reekyi/UpStatus/actions/runs/41112898920) also completed successfully.
+## Envelope module unit tests and isolated revision 17: 2026-10-30
+
+- Extracted legacy envelope subtype validation into `legacy-envelope.mjs` and added a dedicated Node unit suite covering valid subtypes, unknown subtypes, malformed payloads, cross-channel subtype rejection, and compatibility for non-envelope event types.
+- Deployed the function and its helper module to isolated Edge Function revision 17. Health returned the expected JSON; read-only checks confirmed zero test users/sessions and zero signaling rooms, memberships, and events.
+- GitHub Actions run [41113181225](https://github.com/Reekyi/UpStatus/actions/runs/41113181225) passed: static regression 10/10 groups, body-reader 3/3 groups, envelope validator 3/3 groups, and unauthenticated HTTP 10/10 checks. The authenticated HTTP job skipped because the isolated-only service-role secret is not configured.
+- The broader UpStatus validation workflow [41113181088](https://github.com/Reekyi/UpStatus/actions/runs/41113181088) also succeeded. Authenticated E2E and client migration remain open blockers.
