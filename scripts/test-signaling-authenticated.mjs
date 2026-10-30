@@ -357,10 +357,18 @@ try {
       const acceptDeclined = await request(users.C, "/room/accept", { roomId: declineRoomId });
       check("declined invitation cannot be accepted afterward",
         acceptDeclined.status === 404 || acceptDeclined.status === 409, `HTTP ${acceptDeclined.status}`);
+      const reissued = await request(users.A, "/room/invite", { roomId: declineRoomId, recipient: users.C.name });
+      check("creator can reissue a declined invitation", reissued.status === 201 &&
+        reissued.json?.status === "pending" && reissued.json?.reissued === true, `HTTP ${reissued.status}`);
+      const reaccepted = await request(users.C, "/room/accept", { roomId: declineRoomId });
+      check("invitee can accept a reissued invitation", reaccepted.status === 200 &&
+        reaccepted.json?.status === "accepted", `HTTP ${reaccepted.status}`);
     } else {
       check("invitee can explicitly decline their invitation", false, "second room creation failed");
       check("declined invitee cannot poll the room", false, "second room creation failed");
       check("declined invitation cannot be accepted afterward", false, "second room creation failed");
+      check("creator can reissue a declined invitation", false, "second room creation failed");
+      check("invitee can accept a reissued invitation", false, "second room creation failed");
     }
   } else {
     for (const name of [
