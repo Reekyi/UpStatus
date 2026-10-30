@@ -1783,6 +1783,64 @@ function renderChatText(text){
       setTimeout(function(){if(!upCall.active)showChatToast(pending);},0);
     }
   }
+  function signalSafeCallId(id){return String(id||'call').replace(/[^A-Za-z0-9._:-]/g,'_').slice(0,128)||('call-'+Date.now().toString(36));}
+  function signalStartCallPolling(roomId,callId){
+    if(!signalTransport||!roomId||signalPollStops[roomId])return;
+    signalPollStops[roomId]=signalTransport.startPolling(roomId,async function(event){
+      if(!event||event.event_type!=='call_signal'||!event.payload)return;
+      var p=Object.assign({},event.payload,{from:event.sender,to:member,callId:event.payload.callId||callId});
+      try{p.participants=await signalTransport.roomMembers(roomId);}catch(e){p.participants=[member,event.sender];}
+      if(!p.initiator)p.initiator=signalCreatorCallIds[p.callId]?member:event.sender;
+      await receiveCallSignal(p);
+    });
+  }
+  function signalStopCallPolling(roomId){
+    if(!roomId)return;
+    var stop=signalPollStops[roomId];if(stop){try{stop();}catch(e){}delete signalPollStops[roomId];}
+  }
+  async function signalPollInvitations(){
+    if(!signalTransport||!signalTransportFlag)return;
+    try{
+      var invitations=await signalTransport.invitations();
+      for(var i=0;i<invitations.length;i++){
+        var invitation=invitations[i],binding=(invitation.bindings||[]).find(function(b){return b&&b.bindingType==='call'&&typeof b.logicalId==='string';});
+        if(!binding||!invitation.roomId||signalRoomByCallId[binding.logicalId])continue;
+        var callId=binding.logicalId,roomId=invitation.roomId;
+        signalRoomByCallId[callId]=roomId;signalCallIdByRoom[roomId]=callId;signalCreatorCallIds[callId]=false;
+        if(upCall.active){
+          signalTransport.decline(roomId).catch(function(){}).finally(function(){delete signalRoomByCallId[callId];delete signalCallIdByRoom[roomId];delete signalCreatorCallIds[callId];});
+          continue;
+        }
+        await receiveCallSignal({type:'invite',callId:callId,from:invitation.invitedBy,initiator:invitation.invitedBy,participants:[invitation.invitedBy,member],to:member});
+      }
+    }catch(e){}
+  }
+  function signalStartInvitationPolling(){
+    if(!signalTransport||signalInvitationTimer)return;
+    signalPollInvitations();
+    signalInvitationTimer=setInterval(signalPollInvitations,1500);
+  }
+  async function startOutgoingCallWithTransport(target){
+    if(!target||target===member)return;
+    if(upCall.active){message('Você já está em uma chamada.',true);return;}
+    upCall.callId=signalSafeCallId(callNewId());upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
+    upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
+    upCall.signalAbortController=new AbortController();signalCreatorCallIds[upCall.callId]=true;
+    callPrimeAudio();callStartRingtone();callRender(target,'Chamando…',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true,'hangup');}}]);
+    upCall.timer=setTimeout(function(){if(upCall.active&&!upCall.connected){try{if(upCall.signalAbortController)upCall.signalAbortController.abort();}catch(e){}callFail('Sem resposta.');}},30000);
+    try{
+      var room=await signalTransport.prepareCallRoom(upCall.callId,target,{timeoutMs:28000,intervalMs:900,signal:upCall.signalAbortController.signal});
+      if(!upCall.active)return;
+      signalRoomByCallId[upCall.callId]=room.roomId;signalCallIdByRoom[room.roomId]=upCall.callId;
+      signalStartCallPolling(room.roomId,upCall.callId);
+      await callGetMicrophone();
+      var p=await callCreatePeer(target),offer=await p.pc.createOffer();
+      await p.pc.setLocalDescription(offer);p.offerSent=true;
+      callStartPresence();callSendTo(target,'offer',{sdp:p.pc.localDescription,phase:'initial'});
+    }catch(e){
+      if(upCall.active)callFail(e.message||'Não foi possível iniciar a chamada.');
+    }
+  }
   function callNewId(){return String(member||'user')+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);}
   function callConnectionId(remote){
     return String(upCall.callId)+'::'+[String(member||''),String(remote||'')].sort().join('::');
