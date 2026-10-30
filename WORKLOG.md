@@ -449,3 +449,12 @@ Last updated: 2026-10-29
 - Expanded tests for pending-to-accepted transitions, decline, and stale events after cancellation. Latest validated workflow before the final cancellation regression was [41116945967](https://github.com/Reekyi/UpStatus/actions/runs/41116945967), with adapter (10 assertions), polling (3 assertions), invitation gate (3 assertions), static (11/11), body parser (3/3), envelope validator (3/3), and unauthenticated HTTP (10/10) passing. The final cancellation test has been added and its workflow result is being checked.
 - Deployed isolated Edge Function revision 21 only and verified its health response. Production and official TEST remain untouched.
 - Remaining blockers: authenticated E2E still skips because the isolated CI secret is not configured; the adapter has not been integrated into the userscript; real browser/WebRTC flows are not yet verified. Keep PR #74 draft and unmerged.
+
+
+### Bundled default-off adapter and acceptance-gated call preparation (2026-10-30)
+
+- Updated the shared build so the normal and TEST userscript artifacts include the signaling adapter without activating it. The adapter remains default-off and no existing Realtime send/receive path was switched.
+- Added `prepareCallRoom`: create a room, bind the logical call ID, wait for server-authoritative acceptance, and close the room if acceptance is declined, times out, or aborts. This is the first call-setup primitive that enforces the acceptance-before-offer ordering.
+- Expanded tests for successful pending-to-accepted setup, decline cleanup, abort during invitation wait, and stale poll responses after cancellation.
+- Signaling CI run [41117936053](https://github.com/Reekyi/UpStatus/actions/runs/41117936053) passed: adapter 10 assertions, polling 3, invitation gate 3, cancellation 1, call setup gate 4, invitation abort 1, static 11/11, body reader 3/3, envelope 3/3, and unauthenticated HTTP 11/11. Validation run [41117936020](https://github.com/Reekyi/UpStatus/actions/runs/41117936020) passed.
+- Authenticated HTTP/WebRTC E2E remains unverified because the isolated CI secret is not configured. The client adapter is bundled but not connected to live call, voice-room, or screen-share flows. Production and official TEST remain untouched; PR #74 remains draft and unmerged.
