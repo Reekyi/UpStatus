@@ -28,14 +28,22 @@ The userscript currently has one public Supabase Realtime channel for several in
 - [x] Harden isolated signaling API and room-membership state machine.
 - [x] Add isolated logical room bindings and explicit invitation endpoint.
 - [x] Add static and unauthenticated HTTP regression coverage.
-- [ ] Add an adapter with strict input validation and abortable polling.
-- [ ] Migrate one-to-one calls behind a default-off feature flag; preserve legacy path by default.
+- [x] Add a default-off adapter with strict input validation, deduplication, acknowledgement, abortable polling, and bounded retry backoff.
+- [ ] Migrate one-to-one calls behind a default-off feature flag; preserve legacy path by default. The adapter can now query creator-only room invitation status and wait for explicit acceptance before any offer is sent.
 - [ ] Test invitation acceptance, decline, timeout, simultaneous calls, hangup, ICE ordering, reconnect, and room closure using authenticated test identities.
 - [ ] Migrate group calls only after one-to-one flow is proven.
 - [ ] Migrate voice room and screen sharing with distinct binding types and independent cleanup tests.
-- [ ] Configure the isolated CI service-role secret through GitHub/Supabase settings (never paste credentials into chat) and require the authenticated E2E job to pass.
+- [ ] Configure the isolated CI service-role secret through GitHub/Supabase settings (never paste credentials into chat) and require the authenticated E2E job to pass. The authenticated job currently skips because the secret is absent.
 - [ ] Verify the built userscript, browser behavior, and rollback path before requesting release approval.
 
 ## Release safety
 
 All current transport work remains on the development branch and isolated Supabase project. Do not enable the new transport by default, merge the PR, apply migrations to production/official TEST, or publish either release line without explicit authorization. A passing static or unauthenticated test suite is not evidence that authenticated WebRTC signaling is production-ready.
+
+
+## Additional acceptance-state work (2026-10-30)
+
+- Added creator-only `POST /room/status`, returning room member names and states only to the room creator. This gives the initiator a server-authoritative way to wait for acceptance instead of trusting a public Realtime broadcast.
+- Added adapter method `waitForAcceptance`, with timeout, decline handling, and abort support. Added tests for pending-to-accepted transitions, decline, and stale poll responses after cancellation.
+- Deployed the new route to isolated function revision 21 only. The isolated health endpoint returned `{"ok":true,"service":"upstatus-signal-test"}`.
+- The adapter remains disconnected from live userscript call/voice/screen handlers. Authenticated E2E and actual browser/WebRTC behavior remain release blockers.
