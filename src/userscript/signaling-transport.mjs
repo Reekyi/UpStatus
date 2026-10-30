@@ -206,7 +206,7 @@ export function createSignalingTransport({
     if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
     if (typeof onEvent !== "function") throw new TypeError("onEvent must be a function");
     stopPolling(roomId);
-    const state = { cancelled: false, timer: null, controller: null, backoff: intervalMs };
+    const state = { cancelled: false, timer: null, controller: null, backoff: intervalMs, externalAbortHandler: null };
     activePolls.set(roomId, state);
     if (!seenByRoom.has(roomId)) seenByRoom.set(roomId, new Set());
     const seen = seenByRoom.get(roomId);
@@ -215,11 +215,13 @@ export function createSignalingTransport({
       state.cancelled = true;
       if (state.timer) clearTimeout(state.timer);
       if (state.controller) state.controller.abort();
+      if (signal && state.externalAbortHandler) signal.removeEventListener("abort", state.externalAbortHandler);
       if (activePolls.get(roomId) === state) activePolls.delete(roomId);
     };
     if (signal) {
       if (signal.aborted) { finish(); return finish; }
-      signal.addEventListener("abort", finish, { once: true });
+      state.externalAbortHandler = finish;
+      signal.addEventListener("abort", state.externalAbortHandler, { once: true });
     }
 
     const schedule = delay => {
@@ -233,6 +235,7 @@ export function createSignalingTransport({
       state.controller = new AbortController();
       try {
         const events = await poll(roomId, { signal: state.controller.signal });
+        if (state.cancelled || activePolls.get(roomId) !== state) return;
         const ackIds = [];
         for (const event of events) {
           const id = Number(event && event.event_id);
@@ -250,6 +253,7 @@ export function createSignalingTransport({
           seen.clear();
           keep.forEach(id => seen.add(id));
         }
+        if (state.cancelled || activePolls.get(roomId) !== state) return;
         if (ackIds.length) {
           for (let i = 0; i < ackIds.length; i += 100) {
             await ack(roomId, ackIds.slice(i, i + 100));
