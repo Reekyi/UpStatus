@@ -5,7 +5,7 @@ Status: isolated prototype only. Not integrated with either userscript. Not appr
 ## Environment
 
 - Supabase project: `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`)
-- Function: `upstatus-signal-test`, revision 4
+- Function: `upstatus-signal-test`, latest isolated test deployment revision 6
 - Endpoint health check: `GET /functions/v1/upstatus-signal-test/health` returned `{"ok":true,"service":"upstatus-signal-test"}`
 - The test project contains no production user/session rows and no production data was copied.
 - The project is on the free tier; usage limits still apply.
@@ -65,7 +65,8 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 
 - Rate limiting is in-memory per Edge Function instance, not a global distributed quota.
 - Event queue cleanup/retention needs a scheduled cleanup or bounded cleanup strategy; TTL filters prevent delivery after expiry but expired rows still need cleanup.
-- Polling is at-least-once until acknowledgement; client integration must deduplicate `event_id` and acknowledge only after successfully handling each event.
+- Polling is at-least-once until acknowledgement; client integration must deduplicate `event_id` and acknowledge only after successfully handling each event. The endpoint now reports the number of rows actually deleted, not the number of IDs submitted; the authenticated harness tests a mixed existing/nonexistent ID batch.
 - Polling latency and ICE throughput have not been measured.
+- Room creation currently adds all requested known users as members immediately. This is not a consent/acceptance flow; before production use, add an explicit invitation/pending-membership state and require the invitee to accept before signaling is allowed.
 - Event-type authorization still needs a formal state machine, particularly for call acceptance, rejection and ending a room.
 - No production or official TEST function was changed.
