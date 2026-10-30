@@ -51,6 +51,10 @@ assert.ok(authenticatedHarness.includes("closed room binding is removed and cann
   "authenticated harness must cover binding cleanup on room close");
 assert.ok(functionSource.includes('path.endsWith("/room/invite")'),
   "endpoint must support explicit dynamic invitations");
+assert.ok(authenticatedHarness.includes("unsupported logical binding type is rejected") &&
+  authenticatedHarness.includes("non-member cannot invite participants into a room") &&
+  authenticatedHarness.includes("self-invitation is rejected as invalid input"),
+  "authenticated harness must cover invalid binding and invitation authorization inputs");
 assert.ok(authenticatedHarness.includes("accepted member can resolve the logical call ID") &&
   authenticatedHarness.includes("newly accepted user can resolve the logical room") &&
   authenticatedHarness.includes("duplicate room invitation is rejected"),
