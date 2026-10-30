@@ -324,3 +324,12 @@ Last updated: 2026-10-29
 - Added authenticated harness cases for repeated acceptance, explicit decline, and rejection of poll/accept after decline. The harness passes Node syntax checks in CI, but the authenticated requests remain unexecuted because three valid test sessions are not available.
 - Updated the smoke workflow path filter to include all SQL migrations. Runs #23 through #26 passed; a new run is expected for the latest workflow update.
 - Production and official TEST remain untouched. No PR was merged.
+
+
+## Static signaling regression checks and CI: 2026-10-30
+
+- Added `scripts/signaling-static.test.mjs` with credential-free checks for migration idempotency, compatibility defaults, atomic invitation transitions, accepted-member-only authorization, and safety guards in the authenticated harness.
+- Updated `.github/workflows/signaling-smoke.yml` to run the static checks and include all SQL migrations in its path filter.
+- GitHub Actions run #29 for commit `63035dd` completed successfully in 12 seconds. This validates the test harness syntax and static assertions plus the unauthenticated smoke checks; it does not substitute for authenticated E2E.
+- Isolated function revision 10 health endpoint continues to return the expected JSON. Database catalog checks confirm RLS enabled on all three signaling tables and no direct SELECT privilege for `anon` or `authenticated`.
+- Authenticated E2E, actual WebRTC offer/answer/ICE flows, retention expiry, and load/latency remain outstanding. Production and official TEST remain untouched.
