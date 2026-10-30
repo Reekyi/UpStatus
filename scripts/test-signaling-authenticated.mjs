@@ -160,6 +160,18 @@ try {
     const resolved = await request(users.B, "/room/resolve", { bindingType: "call", logicalId: logicalCallId });
     check("accepted member can resolve the logical call ID", resolved.status === 200 &&
       resolved.json?.roomId === roomId, `HTTP ${resolved.status}`);
+    const joinRequest = await request(users.C, "/room/request-invite", { bindingType: "call", logicalId: logicalCallId });
+    check("non-member can request invitation to a discoverable active call", joinRequest.status === 202 &&
+      joinRequest.json?.status === "pending", `HTTP ${joinRequest.status}`);
+    const duplicateJoinRequest = await request(users.C, "/room/request-invite", { bindingType: "call", logicalId: logicalCallId });
+    check("duplicate join request is rejected", duplicateJoinRequest.status === 409, `HTTP ${duplicateJoinRequest.status}`);
+    const creatorRequests = await request(users.A, "/poll", { roomId });
+    const joinRequestEvent = (creatorRequests.json?.events || []).find(e =>
+      e.event_type === "call_signal" && e.sender === users.C.name && e.payload?.type === "join_request");
+    check("room creator receives the authenticated join request", creatorRequests.status === 200 && !!joinRequestEvent &&
+      joinRequestEvent.payload?.callId === logicalCallId, `HTTP ${creatorRequests.status}`);
+    if (joinRequestEvent) await request(users.A, "/ack", { roomId, eventIds: [joinRequestEvent.event_id] });
+
     const unauthorizedBind = await request(users.B, "/room/bind", { roomId, bindingType: "call", logicalId: "spoofed-" + roomId });
     check("non-creator cannot bind a logical room", unauthorizedBind.status === 403, `HTTP ${unauthorizedBind.status}`);
     const invalidBindingType = await request(users.A, "/room/bind", { roomId, bindingType: "admin", logicalId: logicalCallId });
