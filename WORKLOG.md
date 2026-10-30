@@ -299,3 +299,10 @@ Last updated: 2026-10-29
 - Expanded unauthenticated smoke tests to require authentication for invitation listing/acceptance/decline. Latest CI run #19 passed after invitation listing was added; all unauthenticated smoke checks passed, including the new invitation auth gates.
 - Updated the migration to preserve existing room memberships as accepted when upgrading, while new invitations are explicitly inserted as pending by the function.
 - No production or official TEST function was changed. No PR was merged.
+
+## Bounded expiry cleanup: 2026-10-30
+
+- Added best-effort cleanup to the isolated signaling Edge Function: at most once per minute per warm isolate, delete up to 500 expired events and 100 expired rooms. Room foreign keys cascade to memberships and queued events.
+- Cleanup is bounded and never intentionally blocks signaling when a cleanup query fails. It is opportunistic, not a global scheduler; expired rows may remain while the function receives no authenticated traffic.
+- Deployed function revision 9 only to the isolated test project. Production and the official TEST function remain unchanged.
+- Runtime retention behavior has not yet been validated with authenticated requests or expiry-wait tests.
