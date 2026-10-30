@@ -9,6 +9,7 @@ on:
       - "scripts/test-signaling-authenticated.mjs"
       - ".github/workflows/signaling-smoke.yml"
       - "supabase/functions/upstatus-signal-test/index.ts"
+      - "supabase/migrations/20261030120000_signal_room_invitation_consent.sql"
       - "docs/REALTIME_SIGNALING_PROTOTYPE.md"
   workflow_dispatch:
 
