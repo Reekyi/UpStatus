@@ -20,6 +20,8 @@ await client.bindRoom({ roomId: "sig_123", bindingType: "call", logicalId: "call
 assert.equal(calls.at(-1).path, "/room/bind");
 await client.resolveRoom({ bindingType: "voice", logicalId: "voice-room-v1" });
 await client.invite("sig_123", "mari");
+await client.requestInvite("call:abc");
+assert.equal(calls.at(-1).path, "/room/request-invite");
 await client.roomMembers("sig_123");
 assert.equal(calls.at(-1).path, "/room/members");
 await client.roomStatus("sig_123");
@@ -42,7 +44,7 @@ const failing = createSignalingTransport({
 });
 await assert.rejects(() => failing.poll("sig_123"), error => error.status === 403 && error.message === "Room membership required");
 
-console.log("signaling transport adapter: 11 assertions passed");
+console.log("signaling transport adapter: 12 assertions passed");
 
 const pollCalls = [];
 let handled = 0;
