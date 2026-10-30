@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { createHash, randomBytes } from "node:crypto";
+import { readJsonObject } from "./body.mjs";
 
 const PROJECT_URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}").default || "";
@@ -28,41 +29,6 @@ function response(body: unknown, status=200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type":"application/json; charset=utf-8", ...CORS } });
 }
 function hash(t: string) { return createHash("sha256").update(t).digest("hex"); }
-async function body(req: Request): Promise<Record<string, unknown>> {
-  const declaredLength = Number(req.headers.get("content-length") || "0");
-  if (declaredLength > MAX_BODY) throw new Error("PAYLOAD_TOO_LARGE");
-  if (!req.body) return {};
-  const reader = req.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.byteLength;
-      if (total > MAX_BODY) {
-        await reader.cancel();
-        throw new Error("PAYLOAD_TOO_LARGE");
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  if (!total) return {};
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  let parsed: unknown;
-  try { parsed = JSON.parse(new TextDecoder().decode(bytes)); }
-  catch { throw new Error("INVALID_JSON"); }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
-    throw new Error("INVALID_BODY");
-  return parsed as Record<string, unknown>;
-}
 function rateLimit(name: string) {
   const now = Date.now();
   const old = rate.get(name);
@@ -142,7 +108,7 @@ Deno.serve(async (req: Request) => {
     if (!sender) return response({ error: "Valid UpStatus session required" }, 401);
     if (!rateLimit(sender)) return response({ error: "Rate limit exceeded" }, 429);
     await cleanupExpired();
-    const p = await body(req) as Record<string, unknown>;
+    const p = await readJsonObject(req) as Record<string, unknown>;
 
     if (path.endsWith("/room/create")) {
       const requested = Array.isArray(p.participants) ? p.participants : [];
