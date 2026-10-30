@@ -1,20 +1,3 @@
-assert.ok(bindingMigration.includes("PRIMARY KEY (binding_type, logical_id)"),
-  "logical room bindings must have a unique server-owned type/id key");
-assert.ok(bindingMigration.includes("ENABLE ROW LEVEL SECURITY") &&
-  bindingMigration.includes("REVOKE ALL PRIVILEGES") && bindingMigration.includes("GRANT ALL PRIVILEGES") &&
-  bindingMigration.includes("service_role"),
-  "logical room binding table must remain service-role-only");
-assert.ok(functionSource.includes('path.endsWith("/room/bind")'),
-  "endpoint must expose authorized logical room binding");
-assert.ok(functionSource.includes('path.endsWith("/room/resolve")'),
-  "endpoint must resolve bindings only for accepted room members");
-assert.ok(functionSource.includes('path.endsWith("/room/invite")'),
-  "endpoint must support explicit dynamic invitations");
-assert.ok(authenticatedHarness.includes("accepted member can resolve the logical call ID") &&
-  authenticatedHarness.includes("newly accepted user can resolve the logical room") &&
-  authenticatedHarness.includes("duplicate room invitation is rejected"),
-  "authenticated harness must cover bindings and dynamic invitation transitions");
-
 #!/usr/bin/env node
 /**
  * Static regression checks for the isolated server-mediated signaling prototype.
@@ -52,6 +35,23 @@ assert.match(legacyDefaultMigration, /ALTER COLUMN status SET DEFAULT 'accepted'
   "follow-up migration must align the isolated schema with the compatibility default");
 assert.match(envelopeMigration, /'call_signal','voice_room_signal','screen_signal'/,
   "database event-type constraint must permit the three legacy transport envelopes");
+assert.ok(bindingMigration.includes("PRIMARY KEY (binding_type, logical_id)"),
+  "logical room bindings must have a unique server-owned type/id key");
+assert.ok(bindingMigration.includes("ENABLE ROW LEVEL SECURITY") &&
+  bindingMigration.includes("REVOKE ALL PRIVILEGES") && bindingMigration.includes("GRANT ALL PRIVILEGES") &&
+  bindingMigration.includes("service_role"),
+  "logical room binding table must remain service-role-only");
+assert.ok(functionSource.includes('path.endsWith("/room/bind")'),
+  "endpoint must expose authorized logical room binding");
+assert.ok(functionSource.includes('path.endsWith("/room/resolve")'),
+  "endpoint must resolve bindings only for accepted room members");
+assert.ok(functionSource.includes('path.endsWith("/room/invite")'),
+  "endpoint must support explicit dynamic invitations");
+assert.ok(authenticatedHarness.includes("accepted member can resolve the logical call ID") &&
+  authenticatedHarness.includes("newly accepted user can resolve the logical room") &&
+  authenticatedHarness.includes("duplicate room invitation is rejected"),
+  "authenticated harness must cover bindings and dynamic invitation transitions");
+
 
 assert.match(functionSource,
   /\.update\(\{ status \}\)[\s\S]{0,220}\.eq\("status", "pending"\)[\s\S]{0,100}\.select\("status"\)\.maybeSingle\(\)/,
