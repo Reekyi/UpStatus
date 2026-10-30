@@ -1787,11 +1787,23 @@ function renderChatText(text){
   function signalStartCallPolling(roomId,callId){
     if(!signalTransport||!roomId||signalPollStops[roomId])return;
     signalPollStops[roomId]=signalTransport.startPolling(roomId,async function(event){
-      if(!event||event.event_type!=='call_signal'||!event.payload)return;
-      var p=Object.assign({},event.payload,{from:event.sender,to:member,callId:event.payload.callId||callId});
-      try{p.participants=await signalTransport.roomMembers(roomId);}catch(e){p.participants=[member,event.sender];}
-      if(!p.initiator)p.initiator=signalCreatorCallIds[p.callId]?member:event.sender;
-      await receiveCallSignal(p);
+      if(!event||!event.payload)return;
+      if(event.event_type==='call_signal'){
+        var p=Object.assign({},event.payload,{from:event.sender,to:member,callId:event.payload.callId||callId});
+        try{p.participants=await signalTransport.roomMembers(roomId);}catch(e){p.participants=[member,event.sender];}
+        if(!p.initiator)p.initiator=signalCreatorCallIds[p.callId]?member:event.sender;
+        await receiveCallSignal(p);
+        return;
+      }
+      if(event.event_type==='voice_room_signal'){
+        var voicePayload=Object.assign({},event.payload,{from:event.sender,to:member,roomId:voiceRoom.id});
+        await voiceRoomReceive(voicePayload);
+        return;
+      }
+      if(event.event_type==='screen_signal'){
+        var screenPayload=Object.assign({},event.payload,{from:event.sender,to:member,roomId:voiceRoom.id});
+        await screenShareReceive(screenPayload);
+      }
     });
   }
   function signalStopCallPolling(roomId){
