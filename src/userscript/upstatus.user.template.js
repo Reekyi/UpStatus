@@ -212,6 +212,48 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   GM_setValue(key+'server',CLOUD_SERVER);
   var token=GM_getValue(key+'token','');
   var member=GM_getValue(key+'member','');
+  // Server-mediated signaling is an opt-in migration path. It is inert by default.
+  var signalTransportFlag=GM_getValue(key+'signaling_transport_enabled',false)===true;
+  var signalTransportEndpoint=String(GM_getValue(key+'signaling_transport_endpoint','')||'').trim();
+  var signalTransport=null,signalInvitationTimer=null;
+  var signalRoomByCallId=Object.create(null),signalCallIdByRoom=Object.create(null);
+  var signalPollStops=Object.create(null),signalCreatorCallIds=Object.create(null);
+  function signalTransportRequest(route,payload,options){
+    return new Promise(function(resolve,reject){
+      var signal=options&&options.signal,handle=null,settled=false,abortHandler=null;
+      function finish(fn,value){
+        if(settled)return;settled=true;
+        if(signal&&abortHandler)signal.removeEventListener('abort',abortHandler);
+        fn(value);
+      }
+      if(signal&&signal.aborted){var aborted=new Error('Signaling request aborted');aborted.name='AbortError';reject(aborted);return;}
+      try{
+        handle=GM_xmlhttpRequest({
+          method:'POST',url:signalTransportEndpoint.replace(/\\/$/,'')+route,
+          headers:{'Content-Type':'application/json','X-UpStatus-Token':token,'Cache-Control':'no-store'},
+          data:JSON.stringify(payload||{}),timeout:12000,
+          onload:function(r){var body={};try{body=JSON.parse(r.responseText||'{}')}catch(e){body={error:'Invalid signaling response'}}finish(resolve,{status:Number(r.status)||0,body:body});},
+          onerror:function(){finish(reject,new Error('Signaling network request failed'));},
+          ontimeout:function(){finish(reject,new Error('Signaling request timed out'));},
+          onabort:function(){var e=new Error('Signaling request aborted');e.name='AbortError';finish(reject,e);}
+        });
+        if(signal){
+          abortHandler=function(){try{if(handle&&handle.abort)handle.abort();else{var e=new Error('Signaling request aborted');e.name='AbortError';finish(reject,e);}}catch(e){finish(reject,e);}};
+          signal.addEventListener('abort',abortHandler,{once:true});
+          if(signal.aborted)abortHandler();
+        }
+      }catch(e){finish(reject,e);}
+    });
+  }
+  function initSignalingTransport(){
+    if(!signalTransportFlag||signalTransport||!token||!signalTransportEndpoint||typeof createSignalingTransport!=='function')return;
+    try{
+      var endpoint=new URL(signalTransportEndpoint),sessionServer=new URL(server);
+      if(endpoint.protocol!=='https:'||endpoint.origin!==sessionServer.origin||endpoint.search||endpoint.hash||
+        !/\\/functions\\/v1\\/upstatus-signal(?:-test)?$/.test(endpoint.pathname))return;
+      signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});
+    }catch(e){signalTransport=null;}
+  }
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
   var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,remoteLastPollAt=0,refreshing=false,readSentKey='',chatFastSince='';
