@@ -48,13 +48,18 @@ console.log("PASS signaling migration idempotency and compatibility defaults");
 console.log("PASS atomic invitation transitions and accepted-member authorization");
 console.log("PASS authenticated harness is mutation-gated and test-project scoped");
 console.log("3/3 signaling static regression groups passed.");
-
-
-assert.match(functionSource, /const reader = req\\.body\\.getReader\\(\\)/,
+assert.ok(functionSource.includes("const reader = req.body.getReader()"),
   "request bodies must be read incrementally rather than fully buffered");
-assert.match(functionSource, /total > MAX_BODY[\\s\\S]{0,100}reader\\.cancel\\(\\)/,
+assert.ok(functionSource.includes("if (total > MAX_BODY) {") &&
+  functionSource.includes("await reader.cancel()"),
   "oversized streaming request bodies must be cancelled as soon as the limit is crossed");
-assert.match(functionSource, /!parsed \\|\\| typeof parsed !== "object" \\|\\| Array\\.isArray\\(parsed\\)/,
+assert.ok(functionSource.includes('if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))'),
   "JSON null, primitive, and array bodies must be rejected with a client error");
-assert.match(functionSource, /message === "INVALID_JSON" \\|\\| message === "INVALID_BODY"/,
+assert.ok(functionSource.includes('message === "INVALID_JSON" || message === "INVALID_BODY"'),
   "invalid JSON shapes must not surface as internal server errors");
+
+console.log("PASS signaling migration idempotency and compatibility defaults");
+console.log("PASS atomic invitation transitions and accepted-member authorization");
+console.log("PASS authenticated harness is mutation-gated and test-project scoped");
+console.log("PASS bounded streaming body reads and JSON body shape validation");
+console.log("4/4 signaling static regression groups passed.");
