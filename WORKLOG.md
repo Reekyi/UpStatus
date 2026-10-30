@@ -404,3 +404,9 @@ Last updated: 2026-10-29
 - Deployed the function and its helper module to isolated Edge Function revision 17. Health returned the expected JSON; read-only checks confirmed zero test users/sessions and zero signaling rooms, memberships, and events.
 - GitHub Actions run [41113181225](https://github.com/Reekyi/UpStatus/actions/runs/41113181225) passed: static regression 10/10 groups, body-reader 3/3 groups, envelope validator 3/3 groups, and unauthenticated HTTP 10/10 checks. The authenticated HTTP job skipped because the isolated-only service-role secret is not configured.
 - The broader UpStatus validation workflow [41113181088](https://github.com/Reekyi/UpStatus/actions/runs/41113181088) also succeeded. Authenticated E2E and client migration remain open blockers.
+## Isolated authenticated runtime attempt and schema constraint fix: 2026-10-30
+
+- Detected that the database CHECK constraint for `upstatus_signal_events.event_type` did not include the newly allowed legacy transport envelope names. Added migration `20261030190000_allow_legacy_signaling_envelopes.sql` and applied it only to isolated project `bfpjtfqlnypisxljoxkb`. A read-only catalog check verified all three envelope types are allowed.
+- A guarded temporary runner made authenticated requests against isolated revision 17. Edge logs showed expected HTTP classes across room create/accept, pending-member access, all three envelope sends, invalid outer/inner types, malformed/oversized/deep/wide payloads, polling, acknowledgement, and room close.
+- The web extraction layer timed out and did not return the runner's assertion summary, so I am not counting the whole run as a certified pass. Read-only database counts afterward confirmed zero temporary users/sessions and zero signaling rooms/memberships/events.
+- The temporary runner was redeployed as an inert 404 handler; it no longer performs tests. Production and official TEST were untouched.
