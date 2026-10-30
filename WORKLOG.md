@@ -354,7 +354,7 @@ Last updated: 2026-10-29
 - Production and official TEST remain untouched; no PR merged. Authenticated E2E has not been run from this session because no isolated service-role key is available to the runner.
 
 
-## Final validation checkpoint for this continuation: 2026-10-30
+## Validation checkpoint before additional hardening: 2026-10-30
 
 - GitHub Actions run #49 (commit `69fbebc`) completed successfully after recursive payload sanitization and updated documentation. Runs #47 and #48 also passed on the relevant static-check updates.
 - Isolated Edge Function is ACTIVE at revision 13; retrieved deployment metadata confirms `index.ts` imports the bundled `body.mjs` module. The health endpoint returns `{"ok":true,"service":"upstatus-signal-test"}`.
@@ -369,3 +369,9 @@ Last updated: 2026-10-29
 - Changes are committed to chore/continuity-foundation in commits 984c63d, 731127e, 96f49e8 and 15d6553. GitHub Actions validation for the latest code changes has not yet been confirmed.
 - Read-only Supabase checks on isolated project bfpjtfqlnypisxljoxkb confirmed RLS enabled for all three signaling tables and direct table grants limited to service_role; no direct grants were found for anon or authenticated. Security Advisor no-policy notices are expected for these tables because access is intended to go through the service-mediated function.
 - Deployed the updated function source and body reader to isolated Edge Function revision 15. A live GET to the health endpoint returned {"ok":true,"service":"upstatus-signal-test"}. This confirms deployment health, not authenticated E2E behavior. Production and official TEST remain untouched; no PR merged.
+
+## Post-deployment focused checks: 2026-10-30
+
+- After revision 15 deployment, a focused source-level check exercised the candidate payload sanitizer logic for nested/case-variant identity removal, nesting rejection, and wide-array rejection; all 7 focused assertions (including source guard assertions) passed in the orchestration runtime.
+- The live health endpoint returned the expected JSON, and a read-only query confirmed the isolated project has zero signaling rooms, memberships, events, temporary test users, or temporary test sessions.
+- This focused check is not a substitute for the repository's Node test suite or authenticated HTTP E2E. The latest GitHub Actions result is still unconfirmed, and the authenticated runner still requires the isolated project's service-role key locally.
