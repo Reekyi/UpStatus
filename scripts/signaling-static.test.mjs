@@ -187,6 +187,15 @@ assert.ok(functionSource.includes("MAX_EVENTS_PER_MINUTE = 90") &&
   functionSource.includes("MAX_READS_PER_MINUTE = 240") &&
   functionSource.includes("readRoute ? MAX_READS_PER_MINUTE : MAX_EVENTS_PER_MINUTE"),
   "signaling polling reads must have a separate bounded quota from writes");
+assert.ok(functionSource.includes('path.endsWith("/room/request-invite")') &&
+  functionSource.includes('type: "join_request"') &&
+  authenticatedHarness.includes("non-member can request invitation to a discoverable active call") &&
+  authenticatedHarness.includes("room creator receives the authenticated join request"),
+  "active call join requests must be delivered to the room creator without granting membership");
+assert.ok(userTemplate.includes("signalTransport.requestInvite(callId)") &&
+  userTemplate.includes("discoveryOnly:true") &&
+  userTemplate.includes("callSendTo(requester,'invite'"),
+  "call discovery hints must not replace authenticated invitations or signal delivery");
 console.log("PASS signaling migration idempotency and compatibility defaults");
 console.log("PASS atomic invitation transitions and accepted-member authorization");
 console.log("PASS authenticated harness is mutation-gated and test-project scoped");
