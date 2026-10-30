@@ -28,7 +28,7 @@ The userscript currently has one public Supabase Realtime channel for several in
 - [x] Harden isolated signaling API and room-membership state machine.
 - [x] Add isolated logical room bindings and explicit invitation endpoint.
 - [x] Add static and unauthenticated HTTP regression coverage.
-- [x] Add a default-off adapter with strict input validation, deduplication, acknowledgement, abortable polling, and bounded retry backoff.
+- [x] Add a default-off adapter with strict input validation, deduplication, acknowledgement, abortable polling, bounded retry backoff, explicit acceptance gating, and accepted-member fanout.
 - [ ] Connect the bundled adapter to a GM_xmlhttpRequest wrapper using an explicitly configured, same-project signaling endpoint; keep it disabled by default.
 - [ ] Migrate one-to-one calls behind a default-off feature flag; preserve legacy path by default. The adapter now has a call-room preparation primitive that waits for creator-observed acceptance before returning to offer creation.
 - [ ] Test invitation acceptance, decline, timeout, simultaneous calls, hangup, ICE ordering, reconnect, and room closure using authenticated test identities.
@@ -55,3 +55,10 @@ All current transport work remains on the development branch and isolated Supaba
 
 - The shared build now bundles the adapter into normal and TEST userscript artifacts. Build validation checks both artifacts contain the adapter; the adapter remains disabled by default and has no runtime effect until a future caller explicitly initializes it.
 - CI passed on [41117936053](https://github.com/Reekyi/UpStatus/actions/runs/41117936053) and build validation passed on [41117936020](https://github.com/Reekyi/UpStatus/actions/runs/41117936020).
+
+
+## Accepted-member fanout (2026-10-30)
+
+- Added `POST /room/members` for accepted members only, exposing accepted member names but not pending/declined invitation state to non-creators.
+- Added `sendToRoom` so broadcast-style events can be translated into individually authorized recipient-scoped signals.
+- Isolated function revision 22 deployed and health-checked. CI [41118513244](https://github.com/Reekyi/UpStatus/actions/runs/41118513244) passed 13 adapter assertions and 12/12 unauthenticated HTTP checks. Authenticated integration remains unverified.
