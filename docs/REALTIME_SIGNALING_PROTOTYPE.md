@@ -55,7 +55,7 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 - [x] Unauthenticated smoke workflow previously passed 7/7 checks against the isolated test endpoint.
 - [x] Explicit invite listing, acceptance and decline routes and pending-membership gating implemented in the isolated prototype.
 - [x] Authenticated integration harness expanded to test invitation discovery/privacy, invite consent and accurate acknowledgement counts.
-- [ ] Latest smoke workflow run must finish successfully before counting invitation-discovery auth checks as validated.
+- [x] Latest unauthenticated smoke workflow run (#19) passed after invitation discovery was added; it checks authentication gates for invitation listing, acceptance and decline alongside the prior endpoint checks.
 - [ ] Authenticated integration harness has not been run: three valid test sessions and distinct test users are not available to this session. Do not count its scenarios as passed until it runs and its output is reviewed.
 - [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting.
 - [ ] Multi-client WebRTC tests for offer/answer/ICE, calls, voice rooms and screen sharing.
