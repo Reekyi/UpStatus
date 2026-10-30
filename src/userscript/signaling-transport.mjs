@@ -182,6 +182,23 @@ export function createSignalingTransport({
     return post("/ack", { roomId, eventIds: [...new Set(eventIds.map(Number))] });
   }
 
+  async function prepareCallRoom(logicalId, recipient, options = {}) {
+    validId(logicalId, "logical call ID");
+    if (typeof recipient !== "string" || !recipient || recipient.length > 80)
+      throw new TypeError("Invalid recipient");
+    const created = await createRoom([recipient]);
+    const roomId = created.roomId;
+    if (typeof roomId !== "string" || !roomId) throw new Error("Room creation returned no room ID");
+    try {
+      await bindRoom({ roomId, bindingType: "call", logicalId });
+      await waitForAcceptance(roomId, recipient, options);
+      return { roomId, logicalId, recipient };
+    } catch (error) {
+      try { await close(roomId); } catch {}
+      throw error;
+    }
+  }
+
   async function close(roomId) {
     if (typeof roomId !== "string" || !roomId) throw new TypeError("Invalid room ID");
     return post("/room/close", { roomId });
@@ -278,7 +295,7 @@ export function createSignalingTransport({
 
   return Object.freeze({
     createRoom, bindRoom, resolveRoom, invite, invitations, roomStatus, waitForAcceptance, accept, decline,
-    sendSignal, poll, ack, close, startPolling, stopPolling, stopAll,
+    sendSignal, poll, ack, close, prepareCallRoom, startPolling, stopPolling, stopAll,
     get enabled() { return enabled; },
     get activePollCount() { return activePolls.size; },
     get now() { return now(); },
