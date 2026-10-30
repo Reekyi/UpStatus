@@ -7,6 +7,7 @@ on:
     paths:
       - "scripts/test-signaling-endpoint.mjs"
       - "scripts/test-signaling-authenticated.mjs"
+      - "scripts/run-signaling-authenticated.mjs"
       - "scripts/signaling-static.test.mjs"
       - "scripts/signaling-body.test.mjs"
       - "supabase/functions/upstatus-signal-test/body.mjs"
@@ -29,6 +30,7 @@ jobs:
         run: |
           node --check scripts/test-signaling-endpoint.mjs
           node --check scripts/test-signaling-authenticated.mjs
+          node --check scripts/run-signaling-authenticated.mjs
           node --check scripts/signaling-static.test.mjs
           node scripts/signaling-static.test.mjs
           node --check scripts/signaling-body.test.mjs
