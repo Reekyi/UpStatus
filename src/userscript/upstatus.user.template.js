@@ -1911,8 +1911,11 @@ function renderChatText(text){
     if(!upCall.connected&&upCall.startedAt){upCall.startedAt=0;if(upCall.counterTimer){clearInterval(upCall.counterTimer);upCall.counterTimer=null;}}
   }
   function callCleanup(sendSignal,signalType){
-    var callId=upCall.callId;
-    if(callId&&upCall.active)sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now()});
+    var callId=upCall.callId,signalRoomId=signalRoomByCallId[callId],signalRoomCreator=signalCreatorCallIds[callId]===true;
+    if(callId&&upCall.active){
+      if(signalTransport&&signalRoomId)callSendAll('ended',{updatedAt:Date.now()});
+      else sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now()});
+    }
     if(upCall.presenceTimer){clearInterval(upCall.presenceTimer);upCall.presenceTimer=null;}
     if(sendSignal&&callId){
       try{
@@ -1927,6 +1930,14 @@ function renderChatText(text){
     callStopRingtone();
     Object.keys(upCall.peers).slice().forEach(function(name){callRemovePeer(name,false);});
     callStopStream();
+    try{if(upCall.signalAbortController)upCall.signalAbortController.abort();}catch(e){}
+    upCall.signalAbortController=null;
+    if(signalRoomId){
+      signalStopCallPolling(signalRoomId);
+      delete signalRoomByCallId[callId];delete signalCallIdByRoom[signalRoomId];
+      if(signalRoomCreator&&signalTransport)setTimeout(function(){signalTransport.close(signalRoomId).catch(function(){});},4000);
+    }
+    delete signalCreatorCallIds[callId];
     upCall.callId='';upCall.peer='';upCall.role='';upCall.initiator='';upCall.participants=[];upCall.pendingInvites={};upCall.pendingOffers={};upCall.pendingInvite=null;upCall.peers={};upCall.localStream=null;upCall.remoteStream=null;upCall.audio=null;upCall.active=false;upCall.connected=false;upCall.muted=false;upCall.startedAt=0;upCall.waitingForConnection=false;upCall.notice='';
     callHideOverlay();
   }
@@ -2046,6 +2057,16 @@ function renderChatText(text){
   }
   async function callAcceptGroupInvite(){
     var invite=upCall.pendingInvite;if(!invite||!upCall.active)return;
+    var signalRoomId=signalRoomByCallId[upCall.callId];
+    if(signalTransport&&signalRoomId){
+      try{
+        await signalTransport.accept(signalRoomId);
+        upCall.pendingInvite=null;upCall.role='member';callMergeParticipants(invite.participants||[invite.from]);
+        upCall.waitingForConnection=true;signalStartCallPolling(signalRoomId,upCall.callId);callStartPresence();
+        callRender(callNames(' + '),'Aguardando conexão…',[{label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}]);
+      }catch(e){callCleanup(false);message(e.message||'Não foi possível aceitar o convite.',true);}
+      return;
+    }
     upCall.pendingInvite=null;upCall.role='member';callMergeParticipants(invite.participants||[invite.from]);callStartPresence();
     try{
       await callGetMicrophone();upCall.waitingForConnection=true;
@@ -2094,7 +2115,7 @@ function renderChatText(text){
         upCall.pendingOffers={};upCall.pendingOffers[p.from]=p.sdp;upCall.pendingInvite=null;upCall.peers={};
         upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=false;
         callStartRingtone();
-        callRender(p.from,'Chamada recebida',[{label:'Atender',icon:'phone',onClick:function(){callAcceptIncomingCall();}},{label:'Recusar',icon:'hangup',danger:true,onClick:function(){callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}]);
+        callRender(p.from,'Chamada recebida',[{label:'Atender',icon:'phone',onClick:function(){callAcceptIncomingCall();}},{label:'Recusar',icon:'hangup',danger:true,onClick:function(){var roomId=signalRoomByCallId[p.callId];if(signalTransport&&roomId){signalTransport.decline(roomId).catch(function(){}).finally(function(){callCleanup(false);});}else{callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}}]);
         return;
       }
       if(p.callId!==upCall.callId){
@@ -2103,7 +2124,7 @@ function renderChatText(text){
       callMergeParticipants(p.participants||[]);
       if(!upCall.peers[p.from]||!upCall.peers[p.from].pc){
         upCall.pendingOffers[p.from]=p.sdp;
-        if(p.phase==='mesh'){try{await callAcceptIncomingOffer(p.from);}catch(e){}}
+        if(p.phase==='mesh'||(signalTransport&&signalRoomByCallId[p.callId]&&upCall.role==='member'&&!upCall.pendingInvite)){try{await callAcceptIncomingOffer(p.from);}catch(e){}}
       }
       return;
     }
