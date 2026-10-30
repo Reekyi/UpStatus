@@ -99,7 +99,7 @@ try {
       payload: { sdp: "synthetic-test-offer", from: "spoofed-name", sender: "spoofed-name",
         user: "spoofed-name", user_name: "spoofed-name", to: users.C.name,
         target: users.C.name, roomId: "forged-room", room_id: "forged-room",
-        participants: [users.C.name], identity: "spoofed-name", created_by: "spoofed-name",
+        participants: [users.C.name], identity: "spoofed-name", created_by: "spoofed-name",\n        metadata: { Sender: "nested-spoof", nested: { userId: users.C.name, sdpVersion: 1 } },
         recipient: users.C.name, sender_id: "spoofed-name", userId: users.C.name, user_id: users.C.name },
     });
     check("room member can submit a recipient-scoped signal", sent.status === 202 && sent.json?.ok === true,
@@ -111,7 +111,7 @@ try {
     const payload = event?.payload || {};
     const stripped = ["from", "sender", "user", "user_name", "to", "target", "roomId",
       "room_id", "participants", "identity", "created_by", "recipient", "sender_id",
-      "userId", "user_id"].every(k => !(k in payload));
+      "userId", "user_id"].every(k => !(k in payload));\n    const nestedPayload = payload.metadata || {};\n    const nestedStripped = !("Sender" in nestedPayload) && !("userId" in (nestedPayload.nested || {})) && nestedPayload.nested?.sdpVersion === 1;
     check("user B receives the event with server-derived sender and stripped identity claims",
       delivered.status === 200 && !!event && payload.sdp === "synthetic-test-offer" && stripped,
       `HTTP ${delivered.status}`);
