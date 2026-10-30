@@ -15,6 +15,20 @@ on:
       - "supabase/functions/upstatus-signal-test/index.ts"
       - "supabase/migrations/**"
       - "docs/REALTIME_SIGNALING_PROTOTYPE.md"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "scripts/test-signaling-endpoint.mjs"
+      - "scripts/test-signaling-authenticated.mjs"
+      - "scripts/run-signaling-authenticated.mjs"
+      - "scripts/signaling-static.test.mjs"
+      - "scripts/signaling-body.test.mjs"
+      - "supabase/functions/upstatus-signal-test/body.mjs"
+      - ".github/workflows/signaling-smoke.yml"
+      - "supabase/functions/upstatus-signal-test/index.ts"
+      - "supabase/migrations/**"
+      - "docs/REALTIME_SIGNALING_PROTOTYPE.md"
   workflow_dispatch:
 
 permissions:
