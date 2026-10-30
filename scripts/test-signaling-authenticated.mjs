@@ -141,6 +141,10 @@ try {
       resolved.json?.roomId === roomId, `HTTP ${resolved.status}`);
     const unauthorizedBind = await request(users.B, "/room/bind", { roomId, bindingType: "call", logicalId: "spoofed-" + roomId });
     check("non-creator cannot bind a logical room", unauthorizedBind.status === 403, `HTTP ${unauthorizedBind.status}`);
+    const invalidBindingType = await request(users.A, "/room/bind", { roomId, bindingType: "admin", logicalId: logicalCallId });
+    check("unsupported logical binding type is rejected", invalidBindingType.status === 400, `HTTP ${invalidBindingType.status}`);
+    const missingResolve = await request(users.B, "/room/resolve", { bindingType: "call", logicalId: "missing-" + roomId });
+    check("unknown logical binding is not resolved", missingResolve.status === 404, `HTTP ${missingResolve.status}`);
     const conflictRoom = await request(users.A, "/room/create", { participants: [users.B.name] });
     conflictRoomId = conflictRoom.json?.roomId || "";
     check("creator can create a second room for binding conflict coverage",
@@ -193,6 +197,13 @@ try {
     check("non-member cannot poll another room", nonmemberPoll.status === 403,
       `HTTP ${nonmemberPoll.status}`);
 
+    const nonmemberInvite = await request(users.C, "/room/invite", { roomId, recipient: users.B.name });
+    check("non-member cannot invite participants into a room", nonmemberInvite.status === 403,
+      `HTTP ${nonmemberInvite.status}`);
+    const selfInvite = await request(users.A, "/room/invite", { roomId, recipient: users.A.name });
+    check("self-invitation is rejected as invalid input", selfInvite.status === 400, `HTTP ${selfInvite.status}`);
+    const nonmemberResolve = await request(users.C, "/room/resolve", { bindingType: "call", logicalId: logicalCallId });
+    check("non-member cannot resolve a logical room", nonmemberResolve.status === 404, `HTTP ${nonmemberResolve.status}`);
     const dynamicInvite = await request(users.A, "/room/invite", { roomId, recipient: users.C.name });
     check("accepted room member can invite a new participant", dynamicInvite.status === 201 &&
       dynamicInvite.json?.status === "pending", `HTTP ${dynamicInvite.status}`);
