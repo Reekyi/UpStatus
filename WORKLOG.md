@@ -423,3 +423,11 @@ Last updated: 2026-10-29
 - Expanded the authenticated harness for invalid binding types, unknown mappings, non-member resolution/invitation, self-invitation, duplicate invitation, and binding cleanup after room close.
 - Deployed isolated function revision 20; health remains good. CI run [41114967596](https://github.com/Reekyi/UpStatus/actions/runs/41114967596) passed static 11/11, body-reader 3/3, envelope validator 3/3, unauthenticated HTTP 10/10; validation run [41114967992](https://github.com/Reekyi/UpStatus/actions/runs/41114967992) succeeded.
 - Authenticated CI still skips because the isolated-only service-role secret is not configured. The userscript has not been switched to server-mediated signaling.
+
+
+## Realtime client migration audit (2026-10-30)
+
+- Added `docs/REALTIME_CLIENT_MIGRATION_PLAN.md` to record the client transport audit, migration gates, and release-safety requirements.
+- Audited the current userscript paths: `startOutgoingCall` sends an initial SDP offer immediately; group invitations, call signaling, voice-room signaling, and screen-share signaling all still use the public Realtime broadcast channel.
+- Confirmed that a global replacement of `sendRealtimeEvent` would be unsafe: the authenticated signaling service requires accepted room membership, while the current client protocol sends offers before recipient acceptance. Voice and screen share also need separate logical binding types and independent cleanup.
+- No transport was switched in this checkpoint. This is deliberate: the new path remains disabled until the authenticated invite/accept/offer sequence can be exercised end-to-end against test identities.
