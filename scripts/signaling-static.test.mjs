@@ -145,6 +145,10 @@ assert.match(functionSource, /if \(!old && rate\.size >= 2000\)[\s\S]*if \(rate\
 assert.match(functionSource, /try \{[\s\S]*JSON\.stringify\(p\)\.length[\s\S]*catch \{\s*return null;/,
   "payload serialization failures must be rejected as invalid payloads");
 
+assert(readFileSync("scripts/build.mjs","utf8").includes("signalingTransportTemplate") &&
+  readFileSync("scripts/build.mjs","utf8").includes("__UPSTATUS_SIGNALING_TRANSPORT_CODE__") &&
+  readFileSync("src/userscript/signaling-transport.mjs","utf8").includes("enabled = false"),
+  "the shared build must bundle the adapter while keeping it disabled by default");
 console.log("PASS signaling migration idempotency and compatibility defaults");
 console.log("PASS atomic invitation transitions and accepted-member authorization");
 console.log("PASS authenticated harness is mutation-gated and test-project scoped");
