@@ -7,6 +7,7 @@ on:
     paths:
       - "scripts/test-signaling-endpoint.mjs"
       - "scripts/test-signaling-authenticated.mjs"
+      - "scripts/signaling-static.test.mjs"
       - ".github/workflows/signaling-smoke.yml"
       - "supabase/functions/upstatus-signal-test/index.ts"
       - "supabase/migrations/**"
@@ -26,6 +27,8 @@ jobs:
         run: |
           node --check scripts/test-signaling-endpoint.mjs
           node --check scripts/test-signaling-authenticated.mjs
+          node --check scripts/signaling-static.test.mjs
+          node scripts/signaling-static.test.mjs
       - name: Run unauthenticated endpoint checks against isolated project
         env:
           UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
