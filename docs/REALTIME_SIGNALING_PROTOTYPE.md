@@ -44,6 +44,20 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 - Foreign keys bind room creators, room members, event senders and recipients to known users.
 - The invitation migration adds a constrained membership status (`pending`, `accepted`, `declined`) and an index. Existing memberships preserve legacy behavior through an `accepted` default; new invitees are explicitly inserted as `pending`. The migration has been applied only to the isolated test project; the migration file is in the development branch.
 
+## Running authenticated integration tests locally
+
+The repository now includes a one-command fixture runner. It creates three temporary users and hashed sessions in the isolated test project, runs the authenticated harness, then removes test-created rooms and fixtures in a `finally` block. It refuses all other Supabase project URLs and does not print session tokens.
+
+PowerShell (run locally; never paste the service-role key into chat or commit it):
+
+```powershell
+$env:SUPABASE_URL = "https://bfpjtfqlnypisxljoxkb.supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY = "<isolated test project's service-role/secret key>"
+node scripts/run-signaling-authenticated.mjs
+```
+
+Use a test-project key only. If fixture cleanup reports an error, inspect the isolated test project and remove only rows whose names begin with `__signal_test_`. This runner is syntax-checked in CI but has not yet been executed by this session because the test project's service-role key is not available to the runner environment.
+
 ## Validation status
 
 - [x] Test project created separately from production.
