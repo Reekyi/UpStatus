@@ -104,9 +104,9 @@ export function createSignalingTransport({
     return post("/signal", { roomId, recipient, eventType, payload });
   }
 
-  async function poll(roomId) {
+  async function poll(roomId, options = {}) {
     if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
-    const result = await post("/poll", { roomId });
+    const result = await post("/poll", { roomId }, options);
     return Array.isArray(result.events) ? result.events : [];
   }
 
@@ -169,7 +169,7 @@ export function createSignalingTransport({
       if (state.cancelled || activePolls.get(roomId) !== state) return;
       state.controller = new AbortController();
       try {
-        const events = await poll(roomId);
+        const events = await poll(roomId, { signal: state.controller.signal });
         const ackIds = [];
         for (const event of events) {
           const id = Number(event && event.event_id);
