@@ -49,6 +49,11 @@ assert.ok(functionSource.includes('from("upstatus_signal_room_bindings").delete(
   "closing a room must remove its logical bindings");
 assert.ok(authenticatedHarness.includes("closed room binding is removed and cannot be resolved"),
   "authenticated harness must cover binding cleanup on room close");
+assert.ok(functionSource.includes('path.endsWith("/room/members")') &&
+  functionSource.includes('eq("status", "accepted")') &&
+  authenticatedHarness.includes("accepted member can list accepted room participants") &&
+  authenticatedHarness.includes("pending invitee cannot list accepted room participants"),
+  "room member fanout must reveal only accepted members to accepted users");
 assert.ok(functionSource.includes('path.endsWith("/room/status")') &&
   functionSource.includes("Only the room creator can inspect invitation status"),
   "only the room creator may inspect invitation acceptance state");
