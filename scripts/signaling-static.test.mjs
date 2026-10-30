@@ -45,6 +45,10 @@ assert.ok(functionSource.includes('path.endsWith("/room/bind")'),
   "endpoint must expose authorized logical room binding");
 assert.ok(functionSource.includes('path.endsWith("/room/resolve")'),
   "endpoint must resolve bindings only for accepted room members");
+assert.ok(functionSource.includes('from("upstatus_signal_room_bindings").delete().eq("room_id", roomId)'),
+  "closing a room must remove its logical bindings");
+assert.ok(authenticatedHarness.includes("closed room binding is removed and cannot be resolved"),
+  "authenticated harness must cover binding cleanup on room close");
 assert.ok(functionSource.includes('path.endsWith("/room/invite")'),
   "endpoint must support explicit dynamic invitations");
 assert.ok(authenticatedHarness.includes("accepted member can resolve the logical call ID") &&
