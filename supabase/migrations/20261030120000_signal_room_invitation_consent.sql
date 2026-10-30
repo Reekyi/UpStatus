@@ -16,12 +16,11 @@ BEGIN
   END IF;
 END $$;
 
-UPDATE public.upstatus_signal_room_members m
+-- Preserve pre-migration behavior for any existing room memberships.
+-- New invitations are explicitly inserted as pending by the Edge Function.
+UPDATE public.upstatus_signal_room_members
 SET status = 'accepted'
-FROM public.upstatus_signal_rooms r
-WHERE r.room_id = m.room_id
-  AND r.created_by = m.user_name
-  AND m.status = 'pending';
+WHERE status = 'pending';
 
 CREATE INDEX IF NOT EXISTS idx_upstatus_signal_room_members_status
   ON public.upstatus_signal_room_members (room_id, user_name, status);
