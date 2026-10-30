@@ -73,6 +73,13 @@ assert.ok(functionSource.includes('message === "INVALID_JSON" || message === "IN
 
 assert.ok(functionSource.includes("IDENTITY_PAYLOAD_KEYS.has(key.toLowerCase())"),
   "identity/recipient payload keys must be stripped recursively and case-insensitively");
+assert.match(functionSource, /LEGACY_ENVELOPE_TYPES = new Map/,
+  "legacy envelope types must have a separate inner-event allowlist");
+assert.match(functionSource, /Invalid legacy signaling subtype/,
+  "legacy envelopes must reject unknown inner event types");
+assert.ok(authenticatedHarness.includes("legacy envelope rejects an unsupported inner event type"),
+  "authenticated harness must exercise invalid legacy subtype rejection");
+
 assert.match(functionSource, /"call_signal","voice_room_signal","screen_signal"/,
   "isolated endpoint must allow normalized envelopes for the legacy call, voice and screen channels");
 
