@@ -170,6 +170,14 @@ assert.ok(userTemplate.includes("signalTransport.accept(signalRoomId)") &&
   userTemplate.includes("signalTransport.decline(roomId)") &&
   userTemplate.includes("signalTransport.sendSignal({roomId:signalRoomId,recipient:to,eventType:'call_signal',payload:p})"),
   "the call client must accept/decline explicit invitations and route mapped signals through the server transport");
+assert.ok(userTemplate.includes("signalPrepareVoiceRoom()") &&
+  userTemplate.includes("bindingType:'voice'") &&
+  userTemplate.includes("bindingType:'screen'") &&
+  userTemplate.includes("eventType:'voice_room_signal'") &&
+  userTemplate.includes("eventType:'screen_signal'") &&
+  userTemplate.includes("await voiceRoomReceive(voicePayload)") &&
+  userTemplate.includes("await screenShareReceive(screenPayload)"),
+  "voice and screen signaling must use separate authenticated bindings and the shared room poller");
 console.log("PASS signaling migration idempotency and compatibility defaults");
 console.log("PASS atomic invitation transitions and accepted-member authorization");
 console.log("PASS authenticated harness is mutation-gated and test-project scoped");
