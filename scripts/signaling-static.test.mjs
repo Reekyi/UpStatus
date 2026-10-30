@@ -16,6 +16,7 @@ const legacyDefaultMigration = readFileSync(
 );
 const authenticatedHarness = readFileSync("scripts/test-signaling-authenticated.mjs", "utf8");
 const authenticatedRunner = readFileSync("scripts/run-signaling-authenticated.mjs", "utf8");
+const signalingWorkflow = readFileSync(".github/workflows/signaling-smoke.yml", "utf8");
 
 assert.match(invitationMigration, /ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'accepted'/,
   "legacy membership status default must preserve accepted behavior");
@@ -51,6 +52,13 @@ assert.match(authenticatedHarness, /excessively nested signaling payload is reje
   "authenticated harness must exercise payload nesting limits");
 assert.match(authenticatedHarness, /excessively wide signaling payload is rejected/,
   "authenticated harness must exercise payload traversal limits");
+assert.ok(authenticatedHarness.includes('legacyEnvelopeTypes = ["call_signal", "voice_room_signal", "screen_signal"]'),
+  "authenticated harness must exercise all three legacy signaling envelope types");
+assert.ok(authenticatedHarness.includes("all legacy envelope smoke events can be acknowledged"),
+  "authenticated harness must cover delivery and acknowledgement for legacy envelopes");
+assert.ok(signalingWorkflow.includes("src/userscript/upstatus.user.template.js"),
+  "client transport edits must trigger signaling CI");
+
 assert.match(authenticatedHarness, /declined invitee cannot poll the room/,
   "authenticated harness must cover declined-member access denial");
 
@@ -86,5 +94,5 @@ console.log("PASS payload nesting and traversal bounds");
 console.log("PASS bounded per-isolate rate-limit state");
 console.log("PASS legacy call/voice/screen envelope types are explicitly allowlisted");
 console.log("PASS authenticated negative cases cover JSON/body/payload limits");
-console.log("9/9 signaling static regression groups passed.");
+console.log("10/10 signaling static regression groups passed.");
 
