@@ -42,7 +42,7 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 - RLS is enabled on all three.
 - Direct table privileges are revoked from `PUBLIC`, `anon`, and `authenticated`; only the server's service role has table access.
 - Foreign keys bind room creators, room members, event senders and recipients to known users.
-- The invitation migration adds a constrained membership status (`pending`, `accepted`, `declined`) and an index. It has been applied only to the isolated test project; the migration file is in the development branch.
+- The invitation migration adds a constrained membership status (`pending`, `accepted`, `declined`) and an index. Existing memberships preserve legacy behavior through an `accepted` default; new invitees are explicitly inserted as `pending`. The migration has been applied only to the isolated test project; the migration file is in the development branch.
 
 ## Validation status
 
@@ -55,9 +55,10 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 - [x] Unauthenticated smoke workflow previously passed 7/7 checks against the isolated test endpoint.
 - [x] Explicit invite listing, acceptance and decline routes and pending-membership gating implemented in the isolated prototype.
 - [x] Authenticated integration harness expanded to test invitation discovery/privacy, invite consent and accurate acknowledgement counts.
-- [x] Latest unauthenticated smoke workflow run (#19) passed after invitation discovery was added; it checks authentication gates for invitation listing, acceptance and decline alongside the prior endpoint checks.
+- [x] Unauthenticated smoke workflow has passed after invitation discovery was added; it checks authentication gates for invitation listing, acceptance and decline alongside the prior endpoint checks.
 - [ ] Authenticated integration harness has not been run: three valid test sessions and distinct test users are not available to this session. Do not count its scenarios as passed until it runs and its output is reviewed.
 - [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting.
+- [ ] Runtime re-check of atomic invitation transitions, including concurrent accept/decline, and accepted-member-only acknowledgement.
 - [ ] Multi-client WebRTC tests for offer/answer/ICE, calls, voice rooms and screen sharing.
 - [ ] Client integration for normal and Team Lite.
 - [ ] Latency/load/retention cleanup tests.
