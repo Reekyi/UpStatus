@@ -8,6 +8,8 @@ import { readFileSync } from "node:fs";
 
 const functionSource = readFileSync("supabase/functions/upstatus-signal-test/index.ts", "utf8");
 const bodyModule = readFileSync("supabase/functions/upstatus-signal-test/body.mjs", "utf8");
+const envelopeModule = readFileSync("supabase/functions/upstatus-signal-test/legacy-envelope.mjs", "utf8");
+const envelopeTest = readFileSync("scripts/signaling-envelope.test.mjs", "utf8");
 const invitationMigration = readFileSync(
   "supabase/migrations/20261030120000_signal_room_invitation_consent.sql", "utf8",
 );
@@ -61,6 +63,9 @@ assert.ok(signalingWorkflow.includes("secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_
   "CI must run the authenticated harness when the isolated-only secret is configured");
 assert.ok(signalingWorkflow.includes("UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY is not configured"),
   "CI must clearly skip authenticated E2E when no isolated test secret is available");
+assert.ok(signalingWorkflow.includes("scripts/signaling-envelope.test.mjs") &&
+  signalingWorkflow.includes("node scripts/signaling-envelope.test.mjs"),
+  "CI must run dedicated legacy envelope unit tests");
 assert.ok(signalingWorkflow.includes("src/userscript/upstatus.user.template.js"),
   "client transport edits must trigger signaling CI");
 
@@ -78,10 +83,13 @@ assert.ok(functionSource.includes('message === "INVALID_JSON" || message === "IN
 
 assert.ok(functionSource.includes("IDENTITY_PAYLOAD_KEYS.has(key.toLowerCase())"),
   "identity/recipient payload keys must be stripped recursively and case-insensitively");
-assert.match(functionSource, /LEGACY_ENVELOPE_TYPES = new Map/,
-  "legacy envelope types must have a separate inner-event allowlist");
+assert.match(functionSource, /isAllowedLegacyEnvelope\(eventType, payload\)/,
+  "endpoint must use the dedicated legacy inner-event validator");
 assert.match(functionSource, /Invalid legacy signaling subtype/,
   "legacy envelopes must reject unknown inner event types");
+assert.ok(envelopeModule.includes("export function isAllowedLegacyEnvelope") &&
+  envelopeTest.includes("cross-channel subtype rejection"),
+  "dedicated validator must have direct unit-test coverage");
 assert.ok(authenticatedHarness.includes("legacy envelope rejects an unsupported inner event type"),
   "authenticated harness must exercise invalid legacy subtype rejection");
 
