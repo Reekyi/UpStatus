@@ -1913,7 +1913,7 @@ function renderChatText(text){
   function callCleanup(sendSignal,signalType){
     var callId=upCall.callId,signalRoomId=signalRoomByCallId[callId],signalRoomCreator=signalCreatorCallIds[callId]===true;
     if(callId&&upCall.active){
-      if(signalTransport&&signalRoomId)callSendAll('ended',{updatedAt:Date.now()});
+      if(signalTransport&&signalRoomId){if(!upCall.pendingInvite)callSendAll('ended',{updatedAt:Date.now()});}
       else sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now()});
     }
     if(upCall.presenceTimer){clearInterval(upCall.presenceTimer);upCall.presenceTimer=null;}
