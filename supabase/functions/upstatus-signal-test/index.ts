@@ -32,15 +32,21 @@ function hash(t: string) { return createHash("sha256").update(t).digest("hex"); 
 function rateLimit(name: string) {
   const now = Date.now();
   const old = rate.get(name);
-  if (!old || now - old.start >= 60_000) { rate.set(name, { start: now, count: 1 }); return true; }
-  old.count++;
-  // Bound memory growth across many distinct user names on warm isolates.
-  if (rate.size > 2000) {
+  if (old && now - old.start < 60_000) {
+    old.count++;
+    return old.count <= MAX_EVENTS_PER_MINUTE;
+  }
+
+  // Keep the per-isolate map bounded without evicting active counters, which
+  // would let older entries reset their rate limit under a many-user burst.
+  if (!old && rate.size >= 2000) {
     for (const [key, value] of rate) {
       if (now - value.start >= 60_000) rate.delete(key);
     }
+    if (rate.size >= 2000) return false;
   }
-  return old.count <= MAX_EVENTS_PER_MINUTE;
+  rate.set(name, { start: now, count: 1 });
+  return true;
 }
 async function cleanupExpired(now = new Date()) {
   const timestamp = now.toISOString();
