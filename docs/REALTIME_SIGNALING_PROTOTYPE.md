@@ -118,3 +118,10 @@ Current limitation: this is a migration contract and server allowlist only. No c
 - Polling latency and ICE throughput have not been measured.
 - Event-type authorization still needs a formal state machine, particularly for call acceptance, rejection and ending a room.
 - No production or official TEST function was changed. No PR was merged.
+## Latest transport-contract hardening (2026-10-30)
+
+- Added explicit inner-event allowlists for the legacy `call_signal`, `voice_room_signal`, and `screen_signal` envelopes. Unknown inner event types are rejected with HTTP 400 before queueing. This is input validation, not a full call/media state machine and not sender authentication for the old public Realtime channel.
+- Extended the authenticated harness to submit each of the three envelope types, poll them as the invited/accepted recipient, verify server-owned sender/recipient metadata and stripped identity claims, acknowledge the events, and reject an unsupported inner subtype.
+- Extended static regression assertions to cover the new inner-type guard and CI path filtering. The workflow now watches the userscript template and targets the PR's actual base branch (`master`) rather than `main`.
+- These new authenticated HTTP cases are authored but remain unexecuted against the live isolated endpoint. Do not treat them as passing until an authenticated run and GitHub Actions result are verified.
+- The client migration remains intentionally incomplete: no userscript transport was switched, no server-owned logical-room mapping was implemented, and no production/official TEST deployment was performed.
