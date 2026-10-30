@@ -18,7 +18,7 @@ on:
       - "docs/REALTIME_SIGNALING_PROTOTYPE.md"
   pull_request:
     branches:
-      - main
+      - master
     paths:
       - "scripts/test-signaling-endpoint.mjs"
       - "scripts/test-signaling-authenticated.mjs"
