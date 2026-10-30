@@ -2118,6 +2118,7 @@ function renderChatText(text){
   function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}
   function startRealtime(){
     if(!token||realtimeClient||typeof supabase==='undefined'||!supabase.createClient)return;
+    initSignalingTransport();
     try{
       realtimeClient=supabase.createClient(UP_REALTIME_URL,UP_REALTIME_KEY,{auth:{persistSession:false}});
       realtimeChannel=realtimeClient.channel(UP_REALTIME_TOPIC);
