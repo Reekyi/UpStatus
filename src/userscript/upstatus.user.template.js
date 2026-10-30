@@ -2013,8 +2013,10 @@ function renderChatText(text){
   function callCleanup(sendSignal,signalType){
     var callId=upCall.callId,signalRoomId=signalRoomByCallId[callId],signalRoomCreator=signalCreatorCallIds[callId]===true;
     if(callId&&upCall.active){
-      if(signalTransport&&signalRoomId){if(!upCall.pendingInvite)callSendAll('ended',{updatedAt:Date.now()});}
-      else sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now()});
+      if(signalTransport&&signalRoomId){
+        if(!upCall.pendingInvite)callSendAll('ended',{updatedAt:Date.now()});
+        if(signalRoomCreator)sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now(),discoveryOnly:true});
+      }else sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now()});
     }
     if(upCall.presenceTimer){clearInterval(upCall.presenceTimer);upCall.presenceTimer=null;}
     if(sendSignal&&callId){
@@ -2187,7 +2189,7 @@ function renderChatText(text){
     if(!entry||!entry.participants||entry.participants.indexOf(target)<0){message('A chamada não está mais disponível. Atualize a equipe.',true);return;}
     if(signalTransport&&signalTransportFlag){
       signalTransport.requestInvite(callId).then(function(){
-        message('Pedido para entrar enviado a '+target+'. Aguarde a confirmação.',false);
+        message('Pedido para entrar enviado ao responsável pela chamada. Aguarde a confirmação.',false);
       }).catch(function(e){
         message(e.status===409?'Já existe um convite ou pedido pendente para esta chamada.':e.status===404?'A chamada não está mais disponível.':'Não foi possível enviar o pedido de entrada.',true);
       });
