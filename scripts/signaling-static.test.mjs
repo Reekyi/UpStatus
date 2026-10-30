@@ -15,6 +15,7 @@ const legacyDefaultMigration = readFileSync(
   "supabase/migrations/20261030150000_signal_membership_legacy_default.sql", "utf8",
 );
 const authenticatedHarness = readFileSync("scripts/test-signaling-authenticated.mjs", "utf8");
+const authenticatedRunner = readFileSync("scripts/run-signaling-authenticated.mjs", "utf8");
 
 assert.match(invitationMigration, /ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'accepted'/,
   "legacy membership status default must preserve accepted behavior");
