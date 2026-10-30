@@ -166,14 +166,13 @@ const fanoutClient = createSignalingTransport({
   enabled: true,
   request: async (path, body) => {
     fanoutCalls.push({ path, body });
-    if (path === "/room/members") return { status: 200, body: { members: ["ricardo", "mari", "guilherme"] } };
-    if (path === "/signal" && body.recipient === "guilherme") return { status: 403, body: { error: "Room membership required" } };
-    return { status: 202, body: { ok: true } };
+    if (path === "/broadcast") return { status: 202, body: { ok: true, attempted: 2, delivered: 2 } };
+    return { status: 200, body: { ok: true } };
   },
 });
 const fanout = await fanoutClient.sendToRoom({
   roomId: "sig_fanout", eventType: "voice_room_signal", payload: { type: "presence" }, senderName: "ricardo",
 });
-assert.deepEqual(fanout, { attempted: 2, delivered: 1, failed: 1 });
-assert.deepEqual(fanoutCalls.filter(call => call.path === "/signal").map(call => call.body.recipient).sort(), ["guilherme", "mari"]);
+assert.deepEqual(fanout, { attempted: 2, delivered: 2, failed: 0 });
+assert.deepEqual(fanoutCalls.filter(call => call.path === "/broadcast").map(call => call.body.eventType), ["voice_room_signal"]);
 console.log("signaling recipient fanout: 2 assertions passed");
