@@ -73,7 +73,7 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 - [x] Static regression tests cover migration idempotency/default compatibility, atomic invitation transitions, accepted-member authorization, and test-project mutation guards.
 - [x] Unauthenticated smoke workflow passed through run #30, including static regression checks and syntax checks for both integration harnesses.
 - [ ] Authenticated integration harness has not been run: three valid test sessions and distinct test users are not available to this session. Do not count its scenarios as passed until it runs and its output is reviewed.
-- [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting. Bounded streaming body reads, JSON shape validation, payload depth/width limits, and a bounded per-isolate rate-limit map are deployed to revision 15; only health has been runtime-checked so far, not the authenticated negative cases.
+- [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting. The authenticated harness now includes malformed JSON, oversized-body, deep-payload and wide-payload cases, but these HTTP cases remain unexecuted. Bounded streaming body reads, JSON shape validation, payload depth/width limits, and a bounded per-isolate rate-limit map are deployed to revision 15; only health has been runtime-checked against the deployed endpoint.
 - [x] Isolated test schema default updated to `accepted` for legacy membership inserts; verified in the database catalog.
 - [x] Function revision 10 deployed to the isolated project with atomic invitation transitions and accepted-member-only acknowledgement; health endpoint returned expected JSON.
 - [x] Function revision 12 deployed with bounded streaming JSON body reads and non-object JSON rejection; health endpoint returned expected JSON.
@@ -82,7 +82,7 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 - [x] GitHub Actions run #49 passed after the recursive payload-sanitization and authenticated harness changes.
 - [x] Body parser unit tests exercise valid/empty bodies, malformed JSON, non-object JSON, declared-size rejection, and streaming cancellation; GitHub Actions run #38 passed.
 - [x] Authenticated test runner added to create temporary users/sessions in the isolated project, execute the existing harness, and clean up fixtures; requires the isolated project's service-role key locally and has not yet been executed by this session.
-- [x] Authenticated harness now includes nested/case-variant identity spoofing assertions; GitHub Actions run #49 passed.
+- [x] Authenticated harness includes nested/case-variant identity spoofing assertions and now covers malformed JSON, oversized bodies, deep payloads, and wide payloads. The new HTTP cases are authored but not yet run against the deployed endpoint; GitHub Actions run #49 predates these additions.
 - [ ] Authenticated runtime re-check of invitation transitions and accepted-member-only acknowledgement. The body parser itself has credential-free unit coverage; HTTP-level authenticated endpoint tests remain pending.
 - [ ] Multi-client WebRTC tests for offer/answer/ICE, calls, voice rooms and screen sharing.
 - [ ] Client integration for normal and Team Lite.
