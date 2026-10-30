@@ -56,6 +56,7 @@ async function request(user, route, body) {
 }
 const results = [];
 let roomId = "";
+let declineRoomId = "";
 function check(name, ok, detail = "") {
   results.push({ name, ok });
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " (" + detail + ")" : ""}`);
@@ -148,6 +149,30 @@ try {
     const pollClosed = await request(users.B, "/poll", { roomId });
     check("closed room no longer delivers events", pollClosed.status === 404,
       `HTTP ${pollClosed.status}`);
+
+    const repeatedAccept = await request(users.B, "/room/accept", { roomId });
+    check("already accepted invitation cannot be accepted a second time",
+      repeatedAccept.status === 404 || repeatedAccept.status === 409, `HTTP ${repeatedAccept.status}`);
+
+    const declineRoom = await request(users.A, "/room/create", { participants: [users.C.name] });
+    declineRoomId = declineRoom.json?.roomId || "";
+    check("creator can invite a second test user for decline coverage",
+      declineRoom.status === 201 && !!declineRoomId, `HTTP ${declineRoom.status}`);
+    if (declineRoomId) {
+      const declined = await request(users.C, "/room/decline", { roomId: declineRoomId });
+      check("invitee can explicitly decline their invitation",
+        declined.status === 200 && declined.json?.status === "declined", `HTTP ${declined.status}`);
+      const pollDeclined = await request(users.C, "/poll", { roomId: declineRoomId });
+      check("declined invitee cannot poll the room", pollDeclined.status === 403,
+        `HTTP ${pollDeclined.status}`);
+      const acceptDeclined = await request(users.C, "/room/accept", { roomId: declineRoomId });
+      check("declined invitation cannot be accepted afterward",
+        acceptDeclined.status === 404 || acceptDeclined.status === 409, `HTTP ${acceptDeclined.status}`);
+    } else {
+      check("invitee can explicitly decline their invitation", false, "second room creation failed");
+      check("declined invitee cannot poll the room", false, "second room creation failed");
+      check("declined invitation cannot be accepted afterward", false, "second room creation failed");
+    }
   } else {
     for (const name of [
       "room member can submit a recipient-scoped signal",
@@ -167,6 +192,9 @@ try {
   if (roomId) {
     // Best-effort cleanup, without printing response payloads or credentials.
     try { await request(users.A, "/room/close", { roomId }); } catch {}
+  }
+  if (declineRoomId) {
+    try { await request(users.A, "/room/close", { roomId: declineRoomId }); } catch {}
   }
 }
 const passed = results.filter(r => r.ok).length;
