@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const functionSource = readFileSync("supabase/functions/upstatus-signal-test/index.ts", "utf8");
+const userTemplate = readFileSync("src/userscript/upstatus.user.template.js", "utf8");
 const bodyModule = readFileSync("supabase/functions/upstatus-signal-test/body.mjs", "utf8");
 const envelopeModule = readFileSync("supabase/functions/upstatus-signal-test/legacy-envelope.mjs", "utf8");
 const envelopeTest = readFileSync("scripts/signaling-envelope.test.mjs", "utf8");
@@ -154,6 +155,16 @@ assert(readFileSync("scripts/build.mjs","utf8").includes("signalingTransportTemp
   readFileSync("scripts/build.mjs","utf8").includes("__UPSTATUS_SIGNALING_TRANSPORT_CODE__") &&
   readFileSync("src/userscript/signaling-transport.mjs","utf8").includes("enabled = false"),
   "the shared build must bundle the adapter while keeping it disabled by default");
+assert.ok(userTemplate.includes("signaling_transport_enabled',false)===true") &&
+  userTemplate.includes("endpoint.origin!==sessionServer.origin") &&
+  userTemplate.includes("signalTransport.prepareCallRoom") &&
+  userTemplate.includes("signalTransport.startPolling") &&
+  userTemplate.includes("return sendRealtimeEvent('call_signal',p)"),
+  "the opt-in call transport must be same-project guarded, acceptance-gated, and preserve legacy fallback");
+assert.ok(userTemplate.includes("signalTransport.accept(signalRoomId)") &&
+  userTemplate.includes("signalTransport.decline(roomId)") &&
+  userTemplate.includes("signalTransport.sendSignal({roomId:signalRoomId,recipient:to,eventType:'call_signal',payload:p})"),
+  "the call client must accept/decline explicit invitations and route mapped signals through the server transport");
 console.log("PASS signaling migration idempotency and compatibility defaults");
 console.log("PASS atomic invitation transitions and accepted-member authorization");
 console.log("PASS authenticated harness is mutation-gated and test-project scoped");
