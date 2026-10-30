@@ -12,6 +12,7 @@ const fullVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
 const syncRootArtifact=process.argv.includes("--sync-root-artifact");
 
 const userTemplate=fs.readFileSync(path.join(ROOT,"src/userscript/upstatus.user.template.js"),"utf8");
+const signalingTransportTemplate=fs.readFileSync(path.join(ROOT,"src/userscript/signaling-transport.mjs"),"utf8").replace(/^export\s+/gm,"");
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
 const ycaroPage=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
 
@@ -50,6 +51,7 @@ function renderUser({version,test}){
   if(!updateUrl)throw new Error("Could not determine the production userscript update URL.");
   if(!test&&!/^https:\/\/[^/]+\/functions\/v1\/upstatus\/upstatus\.user\.js$/.test(updateUrl))throw new Error("release.json: scriptUrl must point to the production /upstatus/upstatus.user.js endpoint.");
   return render(userTemplate,{
+    "__UPSTATUS_SIGNALING_TRANSPORT_CODE__":signalingTransportTemplate,
     "__UPSTATUS_NAME__":name,
     "__UPSTATUS_NAMESPACE__":namespace,
     "__UPSTATUS_VERSION__":version,
