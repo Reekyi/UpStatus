@@ -30,7 +30,7 @@ The userscript currently has one public Supabase Realtime channel for several in
 - [x] Add static and unauthenticated HTTP regression coverage.
 - [x] Add a default-off adapter with strict input validation, deduplication, acknowledgement, abortable polling, bounded retry backoff, explicit acceptance gating, and accepted-member fanout.
 - [ ] Connect the bundled adapter to a GM_xmlhttpRequest wrapper using an explicitly configured, same-project signaling endpoint; keep it disabled by default.
-- [ ] Migrate one-to-one calls behind a default-off feature flag; preserve legacy path by default. The adapter now has a call-room preparation primitive that waits for creator-observed acceptance before returning to offer creation.
+- [x] Wire an opt-in one-to-one call path behind a default-off flag, including invitation discovery, acceptance gating, polling, recipient-scoped signaling, and cleanup. Browser-authenticated WebRTC validation remains outstanding.
 - [ ] Test invitation acceptance, decline, timeout, simultaneous calls, hangup, ICE ordering, reconnect, and room closure using authenticated test identities.
 - [ ] Migrate group calls only after one-to-one flow is proven.
 - [ ] Migrate voice room and screen sharing only after the call path passes authenticated browser/WebRTC E2E.
@@ -62,3 +62,11 @@ All current transport work remains on the development branch and isolated Supaba
 - Added `POST /room/members` for accepted members only, exposing accepted member names but not pending/declined invitation state to non-creators.
 - Added `sendToRoom` so broadcast-style events can be translated into individually authorized recipient-scoped signals.
 - Isolated function revision 22 deployed and health-checked. CI [41118513244](https://github.com/Reekyi/UpStatus/actions/runs/41118513244) passed 13 adapter assertions and 12/12 unauthenticated HTTP checks. Authenticated integration remains unverified.
+
+
+## Opt-in one-to-one call wiring (2026-10-30)
+
+- The shared userscript now contains a same-origin HTTPS request bridge and a default-off transport path for direct calls. It leaves the existing Realtime route as the default fallback.
+- The path waits for explicit acceptance before acquiring media and sending the first SDP offer, and it uses server-derived accepted members for fanout.
+- CI [41119407912](https://github.com/Reekyi/UpStatus/actions/runs/41119407912) and build validation [41119408099](https://github.com/Reekyi/UpStatus/actions/runs/41119408099) passed.
+- Group call discovery/join, voice rooms, screen sharing, and authenticated browser/WebRTC verification remain pending. Do not enable or release the feature yet.
