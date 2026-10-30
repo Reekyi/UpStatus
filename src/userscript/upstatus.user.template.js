@@ -280,7 +280,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var signalTransport=null,signalInvitationTimer=null,signalInvitationPollBusy=false;
   var signalVoiceRoomRoomId="",signalVoiceRoomCreator=false,signalVoiceRoomPrepared=false;
   var signalRoomByCallId=Object.create(null),signalCallIdByRoom=Object.create(null);
-  var signalPollStops=Object.create(null),signalCreatorCallIds=Object.create(null);
+  var signalPollStops=Object.create(null),signalCreatorCallIds=Object.create(null),signalRosterCache=Object.create(null);
   function signalTransportRequest(route,payload,options){
     return new Promise(function(resolve,reject){
       var signal=options&&options.signal,handle=null,settled=false,abortHandler=null;
@@ -1847,13 +1847,20 @@ function renderChatText(text){
     }
   }
   function signalSafeCallId(id){return String(id||'call').replace(/[^A-Za-z0-9._:-]/g,'_').slice(0,128)||('call-'+Date.now().toString(36));}
+  async function signalGetRoomMembers(roomId){
+    var cached=signalRosterCache[roomId];
+    if(cached&&Date.now()-cached.at<3000)return cached.members.slice();
+    var members=await signalTransport.roomMembers(roomId);
+    signalRosterCache[roomId]={at:Date.now(),members:members.slice()};
+    return members;
+  }
   function signalStartCallPolling(roomId,callId){
     if(!signalTransport||!roomId||signalPollStops[roomId])return;
     signalPollStops[roomId]=signalTransport.startPolling(roomId,async function(event){
       if(!event||!event.payload)return;
       if(event.event_type==='call_signal'){
         var p=Object.assign({},event.payload,{from:event.sender,to:member,callId:event.payload.callId||callId});
-        try{p.participants=await signalTransport.roomMembers(roomId);}catch(e){p.participants=[member,event.sender];}
+        try{p.participants=await signalGetRoomMembers(roomId);}catch(e){p.participants=[member,event.sender];}
         if(!p.initiator)p.initiator=signalCreatorCallIds[p.callId]?member:event.sender;
         await receiveCallSignal(p);
         return;
