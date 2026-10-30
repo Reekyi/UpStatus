@@ -387,3 +387,8 @@ Last updated: 2026-10-29
 - Extended the authenticated harness to cover all three envelope types through send, recipient polling, trusted routing metadata checks, acknowledgement, and invalid subtype rejection. These tests are authored, not yet executed against the live isolated endpoint.
 - Expanded static checks and corrected the signaling workflow so client template edits trigger it and the PR base filter matches `master`. The current workflow run still needs confirmation.
 - No client transport switch, logical room mapping, production deployment, official TEST deployment, or PR merge was performed.
+## Authenticated CI wiring and isolated revision 16: 2026-10-30
+
+- Deployed the current signaling function to the isolated test project as revision 16; the health endpoint returned the expected JSON. Read-only counts confirmed zero rooms, memberships, or queued events afterward.
+- Added an authenticated CI step gated by the repository secret `UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY`. If configured, it runs the isolated-project fixture runner and authenticated harness; if absent, it emits an explicit skip. The runner hard-refuses any project URL other than the isolated project and never prints tokens or the service key.
+- Added static assertions for the CI gate. The current CI run still needs inspection to distinguish an authenticated test pass from a deliberate skip.
