@@ -183,6 +183,10 @@ assert.ok(userTemplate.includes("signalPrepareVoiceRoom()") &&
   userTemplate.includes("await voiceRoomReceive(voicePayload)") &&
   userTemplate.includes("await screenShareReceive(screenPayload)"),
   "voice and screen signaling must use separate authenticated bindings and the shared room poller");
+assert.ok(functionSource.includes("MAX_EVENTS_PER_MINUTE = 90") &&
+  functionSource.includes("MAX_READS_PER_MINUTE = 240") &&
+  functionSource.includes("readRoute ? MAX_READS_PER_MINUTE : MAX_EVENTS_PER_MINUTE"),
+  "signaling polling reads must have a separate bounded quota from writes");
 console.log("PASS signaling migration idempotency and compatibility defaults");
 console.log("PASS atomic invitation transitions and accepted-member authorization");
 console.log("PASS authenticated harness is mutation-gated and test-project scoped");
