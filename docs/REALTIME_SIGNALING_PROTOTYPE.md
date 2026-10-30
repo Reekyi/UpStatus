@@ -77,9 +77,10 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 - [x] Function revision 10 deployed to the isolated project with atomic invitation transitions and accepted-member-only acknowledgement; health endpoint returned expected JSON.
 - [x] Function revision 12 deployed with bounded streaming JSON body reads and non-object JSON rejection; health endpoint returned expected JSON.
 - [x] Function revision 13 deployed with recursive, case-insensitive removal of identity/recipient keys in nested payloads; health endpoint returned expected JSON.
+- [x] GitHub Actions run #49 passed after the recursive payload-sanitization and authenticated harness changes.
 - [x] Body parser unit tests exercise valid/empty bodies, malformed JSON, non-object JSON, declared-size rejection, and streaming cancellation; GitHub Actions run #38 passed.
 - [x] Authenticated test runner added to create temporary users/sessions in the isolated project, execute the existing harness, and clean up fixtures; requires the isolated project's service-role key locally and has not yet been executed by this session.
-- [x] Authenticated harness now includes nested/case-variant identity spoofing assertions; the latest workflow runs are being checked.
+- [x] Authenticated harness now includes nested/case-variant identity spoofing assertions; GitHub Actions run #49 passed.
 - [ ] Authenticated runtime re-check of invitation transitions and accepted-member-only acknowledgement. The body parser itself has credential-free unit coverage; HTTP-level authenticated endpoint tests remain pending.
 - [ ] Multi-client WebRTC tests for offer/answer/ICE, calls, voice rooms and screen sharing.
 - [ ] Client integration for normal and Team Lite.
