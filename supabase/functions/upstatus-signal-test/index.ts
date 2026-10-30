@@ -28,13 +28,40 @@ function response(body: unknown, status=200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type":"application/json; charset=utf-8", ...CORS } });
 }
 function hash(t: string) { return createHash("sha256").update(t).digest("hex"); }
-async function body(req: Request) {
+async function body(req: Request): Promise<Record<string, unknown>> {
   const declaredLength = Number(req.headers.get("content-length") || "0");
   if (declaredLength > MAX_BODY) throw new Error("PAYLOAD_TOO_LARGE");
-  const raw = await req.text();
-  if (raw.length > MAX_BODY) throw new Error("PAYLOAD_TOO_LARGE");
-  if (!raw) return {};
-  try { return JSON.parse(raw); } catch { throw new Error("INVALID_JSON"); }
+  if (!req.body) return {};
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_BODY) {
+        await reader.cancel();
+        throw new Error("PAYLOAD_TOO_LARGE");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (!total) return {};
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  let parsed: unknown;
+  try { parsed = JSON.parse(new TextDecoder().decode(bytes)); }
+  catch { throw new Error("INVALID_JSON"); }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+    throw new Error("INVALID_BODY");
+  return parsed as Record<string, unknown>;
 }
 function rateLimit(name: string) {
   const now = Date.now();
@@ -241,7 +268,7 @@ Deno.serve(async (req: Request) => {
   } catch (e) {
     const message = String((e as Error)?.message || "");
     if (message === "PAYLOAD_TOO_LARGE") return response({ error: "Request body too large" }, 413);
-    if (message === "INVALID_JSON") return response({ error: "Invalid JSON" }, 400);
+    if (message === "INVALID_JSON" || message === "INVALID_BODY") return response({ error: "Invalid JSON body; expected an object" }, 400);
     return response({ error: "Internal server error" }, 500);
   }
 });
