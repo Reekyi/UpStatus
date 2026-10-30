@@ -125,13 +125,18 @@ export function createSignalingTransport({
           reject(error);
           return;
         }
-        const timer = setTimeout(resolve, Math.min(intervalMs, Math.max(0, deadline - now())));
-        if (signal) signal.addEventListener("abort", () => {
+        const onAbort = () => {
           clearTimeout(timer);
+          signal?.removeEventListener("abort", onAbort);
           const error = new Error("Invitation wait aborted");
           error.name = "AbortError";
           reject(error);
-        }, { once: true });
+        };
+        const timer = setTimeout(() => {
+          signal?.removeEventListener("abort", onAbort);
+          resolve();
+        }, Math.min(intervalMs, Math.max(0, deadline - now())));
+        if (signal) signal.addEventListener("abort", onAbort, { once: true });
       });
     }
     const error = new Error("Timed out waiting for invitation acceptance");
