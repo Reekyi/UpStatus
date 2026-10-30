@@ -5,7 +5,7 @@ Status: isolated prototype only. Not integrated with either userscript. Not appr
 ## Environment
 
 - Supabase project: `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`)
-- Function: `upstatus-signal-test`, isolated deployment revision 7.
+- Function: `upstatus-signal-test`, isolated deployment revision 10 (latest deployed version; newer branch hardening awaits test deployment).
 - Endpoint health check: `GET /functions/v1/upstatus-signal-test/health` returned `{"ok":true,"service":"upstatus-signal-test"}`.
 - No production user/session rows or production data were copied into this test project.
 - The project is on the free tier; usage limits still apply.
@@ -51,7 +51,7 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 - [x] Function deployed to the isolated project, currently revision 10.
 - [x] Health endpoint returned HTTP success and expected JSON.
 - [x] Polling is non-destructive; acknowledgement is scoped to the room and recipient.
-- [x] Payload size guard, stale in-memory rate-map cleanup, and bounded opportunistic expiry cleanup added.
+- [x] Payload size guard, stale in-memory rate-map cleanup, and bounded opportunistic expiry cleanup added.\n- [x] Branch hardening adds bounded streaming body reads and rejects non-object JSON bodies; CI static regression checks cover both. Deploy and runtime-check this change in the isolated project before considering it validated.
 - [x] Unauthenticated smoke workflow previously passed 7/7 checks against the isolated test endpoint.
 - [x] Explicit invite listing, acceptance and decline routes and pending-membership gating implemented in the isolated prototype.
 - [x] Authenticated integration harness expanded to test invitation discovery/privacy, invite consent, accurate acknowledgement counts, repeat acceptance, and decline access denial.
