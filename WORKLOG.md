@@ -392,3 +392,9 @@ Last updated: 2026-10-29
 - Deployed the current signaling function to the isolated test project as revision 16; the health endpoint returned the expected JSON. Read-only counts confirmed zero rooms, memberships, or queued events afterward.
 - Added an authenticated CI step gated by the repository secret `UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY`. If configured, it runs the isolated-project fixture runner and authenticated harness; if absent, it emits an explicit skip. The runner hard-refuses any project URL other than the isolated project and never prints tokens or the service key.
 - Added static assertions for the CI gate. The current CI run still needs inspection to distinguish an authenticated test pass from a deliberate skip.
+
+## Verified GitHub Actions result: 2026-10-30
+
+- Signaling workflow run [41112899354](https://github.com/Reekyi/UpStatus/actions/runs/41112899354) completed successfully. The static regression suite reported 10/10 groups passed, the body reader reported 3/3 groups passed, and all 10/10 unauthenticated HTTP checks passed against isolated revision 16.
+- The authenticated CI step was explicitly skipped because the repository secret `UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY` is not configured. Therefore the authenticated harness cases, including legacy envelope delivery and subtype rejection, remain unexecuted at runtime.
+- The broader UpStatus validation workflow run [41112898920](https://github.com/Reekyi/UpStatus/actions/runs/41112898920) also completed successfully.
