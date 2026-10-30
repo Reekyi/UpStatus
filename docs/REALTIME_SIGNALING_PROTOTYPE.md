@@ -48,7 +48,7 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 
 - [x] Test project created separately from production.
 - [x] Tables created; RLS and direct grants verified by SQL catalog query.
-- [x] Function deployed to the isolated project, currently revision 9.
+- [x] Function deployed to the isolated project, currently revision 10.
 - [x] Health endpoint returned HTTP success and expected JSON.
 - [x] Polling is non-destructive; acknowledgement is scoped to the room and recipient.
 - [x] Payload size guard, stale in-memory rate-map cleanup, and bounded opportunistic expiry cleanup added.
@@ -58,6 +58,8 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 - [x] Unauthenticated smoke workflow has passed after invitation discovery was added; it checks authentication gates for invitation listing, acceptance and decline alongside the prior endpoint checks.
 - [ ] Authenticated integration harness has not been run: three valid test sessions and distinct test users are not available to this session. Do not count its scenarios as passed until it runs and its output is reviewed.
 - [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting.
+- [x] Isolated test schema default updated to `accepted` for legacy membership inserts; verified in the database catalog.
+- [x] Function revision 10 deployed to the isolated project with atomic invitation transitions and accepted-member-only acknowledgement; health endpoint returned expected JSON.
 - [ ] Runtime re-check of atomic invitation transitions, including concurrent accept/decline, and accepted-member-only acknowledgement.
 - [ ] Multi-client WebRTC tests for offer/answer/ICE, calls, voice rooms and screen sharing.
 - [ ] Client integration for normal and Team Lite.
