@@ -42,7 +42,7 @@ const failing = createSignalingTransport({
 });
 await assert.rejects(() => failing.poll("sig_123"), error => error.status === 403 && error.message === "Room membership required");
 
-console.log("signaling transport adapter: 13 assertions passed");
+console.log("signaling transport adapter: 11 assertions passed");
 
 const pollCalls = [];
 let handled = 0;
