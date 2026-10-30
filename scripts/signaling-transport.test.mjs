@@ -90,3 +90,21 @@ await assert.rejects(
   error => error.code === "SIGNALING_INVITATION_DECLINED",
 );
 console.log("signaling invitation gate: 3 assertions passed");
+
+let releaseDelayedPoll;
+let staleHandlerCalls = 0;
+const delayedClient = createSignalingTransport({
+  enabled: true,
+  request: async path => {
+    if (path === "/poll") return new Promise(resolve => {
+      releaseDelayedPoll = () => resolve({ status: 200, body: { events: [{ event_id: 99 }] } });
+    });
+    return { status: 200, body: { ok: true } };
+  },
+});
+const stopDelayed = delayedClient.startPolling("sig_cancel", async () => { staleHandlerCalls++; });
+stopDelayed();
+releaseDelayedPoll();
+await new Promise(resolve => setTimeout(resolve, 10));
+assert.equal(staleHandlerCalls, 0, "a response arriving after cancellation must not dispatch stale events");
+console.log("signaling polling cancellation: 1 assertion passed");
