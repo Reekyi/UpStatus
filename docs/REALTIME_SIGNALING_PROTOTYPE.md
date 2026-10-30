@@ -5,7 +5,7 @@ Status: isolated prototype only. Not integrated with either userscript. Not appr
 ## Environment
 
 - Supabase project: `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`)
-- Function: `upstatus-signal-test`, isolated deployment revision 17 (bounded streaming JSON body reader, recursive identity sanitization, and nesting/traversal limits included).
+- Function: `upstatus-signal-test`, isolated deployment revision 19 (bounded streaming JSON body reader, recursive identity sanitization, and nesting/traversal limits included).
 - Endpoint health check: `GET /functions/v1/upstatus-signal-test/health` returned `{"ok":true,"service":"upstatus-signal-test"}`.
 - No production user/session rows or production data were copied into this test project.
 - The project is on the free tier; usage limits still apply.
@@ -62,7 +62,7 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 
 - [x] Test project created separately from production.
 - [x] Tables created; RLS and direct grants verified by SQL catalog query.
-- [x] Function deployed to the isolated project, currently revision 17.
+- [x] Function deployed to the isolated project, currently revision 19.
 - [x] Health endpoint returned HTTP success and expected JSON.
 - [x] Polling is non-destructive; acknowledgement is scoped to the room and recipient.
 - [x] Payload size guard, stale in-memory rate-map cleanup, and bounded opportunistic expiry cleanup added.
@@ -79,7 +79,7 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 - [x] Earlier isolated revision 10 deployed with atomic invitation transitions and accepted-member-only acknowledgement; the current isolated deployment is revision 16.
 - [x] Function revision 12 deployed with bounded streaming JSON body reads and non-object JSON rejection; health endpoint returned expected JSON.
 - [x] Function revision 13 deployed with recursive, case-insensitive removal of identity/recipient keys in nested payloads; health endpoint returned expected JSON.
-- [x] Function revision 17 deployed with payload nesting/traversal bounds and bounded per-isolate rate-limit state; health endpoint returned expected JSON.
+- [x] Function revision 19 deployed with payload nesting/traversal bounds and bounded per-isolate rate-limit state; health endpoint returned expected JSON.
 - [x] GitHub Actions run #49 passed after the recursive payload-sanitization and authenticated harness changes.
 - [x] Body parser unit tests exercise valid/empty bodies, malformed JSON, non-object JSON, declared-size rejection, and streaming cancellation; GitHub Actions run #38 passed.
 - [x] Authenticated test runner added to create temporary users/sessions in the isolated project, execute the existing harness, and clean up fixtures; requires the isolated project's service-role key locally and has not yet been executed by this session.
@@ -130,4 +130,12 @@ Current limitation: this is a migration contract and server allowlist only. No c
 - Found and corrected a database/schema mismatch: the function allowed the three legacy envelope names, but the table's `event_type` CHECK constraint still rejected them. Added migration `20261030190000_allow_legacy_signaling_envelopes.sql` and applied it only to the isolated test project. A read-only catalog query confirms the constraint now includes `call_signal`, `voice_room_signal`, and `screen_signal`.
 - A guarded temporary test runner exercised authenticated requests against revision 17. Edge logs show expected response classes for room creation (201), pending polling (403), invitation acceptance (200), envelope sends (202), invalid envelope/subtype and malformed/deep/wide payloads (400), oversized body (413), acknowledgement (200), room closure (200), and polling a closed room (404).
 - The external fetch layer did not return the runner's assertion summary, so this is runtime request/log evidence, not a certified aggregate assertion pass. All temporary users, sessions, rooms, memberships, and events were subsequently verified absent.
-- The temporary runner function was redeployed as an inert 404 handler immediately after the attempt. The only active functional endpoint remains `upstatus-signal-test` revision 17. Production and official TEST remain untouched.
+- The temporary runner function was redeployed as an inert 404 handler immediately after the attempt. The only active functional endpoint remains `upstatus-signal-test` revision 19; the temporary runner is inert. Production and official TEST remain untouched.
+## Logical room bindings and dynamic invitations (2026-10-30)
+
+- Added `upstatus_signal_room_bindings` with a unique `(binding_type, logical_id)` key, accepted-member resolution, creator-only binding, RLS, and service-role-only direct grants. Migration `20261030192000_signal_room_bindings.sql` is applied only to the isolated test project.
+- Added `POST /room/bind`, `POST /room/resolve`, and `POST /room/invite`. Pending invitees cannot resolve a logical room or poll signals before accepting. Invitation listings now include server-owned binding metadata so the future client adapter can identify call/voice/screen context.
+- Closing a room now deletes its logical bindings. Expired-room cleanup also cascades to bindings.
+- Extended the authenticated harness to cover idempotent binding, accepted-member resolution, non-creator denial, binding conflicts, dynamic invitation/duplicate rejection, invitation metadata, resolution after acceptance, and binding cleanup on close. These cases are authored but the CI authenticated job skips because the isolated service-role secret is not configured.
+- Deployed the endpoint to isolated revision 19; health returned the expected JSON. GitHub Actions run [41114707783](https://github.com/Reekyi/UpStatus/actions/runs/41114707783) passed static 11/11, body reader 3/3, envelope validator 3/3, and unauthenticated endpoint 10/10. The broader validation workflow [41114707797](https://github.com/Reekyi/UpStatus/actions/runs/41114707797) also succeeded.
+- The client transport has not been switched yet; the mapping/invitation APIs are server groundwork, not a completed migration.
