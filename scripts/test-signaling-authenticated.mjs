@@ -54,6 +54,16 @@ async function request(user, route, body) {
   try { json = await res.json(); } catch {}
   return { status: res.status, json };
 }
+async function requestRaw(user, route, rawBody) {
+  const res = await fetch(base + route, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-upstatus-token": user.token },
+    body: rawBody,
+  });
+  let json = null;
+  try { json = await res.json(); } catch {}
+  return { status: res.status, json };
+}
 const results = [];
 let roomId = "";
 let declineRoomId = "";
@@ -70,6 +80,30 @@ try {
     `HTTP ${created.status}`);
 
   if (roomId) {
+    const malformedBody = await requestRaw(users.A, "/signal", "{");
+    check("authenticated malformed JSON is rejected as a client error", malformedBody.status === 400,
+      `HTTP ${malformedBody.status}`);
+
+    const oversizedBody = await requestRaw(users.A, "/signal", JSON.stringify({
+      roomId, recipient: users.B.name, eventType: "offer", payload: { sdp: "x".repeat(21 * 1024) },
+    }));
+    check("authenticated oversized body is rejected before processing", oversizedBody.status === 413,
+      `HTTP ${oversizedBody.status}`);
+
+    let deepPayload = { keep: true };
+    for (let i = 0; i < 66; i++) deepPayload = { child: deepPayload };
+    const tooDeep = await request(users.A, "/signal", {
+      roomId, recipient: users.B.name, eventType: "offer", payload: deepPayload,
+    });
+    check("excessively nested signaling payload is rejected", tooDeep.status === 400,
+      `HTTP ${tooDeep.status}`);
+
+    const tooWide = await request(users.A, "/signal", {
+      roomId, recipient: users.B.name, eventType: "offer", payload: { items: Array(4100).fill(0) },
+    });
+    check("excessively wide signaling payload is rejected", tooWide.status === 400,
+      `HTTP ${tooWide.status}`);
+
     const bInvitations = await request(users.B, "/room/invitations", {});
     const bInviteList = Array.isArray(bInvitations.json?.invitations) ? bInvitations.json.invitations : [];
     check("invited user can discover their pending room invitation",
