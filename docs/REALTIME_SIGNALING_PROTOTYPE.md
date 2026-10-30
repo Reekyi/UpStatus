@@ -56,12 +56,12 @@ The endpoint is deployed with platform JWT verification disabled only because Up
 - [x] Explicit invite listing, acceptance and decline routes and pending-membership gating implemented in the isolated prototype.
 - [x] Authenticated integration harness expanded to test invitation discovery/privacy, invite consent, accurate acknowledgement counts, repeat acceptance, and decline access denial.
 - [x] Static regression tests cover migration idempotency/default compatibility, atomic invitation transitions, accepted-member authorization, and test-project mutation guards.
-- [x] Unauthenticated smoke workflow passed through run #29, including the static regression checks and syntax checks for both integration harnesses.
+- [x] Unauthenticated smoke workflow passed through run #30, including static regression checks and syntax checks for both integration harnesses.
 - [ ] Authenticated integration harness has not been run: three valid test sessions and distinct test users are not available to this session. Do not count its scenarios as passed until it runs and its output is reviewed.
-- [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting.
+- [ ] Negative API tests: missing/expired/revoked token, spoofed sender, non-member recipient, closed/expired room, invalid event type, oversized body and rate limiting. The branch now adds bounded streaming body reads and rejects valid JSON that is not an object; deploy and runtime checks are pending.
 - [x] Isolated test schema default updated to `accepted` for legacy membership inserts; verified in the database catalog.
 - [x] Function revision 10 deployed to the isolated project with atomic invitation transitions and accepted-member-only acknowledgement; health endpoint returned expected JSON.
-- [ ] Runtime re-check of atomic invitation transitions, including concurrent accept/decline, and accepted-member-only acknowledgement.
+- [ ] Runtime re-check of atomic invitation transitions, including concurrent accept/decline, accepted-member-only acknowledgement, and streaming body size rejection.
 - [ ] Multi-client WebRTC tests for offer/answer/ICE, calls, voice rooms and screen sharing.
 - [ ] Client integration for normal and Team Lite.
 - [ ] Latency/load/retention cleanup tests.
