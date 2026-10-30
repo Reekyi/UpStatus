@@ -253,6 +253,18 @@ Deno.serve(async (req: Request) => {
       return response({ ok: true, status: "pending" }, 201);
     }
 
+    if (path.endsWith("/room/members")) {
+      const roomId = String(p.roomId || "");
+      const activeRoom = roomId ? await room(roomId) : null;
+      if (!activeRoom || !(await isMember(roomId, sender)))
+        return response({ error: "Accepted room membership required" }, 404);
+      const { data: members, error } = await db.from("upstatus_signal_room_members")
+        .select("user_name").eq("room_id", roomId).eq("status", "accepted")
+        .order("joined_at", { ascending: true }).limit(32);
+      if (error) throw error;
+      return response({ ok: true, roomId, members: (members || []).map(item => item.user_name) });
+    }
+
     if (path.endsWith("/room/status")) {
       const roomId = String(p.roomId || "");
       const activeRoom = roomId ? await room(roomId) : null;
