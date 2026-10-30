@@ -221,10 +221,10 @@ Deno.serve(async (req: Request) => {
       const { data: binding, error } = await db.from("upstatus_signal_room_bindings")
         .select("room_id").eq("binding_type", bindingType).eq("logical_id", logicalId).maybeSingle();
       if (error) throw error;
-      if (!binding || !(await room(binding.room_id)) || !(await isMember(binding.room_id, sender)))
-        return response({ error: "Logical room unavailable" }, 404);
+      if (!binding) return response({ error: "Logical room unavailable" }, 404);
       const activeRoom = await room(binding.room_id);
-      if (!activeRoom) return response({ error: "Logical room unavailable" }, 404);
+      if (!activeRoom || !(await isMember(binding.room_id, sender)))
+        return response({ error: "Logical room unavailable" }, 404);
       return response({ ok: true, roomId: binding.room_id, expiresAt: activeRoom.expires_at });
     }
 
@@ -233,8 +233,10 @@ Deno.serve(async (req: Request) => {
       const recipient = String(p.recipient || "");
       const activeRoom = roomId ? await room(roomId) : null;
       if (!activeRoom) return response({ error: "Room unavailable" }, 404);
-      if (!(await isMember(roomId, sender)) || !recipient || recipient.length > 80 || recipient === sender)
-        return response({ error: "Accepted membership and a different recipient are required" }, 403);
+      if (!recipient || recipient.length > 80 || recipient === sender)
+        return response({ error: "A different valid recipient is required" }, 400);
+      if (!(await isMember(roomId, sender)))
+        return response({ error: "Accepted room membership required" }, 403);
       const { data: known, error: knownError } = await db.from("users")
         .select("name").eq("name", recipient).maybeSingle();
       if (knownError) throw knownError;
