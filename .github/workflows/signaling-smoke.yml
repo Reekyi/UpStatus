@@ -13,6 +13,7 @@ on:
       - "supabase/functions/upstatus-signal-test/body.mjs"
       - ".github/workflows/signaling-smoke.yml"
       - "supabase/functions/upstatus-signal-test/index.ts"
+      - "src/userscript/upstatus.user.template.js"
       - "supabase/migrations/**"
       - "docs/REALTIME_SIGNALING_PROTOTYPE.md"
   pull_request:
@@ -27,6 +28,7 @@ on:
       - "supabase/functions/upstatus-signal-test/body.mjs"
       - ".github/workflows/signaling-smoke.yml"
       - "supabase/functions/upstatus-signal-test/index.ts"
+      - "src/userscript/upstatus.user.template.js"
       - "supabase/migrations/**"
       - "docs/REALTIME_SIGNALING_PROTOTYPE.md"
   workflow_dispatch:
