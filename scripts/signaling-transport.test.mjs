@@ -20,6 +20,8 @@ await client.bindRoom({ roomId: "sig_123", bindingType: "call", logicalId: "call
 assert.equal(calls.at(-1).path, "/room/bind");
 await client.resolveRoom({ bindingType: "voice", logicalId: "voice-room-v1" });
 await client.invite("sig_123", "mari");
+await client.roomStatus("sig_123");
+assert.equal(calls.at(-1).path, "/room/status");
 await client.accept("sig_123");
 await client.decline("sig_123");
 await client.sendSignal({ roomId: "sig_123", recipient: "mari", eventType: "call_signal", payload: { type: "invite" } });
