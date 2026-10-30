@@ -62,7 +62,7 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 
 - [x] Test project created separately from production.
 - [x] Tables created; RLS and direct grants verified by SQL catalog query.
-- [x] Function deployed to the isolated project, currently revision 10.
+- [x] Function deployed to the isolated project, currently revision 15.
 - [x] Health endpoint returned HTTP success and expected JSON.
 - [x] Polling is non-destructive; acknowledgement is scoped to the room and recipient.
 - [x] Payload size guard, stale in-memory rate-map cleanup, and bounded opportunistic expiry cleanup added.\n- [x] Bounded streaming body reads reject non-object JSON bodies and stop on oversized streams; deployed to isolated revision 15 and health endpoint verified.
@@ -88,6 +88,26 @@ Use a test-project key only. If fixture cleanup reports an error, inspect the is
 - [ ] Client integration for normal and Team Lite.
 - [ ] Latency/load/retention cleanup tests.
 - [ ] Security review and explicit release approval.
+
+## Legacy client migration contract (mapping only; not integrated yet)
+
+The existing userscript still emits three distinct Realtime broadcast channels. The isolated endpoint now allowlists normalized transport envelope types for these channels, but this alone does not migrate the userscript.
+
+| Existing Realtime channel | Endpoint `eventType` | Metadata the adapter must reconstruct after polling | Notes |
+| --- | --- | --- | --- |
+| `call_signal` | `call_signal` | `from` from authenticated event sender; recipient from the server-scoped delivery; keep `callId` and inner `type` | Covers offer/answer/ICE plus presence, join_request, join_approved, join_declined, busy, reject, hangup and ended. Validate each inner type and call membership before dispatch. |
+| `voice_room_signal` | `voice_room_signal` | `from` from authenticated sender; `to` from recipient scope; restore logical `roomId` from a server-owned room-to-voice-room mapping | Inner types include offer/answer/ice, presence, join and leave. Current voice room identifiers are logical client IDs, not server room IDs. |
+| `upstatus_screen_signal_3_1_1_beta8` | `screen_signal` | `from` and `to` from server delivery metadata; restore logical `roomId` using the same authorized mapping | Inner types include offer/answer/ice, presence and leave. Do not trust sender/recipient fields from the payload. |
+
+Implementation requirements before switching any client:
+1. Create server rooms from the authenticated call/voice/screen workflow and invite participants explicitly. A pending invitee must accept before signaling.
+2. Keep server room IDs separate from client `callId` and logical voice-room IDs. Store and authorize their mapping; never derive authorization from a client-provided room ID.
+3. For each outgoing event, put the recipient in the top-level recipient field and use a normalized envelope `eventType`; payload sanitization intentionally removes identity keys such as `from`, `to`, `roomId` and `participants`.
+4. On polling, deduplicate by `event_id`, reconstruct trusted sender/recipient metadata from the authenticated envelope, dispatch to the existing handler, then acknowledge only successfully handled event IDs.
+5. Add a state machine for offer/answer/ICE, call acceptance/rejection/end, voice join/leave/mute and screen presence before enabling the adapter. A type allowlist is not a substitute for per-state authorization.
+6. Run authenticated multi-user tests and browser tests for simultaneous calls, late joins, reconnection, voice and screen share before rollout.
+
+Current limitation: this is a migration contract and server allowlist only. No client transport was switched, no room mapping was implemented, and production/official TEST remain untouched.
 
 ## Known prototype limitations
 
