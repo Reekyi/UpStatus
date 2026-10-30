@@ -59,5 +59,8 @@ console.log("PASS signaling migration idempotency and compatibility defaults");
 console.log("PASS atomic invitation transitions and accepted-member authorization");
 console.log("PASS authenticated harness is mutation-gated and test-project scoped");
 console.log("PASS bounded streaming body reads and JSON body shape validation");
-console.log("4/4 signaling static regression groups passed.");
-\nassert.ok(functionSource.includes("IDENTITY_PAYLOAD_KEYS.has(key.toLowerCase())"),\n  "identity/recipient payload keys must be stripped recursively and case-insensitively");\n
+console.log("PASS recursive case-insensitive identity payload sanitization");
+console.log("5/5 signaling static regression groups passed.");
+
+assert.ok(functionSource.includes("IDENTITY_PAYLOAD_KEYS.has(key.toLowerCase())"),
+  "identity/recipient payload keys must be stripped recursively and case-insensitively");
