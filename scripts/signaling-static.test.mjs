@@ -56,6 +56,11 @@ assert.ok(authenticatedHarness.includes('legacyEnvelopeTypes = ["call_signal", "
   "authenticated harness must exercise all three legacy signaling envelope types");
 assert.ok(authenticatedHarness.includes("all legacy envelope smoke events can be acknowledged"),
   "authenticated harness must cover delivery and acknowledgement for legacy envelopes");
+assert.ok(signalingWorkflow.includes("secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY") &&
+  signalingWorkflow.includes("node scripts/run-signaling-authenticated.mjs"),
+  "CI must run the authenticated harness when the isolated-only secret is configured");
+assert.ok(signalingWorkflow.includes("UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY is not configured"),
+  "CI must clearly skip authenticated E2E when no isolated test secret is available");
 assert.ok(signalingWorkflow.includes("src/userscript/upstatus.user.template.js"),
   "client transport edits must trigger signaling CI");
 
