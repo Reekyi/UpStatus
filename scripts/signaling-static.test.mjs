@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const functionSource = readFileSync("supabase/functions/upstatus-signal-test/index.ts", "utf8");
+const bodyModule = readFileSync("supabase/functions/upstatus-signal-test/body.mjs", "utf8");
 const invitationMigration = readFileSync(
   "supabase/migrations/20261030120000_signal_room_invitation_consent.sql", "utf8",
 );
@@ -44,16 +45,11 @@ assert.match(authenticatedHarness, /invitee can explicitly decline their invitat
 assert.match(authenticatedHarness, /declined invitee cannot poll the room/,
   "authenticated harness must cover declined-member access denial");
 
-console.log("PASS signaling migration idempotency and compatibility defaults");
-console.log("PASS atomic invitation transitions and accepted-member authorization");
-console.log("PASS authenticated harness is mutation-gated and test-project scoped");
-console.log("3/3 signaling static regression groups passed.");
-assert.ok(functionSource.includes("const reader = req.body.getReader()"),
-  "request bodies must be read incrementally rather than fully buffered");
-assert.ok(functionSource.includes("if (total > MAX_BODY) {") &&
-  functionSource.includes("await reader.cancel()"),
-  "oversized streaming request bodies must be cancelled as soon as the limit is crossed");
-assert.ok(functionSource.includes('if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))'),
+assert.ok(functionSource.includes('import { readJsonObject } from "./body.mjs"'),
+  "Edge Function must use the separately tested streaming JSON reader");
+assert.ok(bodyModule.includes("req.body.getReader()") && bodyModule.includes("await reader.cancel()"),
+  "request bodies must be read incrementally and cancelled when oversized");
+assert.ok(bodyModule.includes('typeof parsed !== "object" || Array.isArray(parsed)'),
   "JSON null, primitive, and array bodies must be rejected with a client error");
 assert.ok(functionSource.includes('message === "INVALID_JSON" || message === "INVALID_BODY"'),
   "invalid JSON shapes must not surface as internal server errors");
