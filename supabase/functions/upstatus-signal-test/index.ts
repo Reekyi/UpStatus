@@ -158,10 +158,11 @@ Deno.serve(async (req: Request) => {
       const { data: membership, error: membershipError } = await db.from("upstatus_signal_room_members")
         .select("room_id").eq("room_id", String(p.roomId || "")).eq("user_name", sender).maybeSingle();
       if (membershipError || !membership) return response({ error: "Room membership required" }, 403);
-      const { error } = await db.from("upstatus_signal_events")
-        .delete().in("event_id", ids).eq("room_id", String(p.roomId || "")).eq("recipient", sender);
+      const { data: deleted, error } = await db.from("upstatus_signal_events")
+        .delete().in("event_id", ids).eq("room_id", String(p.roomId || "")).eq("recipient", sender)
+        .select("event_id");
       if (error) throw error;
-      return response({ ok: true, acknowledged: ids.length });
+      return response({ ok: true, acknowledged: (deleted || []).length });
 
     }
 
