@@ -144,3 +144,17 @@ await assert.rejects(
 );
 assert.ok(declineSequence.includes("/room/close"), "declined calls must clean up the temporary room");
 console.log("signaling call setup gate: 4 assertions passed");
+
+const abortClient = createSignalingTransport({
+  enabled: true,
+  request: async () => ({ status: 200, body: { participants: [{ name: "mari", status: "pending" }] } }),
+});
+const waitController = new AbortController();
+const waiting = abortClient.waitForAcceptance("sig_abort", "mari", {
+  intervalMs: 100,
+  timeoutMs: 1000,
+  signal: waitController.signal,
+});
+setTimeout(() => waitController.abort(), 5);
+await assert.rejects(() => waiting, error => error.name === "AbortError");
+console.log("signaling invitation abort: 1 assertion passed");
