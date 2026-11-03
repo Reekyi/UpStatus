@@ -527,3 +527,10 @@ Last updated: 2026-10-29
 - All 79/79 authenticated integration checks passed. Chromium then passed authenticated call audio, voice-room audio, and screen-video negotiation, gathered ICE, remote track delivery, peer teardown, and local media-track shutdown.
 - Temporary users, sessions, rooms, memberships, and events were confirmed cleaned up.
 - Follow-up tests for simultaneous independent call rooms and transient polling recovery/concurrent pollers have since been added to the candidate. Their newest smoke run is pending; do not count those additional scenarios as passed until that run completes.
+
+
+### Production security baseline re-check (read-only, 2026-11-03)
+
+- Re-ran the production Security Advisor without making any writes. It still reports the same three broad-EXECUTE SECURITY DEFINER findings for `upstatus_broadcast_messages()`, `upstatus_broadcast_remote_state()`, and `upstatus_broadcast_users()`, plus ten RLS-enabled/no-policy INFO notices.
+- This confirms the hardening migrations have not been applied to production. The three warnings remain a release blocker until the function EXECUTE revocation and payload-minimization migrations are explicitly approved and validated through the intended rollout.
+- The isolated security-test project, by contrast, has no remaining broad-EXECUTE warnings after its test-only migrations. Do not confuse the isolated advisor result with production status.
