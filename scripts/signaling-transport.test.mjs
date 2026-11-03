@@ -32,6 +32,8 @@ await client.sendSignal({ roomId: "sig_123", recipient: "mari", eventType: "call
 await client.poll("sig_123");
 await client.ack("sig_123", [1, 1, 2]);
 assert.deepEqual(calls.at(-1).body.eventIds, [1, 2]);
+await client.leave("sig_123");
+assert.equal(calls.at(-1).path, "/room/leave");
 await client.close("sig_123");
 
 await assert.rejects(() => client.bindRoom({ roomId: "sig_123", bindingType: "bad", logicalId: "x" }), /Invalid binding type/);
@@ -44,7 +46,7 @@ const failing = createSignalingTransport({
 });
 await assert.rejects(() => failing.poll("sig_123"), error => error.status === 403 && error.message === "Room membership required");
 
-console.log("signaling transport adapter: 12 assertions passed");
+console.log("signaling transport adapter: 13 assertions passed");
 
 const pollCalls = [];
 let handled = 0;
