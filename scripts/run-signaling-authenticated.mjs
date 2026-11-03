@@ -70,6 +70,12 @@ try {
   const run = spawnSync(process.execPath, ["scripts/test-signaling-authenticated.mjs"], { env, stdio: "inherit" });
   testExitCode = run.status === null ? 1 : run.status;
   if (run.error) throw new Error("Could not start authenticated harness: " + run.error.message);
+  if (testExitCode === 0) {
+    console.log("Starting authenticated real-browser WebRTC integration checks.");
+    const browserRun = spawnSync(process.execPath, ["scripts/test-signaling-browser.mjs"], { env, stdio: "inherit" });
+    testExitCode = browserRun.status === null ? 1 : browserRun.status;
+    if (browserRun.error) throw new Error("Could not start browser E2E harness: " + browserRun.error.message);
+  }
 } catch (error) {
   console.error("Authenticated test setup/runner failed: " + String(error?.message || error));
   testExitCode = 1;
