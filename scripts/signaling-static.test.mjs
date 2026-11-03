@@ -215,6 +215,15 @@ assert.ok(readFileSync("scripts/test-signaling-browser.mjs","utf8").includes("as
   readFileSync("scripts/test-signaling-browser.mjs","utf8").includes('connectionState, "closed"') &&
   readFileSync("scripts/test-signaling-browser.mjs","utf8").includes('state === "ended"'),
   "browser E2E must assert peer closure and local media track teardown");
+const browserHarness = readFileSync("scripts/test-signaling-browser.mjs", "utf8");
+assert.ok(browserHarness.includes("async function runGroupMesh()") && browserHarness.includes("async function negotiateMeshPair("),
+  "authenticated browser E2E must include a three-member group mesh");
+assert.ok(browserHarness.includes('"/room/invite"') && browserHarness.includes('"/room/members"') && browserHarness.includes('"/broadcast"'),
+  "group browser E2E must cover dynamic invitation, accepted roster, and authenticated fanout");
+assert.ok(browserHarness.includes("await negotiateMeshPair(pageA, users.A, pageB, users.B, callId)") &&
+  browserHarness.includes("await negotiateMeshPair(pageA, users.A, pageC, users.C, callId)") &&
+  browserHarness.includes("await negotiateMeshPair(pageB, users.B, pageC, users.C, callId)"),
+  "group browser E2E must establish every peer-to-peer mesh link");
 assert.ok(functionSource.includes('path.endsWith("/room/leave")') &&
   functionSource.includes('update({ created_by: nextOwner })') &&
   functionSource.includes('eq("recipient", sender)'),
