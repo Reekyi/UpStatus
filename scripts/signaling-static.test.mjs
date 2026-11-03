@@ -172,6 +172,9 @@ assert.doesNotMatch(userTemplate,/sendRealtimeEvent\('call_signal',\{type:'busy'
   "busy call-control responses must never bypass the authenticated transport");
 assert.ok(userTemplate.includes("else callSendTo(requester,'join_declined',{updatedAt:Date.now()});"),
   "authenticated group invitation declines must be delivered through the authenticated transport");
+assert.ok(userTemplate.includes("}else sendRealtimeEvent('call_signal',{type:accepted?'join_approved':'join_declined',callId:p.callId,from:member,to:requester,participants:upCall.participants.slice(),updatedAt:Date.now()});") &&
+  userTemplate.includes("(p.type==='presence'||p.type==='ended'||p.type==='join_declined')&&p.discoveryOnly===true"),
+  "legacy public group decisions remain isolated behind the disabled-by-default transport flag");
 assert.ok(userTemplate.includes("startOutgoingCallWithTransport(target)") &&
   userTemplate.includes("signalStartInvitationPolling()") &&
   userTemplate.includes("signalTransport.sendToRoom({") &&
