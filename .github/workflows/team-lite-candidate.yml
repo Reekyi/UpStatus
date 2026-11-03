@@ -30,7 +30,7 @@ on:
 
 concurrency:
   group: upstatus-signaling-isolated-tests-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
