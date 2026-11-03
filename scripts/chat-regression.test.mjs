@@ -168,6 +168,7 @@ assert(source.includes("p.sdp.sdp.length>100000"),"oversized call SDP must be re
 assert(source.includes("JSON.stringify(p.candidate).length>4096"),"oversized ICE candidates must be rejected");
 assert(source.includes("(p.type==='offer'||p.type==='answer'||p.type==='ice')&&p.to!==member"),"voice and screen-share negotiation events must be directly targeted");
 assert(source.includes("function screenShareReceive(p)")&&source.includes("function voiceRoomReceive(p)"),"voice and screen-share handlers must remain present after hardening");
+assert(source.includes("if(signalTransportFlag){\n        if(signalTransport&&signalRoomByCallId[p.callId])")&&source.includes("A sinalização autenticada da chamada não está disponível. O pedido não foi processado.")&&source.includes("}else sendRealtimeEvent('call_signal',{type:accepted?'join_approved':'join_declined'"),"group join approvals must fail closed when authenticated transport is enabled but the room mapping is missing");
 
 
 assert(source.includes("p.participants.length>32"),"call roster broadcasts must be capped to 32 participants");
