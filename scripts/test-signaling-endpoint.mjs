@@ -121,7 +121,13 @@ const cases = [
 let failed = 0;
 for (const test of cases) {
   try {
-    const res = await test.run();
+    let res;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      res = await test.run();
+      if (![502, 503, 504].includes(res.status) || attempt === 3) break;
+      console.log(`RETRY ${test.name}: transient HTTP ${res.status} (attempt ${attempt}/3)`);
+      await new Promise(resolve => setTimeout(resolve, 750 * attempt));
+    }
     let json = null;
     try { json = await res.json(); } catch {}
     const bodyOk = !test.body || test.body(json);
