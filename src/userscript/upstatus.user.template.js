@@ -2228,7 +2228,7 @@ function renderChatText(text){
       if(signalTransportFlag){
         if(signalTransport&&signalRoomByCallId[p.callId]){
           if(accepted)callSendTo(requester,'invite',{participants:upCall.participants.slice(),initiator:upCall.initiator||member});
-          else sendRealtimeEvent('call_signal',{type:'join_declined',callId:p.callId,from:member,to:requester,discoveryOnly:true,updatedAt:Date.now()});
+          else callSendTo(requester,'join_declined',{updatedAt:Date.now()});
         }else{
           message('A sinalização autenticada da chamada não está disponível. O pedido não foi processado.',true);
         }
