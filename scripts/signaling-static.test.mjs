@@ -166,6 +166,10 @@ assert.ok(userTemplate.includes("signaling_transport_enabled',false)===true") &&
   userTemplate.includes("signalTransport.startPolling") &&
   userTemplate.includes("return sendRealtimeEvent('call_signal',p)"),
   "the opt-in call transport must be same-project guarded, acceptance-gated, and preserve legacy fallback");
+assert.equal((userTemplate.match(/callSendTo\(p\.from,'busy',\{connectionId:String\(p\.callId\)\+'::busy'\}\);return;/g)||[]).length,2,
+  "busy responses for authenticated call offers/invites must use the transport-aware sender");
+assert.doesNotMatch(userTemplate,/sendRealtimeEvent\('call_signal',\{type:'busy',callId:p\.callId/,
+  "busy call-control responses must never bypass the authenticated transport");
 assert.ok(userTemplate.includes("startOutgoingCallWithTransport(target)") &&
   userTemplate.includes("signalStartInvitationPolling()") &&
   userTemplate.includes("signalTransport.sendToRoom({") &&
