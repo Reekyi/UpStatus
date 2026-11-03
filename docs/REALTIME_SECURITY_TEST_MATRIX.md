@@ -21,11 +21,11 @@ The existing topic `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0` is broad
 | RT-05 | Call authorization | Forge `join_approved`, `join_declined`, or `ended` | Only an authorized participant can change call state | PARTIAL: authenticated invitation/acceptance/decline, group join requests, and discovery-only decline hints tested; every legacy call-state transition is not covered |
 | RT-06 | Screen share | Forge screen-share offer/answer/ICE and presence/leave events | Only authenticated room members can negotiate; untrusted signals do not create unauthorized peers | PASS for isolated authenticated screen-video SDP/ICE negotiation and teardown; legacy UI path pending |
 | RT-07 | Voice room | Forge voice-room presence, join, leave, offer, answer, and ICE | Server validates membership and recipient before forwarding | PASS for isolated authenticated voice audio SDP/ICE negotiation and teardown; legacy UI path pending |
-| RT-08 | Replay | Replay an old signal after logout, room exit, or call end | Expired/revoked session or closed call is rejected | PARTIAL: closed-room, departed-member, and removed-binding replay paths return 403/404; warm-instance session revocation/cache-window behavior is not proven |
+| RT-08 | Replay | Replay an old signal after logout, room exit, or call end | Expired/revoked session or closed call is rejected | PARTIAL: closed-room, departed-member, and removed-binding replay paths return 403/404; warm-instance session cache is bounded to 5 seconds, but live cross-isolate revocation remains unverified |
 | RT-09 | Abuse resistance | Flood malformed/oversized signaling messages | Bounded request size, rate limits, no unbounded memory/peer creation | PARTIAL: malformed, oversized, deep and wide payloads rejected; rate-limit load/scale testing remains |
 | RT-10 | Chat events | Forge `db_change`, `chat_fast`, and `chat_read` payloads | Client treats broadcasts as invalidation hints and refetches canonical state via authenticated API | STATIC CHECKS PASS; full browser abuse test pending |
 | RT-11 | Remote commands | Forge `remote_command` and `remote_result` events | No action/result is trusted from broadcast alone; server API remains authoritative | STATIC CHECKS PASS; full browser abuse test pending |
-| RT-12 | Session revocation | Revoke a session while an Edge Function instance is warm | Requests fail after documented cache window; no long-lived stale authorization | NOT PROVEN |
+| RT-12 | Session revocation | Revoke a session while an Edge Function instance is warm | Requests fail after documented cache window; no long-lived stale authorization | PARTIAL: server-side session cache is explicitly bounded to 5 seconds; live warm-isolate revocation timing test remains pending |
 | RT-13 | Migration grants | Execute the three trigger-only functions as `anon` and `authenticated` | Direct EXECUTE is denied; triggers still run for legitimate database writes | PASS: isolated catalog privilege checks show EXECUTE denied to both roles; trigger smoke operations previously passed |
 | RT-14 | Table grants | Read/write the nine backend-owned tables directly as `anon` and `authenticated` | Direct access denied; authenticated backend flows continue to work | PASS: isolated privilege checks show no SELECT on messages/users/sessions for either role; authenticated API suite passes |
 | RT-15 | Cross-client compatibility | Normal and Team Lite clients join/leave calls and share screens across supported versions | No insecure downgrade; no broken call, voice, or screen-share workflow | PARTIAL: normal and Team Lite server templates now have identical token hashing/session lookup and session-creation contracts; shared isolated API/browser tests pass, but both product userscripts have not yet been exercised together in one live session |
@@ -77,6 +77,12 @@ Both normal UpStatus and Team Lite candidates now include the default-off server
 - Production Security Advisor still reports the three broad-EXECUTE warnings. No production migration has been applied.
 - Team Lite candidate validation is not cross-client signaling validation: Team Lite still uses the legacy public Realtime media-signaling path. RT-15 remains blocked.
 
+
+## Session revocation cache hardening (2026-11-03)
+
+- Normal UpStatus server now revalidates cached sessions at least every 5 seconds; logout in the same isolate still evicts the local entry immediately.
+- This bounds stale authorization after external revocation to the cache TTL per warm isolate, subject to request/database availability. It does not provide instantaneous global revocation.
+- Live multi-isolate timing verification remains a manual release gate.
 
 ## 2026-11-03 fail-closed and group-mesh follow-up
 
