@@ -510,3 +510,12 @@ Last updated: 2026-10-29
 - Remote-command hints also wait out the existing one-second poll throttle and re-check the captured token/member or auth generation before polling. This prevents a delayed event from a prior session from causing a request under a newly authenticated member.
 - Removed client-originated remote-result broadcasts entirely; command completion is already delivered through the authenticated result-poll endpoint. Client-originated remote-command events now contain only a generic hint.
 - Latest normal `UpStatus Validate` passed on `8b7860b`; latest Team Lite candidate checks passed on `5376d5f`. The normal signaling smoke workflow on `8b7860b` is still in progress; the previous smoke run on `492f1e7` passed 79/79 authenticated HTTP checks and Chromium call/voice/screen WebRTC negotiation with track delivery and teardown.
+
+
+### Isolated chat broadcast migration validation (2026-11-03)
+
+- Applied `20261103160000_minimize_public_chat_broadcast.sql` only to `upstatus-security-test`.
+- Confirmed the existing `upstatus_messages_broadcast` trigger remains attached for INSERT, UPDATE, and DELETE. Executed all three operations with a temporary probe row containing unmistakable fake message/body/attachment metadata; the trigger operations completed and the probe row was removed (zero rows remaining).
+- Read back `upstatus_broadcast_messages()`: the function now sends only `jsonb_build_object('op', TG_OP)`, retains the existing `db_change` event/topic, and pins `search_path=pg_catalog, public`.
+- Direct readback of the ephemeral Realtime message table remains blocked by the tool security layer, so the verified evidence is the function definition plus successful trigger execution, not an independently captured wire payload.
+- Production and official TEST were not touched.
