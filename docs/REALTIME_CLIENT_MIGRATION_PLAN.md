@@ -115,3 +115,11 @@ All current transport work remains on the development branch and isolated Supaba
 - CI run [41660880330](https://github.com/Reekyi/UpStatus/actions/runs/41660880330) passed: static 13/13, unauthenticated 14/14, authenticated 79/79, Chromium call/voice/screen E2E, peer close, and local media track teardown.
 - Authenticated tests confirmed owner handoff A → B → C, continued room access for remaining members, preservation of the departing member's final signal, and automatic room closure after the final member leaves.
 - The authenticated runner also has a hard-pinned stale-fixture preflight cleanup for interrupted CI attempts. A subsequent run is verifying that cleanup before provisioning new temporary identities.
+
+
+## Backend endpoint cutover audit (2026-11-03)
+
+- The current Normal userscript build still sets `CLOUD_SERVER` to `/functions/v1/upstatus-screen-share-3-1-1-beta10`. The generated `upstatus` function is a separate endpoint and is not the current Normal client's API origin.
+- The active production Edge Functions were inspected read-only: `upstatus` revision 480, `upstatus-screen-share-3-1-1-beta10` revision 6, and `upstatus-team-lite` revision 15. The active Normal API endpoint still has a 30-second per-isolate session cache; no production changes were made.
+- The candidate source now bounds session-cache revalidation to 5 seconds in the generated Normal `upstatus` backend and Team Lite backend. This does **not** change the currently active Normal API endpoint until an explicitly approved backend cutover is performed.
+- Before release, choose and document the intended Normal API endpoint, verify that the userscript's `CLOUD_SERVER`, session issuer, and signaling endpoint all target the same project, then run login/chat/status/call regression tests against that exact candidate backend. Do not silently switch the existing beta10 endpoint.
