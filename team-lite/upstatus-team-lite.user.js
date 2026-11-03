@@ -518,6 +518,8 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var signalTransportEndpoint=String(GM_getValue(key+'signaling_transport_endpoint','')||'').trim();
   var signalTransport=null,signalVoiceRoomRoomId='',signalVoiceRoomCreator=false,signalVoiceRoomPrepared=false;
   var signalPollStops=Object.create(null),signalRosterCache=Object.create(null);
+  var signalInvitationTimer=null,signalInvitationPollBusy=false;
+  var signalRoomByCallId=Object.create(null),signalCallIdByRoom=Object.create(null),signalCreatorCallIds=Object.create(null);
   function signalTransportRequest(route,payload,options){
     return new Promise(function(resolve,reject){
       var signal=options&&options.signal,handle=null,settled=false,abortHandler=null;
@@ -539,18 +541,92 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     if(!signalTransportFlag||signalTransport||!token||!signalTransportEndpoint)return;
     try{var endpoint=new URL(signalTransportEndpoint),sessionServer=new URL(server);
       if(endpoint.protocol!=='https:'||endpoint.origin!==sessionServer.origin||endpoint.search||endpoint.hash||!(endpoint.pathname.endsWith('/functions/v1/upstatus-signal')||endpoint.pathname.endsWith('/functions/v1/upstatus-signal-test')))return;
-      signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});
+      signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});signalStartInvitationPolling();
     }catch(e){signalTransport=null;}
   }
-  function signalStartCallPolling(roomId){
+  function signalSafeCallId(id){return String(id||'call').replace(/[^A-Za-z0-9._:-]/g,'_').slice(0,128)||('call-'+Date.now().toString(36));}
+  async function signalGetRoomMembers(roomId){
+    var cached=signalRosterCache[roomId];
+    if(cached&&Date.now()-cached.at<3000)return cached.members.slice();
+    var members=await signalTransport.roomMembers(roomId);
+    signalRosterCache[roomId]={at:Date.now(),members:members.slice()};
+    return members;
+  }
+  function signalStartCallPolling(roomId,callId){
     if(!signalTransport||!roomId||signalPollStops[roomId])return;
     signalPollStops[roomId]=signalTransport.startPolling(roomId,async function(event){
       if(!event||!event.payload)return;
-      if(event.event_type==='voice_room_signal')await voiceRoomReceive(Object.assign({},event.payload,{from:event.sender,to:member,roomId:voiceRoom.id}));
-      else if(event.event_type==='screen_signal')await screenShareReceive(Object.assign({},event.payload,{from:event.sender,to:member,roomId:voiceRoom.id}));
+      if(event.event_type==='call_signal'){
+        var p=Object.assign({},event.payload,{from:event.sender,to:member,callId:event.payload.callId||callId});
+        try{p.participants=await signalGetRoomMembers(roomId);}catch(e){p.participants=[member,event.sender];}
+        if(!p.initiator)p.initiator=signalCreatorCallIds[p.callId]?member:event.sender;
+        await receiveCallSignal(p);
+        return;
+      }
+      if(event.event_type==='voice_room_signal'){
+        var voicePayload=Object.assign({},event.payload,{from:event.sender,to:member,roomId:voiceRoom.id});
+        await voiceRoomReceive(voicePayload);
+        return;
+      }
+      if(event.event_type==='screen_signal'){
+        var screenPayload=Object.assign({},event.payload,{from:event.sender,to:member,roomId:voiceRoom.id});
+        await screenShareReceive(screenPayload);
+      }
     });
   }
-  function signalStopCallPolling(roomId){var stop=signalPollStops[roomId];if(stop){try{stop();}catch(e){}delete signalPollStops[roomId];}}
+  function signalStopCallPolling(roomId){
+    if(!roomId)return;
+    var stop=signalPollStops[roomId];if(stop){try{stop();}catch(e){}delete signalPollStops[roomId];}
+  }
+  async function signalPollInvitations(){
+    if(!token||!member||!signalTransport||!signalTransportFlag||signalInvitationPollBusy)return;
+    var expectedToken=token,expectedMember=member;
+    signalInvitationPollBusy=true;
+    try{
+      var invitations=await signalTransport.invitations();
+      if(token!==expectedToken||member!==expectedMember)return;
+      for(var i=0;i<invitations.length;i++){
+        if(token!==expectedToken||member!==expectedMember)return;
+        var invitation=invitations[i],binding=(invitation.bindings||[]).find(function(b){return b&&b.bindingType==='call'&&typeof b.logicalId==='string';});
+        if(!binding||!invitation.roomId||signalRoomByCallId[binding.logicalId])continue;
+        let callId=binding.logicalId,roomId=invitation.roomId;
+        signalRoomByCallId[callId]=roomId;signalCallIdByRoom[roomId]=callId;signalCreatorCallIds[callId]=false;
+        if(upCall.active){
+          signalTransport.decline(roomId).catch(function(){}).finally(function(){delete signalRoomByCallId[callId];delete signalCallIdByRoom[roomId];delete signalCreatorCallIds[callId];});
+          continue;
+        }
+        await receiveCallSignal({type:'invite',callId:callId,from:invitation.invitedBy,initiator:invitation.invitedBy,participants:[invitation.invitedBy,member],to:member});
+      }
+    }catch(e){}finally{signalInvitationPollBusy=false;}
+  }
+  function signalStartInvitationPolling(){
+    if(!signalTransport||signalInvitationTimer)return;
+    signalPollInvitations();
+    signalInvitationTimer=setInterval(signalPollInvitations,1500);
+  }
+  async function startOutgoingCallWithTransport(target){
+    if(!target||target===member)return;
+    if(upCall.active){message('Você já está em uma chamada.',true);return;}
+    var transportCallId=signalSafeCallId(callNewId());upCall.callId=transportCallId;upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
+    upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
+    upCall.signalAbortController=new AbortController();signalCreatorCallIds[upCall.callId]=true;
+    callPrimeAudio();callStartRingtone();callRender(target,'Chamando…',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true,'hangup');}}]);
+    upCall.timer=setTimeout(function(){if(upCall.active&&!upCall.connected){try{if(upCall.signalAbortController)upCall.signalAbortController.abort();}catch(e){}callFail('Sem resposta.');}},30000);
+    try{
+      var room=await signalTransport.prepareCallRoom(upCall.callId,target,{timeoutMs:28000,intervalMs:900,signal:upCall.signalAbortController.signal});
+      if(!upCall.active){signalTransport.close(room.roomId).catch(function(){});delete signalCreatorCallIds[transportCallId];return;}
+      signalRoomByCallId[transportCallId]=room.roomId;signalCallIdByRoom[room.roomId]=transportCallId;
+      signalStartCallPolling(room.roomId,transportCallId);
+      await callGetMicrophone();
+      if(!upCall.active||upCall.signalAbortController.signal.aborted){callCleanup(false);return;}
+      var p=await callCreatePeer(target),offer=await p.pc.createOffer();
+      await p.pc.setLocalDescription(offer);
+      if(!upCall.active||upCall.signalAbortController.signal.aborted){callCleanup(false);return;}
+      p.offerSent=true;callStartPresence();callSendTo(target,'offer',{sdp:p.pc.localDescription,phase:'initial'});
+    }catch(e){
+      if(upCall.active)callFail(e.message||'Não foi possível iniciar a chamada.');
+    }
+  }
   async function signalPrepareVoiceRoom(){
     if(!signalTransport||!signalTransportFlag)throw new Error('A conexão autenticada da sala não está disponível.');
     var roomId='';
@@ -2318,6 +2394,13 @@ function renderChatText(text){
   }
   function callPublishPresence(){
     if(!upCall.active||!upCall.callId)return;
+    var roomId=signalRoomByCallId[upCall.callId];
+    if(signalTransport&&roomId){
+      callSendAll('presence',{initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false});
+      // Public Realtime is retained only as a discovery hint; all call control and media signals use the authenticated room.
+      sendRealtimeEvent('call_signal',{type:'presence',callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false,discoveryOnly:true});
+      return;
+    }
     sendRealtimeEvent('call_signal',{type:'presence',callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false});
   }
   function callStartPresence(){
@@ -2336,10 +2419,33 @@ function renderChatText(text){
   function callSendTo(to,type,extra){
     if(!to||!upCall.callId)return false;
     var p=Object.assign({type:type,callId:upCall.callId,from:member,to:to,connectionId:callConnectionId(to),participants:upCall.participants.slice()},extra||{});
+    var signalRoomId=signalRoomByCallId[upCall.callId];
+    if(signalTransport&&signalRoomId){
+      if(type==='invite'){
+        signalTransport.invite(signalRoomId,to).then(function(){
+          return signalTransport.waitForAcceptance(signalRoomId,to,{timeoutMs:30000,intervalMs:900});
+        }).then(function(){
+          if(upCall.participants.indexOf(to)<0)upCall.participants.push(to);
+          signalStartCallPolling(signalRoomId,upCall.callId);
+          return callStartOffer(to);
+        }).catch(function(e){upCall.notice='Não foi possível adicionar '+to+': '+(e.message||e);callRenderConnected();});
+        return true;
+      }
+      return signalTransport.sendSignal({roomId:signalRoomId,recipient:to,eventType:'call_signal',payload:p}).catch(function(e){
+        if(upCall.active){upCall.notice='Falha no sinal para '+to+': '+(e.message||e);callRenderConnected();}
+      });
+    }
     return sendRealtimeEvent('call_signal',p);
   }
   function callSend(type,extra){return callSendTo(upCall.peer,type,extra);}
   function callSendAll(type,extra){
+    var signalRoomId=signalRoomByCallId[upCall.callId];
+    if(signalTransport&&signalRoomId){
+      return signalTransport.sendToRoom({
+        roomId:signalRoomId,eventType:'call_signal',senderName:member,
+        payload:Object.assign({type:type,callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now()},extra||{})
+      }).catch(function(e){if(upCall.active){upCall.notice='Falha ao enviar sinal para a sala: '+(e.message||e);callRenderConnected();}});
+    }
     var sent=false;
     upCall.participants.forEach(function(name){if(name&&name!==member)sent=callSendTo(name,type,extra)||sent;});
     return sent;
@@ -2363,15 +2469,21 @@ function renderChatText(text){
     if(!upCall.connected&&upCall.startedAt){upCall.startedAt=0;if(upCall.counterTimer){clearInterval(upCall.counterTimer);upCall.counterTimer=null;}}
   }
   function callCleanup(sendSignal,signalType){
-    var callId=upCall.callId;
-    if(callId&&upCall.active)sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now()});
+    var cleanupPromise=Promise.resolve();
+    var callId=upCall.callId,signalRoomId=signalRoomByCallId[callId],signalRoomCreator=signalCreatorCallIds[callId]===true,pendingSignals=[];
+    if(callId&&upCall.active){
+      if(signalTransport&&signalRoomId){
+        if(!upCall.pendingInvite)pendingSignals.push(callSendAll('ended',{updatedAt:Date.now()}));
+        if(signalRoomCreator)sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now(),discoveryOnly:true});
+      }else sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now()});
+    }
     if(upCall.presenceTimer){clearInterval(upCall.presenceTimer);upCall.presenceTimer=null;}
     if(sendSignal&&callId){
       try{
-        if(signalType==='hangup'&&upCall.peer)callSend('hangup');
-        else if(signalType)callSendAll(signalType);
-        else if(upCall.connected||upCall.participants.length>2)callSendAll('leave');
-        else if(upCall.peer)callSend('hangup');
+        if(signalType==='hangup'&&upCall.peer)pendingSignals.push(callSend('hangup'));
+        else if(signalType)pendingSignals.push(callSendAll(signalType));
+        else if(upCall.connected||upCall.participants.length>2)pendingSignals.push(callSendAll('leave'));
+        else if(upCall.peer)pendingSignals.push(callSend('hangup'));
       }catch(e){}
     }
     if(upCall.timer){clearTimeout(upCall.timer);upCall.timer=null;}
@@ -2379,8 +2491,19 @@ function renderChatText(text){
     callStopRingtone();
     Object.keys(upCall.peers).slice().forEach(function(name){callRemovePeer(name,false);});
     callStopStream();
+    try{if(upCall.signalAbortController)upCall.signalAbortController.abort();}catch(e){}
+    upCall.signalAbortController=null;
+    if(signalRoomId){
+      signalStopCallPolling(signalRoomId);
+      delete signalRoomByCallId[callId];delete signalCallIdByRoom[signalRoomId];delete signalRosterCache[signalRoomId];
+      if(signalTransport){
+        cleanupPromise=Promise.allSettled(pendingSignals.map(function(p){return Promise.resolve(p);})).then(function(){return signalTransport.leave(signalRoomId);}).catch(function(){});
+      }
+    }
+    delete signalCreatorCallIds[callId];
     upCall.callId='';upCall.peer='';upCall.role='';upCall.initiator='';upCall.participants=[];upCall.pendingInvites={};upCall.pendingOffers={};upCall.pendingInvite=null;upCall.peers={};upCall.localStream=null;upCall.remoteStream=null;upCall.audio=null;upCall.active=false;upCall.connected=false;upCall.muted=false;upCall.startedAt=0;upCall.waitingForConnection=false;upCall.notice='';
     callHideOverlay();
+    return cleanupPromise;
   }
   function callFail(msg){
     if(upCall.timer){clearTimeout(upCall.timer);upCall.timer=null;}
@@ -2471,6 +2594,7 @@ function renderChatText(text){
   }
   async function startOutgoingCall(target){
     if(!target||target===member)return;
+    if(signalTransportFlag&&signalTransport){startOutgoingCallWithTransport(target);return;}
     if(upCall.active){message('Voc\u00ea j\u00e1 est\u00e1 em uma chamada.',true);return;}
     upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
     upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
@@ -2497,6 +2621,16 @@ function renderChatText(text){
   }
   async function callAcceptGroupInvite(){
     var invite=upCall.pendingInvite;if(!invite||!upCall.active)return;
+    var signalRoomId=signalRoomByCallId[upCall.callId];
+    if(signalTransport&&signalRoomId){
+      try{
+        await signalTransport.accept(signalRoomId);
+        upCall.pendingInvite=null;upCall.role='member';callMergeParticipants(invite.participants||[invite.from]);
+        upCall.waitingForConnection=true;signalStartCallPolling(signalRoomId,upCall.callId);callStartPresence();
+        callRender(callNames(' + '),'Aguardando conexão…',[{label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}]);
+      }catch(e){callCleanup(false);message(e.message||'Não foi possível aceitar o convite.',true);}
+      return;
+    }
     upCall.pendingInvite=null;upCall.role='member';callMergeParticipants(invite.participants||[invite.from]);callStartPresence();
     try{
       await callGetMicrophone();upCall.waitingForConnection=true;
@@ -2515,6 +2649,14 @@ function renderChatText(text){
     var entry=upCallDirectory[callId];
     if(upCall.active){message('Você já está em uma chamada.',true);return;}
     if(!entry||!entry.participants||entry.participants.indexOf(target)<0){message('A chamada não está mais disponível. Atualize a equipe.',true);return;}
+    if(signalTransport&&signalTransportFlag){
+      signalTransport.requestInvite(callId).then(function(){
+        message('Pedido para entrar enviado ao responsável pela chamada. Aguarde a confirmação.',false);
+      }).catch(function(e){
+        message(e.status===409?'Já existe um convite ou pedido pendente para esta chamada.':e.status===404?'A chamada não está mais disponível.':'Não foi possível enviar o pedido de entrada.',true);
+      });
+      return;
+    }
     var sent=sendRealtimeEvent('call_signal',{type:'join_request',callId:callId,from:member,to:target,target:target,participants:entry.participants.slice(),updatedAt:Date.now()});
     if(sent)message('Pedido para entrar enviado a '+target+'. Aguarde a confirmação.',false);
     else message('Não foi possível enviar o pedido de entrada.',true);
@@ -2531,8 +2673,11 @@ function renderChatText(text){
       var requester=String(p.from);
       var accepted=false;
       try{accepted=window.confirm(requester+' quer entrar na sua chamada em grupo.\n\nPermitir a entrada?');}catch(e){}
-      sendRealtimeEvent('call_signal',{type:accepted?'join_approved':'join_declined',callId:p.callId,from:member,to:requester,participants:upCall.participants.slice(),updatedAt:Date.now()});
-      if(accepted)message('Você aceitou o pedido de '+requester+'. Conectando à sala…',false);
+      if(signalTransport&&signalRoomByCallId[p.callId]){
+        if(accepted)callSendTo(requester,'invite',{participants:upCall.participants.slice(),initiator:upCall.initiator||member});
+        else sendRealtimeEvent('call_signal',{type:'join_declined',callId:p.callId,from:member,to:requester,updatedAt:Date.now()});
+      }else sendRealtimeEvent('call_signal',{type:accepted?'join_approved':'join_declined',callId:p.callId,from:member,to:requester,participants:upCall.participants.slice(),updatedAt:Date.now()});
+      if(accepted)message('Você aceitou o pedido de '+requester+'. Enviando convite para entrar…',false);
       return;
     }
     if(p.type==='join_approved'){callJoinActiveCall(p.callId);return;}
@@ -2545,7 +2690,7 @@ function renderChatText(text){
         upCall.pendingOffers={};upCall.pendingOffers[p.from]=p.sdp;upCall.pendingInvite=null;upCall.peers={};
         upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=false;
         callStartRingtone();
-        callRender(p.from,'Chamada recebida',[{label:'Atender',icon:'phone',onClick:function(){callAcceptIncomingCall();}},{label:'Recusar',icon:'hangup',danger:true,onClick:function(){callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}]);
+        callRender(p.from,'Chamada recebida',[{label:'Atender',icon:'phone',onClick:function(){callAcceptIncomingCall();}},{label:'Recusar',icon:'hangup',danger:true,onClick:function(){var roomId=signalRoomByCallId[p.callId];if(signalTransport&&roomId){signalTransport.decline(roomId).catch(function(){}).finally(function(){callCleanup(false);});}else{callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}}]);
         return;
       }
       if(p.callId!==upCall.callId){
@@ -2554,7 +2699,7 @@ function renderChatText(text){
       callMergeParticipants(p.participants||[]);
       if(!upCall.peers[p.from]||!upCall.peers[p.from].pc){
         upCall.pendingOffers[p.from]=p.sdp;
-        if(p.phase==='mesh'){try{await callAcceptIncomingOffer(p.from);}catch(e){}}
+        if(p.phase==='mesh'||(signalTransport&&signalRoomByCallId[p.callId]&&upCall.role==='member'&&!upCall.pendingInvite)){try{await callAcceptIncomingOffer(p.from);}catch(e){}}
       }
       return;
     }
@@ -2569,9 +2714,9 @@ function renderChatText(text){
       upCall.pendingOffers={};upCall.peers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;
       callStartRingtone();
       var inviteNames=Array.isArray(p.participants)?p.participants.filter(function(n){return n&&n!==member;}).join(', '):p.from;
-      callRender('Convite para chamada em grupo','Participantes: '+inviteNames,[
+      callRender(Array.isArray(p.participants)&&p.participants.length>2?'Convite para chamada em grupo':'Chamada recebida','Participantes: '+inviteNames,[
         {label:'Atender',icon:'phone',onClick:function(){callAcceptIncomingCall();}},
-        {label:'Recusar',icon:'hangup',danger:true,onClick:function(){callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}
+        {label:'Recusar',icon:'hangup',danger:true,onClick:function(){var roomId=signalRoomByCallId[p.callId];if(signalTransport&&roomId){signalTransport.decline(roomId).catch(function(){}).finally(function(){callCleanup(false);});}else{callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}}
       ]);
       return;
     }
@@ -2711,7 +2856,7 @@ function renderChatText(text){
     try{realtimeChannel.send({type:'broadcast',event:'chat_presence',payload:{name:member,open:!!open}});}catch(e){}
   }
   function stopRealtime(){
-    if(signalTransport){signalTransport.stopAll();signalTransport=null;}Object.keys(signalPollStops).forEach(signalStopCallPolling);signalVoiceRoomRoomId='';signalVoiceRoomPrepared=false;signalVoiceRoomCreator=false;
+    if(signalInvitationTimer){clearInterval(signalInvitationTimer);signalInvitationTimer=null;}if(signalTransport){signalTransport.stopAll();signalTransport=null;}Object.keys(signalPollStops).forEach(signalStopCallPolling);signalRoomByCallId=Object.create(null);signalCallIdByRoom=Object.create(null);signalCreatorCallIds=Object.create(null);signalVoiceRoomRoomId='';signalVoiceRoomPrepared=false;signalVoiceRoomCreator=false;
     realtimeActive=false;
     if(remotePollHintTimer){clearTimeout(remotePollHintTimer);remotePollHintTimer=null;}
     if(realtimeStatusRefreshTimer){clearTimeout(realtimeStatusRefreshTimer);realtimeStatusRefreshTimer=null;}
