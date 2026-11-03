@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 const read = (path) => fs.readFileSync(path, "utf8");
 const manifest = JSON.parse(read("team-lite/release.json"));
 const script = read("team-lite/upstatus-team-lite.user.js");
+const signalingAdapterSource = read("src/userscript/signaling-transport.mjs").replace(/^export\\s+/gm, "");
 const luccaSite = read("lucca-site/index.html");
 const luccaStandalone = read("lucca.html");
 const ycaro = read("ycaro.html");
@@ -196,6 +197,7 @@ assert.ok(script.includes("payload.sender!==p.name"), "health pong sender must m
 assert.ok(script.includes("payload.id.length>160")&&script.includes("payload.sender.length>80"), "health ping identifiers and sender labels must be bounded");
 // Security assertions for the opt-in authenticated media transport.
 assert.ok(script.includes("function createSignalingTransport("), "Team Lite candidate must bundle the authenticated signaling adapter");
+assert.ok(script.includes(signalingAdapterSource), "Team Lite bundled adapter must match the shared tested source module");
 assert.ok(script.includes("var signalTransportFlag=GM_getValue(key+'signaling_transport_enabled',false)===true"), "authenticated signaling must remain disabled by default");
 assert.ok(script.includes("endpoint.protocol!=='https:'") && script.includes("endpoint.origin!==sessionServer.origin"), "signaling endpoint must be HTTPS and same-origin");
 assert.ok(script.includes("eventType:'voice_room_signal'") && script.includes("eventType:'screen_signal'"), "voice and screen media events must use authenticated transport when enabled");
