@@ -28,6 +28,7 @@ on:
       - "scripts/test-signaling-endpoint.mjs"
       - "scripts/test-signaling-authenticated.mjs"
       - "scripts/run-signaling-authenticated.mjs"
+      - "scripts/test-signaling-browser.mjs"
       - "scripts/signaling-static.test.mjs"
       - "scripts/signaling-body.test.mjs"
       - "supabase/functions/upstatus-signal-test/body.mjs"
