@@ -9,6 +9,7 @@ on:
       - "scripts/test-signaling-authenticated.mjs"
       - "scripts/run-signaling-authenticated.mjs"
       - "scripts/test-signaling-browser.mjs"
+      - "scripts/chat-regression.test.mjs"
       - "scripts/signaling-static.test.mjs"
       - "scripts/signaling-body.test.mjs"
       - "scripts/signaling-envelope.test.mjs"
