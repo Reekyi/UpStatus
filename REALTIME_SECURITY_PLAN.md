@@ -135,3 +135,12 @@ The second staged migration `supabase/migrations/20261029183000_revoke_unused_pu
 - Never create broad Realtime policies solely to silence the Security Advisor.
 - Client-side validation is defense-in-depth, not sender authentication.
 - Treat deployed Edge Function source/version as runtime truth; do not assume a legacy bundle or generated artifact is deployed.
+
+
+## Candidate mitigation: payload-free public chat invalidation (2026-11-03)
+
+- Added migration `20261103160000_minimize_public_chat_broadcast.sql` in PR #74. The existing `db_change` event and topic remain compatible, but the payload contains only the operation type; message rows, bodies, attachment paths, and sender metadata are no longer serialized into the public Realtime event.
+- Candidate userscripts already treat `db_change` as an untrusted refresh hint and fetch canonical chat state through the authenticated API.
+- Added build-validation assertions that reject a regression to row serialization.
+- This migration is staged only. It has not been applied to production or official TEST. Apply only in a coordinated rollout with the matching client behavior, after isolated trigger testing and explicit release approval.
+- This is a partial mitigation, not a complete Realtime privacy fix. The remote-state trigger still publishes command/result metadata, and the user-status trigger still publishes selected status fields. Call, voice-room, and screen-share signaling must also complete their authenticated cutover before the public topic can be considered safe.
