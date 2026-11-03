@@ -199,5 +199,9 @@ assert(source.includes("if(signalTransportFlag){\n    if(!signalTransport||!sign
 assert(source.includes("if(!signalTransportFlag)voiceRoomReceive(payload&&payload.payload||{})")&&source.includes("if(!signalTransportFlag)screenShareReceive(payload&&payload.payload||{})"),"normal client must ignore public voice and screen media broadcasts when authenticated transport is enabled");
 assert(source.includes("if(signalTransportFlag){\n      if(!signalTransport){message('A sinalização autenticada não está configurada. A chamada não foi iniciada.'"),"normal outgoing calls must not fall back to public signaling when the endpoint is unavailable");
 assert(source.includes("if(signalTransportFlag){\n      if(!signalTransport){message('A sinalização autenticada não está configurada. O pedido não foi enviado.'"),"normal group join requests must not fall back to public signaling when the endpoint is unavailable");
+assert(source.includes("var signalTransportFlag=GM_getValue(key+'signaling_transport_enabled',false)===true"),"normal authenticated signaling must remain opt-in and disabled by default");
+assert(source.includes("discoveryOnly:true"),"normal public call presence/end/decline events must be non-authoritative discovery hints when authenticated transport is enabled");
+assert(source.includes("if(signalTransportFlag){\n      if(signalTransport&&roomId)callSendAll('presence'")&&source.includes("if(signalTransportFlag){\n        if(signalTransport&&signalRoomId&&!upCall.pendingInvite)"),"normal call presence and teardown must never publish public control events in authenticated mode");
+
 
 assert(source.includes("if(token!==expectedToken||member!==expectedMember)return;"),"delayed invitation responses must be discarded after logout or account switch");
