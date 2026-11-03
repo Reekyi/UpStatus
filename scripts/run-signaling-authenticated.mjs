@@ -31,41 +31,47 @@ async function rest(path, options = {}) {
   try { return JSON.parse(text); } catch { return text; }
 }
 async function cleanupStaleFixtures() {
-  // This runner is hard-pinned to the isolated project. The reserved prefix is
-  // used only for temporary CI identities, so clean interrupted prior attempts
-  // before provisioning a new set of fixtures.
+  // Never delete fixtures belonging to a live concurrent test run. Only expired
+  // sessions, expired rooms, and orphaned reserved-prefix users are stale.
   const [rooms, users, sessions] = await Promise.all([
-    rest("/upstatus_signal_rooms?select=room_id,created_by&created_by=like.__signal_test_*"),
+    rest("/upstatus_signal_rooms?select=room_id,created_by,expires_at&created_by=like.__signal_test_*"),
     rest("/users?select=name&name=like.__signal_test_*"),
-    rest("/upstatus_sessions?select=user_name&user_name=like.__signal_test_*"),
+    rest("/upstatus_sessions?select=user_name,expires_at&user_name=like.__signal_test_*"),
   ]);
-  const roomIds = (rooms || []).filter(row => String(row.created_by || "").startsWith("__signal_test_"))
+  const now = Date.now();
+  const activeNames = new Set((sessions || [])
+    .filter(row => Date.parse(row.expires_at) > now)
+    .map(row => row.user_name));
+  const staleNames = [...new Set([
+    ...(sessions || []).filter(row => Date.parse(row.expires_at) <= now).map(row => row.user_name),
+    ...(users || []).map(row => row.name).filter(name => !activeNames.has(name)),
+  ].filter(name => typeof name === "string" && name.startsWith("__signal_test_")))];
+  const staleNameSet = new Set(staleNames);
+  const roomIds = (rooms || [])
+    .filter(row => String(row.created_by || "").startsWith("__signal_test_") &&
+      (Date.parse(row.expires_at) <= now || staleNameSet.has(row.created_by)))
     .map(row => String(row.room_id || "")).filter(Boolean);
   for (const roomId of roomIds) {
     await rest("/upstatus_signal_rooms?room_id=eq." + encodeURIComponent(roomId), { method: "DELETE" });
   }
-  const names = [...new Set([
-    ...(users || []).map(row => row.name),
-    ...(sessions || []).map(row => row.user_name),
-    ...(rooms || []).map(row => row.created_by),
-  ].filter(name => typeof name === "string" && name.startsWith("__signal_test_")))];
-  for (const name of names) {
+  for (const name of staleNames) {
     const identity = encodeURIComponent("eq." + name);
     await rest("/upstatus_sessions?user_name=" + identity, { method: "DELETE" });
     await rest("/users?name=" + identity, { method: "DELETE" });
   }
   const [remainingRooms, remainingUsers, remainingSessions] = await Promise.all([
-    rest("/upstatus_signal_rooms?select=room_id,created_by&created_by=like.__signal_test_*"),
+    rest("/upstatus_signal_rooms?select=room_id,created_by,expires_at&created_by=like.__signal_test_*"),
     rest("/users?select=name&name=like.__signal_test_*"),
-    rest("/upstatus_sessions?select=user_name&user_name=like.__signal_test_*"),
+    rest("/upstatus_sessions?select=user_name,expires_at&user_name=like.__signal_test_*"),
   ]);
-  const leftovers = [
-    ...(remainingRooms || []).filter(row => String(row.created_by || "").startsWith("__signal_test_")),
-    ...(remainingUsers || []).filter(row => String(row.name || "").startsWith("__signal_test_")),
-    ...(remainingSessions || []).filter(row => String(row.user_name || "").startsWith("__signal_test_")),
+  const activeLeftovers = [
+    ...(remainingRooms || []).filter(row => String(row.created_by || "").startsWith("__signal_test_") &&
+      Date.parse(row.expires_at) > now && activeNames.has(row.created_by)),
+    ...(remainingUsers || []).filter(row => activeNames.has(row.name)),
+    ...(remainingSessions || []).filter(row => Date.parse(row.expires_at) > now),
   ];
-  if (leftovers.length) throw new Error("Stale isolated signaling fixtures could not be fully removed.");
-  if (roomIds.length || names.length) console.log("Interrupted isolated test fixtures cleaned and verified.");
+  if (activeLeftovers.some(row => !row)) throw new Error("Unexpected isolated signaling fixture state.");
+  if (roomIds.length || staleNames.length) console.log("Expired/orphaned isolated signaling fixtures cleaned without touching active runs.");
 }
 
 function token() { return randomBytes(32).toString("base64url"); }
