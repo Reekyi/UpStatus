@@ -9,6 +9,7 @@ on:
       - "lucca.html"
       - "ycaro.html"
       - "scripts/team-lite-candidate-check.mjs"
+      - "scripts/test-signaling-endpoint.mjs"
       - ".github/workflows/team-lite-candidate.yml"
   pull_request:
     branches: [team-lite-official]
@@ -33,5 +34,9 @@ jobs:
           persist-credentials: false
       - name: Test authenticated signaling adapter
         run: node scripts/signaling-transport.test.mjs
+      - name: Test isolated signaling endpoint authentication
+        env:
+          UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
+        run: node scripts/test-signaling-endpoint.mjs
       - name: Check candidate scripts and version metadata
         run: node scripts/team-lite-candidate-check.mjs
