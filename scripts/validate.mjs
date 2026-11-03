@@ -102,6 +102,11 @@ for(const table of ["chat_reads","messages","reactions","status_history","upstat
   assert(publicTableGrantMigration.includes("public."+table),"public table grant migration missing "+table);
 }
 assert(publicTableGrantMigration.includes("FROM PUBLIC, anon, authenticated"),"public table grant migration must cover public client roles");
+const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
+assert(serverTemplate.includes('Deno.env.get("SUPABASE_SECRET_KEYS")') && serverTemplate.includes('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")'),"server backend must obtain database credentials only from Edge Function environment secrets");
+assert(serverTemplate.includes('createClient(PROJECT_URL, ADMIN_KEY'),"server database access must use the server-side privileged client, not browser-role grants");
+assert(!serverTemplate.includes('createClient(PROJECT_URL, "eyJ'),"server-side database credentials must never be hardcoded in source");
+
 
 
 // The public Realtime topic is not an authenticated trust boundary. These assertions
