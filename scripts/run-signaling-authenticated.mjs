@@ -64,13 +64,15 @@ async function cleanupStaleFixtures() {
     rest("/users?select=name&name=like.__signal_test_*"),
     rest("/upstatus_sessions?select=user_name,expires_at&user_name=like.__signal_test_*"),
   ]);
-  const activeLeftovers = [
-    ...(remainingRooms || []).filter(row => String(row.created_by || "").startsWith("__signal_test_") &&
-      Date.parse(row.expires_at) > now && activeNames.has(row.created_by)),
-    ...(remainingUsers || []).filter(row => activeNames.has(row.name)),
-    ...(remainingSessions || []).filter(row => Date.parse(row.expires_at) > now),
-  ];
-  if (activeLeftovers.some(row => !row)) throw new Error("Unexpected isolated signaling fixture state.");
+  const staleRoomsRemain = (remainingRooms || []).some(row =>
+    String(row.created_by || "").startsWith("__signal_test_") &&
+    (Date.parse(row.expires_at) <= now || staleNameSet.has(row.created_by)));
+  const staleUsersRemain = (remainingUsers || []).some(row =>
+    String(row.name || "").startsWith("__signal_test_") && !activeNames.has(row.name));
+  const staleSessionsRemain = (remainingSessions || []).some(row =>
+    Date.parse(row.expires_at) <= now);
+  if (staleRoomsRemain || staleUsersRemain || staleSessionsRemain)
+    throw new Error("Expired/orphaned isolated signaling fixtures could not be fully removed.");
   if (roomIds.length || staleNames.length) console.log("Expired/orphaned isolated signaling fixtures cleaned without touching active runs.");
 }
 
