@@ -61,6 +61,20 @@ assert(!source.includes("chatDot.textContent=chatUnread>99"),"numeric unread bad
 assert(source.includes("countBadge.textContent='';"),"toast stack must not show a numeric notification counter");
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
 assert(serverTemplate.includes("const cutoff=new Date(Date.now()-48*60*60*1000).toISOString();"),"fast chat route must define its unread cutoff");
+assert(serverTemplate.includes("async function contextName(req:Request)") &&
+  serverTemplate.includes('joinedAt:Date.parse(String(s.joinedAt))||Date.now()'),
+  "guest chat identity must carry the current Lucca/Ycaro session start time");
+assert(serverTemplate.includes("chatRows(name,effectiveSince,sessionStartedAt)") &&
+  serverTemplate.includes("chatRows(name,undefined,sessionStartedAt)") &&
+  serverTemplate.includes('query=query.gte("created_at",new Date(Math.max(sessionStartedAt,Date.parse(cutoff))).toISOString())'),
+  "guest chat history must exclude messages created before the current guest session");
+assert(serverTemplate.includes("unreadQuery=unreadQuery.gte(\"created_at\",new Date(Math.max(sessionStartedAt,Date.parse(cutoff))).toISOString())"),
+  "guest unread counts must respect the current session start time");
+assert(serverTemplate.includes("validIds=new Set((valid||[]).filter((x:any)=>x.user_name!==name&&(!sessionStartedAt||!Number.isFinite(sessionStartedAt)||sessionStartedAt<=0||Date.parse(x.created_at)>=sessionStartedAt))"),
+  "guest read receipts must not mark messages from before the current session as read");
+assert(serverTemplate.includes('chatRoute(req,name,ctx.guest?ctx.joinedAt:0)') &&
+  serverTemplate.includes('readRoute(req,name,ctx.guest?ctx.joinedAt:0)'),
+  "guest session boundaries must be passed to chat history and read-receipt routes");
 
 assert(source.includes("function setChatNewMessageIndicator(show)"),"chat must expose the new-message indicator state");
 assert(source.includes("btn.appendChild(dot)"),"new-message indicator must create a visible dot element on the latest-message arrow");
