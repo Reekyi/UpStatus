@@ -8,6 +8,7 @@ on:
       - "scripts/test-signaling-endpoint.mjs"
       - "scripts/test-signaling-authenticated.mjs"
       - "scripts/run-signaling-authenticated.mjs"
+      - "scripts/test-signaling-browser.mjs"
       - "scripts/signaling-static.test.mjs"
       - "scripts/signaling-body.test.mjs"
       - "scripts/signaling-envelope.test.mjs"
@@ -78,4 +79,6 @@ jobs:
             echo "SKIP: UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY is not configured; authenticated HTTP tests were not run."
             exit 0
           fi
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
           node scripts/run-signaling-authenticated.mjs
