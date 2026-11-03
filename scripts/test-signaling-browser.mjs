@@ -81,6 +81,8 @@ async function negotiateMedia({ bindingType, eventType, logicalId, trackKind }) 
 
   await Promise.all([
     pageA.evaluate(async kind => {
+      try { window.__upPc?.close(); } catch {}
+      try { window.__upStream?.getTracks().forEach(track => track.stop()); } catch {}
       const pc = new RTCPeerConnection({ iceServers: [] });
       let stream;
       if (kind === "audio") {
@@ -96,6 +98,8 @@ async function negotiateMedia({ bindingType, eventType, logicalId, trackKind }) 
       window.__upPc = pc; window.__upStream = stream;
     }, trackKind),
     pageB.evaluate(async kind => {
+      try { window.__upPc?.close(); } catch {}
+      try { window.__upStream?.getTracks().forEach(track => track.stop()); } catch {}
       const pc = new RTCPeerConnection({ iceServers: [] });
       pc.ontrack = event => {
         if (event.track?.kind) {
