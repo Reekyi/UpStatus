@@ -475,3 +475,12 @@ Last updated: 2026-10-29
 - Wired the opt-in one-to-one call path through room creation, logical call binding, pending-invitation polling, explicit accept/decline, acceptance-gated offer creation, authenticated signal polling, per-recipient signal delivery, and delayed creator-side room closure. The existing Realtime path remains the default fallback.
 - Added a busy-poll guard for invitation polling and cleanup for cancelled setup/declined invites. Build validation and signaling CI passed on [41119407912](https://github.com/Reekyi/UpStatus/actions/runs/41119407912) and [41119408099](https://github.com/Reekyi/UpStatus/actions/runs/41119408099).
 - This is source-level and automated regression validation only. The feature remains off, the new function is not deployed to the production/official TEST project, and browser-level authenticated WebRTC behavior is not yet verified. Group-call discovery/join, voice-room, and screen-share signaling still require migration.
+
+
+### Authenticated signaling CI and Chromium validation (2026-11-03)
+
+- Signaling smoke run [41661330565](https://github.com/Reekyi/UpStatus/actions/runs/41661330565) completed successfully. All workflow steps passed, including the authenticated integration job.
+- The authenticated runner is pinned to the isolated project `bfpjtfqlnypisxljoxkb`, uses temporary identities and sessions, and verifies cleanup. No credentials or session tokens are recorded here.
+- The browser harness exercises authenticated call audio, voice-room audio, and screen-video negotiation in Chromium, including gathered ICE, connected peer states, remote track delivery, and peer/media teardown.
+- This is a successful isolated prototype validation, not a production release sign-off. The adapter remains default-off; the legacy public Realtime topic remains a security gap; full userscript UI/GM bridge, hardware permissions, reconnect, simultaneous-call and cross-client compatibility remain outstanding.
+- Production and official TEST remain untouched. PR #74 remains draft and unmerged.
