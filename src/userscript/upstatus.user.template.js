@@ -2250,7 +2250,7 @@ function renderChatText(text){
         return;
       }
       if(p.callId!==upCall.callId){
-        sendRealtimeEvent('call_signal',{type:'busy',callId:p.callId,from:member,to:p.from,connectionId:String(p.callId)+'::busy'});return;
+        callSendTo(p.from,'busy',{connectionId:String(p.callId)+'::busy'});return;
       }
       callMergeParticipants(p.participants||[]);
       if(!upCall.peers[p.from]||!upCall.peers[p.from].pc){
@@ -2262,7 +2262,7 @@ function renderChatText(text){
     if(p.type==='invite'){
       if(upCall.active){
         if(p.callId===upCall.callId)return;
-        sendRealtimeEvent('call_signal',{type:'busy',callId:p.callId,from:member,to:p.from,connectionId:String(p.callId)+'::busy'});return;
+        callSendTo(p.from,'busy',{connectionId:String(p.callId)+'::busy'});return;
       }
       upCall.callId=p.callId;upCall.peer=p.from;upCall.role='callee';upCall.initiator=p.initiator||p.from;
       callMergeParticipants(p.participants||[p.from]);
