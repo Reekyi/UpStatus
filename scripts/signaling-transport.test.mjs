@@ -95,6 +95,20 @@ await assert.rejects(
 );
 console.log("signaling invitation gate: 3 assertions passed");
 
+const timeoutClient = createSignalingTransport({
+  enabled: true,
+  now: (() => { let value = 0; return () => value; })(),
+  request: async path => {
+    if (path === "/room/status") return { status: 200, body: { participants: [{ name: "mari", status: "pending" }] } };
+    return { status: 200, body: { ok: true } };
+  },
+});
+await assert.rejects(
+  () => timeoutClient.waitForAcceptance("sig_timeout", "mari", { intervalMs: 0, timeoutMs: 0 }),
+  error => error.code === "SIGNALING_INVITATION_TIMEOUT",
+);
+console.log("signaling invitation timeout: 1 assertion passed");
+
 let releaseDelayedPoll;
 let staleHandlerCalls = 0;
 const delayedClient = createSignalingTransport({
