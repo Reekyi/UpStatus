@@ -30,6 +30,44 @@ async function rest(path, options = {}) {
   if (!text) return null;
   try { return JSON.parse(text); } catch { return text; }
 }
+async function cleanupStaleFixtures() {
+  // This runner is hard-pinned to the isolated project. The reserved prefix is
+  // used only for temporary CI identities, so clean interrupted prior attempts
+  // before provisioning a new set of fixtures.
+  const [rooms, users, sessions] = await Promise.all([
+    rest("/upstatus_signal_rooms?select=room_id,created_by&created_by=like.__signal_test_%"),
+    rest("/users?select=name&name=like.__signal_test_%"),
+    rest("/upstatus_sessions?select=user_name&user_name=like.__signal_test_%"),
+  ]);
+  const roomIds = (rooms || []).filter(row => String(row.created_by || "").startsWith("__signal_test_"))
+    .map(row => String(row.room_id || "")).filter(Boolean);
+  for (const roomId of roomIds) {
+    await rest("/upstatus_signal_rooms?room_id=eq." + encodeURIComponent(roomId), { method: "DELETE" });
+  }
+  const names = [...new Set([
+    ...(users || []).map(row => row.name),
+    ...(sessions || []).map(row => row.user_name),
+    ...(rooms || []).map(row => row.created_by),
+  ].filter(name => typeof name === "string" && name.startsWith("__signal_test_")))];
+  for (const name of names) {
+    const identity = encodeURIComponent("eq." + name);
+    await rest("/upstatus_sessions?user_name=" + identity, { method: "DELETE" });
+    await rest("/users?name=" + identity, { method: "DELETE" });
+  }
+  const [remainingRooms, remainingUsers, remainingSessions] = await Promise.all([
+    rest("/upstatus_signal_rooms?select=room_id,created_by&created_by=like.__signal_test_%"),
+    rest("/users?select=name&name=like.__signal_test_%"),
+    rest("/upstatus_sessions?select=user_name&user_name=like.__signal_test_%"),
+  ]);
+  const leftovers = [
+    ...(remainingRooms || []).filter(row => String(row.created_by || "").startsWith("__signal_test_")),
+    ...(remainingUsers || []).filter(row => String(row.name || "").startsWith("__signal_test_")),
+    ...(remainingSessions || []).filter(row => String(row.user_name || "").startsWith("__signal_test_")),
+  ];
+  if (leftovers.length) throw new Error("Stale isolated signaling fixtures could not be fully removed.");
+  if (roomIds.length || names.length) console.log("Interrupted isolated test fixtures cleaned and verified.");
+}
+
 function token() { return randomBytes(32).toString("base64url"); }
 function tokenHash(value) { return createHash("sha256").update(value).digest("hex"); }
 const suffix = randomBytes(6).toString("hex");
@@ -41,6 +79,7 @@ let testExitCode = 1;
 let cleanupFailed = false;
 
 try {
+  await cleanupStaleFixtures();
   const latest = await rest("/users?select=id&order=id.desc&limit=1");
   const firstId = Number(latest?.[0]?.id || 0) + 1;
   const now = Date.now();
