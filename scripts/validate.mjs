@@ -129,7 +129,8 @@ for(const artifact of [prodUser,testUser]){
   assert(artifact.includes(".on('broadcast',{event:'user_status'},function(){scheduleRealtimeStatusRefresh();})"),"user_status broadcasts must be throttled refresh-only hints");
   assert(artifact.includes("var wait=Math.max(0,1000-(Date.now()-realtimeStatusRefreshLastAt));"),"public user_status hints must be throttled to one refresh per second");
   assert(artifact.includes("if(token!==expectedToken||member!==expectedMember)return;"),"delayed status refresh must not cross normal-client sessions");
-  assert(artifact.includes("var expectedToken=token,expectedMember=member;") && artifact.includes("if(token===expectedToken&&member===expectedMember)pollRemoteStatus();"),"delayed remote polling must not cross normal-client sessions");
+  assert(artifact.includes(".on('broadcast',{event:'remote_command'},function(){scheduleRemoteStatusPoll();})"),"remote command events must use a coalesced polling scheduler");
+  assert(artifact.includes("if(remotePollHintTimer)return;") && artifact.includes("if(token===expectedToken&&member===expectedMember)pollRemoteStatus();"),"remote command hint timers must coalesce and remain session-bound");
   assert(artifact.includes("sendRealtimeEvent('remote_command',{op:'hint'})"),"client remote_command broadcasts must contain only a generic hint");
   assert(!artifact.includes("sendRealtimeEvent('remote_result'"),"client must not broadcast remote result metadata publicly");
   assert(artifact.includes(".on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"),"remote_result broadcasts must not be authoritative");
