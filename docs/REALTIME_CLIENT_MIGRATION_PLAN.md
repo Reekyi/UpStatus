@@ -33,8 +33,8 @@ The userscript currently has one public Supabase Realtime channel for several in
 - [x] Wire an opt-in one-to-one call path behind a default-off flag, including invitation discovery, acceptance gating, polling, recipient-scoped signaling, and cleanup. Browser-authenticated WebRTC validation remains outstanding.
 - [x] Validate authenticated HTTP invitation acceptance/decline/reissue, duplicate requests, accepted-member authorization, recipient-scoped signaling, broadcast fanout, acknowledgement, and room closure using temporary identities in the isolated project (65/65 integration checks passed).\n- [ ] Validate timeout, simultaneous calls, hangup, ICE ordering, reconnect, and real RTCPeerConnection/media behavior in an authenticated browser E2E session.
 - [ ] Migrate group calls only after one-to-one flow is proven.
-- [ ] Migrate voice room and screen sharing only after the call path passes authenticated browser/WebRTC E2E.
-- [ ] Migrate voice room and screen sharing with distinct binding types and independent cleanup tests.
+- [x] Route candidate voice-room and screen-share signals through distinct authenticated binding types behind the same default-off flag, while preserving the Realtime fallback.
+- [ ] Validate voice-room audio, screen-share video, independent binding resolution, peer teardown, and reconnect in authenticated browser E2E before enabling either path by default.
 - [x] Configure the isolated CI service-role secret through GitHub/Supabase settings (never paste credentials into chat); authenticated HTTP integration job now runs and passes 65/65 checks. The secret is scoped to the isolated project.
 - [ ] Verify the built userscript, browser behavior, and rollback path before requesting release approval.
 
@@ -78,4 +78,12 @@ All current transport work remains on the development branch and isolated Supaba
 - First authenticated run exposed an environment drift: the isolated Edge Function was revision 22 while the PR candidate included newer request-invite, broadcast, and declined-invitation reissue behavior.
 - Updated only the isolated `upstatus-signal-test` Edge Function to the exact candidate files from this branch (revision 23). No production or official TEST function was changed.
 - Re-ran the smoke job: 14/14 unauthenticated HTTP checks and 65/65 authenticated integration checks passed. Static regression suites and transport adapter assertions also passed. Temporary users, sessions, rooms, memberships, and events were cleaned up.
-- This is authenticated HTTP/API validation, not browser/WebRTC E2E. Real microphone permission, SDP/ICE negotiation, simultaneous calls, reconnect, and media teardown remain unverified. Keep the feature disabled by default and do not migrate group calls, voice rooms, or screen sharing until browser one-to-one validation passes.
+- This is authenticated HTTP/API validation, not browser/WebRTC E2E. A new Playwright Chromium harness now exercises the isolated authenticated API from two browser contexts and negotiates real RTCPeerConnection audio with gathered ICE candidates; its first CI execution is pending. Real user microphone permission, simultaneous calls, reconnect, and the full userscript call/voice/screen UI lifecycle remain unverified. Keep the feature disabled by default and do not enable group calls, voice rooms, or screen sharing for users until the browser checks pass.
+
+
+## Browser WebRTC validation harness (2026-11-03)
+
+- Added `scripts/test-signaling-browser.mjs`, executed only after the isolated authenticated HTTP suite passes.
+- The CI job installs Playwright Chromium with fake microphone devices, creates two isolated browser contexts using temporary UpStatus test identities, accepts a server-issued room invitation, exchanges SDP offer/answer through the authenticated signaling endpoint, gathers ICE candidates, and asserts both peer connections reach `connected` and the callee receives a remote audio track.
+- The browser harness closes its room and peers in a `finally` block. The parent runner then verifies and removes temporary users, sessions, rooms, memberships, and events from the isolated project.
+- This validates real browser WebRTC primitives and authenticated server transport. It does not yet exercise the complete Tampermonkey UI, actual hardware microphone permission, simultaneous call collision handling, voice-room mesh, or screen capture. These remain release gates.
