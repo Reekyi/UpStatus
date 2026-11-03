@@ -190,6 +190,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   async function teamLiteEndSession(){
     if(teamLiteSessionEnded||!token)return;
     teamLiteSessionEnded=true;teamLiteClearIdleTimer();
+    try{if(upCall&&upCall.active)callCleanup(true,'hangup');}catch(e){}
     try{if(!chat.classList.contains('hidden')){saveChatDraft();stopTypingHeartbeat();broadcastChatPresence(false);}}catch(e){}
     authenticated=false;authGeneration++;
     chat.classList.add('hidden');history.classList.add('hidden');health.classList.add('hidden');remoteOverlay.classList.add('hidden');
@@ -3373,7 +3374,7 @@ function chatAvatarPresence(name){
     card.querySelector('.up-screen-share-toggle').onclick=function(e){e.preventDefault();e.stopPropagation();if(screenShare.active)screenShareStop(true);else screenShareStart();};
     voiceRoomRender();
     document.addEventListener('click',function(e){if(box&&!box.contains(e.target))menu.classList.add('hidden')});
-    card.querySelector('.up-logout').onclick=function(){voiceRoomLeave();broadcastChatPresence(false);teamLiteEndSession();};
+    card.querySelector('.up-logout').onclick=function(){try{if(upCall&&upCall.active)callCleanup(true,'hangup');}catch(e){}voiceRoomLeave();broadcastChatPresence(false);teamLiteEndSession();};
     history.querySelector('.up-close').onclick=function(){history.classList.add('hidden')};
     history.querySelector('.up-export').onclick=function(){exportHistoryTxt()};
     if(settingsBtn)settingsBtn.onclick=function(e){e.stopPropagation();settingsMenu.classList.toggle('hidden');};
