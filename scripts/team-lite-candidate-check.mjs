@@ -203,7 +203,7 @@ assert.ok(script.includes("endpoint.protocol!=='https:'") && script.includes("en
 assert.ok(script.includes("eventType:'voice_room_signal'") && script.includes("eventType:'screen_signal'"), "voice and screen media events must use authenticated transport when enabled");
 assert.ok(script.includes("signalTransport.startPolling(roomId") && script.includes("from:event.sender"), "authenticated media events must use server-derived sender identity");
 assert.ok(script.includes("signalTransport.leave(room)") && script.includes("signalTransport.stopAll()"), "authenticated room membership and pollers must be cleaned up");
-assert.ok(script.includes("if(signalTransportFlag&&signalTransport){startOutgoingCallWithTransport(target);return;}"), "one-to-one calls must use authenticated transport when explicitly enabled");
+assert.ok(script.includes("if(signalTransportFlag){if(!signalTransport){message(") && script.includes("startOutgoingCallWithTransport(target);return;}"), "one-to-one calls must fail closed and use authenticated transport when explicitly enabled");
 assert.ok(script.includes("signalTransport.prepareCallRoom(upCall.callId,target"), "outgoing calls must wait for server-authorized room preparation");
 assert.ok(script.includes("signalTransport.waitForAcceptance"), "call invites must require explicit recipient acceptance");
 assert.ok(script.includes("eventType:'call_signal'") && script.includes("signalTransport.sendSignal"), "call media signaling must use authenticated recipient-scoped events when enabled");
