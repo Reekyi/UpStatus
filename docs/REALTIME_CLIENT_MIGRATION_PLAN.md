@@ -29,13 +29,13 @@ The userscript currently has one public Supabase Realtime channel for several in
 - [x] Add isolated logical room bindings and explicit invitation endpoint.
 - [x] Add static and unauthenticated HTTP regression coverage.
 - [x] Add a default-off adapter with strict input validation, deduplication, acknowledgement, abortable polling, bounded retry backoff, explicit acceptance gating, and accepted-member fanout.
-- [ ] Connect the bundled adapter to a GM_xmlhttpRequest wrapper using an explicitly configured, same-project signaling endpoint; keep it disabled by default.
+- [x] Connect the bundled adapter to a GM_xmlhttpRequest wrapper using an explicitly configured, same-project signaling endpoint; enforce HTTPS and same-origin endpoint validation, and keep it disabled by default.
 - [x] Wire an opt-in one-to-one call path behind a default-off flag, including invitation discovery, acceptance gating, polling, recipient-scoped signaling, and cleanup. Browser-authenticated WebRTC validation remains outstanding.
-- [ ] Test invitation acceptance, decline, timeout, simultaneous calls, hangup, ICE ordering, reconnect, and room closure using authenticated test identities.
+- [x] Validate authenticated HTTP invitation acceptance/decline/reissue, duplicate requests, accepted-member authorization, recipient-scoped signaling, broadcast fanout, acknowledgement, and room closure using temporary identities in the isolated project (65/65 integration checks passed).\n- [ ] Validate timeout, simultaneous calls, hangup, ICE ordering, reconnect, and real RTCPeerConnection/media behavior in an authenticated browser E2E session.
 - [ ] Migrate group calls only after one-to-one flow is proven.
 - [ ] Migrate voice room and screen sharing only after the call path passes authenticated browser/WebRTC E2E.
 - [ ] Migrate voice room and screen sharing with distinct binding types and independent cleanup tests.
-- [ ] Configure the isolated CI service-role secret through GitHub/Supabase settings (never paste credentials into chat) and require the authenticated E2E job to pass. The authenticated job currently skips because the secret is absent.
+- [x] Configure the isolated CI service-role secret through GitHub/Supabase settings (never paste credentials into chat); authenticated HTTP integration job now runs and passes 65/65 checks. The secret is scoped to the isolated project.
 - [ ] Verify the built userscript, browser behavior, and rollback path before requesting release approval.
 
 ## Release safety
@@ -70,3 +70,12 @@ All current transport work remains on the development branch and isolated Supaba
 - The path waits for explicit acceptance before acquiring media and sending the first SDP offer, and it uses server-derived accepted members for fanout.
 - CI [41119407912](https://github.com/Reekyi/UpStatus/actions/runs/41119407912) and build validation [41119408099](https://github.com/Reekyi/UpStatus/actions/runs/41119408099) passed.
 - Group call discovery/join, voice rooms, screen sharing, and authenticated browser/WebRTC verification remain pending. Do not enable or release the feature yet.
+
+
+## Authenticated HTTP integration checkpoint (2026-11-03)
+
+- The isolated CI secret `UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY` is configured in GitHub Actions and is never printed by the workflow.
+- First authenticated run exposed an environment drift: the isolated Edge Function was revision 22 while the PR candidate included newer request-invite, broadcast, and declined-invitation reissue behavior.
+- Updated only the isolated `upstatus-signal-test` Edge Function to the exact candidate files from this branch (revision 23). No production or official TEST function was changed.
+- Re-ran the smoke job: 14/14 unauthenticated HTTP checks and 65/65 authenticated integration checks passed. Static regression suites and transport adapter assertions also passed. Temporary users, sessions, rooms, memberships, and events were cleaned up.
+- This is authenticated HTTP/API validation, not browser/WebRTC E2E. Real microphone permission, SDP/ICE negotiation, simultaneous calls, reconnect, and media teardown remain unverified. Keep the feature disabled by default and do not migrate group calls, voice rooms, or screen sharing until browser one-to-one validation passes.
