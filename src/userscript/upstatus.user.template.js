@@ -102,7 +102,7 @@ function voiceRoomSend(type,to,data){
   if(signalTransport&&signalTransportFlag&&signalVoiceRoomRoomId){
     var send=to?signalTransport.sendSignal({roomId:signalVoiceRoomRoomId,recipient:to,eventType:'voice_room_signal',payload:payload}):
       signalTransport.sendToRoom({roomId:signalVoiceRoomRoomId,eventType:'voice_room_signal',payload:payload,senderName:member});
-    send.catch(function(){});return;
+    send.catch(function(){});return send;
   }
   if(!realtimeActive||!realtimeChannel)return;
   try{realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:payload});if(voiceRoom.id==='upstatus-team-room-v1')realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:Object.assign({},payload,{roomId:'upstatus-team-lite-room-v1'})});}catch(e){}
@@ -209,7 +209,7 @@ if((!realtimeActive||!realtimeChannel)&&!(signalTransport&&signalTransportFlag))
 voiceRoom.joining=true;voiceRoom.pingMs=null;voiceRoomRender();voiceRoomMessage('');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Este navegador não disponibiliza acesso ao microfone.');voiceRoom.stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:false,autoGainControl:false}});var roomHadParticipants=Object.keys(voiceRoom.participants).some(function(n){return Date.now()-voiceRoom.participants[n].at<16000;});if(!roomHadParticipants)voiceRoom.sessionStartedAt=Date.now();voiceRoom.muted=false;voiceRoom.active=true;voiceRoom.participants[member]={at:Date.now(),muted:false,speaking:false,sessionStartedAt:voiceRoom.sessionStartedAt};voiceRoomPlayCue('join');voiceRoomSend('join','',{});voiceRoomSend('presence','',{});if(!voiceRoom.audioContext){var AC=window.AudioContext||window.webkitAudioContext;if(AC)voiceRoom.audioContext=new AC();}if(voiceRoom.audioContext&&voiceRoom.audioContext.state==='suspended')await voiceRoom.audioContext.resume();if(voiceRoom.audioContext){voiceRoom.localAnalyser=voiceRoom.audioContext.createAnalyser();voiceRoom.localAnalyser.fftSize=512;voiceRoom.localLevelData=new Uint8Array(voiceRoom.localAnalyser.frequencyBinCount);voiceRoom.audioContext.createMediaStreamSource(voiceRoom.stream).connect(voiceRoom.localAnalyser);}voiceRoom.levelTimer=setInterval(function(){var changed=false;Object.keys(voiceRoom.participants).forEach(function(n){var x=voiceRoom.participants[n];if(!x)return;var analyser=n===member?voiceRoom.localAnalyser:(voiceRoom.peers[n]&&voiceRoom.peers[n].analyser),data=n===member?voiceRoom.localLevelData:(voiceRoom.peers[n]&&voiceRoom.peers[n].levelData);if(x.muted||!analyser||!data){if(x.speaking){x.speaking=false;changed=true;}return;}analyser.getByteFrequencyData(data);var sum=0;for(var i=0;i<data.length;i++)sum+=data[i];var level=sum/data.length;x.level=level;var speaking=level>8;if(speaking)voiceRoom.lastSpeaker=n;if(x.speaking!==speaking){x.speaking=speaking;changed=true;}});if(changed)voiceRoomRender();else if(voiceControlWave&&voiceRoom.currentSpeaker){var liveLevel=Number((voiceRoom.participants[voiceRoom.currentSpeaker]||{}).level||0),liveSpeaking=!!(voiceRoom.participants[voiceRoom.currentSpeaker]&&voiceRoom.participants[voiceRoom.currentSpeaker].speaking&&!voiceRoom.participants[voiceRoom.currentSpeaker].muted),normalized=Math.max(0,Math.min(1,liveLevel/32));voiceControlWave.style.opacity=String((liveSpeaking?0.22:0.13)+normalized*(liveSpeaking?0.68:0.07));voiceControlWave.style.setProperty('--voice-level',String(normalized));}},160);voiceRoom.timer=setInterval(function(){voiceRoomSend('presence','',{});Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member&&Date.now()-voiceRoom.participants[n].at>30000){delete voiceRoom.participants[n];voiceRoomDrop(n);}});voiceRoomRender();},4000);if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);voiceRoom.pingTimer=setInterval(function(){voiceRoomMeasurePing();},2500);voiceRoomMeasurePing();voiceRoomMessage('');Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member)voiceRoomOffer(n).catch(function(e){voiceRoomMessage('Não foi possível conectar com '+n+': '+(e.message||e));});});}catch(e){if(signalTransport&&signalVoiceRoomRoomId){var failedRoom=signalVoiceRoomRoomId;signalStopCallPolling(failedRoom);delete signalRosterCache[failedRoom];signalVoiceRoomRoomId='';if(signalVoiceRoomCreator)signalTransport.close(failedRoom).catch(function(){});signalVoiceRoomCreator=false;}try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(_){}voiceRoom.stream=null;voiceRoom.active=false;delete voiceRoom.participants[member];voiceRoomMessage((e&&e.name==='NotAllowedError'?'Permita o acesso ao microfone nas configurações do navegador. ':e&&e.name==='NotFoundError'?'Nenhum microfone foi encontrado. ':'Falha ao entrar na sala: ')+(e.message||'erro desconhecido'));}finally{voiceRoom.joining=false;voiceRoomRender();}}
 function voiceRoomToggleSpeakers(){if(!voiceRoom.active)return;voiceRoom.speakersMuted=!voiceRoom.speakersMuted;voiceRoom.muted=voiceRoom.speakersMuted;if(voiceRoom.stream)voiceRoom.stream.getAudioTracks().forEach(function(t){t.enabled=!voiceRoom.muted;});if(voiceRoom.participants[member]){voiceRoom.participants[member].muted=voiceRoom.muted;if(voiceRoom.muted)voiceRoom.participants[member].speaking=false;}Object.keys(voiceRoom.peers).forEach(function(n){var p=voiceRoom.peers[n];if(p&&p.audio)p.audio.muted=voiceRoom.speakersMuted;});voiceRoomSend('presence','',{});voiceRoomRender();}
 function voiceRoomMute(){if(!voiceRoom.active||!voiceRoom.stream)return;voiceRoom.muted=!voiceRoom.muted;voiceRoom.stream.getAudioTracks().forEach(function(t){t.enabled=!voiceRoom.muted;});if(voiceRoom.participants[member]){voiceRoom.participants[member].muted=voiceRoom.muted;if(voiceRoom.muted)voiceRoom.participants[member].speaking=false;}voiceRoomSend('presence','',{});voiceRoomRender();}
-function voiceRoomLeave(){screenShareStop(true);var wasActive=voiceRoom.active;voiceRoom.active=false;voiceRoom.joining=false;Object.keys(voiceRoom.recoveryTimers||{}).forEach(function(n){clearTimeout(voiceRoom.recoveryTimers[n]);});voiceRoom.recoveryTimers={};voiceRoom.recoveryAttempts={};if(wasActive){voiceRoomPlayCue('leave');voiceRoomSend('leave','',{active:false});}if(voiceRoom.timer)clearInterval(voiceRoom.timer);if(voiceRoom.levelTimer)clearInterval(voiceRoom.levelTimer);if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);voiceRoom.timer=null;voiceRoom.levelTimer=null;voiceRoom.pingTimer=null;voiceRoom.pingMs=null;Object.keys(voiceRoom.peers).forEach(function(n){voiceRoomDrop(n);});try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}voiceRoom.stream=null;voiceRoom.muted=false;delete voiceRoom.participants[member];voiceRoomRender();voiceRoomMessage('');if(signalTransport&&signalVoiceRoomRoomId){signalStopCallPolling(signalVoiceRoomRoomId);delete signalRosterCache[signalVoiceRoomRoomId];signalVoiceRoomRoomId='';signalVoiceRoomCreator=false;}}
+function voiceRoomLeave(){screenShareStop(true);var wasActive=voiceRoom.active,leaveSignal=null,leavingRoomId=signalVoiceRoomRoomId;voiceRoom.active=false;voiceRoom.joining=false;Object.keys(voiceRoom.recoveryTimers||{}).forEach(function(n){clearTimeout(voiceRoom.recoveryTimers[n]);});voiceRoom.recoveryTimers={};voiceRoom.recoveryAttempts={};if(wasActive){voiceRoomPlayCue('leave');leaveSignal=voiceRoomSend('leave','',{active:false});}if(voiceRoom.timer)clearInterval(voiceRoom.timer);if(voiceRoom.levelTimer)clearInterval(voiceRoom.levelTimer);if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);voiceRoom.timer=null;voiceRoom.levelTimer=null;voiceRoom.pingTimer=null;voiceRoom.pingMs=null;Object.keys(voiceRoom.peers).forEach(function(n){voiceRoomDrop(n);});try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}voiceRoom.stream=null;voiceRoom.muted=false;delete voiceRoom.participants[member];voiceRoomRender();voiceRoomMessage('');if(signalTransport&&leavingRoomId){signalStopCallPolling(leavingRoomId);delete signalRosterCache[leavingRoomId];signalVoiceRoomRoomId='';signalVoiceRoomCreator=false;Promise.resolve(leaveSignal).catch(function(){}).then(function(){return signalTransport.leave(leavingRoomId);}).catch(function(){});}}
 window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}});
 
   // Controle global do ringtone: evita áudio órfão quando há mais de uma instância do userscript na página.
@@ -1971,10 +1971,10 @@ function renderChatText(text){
         }).catch(function(e){upCall.notice='Não foi possível adicionar '+to+': '+(e.message||e);callRenderConnected();});
         return true;
       }
-      signalTransport.sendSignal({roomId:signalRoomId,recipient:to,eventType:'call_signal',payload:p}).catch(function(e){
+      return signalTransport.sendSignal({roomId:signalRoomId,recipient:to,eventType:'call_signal',payload:p}).catch(function(e){
         if(upCall.active){upCall.notice='Falha no sinal para '+to+': '+(e.message||e);callRenderConnected();}
+        throw e;
       });
-      return true;
     }
     return sendRealtimeEvent('call_signal',p);
   }
@@ -1982,11 +1982,10 @@ function renderChatText(text){
   function callSendAll(type,extra){
     var signalRoomId=signalRoomByCallId[upCall.callId];
     if(signalTransport&&signalRoomId){
-      signalTransport.sendToRoom({
+      return signalTransport.sendToRoom({
         roomId:signalRoomId,eventType:'call_signal',senderName:member,
         payload:Object.assign({type:type,callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now()},extra||{})
-      }).catch(function(e){if(upCall.active){upCall.notice='Falha ao enviar sinal para a sala: '+(e.message||e);callRenderConnected();}});
-      return true;
+      }).catch(function(e){if(upCall.active){upCall.notice='Falha ao enviar sinal para a sala: '+(e.message||e);callRenderConnected();}throw e;});
     }
     var sent=false;
     upCall.participants.forEach(function(name){if(name&&name!==member)sent=callSendTo(name,type,extra)||sent;});
@@ -2011,20 +2010,20 @@ function renderChatText(text){
     if(!upCall.connected&&upCall.startedAt){upCall.startedAt=0;if(upCall.counterTimer){clearInterval(upCall.counterTimer);upCall.counterTimer=null;}}
   }
   function callCleanup(sendSignal,signalType){
-    var callId=upCall.callId,signalRoomId=signalRoomByCallId[callId],signalRoomCreator=signalCreatorCallIds[callId]===true;
+    var callId=upCall.callId,signalRoomId=signalRoomByCallId[callId],signalRoomCreator=signalCreatorCallIds[callId]===true,pendingSignals=[];
     if(callId&&upCall.active){
       if(signalTransport&&signalRoomId){
-        if(!upCall.pendingInvite)callSendAll('ended',{updatedAt:Date.now()});
+        if(!upCall.pendingInvite)pendingSignals.push(callSendAll('ended',{updatedAt:Date.now()}));
         if(signalRoomCreator)sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now(),discoveryOnly:true});
       }else sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now()});
     }
     if(upCall.presenceTimer){clearInterval(upCall.presenceTimer);upCall.presenceTimer=null;}
     if(sendSignal&&callId){
       try{
-        if(signalType==='hangup'&&upCall.peer)callSend('hangup');
-        else if(signalType)callSendAll(signalType);
-        else if(upCall.connected||upCall.participants.length>2)callSendAll('leave');
-        else if(upCall.peer)callSend('hangup');
+        if(signalType==='hangup'&&upCall.peer)pendingSignals.push(callSend('hangup'));
+        else if(signalType)pendingSignals.push(callSendAll(signalType));
+        else if(upCall.connected||upCall.participants.length>2)pendingSignals.push(callSendAll('leave'));
+        else if(upCall.peer)pendingSignals.push(callSend('hangup'));
       }catch(e){}
     }
     if(upCall.timer){clearTimeout(upCall.timer);upCall.timer=null;}
@@ -2037,7 +2036,10 @@ function renderChatText(text){
     if(signalRoomId){
       signalStopCallPolling(signalRoomId);
       delete signalRoomByCallId[callId];delete signalCallIdByRoom[signalRoomId];delete signalRosterCache[signalRoomId];
-      if(signalRoomCreator&&signalTransport)setTimeout(function(){signalTransport.close(signalRoomId).catch(function(){});},4000);
+      if(signalTransport){
+        if(signalRoomCreator)setTimeout(function(){signalTransport.close(signalRoomId).catch(function(){});},4000);
+        else Promise.allSettled(pendingSignals.map(function(p){return Promise.resolve(p);})).then(function(){return signalTransport.leave(signalRoomId);}).catch(function(){});
+      }
     }
     delete signalCreatorCallIds[callId];
     upCall.callId='';upCall.peer='';upCall.role='';upCall.initiator='';upCall.participants=[];upCall.pendingInvites={};upCall.pendingOffers={};upCall.pendingInvite=null;upCall.peers={};upCall.localStream=null;upCall.remoteStream=null;upCall.audio=null;upCall.active=false;upCall.connected=false;upCall.muted=false;upCall.startedAt=0;upCall.waitingForConnection=false;upCall.notice='';
