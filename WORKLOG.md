@@ -534,3 +534,13 @@ Last updated: 2026-10-29
 - Re-ran the production Security Advisor without making any writes. It still reports the same three broad-EXECUTE SECURITY DEFINER findings for `upstatus_broadcast_messages()`, `upstatus_broadcast_remote_state()`, and `upstatus_broadcast_users()`, plus ten RLS-enabled/no-policy INFO notices.
 - This confirms the hardening migrations have not been applied to production. The three warnings remain a release blocker until the function EXECUTE revocation and payload-minimization migrations are explicitly approved and validated through the intended rollout.
 - The isolated security-test project, by contrast, has no remaining broad-EXECUTE warnings after its test-only migrations. Do not confuse the isolated advisor result with production status.
+
+
+### CI and isolated privilege verification (2026-11-03, commit 06fa7f2)
+
+- Normal UpStatus Validate run [41684823550](https://github.com/Reekyi/UpStatus/actions/runs/41684823550) passed. Build output confirms PROD/TEST candidate artifacts at 3.4.7; chat regression and Team Lite updater runtime scenarios passed.
+- Signaling Smoke Tests run [41684823499](https://github.com/Reekyi/UpStatus/actions/runs/41684823499) passed with 14/14 unauthenticated endpoint checks, 86/86 authenticated integration checks, and Chromium WebRTC call-audio, voice-room-audio, and screen-video negotiation/remote-track/teardown checks. Temporary test fixtures were cleaned up.
+- Re-queried isolated project role privileges. `anon` and `authenticated` have no EXECUTE on the three trigger-only SECURITY DEFINER functions and no SELECT on backend-owned messages/users/sessions tables; `service_role` retains required function and table privileges. This is a read-only catalog/privilege verification, separate from the authenticated API tests.
+- Re-ran production Security Advisor read-only: the same three broad-EXECUTE warnings remain. Production has not been migrated. Ten RLS-enabled/no-policy INFO notices remain; these tables are backend-owned and must not receive broad policies merely to silence the advisor.
+- PR #74 and PR #75 remain open Drafts. No merge, release, production/official TEST deployment, or migration was performed.
+- Remaining release blockers include legacy public Realtime signaling/presence, full Tampermonkey UI/GM and real hardware permission testing, replay/session-revocation and abuse-load coverage, and normal/Team Lite cross-client compatibility. Team Lite candidate CI is static/runtime-updater validation only; its media signaling still uses the legacy public Realtime path.
