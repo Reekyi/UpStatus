@@ -178,6 +178,8 @@ assert(prodUser.includes("var upNetworkOffline=false") && prodUser.includes("win
 assert(testUser.includes("var upNetworkOffline=false") && testUser.includes("window.addEventListener('offline'") && testUser.includes("window.addEventListener('online'"),"Normal test artifact must reset local media state offline and reconnect Realtime online");
 assert(prodUser.includes("voiceRoom.joinGeneration!==joinGeneration") && prodUser.includes("navigator.onLine===false"),"Normal voice-room join must reject offline entry and stale getUserMedia completion");
 assert(testUser.includes("voiceRoom.joinGeneration!==joinGeneration") && testUser.includes("navigator.onLine===false"),"Normal test voice-room join must reject offline entry and stale getUserMedia completion");
+assert(prodUser.includes("signalTransport.stopAll()") && prodUser.includes("signalVoiceRoomPrepared=false"),"Normal offline recovery must stop stale authenticated signaling pollers and reset room preparation state");
+assert(testUser.includes("signalTransport.stopAll()") && testUser.includes("signalVoiceRoomPrepared=false"),"Normal test offline recovery must stop stale authenticated signaling pollers and reset room preparation state");
 assert(prodFn.includes("const html="+JSON.stringify(ycaroHtml)+";"),"Ycaro page embedding mismatch");
 assert(prodFn.includes('if(path==="/ycaro"||path==="/ycaro.html")'),"Ycaro page route missing");
 assert(prodFn.includes('Deno.env.get("YCARO_PASSWORD")'),"Ycaro password setting missing");
