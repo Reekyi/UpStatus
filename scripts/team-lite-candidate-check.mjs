@@ -194,6 +194,7 @@ assert.ok(script.includes(".on('broadcast',{event:'remote_result'},function(){ i
 assert.ok(script.includes("api('GET','/api/remote-status/result?id='+encodeURIComponent(id))"), "remote command completion must continue polling the authenticated result endpoint");
 assert.ok(script.includes("payload.sender!==p.name"), "health pong sender must match the member being measured");
 assert.ok(script.includes("payload.id.length>160")&&script.includes("payload.sender.length>80"), "health ping identifiers and sender labels must be bounded");
+// Security assertions for the opt-in authenticated media transport.
 assert.ok(script.includes("function createSignalingTransport("), "Team Lite candidate must bundle the authenticated signaling adapter");
 assert.ok(script.includes("var signalTransportFlag=GM_getValue(key+'signaling_transport_enabled',false)===true"), "authenticated signaling must remain disabled by default");
 assert.ok(script.includes("endpoint.protocol!=='https:'") && script.includes("endpoint.origin!==sessionServer.origin"), "signaling endpoint must be HTTPS and same-origin");
