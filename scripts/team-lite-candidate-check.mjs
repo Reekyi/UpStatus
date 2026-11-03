@@ -17,6 +17,7 @@ function extractSessionContract(source,start,end){
   assert.ok(from>=0&&to>from,"missing shared session contract block: "+start);
   return source.slice(from,to);
 }
+// Compare shared auth semantics while checking the five-second cache policy independently below.
 function normalizedSessionLookup(source){
   return extractSessionContract(source,"function token(req:Request)","async function account(")
     .replace(/if\\(now-cached\\.checkedAt<[^)]+\\)return cached\\.name;/,"if(now-cached.checkedAt<SESSION_CACHE_TTL_MS)return cached.name;");
