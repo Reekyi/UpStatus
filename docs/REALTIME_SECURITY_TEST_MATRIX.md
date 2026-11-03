@@ -26,8 +26,8 @@ The existing topic `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0` is broad
 | RT-10 | Chat events | Forge `db_change`, `chat_fast`, and `chat_read` payloads | Client treats broadcasts as invalidation hints and refetches canonical state via authenticated API | STATIC CHECKS PASS; full browser abuse test pending |
 | RT-11 | Remote commands | Forge `remote_command` and `remote_result` events | No action/result is trusted from broadcast alone; server API remains authoritative | STATIC CHECKS PASS; full browser abuse test pending |
 | RT-12 | Session revocation | Revoke a session while an Edge Function instance is warm | Requests fail after documented cache window; no long-lived stale authorization | NOT PROVEN |
-| RT-13 | Migration grants | Execute the three trigger-only functions as `anon` and `authenticated` | Direct EXECUTE is denied; triggers still run for legitimate database writes | NOT RUN: migration is staged |
-| RT-14 | Table grants | Read/write the nine backend-owned tables directly as `anon` and `authenticated` | Direct access denied; authenticated backend flows continue to work | NOT RUN: migration is staged |
+| RT-13 | Migration grants | Execute the three trigger-only functions as `anon` and `authenticated` | Direct EXECUTE is denied; triggers still run for legitimate database writes | PASS: isolated catalog privilege checks show EXECUTE denied to both roles; trigger smoke operations previously passed |
+| RT-14 | Table grants | Read/write the nine backend-owned tables directly as `anon` and `authenticated` | Direct access denied; authenticated backend flows continue to work | PASS: isolated privilege checks show no SELECT on messages/users/sessions for either role; authenticated API suite passes |
 | RT-15 | Cross-client compatibility | Normal and Team Lite clients join/leave calls and share screens across supported versions | No insecure downgrade; no broken call, voice, or screen-share workflow | NOT RUN |
 | RT-16 | Regression | Login/logout, chat CRUD, reactions, receipts, typing, uploads, updater, remote status | No browser console/network regressions | PARTIAL: CI/static tests only |
 
@@ -42,7 +42,7 @@ Do not treat client-side checks, public-channel obfuscation, or an unguessable t
 
 ## Isolated environment requirements
 
-The isolated Supabase project `bfpjtfqlnypisxljoxkb` is used for authenticated API and browser signaling tests. Its signaling tables and columns have been inspected read-only. The separate table-grant and trigger-function migrations (RT-13/14) have not been applied or validated; do not use production or official TEST for these checks.
+The isolated Supabase project `bfpjtfqlnypisxljoxkb` is used for authenticated API and browser signaling tests. Its signaling tables and columns have been inspected read-only. The trigger-function and table-grant migrations have been applied only to the isolated project. Read-only privilege checks confirm the public client roles cannot execute trigger-only functions or read backend-owned messages/users/sessions tables; service_role retains required privileges. Production and official TEST remain untouched.
 
 ## Release gate evidence
 
@@ -67,3 +67,12 @@ The existing candidate CI validates builds and selected regression invariants. I
 - Browser coverage includes one-to-one call audio, voice-room audio, and screen-share video using isolated contexts, SDP offer/answer, gathered ICE candidates, connected peer states, remote media-track delivery, and teardown.
 - These results validate the server-mediated prototype in isolation. They do not validate the full Tampermonkey UI/GM bridge, real hardware permissions, simultaneous calls, reconnect under adverse networks, normal/Team Lite cross-client compatibility, or the legacy public Realtime topic.
 - RT-01 remains a release blocker for legacy Realtime: the public topic is still public. The authenticated transport remains default-off; no production or official TEST migration/deployment, PR merge, or release was performed.
+
+
+## 2026-11-03 privilege and CI re-verification
+
+- Normal build validation passed on commit `06fa7f2e44427a09c9cfa4f98cd73f05f42c98db`.
+- Authenticated isolated signaling suite passed 86/86 HTTP checks; Chromium passed call audio, voice-room audio, and screen-video negotiation, remote track delivery, and teardown. Unauthenticated endpoint checks passed 14/14.
+- Read-only privilege checks in isolated project: `anon` and `authenticated` cannot EXECUTE any of the three trigger-only broadcast functions and cannot SELECT `messages`, `users`, or `upstatus_sessions`. `service_role` retains required privileges. This complements prior trigger smoke tests; it does not claim a full REST negative-write matrix for every table.
+- Production Security Advisor still reports the three broad-EXECUTE warnings. No production migration has been applied.
+- Team Lite candidate validation is not cross-client signaling validation: Team Lite still uses the legacy public Realtime media-signaling path. RT-15 remains blocked.
