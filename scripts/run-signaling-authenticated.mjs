@@ -36,7 +36,6 @@ const suffix = randomBytes(6).toString("hex");
 const users = ["A", "B", "C"].map(letter => ({
   letter, name: "__signal_test_" + letter.toLowerCase() + "_" + suffix, token: token(),
 }));
-const namesFilter = "in.(" + users.map(u => u.name).join(",") + ")";
 let fixturesMayExist = false;
 let testExitCode = 1;
 let cleanupFailed = false;
@@ -76,16 +75,42 @@ try {
   testExitCode = 1;
 } finally {
   if (fixturesMayExist) {
-    const cleanupTasks = [
-      () => rest("/upstatus_signal_rooms?created_by=" + encodeURIComponent(namesFilter), { method: "DELETE" }),
-      () => rest("/upstatus_sessions?user_name=" + encodeURIComponent(namesFilter), { method: "DELETE" }),
-      () => rest("/users?name=" + encodeURIComponent(namesFilter), { method: "DELETE" }),
-    ];
-    for (const cleanup of cleanupTasks) {
-      try { await cleanup(); }
-      catch (error) { cleanupFailed = true; console.error("Fixture cleanup failed; inspect only the isolated test project: " + String(error?.message || error)); }
+    // Delete by exact fixture identity instead of a multi-value PostgREST "in" filter.
+    // This makes cleanup deterministic and prevents a successful no-op from being
+    // reported as complete when a filter is malformed or unexpectedly unmatched.
+    for (const user of users) {
+      const identity = encodeURIComponent("eq." + user.name);
+      const cleanupTasks = [
+        () => rest("/upstatus_signal_rooms?created_by=" + identity, { method: "DELETE" }),
+        () => rest("/upstatus_sessions?user_name=" + identity, { method: "DELETE" }),
+        () => rest("/users?name=" + identity, { method: "DELETE" }),
+      ];
+      for (const cleanup of cleanupTasks) {
+        try { await cleanup(); }
+        catch (error) { cleanupFailed = true; console.error("Fixture cleanup failed; inspect only the isolated test project: " + String(error?.message || error)); }
+      }
     }
-    if (!cleanupFailed) console.log("Temporary users, sessions, rooms, memberships, and events cleanup completed.");
+    // Verify that every temporary identity and creator-owned room is gone.
+    for (const user of users) {
+      const identity = encodeURIComponent("eq." + user.name);
+      for (const path of [
+        "/upstatus_signal_rooms?select=room_id&created_by=" + identity,
+        "/upstatus_sessions?select=token_hash&user_name=" + identity,
+        "/users?select=name&name=" + identity,
+      ]) {
+        try {
+          const remaining = await rest(path);
+          if (Array.isArray(remaining) && remaining.length) {
+            cleanupFailed = true;
+            console.error("Fixture cleanup verification failed; temporary records remain in the isolated test project.");
+          }
+        } catch (error) {
+          cleanupFailed = true;
+          console.error("Fixture cleanup verification failed; inspect only the isolated test project: " + String(error?.message || error));
+        }
+      }
+    }
+    if (!cleanupFailed) console.log("Temporary users, sessions, rooms, memberships, and events cleanup verified.");
   }
 }
 if (cleanupFailed) process.exit(1);
