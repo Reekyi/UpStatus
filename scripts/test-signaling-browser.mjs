@@ -6,6 +6,7 @@ const endpoint = origin + "/functions/v1/upstatus-signal-test";
 const users = {
   A: { name: process.env.UPSTATUS_SIGNAL_USER_A_NAME, token: process.env.UPSTATUS_SIGNAL_USER_A_TOKEN },
   B: { name: process.env.UPSTATUS_SIGNAL_USER_B_NAME, token: process.env.UPSTATUS_SIGNAL_USER_B_TOKEN },
+  C: { name: process.env.UPSTATUS_SIGNAL_USER_C_NAME, token: process.env.UPSTATUS_SIGNAL_USER_C_TOKEN },
 };
 for (const [label, user] of Object.entries(users)) {
   if (!user.name || !user.token) throw new Error("Missing isolated browser test identity " + label);
@@ -15,9 +16,9 @@ const browser = await chromium.launch({
   headless: true,
   args: ["--no-sandbox", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
 });
-let roomId = "";
+let roomId = "", groupRoomId = "";
 let pcA, pcB, streamA, streamB;
-let pageA, pageB;
+let pageA, pageB, pageC;
 
 async function api(page, user, route, body = {}) {
   return page.evaluate(async ({ endpoint, token, route, body }) => {
@@ -46,8 +47,8 @@ async function waitForGathering(page) {
   });
 }
 
-async function waitForEvent(page, user, expectedType, eventType = "call_signal", timeoutMs = 20000) {
-  return page.evaluate(async ({ endpoint, token, roomId, expectedType, eventType, timeoutMs }) => {
+async function waitForEvent(page, user, expectedType, eventType = "call_signal", timeoutMs = 20000, callId = null, expectedSender = null) {
+  return page.evaluate(async ({ endpoint, token, roomId, expectedType, eventType, timeoutMs, callId, expectedSender }) => {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       const response = await fetch(endpoint + "/poll", {
@@ -57,7 +58,8 @@ async function waitForEvent(page, user, expectedType, eventType = "call_signal",
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error("Polling failed: HTTP " + response.status);
-      const event = (json.events || []).find(item => item.event_type === eventType && item.payload?.type === expectedType);
+      const event = (json.events || []).find(item => item.event_type === eventType && item.payload?.type === expectedType &&
+        (!callId || item.payload?.callId === callId) && (!expectedSender || item.sender === expectedSender));
       if (event) {
         await fetch(endpoint + "/ack", {
           method: "POST",
@@ -69,7 +71,7 @@ async function waitForEvent(page, user, expectedType, eventType = "call_signal",
       await new Promise(resolve => setTimeout(resolve, 150));
     }
     throw new Error("Timed out waiting for " + expectedType);
-  }, { endpoint, token: user.token, roomId, expectedType, eventType, timeoutMs });
+  }, { endpoint, token: user.token, roomId, expectedType, eventType, timeoutMs, callId, expectedSender });
 }
 
 async function teardownPeerConnections() {
@@ -88,6 +90,133 @@ async function teardownPeerConnections() {
     assert.ok(result.localTrackStates.every(state => state === "ended"), "local media tracks must stop during teardown");
   }
   console.log("PASS browser peer and local media teardown.");
+}
+
+async function prepareMeshPeer(page, remoteName) {
+  await page.evaluate(async remote => {
+    if (!window.__meshStream) window.__meshStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    window.__meshPeers = window.__meshPeers || {};
+    window.__meshRemoteTracks = window.__meshRemoteTracks || {};
+    const pc = new RTCPeerConnection({ iceServers: [] });
+    pc.ontrack = event => {
+      if (event.track?.kind) {
+        window.__meshRemoteTracks[remote] = window.__meshRemoteTracks[remote] || [];
+        window.__meshRemoteTracks[remote].push(event.track.kind);
+      }
+    };
+    window.__meshStream.getTracks().forEach(track => pc.addTrack(track, window.__meshStream));
+    window.__meshPeers[remote] = pc;
+    window.__upPc = pc;
+    window.__upStream = window.__meshStream;
+  }, remoteName);
+}
+
+async function negotiateMeshPair(fromPage, fromUser, toPage, toUser, callId) {
+  await Promise.all([
+    prepareMeshPeer(fromPage, toUser.name),
+    prepareMeshPeer(toPage, fromUser.name),
+  ]);
+  await fromPage.evaluate(async remote => {
+    const pc = window.__meshPeers[remote];
+    window.__upPc = pc;
+    await pc.setLocalDescription(await pc.createOffer());
+  }, toUser.name);
+  await waitForGathering(fromPage);
+  const offer = await fromPage.evaluate(remote => window.__meshPeers[remote].localDescription.toJSON(), toUser.name);
+  assert.match(offer.sdp, /a=candidate:/, "group mesh offer must include gathered ICE candidates");
+  const sent = await api(fromPage, fromUser, "/signal", {
+    roomId: groupRoomId, recipient: toUser.name, eventType: "call_signal",
+    payload: { type: "offer", callId, phase: "mesh", sdp: offer },
+  });
+  assert.equal(sent.status, 202, "group mesh offer must be accepted by authenticated transport");
+  const offerEvent = await waitForEvent(toPage, toUser, "offer", "call_signal", 20000, callId, fromUser.name);
+  await toPage.evaluate(async ({ remote, sdp }) => {
+    const pc = window.__meshPeers[remote];
+    window.__upPc = pc;
+    await pc.setRemoteDescription(sdp);
+    await pc.setLocalDescription(await pc.createAnswer());
+  }, { remote: fromUser.name, sdp: offerEvent.payload.sdp });
+  await waitForGathering(toPage);
+  const answer = await toPage.evaluate(remote => window.__meshPeers[remote].localDescription.toJSON(), fromUser.name);
+  assert.match(answer.sdp, /a=candidate:/, "group mesh answer must include gathered ICE candidates");
+  const answerSent = await api(toPage, toUser, "/signal", {
+    roomId: groupRoomId, recipient: fromUser.name, eventType: "call_signal",
+    payload: { type: "answer", callId, phase: "mesh", sdp: answer },
+  });
+  assert.equal(answerSent.status, 202, "group mesh answer must be accepted by authenticated transport");
+  const answerEvent = await waitForEvent(fromPage, fromUser, "answer", "call_signal", 20000, callId, toUser.name);
+  await fromPage.evaluate(({ remote, sdp }) => window.__meshPeers[remote].setRemoteDescription(sdp),
+    { remote: toUser.name, sdp: answerEvent.payload.sdp });
+  await Promise.all([
+    fromPage.waitForFunction(remote => window.__meshPeers[remote].connectionState === "connected", toUser.name, { timeout: 20000 }),
+    toPage.waitForFunction(remote => window.__meshPeers[remote].connectionState === "connected", fromUser.name, { timeout: 20000 }),
+    fromPage.waitForFunction(remote => (window.__meshRemoteTracks[remote] || []).includes("audio"), toUser.name, { timeout: 10000 }),
+    toPage.waitForFunction(remote => (window.__meshRemoteTracks[remote] || []).includes("audio"), fromUser.name, { timeout: 10000 }),
+  ]);
+  console.log("PASS authenticated group mesh link " + fromUser.name + " ↔ " + toUser.name + ".");
+}
+
+async function teardownGroupMesh() {
+  const results = await Promise.all([pageA, pageB, pageC].map(page => page.evaluate(() => {
+    const peers = Object.values(window.__meshPeers || {});
+    peers.forEach(pc => { try { pc.close(); } catch {} });
+    const states = peers.map(pc => pc.connectionState);
+    const tracks = window.__meshStream?.getTracks() || [];
+    tracks.forEach(track => { try { track.stop(); } catch {} });
+    return { states, trackStates: tracks.map(track => track.readyState) };
+  })));
+  for (const result of results) {
+    assert.equal(result.states.length, 2, "each group member must have two mesh peer connections");
+    assert.ok(result.states.every(state => state === "closed"), "all group mesh peer connections must close");
+    assert.ok(result.trackStates.every(state => state === "ended"), "group local media tracks must stop");
+  }
+  console.log("PASS authenticated three-member group mesh teardown.");
+}
+
+async function runGroupMesh() {
+  const created = await api(pageA, users.A, "/room/create", { participants: [users.B.name] });
+  assert.equal(created.status, 201, "group caller must create a room and invite the first participant");
+  groupRoomId = created.json.roomId;
+  assert.ok(groupRoomId, "group room creation must return an ID");
+  const callId = "group-browser-e2e-" + Date.now();
+  const bound = await api(pageA, users.A, "/room/bind", { roomId: groupRoomId, bindingType: "call", logicalId: callId });
+  assert.ok([200, 201].includes(bound.status), "group caller must bind the logical call ID");
+  const inviteB = await api(pageB, users.B, "/room/invitations");
+  assert.equal(inviteB.status, 200);
+  assert.ok((inviteB.json.invitations || []).some(item => item.roomId === groupRoomId), "first participant must discover the invitation");
+  assert.equal((await api(pageB, users.B, "/room/accept", { roomId: groupRoomId })).status, 200, "first participant must accept");
+  const inviteC = await api(pageA, users.A, "/room/invite", { roomId: groupRoomId, recipient: users.C.name });
+  assert.equal(inviteC.status, 201, "accepted member must be able to invite a third group participant");
+  const invitationsC = await api(pageC, users.C, "/room/invitations");
+  assert.equal(invitationsC.status, 200);
+  assert.ok((invitationsC.json.invitations || []).some(item => item.roomId === groupRoomId), "third participant must discover the dynamic invitation");
+  assert.equal((await api(pageC, users.C, "/room/accept", { roomId: groupRoomId })).status, 200, "third participant must accept");
+  const members = await api(pageA, users.A, "/room/members", { roomId: groupRoomId });
+  assert.equal(members.status, 200);
+  assert.deepEqual((members.json.members || []).map(item => item.name).sort(), [users.A.name, users.B.name, users.C.name].sort(),
+    "server roster must contain exactly the three accepted group members");
+  const presence = await api(pageA, users.A, "/broadcast", {
+    roomId: groupRoomId, eventType: "call_signal", payload: { type: "presence", callId },
+  });
+  assert.equal(presence.status, 202, "group discovery hint must fan out through authenticated room broadcast");
+  const [presenceB, presenceC] = await Promise.all([
+    waitForEvent(pageB, users.B, "presence", "call_signal", 20000, callId, users.A.name),
+    waitForEvent(pageC, users.C, "presence", "call_signal", 20000, callId, users.A.name),
+  ]);
+  assert.equal(presenceB.sender, users.A.name);
+  assert.equal(presenceC.sender, users.A.name);
+  console.log("PASS authenticated dynamic group invitation, accepted roster, and fanout.");
+  await Promise.all([
+    negotiateMeshPair(pageA, users.A, pageB, users.B, callId),
+    negotiateMeshPair(pageA, users.A, pageC, users.C, callId),
+    negotiateMeshPair(pageB, users.B, pageC, users.C, callId),
+  ]);
+  await Promise.all([
+    pageA.waitForFunction(() => Object.keys(window.__meshPeers || {}).length === 2),
+    pageB.waitForFunction(() => Object.keys(window.__meshPeers || {}).length === 2),
+    pageC.waitForFunction(() => Object.keys(window.__meshPeers || {}).length === 2),
+  ]);
+  await teardownGroupMesh();
 }
 
 async function negotiateMedia({ bindingType, eventType, logicalId, trackKind }) {
@@ -178,9 +307,11 @@ async function negotiateMedia({ bindingType, eventType, logicalId, trackKind }) 
 try {
   const contextA = await browser.newContext({ permissions: ["microphone"] });
   const contextB = await browser.newContext({ permissions: ["microphone"] });
+  const contextC = await browser.newContext({ permissions: ["microphone"] });
   pageA = await contextA.newPage();
   pageB = await contextB.newPage();
-  await Promise.all([pageA.goto(origin), pageB.goto(origin)]);
+  pageC = await contextC.newPage();
+  await Promise.all([pageA.goto(origin), pageB.goto(origin), pageC.goto(origin)]);
 
   const created = await api(pageA, users.A, "/room/create", { participants: [users.B.name] });
   assert.equal(created.status, 201, "caller must create an authenticated room");
@@ -275,13 +406,18 @@ try {
     bindingType: "screen", eventType: "screen_signal",
     logicalId: "browser-e2e-screen-" + Date.now(), trackKind: "video",
   });
+
+  await runGroupMesh();
 } finally {
   if (roomId && pageA) {
     try { await api(pageA, users.A, "/room/close", { roomId }); } catch {}
   }
-  for (const page of [pageA, pageB]) {
+  if (groupRoomId && pageA) {
+    try { await api(pageA, users.A, "/room/close", { roomId: groupRoomId }); } catch {}
+  }
+  for (const page of [pageA, pageB, pageC]) {
     if (page) {
-      try { await page.evaluate(() => { window.__upPc?.close(); window.__upStream?.getTracks().forEach(track => track.stop()); }); } catch {}
+      try { await page.evaluate(() => { window.__upPc?.close(); window.__upStream?.getTracks().forEach(track => track.stop()); Object.values(window.__meshPeers || {}).forEach(pc => pc.close()); window.__meshStream?.getTracks().forEach(track => track.stop()); }); } catch {}
     }
   }
   await browser.close();
