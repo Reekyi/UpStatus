@@ -6,7 +6,7 @@ CREATE OR REPLACE FUNCTION public.upstatus_broadcast_messages()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO public
+SET search_path TO pg_catalog, public
 AS $function$
 BEGIN
   PERFORM realtime.send(
