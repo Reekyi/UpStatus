@@ -185,3 +185,6 @@ assert(!source.includes("sendRealtimeEvent('remote_result'"),"client must not br
 
 assert(source.includes(".on('broadcast',{event:'user_status'},function(){scheduleRealtimeStatusRefresh();})"),"public user status events must use a throttled authenticated refresh scheduler");
 assert(source.includes("if(token!==expectedToken||member!==expectedMember)return;"),"scheduled public status refresh must be bound to the active normal session");
+
+assert(source.includes("if(upCall&&upCall.active)callCleanup(true,'hangup');"),"normal logout must close active call peers and send hangup before clearing the session");
+assert(source.includes("if(!token||!member||!signalTransport||!signalTransportFlag||signalInvitationPollBusy)return;"),"invitation polling must not continue authenticated requests after logout");
