@@ -1883,7 +1883,7 @@ function renderChatText(text){
     var stop=signalPollStops[roomId];if(stop){try{stop();}catch(e){}delete signalPollStops[roomId];}
   }
   async function signalPollInvitations(){
-    if(!signalTransport||!signalTransportFlag||signalInvitationPollBusy)return;
+    if(!token||!member||!signalTransport||!signalTransportFlag||signalInvitationPollBusy)return;
     signalInvitationPollBusy=true;
     try{
       var invitations=await signalTransport.invitations();
@@ -3415,7 +3415,7 @@ function chatAvatarPresence(name){
     card.querySelector('.up-screen-share-toggle').onclick=function(e){e.preventDefault();e.stopPropagation();if(screenShare.active)screenShareStop(true);else screenShareStart();};
     voiceRoomRender();
     document.addEventListener('click',function(e){if(box&&!box.contains(e.target))menu.classList.add('hidden')});
-    card.querySelector('.up-logout').onclick=function(){voiceRoomLeave();broadcastChatPresence(false);stopRealtime();token='';member='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');history.classList.add('hidden');health.classList.add('hidden');img.src=profileFallback();login()};
+    card.querySelector('.up-logout').onclick=function(){try{if(upCall&&upCall.active)callCleanup(true,'hangup');}catch(e){}voiceRoomLeave();broadcastChatPresence(false);stopRealtime();token='';member='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');history.classList.add('hidden');health.classList.add('hidden');img.src=profileFallback();login()};
     history.querySelector('.up-close').onclick=function(){history.classList.add('hidden')};
     history.querySelector('.up-export').onclick=function(){exportHistoryTxt()};
     if(settingsBtn)settingsBtn.onclick=function(e){e.stopPropagation();settingsMenu.classList.toggle('hidden');};
