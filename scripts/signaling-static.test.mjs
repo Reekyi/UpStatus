@@ -207,5 +207,10 @@ console.log("PASS legacy call/voice/screen envelope types are explicitly allowli
 console.log("PASS authenticated negative cases cover JSON/body/payload limits");
 console.log("PASS legacy envelope validator and client-change CI trigger");
 console.log("PASS logical room binding and dynamic invitation contracts");
-console.log("11/11 signaling static regression groups passed.");
+assert.ok(readFileSync("scripts/test-signaling-browser.mjs","utf8").includes('bindingType: "voice"') &&
+  readFileSync("scripts/test-signaling-browser.mjs","utf8").includes('bindingType: "screen"') &&
+  readFileSync("scripts/test-signaling-browser.mjs","utf8").includes('trackKind: "video"'),
+  "authenticated browser E2E must exercise distinct voice and screen WebRTC paths");
+console.log("PASS authenticated browser E2E covers call, voice, and screen media paths");
+console.log("12/12 signaling static regression groups passed.");
 
