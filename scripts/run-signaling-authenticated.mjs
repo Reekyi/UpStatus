@@ -91,16 +91,18 @@ try {
   const now = Date.now();
   const expiresAt = new Date(now + 30 * 60 * 1000).toISOString();
   fixturesMayExist = true;
+  // Publish active session rows first so another concurrent runner's stale-fixture
+  // sweep can recognize these identities before their user rows are inserted.
+  await rest("/upstatus_sessions", {
+    method: "POST", headers: { prefer: "return=minimal" },
+    body: JSON.stringify(users.map(u => ({ token_hash: tokenHash(u.token), user_name: u.name, expires_at: expiresAt }))),
+  });
   await rest("/users", {
     method: "POST", headers: { prefer: "return=minimal" },
     body: JSON.stringify(users.map(u => ({
       name: u.name, role: "implementation_user", status: "offline",
       reason: "", sync: "not_configured",
     }))),
-  });
-  await rest("/upstatus_sessions", {
-    method: "POST", headers: { prefer: "return=minimal" },
-    body: JSON.stringify(users.map(u => ({ token_hash: tokenHash(u.token), user_name: u.name, expires_at: expiresAt }))),
   });
   console.log("Temporary test fixtures created in the isolated project. Session tokens will not be printed.");
   const env = {
