@@ -215,7 +215,16 @@ assert.ok(readFileSync("scripts/test-signaling-browser.mjs","utf8").includes("as
   readFileSync("scripts/test-signaling-browser.mjs","utf8").includes('connectionState, "closed"') &&
   readFileSync("scripts/test-signaling-browser.mjs","utf8").includes('state === "ended"'),
   "browser E2E must assert peer closure and local media track teardown");
+assert.ok(functionSource.includes('path.endsWith("/room/leave")') &&
+  functionSource.includes('update({ created_by: nextOwner })') &&
+  functionSource.includes('eq("recipient", sender)'),
+  "room leave must remove the member, transfer ownership, and preserve outgoing signals");
+assert.ok(userTemplate.includes("signalTransport.leave(leavingRoomId)") &&
+  userTemplate.includes("signalTransport.leave(signalRoomId)") &&
+  userTemplate.includes("signalTransport.leave(failedRoom)"),
+  "voice and call teardown paths must release authenticated room membership");
+console.log("PASS authenticated room leave and owner handoff are wired into client cleanup");
 console.log("PASS browser E2E asserts peer and media teardown");
 console.log("PASS authenticated browser E2E covers call, voice, and screen media paths");
-console.log("12/12 signaling static regression groups passed.");
+console.log("13/13 signaling static regression groups passed.");
 
