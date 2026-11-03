@@ -595,7 +595,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
           signalTransport.decline(roomId).catch(function(){}).finally(function(){delete signalRoomByCallId[callId];delete signalCallIdByRoom[roomId];delete signalCreatorCallIds[callId];});
           continue;
         }
-        await receiveCallSignal({type:'invite',callId:callId,from:invitation.invitedBy,initiator:invitation.invitedBy,participants:[invitation.invitedBy,member],to:member});
+        await receiveCallSignal({type:'invite',callId:callId,from:invitation.invitedBy,initiator:invitation.invitedBy,participants:[invitation.invitedBy,member],to:member,_authenticatedTransport:true});
       }
     }catch(e){}finally{signalInvitationPollBusy=false;}
   }
