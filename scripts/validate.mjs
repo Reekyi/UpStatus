@@ -23,6 +23,7 @@ const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.t
 const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
 const triggerGrantMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261029170500_restrict_trigger_function_execute.sql"),"utf8");
 const publicTableGrantMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261029183000_revoke_unused_public_table_grants.sql"),"utf8");
+const publicChatBroadcastMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261103160000_minimize_public_chat_broadcast.sql"),"utf8");
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
@@ -102,6 +103,10 @@ for(const table of ["chat_reads","messages","reactions","status_history","upstat
   assert(publicTableGrantMigration.includes("public."+table),"public table grant migration missing "+table);
 }
 assert(publicTableGrantMigration.includes("FROM PUBLIC, anon, authenticated"),"public table grant migration must cover public client roles");
+assert(publicChatBroadcastMigration.includes("jsonb_build_object('op', TG_OP)"),"public chat broadcast must emit only an operation hint");
+assert(!publicChatBroadcastMigration.includes("to_jsonb")&&!publicChatBroadcastMigration.includes("'record'"),"public chat broadcast must never serialize message rows");
+assert(publicChatBroadcastMigration.includes("'db_change'")&&publicChatBroadcastMigration.includes("upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0"),"public chat refresh hint must retain the compatible event and topic");
+assert(publicChatBroadcastMigration.includes("RETURN OLD")&&publicChatBroadcastMigration.includes("RETURN NEW"),"chat broadcast trigger must preserve correct row return semantics");
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
 assert(serverTemplate.includes('Deno.env.get("SUPABASE_SECRET_KEYS")') && serverTemplate.includes('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")'),"server backend must obtain database credentials only from Edge Function environment secrets");
 assert(serverTemplate.includes('createClient(PROJECT_URL, ADMIN_KEY'),"server database access must use the server-side privileged client, not browser-role grants");
