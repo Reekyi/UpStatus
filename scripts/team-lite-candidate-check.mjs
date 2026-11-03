@@ -56,7 +56,8 @@ assert.ok(backend.includes('if(!(await admin(name)))return response({error:"Seu 
 assert.ok(!backend.includes('if(!["Ricardo","Lohan","Guilherme"].includes(name))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);'), "health endpoint must not authorize by name alone");
 assert.ok(!backend.includes('db.from("messages").delete().eq("user_name","Lucca")') && !backend.includes('db.from("messages").delete().eq("user_name","Ycaro")'), "guest login must not delete shared chat history");
 assert.ok(backend.includes("async function luccaRoute(req:Request)") && backend.includes("async function ycaroRoute(req:Request)"), "Lucca and Ycaro must have separate auth handlers");
-assert.ok(script.includes("var expectedGeneration=authGeneration,expectedMember=member;") && script.includes("if(isAuthenticated()&&expectedGeneration===authGeneration&&expectedMember===member)pollRemoteStatus();"), "Team Lite delayed remote polling must remain bound to the authenticated session generation");
+assert.ok(script.includes(".on('broadcast',{event:'remote_command'},function(){") && script.includes("scheduleRemoteStatusPoll();"), "Team Lite remote command events must use a coalesced poll scheduler");
+assert.ok(script.includes("if(remotePollHintTimer||!isAuthenticated())return;") && script.includes("if(isAuthenticated()&&expectedGeneration===authGeneration&&expectedMember===member)pollRemoteStatus();"), "Team Lite remote command hint timers must coalesce and remain session-bound");
 assert.ok(script.includes("sendRealtimeEvent('remote_command',{op:'hint'})"), "Team Lite client remote command broadcasts must contain only a generic hint");
 assert.ok(!script.includes("sendRealtimeEvent('remote_result'"), "Team Lite must not broadcast remote result metadata publicly");
 assert.ok(!script.includes("if(c&&c.target===member)executeRemoteCommand(c);"), "client must not execute untrusted remote command broadcast payloads");
