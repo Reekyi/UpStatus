@@ -69,6 +69,8 @@ let roomId = "";
 let declineRoomId = "";
 let conflictRoomId = "";
 let leaveRoomId = "";
+let parallelRoomOneId = "";
+let parallelRoomTwoId = "";
 function check(name, ok, detail = "") {
   results.push({ name, ok });
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " (" + detail + ")" : ""}`);
@@ -384,6 +386,84 @@ try {
     ]) check(name, false, "room creation failed; dependent test skipped");
   }
 
+  // Two independent active rooms for the same pair must not cross-deliver signals.
+  const parallelOne = await request(users.A, "/room/create", { participants: [users.B.name] });
+  parallelRoomOneId = parallelOne.json?.roomId || "";
+  const parallelTwo = await request(users.A, "/room/create", { participants: [users.B.name] });
+  parallelRoomTwoId = parallelTwo.json?.roomId || "";
+  check("same caller can create two concurrent independent rooms",
+    parallelOne.status === 201 && parallelTwo.status === 201 &&
+    !!parallelRoomOneId && !!parallelRoomTwoId && parallelRoomOneId !== parallelRoomTwoId,
+    "one=" + parallelOne.status + ", two=" + parallelTwo.status);
+  if (parallelRoomOneId && parallelRoomTwoId) {
+    const [acceptOne, acceptTwo] = await Promise.all([
+      request(users.B, "/room/accept", { roomId: parallelRoomOneId }),
+      request(users.B, "/room/accept", { roomId: parallelRoomTwoId }),
+    ]);
+    check("callee can accept both concurrent rooms independently",
+      acceptOne.status === 200 && acceptTwo.status === 200,
+      "one=" + acceptOne.status + ", two=" + acceptTwo.status);
+    const logicalOne = "parallel-call-one-" + parallelRoomOneId;
+    const logicalTwo = "parallel-call-two-" + parallelRoomTwoId;
+    const [bindOne, bindTwo] = await Promise.all([
+      request(users.A, "/room/bind", { roomId: parallelRoomOneId, bindingType: "call", logicalId: logicalOne }),
+      request(users.A, "/room/bind", { roomId: parallelRoomTwoId, bindingType: "call", logicalId: logicalTwo }),
+    ]);
+    check("parallel calls retain distinct server-owned logical bindings",
+      bindOne.status === 201 && bindTwo.status === 201 &&
+      bindOne.json?.roomId !== bindTwo.json?.roomId,
+      "one=" + bindOne.status + ", two=" + bindTwo.status);
+    const [sendOne, sendTwo] = await Promise.all([
+      request(users.A, "/signal", { roomId: parallelRoomOneId, recipient: users.B.name,
+        eventType: "call_signal", payload: { type: "presence", callId: logicalOne, marker: "parallel-room-one" } }),
+      request(users.A, "/signal", { roomId: parallelRoomTwoId, recipient: users.B.name,
+        eventType: "call_signal", payload: { type: "presence", callId: logicalTwo, marker: "parallel-room-two" } }),
+    ]);
+    check("two concurrent calls accept their signals independently",
+      sendOne.status === 202 && sendTwo.status === 202,
+      "one=" + sendOne.status + ", two=" + sendTwo.status);
+    const [pollOne, pollTwo] = await Promise.all([
+      request(users.B, "/poll", { roomId: parallelRoomOneId }),
+      request(users.B, "/poll", { roomId: parallelRoomTwoId }),
+    ]);
+    const eventsOne = pollOne.json?.events || [];
+    const eventsTwo = pollTwo.json?.events || [];
+    const eventOne = eventsOne.find(event => event.payload?.marker === "parallel-room-one");
+    const eventTwo = eventsTwo.find(event => event.payload?.marker === "parallel-room-two");
+    check("parallel room one receives only its own call signal",
+      pollOne.status === 200 && !!eventOne &&
+      !eventsOne.some(event => event.payload?.marker === "parallel-room-two"),
+      "HTTP " + pollOne.status);
+    check("parallel room two receives only its own call signal",
+      pollTwo.status === 200 && !!eventTwo &&
+      !eventsTwo.some(event => event.payload?.marker === "parallel-room-one"),
+      "HTTP " + pollTwo.status);
+    const idsOne = eventsOne.map(event => event.event_id);
+    const idsTwo = eventsTwo.map(event => event.event_id);
+    await Promise.all([
+      request(users.B, "/ack", { roomId: parallelRoomOneId, eventIds: idsOne }),
+      request(users.B, "/ack", { roomId: parallelRoomTwoId, eventIds: idsTwo }),
+    ]);
+    const [closeOne, closeTwo] = await Promise.all([
+      request(users.A, "/room/close", { roomId: parallelRoomOneId }),
+      request(users.A, "/room/close", { roomId: parallelRoomTwoId }),
+    ]);
+    check("both concurrent rooms close without affecting one another",
+      closeOne.status === 200 && closeTwo.status === 200,
+      "one=" + closeOne.status + ", two=" + closeTwo.status);
+    parallelRoomOneId = "";
+    parallelRoomTwoId = "";
+  } else {
+    for (const name of [
+      "callee can accept both concurrent rooms independently",
+      "parallel calls retain distinct server-owned logical bindings",
+      "two concurrent calls accept their signals independently",
+      "parallel room one receives only its own call signal",
+      "parallel room two receives only its own call signal",
+      "both concurrent rooms close without affecting one another",
+    ]) check(name, false, "one or both concurrent room creations failed");
+  }
+
   const leaveRoom = await request(users.A, "/room/create", { participants: [users.B.name, users.C.name] });
   leaveRoomId = leaveRoom.json?.roomId || "";
   check("creator can create a room for membership leave and owner handoff",
@@ -482,6 +562,12 @@ try {
   }
   if (leaveRoomId) {
     try { await request(users.A, "/room/close", { roomId: leaveRoomId }); } catch {}
+  }
+  if (parallelRoomOneId) {
+    try { await request(users.A, "/room/close", { roomId: parallelRoomOneId }); } catch {}
+  }
+  if (parallelRoomTwoId) {
+    try { await request(users.A, "/room/close", { roomId: parallelRoomTwoId }); } catch {}
   }
 }
 const passed = results.filter(r => r.ok).length;
