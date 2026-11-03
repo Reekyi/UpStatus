@@ -2,7 +2,7 @@ name: Team Lite Candidate Checks
 
 on:
   push:
-    branches: [team-lite/3.4.31-guest-fixes]
+    branches: [team-lite/3.4.31-guest-fixes, team-lite/signaling-transport-candidate]
     paths:
       - "team-lite/**"
       - "lucca-site/**"
