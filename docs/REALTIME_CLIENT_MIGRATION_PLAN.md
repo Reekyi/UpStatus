@@ -95,4 +95,12 @@ All current transport work remains on the development branch and isolated Supaba
 
 - CI run [41656936221](https://github.com/Reekyi/UpStatus/actions/runs/41656936221) passed: static regressions 12/12, unauthenticated HTTP 14/14, authenticated HTTP 65/65, and authenticated Chromium WebRTC tests.
 - Browser results: call audio passed, voice-room audio passed, and screen-video passed. The suite creates distinct call/voice/screen bindings, negotiates SDP and gathered ICE through the authenticated endpoint, confirms connected peer state, and checks remote audio/video track delivery.
-- The next hardening iteration adds explicit assertions that each peer connection closes and every local media track reaches `ended`; this is being validated in the next CI run.
+- The follow-up CI run [41658151715](https://github.com/Reekyi/UpStatus/actions/runs/41658151715) also passed explicit teardown assertions: all three peer connections closed and every local media track reached `ended`. The runner verified cleanup; a read-only query confirmed no temporary test identities remain.
+
+
+## Guest-session and media teardown regression checkpoint (2026-11-03)
+
+- Added chat regression assertions for Lucca/Ycaro session start-time isolation across history, unread counts, and read receipts, and verified that the route passes the authenticated guest session timestamp to those handlers.
+- CI validation [41658151915](https://github.com/Reekyi/UpStatus/actions/runs/41658151915) passed.
+- Signaling smoke [41658151715](https://github.com/Reekyi/UpStatus/actions/runs/41658151715) passed: static 12/12, unauthenticated 14/14, authenticated 65/65, plus Chromium call/voice/screen media negotiation and teardown assertions.
+- Temporary identities, sessions, rooms, memberships, and events were removed and verified absent from the isolated database.
