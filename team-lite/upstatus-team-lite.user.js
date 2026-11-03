@@ -611,7 +611,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
     upCall.signalAbortController=new AbortController();signalCreatorCallIds[upCall.callId]=true;
     callPrimeAudio();callStartRingtone();callRender(target,'Chamando…',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true,'hangup');}}]);
-    upCall.timer=setTimeout(function(){if(upCall.active&&!upCall.connected){try{if(upCall.signalAbortController)upCall.signalAbortController.abort();}catch(e){}callFail('Sem resposta.');}},30000);
+    upCall.timer=setTimeout(function(){if(upCall.active&&!upCall.connected){try{if(upCall.signalAbortController)upCall.signalAbortController.abort();}catch(e){}callCleanup(false).then(function(){callFail('Sem resposta.');});}},30000);
     try{
       var room=await signalTransport.prepareCallRoom(upCall.callId,target,{timeoutMs:28000,intervalMs:900,signal:upCall.signalAbortController.signal});
       if(!upCall.active){signalTransport.close(room.roomId).catch(function(){});delete signalCreatorCallIds[transportCallId];return;}
@@ -624,7 +624,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
       if(!upCall.active||upCall.signalAbortController.signal.aborted){callCleanup(false);return;}
       p.offerSent=true;callStartPresence();callSendTo(target,'offer',{sdp:p.pc.localDescription,phase:'initial'});
     }catch(e){
-      if(upCall.active)callFail(e.message||'Não foi possível iniciar a chamada.');
+      if(upCall.active){var failure=e.message||'Não foi possível iniciar a chamada.';callCleanup(false).then(function(){callFail(failure);});}
     }
   }
   async function signalPrepareVoiceRoom(){
