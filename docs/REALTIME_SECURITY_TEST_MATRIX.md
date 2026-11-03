@@ -4,7 +4,7 @@ Status: candidate-only test plan. No production or TEST changes have been applie
 
 ## Release gate
 
-This matrix is intentionally not marked passed until it has been exercised against an isolated environment and both browser clients. Static source assertions are not evidence of sender authentication.
+This matrix records isolated API and Chromium WebRTC evidence separately from the remaining legacy Realtime and release gates. Static source assertions are not evidence of sender authentication.
 
 ## Required threat model
 
@@ -15,16 +15,16 @@ The existing topic `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0` is broad
 | ID | Area | Test | Expected result | Current status |
 |---|---|---|---|---|
 | RT-01 | Public topic | Subscribe without a valid UpStatus session | No sensitive payloads are disclosed; unauthorized subscription is denied or payloads are non-sensitive | BLOCKED: current topic is public |
-| RT-02 | Sender identity | Publish a call event claiming another user's `from` identity | Server rejects it or recipient ignores it based on authenticated server identity | NOT PROVEN |
-| RT-03 | Recipient binding | Send offer/answer/ICE with forged `to` | Server verifies recipient and room membership before delivery | NOT PROVEN |
-| RT-04 | Room membership | Send join/presence/leave for a room the sender has not joined | Rejected; roster is unchanged | NOT PROVEN |
-| RT-05 | Call authorization | Forge `join_approved`, `join_declined`, or `ended` | Only an authorized participant can change call state | NOT PROVEN |
-| RT-06 | Screen share | Forge screen-share offer/answer/ICE and presence/leave events | Only authenticated room members can negotiate; untrusted signals do not create unauthorized peers | NOT PROVEN |
-| RT-07 | Voice room | Forge voice-room presence, join, leave, offer, answer, and ICE | Server validates membership and recipient before forwarding | NOT PROVEN |
+| RT-02 | Sender identity | Publish a call event claiming another user's `from` identity | Server rejects it or recipient ignores it based on authenticated server identity | PASS: authenticated API test derives sender and strips identity claims |
+| RT-03 | Recipient binding | Send offer/answer/ICE with forged `to` | Server verifies recipient and room membership before delivery | PASS: recipient-scoped delivery and non-member rejection tested |
+| RT-04 | Room membership | Send join/presence/leave for a room the sender has not joined | Rejected; roster is unchanged | PASS: membership, pending/accepted gates, leave and owner handoff covered by authenticated API suite |
+| RT-05 | Call authorization | Forge `join_approved`, `join_declined`, or `ended` | Only an authorized participant can change call state | PARTIAL: invite/accept/decline and membership authorization tested; all legacy call-state transitions not covered |
+| RT-06 | Screen share | Forge screen-share offer/answer/ICE and presence/leave events | Only authenticated room members can negotiate; untrusted signals do not create unauthorized peers | PASS for isolated authenticated screen-video SDP/ICE negotiation and teardown; legacy UI path pending |
+| RT-07 | Voice room | Forge voice-room presence, join, leave, offer, answer, and ICE | Server validates membership and recipient before forwarding | PASS for isolated authenticated voice audio SDP/ICE negotiation and teardown; legacy UI path pending |
 | RT-08 | Replay | Replay an old signal after logout, room exit, or call end | Expired/revoked session or closed call is rejected | NOT PROVEN |
-| RT-09 | Abuse resistance | Flood malformed/oversized signaling messages | Bounded request size, rate limits, no unbounded memory/peer creation | PARTIAL: client bounds exist; server enforcement not proven |
-| RT-10 | Chat events | Forge `db_change`, `chat_fast`, and `chat_read` payloads | Client treats broadcasts as invalidation hints and refetches canonical state via authenticated API | STATIC CHECKS PASS; browser test pending |
-| RT-11 | Remote commands | Forge `remote_command` and `remote_result` events | No action/result is trusted from broadcast alone; server API remains authoritative | STATIC CHECKS PASS; browser test pending |
+| RT-09 | Abuse resistance | Flood malformed/oversized signaling messages | Bounded request size, rate limits, no unbounded memory/peer creation | PARTIAL: malformed, oversized, deep and wide payloads rejected; rate-limit load/scale testing remains |
+| RT-10 | Chat events | Forge `db_change`, `chat_fast`, and `chat_read` payloads | Client treats broadcasts as invalidation hints and refetches canonical state via authenticated API | STATIC CHECKS PASS; full browser abuse test pending |
+| RT-11 | Remote commands | Forge `remote_command` and `remote_result` events | No action/result is trusted from broadcast alone; server API remains authoritative | STATIC CHECKS PASS; full browser abuse test pending |
 | RT-12 | Session revocation | Revoke a session while an Edge Function instance is warm | Requests fail after documented cache window; no long-lived stale authorization | NOT PROVEN |
 | RT-13 | Migration grants | Execute the three trigger-only functions as `anon` and `authenticated` | Direct EXECUTE is denied; triggers still run for legitimate database writes | NOT RUN: migration is staged |
 | RT-14 | Table grants | Read/write the nine backend-owned tables directly as `anon` and `authenticated` | Direct access denied; authenticated backend flows continue to work | NOT RUN: migration is staged |
@@ -42,7 +42,7 @@ Do not treat client-side checks, public-channel obfuscation, or an unguessable t
 
 ## Isolated environment requirements
 
-The existing Supabase branch inventory did not provide a trustworthy migration-test target. Do not use production or a branch marked `MIGRATIONS_FAILED` for destructive/permission-changing validation. Create or obtain a supported isolated TEST project/branch, verify its project reference and migration baseline, and record the results before considering any migration.
+The isolated Supabase project `bfpjtfqlnypisxljoxkb` is used for authenticated API and browser signaling tests. Its signaling tables and columns have been inspected read-only. The separate table-grant and trigger-function migrations (RT-13/14) have not been applied or validated; do not use production or official TEST for these checks.
 
 ## Release gate evidence
 
@@ -58,3 +58,12 @@ Before marking this work complete, attach:
 ## Current conclusion
 
 The existing candidate CI validates builds and selected regression invariants. It does not authenticate public Realtime senders and does not replace integration tests. Public signaling remains a release-blocking security gap until one of the server-authorized designs above is implemented and verified.
+
+
+## 2026-11-03 isolated validation update
+
+- GitHub Actions signaling smoke run `41661330565` completed successfully, including the authenticated test job. The job also passed the unauthenticated endpoint checks and static/adapter suites.
+- The isolated authenticated runner creates three temporary test identities and sessions, runs API authorization, invitation, membership, binding, payload-sanitization, delivery, and cleanup checks, then runs Chromium WebRTC tests when the API suite passes.
+- Browser coverage includes one-to-one call audio, voice-room audio, and screen-share video using isolated contexts, SDP offer/answer, gathered ICE candidates, connected peer states, remote media-track delivery, and teardown.
+- These results validate the server-mediated prototype in isolation. They do not validate the full Tampermonkey UI/GM bridge, real hardware permissions, simultaneous calls, reconnect under adverse networks, normal/Team Lite cross-client compatibility, or the legacy public Realtime topic.
+- RT-01 remains a release blocker for legacy Realtime: the public topic is still public. The authenticated transport remains default-off; no production or official TEST migration/deployment, PR merge, or release was performed.
