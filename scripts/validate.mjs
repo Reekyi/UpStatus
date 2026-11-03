@@ -125,7 +125,7 @@ for(const artifact of [prodUser,testUser]){
   assert(artifact.includes(".on('broadcast',{event:'chat_fast'},function(){handleRealtimeChatFast();})"),"chat_fast listener must not trust broadcast payloads");
   assert(artifact.includes(".on('broadcast',{event:'chat_read'},function(){scheduleRealtimeChatRefresh();})"),"public read receipts must be reconciled through canonical chat state");
   assert(artifact.includes(".on('broadcast',{event:'user_status'},function(){refresh();})"),"user_status broadcasts must be refresh-only hints, never trusted profile/status payloads");
-  assert(artifact.includes("if(c&&c.target===member)pollRemoteStatus();"),"remote_command broadcasts must trigger authenticated polling only");
+  assert(artifact.includes(".on('broadcast',{event:'remote_command'},function(){pollRemoteStatus();})"),"remote_command broadcasts must be payload-free polling hints");
   assert(artifact.includes(".on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"),"remote_result broadcasts must not be authoritative");
 }
 
@@ -193,3 +193,10 @@ assert(prodUser.includes("endButton.parentElement.insertBefore(button,endButton)
 execFileSync(process.execPath,[path.join(ROOT,"scripts/chat-regression.test.mjs")],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/team-lite-updater.test.mjs")],{stdio:"inherit"});
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
+
+const publicStatusBroadcastMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261103170000_minimize_public_status_broadcasts.sql"),"utf8");
+assert(publicStatusBroadcastMigration.includes("CREATE OR REPLACE FUNCTION public.upstatus_broadcast_users()"),"user status broadcast hardening migration missing");
+assert(publicStatusBroadcastMigration.includes("CREATE OR REPLACE FUNCTION public.upstatus_broadcast_remote_state()"),"remote state broadcast hardening migration missing");
+assert((publicStatusBroadcastMigration.match(/jsonb_build_object\('op', TG_OP\)/g)||[]).length===3,"status and remote broadcasts must contain operation-only payloads");
+assert(!/jsonb_build_object\([\s\S]*?'(record|command|result|sender|target|status|reason|error|createdAt)'/.test(publicStatusBroadcastMigration),"status and remote broadcasts must not serialize sensitive metadata");
+assert(publicStatusBroadcastMigration.includes("SET search_path TO pg_catalog, public"),"broadcast SECURITY DEFINER functions must pin a safe search_path");
