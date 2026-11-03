@@ -135,6 +135,12 @@ for(const artifact of [prodUser,testUser]){
   assert(!artifact.includes("sendRealtimeEvent('remote_result'"),"client must not broadcast remote result metadata publicly");
   assert(artifact.includes("if(upCall&&upCall.active)callCleanup(true,'hangup');"),"normal logout must end active call signaling and media before clearing credentials");
   assert(artifact.includes("await api('POST','/api/logout',{})"),"normal logout must revoke the server session before clearing the local token");
+  assert(artifact.includes("return cleanupPromise;") && artifact.includes("return leavePromise;"),"normal call and voice cleanup must expose completion promises");
+  const logoutStart=artifact.indexOf("card.querySelector('.up-logout').onclick=async function()");
+  const logoutCallCleanup=artifact.indexOf("await callCleanup(true,'hangup')",logoutStart);
+  const logoutVoiceCleanup=artifact.indexOf("await voiceRoomLeave()",logoutStart);
+  const logoutRevoke=artifact.indexOf("await api('POST','/api/logout',{})",logoutStart);
+  assert(logoutStart>=0&&logoutCallCleanup>logoutStart&&logoutVoiceCleanup>logoutCallCleanup&&logoutRevoke>logoutVoiceCleanup,"normal logout must finish call/voice signaling before server session revocation");
   assert(artifact.includes("if(!token||!member||!signalTransport||!signalTransportFlag||signalInvitationPollBusy)return;"),"normal invitation polling must stop issuing requests while logged out");
   assert(artifact.includes("var expectedToken=token,expectedMember=member;") && artifact.includes("if(token!==expectedToken||member!==expectedMember)return;"),"stale invitation poll responses must not cross normal-client sessions");
   assert(artifact.includes(".on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"),"remote_result broadcasts must not be authoritative");
