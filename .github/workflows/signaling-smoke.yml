@@ -37,6 +37,12 @@ on:
       - "docs/REALTIME_SIGNALING_PROTOTYPE.md"
   workflow_dispatch:
 
+# The isolated Supabase test project is shared by push and pull_request runs.
+# Serialize the fixture-mutating integration suite to avoid concurrent ID allocation.
+concurrency:
+  group: upstatus-signaling-isolated-tests
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
