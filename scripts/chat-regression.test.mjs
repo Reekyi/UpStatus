@@ -187,5 +187,7 @@ assert(source.includes(".on('broadcast',{event:'user_status'},function(){schedul
 assert(source.includes("if(token!==expectedToken||member!==expectedMember)return;"),"scheduled public status refresh must be bound to the active normal session");
 
 assert(source.includes("if(upCall&&upCall.active)callCleanup(true,'hangup');"),"normal logout must close active call peers and send hangup before clearing the session");
+assert(source.includes("await api('POST','/api/logout',{})"),"normal logout must revoke the custom server session before clearing local credentials");
+
 assert(source.includes("if(!token||!member||!signalTransport||!signalTransportFlag||signalInvitationPollBusy)return;"),"invitation polling must not continue authenticated requests after logout");
 assert(source.includes("if(token!==expectedToken||member!==expectedMember)return;"),"delayed invitation responses must be discarded after logout or account switch");
