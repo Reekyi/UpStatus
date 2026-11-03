@@ -214,4 +214,10 @@ assert.ok(script.includes("!signalTransportFlag&&isAuthenticated()") && script.i
 assert.ok(script.includes("if(!signalTransport||!signalRoomId)return false"), "call send paths must fail closed instead of falling back to public broadcasts");
 assert.ok(script.includes("if(!signalTransport||!signalVoiceRoomRoomId){voiceRoomMessage") && script.includes("if(!signalTransport||!signalVoiceRoomRoomId){screenShareMessage"), "voice and screen send paths must fail closed when authenticated room binding is missing");
 assert.ok(script.includes("return sendRealtimeEvent('call_signal',p)"), "legacy fallback must remain available only while the opt-in transport is disabled");
+assert.ok(script.includes("signalTransport.requestInvite(callId).then(function(){"), "authenticated group join requests must use the server invitation route");
+assert.ok(script.includes("signalTransport.invite(signalRoomId,to).then(function(){") && script.includes("signalTransport.waitForAcceptance(signalRoomId,to"), "group invite fanout must wait for each invitee acceptance before offering media");
+assert.ok(script.includes("return signalTransport.sendToRoom({") && script.includes("eventType:'call_signal'"), "authenticated group call control must fan out through the authorized room transport");
+assert.ok(script.includes("await signalTransport.accept(signalRoomId);") && script.includes("signalStartCallPolling(signalRoomId,upCall.callId)"), "group invite acceptance must join the authenticated room and start its poller");
+assert.ok(script.includes("if(signalTransportFlag&&!p._authenticatedTransport") && script.includes("if(!signalTransport||!signalRoomId)return false"), "group call events must reject public control messages and fail closed without a room");
+assert.ok(script.includes("pendingSignals.map(function(p){return Promise.resolve(p);})") && script.includes("return signalTransport.leave(signalRoomId)"), "call teardown must wait for pending signals before leaving its authenticated room");
 console.log("Candidate updater runtime scenarios passed: newer/current/mismatch/downgrade/manifest-offline/script-offline/invalid-manifest.");
