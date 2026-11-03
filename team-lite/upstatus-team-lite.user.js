@@ -16,6 +16,339 @@
 // ==/UserScript==
 (function () {
   'use strict';
+/**
+ * Authenticated signaling transport adapter.
+ *
+ * This module is bundled into the userscript and connected to an opt-in caller.
+ * The caller supplies a same-origin HTTPS GM_xmlhttpRequest bridge that sends
+ * the UpStatus session token in x-upstatus-token. The feature flag remains
+ * disabled by default; do not enable for users until authenticated browser/WebRTC
+ * E2E tests prove the invite/accept/offer state machine.
+ */
+function createSignalingTransport({
+  request,
+  enabled = false,
+  pollIntervalMs = 900,
+  maxBackoffMs = 8000,
+  now = () => Date.now(),
+} = {}) {
+  if (typeof request !== "function") throw new TypeError("request must be a function");
+
+  let stopped = false;
+  const activePolls = new Map();
+  const seenByRoom = new Map();
+
+  function assertEnabled() {
+    if (!enabled) {
+      const error = new Error("Authenticated signaling transport is disabled");
+      error.code = "SIGNALING_TRANSPORT_DISABLED";
+      throw error;
+    }
+    if (stopped) {
+      const error = new Error("Authenticated signaling transport has been stopped");
+      error.code = "SIGNALING_TRANSPORT_STOPPED";
+      throw error;
+    }
+  }
+
+  async function post(path, payload = {}, options = {}) {
+    assertEnabled();
+    const result = await request(path, payload, options);
+    if (!result || typeof result !== "object") throw new Error("Invalid signaling response");
+    const status = Number(result.status ?? 200);
+    const body = result.body ?? result.data ?? {};
+    if (status < 200 || status >= 300) {
+      const error = new Error(typeof body.error === "string" ? body.error : `Signaling request failed (${status})`);
+      error.status = status;
+      error.code = body.error || "SIGNALING_REQUEST_FAILED";
+      throw error;
+    }
+    return body;
+  }
+
+  function validId(value, label) {
+    if (typeof value !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(value)) {
+      throw new TypeError(`Invalid ${label}`);
+    }
+    return value;
+  }
+
+  async function createRoom(participants = []) {
+    if (!Array.isArray(participants) || participants.length > 31 ||
+        participants.some(name => typeof name !== "string" || !name || name.length > 80)) {
+      throw new TypeError("Invalid room participants");
+    }
+    return post("/room/create", { participants: [...new Set(participants)] });
+  }
+
+  async function bindRoom({ roomId, bindingType, logicalId }) {
+    validId(logicalId, "logical room ID");
+    if (!["call", "voice", "screen"].includes(bindingType)) throw new TypeError("Invalid binding type");
+    if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
+    return post("/room/bind", { roomId, bindingType, logicalId });
+  }
+
+  async function resolveRoom({ bindingType, logicalId }) {
+    validId(logicalId, "logical room ID");
+    if (!["call", "voice", "screen"].includes(bindingType)) throw new TypeError("Invalid binding type");
+    return post("/room/resolve", { bindingType, logicalId });
+  }
+
+  async function invite(roomId, recipient) {
+    if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
+    if (typeof recipient !== "string" || !recipient || recipient.length > 80) throw new TypeError("Invalid recipient");
+    return post("/room/invite", { roomId, recipient });
+  }
+
+  async function roomMembers(roomId) {
+    if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
+    const result = await post("/room/members", { roomId });
+    return Array.isArray(result.members) ? result.members.filter(name => typeof name === "string" && name.length <= 80) : [];
+  }
+
+  async function roomStatus(roomId, options = {}) {
+    if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
+    const result = await post("/room/status", { roomId }, options);
+    return Array.isArray(result.participants) ? result.participants : [];
+  }
+
+  async function waitForAcceptance(roomId, recipient, {
+    timeoutMs = 60_000,
+    intervalMs = 900,
+    signal,
+  } = {}) {
+    if (typeof recipient !== "string" || !recipient || recipient.length > 80) throw new TypeError("Invalid recipient");
+    const deadline = now() + Math.max(0, timeoutMs);
+    while (now() <= deadline) {
+      if (signal?.aborted) {
+        const error = new Error("Invitation wait aborted");
+        error.name = "AbortError";
+        throw error;
+      }
+      const participants = await roomStatus(roomId, { signal });
+      const participant = participants.find(item => item && item.name === recipient);
+      if (!participant) {
+        const error = new Error("Invitee is not a member of this room");
+        error.code = "SIGNALING_INVITEE_NOT_FOUND";
+        throw error;
+      }
+      if (participant.status === "accepted") return participant;
+      if (participant.status === "declined") {
+        const error = new Error("Invitation was declined");
+        error.code = "SIGNALING_INVITATION_DECLINED";
+        throw error;
+      }
+      if (participant.status !== "pending") {
+        const error = new Error("Unexpected invitation state");
+        error.code = "SIGNALING_INVITATION_STATE_INVALID";
+        throw error;
+      }
+      await new Promise((resolve, reject) => {
+        if (signal?.aborted) {
+          const error = new Error("Invitation wait aborted");
+          error.name = "AbortError";
+          reject(error);
+          return;
+        }
+        const onAbort = () => {
+          clearTimeout(timer);
+          signal?.removeEventListener("abort", onAbort);
+          const error = new Error("Invitation wait aborted");
+          error.name = "AbortError";
+          reject(error);
+        };
+        const timer = setTimeout(() => {
+          signal?.removeEventListener("abort", onAbort);
+          resolve();
+        }, Math.min(intervalMs, Math.max(0, deadline - now())));
+        if (signal) signal.addEventListener("abort", onAbort, { once: true });
+      });
+    }
+    const error = new Error("Timed out waiting for invitation acceptance");
+    error.code = "SIGNALING_INVITATION_TIMEOUT";
+    throw error;
+  }
+
+  async function requestInvite(logicalId) {
+    validId(logicalId, "logical call ID");
+    return post("/room/request-invite", { bindingType: "call", logicalId });
+  }
+
+  async function invitations() {
+    const result = await post("/room/invitations");
+    return Array.isArray(result.invitations) ? result.invitations : [];
+  }
+
+  async function accept(roomId) {
+    if (typeof roomId !== "string" || !roomId) throw new TypeError("Invalid room ID");
+    return post("/room/accept", { roomId });
+  }
+
+  async function decline(roomId) {
+    if (typeof roomId !== "string" || !roomId) throw new TypeError("Invalid room ID");
+    return post("/room/decline", { roomId });
+  }
+
+  async function sendSignal({ roomId, recipient, eventType, payload }) {
+    if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
+    if (typeof recipient !== "string" || !recipient || recipient.length > 80) throw new TypeError("Invalid recipient");
+    if (typeof eventType !== "string" || !eventType || eventType.length > 40) throw new TypeError("Invalid event type");
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new TypeError("Invalid signaling payload");
+    return post("/signal", { roomId, recipient, eventType, payload });
+  }
+
+  async function sendToRoom({ roomId, eventType, payload, senderName }) {
+    if (typeof senderName !== "string" || !senderName || senderName.length > 80)
+      throw new TypeError("Invalid sender name");
+    const result = await post("/broadcast", { roomId, eventType, payload });
+    const attempted = Number(result.attempted) || 0;
+    const delivered = Number(result.delivered) || 0;
+    return { attempted, delivered, failed: Math.max(0, attempted - delivered) };
+  }
+
+  async function poll(roomId, options = {}) {
+    if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
+    const result = await post("/poll", { roomId }, options);
+    return Array.isArray(result.events) ? result.events : [];
+  }
+
+  async function ack(roomId, eventIds) {
+    if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
+    if (!Array.isArray(eventIds) || !eventIds.length || eventIds.length > 100 ||
+        eventIds.some(id => !Number.isSafeInteger(Number(id)) || Number(id) <= 0)) {
+      throw new TypeError("Invalid event IDs");
+    }
+    return post("/ack", { roomId, eventIds: [...new Set(eventIds.map(Number))] });
+  }
+
+  async function prepareCallRoom(logicalId, recipient, options = {}) {
+    validId(logicalId, "logical call ID");
+    if (typeof recipient !== "string" || !recipient || recipient.length > 80)
+      throw new TypeError("Invalid recipient");
+    const created = await createRoom([recipient]);
+    const roomId = created.roomId;
+    if (typeof roomId !== "string" || !roomId) throw new Error("Room creation returned no room ID");
+    try {
+      await bindRoom({ roomId, bindingType: "call", logicalId });
+      await waitForAcceptance(roomId, recipient, options);
+      return { roomId, logicalId, recipient };
+    } catch (error) {
+      try { await close(roomId); } catch {}
+      throw error;
+    }
+  }
+
+  async function leave(roomId) {
+    if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
+    return post("/room/leave", { roomId });
+  }
+
+  async function close(roomId) {
+    if (typeof roomId !== "string" || !roomId) throw new TypeError("Invalid room ID");
+    return post("/room/close", { roomId });
+  }
+
+  function stopPolling(roomId) {
+    const poller = activePolls.get(roomId);
+    if (!poller) return;
+    poller.cancelled = true;
+    if (poller.timer) clearTimeout(poller.timer);
+    if (poller.controller) poller.controller.abort();
+    activePolls.delete(roomId);
+  }
+
+  function stopAll() {
+    stopped = true;
+    for (const roomId of [...activePolls.keys()]) stopPolling(roomId);
+  }
+
+  function startPolling(roomId, onEvent, { signal, intervalMs = pollIntervalMs } = {}) {
+    assertEnabled();
+    if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
+    if (typeof onEvent !== "function") throw new TypeError("onEvent must be a function");
+    stopPolling(roomId);
+    const state = { cancelled: false, timer: null, controller: null, backoff: intervalMs, externalAbortHandler: null };
+    activePolls.set(roomId, state);
+    if (!seenByRoom.has(roomId)) seenByRoom.set(roomId, new Set());
+    const seen = seenByRoom.get(roomId);
+
+    const finish = () => {
+      state.cancelled = true;
+      if (state.timer) clearTimeout(state.timer);
+      if (state.controller) state.controller.abort();
+      if (signal && state.externalAbortHandler) signal.removeEventListener("abort", state.externalAbortHandler);
+      if (activePolls.get(roomId) === state) activePolls.delete(roomId);
+    };
+    if (signal) {
+      if (signal.aborted) { finish(); return finish; }
+      state.externalAbortHandler = finish;
+      signal.addEventListener("abort", state.externalAbortHandler, { once: true });
+    }
+
+    const schedule = delay => {
+      if (!state.cancelled && activePolls.get(roomId) === state) {
+        state.timer = setTimeout(run, Math.max(0, delay));
+      }
+    };
+
+    const run = async () => {
+      if (state.cancelled || activePolls.get(roomId) !== state) return;
+      state.controller = new AbortController();
+      try {
+        const events = await poll(roomId, { signal: state.controller.signal });
+        if (state.cancelled || activePolls.get(roomId) !== state) return;
+        const ackIds = [];
+        for (const event of events) {
+          if (state.cancelled || activePolls.get(roomId) !== state) return;
+          const id = Number(event && event.event_id);
+          if (!Number.isSafeInteger(id) || id <= 0 || seen.has(id)) {
+            if (Number.isSafeInteger(id) && id > 0) ackIds.push(id);
+            continue;
+          }
+          // Mark only after successful handling; failed handlers must be retried.
+          await onEvent(event);
+          if (state.cancelled || activePolls.get(roomId) !== state) return;
+          seen.add(id);
+          ackIds.push(id);
+        }
+        if (seen.size > 2000) {
+          const keep = [...seen].slice(-1000);
+          seen.clear();
+          keep.forEach(id => seen.add(id));
+        }
+        if (state.cancelled || activePolls.get(roomId) !== state) return;
+        if (ackIds.length) {
+          for (let i = 0; i < ackIds.length; i += 100) {
+            await ack(roomId, ackIds.slice(i, i + 100));
+          }
+        }
+        state.backoff = intervalMs;
+        schedule(intervalMs);
+      } catch (error) {
+        if (error && (error.name === "AbortError" || error.code === "SIGNALING_TRANSPORT_STOPPED")) {
+          finish();
+          return;
+        }
+        state.backoff = Math.min(maxBackoffMs, Math.max(intervalMs, state.backoff * 2));
+        schedule(state.backoff);
+      } finally {
+        state.controller = null;
+      }
+    };
+    run();
+    return finish;
+  }
+
+  return Object.freeze({
+    createRoom, bindRoom, resolveRoom, invite, requestInvite, invitations, roomStatus, roomMembers, waitForAcceptance, accept, decline,
+    sendSignal, sendToRoom, poll, ack, leave, close, prepareCallRoom, startPolling, stopPolling, stopAll,
+    get enabled() { return enabled; },
+    get activePollCount() { return activePolls.size; },
+    get now() { return now(); },
+  });
+}
+
+
 (function(){function install(){if(document.getElementById('upstatus-3-1-5-voice-visual-fixes'))return;var style=document.createElement('style');style.id='upstatus-3-1-5-voice-visual-fixes';style.textContent="#upstatus-team-lite-root .up-voice-person{position:relative!important;display:inline-flex!important;align-items:center!important;justify-content:flex-start!important;gap:7px!important;width:auto!important;height:auto!important;min-width:0!important;min-height:34px!important;max-width:100%!important;box-sizing:border-box!important;padding:4px 10px 4px 5px!important;border:1px solid #34445a!important;border-radius:999px!important;background:#1b2738!important;color:#e4edf8!important;overflow:visible!important;white-space:nowrap!important;flex:0 1 auto!important;font-size:10px!important;line-height:1.2!important;cursor:default!important;transition:border-color .18s,box-shadow .18s,background .18s!important}#upstatus-team-lite-root .up-voice-avatar{display:block!important;flex:0 0 30px!important;width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;border-radius:50%!important;object-fit:cover!important;border:1px solid #526783!important;box-sizing:border-box!important}#upstatus-team-lite-root .up-voice-person b{display:block!important;max-width:180px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:11px!important;font-weight:750!important;line-height:1.2!important}#upstatus-team-lite-root .up-voice-person.is-speaking{background:#183a65!important;border-color:#4f9bff!important;box-shadow:0 0 0 2px rgba(79,155,255,.16)!important;animation:upStatusVoiceChipSpeaking .8s ease-in-out infinite!important}#upstatus-team-lite-root .up-voice-person.is-muted{border-color:#ff596d!important;background:rgba(120,20,40,.12)!important;box-shadow:0 0 0 2px rgba(255,89,109,.2)!important}#upstatus-team-lite-root .up-voice-person .up-voice-status-muted{position:absolute!important;left:24px!important;top:-5px!important;transform:none!important;display:flex!important;align-items:center!important;justify-content:center!important;width:19px!important;height:19px!important;min-width:19px!important;min-height:19px!important;border:1px solid #ff9aa7!important;border-radius:50%!important;background:rgba(170,28,52,.98)!important;color:#fff!important;z-index:7!important;box-shadow:0 2px 8px #0008!important;pointer-events:none!important}#upstatus-team-lite-root .up-voice-person .up-voice-status-muted svg{width:12px!important;height:12px!important}@keyframes upStatusVoiceChipSpeaking{0%,100%{box-shadow:0 0 0 2px rgba(79,155,255,.13)}50%{box-shadow:0 0 0 3px rgba(79,155,255,.28),0 0 9px rgba(79,155,255,.24)}}#upstatus-team-lite-root.up-theme-light .up-voice-room{background:linear-gradient(135deg,#f7faff,#eaf2fc)!important;border-color:#c5d6ed!important;box-shadow:0 5px 15px rgba(38,68,112,.10)!important;color:#172033!important}#upstatus-team-lite-root.up-theme-light .up-voice-title{color:#172033!important}#upstatus-team-lite-root.up-theme-light .up-voice-title .up-icon{color:#334155!important}#upstatus-team-lite-root.up-theme-light .up-voice-state,#upstatus-team-lite-root.up-theme-light .up-voice-connection,#upstatus-team-lite-root.up-theme-light .up-voice-duration,#upstatus-team-lite-root.up-theme-light .up-voice-message,#upstatus-team-lite-root.up-theme-light .up-voice-empty{color:#52647c!important}#upstatus-team-lite-root.up-theme-light .up-voice-connection.is-connected{color:#07875a!important}#upstatus-team-lite-root.up-theme-light .up-voice-connection.is-connecting{color:#ad6700!important}#upstatus-team-lite-root.up-theme-light .up-voice-participants{color:#233047!important}#upstatus-team-lite-root.up-theme-light .up-voice-person{background:#fff!important;border-color:#c5d4e6!important;color:#233047!important;box-shadow:0 1px 2px rgba(20,40,70,.06)!important}#upstatus-team-lite-root.up-theme-light .up-voice-person.is-speaking{background:#e4f1ff!important;border-color:#3b82f6!important;box-shadow:0 0 0 2px rgba(59,130,246,.14)!important}#upstatus-team-lite-root.up-theme-light .up-voice-person.is-muted{background:#fff0f2!important;border-color:#e34b62!important}#upstatus-team-lite-root.up-theme-light .up-voice-avatar{border-color:#b8cce4!important}#upstatus-team-lite-root.up-theme-light .up-voice-actions button{background:#dbe6f4!important;border:1px solid #c5d4e6!important;color:#233047!important}#upstatus-team-lite-root.up-theme-light .up-voice-actions .up-voice-join{background:#18794e!important;border-color:#18794e!important;color:#fff!important}#upstatus-team-lite-root.up-theme-light .up-voice-actions .up-voice-mute.is-muted,#upstatus-team-lite-root.up-theme-light .up-voice-actions .up-voice-leave,#upstatus-team-lite-root.up-theme-light .up-voice-actions .up-screen-share-toggle.is-sharing{background:#b4233d!important;border-color:#e34b62!important;color:#fff!important}#upstatus-team-lite-root.up-theme-light .up-voice-actions button:hover{filter:brightness(.97)}#upstatus-team-lite-root.up-theme-light .up-screen-share-panel{background:rgba(255,255,255,.72)!important;border-color:#c5d6ed!important;border-radius:12px!important}#upstatus-team-lite-root.up-theme-light .up-screen-share-heading{color:#172033!important}#upstatus-team-lite-root.up-theme-light .up-screen-share-status,#upstatus-team-lite-root.up-theme-light .up-screen-share-message{color:#52647c!important}#upstatus-team-lite-root.up-theme-light .up-screen-share-grid{color:#233047!important}#upstatus-team-lite-root.up-theme-light .up-screen-share-tile{background:#fff!important;border-color:#c5d6ed!important;color:#233047!important;box-shadow:0 2px 8px rgba(20,40,70,.06)!important}#upstatus-team-lite-root.up-theme-light .up-screen-share-tile *{color:inherit}#upstatus-team-lite-root.up-theme-light .up-screen-share-tile video{background:#e2e8f0!important}#upstatus-team-lite-root.up-theme-light .up-voice-control-bubble{background:rgba(246,249,253,.97)!important;border-color:#c7d5e5!important;box-shadow:0 7px 20px rgba(25,40,60,.18)!important}#upstatus-team-lite-root.up-theme-light .up-voice-control-bubble>button:not(.up-voice-control-leave):not(.is-muted){background:#dbe6f4!important;color:#233047!important;border:1px solid #c5d4e6!important}#upstatus-team-lite-root.up-theme-light .up-voice-control-bubble>button.is-muted,#upstatus-team-lite-root.up-theme-light .up-voice-control-bubble>.up-voice-control-leave{background:#b4233d!important;border-color:#e34b62!important;color:#fff!important}";(document.head||document.documentElement).appendChild(style)}if(document.documentElement)install();else document.addEventListener('DOMContentLoaded',install,{once:true})})();
 (function(){function install(){if(document.getElementById('upstatus-beta9-3-visual-fixes'))return;var style=document.createElement('style');style.id='upstatus-beta9-3-visual-fixes';style.textContent='#upstatus-team-lite-root .up-voice-person{position:relative!important;border:2px solid #526783!important;border-radius:50%!important;box-shadow:0 0 0 2px rgba(82,103,131,.16)!important;overflow:visible!important;transition:border-color .18s,box-shadow .18s!important}#upstatus-team-lite-root .up-voice-person.is-speaking{border-color:#4ade80!important;box-shadow:0 0 0 3px rgba(74,222,128,.24),0 0 14px rgba(74,222,128,.55)!important;animation:upBeta92Speaking .85s ease-in-out infinite!important}#upstatus-root .up-voice-mic-muted{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;display:flex!important;align-items:center!important;justify-content:center!important;width:20px!important;height:20px!important;border:1px solid #ff9aa7!important;border-radius:50%!important;background:rgba(120,20,40,.96)!important;color:#fff!important;z-index:5!important;box-shadow:0 2px 8px #0008!important}#upstatus-root .up-voice-mic-muted svg{width:13px!important;height:13px!important}@keyframes upBeta92Speaking{0%,100%{box-shadow:0 0 0 2px rgba(74,222,128,.18),0 0 7px rgba(74,222,128,.25)}50%{box-shadow:0 0 0 4px rgba(74,222,128,.34),0 0 17px rgba(74,222,128,.6)}}';style.textContent+='#upstatus-team-lite-root .up-voice-person.is-muted{border-color:#ff596d!important;background:rgba(120,20,40,.12)!important;box-shadow:0 0 0 2px rgba(255,89,109,.2)!important}#upstatus-team-lite-root .up-voice-person .up-voice-status-muted{position:absolute!important;left:24px!important;top:-5px!important;transform:none!important;display:flex!important;align-items:center!important;justify-content:center!important;width:19px!important;height:19px!important;border:1px solid #ff9aa7!important;border-radius:50%!important;background:rgba(170,28,52,.98)!important;color:#fff!important;z-index:7!important;box-shadow:0 2px 8px #0008!important;pointer-events:none!important}#upstatus-team-lite-root .up-voice-person .up-voice-status-muted svg{width:12px!important;height:12px!important}#upstatus-team-lite-root .up-voice-actions .up-voice-speakers.is-muted{background:#a9243b!important;border-color:#e34b62!important;color:#fff!important}';style.textContent+='.up-voice-control-bubble{position:fixed!important;right:24px!important;bottom:24px!important;left:auto!important;top:auto!important;padding:5px 7px!important;display:flex!important;align-items:center!important;gap:6px!important}.up-voice-control-bubble>button:not(.up-voice-control-restore){position:relative;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 38px;border:1px solid #405673;border-radius:11px;background:#2b3d54;color:#e5edf8;cursor:pointer;transition:background .18s,border-color .18s}.up-voice-control-bubble>button.is-muted{background:#a9243b!important;border:1px solid #e34b62!important;color:#fff!important}.up-voice-control-bubble .up-voice-control-leave{background:#a9243b!important;border-color:#e34b62!important;color:#fff!important}.up-voice-control-bubble .up-voice-control-restore{position:absolute!important;left:-8px!important;top:-10px!important;width:25px!important;height:25px!important;min-width:25px!important;flex:0 0 25px!important;border-radius:50%!important;background:#17865b!important;border:2px solid #83e6ba!important;color:#fff!important;z-index:12!important;box-shadow:0 2px 8px #0009!important}.up-voice-control-bubble .up-voice-control-restore.hidden{display:none!important}.up-voice-control-bubble .up-voice-control-restore svg{width:13px!important;height:13px!important}#upstatus-team-lite-root.up-theme-light .up-voice-control-bubble>button:not(.up-voice-control-leave):not(.up-voice-control-restore):not(.is-muted){background:#dbe6f4;color:#233047}#upstatus-team-lite-root.up-theme-light .up-voice-control-bubble>button.is-muted{background:#a9243b!important;border-color:#e34b62!important;color:#fff!important}#upstatus-team-lite-root .up-quick-chat-bubble{z-index:2147483647!important}#upstatus-team-lite-root .up-voice-control-bubble{z-index:8!important}';(document.head||document.documentElement).appendChild(style)}if(document.documentElement)install();else document.addEventListener('DOMContentLoaded',install,{once:true})})();
 
@@ -40,7 +373,7 @@ var VOICE_ROOM_EVENT='voice_room_signal';
   // Dedicated video mesh for screen sharing. Do not reuse voiceRoom.stream or audio peers.
   var SCREEN_ROOM_EVENT='upstatus_screen_signal_3_1_1_beta8';
   var screenShare={stream:null,peers:{},active:false,starting:false,sessionId:'ss-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10),remoteVideos:{}};
-  function screenShareSend(type,to,data){if(!realtimeActive||!realtimeChannel||!member)return;try{realtimeChannel.send({type:'broadcast',event:SCREEN_ROOM_EVENT,payload:Object.assign({roomId:voiceRoom.id,type:type,from:member,to:to||'',active:screenShare.active,sessionId:screenShare.sessionId,at:Date.now()},data||{})});}catch(e){}}
+  function screenShareSend(type,to,data){var payload=Object.assign({roomId:voiceRoom.id,type:type,from:member,to:to||'',active:screenShare.active,sessionId:screenShare.sessionId,at:Date.now()},data||{});if(signalTransportFlag){if(!signalTransport||!signalVoiceRoomRoomId)return Promise.reject(new Error('Sinalização autenticada indisponível.'));return to?signalTransport.sendSignal({roomId:signalVoiceRoomRoomId,recipient:to,eventType:'screen_signal',payload:payload}):signalTransport.sendToRoom({roomId:signalVoiceRoomRoomId,eventType:'screen_signal',payload:payload,senderName:member});}if(!realtimeActive||!realtimeChannel||!member)return false;try{realtimeChannel.send({type:'broadcast',event:SCREEN_ROOM_EVENT,payload:payload});return true;}catch(e){return false;}}
   function screenShareMessage(message){var el=card&&card.querySelector('.up-screen-share-message');if(el)el.textContent=message||'';}
   function screenShareExpand(expanded){var room=card&&card.querySelector('.up-voice-room'),panel=room&&room.querySelector('.up-screen-share-panel');if(!panel)return;panel.setAttribute('aria-hidden',expanded?'false':'true');panel.style.maxHeight=expanded?'520px':'0px';panel.style.opacity=expanded?'1':'0';panel.style.marginTop=expanded?'10px':'0';panel.style.paddingTop=expanded?'10px':'0';panel.style.paddingBottom=expanded?'10px':'0';panel.style.borderTopWidth=expanded?'1px':'0';}
   function screenShareOpenViewer(tile,video){if(!tile||!video||document.querySelector('.up-screen-viewer-overlay'))return;var overlay=document.createElement('div');overlay.className='up-screen-viewer-overlay';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label','Visualização ampliada do compartilhamento');var stage=document.createElement('div');stage.className='up-screen-viewer-stage';var close=document.createElement('button');close.type='button';close.className='up-screen-viewer-close';close.setAttribute('aria-label','Fechar visualização');close.title='Fechar (Esc)';close.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m18 6-12 12M6 6l12 12"/></svg>';var previousFocus=document.activeElement;var parent=video.parentNode,next=video.nextSibling;stage.appendChild(video);stage.appendChild(close);overlay.appendChild(stage);function cleanup(){document.removeEventListener('keydown',onKey,true);if(overlay.parentNode)overlay.parentNode.removeChild(overlay);if(parent){if(next&&next.parentNode===parent)parent.insertBefore(video,next);else parent.appendChild(video);}try{if(previousFocus&&previousFocus.isConnected&&previousFocus.focus)previousFocus.focus({preventScroll:true});}catch(e){}}function onKey(e){if(e.key==='Escape'){e.preventDefault();cleanup();}}close.onclick=function(e){e.preventDefault();e.stopPropagation();cleanup();};overlay.addEventListener('click',function(e){if(e.target===overlay)cleanup();});document.addEventListener('keydown',onKey,true);document.body.appendChild(overlay);try{close.focus({preventScroll:true});}catch(e){}}
@@ -51,7 +384,7 @@ function screenShareRender(){var room=card&&card.querySelector('.up-voice-room')
   async function screenShareReceive(p){if(!p||p.roomId!==voiceRoom.id||typeof p.from!=='string'||!p.from||p.from.length>80||p.from===member||p.to&&p.to!==member)return;if((p.type==='offer'||p.type==='answer'||p.type==='ice')&&p.to!==member)return;if((p.type==='offer'||p.type==='answer')&&(!p.sdp||typeof p.sdp.sdp!=='string'||p.sdp.sdp.length>100000))return;if(p.type==='ice'&&(!p.candidate||JSON.stringify(p.candidate).length>4096))return;if(p.type==='presence'){if(p.active){screenShareSend('presence',p.from,{});if(screenShare.active)screenShareOffer(p.from).catch(function(){});}else{delete screenShare.remoteVideos[p.from];screenShareDrop(p.from);screenShareRender();}return;}if(p.type==='leave'){delete screenShare.remoteVideos[p.from];screenShareDrop(p.from);screenShareRender();return;}if(p.type==='offer'&&p.sdp){try{var existing=screenShare.peers[p.from];if(existing&&existing.pc&&['failed','closed'].indexOf(existing.pc.connectionState)>=0)screenShareDrop(p.from);var peer=await screenShareMakePeer(p.from);if(peer.pc.remoteDescription&&peer.pc.remoteDescription.sdp===p.sdp.sdp)return;await peer.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));while(peer.pending.length)await peer.pc.addIceCandidate(peer.pending.shift());var answer=await peer.pc.createAnswer();await peer.pc.setLocalDescription(answer);screenShareSend('answer',p.from,{sdp:peer.pc.localDescription});}catch(e){screenShareMessage('Falha ao negociar a tela com '+p.from+': '+(e.message||e));}return;}if(p.type==='answer'&&p.sdp){var a=screenShare.peers[p.from];if(a&&a.pc&&!a.pc.remoteDescription){try{await a.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));while(a.pending.length)await a.pc.addIceCandidate(a.pending.shift());}catch(e){screenShareMessage('Falha ao aceitar a tela de '+p.from+'.');}}return;}if(p.type==='ice'&&p.candidate){var ip=screenShare.peers[p.from];if(!ip){ip={pc:null,pending:[],stream:new MediaStream()};screenShare.peers[p.from]=ip;}var candidate=p.candidate instanceof RTCIceCandidate?p.candidate:new RTCIceCandidate(p.candidate);if(ip.pc&&ip.pc.remoteDescription){try{await ip.pc.addIceCandidate(candidate);}catch(e){}}else if(ip.pending.length<128)ip.pending.push(candidate);}}
   async function screenShareStart(){if(screenShare.active||screenShare.starting)return;screenShare.starting=true;screenShareRender();screenShareMessage('Selecione a tela ou janela que deseja compartilhar.');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getDisplayMedia)throw new Error('Este navegador não permite compartilhar a tela.');screenShare.stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:15,max:24}},audio:false});screenShare.active=true;screenShare.stream.getVideoTracks().forEach(function(track){track.onended=function(){screenShareStop(true);};});screenShareMessage('Compartilhamento ativo. Áudio do sistema desativado para evitar eco.');screenShareSend('presence','',{});Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member)screenShareOffer(n).catch(function(){});});}catch(e){screenShare.active=false;try{if(screenShare.stream)screenShare.stream.getTracks().forEach(function(t){t.stop();});}catch(_){}screenShare.stream=null;screenShareMessage(e&&e.name==='NotAllowedError'?'Compartilhamento cancelado.':'Não foi possível iniciar: '+(e.message||e));}finally{screenShare.starting=false;screenShareRender();}}
   function screenShareStop(sendSignal){var wasActive=screenShare.active||screenShare.starting;screenShare.active=false;screenShare.starting=false;if(sendSignal!==false&&wasActive)screenShareSend('leave','',{active:false});try{if(screenShare.stream)screenShare.stream.getTracks().forEach(function(t){t.onended=null;t.stop();});}catch(e){}screenShare.stream=null;Object.keys(screenShare.peers).forEach(screenShareDrop);Object.keys(screenShare.remoteVideos).forEach(function(n){delete screenShare.remoteVideos[n];});var room=card&&card.querySelector('.up-voice-room');if(room){var grid=room.querySelector('.up-screen-share-grid');if(grid)grid.replaceChildren();}screenShareMessage('');screenShareRender();}
-function voiceRoomSend(type,to,data){if(!realtimeActive||!realtimeChannel||!member)return;try{var payload=Object.assign({roomId:voiceRoom.id,type:type,from:member,to:to||'',active:voiceRoom.active,muted:voiceRoom.muted,speakersMuted:!!voiceRoom.speakersMuted,version:CURRENT_VERSION,sessionId:voiceRoom.sessionId,at:Date.now(),sessionStartedAt:voiceRoom.sessionStartedAt||0},data||{});realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:payload});if(voiceRoom.id==='upstatus-team-room-v1')realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:Object.assign({},payload,{roomId:'upstatus-team-lite-room-v1'})});}catch(e){}}
+function voiceRoomSend(type,to,data){var payload=Object.assign({roomId:voiceRoom.id,type:type,from:member,to:to||'',active:voiceRoom.active,muted:voiceRoom.muted,speakersMuted:!!voiceRoom.speakersMuted,version:CURRENT_VERSION,sessionId:voiceRoom.sessionId,at:Date.now(),sessionStartedAt:voiceRoom.sessionStartedAt||0},data||{});if(signalTransportFlag){if(!signalTransport||!signalVoiceRoomRoomId)return Promise.reject(new Error('Sinalização autenticada indisponível.'));return to?signalTransport.sendSignal({roomId:signalVoiceRoomRoomId,recipient:to,eventType:'voice_room_signal',payload:payload}):signalTransport.sendToRoom({roomId:signalVoiceRoomRoomId,eventType:'voice_room_signal',payload:payload,senderName:member});}if(!realtimeActive||!realtimeChannel||!member)return false;try{realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:payload});if(voiceRoom.id==='upstatus-team-room-v1')realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:Object.assign({},payload,{roomId:'upstatus-team-lite-room-v1'})});return true;}catch(e){return false;}}
 function voiceRoomMessage(t){var e=card&&card.querySelector('.up-voice-message');if(e)e.textContent=t||'';}
 function voiceRoomPlayCue(kind){try{var AC=window.AudioContext||window.webkitAudioContext;if(!voiceRoom.audioContext&&AC)voiceRoom.audioContext=new AC();var ctx=voiceRoom.audioContext;if(!ctx)return;if(ctx.state==='suspended')ctx.resume().catch(function(){});var notes=kind==='leave'?[620,500,360]:[480,760];var start=ctx.currentTime+.015;notes.forEach(function(freq,i){var osc=ctx.createOscillator(),gain=ctx.createGain(),at=start+i*(kind==='leave'?.105:.09),dur=kind==='leave'?.095:.115;osc.type='sine';osc.frequency.setValueAtTime(freq,at);gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(.065,at+.012);gain.gain.exponentialRampToValueAtTime(.0001,at+dur);osc.connect(gain);gain.connect(ctx.destination);osc.start(at);osc.stop(at+dur+.01);});}catch(e){}}
 async function voiceRoomMeasurePing(){if(!voiceRoom.active)return;var values=[];await Promise.all(Object.keys(voiceRoom.peers).map(async function(n){var p=voiceRoom.peers[n];if(!p||!p.pc||p.pc.connectionState==='closed')return;try{var stats=await p.pc.getStats();stats.forEach(function(st){if(st.type==='candidate-pair'&&(st.selected||st.nominated)&&typeof st.currentRoundTripTime==='number')values.push(st.currentRoundTripTime*1000);});}catch(e){}}));if(!voiceRoom.active)return;var next=values.length?Math.min.apply(Math,values):null;if(voiceRoom.pingMs===null&&next===null)return;if(next===null||voiceRoom.pingMs===null||Math.abs(next-voiceRoom.pingMs)>3){voiceRoom.pingMs=next;voiceRoomRender();}}
@@ -109,7 +442,7 @@ function voiceRoomScheduleRecovery(n,peer,state){if(!voiceRoom.active||!peer||vo
 async function voiceRoomMakePeer(n){var p=voiceRoom.peers[n];if(p&&p.pc&&p.pc.signalingState!=='closed')return p;if(!voiceRoom.stream)throw new Error('Microfone não iniciado');p=p||{pc:null,pending:[],audio:null,analyser:null,audioSource:null,remoteStream:null};p.pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]});p.pending=p.pending||[];p.remoteStream=p.remoteStream||new MediaStream();voiceRoom.peers[n]=p;voiceRoom.stream.getAudioTracks().forEach(function(t){if(t.readyState==='live')p.pc.addTrack(t,voiceRoom.stream);});p.pc.onicecandidate=function(e){if(e.candidate&&voiceRoom.active)voiceRoomSend('ice',n,{candidate:e.candidate});};p.pc.onconnectionstatechange=function(){if(!p.pc||voiceRoom.peers[n]!==p)return;var state=p.pc.connectionState;if(state==='failed'||state==='disconnected')voiceRoomScheduleRecovery(n,p,state);};p.pc.oniceconnectionstatechange=function(){if(!p.pc||voiceRoom.peers[n]!==p)return;var state=p.pc.iceConnectionState;if(state==='failed'||state==='disconnected')voiceRoomScheduleRecovery(n,p,state);};p.pc.ontrack=function(e){try{var track=e.track;if(!track)return;if(!p.remoteStream.getTracks().some(function(t){return t.id===track.id;}))p.remoteStream.addTrack(track);if(!p.audio){p.audio=document.createElement('audio');p.audio.autoplay=true;p.audio.playsInline=true;p.audio.setAttribute('playsinline','');p.audio.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-100px;bottom:0';document.body.appendChild(p.audio);}if(p.audio.srcObject!==p.remoteStream)p.audio.srcObject=p.remoteStream;p.audio.muted=!!voiceRoom.speakersMuted;p.audio.volume=1;var playRemote=function(){if(!voiceRoom.active||!p.audio)return;if(voiceRoom.audioContext&&voiceRoom.audioContext.state==='suspended')voiceRoom.audioContext.resume().catch(function(){});var play=p.audio.play();if(play&&play.catch)play.catch(function(){voiceRoomMessage('O navegador bloqueou a reprodução do áudio. Clique uma vez na sala para liberar o som.');});};track.onunmute=playRemote;track.onended=function(){try{p.remoteStream.removeTrack(track);}catch(e){}};if(voiceRoom.audioContext&&!p.analyser){p.audioSource=voiceRoom.audioContext.createMediaStreamSource(p.remoteStream);p.analyser=voiceRoom.audioContext.createAnalyser();p.analyser.fftSize=512;p.audioSource.connect(p.analyser);p.levelData=new Uint8Array(p.analyser.frequencyBinCount);}playRemote();}catch(err){voiceRoomMessage('Erro ao preparar o áudio de '+n+': '+(err.message||err));}};return p;}
 async function voiceRoomOffer(n){if(!voiceRoom.active||String(member).localeCompare(String(n),'pt-BR')>=0)return;var p=await voiceRoomMakePeer(n);if(p.pc.signalingState!=='stable'||p.pc.localDescription)return;var offer=await p.pc.createOffer();await p.pc.setLocalDescription(offer);voiceRoomSend('offer',n,{sdp:p.pc.localDescription});}
 async function voiceRoomReceive(p){if(!p||(p.roomId!==voiceRoom.id&&p.roomId!=='upstatus-team-lite-room-v1')||typeof p.from!=='string'||!p.from||p.from.length>80||p.from===member||p.to&&p.to!==member)return;if((p.type==='offer'||p.type==='answer'||p.type==='ice')&&p.to!==member)return;if((p.type==='offer'||p.type==='answer')&&(!p.sdp||typeof p.sdp.sdp!=='string'||p.sdp.sdp.length>100000))return;if(p.type==='ice'&&(!p.candidate||JSON.stringify(p.candidate).length>4096))return;var signalKey=[p.from,p.to||'',p.type||'',p.sessionId||'',p.at||'',p.sdp&&p.sdp.type||'',p.candidate&&p.candidate.candidate||''].join('|');voiceRoom.seenSignals=voiceRoom.seenSignals||{};if(voiceRoom.seenSignals[signalKey])return;voiceRoom.seenSignals[signalKey]=Date.now();var seenSignalKeys=Object.keys(voiceRoom.seenSignals);if(seenSignalKeys.length>300)seenSignalKeys.slice(0,seenSignalKeys.length-200).forEach(function(k){delete voiceRoom.seenSignals[k];});if(p.type==='presence'){if(p.active){if(!voiceRoomApplyParticipantSignal(p))return;voiceRoomRender();if(!p.to)voiceRoomSend('presence',p.from,{});if(voiceRoom.active&&String(member).localeCompare(String(p.from),'pt-BR')<0)voiceRoomOffer(p.from).catch(function(e){voiceRoomMessage('Não foi possível iniciar áudio com '+p.from+': '+(e.message||e));});if(voiceRoom.active&&screenShare.active)screenShareOffer(p.from).catch(function(){});}else voiceRoomRemoveParticipantSignal(p);return;}if(p.type==='join'){if(p.active){if(!voiceRoomApplyParticipantSignal(p))return;if(voiceRoom.active)voiceRoomPlayCue('join');voiceRoomRender();if(voiceRoom.active&&screenShare.active)screenShareOffer(p.from).catch(function(){});}return;}if(p.type==='leave'){if(voiceRoom.active)voiceRoomPlayCue('leave');voiceRoomRemoveParticipantSignal(p);return;}if(!voiceRoom.active)return;if(p.type==='offer'&&p.sdp&&String(member).localeCompare(String(p.from),'pt-BR')>0){try{var existing=voiceRoom.peers[p.from];if(existing&&existing.pc&&(existing.pc.connectionState==='failed'||existing.pc.connectionState==='closed'||existing.pc.iceConnectionState==='failed'))voiceRoomDrop(p.from);var peer=await voiceRoomMakePeer(p.from);if(peer.pc.remoteDescription&&peer.pc.remoteDescription.sdp===p.sdp.sdp)return;await peer.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));await voiceRoomFlushCandidates(peer);var answer=await peer.pc.createAnswer();await peer.pc.setLocalDescription(answer);voiceRoomSend('answer',p.from,{sdp:peer.pc.localDescription});}catch(e){voiceRoomMessage('Falha ao negociar áudio com '+p.from+': '+(e.message||e));}return;}if(p.type==='answer'&&p.sdp){var ap=voiceRoom.peers[p.from];if(ap&&ap.pc&&!ap.pc.remoteDescription){try{await ap.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));await voiceRoomFlushCandidates(ap);}catch(e){voiceRoomMessage('Falha ao aceitar áudio de '+p.from+': '+(e.message||e));}}return;}if(p.type==='ice'&&p.candidate){var ip=voiceRoom.peers[p.from];if(!ip){ip={pc:null,pending:[],audio:null,analyser:null,audioSource:null,remoteStream:null};voiceRoom.peers[p.from]=ip;}var incomingCandidate=p.candidate instanceof RTCIceCandidate?p.candidate:new RTCIceCandidate(p.candidate);if(ip.pc&&ip.pc.remoteDescription){if(voiceRoomCandidateMatchesRemote(incomingCandidate,ip.pc)){try{await ip.pc.addIceCandidate(incomingCandidate);}catch(e){if(!/ufrag/i.test(String(e&&e.message||e)))voiceRoomMessage('Falha ao configurar áudio de '+p.from+': '+(e.message||e));}}}else if(ip.pending.length<128)ip.pending.push(incomingCandidate);}}
-async function voiceRoomJoin(){if(voiceRoom.active||voiceRoom.joining)return;if(!realtimeActive||!realtimeChannel){voiceRoomMessage('A conexão da sala ainda está sendo preparada. Tente novamente em alguns segundos.');return;}voiceRoom.joining=true;voiceRoom.pingMs=null;voiceRoomRender();voiceRoomMessage('');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Este navegador não disponibiliza acesso ao microfone.');voiceRoom.stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:false,autoGainControl:false}});var roomHadParticipants=Object.keys(voiceRoom.participants).some(function(n){return Date.now()-voiceRoom.participants[n].at<16000;});if(!roomHadParticipants)voiceRoom.sessionStartedAt=Date.now();voiceRoom.muted=false;voiceRoom.active=true;voiceRoom.participants[member]={at:Date.now(),muted:false,speaking:false,sessionStartedAt:voiceRoom.sessionStartedAt};voiceRoomPlayCue('join');voiceRoomSend('join','',{});voiceRoomSend('presence','',{});if(!voiceRoom.audioContext){var AC=window.AudioContext||window.webkitAudioContext;if(AC)voiceRoom.audioContext=new AC();}if(voiceRoom.audioContext&&voiceRoom.audioContext.state==='suspended')await voiceRoom.audioContext.resume();if(voiceRoom.audioContext){voiceRoom.localAnalyser=voiceRoom.audioContext.createAnalyser();voiceRoom.localAnalyser.fftSize=512;voiceRoom.localLevelData=new Uint8Array(voiceRoom.localAnalyser.frequencyBinCount);voiceRoom.audioContext.createMediaStreamSource(voiceRoom.stream).connect(voiceRoom.localAnalyser);}voiceRoom.levelTimer=setInterval(function(){var changed=false;Object.keys(voiceRoom.participants).forEach(function(n){var x=voiceRoom.participants[n];if(!x)return;var analyser=n===member?voiceRoom.localAnalyser:(voiceRoom.peers[n]&&voiceRoom.peers[n].analyser),data=n===member?voiceRoom.localLevelData:(voiceRoom.peers[n]&&voiceRoom.peers[n].levelData);if(x.muted||!analyser||!data){if(x.speaking){x.speaking=false;changed=true;}return;}analyser.getByteFrequencyData(data);var sum=0;for(var i=0;i<data.length;i++)sum+=data[i];var level=sum/data.length;x.level=level;var speaking=level>8;if(speaking)voiceRoom.lastSpeaker=n;if(x.speaking!==speaking){x.speaking=speaking;changed=true;}});if(changed)voiceRoomRender();else if(voiceControlWave&&voiceRoom.currentSpeaker){var liveLevel=Number((voiceRoom.participants[voiceRoom.currentSpeaker]||{}).level||0),liveSpeaking=!!(voiceRoom.participants[voiceRoom.currentSpeaker]&&voiceRoom.participants[voiceRoom.currentSpeaker].speaking&&!voiceRoom.participants[voiceRoom.currentSpeaker].muted),normalized=Math.max(0,Math.min(1,liveLevel/32));voiceControlWave.style.opacity=String((liveSpeaking?0.22:0.13)+normalized*(liveSpeaking?0.68:0.07));voiceControlWave.style.setProperty('--voice-level',String(normalized));}},160);voiceRoom.timer=setInterval(function(){voiceRoomSend('presence','',{});Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member&&Date.now()-voiceRoom.participants[n].at>30000){delete voiceRoom.participants[n];voiceRoomDrop(n);}});voiceRoomRender();},4000);if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);voiceRoom.pingTimer=setInterval(function(){voiceRoomMeasurePing();},2500);voiceRoomMeasurePing();voiceRoomMessage('');Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member)voiceRoomOffer(n).catch(function(e){voiceRoomMessage('Não foi possível conectar com '+n+': '+(e.message||e));});});}catch(e){try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(_){}voiceRoom.stream=null;voiceRoom.active=false;delete voiceRoom.participants[member];voiceRoomMessage((e&&e.name==='NotAllowedError'?'Permita o acesso ao microfone nas configurações do navegador. ':e&&e.name==='NotFoundError'?'Nenhum microfone foi encontrado. ':'Falha ao entrar na sala: ')+(e.message||'erro desconhecido'));}finally{voiceRoom.joining=false;voiceRoomRender();}}
+async function voiceRoomJoin(){if(voiceRoom.active||voiceRoom.joining)return;if(signalTransportFlag&&!signalVoiceRoomPrepared){voiceRoom.joining=true;voiceRoomRender();voiceRoomMessage('');try{initSignalingTransport();await signalPrepareVoiceRoom();voiceRoom.joining=false;signalVoiceRoomPrepared=true;await voiceRoomJoin();signalVoiceRoomPrepared=false;return;}catch(e){voiceRoom.joining=false;signalVoiceRoomPrepared=false;voiceRoomMessage(e.message||'Não foi possível preparar a sala autenticada.');voiceRoomRender();return;}}if((!realtimeActive||!realtimeChannel)&&!(signalTransport&&signalTransportFlag)){voiceRoomMessage('A conexão da sala ainda está sendo preparada. Tente novamente em alguns segundos.');return;}voiceRoom.joining=true;voiceRoom.pingMs=null;voiceRoomRender();voiceRoomMessage('');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Este navegador não disponibiliza acesso ao microfone.');voiceRoom.stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:false,autoGainControl:false}});var roomHadParticipants=Object.keys(voiceRoom.participants).some(function(n){return Date.now()-voiceRoom.participants[n].at<16000;});if(!roomHadParticipants)voiceRoom.sessionStartedAt=Date.now();voiceRoom.muted=false;voiceRoom.active=true;voiceRoom.participants[member]={at:Date.now(),muted:false,speaking:false,sessionStartedAt:voiceRoom.sessionStartedAt};voiceRoomPlayCue('join');voiceRoomSend('join','',{});voiceRoomSend('presence','',{});if(!voiceRoom.audioContext){var AC=window.AudioContext||window.webkitAudioContext;if(AC)voiceRoom.audioContext=new AC();}if(voiceRoom.audioContext&&voiceRoom.audioContext.state==='suspended')await voiceRoom.audioContext.resume();if(voiceRoom.audioContext){voiceRoom.localAnalyser=voiceRoom.audioContext.createAnalyser();voiceRoom.localAnalyser.fftSize=512;voiceRoom.localLevelData=new Uint8Array(voiceRoom.localAnalyser.frequencyBinCount);voiceRoom.audioContext.createMediaStreamSource(voiceRoom.stream).connect(voiceRoom.localAnalyser);}voiceRoom.levelTimer=setInterval(function(){var changed=false;Object.keys(voiceRoom.participants).forEach(function(n){var x=voiceRoom.participants[n];if(!x)return;var analyser=n===member?voiceRoom.localAnalyser:(voiceRoom.peers[n]&&voiceRoom.peers[n].analyser),data=n===member?voiceRoom.localLevelData:(voiceRoom.peers[n]&&voiceRoom.peers[n].levelData);if(x.muted||!analyser||!data){if(x.speaking){x.speaking=false;changed=true;}return;}analyser.getByteFrequencyData(data);var sum=0;for(var i=0;i<data.length;i++)sum+=data[i];var level=sum/data.length;x.level=level;var speaking=level>8;if(speaking)voiceRoom.lastSpeaker=n;if(x.speaking!==speaking){x.speaking=speaking;changed=true;}});if(changed)voiceRoomRender();else if(voiceControlWave&&voiceRoom.currentSpeaker){var liveLevel=Number((voiceRoom.participants[voiceRoom.currentSpeaker]||{}).level||0),liveSpeaking=!!(voiceRoom.participants[voiceRoom.currentSpeaker]&&voiceRoom.participants[voiceRoom.currentSpeaker].speaking&&!voiceRoom.participants[voiceRoom.currentSpeaker].muted),normalized=Math.max(0,Math.min(1,liveLevel/32));voiceControlWave.style.opacity=String((liveSpeaking?0.22:0.13)+normalized*(liveSpeaking?0.68:0.07));voiceControlWave.style.setProperty('--voice-level',String(normalized));}},160);voiceRoom.timer=setInterval(function(){voiceRoomSend('presence','',{});Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member&&Date.now()-voiceRoom.participants[n].at>30000){delete voiceRoom.participants[n];voiceRoomDrop(n);}});voiceRoomRender();},4000);if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);voiceRoom.pingTimer=setInterval(function(){voiceRoomMeasurePing();},2500);voiceRoomMeasurePing();voiceRoomMessage('');Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member)voiceRoomOffer(n).catch(function(e){voiceRoomMessage('Não foi possível conectar com '+n+': '+(e.message||e));});});}catch(e){try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(_){}voiceRoom.stream=null;voiceRoom.active=false;delete voiceRoom.participants[member];voiceRoomMessage((e&&e.name==='NotAllowedError'?'Permita o acesso ao microfone nas configurações do navegador. ':e&&e.name==='NotFoundError'?'Nenhum microfone foi encontrado. ':'Falha ao entrar na sala: ')+(e.message||'erro desconhecido'));}finally{voiceRoom.joining=false;voiceRoomRender();}}
 function voiceRoomToggleSpeakers(){if(!voiceRoom.active)return;voiceRoom.speakersMuted=!voiceRoom.speakersMuted;voiceRoom.muted=voiceRoom.speakersMuted;if(voiceRoom.stream)voiceRoom.stream.getAudioTracks().forEach(function(t){t.enabled=!voiceRoom.muted;});if(voiceRoom.participants[member]){voiceRoom.participants[member].muted=voiceRoom.muted;if(voiceRoom.muted)voiceRoom.participants[member].speaking=false;}Object.keys(voiceRoom.peers).forEach(function(n){var p=voiceRoom.peers[n];if(p&&p.audio)p.audio.muted=voiceRoom.speakersMuted;});voiceRoomSend('presence','',{});voiceRoomRender();}
 function voiceRoomMute(){if(!voiceRoom.active||!voiceRoom.stream)return;voiceRoom.muted=!voiceRoom.muted;voiceRoom.stream.getAudioTracks().forEach(function(t){t.enabled=!voiceRoom.muted;});if(voiceRoom.participants[member]){voiceRoom.participants[member].muted=voiceRoom.muted;if(voiceRoom.muted)voiceRoom.participants[member].speaking=false;}voiceRoomSend('presence','',{});voiceRoomRender();}
 function voiceRoomLeave(){screenShareStop(true);var wasActive=voiceRoom.active;voiceRoom.active=false;voiceRoom.joining=false;Object.keys(voiceRoom.recoveryTimers||{}).forEach(function(n){clearTimeout(voiceRoom.recoveryTimers[n]);});voiceRoom.recoveryTimers={};voiceRoom.recoveryAttempts={};if(wasActive){voiceRoomPlayCue('leave');voiceRoomSend('leave','',{active:false});}if(voiceRoom.timer)clearInterval(voiceRoom.timer);if(voiceRoom.levelTimer)clearInterval(voiceRoom.levelTimer);if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);voiceRoom.timer=null;voiceRoom.levelTimer=null;voiceRoom.pingTimer=null;voiceRoom.pingMs=null;Object.keys(voiceRoom.peers).forEach(function(n){voiceRoomDrop(n);});try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}voiceRoom.stream=null;voiceRoom.muted=false;delete voiceRoom.participants[member];voiceRoomRender();voiceRoomMessage('')}
@@ -179,6 +512,70 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   GM_setValue(key+'server',CLOUD_SERVER);
   var token=GM_getValue(key+'token','');
   var member=GM_getValue(key+'member','');
+  // Candidate-only authenticated transport for voice rooms and screen sharing.
+  // Disabled unless explicitly configured in Tampermonkey; legacy calls remain unchanged.
+  var signalTransportFlag=GM_getValue(key+'signaling_transport_enabled',false)===true;
+  var signalTransportEndpoint=String(GM_getValue(key+'signaling_transport_endpoint','')||'').trim();
+  var signalTransport=null,signalVoiceRoomRoomId='',signalVoiceRoomCreator=false,signalVoiceRoomPrepared=false;
+  var signalPollStops=Object.create(null),signalRosterCache=Object.create(null);
+  function signalTransportRequest(route,payload,options){
+    return new Promise(function(resolve,reject){
+      var signal=options&&options.signal,handle=null,settled=false,abortHandler=null;
+      function finish(fn,value){if(settled)return;settled=true;if(signal&&abortHandler)signal.removeEventListener('abort',abortHandler);fn(value);}
+      if(signal&&signal.aborted){var e=new Error('Signaling request aborted');e.name='AbortError';reject(e);return;}
+      try{
+        handle=GM_xmlhttpRequest({method:'POST',url:signalTransportEndpoint.replace(/\\/$/, '')+route,
+          headers:{'Content-Type':'application/json','X-UpStatus-Token':token,'Cache-Control':'no-store'},
+          data:JSON.stringify(payload||{}),timeout:12000,
+          onload:function(r){var body={};try{body=JSON.parse(r.responseText||'{}')}catch(e){body={error:'Invalid signaling response'}}finish(resolve,{status:Number(r.status)||0,body:body});},
+          onerror:function(){finish(reject,new Error('Signaling network request failed'));},
+          ontimeout:function(){finish(reject,new Error('Signaling request timed out'));},
+          onabort:function(){var e=new Error('Signaling request aborted');e.name='AbortError';finish(reject,e);}});
+        if(signal){abortHandler=function(){try{if(handle&&handle.abort)handle.abort();else{var e=new Error('Signaling request aborted');e.name='AbortError';finish(reject,e);}}catch(e){finish(reject,e);}};signal.addEventListener('abort',abortHandler,{once:true});if(signal.aborted)abortHandler();}
+      }catch(e){finish(reject,e);}
+    });
+  }
+  function initSignalingTransport(){
+    if(!signalTransportFlag||signalTransport||!token||!signalTransportEndpoint)return;
+    try{var endpoint=new URL(signalTransportEndpoint),sessionServer=new URL(server);
+      if(endpoint.protocol!=='https:'||endpoint.origin!==sessionServer.origin||endpoint.search||endpoint.hash||! /\\/functions\\/v1\\/upstatus-signal(?:-test)?$/.test(endpoint.pathname))return;
+      signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});
+    }catch(e){signalTransport=null;}
+  }
+  function signalStartCallPolling(roomId){
+    if(!signalTransport||!roomId||signalPollStops[roomId])return;
+    signalPollStops[roomId]=signalTransport.startPolling(roomId,async function(event){
+      if(!event||!event.payload)return;
+      if(event.event_type==='voice_room_signal')await voiceRoomReceive(Object.assign({},event.payload,{from:event.sender,to:member,roomId:voiceRoom.id}));
+      else if(event.event_type==='screen_signal')await screenShareReceive(Object.assign({},event.payload,{from:event.sender,to:member,roomId:voiceRoom.id}));
+    });
+  }
+  function signalStopCallPolling(roomId){var stop=signalPollStops[roomId];if(stop){try{stop();}catch(e){}delete signalPollStops[roomId];}}
+  async function signalPrepareVoiceRoom(){
+    if(!signalTransport||!signalTransportFlag)throw new Error('A conexão autenticada da sala não está disponível.');
+    var roomId='';
+    try{var resolved=await signalTransport.resolveRoom({bindingType:'voice',logicalId:voiceRoom.id});roomId=resolved.roomId;}catch(e){}
+    if(!roomId){
+      var invitations=await signalTransport.invitations();
+      var invitation=invitations.find(function(item){return (item.bindings||[]).some(function(binding){return binding.bindingType==='voice'&&binding.logicalId===voiceRoom.id;});});
+      if(invitation){roomId=invitation.roomId;await signalTransport.accept(roomId);signalVoiceRoomCreator=false;}
+    }
+    if(!roomId){
+      var roster=await api('GET','/api/members');
+      var names=[...new Set((roster.members||[]).map(function(item){return item&&item.name;}).filter(function(name){return typeof name==='string'&&name&&name!==member;}))];
+      if(names.length>31)throw new Error('A sala possui muitos membros para o convite automático.');
+      var created=await signalTransport.createRoom(names);roomId=created.roomId;signalVoiceRoomCreator=true;
+      try{
+        await signalTransport.bindRoom({roomId:roomId,bindingType:'voice',logicalId:voiceRoom.id});
+        await signalTransport.bindRoom({roomId:roomId,bindingType:'screen',logicalId:voiceRoom.id});
+        var alias=voiceRoom.id==='upstatus-team-room-v1'?'upstatus-team-lite-room-v1':'upstatus-team-room-v1';
+        await signalTransport.bindRoom({roomId:roomId,bindingType:'voice',logicalId:alias});
+        await signalTransport.bindRoom({roomId:roomId,bindingType:'screen',logicalId:alias});
+      }catch(e){try{await signalTransport.close(roomId);}catch(_){}signalVoiceRoomCreator=false;throw e;}
+    }
+    signalVoiceRoomRoomId=roomId;signalStartCallPolling(roomId);
+  }
+
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
   var authenticated=false,authGeneration=0;
@@ -2271,6 +2668,7 @@ function renderChatText(text){
     },wait);
   }
   function startRealtime(){
+    initSignalingTransport();
     if(!isAuthenticated()||realtimeClient||typeof supabase==='undefined'||!supabase.createClient)return;
     var realtimeGeneration=authGeneration,realtimeMember=member;
     try{
@@ -2313,6 +2711,7 @@ function renderChatText(text){
     try{realtimeChannel.send({type:'broadcast',event:'chat_presence',payload:{name:member,open:!!open}});}catch(e){}
   }
   function stopRealtime(){
+    if(signalTransport){signalTransport.stopAll();signalTransport=null;}Object.keys(signalPollStops).forEach(signalStopCallPolling);signalVoiceRoomRoomId='';signalVoiceRoomPrepared=false;signalVoiceRoomCreator=false;
     realtimeActive=false;
     if(remotePollHintTimer){clearTimeout(remotePollHintTimer);remotePollHintTimer=null;}
     if(realtimeStatusRefreshTimer){clearTimeout(realtimeStatusRefreshTimer);realtimeStatusRefreshTimer=null;}
