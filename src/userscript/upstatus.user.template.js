@@ -78,12 +78,12 @@ var VOICE_ROOM_EVENT='voice_room_signal';
   function screenShareSend(type,to,data){
     if(!member)return;
     var payload=Object.assign({roomId:voiceRoom.id,type:type,from:member,to:to||'',active:screenShare.active,sessionId:screenShare.sessionId,at:Date.now()},data||{});
-    if(signalTransport&&signalTransportFlag&&signalVoiceRoomRoomId){
-      var send=to?signalTransport.sendSignal({roomId:signalVoiceRoomRoomId,recipient:to,eventType:'screen_signal',payload:payload}):
-        signalTransport.sendToRoom({roomId:signalVoiceRoomRoomId,eventType:'screen_signal',payload:payload,senderName:member});
-      send.catch(function(){});return send;
+    if(signalTransportFlag){
+      if(!signalTransport||!signalVoiceRoomRoomId){screenShareMessage('Sinalização autenticada indisponível.');return false;}
+      return (to?signalTransport.sendSignal({roomId:signalVoiceRoomRoomId,recipient:to,eventType:'screen_signal',payload:payload}):
+        signalTransport.sendToRoom({roomId:signalVoiceRoomRoomId,eventType:'screen_signal',payload:payload,senderName:member})).catch(function(e){screenShareMessage(e.message||'Falha na sinalização autenticada.');return false;});
     }
-    if(!realtimeActive||!realtimeChannel)return;
+    if(!realtimeActive||!realtimeChannel||!member)return false;
     try{realtimeChannel.send({type:'broadcast',event:SCREEN_ROOM_EVENT,payload:payload});}catch(e){}
   }
   function screenShareMessage(message){var el=card&&card.querySelector('.up-screen-share-message');if(el)el.textContent=message||'';}
@@ -99,12 +99,13 @@ function screenShareRender(){var room=card&&card.querySelector('.up-voice-room')
 function voiceRoomSend(type,to,data){
   if(!member)return;
   var payload=Object.assign({roomId:voiceRoom.id,type:type,from:member,to:to||'',active:voiceRoom.active,muted:voiceRoom.muted,speakersMuted:!!voiceRoom.speakersMuted,version:CURRENT_VERSION,sessionId:voiceRoom.sessionId,at:Date.now(),sessionStartedAt:voiceRoom.sessionStartedAt||0},data||{});
-  if(signalTransport&&signalTransportFlag&&signalVoiceRoomRoomId){
+  if(signalTransportFlag){
+    if(!signalTransport||!signalVoiceRoomRoomId){voiceRoomMessage('Sinalização autenticada indisponível.');return false;}
     var send=to?signalTransport.sendSignal({roomId:signalVoiceRoomRoomId,recipient:to,eventType:'voice_room_signal',payload:payload}):
       signalTransport.sendToRoom({roomId:signalVoiceRoomRoomId,eventType:'voice_room_signal',payload:payload,senderName:member});
-    send.catch(function(){});return send;
+    return Promise.resolve(send).catch(function(e){voiceRoomMessage(e.message||'Falha na sinalização autenticada.');return false;});
   }
-  if(!realtimeActive||!realtimeChannel)return;
+  if(!realtimeActive||!realtimeChannel)return false;
   try{realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:payload});if(voiceRoom.id==='upstatus-team-room-v1')realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:Object.assign({},payload,{roomId:'upstatus-team-lite-room-v1'})});}catch(e){}
 }
 function voiceRoomMessage(t){var e=card&&card.querySelector('.up-voice-message');if(e)e.textContent=t||'';}
@@ -200,7 +201,8 @@ async function signalPrepareVoiceRoom(){
 }
 async function voiceRoomJoin(){
 if(voiceRoom.active||voiceRoom.joining)return;
-if(signalTransport&&signalTransportFlag&&!signalVoiceRoomPrepared){
+if(signalTransportFlag&&!signalTransport){voiceRoomMessage('A sinalização autenticada não está configurada.');return;}
+if(signalTransportFlag&&!signalVoiceRoomPrepared){
   voiceRoom.joining=true;voiceRoomRender();voiceRoomMessage('');
   try{await signalPrepareVoiceRoom();voiceRoom.joining=false;signalVoiceRoomPrepared=true;await voiceRoomJoin();signalVoiceRoomPrepared=false;return;}
   catch(e){voiceRoom.joining=false;signalVoiceRoomPrepared=false;voiceRoomMessage(e.message||'Não foi possível preparar a sala autenticada.');voiceRoomRender();return;}
@@ -1861,7 +1863,7 @@ function renderChatText(text){
     signalPollStops[roomId]=signalTransport.startPolling(roomId,async function(event){
       if(!event||!event.payload)return;
       if(event.event_type==='call_signal'){
-        var p=Object.assign({},event.payload,{from:event.sender,to:member,callId:event.payload.callId||callId});
+        var p=Object.assign({},event.payload,{from:event.sender,to:member,callId:event.payload.callId||callId,_authenticatedTransport:true});
         try{p.participants=await signalGetRoomMembers(roomId);}catch(e){p.participants=[member,event.sender];}
         if(!p.initiator)p.initiator=signalCreatorCallIds[p.callId]?member:event.sender;
         await receiveCallSignal(p);
@@ -1899,7 +1901,7 @@ function renderChatText(text){
           signalTransport.decline(roomId).catch(function(){}).finally(function(){delete signalRoomByCallId[callId];delete signalCallIdByRoom[roomId];delete signalCreatorCallIds[callId];});
           continue;
         }
-        await receiveCallSignal({type:'invite',callId:callId,from:invitation.invitedBy,initiator:invitation.invitedBy,participants:[invitation.invitedBy,member],to:member});
+        await receiveCallSignal({type:'invite',callId:callId,from:invitation.invitedBy,initiator:invitation.invitedBy,participants:[invitation.invitedBy,member],to:member,_authenticatedTransport:true});
       }
     }catch(e){}finally{signalInvitationPollBusy=false;}
   }
@@ -1963,7 +1965,8 @@ function renderChatText(text){
     if(!to||!upCall.callId)return false;
     var p=Object.assign({type:type,callId:upCall.callId,from:member,to:to,connectionId:callConnectionId(to),participants:upCall.participants.slice()},extra||{});
     var signalRoomId=signalRoomByCallId[upCall.callId];
-    if(signalTransport&&signalRoomId){
+    if(signalTransportFlag){
+      if(!signalTransport||!signalRoomId)return false;
       if(type==='invite'){
         signalTransport.invite(signalRoomId,to).then(function(){
           return signalTransport.waitForAcceptance(signalRoomId,to,{timeoutMs:30000,intervalMs:900});
@@ -1983,7 +1986,8 @@ function renderChatText(text){
   function callSend(type,extra){return callSendTo(upCall.peer,type,extra);}
   function callSendAll(type,extra){
     var signalRoomId=signalRoomByCallId[upCall.callId];
-    if(signalTransport&&signalRoomId){
+    if(signalTransportFlag){
+      if(!signalTransport||!signalRoomId)return false;
       return signalTransport.sendToRoom({
         roomId:signalRoomId,eventType:'call_signal',senderName:member,
         payload:Object.assign({type:type,callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now()},extra||{})
@@ -2137,7 +2141,10 @@ function renderChatText(text){
   }
   async function startOutgoingCall(target){
     if(!target||target===member)return;
-    if(signalTransport&&signalTransportFlag)return startOutgoingCallWithTransport(target);
+    if(signalTransportFlag){
+      if(!signalTransport){message('A sinalização autenticada não está configurada. A chamada não foi iniciada.',true);return;}
+      return startOutgoingCallWithTransport(target);
+    }
     if(upCall.active){message('Voc\u00ea j\u00e1 est\u00e1 em uma chamada.',true);return;}
     upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
     upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
@@ -2192,7 +2199,8 @@ function renderChatText(text){
     var entry=upCallDirectory[callId];
     if(upCall.active){message('Você já está em uma chamada.',true);return;}
     if(!entry||!entry.participants||entry.participants.indexOf(target)<0){message('A chamada não está mais disponível. Atualize a equipe.',true);return;}
-    if(signalTransport&&signalTransportFlag){
+    if(signalTransportFlag){
+      if(!signalTransport){message('A sinalização autenticada não está configurada. O pedido não foi enviado.',true);return;}
       signalTransport.requestInvite(callId).then(function(){
         message('Pedido para entrar enviado ao responsável pela chamada. Aguarde a confirmação.',false);
       }).catch(function(e){
@@ -2206,6 +2214,7 @@ function renderChatText(text){
   }
   async function receiveCallSignal(p){
     if(!p||typeof p.type!=='string'||typeof p.callId!=='string'||!p.callId||p.callId.length>160||typeof p.from!=='string'||!p.from||p.from.length>80||p.from===member)return;
+    if(signalTransportFlag&&!p._authenticatedTransport&&!((p.type==='presence'||p.type==='ended'||p.type==='join_declined')&&p.discoveryOnly===true))return;
     if(p.type!=='presence'&&p.type!=='ended'&&p.to!==member)return;
     if((p.type==='offer'||p.type==='answer')&&(!p.sdp||typeof p.sdp.sdp!=='string'||p.sdp.sdp.length>100000))return;
     if(p.type==='ice'&&(!p.candidate||JSON.stringify(p.candidate).length>4096))return;
@@ -2374,8 +2383,8 @@ function renderChatText(text){
         .on('broadcast',{event:'health_pong'},function(payload){handleHealthPong(payload&&payload.payload||{});})
         .on('broadcast',{event:'remote_command'},function(){scheduleRemoteStatusPoll();})
         .on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{});})
-        .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){voiceRoomReceive(payload&&payload.payload||{});})
-        .on('broadcast',{event:SCREEN_ROOM_EVENT},function(payload){screenShareReceive(payload&&payload.payload||{});})
+        .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){if(!signalTransportFlag)voiceRoomReceive(payload&&payload.payload||{});})
+        .on('broadcast',{event:SCREEN_ROOM_EVENT},function(payload){if(!signalTransportFlag)screenShareReceive(payload&&payload.payload||{});})
         .on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })
         .subscribe(function(status){
           if(status==='SUBSCRIBED'){realtimeActive=true;if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}broadcastChatPresence(!chat.classList.contains('hidden'));return;}
