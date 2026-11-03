@@ -1,10 +1,11 @@
 /**
  * Authenticated signaling transport adapter.
  *
- * This module is intentionally not wired into the production userscript yet.
- * The caller must supply a request function that sends the UpStatus session
- * token in x-upstatus-token. Keep enabled=false until authenticated E2E tests
- * prove the invite/accept/offer state machine against isolated test identities.
+ * This module is bundled into the userscript and connected to an opt-in caller.
+ * The caller supplies a same-origin HTTPS GM_xmlhttpRequest bridge that sends
+ * the UpStatus session token in x-upstatus-token. The feature flag remains
+ * disabled by default; do not enable for users until authenticated browser/WebRTC
+ * E2E tests prove the invite/accept/offer state machine.
  */
 export function createSignalingTransport({
   request,
