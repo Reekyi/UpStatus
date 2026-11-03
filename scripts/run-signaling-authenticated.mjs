@@ -151,6 +151,10 @@ try {
         "/upstatus_signal_rooms?select=room_id&created_by=" + identity,
         "/upstatus_sessions?select=token_hash&user_name=" + identity,
         "/users?select=name&name=" + identity,
+        "/upstatus_signal_room_members?select=room_id&user_name=" + identity,
+        "/upstatus_signal_room_bindings?select=room_id&created_by=" + identity,
+        "/upstatus_signal_events?select=event_id&sender=" + identity,
+        "/upstatus_signal_events?select=event_id&recipient=" + identity,
       ]) {
         try {
           const remaining = await rest(path);
