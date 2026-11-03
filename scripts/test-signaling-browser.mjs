@@ -193,7 +193,7 @@ async function runGroupMesh() {
   assert.equal((await api(pageC, users.C, "/room/accept", { roomId: groupRoomId })).status, 200, "third participant must accept");
   const members = await api(pageA, users.A, "/room/members", { roomId: groupRoomId });
   assert.equal(members.status, 200);
-  assert.deepEqual((members.json.members || []).map(item => item.name).sort(), [users.A.name, users.B.name, users.C.name].sort(),
+  assert.deepEqual((members.json.members || []).slice().sort(), [users.A.name, users.B.name, users.C.name].sort(),
     "server roster must contain exactly the three accepted group members");
   const presence = await api(pageA, users.A, "/broadcast", {
     roomId: groupRoomId, eventType: "call_signal", payload: { type: "presence", callId },
