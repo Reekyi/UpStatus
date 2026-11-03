@@ -1884,10 +1884,13 @@ function renderChatText(text){
   }
   async function signalPollInvitations(){
     if(!token||!member||!signalTransport||!signalTransportFlag||signalInvitationPollBusy)return;
+    var expectedToken=token,expectedMember=member;
     signalInvitationPollBusy=true;
     try{
       var invitations=await signalTransport.invitations();
+      if(token!==expectedToken||member!==expectedMember)return;
       for(var i=0;i<invitations.length;i++){
+        if(token!==expectedToken||member!==expectedMember)return;
         var invitation=invitations[i],binding=(invitation.bindings||[]).find(function(b){return b&&b.bindingType==='call'&&typeof b.logicalId==='string';});
         if(!binding||!invitation.roomId||signalRoomByCallId[binding.logicalId])continue;
         let callId=binding.logicalId,roomId=invitation.roomId;
