@@ -2328,6 +2328,18 @@ function renderChatText(text){
   // The shared Realtime topic is public. Treat broadcast payloads as untrusted hints,
   // and reconcile chat state only from the authenticated API.
   function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}
+  var realtimeStatusRefreshTimer=null,realtimeStatusRefreshLastAt=0;
+  function scheduleRealtimeStatusRefresh(){
+    if(realtimeStatusRefreshTimer)return;
+    var expectedToken=token,expectedMember=member;
+    var wait=Math.max(0,1000-(Date.now()-realtimeStatusRefreshLastAt));
+    realtimeStatusRefreshTimer=setTimeout(function(){
+      realtimeStatusRefreshTimer=null;
+      if(token!==expectedToken||member!==expectedMember)return;
+      realtimeStatusRefreshLastAt=Date.now();
+      refresh();
+    },wait);
+  }
   function startRealtime(){
     if(!token||realtimeClient||typeof supabase==='undefined'||!supabase.createClient)return;
     initSignalingTransport();
@@ -2338,7 +2350,7 @@ function renderChatText(text){
         .on('broadcast',{event:'db_change'},function(){scheduleRealtimeChatRefresh();})
         .on('broadcast',{event:'chat_fast'},function(){handleRealtimeChatFast();})
         .on('broadcast',{event:'chat_read'},function(){scheduleRealtimeChatRefresh();})
-        .on('broadcast',{event:'user_status'},function(){refresh();})
+        .on('broadcast',{event:'user_status'},function(){scheduleRealtimeStatusRefresh();})
         .on('broadcast',{event:'chat_presence'},function(payload){var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();})
         .on('broadcast',{event:'health_ping'},function(payload){handleHealthPing(payload&&payload.payload||{});})
         .on('broadcast',{event:'health_pong'},function(payload){handleHealthPong(payload&&payload.payload||{});})
@@ -2372,6 +2384,7 @@ function renderChatText(text){
   }
   function stopRealtime(){
     realtimeActive=false;
+    if(realtimeStatusRefreshTimer){clearTimeout(realtimeStatusRefreshTimer);realtimeStatusRefreshTimer=null;}
     if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}
     try{if(realtimeChannel)realtimeChannel.unsubscribe();}catch(e){}
     try{if(realtimeClient)realtimeClient.removeAllChannels();}catch(e){}
