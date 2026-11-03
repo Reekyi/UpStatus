@@ -11,6 +11,15 @@ const luccaSite = read("lucca-site/index.html");
 const luccaStandalone = read("lucca.html");
 const ycaro = read("ycaro.html");
 const backend = read("src/server/team-lite-index.template.ts");
+const normalBackend = read("src/server/index.template.ts");
+function extractSessionContract(source,start,end){
+  const from=source.indexOf(start),to=source.indexOf(end,from);
+  assert.ok(from>=0&&to>from,"missing shared session contract block: "+start);
+  return source.slice(from,to);
+}
+assert.equal(extractSessionContract(backend,"function token(req:Request)","async function account("),extractSessionContract(normalBackend,"function token(req:Request)","async function account("),"normal and Team Lite must share token hashing and session lookup");
+assert.equal(extractSessionContract(backend,"async function createSession(","async function login("),extractSessionContract(normalBackend,"async function createSession(","async function login("),"normal and Team Lite must issue compatible shared session tokens");
+
 const build = read("scripts/build.mjs");
 
 function header(name) {
