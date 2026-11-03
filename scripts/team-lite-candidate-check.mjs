@@ -67,6 +67,7 @@ assert.ok(script.includes("function handleRealtimeChatFast(){scheduleRealtimeCha
 assert.ok(script.includes(".on('broadcast',{event:'db_change'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)scheduleRealtimeChatRefresh();})"), "Team Lite database-change broadcasts must not apply supplied rows");
 assert.ok(script.includes(".on('broadcast',{event:'chat_fast'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)handleRealtimeChatFast();})"), "Team Lite chat_fast listener must ignore attacker-controlled payloads");
 assert.ok(script.includes(".on('broadcast',{event:'chat_read'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)scheduleRealtimeChatRefresh();})"), "Team Lite read receipts must be reconciled from the authenticated API");
+assert.ok(script.includes(".on('broadcast',{event:'user_status'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)refresh();})"), "Team Lite user_status broadcasts must be session-scoped refresh hints, never trusted status payloads");
 assert.ok(!script.includes(".on('broadcast',{event:'db_change'},function(payload){"), "Team Lite must not apply public database-change payload rows");
 assert.ok(script.includes("if(!isAuthenticated()||generation!==authGeneration||requestedMember!==member)return;") && script.includes("loadChat(true);"), "Team Lite canonical refresh must be scoped to the active authenticated session");
 
