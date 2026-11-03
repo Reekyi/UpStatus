@@ -211,6 +211,11 @@ assert.ok(readFileSync("scripts/test-signaling-browser.mjs","utf8").includes('bi
   readFileSync("scripts/test-signaling-browser.mjs","utf8").includes('bindingType: "screen"') &&
   readFileSync("scripts/test-signaling-browser.mjs","utf8").includes('trackKind: "video"'),
   "authenticated browser E2E must exercise distinct voice and screen WebRTC paths");
+assert.ok(readFileSync("scripts/test-signaling-browser.mjs","utf8").includes("async function teardownPeerConnections()") &&
+  readFileSync("scripts/test-signaling-browser.mjs","utf8").includes('connectionState, "closed"') &&
+  readFileSync("scripts/test-signaling-browser.mjs","utf8").includes('state === "ended"'),
+  "browser E2E must assert peer closure and local media track teardown");
+console.log("PASS browser E2E asserts peer and media teardown");
 console.log("PASS authenticated browser E2E covers call, voice, and screen media paths");
 console.log("12/12 signaling static regression groups passed.");
 
