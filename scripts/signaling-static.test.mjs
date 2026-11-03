@@ -169,7 +169,7 @@ assert.ok(userTemplate.includes("signaling_transport_enabled',false)===true") &&
 assert.ok(userTemplate.includes("startOutgoingCallWithTransport(target)") &&
   userTemplate.includes("signalStartInvitationPolling()") &&
   userTemplate.includes("signalTransport.sendToRoom({") &&
-  userTemplate.includes("signalTransport.close(signalRoomId)"),
+  userTemplate.includes("signalTransport.leave(signalRoomId)"),
   "opt-in one-to-one call setup, invitation polling, fanout, and room cleanup must be connected");
 assert.ok(userTemplate.includes("signalTransport.accept(signalRoomId)") &&
   userTemplate.includes("signalTransport.decline(roomId)") &&
