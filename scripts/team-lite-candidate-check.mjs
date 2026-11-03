@@ -208,5 +208,9 @@ assert.ok(script.includes("signalTransport.prepareCallRoom(upCall.callId,target"
 assert.ok(script.includes("signalTransport.waitForAcceptance"), "call invites must require explicit recipient acceptance");
 assert.ok(script.includes("eventType:'call_signal'") && script.includes("signalTransport.sendSignal"), "call media signaling must use authenticated recipient-scoped events when enabled");
 assert.ok(script.includes("discoveryOnly:true"), "public call broadcasts must be limited to non-authoritative discovery hints");
+assert.ok(script.includes("signalTransportFlag&&!p._authenticatedTransport"), "public call-control events must be ignored when authenticated transport is enabled");
+assert.ok(script.includes("!signalTransportFlag&&isAuthenticated()") && script.includes("voiceRoomReceive(payload&&payload.payload||{})") && script.includes("screenShareReceive(payload&&payload.payload||{})"), "public voice and screen events must be ignored when authenticated transport is enabled");
+assert.ok(script.includes("if(!signalTransport||!signalRoomId)return false"), "call send paths must fail closed instead of falling back to public broadcasts");
+assert.ok(script.includes("if(!signalTransport||!signalVoiceRoomRoomId){voiceRoomMessage") && script.includes("if(!signalTransport||!signalVoiceRoomRoomId){screenShareMessage"), "voice and screen send paths must fail closed when authenticated room binding is missing");
 assert.ok(script.includes("return sendRealtimeEvent('call_signal',p)"), "legacy fallback must remain available only while the opt-in transport is disabled");
 console.log("Candidate updater runtime scenarios passed: newer/current/mismatch/downgrade/manifest-offline/script-offline/invalid-manifest.");
