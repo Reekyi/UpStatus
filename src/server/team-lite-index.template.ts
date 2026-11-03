@@ -7,6 +7,7 @@ const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}");
 const ADMIN_KEY = secretKeys.default || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const db = createClient(PROJECT_URL, ADMIN_KEY, { auth: { persistSession: false } });
 const sessionCache = new Map<string,{name:string,expiresAt:number,checkedAt:number}>();
+const SESSION_CACHE_TTL_MS=5000;
 let membersCache:{at:number,data:Array<{name:string}>}|null=null;
 
 const VERSION = "__UPSTATUS_VERSION__";
@@ -48,7 +49,7 @@ async function userFromToken(req:Request){
   const cached=sessionCache.get(t);
   if(cached){
     if(cached.expiresAt<=now){sessionCache.delete(t);return null;}
-    if(now-cached.checkedAt<30000)return cached.name;
+    if(now-cached.checkedAt<SESSION_CACHE_TTL_MS)return cached.name;
   }
   const {data}=await db.from("upstatus_sessions").select("user_name,expires_at").eq("token_hash",tokenHash(t)).maybeSingle();
   if(!data)return null;
