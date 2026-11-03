@@ -178,3 +178,6 @@ assert(source.includes("api('GET','/api/remote-status/result?id='+encodeURICompo
 assert(source.includes("payload.sender!==p.name"),"health pong sender must match the member being measured");
 assert(source.includes("payload.id.length>160")&&source.includes("payload.sender.length>80"),"health ping identifiers and sender labels must be bounded");
 console.log("Chat regression tests passed: chat, updater, notifications, untrusted Realtime payload handling, and targeted media signaling.");
+
+assert(source.includes("sendRealtimeEvent('remote_command',{op:'hint'})"),"client remote-command broadcast must contain only a generic hint");
+assert(!source.includes("sendRealtimeEvent('remote_result'"),"client must not broadcast remote result metadata publicly");
