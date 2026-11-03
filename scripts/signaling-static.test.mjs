@@ -169,6 +169,8 @@ assert.ok(userTemplate.includes("signaling_transport_enabled',false)===true") &&
 assert.equal((userTemplate.match(/callSendTo\(p\.from,'busy',\{connectionId:String\(p\.callId\)\+'::busy'\}\);return;/g)||[]).length,2,
   "busy responses for authenticated call offers/invites must use the transport-aware sender");
 assert.doesNotMatch(userTemplate,/sendRealtimeEvent\('call_signal',\{type:'busy',callId:p\.callId/,
+assert.ok(userTemplate.includes("else callSendTo(requester,'join_declined',{updatedAt:Date.now()});"),
+  "authenticated group invitation declines must be delivered through the authenticated transport");
   "busy call-control responses must never bypass the authenticated transport");
 assert.ok(userTemplate.includes("startOutgoingCallWithTransport(target)") &&
   userTemplate.includes("signalStartInvitationPolling()") &&
