@@ -125,7 +125,9 @@ for(const artifact of [prodUser,testUser]){
   assert(artifact.includes(".on('broadcast',{event:'chat_fast'},function(){handleRealtimeChatFast();})"),"chat_fast listener must not trust broadcast payloads");
   assert(artifact.includes(".on('broadcast',{event:'chat_read'},function(){scheduleRealtimeChatRefresh();})"),"public read receipts must be reconciled through canonical chat state");
   assert(artifact.includes(".on('broadcast',{event:'user_status'},function(){refresh();})"),"user_status broadcasts must be refresh-only hints, never trusted profile/status payloads");
-  assert(artifact.includes(".on('broadcast',{event:'remote_command'},function(){pollRemoteStatus();})"),"remote_command broadcasts must be payload-free polling hints");
+  assert(artifact.includes(".on('broadcast',{event:'remote_command'},function(){setTimeout(pollRemoteStatus,1100);})"),"remote_command broadcasts must schedule authenticated polling without trusting payloads");
+  assert(artifact.includes("sendRealtimeEvent('remote_command',{op:'hint'})"),"client remote_command broadcasts must contain only a generic hint");
+  assert(!artifact.includes("sendRealtimeEvent('remote_result'"),"client must not broadcast remote result metadata publicly");
   assert(artifact.includes(".on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"),"remote_result broadcasts must not be authoritative");
 }
 
