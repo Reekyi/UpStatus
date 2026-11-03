@@ -106,7 +106,7 @@ try {
     pageB.evaluate(async () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const pc = new RTCPeerConnection({ iceServers: [] });
-      pc.ontrack = event => { window.__upRemoteTracks = (window.__upRemoteTracks || 0) + event.track.getAudioTracks?.().length || 1; };
+      pc.ontrack = event => { if (event.track?.kind === "audio") window.__upRemoteTracks = (window.__upRemoteTracks || 0) + 1; };
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
       window.__upStream = stream; window.__upPc = pc;
     }),
@@ -160,6 +160,9 @@ try {
     pageB.evaluate(() => window.__upPc.getSenders().some(sender => sender.track?.kind === "audio")),
   ]);
   assert.deepEqual(tracks, [true, true], "both peers must publish audio tracks");
+  await pageB.waitForFunction(() => (window.__upRemoteTracks || 0) > 0, { timeout: 10000 });
+  const remoteAudioTrack = await pageB.evaluate(() => window.__upRemoteTracks > 0);
+  assert.equal(remoteAudioTrack, true, "callee must receive the caller's remote audio track");
 
   console.log("PASS isolated authenticated browser E2E: invitation acceptance, SDP offer/answer, gathered ICE candidates, and bidirectional audio peer connection.");
 } finally {
