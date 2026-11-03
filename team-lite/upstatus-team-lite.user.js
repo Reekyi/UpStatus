@@ -2262,10 +2262,8 @@ function renderChatText(text){
         .on('broadcast',{event:'chat_presence'},function(payload){if(!isAuthenticated()||realtimeGeneration!==authGeneration||realtimeMember!==member)return;var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();})
         .on('broadcast',{event:'health_ping'},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration)handleHealthPing(payload&&payload.payload||{});})
         .on('broadcast',{event:'health_pong'},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration)handleHealthPong(payload&&payload.payload||{});})
-        .on('broadcast',{event:'remote_command'},function(payload){
-          if(!isAuthenticated()||realtimeGeneration!==authGeneration||realtimeMember!==member)return;
-          var c=payload&&payload.payload&&payload.payload.command;
-          if(c&&c.target===member)pollRemoteStatus();
+        .on('broadcast',{event:'remote_command'},function(){
+          if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)pollRemoteStatus();
         })
         .on('broadcast',{event:'call_signal'},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)receiveCallSignal(payload&&payload.payload||{});})
         .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)voiceRoomReceive(payload&&payload.payload||{});})
