@@ -110,6 +110,7 @@ assert(!publicChatBroadcastMigration.includes("to_jsonb")&&!publicChatBroadcastM
 assert(publicChatBroadcastMigration.includes("'db_change'")&&publicChatBroadcastMigration.includes("upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0"),"public chat refresh hint must retain the compatible event and topic");
 assert(publicChatBroadcastMigration.includes("RETURN OLD")&&publicChatBroadcastMigration.includes("RETURN NEW"),"chat broadcast trigger must preserve correct row return semantics");
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
+assert(serverTemplate.includes("const SESSION_CACHE_TTL_MS=5000;")&&serverTemplate.includes("now-cached.checkedAt<SESSION_CACHE_TTL_MS"),"session revocation cache must remain bounded to five seconds");
 
 assert(serverTemplate.includes('Deno.env.get("SUPABASE_SECRET_KEYS")') && serverTemplate.includes('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")'),"server backend must obtain database credentials only from Edge Function environment secrets");
 assert(serverTemplate.includes('createClient(PROJECT_URL, ADMIN_KEY'),"server database access must use the server-side privileged client, not browser-role grants");
