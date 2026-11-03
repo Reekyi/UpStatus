@@ -1,7 +1,7 @@
 # UpStatus Realtime Security Remediation Plan
 
 Last reviewed: 2026-10-29  
-Status: design only; no runtime, database, secret, or release changes.
+Status: candidate client and migration mitigations staged in PR #74; status-broadcast migration applied only to isolated security-test project; production and official TEST untouched.
 
 ## Executive summary
 
@@ -153,3 +153,13 @@ The second staged migration `supabase/migrations/20261029183000_revoke_unused_pu
 - User-status events already trigger an authenticated refresh in both candidates. Remote-result events remain non-authoritative; result polling uses the authenticated result endpoint.
 - The migration uses a pinned `pg_catalog, public` search path for both SECURITY DEFINER trigger functions. It is staged only and has not been applied to production or official TEST.
 - This remains partial: `chat_presence`, health pings/pongs, and call/voice/screen-share signaling still use the public channel. The latter signaling events remain a critical sender-authentication gap. Coordinate this migration with both matching client builds and isolated trigger tests before any authorized rollout.
+
+
+### Additional public-hint hardening and isolated validation (2026-11-03)
+
+- The normal and Team Lite candidates now ignore routing metadata in public `remote_command` events. They schedule a bounded authenticated poll and verify that the same token/member or auth generation is still active when the timer fires.
+- Public `user_status` events now schedule a throttled authenticated refresh, also bound to the active session generation. This limits refresh amplification from arbitrary public-topic senders.
+- Clients send only a generic `{op:'hint'}` for the remote-command wake-up and no longer send remote-result metadata. The authenticated result endpoint remains authoritative.
+- The status/remote-state SQL migration was applied to the isolated `upstatus-security-test` project only. Both trigger functions were read back with `search_path=pg_catalog, public` and operation-only payload construction. Trigger smoke writes completed and the temporary probe rows were removed.
+- The isolated Security Advisor reports no remaining broad EXECUTE warnings for the three trigger functions; RLS-enabled/no-policy INFO notices remain and are intentional for tables accessed only through the server-side privileged Edge Function. The isolated Performance Advisor's unindexed-FK finding was separately resolved with an index on `upstatus_signal_room_bindings.created_by`.
+- None of these isolated changes authorizes a production or official TEST migration. The public topic still exposes presence/health hints and legacy call, voice-room, and screen-share signaling. Those are separate migration gates, not fixed by payload minimization.
