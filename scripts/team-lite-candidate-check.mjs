@@ -98,9 +98,9 @@ assert.ok(script.includes("(p.type==='offer'||p.type==='answer'||p.type==='ice')
 assert.equal((script.match(/callSendTo\(p\.from,'busy',\{connectionId:String\(p\.callId\)\+'::busy'\}\);return;/g)||[]).length,2,
   "busy responses for authenticated call offers/invites must use the transport-aware sender");
 assert.doesNotMatch(script,/sendRealtimeEvent\('call_signal',\{type:'busy',callId:p\.callId/,
+  "busy call-control responses must never bypass the authenticated transport");
 assert.ok(script.includes("else callSendTo(requester,'join_declined',{updatedAt:Date.now()});"),
   "authenticated group invitation declines must be delivered through the authenticated transport");
-  "busy call-control responses must never bypass the authenticated transport");
 assert.ok(script.includes("p.participants.length>32"), "Team Lite call roster broadcasts must be capped to 32 participants");
 assert.ok(script.includes("p.callId.length>160") && script.includes("p.from.length>80"), "Team Lite call roster identifiers must be bounded");
 assert.ok(script.includes("list.slice(0,32)") && script.includes("out.length<32"), "Team Lite merged call participants must be bounded and deduplicated");
