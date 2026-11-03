@@ -88,15 +88,13 @@ let cleanupFailed = false;
 
 try {
   await cleanupStaleFixtures();
-  const latest = await rest("/users?select=id&order=id.desc&limit=1");
-  const firstId = Number(latest?.[0]?.id || 0) + 1;
   const now = Date.now();
   const expiresAt = new Date(now + 30 * 60 * 1000).toISOString();
   fixturesMayExist = true;
   await rest("/users", {
     method: "POST", headers: { prefer: "return=minimal" },
-    body: JSON.stringify(users.map((u, index) => ({
-      id: firstId + index, name: u.name, role: "implementation_user", status: "offline",
+    body: JSON.stringify(users.map(u => ({
+      name: u.name, role: "implementation_user", status: "offline",
       reason: "", sync: "not_configured",
     }))),
   });
