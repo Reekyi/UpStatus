@@ -19,6 +19,7 @@ on:
       - "lucca.html"
       - "ycaro.html"
       - "scripts/team-lite-candidate-check.mjs"
+      - "scripts/test-signaling-endpoint.mjs"
       - ".github/workflows/team-lite-candidate.yml"
 
 permissions:
