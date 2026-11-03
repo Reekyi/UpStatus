@@ -524,7 +524,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
       function finish(fn,value){if(settled)return;settled=true;if(signal&&abortHandler)signal.removeEventListener('abort',abortHandler);fn(value);}
       if(signal&&signal.aborted){var e=new Error('Signaling request aborted');e.name='AbortError';reject(e);return;}
       try{
-        handle=GM_xmlhttpRequest({method:'POST',url:signalTransportEndpoint.replace(/\\/$/, '')+route,
+        handle=GM_xmlhttpRequest({method:'POST',url:signalTransportEndpoint.replace(/\/$/, '')+route,
           headers:{'Content-Type':'application/json','X-UpStatus-Token':token,'Cache-Control':'no-store'},
           data:JSON.stringify(payload||{}),timeout:12000,
           onload:function(r){var body={};try{body=JSON.parse(r.responseText||'{}')}catch(e){body={error:'Invalid signaling response'}}finish(resolve,{status:Number(r.status)||0,body:body});},
@@ -538,7 +538,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   function initSignalingTransport(){
     if(!signalTransportFlag||signalTransport||!token||!signalTransportEndpoint)return;
     try{var endpoint=new URL(signalTransportEndpoint),sessionServer=new URL(server);
-      if(endpoint.protocol!=='https:'||endpoint.origin!==sessionServer.origin||endpoint.search||endpoint.hash||! /\\/functions\\/v1\\/upstatus-signal(?:-test)?$/.test(endpoint.pathname))return;
+      if(endpoint.protocol!=='https:'||endpoint.origin!==sessionServer.origin||endpoint.search||endpoint.hash||!(endpoint.pathname.endsWith('/functions/v1/upstatus-signal')||endpoint.pathname.endsWith('/functions/v1/upstatus-signal-test')))return;
       signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});
     }catch(e){signalTransport=null;}
   }
