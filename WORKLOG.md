@@ -502,3 +502,11 @@ Last updated: 2026-10-29
 - Added migration candidate `20261103171000_index_signal_room_bindings_created_by.sql` to PR #74 and applied it only to `upstatus-security-test`.
 - Verified the index exists and re-ran Performance Advisor. The unindexed-foreign-key finding cleared. The advisor now reports the new index as unused because the isolated database has no sustained workload; it is retained because it covers the FK cascade path. Existing unused-index notices were not acted on.
 - Added a build-validation assertion to keep this index migration from silently disappearing. Production and official TEST were not changed.
+
+
+### Public hint throttling and session-generation guards (2026-11-03)
+
+- Added a one-second throttle for public `user_status` refresh hints in both normal and Team Lite clients. The delayed refresh captures the current session identity/generation and is discarded after logout, account switch, or session replacement.
+- Remote-command hints also wait out the existing one-second poll throttle and re-check the captured token/member or auth generation before polling. This prevents a delayed event from a prior session from causing a request under a newly authenticated member.
+- Removed client-originated remote-result broadcasts entirely; command completion is already delivered through the authenticated result-poll endpoint. Client-originated remote-command events now contain only a generic hint.
+- Latest normal `UpStatus Validate` passed on `8b7860b`; latest Team Lite candidate checks passed on `5376d5f`. The normal signaling smoke workflow on `8b7860b` is still in progress; the previous smoke run on `492f1e7` passed 79/79 authenticated HTTP checks and Chromium call/voice/screen WebRTC negotiation with track delivery and teardown.
