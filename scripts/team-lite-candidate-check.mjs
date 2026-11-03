@@ -194,4 +194,11 @@ assert.ok(script.includes(".on('broadcast',{event:'remote_result'},function(){ i
 assert.ok(script.includes("api('GET','/api/remote-status/result?id='+encodeURIComponent(id))"), "remote command completion must continue polling the authenticated result endpoint");
 assert.ok(script.includes("payload.sender!==p.name"), "health pong sender must match the member being measured");
 assert.ok(script.includes("payload.id.length>160")&&script.includes("payload.sender.length>80"), "health ping identifiers and sender labels must be bounded");
+assert.ok(script.includes("function createSignalingTransport("), "Team Lite candidate must bundle the authenticated signaling adapter");
+assert.ok(script.includes("var signalTransportFlag=GM_getValue(key+'signaling_transport_enabled',false)===true"), "authenticated signaling must remain disabled by default");
+assert.ok(script.includes("endpoint.protocol!=='https:'") && script.includes("endpoint.origin!==sessionServer.origin"), "signaling endpoint must be HTTPS and same-origin");
+assert.ok(script.includes("eventType:'voice_room_signal'") && script.includes("eventType:'screen_signal'"), "voice and screen media events must use authenticated transport when enabled");
+assert.ok(script.includes("signalTransport.startPolling(roomId") && script.includes("from:event.sender"), "authenticated media events must use server-derived sender identity");
+assert.ok(script.includes("signalTransport.leave(room)") && script.includes("signalTransport.stopAll()"), "authenticated room membership and pollers must be cleaned up");
+assert.ok(script.includes("return sendRealtimeEvent('call_signal',p)"), "legacy call signaling fallback remains in place and must not be represented as migrated");
 console.log("Candidate updater runtime scenarios passed: newer/current/mismatch/downgrade/manifest-offline/script-offline/invalid-manifest.");
