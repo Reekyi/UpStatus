@@ -2036,8 +2036,7 @@ function renderChatText(text){
       signalStopCallPolling(signalRoomId);
       delete signalRoomByCallId[callId];delete signalCallIdByRoom[signalRoomId];delete signalRosterCache[signalRoomId];
       if(signalTransport){
-        if(signalRoomCreator)setTimeout(function(){signalTransport.close(signalRoomId).catch(function(){});},4000);
-        else Promise.allSettled(pendingSignals.map(function(p){return Promise.resolve(p);})).then(function(){return signalTransport.leave(signalRoomId);}).catch(function(){});
+        Promise.allSettled(pendingSignals.map(function(p){return Promise.resolve(p);})).then(function(){return signalTransport.leave(signalRoomId);}).catch(function(){});
       }
     }
     delete signalCreatorCallIds[callId];
