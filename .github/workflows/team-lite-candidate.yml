@@ -10,6 +10,9 @@ on:
       - "ycaro.html"
       - "scripts/team-lite-candidate-check.mjs"
       - "scripts/test-signaling-endpoint.mjs"
+      - "scripts/test-signaling-authenticated.mjs"
+      - "scripts/run-signaling-authenticated.mjs"
+      - "scripts/test-signaling-browser.mjs"
       - ".github/workflows/team-lite-candidate.yml"
   pull_request:
     branches: [team-lite-official]
@@ -39,5 +42,17 @@ jobs:
         env:
           UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
         run: node scripts/test-signaling-endpoint.mjs
+      - name: Run authenticated isolated integration and browser tests when secret is configured
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "SKIP: UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY is not configured; authenticated HTTP and browser tests were not run."
+            exit 0
+          fi
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+          node scripts/run-signaling-authenticated.mjs
       - name: Check candidate scripts and version metadata
         run: node scripts/team-lite-candidate-check.mjs
