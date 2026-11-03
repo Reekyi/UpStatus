@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 const read = (path) => fs.readFileSync(path, "utf8");
 const manifest = JSON.parse(read("team-lite/release.json"));
 const script = read("team-lite/upstatus-team-lite.user.js");
-const signalingAdapterSource = read("src/userscript/signaling-transport.mjs").replace(/^export\\s+/gm, "");
+const signalingAdapterSource = read("src/userscript/signaling-transport.mjs").replace(/^export\s+/gm, "");
 const luccaSite = read("lucca-site/index.html");
 const luccaStandalone = read("lucca.html");
 const ycaro = read("ycaro.html");
