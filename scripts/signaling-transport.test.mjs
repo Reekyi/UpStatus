@@ -217,3 +217,70 @@ const fanout = await fanoutClient.sendToRoom({
 assert.deepEqual(fanout, { attempted: 2, delivered: 2, failed: 0 });
 assert.deepEqual(fanoutCalls.filter(call => call.path === "/broadcast").map(call => call.body.eventType), ["voice_room_signal"]);
 console.log("signaling recipient fanout: 2 assertions passed");
+
+
+let recoveryPolls = 0;
+let recoveryHandled = 0;
+let recoveryAcknowledged = false;
+const recoveryClient = createSignalingTransport({
+  enabled: true,
+  pollIntervalMs: 2,
+  maxBackoffMs: 8,
+  request: async (path) => {
+    if (path === "/poll") {
+      recoveryPolls++;
+      if (recoveryPolls === 1) return { status: 503, body: { error: "temporary outage" } };
+      if (recoveryPolls === 2) return { status: 200, body: { events: [{ event_id: 301 }] } };
+      return { status: 200, body: { events: [] } };
+    }
+    if (path === "/ack") recoveryAcknowledged = true;
+    return { status: 200, body: { ok: true } };
+  },
+});
+const stopRecovery = recoveryClient.startPolling("sig_recovery", async event => {
+  assert.equal(event.event_id, 301);
+  recoveryHandled++;
+});
+for (let i = 0; i < 100 && !recoveryAcknowledged; i++) {
+  await new Promise(resolve => setTimeout(resolve, 2));
+}
+stopRecovery();
+assert.ok(recoveryPolls >= 2, "polling must retry after a transient endpoint failure");
+assert.equal(recoveryHandled, 1, "recovered event must be dispatched exactly once");
+assert.equal(recoveryAcknowledged, true, "recovered event must be acknowledged after handling");
+console.log("signaling transient recovery: 3 assertions passed");
+
+const concurrentRoomEvents = [];
+const concurrentPollCounts = new Map();
+const concurrentClient = createSignalingTransport({
+  enabled: true,
+  pollIntervalMs: 2,
+  request: async (path, body) => {
+    if (path === "/poll") {
+      const count = (concurrentPollCounts.get(body.roomId) || 0) + 1;
+      concurrentPollCounts.set(body.roomId, count);
+      if (count === 1) {
+        const eventId = body.roomId === "sig_parallel_a" ? 401 : 402;
+        return { status: 200, body: { events: [{ event_id: eventId, roomId: body.roomId }] } };
+      }
+      return { status: 200, body: { events: [] } };
+    }
+    return { status: 200, body: { ok: true } };
+  },
+});
+const stopParallelA = concurrentClient.startPolling("sig_parallel_a", async event => {
+  concurrentRoomEvents.push(["sig_parallel_a", event.event_id]);
+});
+const stopParallelB = concurrentClient.startPolling("sig_parallel_b", async event => {
+  concurrentRoomEvents.push(["sig_parallel_b", event.event_id]);
+});
+for (let i = 0; i < 100 && concurrentRoomEvents.length < 2; i++) {
+  await new Promise(resolve => setTimeout(resolve, 2));
+}
+stopParallelA();
+stopParallelB();
+assert.deepEqual(concurrentRoomEvents.sort((a, b) => a[0].localeCompare(b[0])),
+  [["sig_parallel_a", 401], ["sig_parallel_b", 402]],
+  "parallel room pollers must dispatch only their own room events");
+assert.equal(concurrentClient.activePollCount, 0, "stopping parallel pollers must release both active poll slots");
+console.log("signaling parallel room polling: 2 assertions passed");
