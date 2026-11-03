@@ -47,14 +47,14 @@ async function waitForGathering(page) {
   });
 }
 
-async function waitForEvent(page, user, expectedType, eventType = "call_signal", timeoutMs = 20000, callId = null, expectedSender = null) {
-  return page.evaluate(async ({ endpoint, token, roomId, expectedType, eventType, timeoutMs, callId, expectedSender }) => {
+async function waitForEvent(page, user, expectedType, eventType = "call_signal", timeoutMs = 20000, callId = null, expectedSender = null, targetRoomId = roomId) {
+  return page.evaluate(async ({ endpoint, token, roomId: pollRoomId, expectedType, eventType, timeoutMs, callId, expectedSender }) => {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       const response = await fetch(endpoint + "/poll", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-UpStatus-Token": token, "Cache-Control": "no-store" },
-        body: JSON.stringify({ roomId }),
+        body: JSON.stringify({ roomId: pollRoomId }),
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error("Polling failed: HTTP " + response.status);
@@ -64,14 +64,14 @@ async function waitForEvent(page, user, expectedType, eventType = "call_signal",
         await fetch(endpoint + "/ack", {
           method: "POST",
           headers: { "Content-Type": "application/json", "X-UpStatus-Token": token },
-          body: JSON.stringify({ roomId, eventIds: [event.event_id] }),
+          body: JSON.stringify({ roomId: pollRoomId, eventIds: [event.event_id] }),
         });
         return event;
       }
       await new Promise(resolve => setTimeout(resolve, 150));
     }
     throw new Error("Timed out waiting for " + expectedType);
-  }, { endpoint, token: user.token, roomId, expectedType, eventType, timeoutMs, callId, expectedSender });
+  }, { endpoint, token: user.token, roomId: targetRoomId, expectedType, eventType, timeoutMs, callId, expectedSender });
 }
 
 async function teardownPeerConnections() {
@@ -129,7 +129,7 @@ async function negotiateMeshPair(fromPage, fromUser, toPage, toUser, callId) {
     payload: { type: "offer", callId, phase: "mesh", sdp: offer },
   });
   assert.equal(sent.status, 202, "group mesh offer must be accepted by authenticated transport");
-  const offerEvent = await waitForEvent(toPage, toUser, "offer", "call_signal", 20000, callId, fromUser.name);
+  const offerEvent = await waitForEvent(toPage, toUser, "offer", "call_signal", 20000, callId, fromUser.name, groupRoomId);
   await toPage.evaluate(async ({ remote, sdp }) => {
     const pc = window.__meshPeers[remote];
     window.__upPc = pc;
@@ -144,7 +144,7 @@ async function negotiateMeshPair(fromPage, fromUser, toPage, toUser, callId) {
     payload: { type: "answer", callId, phase: "mesh", sdp: answer },
   });
   assert.equal(answerSent.status, 202, "group mesh answer must be accepted by authenticated transport");
-  const answerEvent = await waitForEvent(fromPage, fromUser, "answer", "call_signal", 20000, callId, toUser.name);
+  const answerEvent = await waitForEvent(fromPage, fromUser, "answer", "call_signal", 20000, callId, toUser.name, groupRoomId);
   await fromPage.evaluate(({ remote, sdp }) => window.__meshPeers[remote].setRemoteDescription(sdp),
     { remote: toUser.name, sdp: answerEvent.payload.sdp });
   await Promise.all([
@@ -200,17 +200,15 @@ async function runGroupMesh() {
   });
   assert.equal(presence.status, 202, "group discovery hint must fan out through authenticated room broadcast");
   const [presenceB, presenceC] = await Promise.all([
-    waitForEvent(pageB, users.B, "presence", "call_signal", 20000, callId, users.A.name),
-    waitForEvent(pageC, users.C, "presence", "call_signal", 20000, callId, users.A.name),
+    waitForEvent(pageB, users.B, "presence", "call_signal", 20000, callId, users.A.name, groupRoomId),
+    waitForEvent(pageC, users.C, "presence", "call_signal", 20000, callId, users.A.name, groupRoomId),
   ]);
   assert.equal(presenceB.sender, users.A.name);
   assert.equal(presenceC.sender, users.A.name);
   console.log("PASS authenticated dynamic group invitation, accepted roster, and fanout.");
-  await Promise.all([
-    negotiateMeshPair(pageA, users.A, pageB, users.B, callId),
-    negotiateMeshPair(pageA, users.A, pageC, users.C, callId),
-    negotiateMeshPair(pageB, users.B, pageC, users.C, callId),
-  ]);
+  await negotiateMeshPair(pageA, users.A, pageB, users.B, callId);
+  await negotiateMeshPair(pageA, users.A, pageC, users.C, callId);
+  await negotiateMeshPair(pageB, users.B, pageC, users.C, callId);
   await Promise.all([
     pageA.waitForFunction(() => Object.keys(window.__meshPeers || {}).length === 2),
     pageB.waitForFunction(() => Object.keys(window.__meshPeers || {}).length === 2),
