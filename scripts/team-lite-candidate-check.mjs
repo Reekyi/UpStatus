@@ -60,6 +60,8 @@ assert.ok(script.includes(".on('broadcast',{event:'remote_command'},function(){"
 assert.ok(script.includes("if(remotePollHintTimer||!isAuthenticated())return;") && script.includes("if(isAuthenticated()&&expectedGeneration===authGeneration&&expectedMember===member)pollRemoteStatus();"), "Team Lite remote command hint timers must coalesce and remain session-bound");
 assert.ok(script.includes("sendRealtimeEvent('remote_command',{op:'hint'})"), "Team Lite client remote command broadcasts must contain only a generic hint");
 assert.ok(!script.includes("sendRealtimeEvent('remote_result'"), "Team Lite must not broadcast remote result metadata publicly");
+assert.ok(script.includes("if(upCall&&upCall.active)callCleanup(true,'hangup');"), "Team Lite logout and idle session end must clean up active call media");
+assert.ok(script.includes("teamLiteSessionEnded=true;teamLiteClearIdleTimer();") && script.includes("authenticated=false;authGeneration++;"), "Team Lite session cleanup must run before auth generation invalidation");
 assert.ok(!script.includes("if(c&&c.target===member)executeRemoteCommand(c);"), "client must not execute untrusted remote command broadcast payloads");
 assert.ok(build.includes('writeFunction("upstatus-team-lite",renderTeamLiteFunction())'), "build must generate the Team Lite Edge Function");
 assert.ok(!build.includes("fs.rmSync"), "build must not recursively delete function or dist directories");
