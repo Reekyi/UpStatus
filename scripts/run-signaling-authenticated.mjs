@@ -45,6 +45,7 @@ async function cleanupStaleFixtures() {
   const staleNames = [...new Set([
     ...(sessions || []).filter(row => Date.parse(row.expires_at) <= now).map(row => row.user_name),
     ...(users || []).map(row => row.name).filter(name => !activeNames.has(name)),
+    ...(rooms || []).map(row => row.created_by).filter(name => !activeNames.has(name)),
   ].filter(name => typeof name === "string" && name.startsWith("__signal_test_")))];
   const staleNameSet = new Set(staleNames);
   const roomIds = (rooms || [])
