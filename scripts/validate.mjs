@@ -23,6 +23,8 @@ const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.t
 const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
 const triggerGrantMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261029170500_restrict_trigger_function_execute.sql"),"utf8");
 const publicTableGrantMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261029183000_revoke_unused_public_table_grants.sql"),"utf8");
+const signalBindingIndexMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261103171000_index_signal_room_bindings_created_by.sql"),"utf8");
+assert(signalBindingIndexMigration.includes("CREATE INDEX IF NOT EXISTS upstatus_signal_room_bindings_created_by_idx") && signalBindingIndexMigration.includes("(created_by)"),"signal room binding creator foreign key must have a supporting index");
 const publicChatBroadcastMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261103160000_minimize_public_chat_broadcast.sql"),"utf8");
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
