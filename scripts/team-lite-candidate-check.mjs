@@ -17,8 +17,14 @@ function extractSessionContract(source,start,end){
   assert.ok(from>=0&&to>from,"missing shared session contract block: "+start);
   return source.slice(from,to);
 }
-assert.equal(extractSessionContract(backend,"function token(req:Request)","async function account("),extractSessionContract(normalBackend,"function token(req:Request)","async function account("),"normal and Team Lite must share token hashing and session lookup");
-assert.ok(backend.includes("const SESSION_CACHE_TTL_MS=5000;")&&backend.includes("now-cached.checkedAt<SESSION_CACHE_TTL_MS"),"session revocation cache must remain bounded to five seconds");
+function normalizedSessionLookup(source){
+  return extractSessionContract(source,"function token(req:Request)","async function account(")
+    .replace(/if\\(now-cached\\.checkedAt<[^)]+\\)return cached\\.name;/,"if(now-cached.checkedAt<SESSION_CACHE_TTL_MS)return cached.name;");
+}
+assert.equal(normalizedSessionLookup(backend),normalizedSessionLookup(normalBackend),"normal and Team Lite must share token hashing and session lookup semantics");
+for(const [label,source] of [["Team Lite",backend],["Normal",normalBackend]]){
+  assert.ok(source.includes("const SESSION_CACHE_TTL_MS=5000;")&&source.includes("now-cached.checkedAt<SESSION_CACHE_TTL_MS"),label+" session revocation cache must remain bounded to five seconds");
+}
 assert.equal(extractSessionContract(backend,"async function createSession(","async function login("),extractSessionContract(normalBackend,"async function createSession(","async function login("),"normal and Team Lite must issue compatible shared session tokens");
 
 const build = read("scripts/build.mjs");
