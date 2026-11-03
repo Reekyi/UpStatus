@@ -104,3 +104,14 @@ All current transport work remains on the development branch and isolated Supaba
 - CI validation [41658151915](https://github.com/Reekyi/UpStatus/actions/runs/41658151915) passed.
 - Signaling smoke [41658151715](https://github.com/Reekyi/UpStatus/actions/runs/41658151715) passed: static 12/12, unauthenticated 14/14, authenticated 65/65, plus Chromium call/voice/screen media negotiation and teardown assertions.
 - Temporary identities, sessions, rooms, memberships, and events were removed and verified absent from the isolated database.
+
+
+## Room leave, ownership handoff, and lifecycle cleanup (2026-11-03)
+
+- Added authenticated `POST /room/leave` to the isolated signaling function. A departing member loses access immediately; outgoing final signals remain deliverable; inbox events addressed to the leaver are removed.
+- When the room owner leaves, ownership transfers to the earliest remaining accepted member and logical bindings follow the new owner. When the final accepted member leaves, the room, bindings, pending memberships, and queued events are closed/removed.
+- Added adapter support and wired call cleanup, voice-room leave, and media-permission failure cleanup to release membership. Screen-share leave signals are flushed before voice-room departure.
+- Deployed only to isolated test function revision 25. Production and official TEST functions remain untouched.
+- CI run [41660880330](https://github.com/Reekyi/UpStatus/actions/runs/41660880330) passed: static 13/13, unauthenticated 14/14, authenticated 79/79, Chromium call/voice/screen E2E, peer close, and local media track teardown.
+- Authenticated tests confirmed owner handoff A → B → C, continued room access for remaining members, preservation of the departing member's final signal, and automatic room closure after the final member leaves.
+- The authenticated runner also has a hard-pinned stale-fixture preflight cleanup for interrupted CI attempts. A subsequent run is verifying that cleanup before provisioning new temporary identities.
