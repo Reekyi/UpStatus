@@ -56,7 +56,9 @@ assert.ok(backend.includes('if(!(await admin(name)))return response({error:"Seu 
 assert.ok(!backend.includes('if(!["Ricardo","Lohan","Guilherme"].includes(name))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);'), "health endpoint must not authorize by name alone");
 assert.ok(!backend.includes('db.from("messages").delete().eq("user_name","Lucca")') && !backend.includes('db.from("messages").delete().eq("user_name","Ycaro")'), "guest login must not delete shared chat history");
 assert.ok(backend.includes("async function luccaRoute(req:Request)") && backend.includes("async function ycaroRoute(req:Request)"), "Lucca and Ycaro must have separate auth handlers");
-assert.ok(script.includes(".on('broadcast',{event:'remote_command'},function(){") && script.includes("realtimeMember===member)pollRemoteStatus();"), "Team Lite remote command broadcasts must be session-scoped payload-free polling hints");
+assert.ok(script.includes("realtimeMember===member)setTimeout(pollRemoteStatus,1100);"), "Team Lite remote command hints must schedule session-scoped authenticated polling");
+assert.ok(script.includes("sendRealtimeEvent('remote_command',{op:'hint'})"), "Team Lite client remote command broadcasts must contain only a generic hint");
+assert.ok(!script.includes("sendRealtimeEvent('remote_result'"), "Team Lite must not broadcast remote result metadata publicly");
 assert.ok(!script.includes("if(c&&c.target===member)executeRemoteCommand(c);"), "client must not execute untrusted remote command broadcast payloads");
 assert.ok(build.includes('writeFunction("upstatus-team-lite",renderTeamLiteFunction())'), "build must generate the Team Lite Edge Function");
 assert.ok(!build.includes("fs.rmSync"), "build must not recursively delete function or dist directories");
