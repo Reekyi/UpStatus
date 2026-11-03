@@ -111,10 +111,8 @@ try {
       window.__upStream = stream; window.__upPc = pc;
     }),
   ]);
-  streamA = true; streamB = true;
-  pcA = true; pcB = true;
 
-  const offer = await pageA.evaluate(async () => {
+  await pageA.evaluate(async () => {
     const pc = window.__upPc;
     const description = await pc.createOffer();
     await pc.setLocalDescription(description);
@@ -151,8 +149,8 @@ try {
   await pageA.evaluate(async sdp => window.__upPc.setRemoteDescription(sdp), answerEvent.payload.sdp);
 
   const connected = await Promise.all([
-    pageA.waitForFunction(() => window.__upPc.connectionState === "connected", { timeout: 20000 }).then(() => true),
-    pageB.waitForFunction(() => window.__upPc.connectionState === "connected", { timeout: 20000 }).then(() => true),
+    pageA.waitForFunction(() => window.__upPc.connectionState === "connected", undefined, { timeout: 20000 }).then(() => true),
+    pageB.waitForFunction(() => window.__upPc.connectionState === "connected", undefined, { timeout: 20000 }).then(() => true),
   ]);
   assert.deepEqual(connected, [true, true], "both real browser peer connections must reach connected state");
   const tracks = await Promise.all([
@@ -160,7 +158,7 @@ try {
     pageB.evaluate(() => window.__upPc.getSenders().some(sender => sender.track?.kind === "audio")),
   ]);
   assert.deepEqual(tracks, [true, true], "both peers must publish audio tracks");
-  await pageB.waitForFunction(() => (window.__upRemoteTracks || 0) > 0, { timeout: 10000 });
+  await pageB.waitForFunction(() => (window.__upRemoteTracks || 0) > 0, undefined, { timeout: 10000 });
   const remoteAudioTrack = await pageB.evaluate(() => window.__upRemoteTracks > 0);
   assert.equal(remoteAudioTrack, true, "callee must receive the caller's remote audio track");
 
