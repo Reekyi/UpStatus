@@ -72,6 +72,24 @@ async function waitForEvent(page, user, expectedType, eventType = "call_signal",
   }, { endpoint, token: user.token, roomId, expectedType, eventType, timeoutMs });
 }
 
+async function teardownPeerConnections() {
+  const results = await Promise.all([pageA, pageB].map(page => page.evaluate(() => {
+    const pc = window.__upPc;
+    const stream = window.__upStream;
+    try { pc?.close(); } catch {}
+    try { stream?.getTracks().forEach(track => track.stop()); } catch {}
+    return {
+      connectionState: pc?.connectionState || "missing",
+      localTrackStates: stream?.getTracks().map(track => track.readyState) || [],
+    };
+  })));
+  for (const result of results) {
+    assert.equal(result.connectionState, "closed", "peer connection must close during teardown");
+    assert.ok(result.localTrackStates.every(state => state === "ended"), "local media tracks must stop during teardown");
+  }
+  console.log("PASS browser peer and local media teardown.");
+}
+
 async function negotiateMedia({ bindingType, eventType, logicalId, trackKind }) {
   const bound = await api(pageA, users.A, "/room/bind", { roomId, bindingType, logicalId });
   assert.ok([200, 201].includes(bound.status), bindingType + " binding must be created");
@@ -154,6 +172,7 @@ async function negotiateMedia({ bindingType, eventType, logicalId, trackKind }) 
   ]);
   await pageB.waitForFunction(kind => (window.__upRemoteTrackKinds || []).includes(kind), trackKind, { timeout: 10000 });
   console.log("PASS authenticated browser " + bindingType + " WebRTC negotiation and remote " + trackKind + " track delivery.");
+  await teardownPeerConnections();
 }
 
 try {
@@ -246,6 +265,7 @@ try {
   const remoteAudioTrack = await pageB.evaluate(() => window.__upRemoteTracks > 0);
   assert.equal(remoteAudioTrack, true, "callee must receive the caller's remote audio track");
   console.log("PASS authenticated browser call WebRTC negotiation and remote audio track delivery.");
+  await teardownPeerConnections();
 
   await negotiateMedia({
     bindingType: "voice", eventType: "voice_room_signal",
