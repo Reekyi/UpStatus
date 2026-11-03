@@ -1,11 +1,11 @@
 # Server-Mediated Signaling Prototype
 
-Status: isolated prototype only. Not integrated with either userscript. Not approved for production.
+Status: isolated prototype; authenticated transport adapter is bundled and an opt-in one-to-one call path is wired in the normal candidate behind a default-off flag. Team Lite has not switched its live call/media paths. Not approved for production.
 
 ## Environment
 
 - Supabase project: `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`)
-- Function: `upstatus-signal-test`, isolated deployment revision 20 (bounded streaming JSON body reader, recursive identity sanitization, and nesting/traversal limits included).
+- Function: `upstatus-signal-test`, isolated deployment revision 26 (bounded streaming JSON body reader, recursive identity sanitization, room invitation/ownership controls, recipient-scoped delivery, and nesting/traversal limits included).
 - Endpoint health check: `GET /functions/v1/upstatus-signal-test/health` returned `{"ok":true,"service":"upstatus-signal-test"}`.
 - No production user/session rows or production data were copied into this test project.
 - The project is on the free tier; usage limits still apply.
@@ -145,3 +145,16 @@ Current limitation: this is a migration contract and server allowlist only. No c
 - Expanded the authenticated harness for invalid binding type, missing binding, non-member resolution/invitation, self-invitation, duplicate invitation, and binding cleanup when closing a room.
 - Deployed isolated function revision 20; health endpoint remains healthy. GitHub Actions run [41114967596](https://github.com/Reekyi/UpStatus/actions/runs/41114967596) passed static 11/11, body reader 3/3, envelope validator 3/3, and unauthenticated HTTP 10/10. Validation run [41114967992](https://github.com/Reekyi/UpStatus/actions/runs/41114967992) also succeeded.
 - Authenticated CI remains skipped until the isolated-only service-role secret is configured. No client transport migration or production/official TEST deployment has occurred.
+
+
+## Current verified checkpoint (2026-11-03)
+
+This section supersedes older checklist statements above where they conflict with later CI evidence.
+
+- The normal candidate bundles the adapter and has an opt-in one-to-one call path wired behind a default-off feature flag. Existing public Realtime remains the default fallback. Team Lite still uses the legacy live call/voice/screen paths.
+- Isolated function `upstatus-signal-test` is currently revision 26. The authenticated integration workflow most recently certified 79/79 checks on commit `492f1e7`; that run also passed Chromium WebRTC call audio, voice-room audio, and screen-video negotiation, ICE gathering, remote track delivery, peer teardown, and local media-track shutdown.
+- A newer candidate test now adds simultaneous independent room coverage for the same caller/callee pair. Its CI result is pending and must not be counted as passed until the new run completes.
+- The browser harness tests the authenticated transport and browser WebRTC primitives. It does not yet execute the full Tampermonkey userscript UI/GM bridge, real hardware microphone permission prompts, or real `getDisplayMedia` capture.
+- Remaining release blockers: full userscript/UI bridge integration, real hardware permissions, simultaneous-call collision handling, reconnect and network interruption, group-call discovery/join, Team Lite client migration, and cross-client compatibility.
+- Public chat/user-status/remote-state payload-minimization migrations are staged in PR #74 and applied only to the isolated security-test database. They have not been applied to production or official TEST.
+- Keep the adapter disabled by default. Do not merge, deploy, apply production/official TEST migrations, or publish either release line without explicit approval.
