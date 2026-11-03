@@ -2248,6 +2248,18 @@ function renderChatText(text){
   // The shared Realtime topic is public. Treat broadcast payloads as untrusted hints,
   // and reconcile chat state only from the authenticated API.
   function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}
+  var realtimeStatusRefreshTimer=null,realtimeStatusRefreshLastAt=0;
+  function scheduleRealtimeStatusRefresh(){
+    if(realtimeStatusRefreshTimer)return;
+    var expectedGeneration=authGeneration,expectedMember=member;
+    var wait=Math.max(0,1000-(Date.now()-realtimeStatusRefreshLastAt));
+    realtimeStatusRefreshTimer=setTimeout(function(){
+      realtimeStatusRefreshTimer=null;
+      if(!isAuthenticated()||expectedGeneration!==authGeneration||expectedMember!==member)return;
+      realtimeStatusRefreshLastAt=Date.now();
+      refresh();
+    },wait);
+  }
   function startRealtime(){
     if(!isAuthenticated()||realtimeClient||typeof supabase==='undefined'||!supabase.createClient)return;
     var realtimeGeneration=authGeneration,realtimeMember=member;
@@ -2258,7 +2270,7 @@ function renderChatText(text){
         .on('broadcast',{event:'db_change'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)scheduleRealtimeChatRefresh();})
         .on('broadcast',{event:'chat_fast'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)handleRealtimeChatFast();})
         .on('broadcast',{event:'chat_read'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)scheduleRealtimeChatRefresh();})
-        .on('broadcast',{event:'user_status'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)refresh();})
+        .on('broadcast',{event:'user_status'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)scheduleRealtimeStatusRefresh();})
         .on('broadcast',{event:'chat_presence'},function(payload){if(!isAuthenticated()||realtimeGeneration!==authGeneration||realtimeMember!==member)return;var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();})
         .on('broadcast',{event:'health_ping'},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration)handleHealthPing(payload&&payload.payload||{});})
         .on('broadcast',{event:'health_pong'},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration)handleHealthPong(payload&&payload.payload||{});})
@@ -2294,6 +2306,7 @@ function renderChatText(text){
   }
   function stopRealtime(){
     realtimeActive=false;
+    if(realtimeStatusRefreshTimer){clearTimeout(realtimeStatusRefreshTimer);realtimeStatusRefreshTimer=null;}
     if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}
     try{if(realtimeChannel)realtimeChannel.unsubscribe();}catch(e){}
     try{if(realtimeClient)realtimeClient.removeAllChannels();}catch(e){}
