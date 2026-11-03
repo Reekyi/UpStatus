@@ -2342,7 +2342,7 @@ function renderChatText(text){
         .on('broadcast',{event:'chat_presence'},function(payload){var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();})
         .on('broadcast',{event:'health_ping'},function(payload){handleHealthPing(payload&&payload.payload||{});})
         .on('broadcast',{event:'health_pong'},function(payload){handleHealthPong(payload&&payload.payload||{});})
-        .on('broadcast',{event:'remote_command'},function(){pollRemoteStatus();})
+        .on('broadcast',{event:'remote_command'},function(){setTimeout(pollRemoteStatus,1100);})
         .on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{});})
         .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){voiceRoomReceive(payload&&payload.payload||{});})
         .on('broadcast',{event:SCREEN_ROOM_EVENT},function(payload){screenShareReceive(payload&&payload.payload||{});})
@@ -3430,7 +3430,7 @@ function chatAvatarPresence(name){
       api('POST','/api/remote-status',{target:target,status:selected,reason:selected==='busy'?selectedReason:selected==='away'?'Ausente':''}).then(function(r){
         if(!r.commandId)throw new Error('O servidor não confirmou o comando.');
         msg.textContent='Aguardando '+target+' executar…';
-        if(r.command)sendRealtimeEvent('remote_command',{command:r.command});
+        if(r.command)sendRealtimeEvent('remote_command',{op:'hint'});
         waitRemoteResult(r.commandId,target,msg,confirm);
       }).catch(function(e){msg.textContent=e.message||'Não foi possível enviar o comando.';confirm.disabled=false;});
     };
@@ -3493,9 +3493,7 @@ function chatAvatarPresence(name){
         ok=true;
         if(location.hostname==='app.salesmartly.com')setTimeout(function(){location.reload()},250);
       }catch(e){error=e.message||'Falha ao sincronizar o Sale Smartly.';}
-      var resultPayload={commandId:c.id,sender:c.sender||'',target:member,status:c.status,reason:c.reason||'',ok:ok,error:error,createdAt:new Date().toISOString()};
       try{await api('POST','/api/remote-status/result',{commandId:c.id,ok:ok,error:error});}catch(_){ }
-      sendRealtimeEvent('remote_result',{result:resultPayload});
       delete remotePending[c.id];
       if(!ok)message('Comando remoto de '+c.sender+' falhou: '+error,true);else refresh();
     })();
