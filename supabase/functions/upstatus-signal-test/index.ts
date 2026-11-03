@@ -374,17 +374,18 @@ Deno.serve(async (req: Request) => {
       const activeRoom = roomId ? await room(roomId) : null;
       if (!activeRoom || !(await isMember(roomId, sender)))
         return response({ error: "Accepted room membership required" }, 404);
-      const { data: departed, error: leaveError } = await db.from("upstatus_signal_room_members")
-        .delete().eq("room_id", roomId).eq("user_name", sender).eq("status", "accepted")
-        .select("user_name").maybeSingle();
-      if (leaveError) throw leaveError;
-      if (!departed) return response({ error: "Room membership already ended" }, 409);
-
+      // Clean the departing member's inbox before changing membership so a
+      // storage failure cannot leave an accepted-member row half-deleted.
       // Preserve events sent by the departing member so peers can receive the
       // final leave/hangup signal; discard only events addressed to that member.
       const { error: inboxError } = await db.from("upstatus_signal_events")
         .delete().eq("room_id", roomId).eq("recipient", sender);
       if (inboxError) throw inboxError;
+      const { data: departed, error: leaveError } = await db.from("upstatus_signal_room_members")
+        .delete().eq("room_id", roomId).eq("user_name", sender).eq("status", "accepted")
+        .select("user_name").maybeSingle();
+      if (leaveError) throw leaveError;
+      if (!departed) return response({ error: "Room membership already ended" }, 409);
 
       const { data: remaining, error: membersError } = await db.from("upstatus_signal_room_members")
         .select("user_name,joined_at").eq("room_id", roomId).eq("status", "accepted")
