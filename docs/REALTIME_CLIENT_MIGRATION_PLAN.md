@@ -1,6 +1,6 @@
 # Realtime client migration: implementation gates
 
-Status: design/audit checkpoint; no client transport has been switched.
+Status: opt-in one-to-one client path is wired behind a default-off flag; no default/live transport cutover has occurred.
 
 ## Why this must be staged
 
