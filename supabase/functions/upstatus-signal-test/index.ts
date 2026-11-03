@@ -369,6 +369,58 @@ Deno.serve(async (req: Request) => {
       return response({ ok: true, status: updatedInvitation.status });
     }
 
+    if (path.endsWith("/room/leave")) {
+      const roomId = String(p.roomId || "");
+      const activeRoom = roomId ? await room(roomId) : null;
+      if (!activeRoom || !(await isMember(roomId, sender)))
+        return response({ error: "Accepted room membership required" }, 404);
+      const { data: departed, error: leaveError } = await db.from("upstatus_signal_room_members")
+        .delete().eq("room_id", roomId).eq("user_name", sender).eq("status", "accepted")
+        .select("user_name").maybeSingle();
+      if (leaveError) throw leaveError;
+      if (!departed) return response({ error: "Room membership already ended" }, 409);
+
+      // Preserve events sent by the departing member so peers can receive the
+      // final leave/hangup signal; discard only events addressed to that member.
+      const { error: inboxError } = await db.from("upstatus_signal_events")
+        .delete().eq("room_id", roomId).eq("recipient", sender);
+      if (inboxError) throw inboxError;
+
+      const { data: remaining, error: membersError } = await db.from("upstatus_signal_room_members")
+        .select("user_name,joined_at").eq("room_id", roomId).eq("status", "accepted")
+        .order("joined_at", { ascending: true }).limit(32);
+      if (membersError) throw membersError;
+
+      if (!remaining?.length) {
+        const { error: closeError } = await db.from("upstatus_signal_rooms")
+          .update({ status: "closed" }).eq("room_id", roomId).eq("status", "active");
+        if (closeError) throw closeError;
+        const { error: bindingError } = await db.from("upstatus_signal_room_bindings").delete().eq("room_id", roomId);
+        if (bindingError) throw bindingError;
+        const { error: eventsError } = await db.from("upstatus_signal_events").delete().eq("room_id", roomId);
+        if (eventsError) throw eventsError;
+        const { error: pendingError } = await db.from("upstatus_signal_room_members").delete().eq("room_id", roomId);
+        if (pendingError) throw pendingError;
+        return response({ ok: true, roomClosed: true, ownerTransferred: false });
+      }
+
+      let ownerTransferred = false;
+      if (activeRoom.created_by === sender) {
+        const nextOwner = remaining[0].user_name;
+        const { data: updatedRoom, error: ownerError } = await db.from("upstatus_signal_rooms")
+          .update({ created_by: nextOwner }).eq("room_id", roomId).eq("created_by", sender)
+          .select("room_id").maybeSingle();
+        if (ownerError) throw ownerError;
+        if (updatedRoom) {
+          const { error: bindingOwnerError } = await db.from("upstatus_signal_room_bindings")
+            .update({ created_by: nextOwner }).eq("room_id", roomId);
+          if (bindingOwnerError) throw bindingOwnerError;
+          ownerTransferred = true;
+        }
+      }
+      return response({ ok: true, roomClosed: false, ownerTransferred });
+    }
+
     if (path.endsWith("/room/close")) {
       const roomId = String(p.roomId || "");
       const activeRoom = roomId ? await room(roomId) : null;
