@@ -68,6 +68,7 @@ const results = [];
 let roomId = "";
 let declineRoomId = "";
 let conflictRoomId = "";
+let leaveRoomId = "";
 function check(name, ok, detail = "") {
   results.push({ name, ok });
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " (" + detail + ")" : ""}`);
@@ -382,6 +383,89 @@ try {
       "closed room no longer delivers events",
     ]) check(name, false, "room creation failed; dependent test skipped");
   }
+
+  const leaveRoom = await request(users.A, "/room/create", { participants: [users.B.name, users.C.name] });
+  leaveRoomId = leaveRoom.json?.roomId || "";
+  check("creator can create a room for membership leave and owner handoff",
+    leaveRoom.status === 201 && !!leaveRoomId, "HTTP " + leaveRoom.status);
+  if (leaveRoomId) {
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const acceptBForLeave = await request(users.B, "/room/accept", { roomId: leaveRoomId });
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const acceptCForLeave = await request(users.C, "/room/accept", { roomId: leaveRoomId });
+    check("two invitees can accept before the creator leaves",
+      acceptBForLeave.status === 200 && acceptCForLeave.status === 200,
+      "B=" + acceptBForLeave.status + ", C=" + acceptCForLeave.status);
+    const bindVoiceForLeave = await request(users.A, "/room/bind", {
+      roomId: leaveRoomId, bindingType: "voice", logicalId: "leave-voice-" + leaveRoomId,
+    });
+    check("creator can bind voice room before leaving", bindVoiceForLeave.status === 201,
+      "HTTP " + bindVoiceForLeave.status);
+    const outgoingBeforeLeave = await request(users.A, "/signal", {
+      roomId: leaveRoomId, recipient: users.B.name, eventType: "call_signal",
+      payload: { type: "ended", callId: "leave-handoff-test" },
+    });
+    check("departing member can queue a final signal before leaving",
+      outgoingBeforeLeave.status === 202, "HTTP " + outgoingBeforeLeave.status);
+
+    const leaveA = await request(users.A, "/room/leave", { roomId: leaveRoomId });
+    check("creator can leave while other accepted members keep the room active",
+      leaveA.status === 200 && leaveA.json?.roomClosed === false && leaveA.json?.ownerTransferred === true,
+      "HTTP " + leaveA.status);
+    const statusBAfterOwnerLeave = await request(users.B, "/room/status", { roomId: leaveRoomId });
+    check("room ownership transfers to the earliest remaining accepted member",
+      statusBAfterOwnerLeave.status === 200 && statusBAfterOwnerLeave.json?.participants?.some(p => p.name === users.A.name) === false,
+      "HTTP " + statusBAfterOwnerLeave.status);
+    const statusAAfterLeave = await request(users.A, "/room/status", { roomId: leaveRoomId });
+    check("departed creator loses room-owner privileges", statusAAfterLeave.status === 403,
+      "HTTP " + statusAAfterLeave.status);
+    const pollAAfterLeave = await request(users.A, "/poll", { roomId: leaveRoomId });
+    check("departed creator can no longer poll the room", pollAAfterLeave.status === 403,
+      "HTTP " + pollAAfterLeave.status);
+    const preservedSignal = await request(users.B, "/poll", { roomId: leaveRoomId });
+    check("final signal from departing member remains deliverable",
+      preservedSignal.status === 200 && preservedSignal.json?.events?.some(e =>
+        e.sender === users.A.name && e.payload?.type === "ended"),
+      "HTTP " + preservedSignal.status);
+    const bindAfterTransfer = await request(users.B, "/room/bind", {
+      roomId: leaveRoomId, bindingType: "screen", logicalId: "leave-screen-" + leaveRoomId,
+    });
+    check("new room owner can manage existing logical bindings", bindAfterTransfer.status === 201,
+      "HTTP " + bindAfterTransfer.status);
+
+    const leaveB = await request(users.B, "/room/leave", { roomId: leaveRoomId });
+    check("new owner can leave and transfer ownership to the remaining member",
+      leaveB.status === 200 && leaveB.json?.roomClosed === false && leaveB.json?.ownerTransferred === true,
+      "HTTP " + leaveB.status);
+    const statusCAfterTransfer = await request(users.C, "/room/status", { roomId: leaveRoomId });
+    check("second ownership transfer is visible to the remaining member",
+      statusCAfterTransfer.status === 200, "HTTP " + statusCAfterTransfer.status);
+    const leaveCLast = await request(users.C, "/room/leave", { roomId: leaveRoomId });
+    check("last accepted member leaving automatically closes the room",
+      leaveCLast.status === 200 && leaveCLast.json?.roomClosed === true,
+      "HTTP " + leaveCLast.status);
+    const resolveAfterLastLeave = await request(users.C, "/room/resolve", {
+      bindingType: "voice", logicalId: "leave-voice-" + leaveRoomId,
+    });
+    check("last-member departure removes all logical room bindings",
+      resolveAfterLastLeave.status === 404, "HTTP " + resolveAfterLastLeave.status);
+  } else {
+    for (const name of [
+      "two invitees can accept before the creator leaves",
+      "creator can bind voice room before leaving",
+      "departing member can queue a final signal before leaving",
+      "creator can leave while other accepted members keep the room active",
+      "room ownership transfers to the earliest remaining accepted member",
+      "departed creator loses room-owner privileges",
+      "departed creator can no longer poll the room",
+      "final signal from departing member remains deliverable",
+      "new room owner can manage existing logical bindings",
+      "new owner can leave and transfer ownership to the remaining member",
+      "second ownership transfer is visible to the remaining member",
+      "last accepted member leaving automatically closes the room",
+      "last-member departure removes all logical room bindings",
+    ]) check(name, false, "leave room creation failed");
+  }
 } catch (error) {
   console.error("Integration request failed:", String(error));
   results.push({ name: "test runner completed without transport error", ok: false });
@@ -395,6 +479,9 @@ try {
   }
   if (conflictRoomId) {
     try { await request(users.A, "/room/close", { roomId: conflictRoomId }); } catch {}
+  }
+  if (leaveRoomId) {
+    try { await request(users.A, "/room/close", { roomId: leaveRoomId }); } catch {}
   }
 }
 const passed = results.filter(r => r.ok).length;
