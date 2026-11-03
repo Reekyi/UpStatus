@@ -23,6 +23,9 @@ on:
       - "ycaro.html"
       - "scripts/team-lite-candidate-check.mjs"
       - "scripts/test-signaling-endpoint.mjs"
+      - "scripts/test-signaling-authenticated.mjs"
+      - "scripts/run-signaling-authenticated.mjs"
+      - "scripts/test-signaling-browser.mjs"
       - ".github/workflows/team-lite-candidate.yml"
 
 permissions:
