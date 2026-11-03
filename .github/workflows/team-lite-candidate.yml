@@ -29,7 +29,7 @@ on:
       - ".github/workflows/team-lite-candidate.yml"
 
 concurrency:
-  group: upstatus-signaling-team-lite-candidate
+  group: upstatus-signaling-isolated-tests
   cancel-in-progress: false
 
 permissions:
