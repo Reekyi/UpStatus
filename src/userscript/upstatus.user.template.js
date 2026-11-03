@@ -2415,6 +2415,24 @@ function renderChatText(text){
     try{if(realtimeClient)realtimeClient.removeAllChannels();}catch(e){}
     realtimeChannel=null;realtimeClient=null;
   }
+  // Recover local media state when the browser reports a real network outage.
+  // A room is intentionally not auto-joined after recovery: the user can re-enter
+  // once the authenticated Realtime channel is subscribed again.
+  var upNetworkOffline=false;
+  window.addEventListener('offline',function(){
+    upNetworkOffline=true;
+    try{if(voiceRoom.active||voiceRoom.joining)voiceRoomLeave();}catch(e){}
+    try{if(upCall&&upCall.active)callCleanup(false);}catch(e){}
+    stopRealtime();
+  });
+  window.addEventListener('online',function(){
+    if(!upNetworkOffline)return;
+    upNetworkOffline=false;
+    stopRealtime();
+    if(!token)return;
+    startRealtime();
+    refresh();
+  });
   function updateLuccaPresence(active){
     luccaOnline=!!active;
     if(quickChatBubble)quickChatBubble.classList.toggle('lucca-active',luccaOnline);
