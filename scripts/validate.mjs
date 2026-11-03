@@ -126,7 +126,9 @@ for(const artifact of [prodUser,testUser]){
   assert(artifact.includes(".on('broadcast',{event:'db_change'},function(){scheduleRealtimeChatRefresh();})"),"db_change payload rows must not be applied directly");
   assert(artifact.includes(".on('broadcast',{event:'chat_fast'},function(){handleRealtimeChatFast();})"),"chat_fast listener must not trust broadcast payloads");
   assert(artifact.includes(".on('broadcast',{event:'chat_read'},function(){scheduleRealtimeChatRefresh();})"),"public read receipts must be reconciled through canonical chat state");
-  assert(artifact.includes(".on('broadcast',{event:'user_status'},function(){refresh();})"),"user_status broadcasts must be refresh-only hints, never trusted profile/status payloads");
+  assert(artifact.includes(".on('broadcast',{event:'user_status'},function(){scheduleRealtimeStatusRefresh();})"),"user_status broadcasts must be throttled refresh-only hints");
+  assert(artifact.includes("var wait=Math.max(0,1000-(Date.now()-realtimeStatusRefreshLastAt));"),"public user_status hints must be throttled to one refresh per second");
+  assert(artifact.includes("if(token!==expectedToken||member!==expectedMember)return;"),"delayed status refresh must not cross normal-client sessions");
   assert(artifact.includes("var expectedToken=token,expectedMember=member;") && artifact.includes("if(token===expectedToken&&member===expectedMember)pollRemoteStatus();"),"delayed remote polling must not cross normal-client sessions");
   assert(artifact.includes("sendRealtimeEvent('remote_command',{op:'hint'})"),"client remote_command broadcasts must contain only a generic hint");
   assert(!artifact.includes("sendRealtimeEvent('remote_result'"),"client must not broadcast remote result metadata publicly");
