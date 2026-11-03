@@ -163,3 +163,8 @@ The second staged migration `supabase/migrations/20261029183000_revoke_unused_pu
 - The status/remote-state SQL migration was applied to the isolated `upstatus-security-test` project only. Both trigger functions were read back with `search_path=pg_catalog, public` and operation-only payload construction. Trigger smoke writes completed and the temporary probe rows were removed.
 - The isolated Security Advisor reports no remaining broad EXECUTE warnings for the three trigger functions; RLS-enabled/no-policy INFO notices remain and are intentional for tables accessed only through the server-side privileged Edge Function. The isolated Performance Advisor's unindexed-FK finding was separately resolved with an index on `upstatus_signal_room_bindings.created_by`.
 - None of these isolated changes authorizes a production or official TEST migration. The public topic still exposes presence/health hints and legacy call, voice-room, and screen-share signaling. Those are separate migration gates, not fixed by payload minimization.
+
+
+### Isolated chat trigger validation (2026-11-03)
+
+The payload-free chat migration was applied only to `upstatus-security-test`. Its existing INSERT/UPDATE/DELETE trigger remained attached and all three trigger operations succeeded against a temporary probe row; the row was removed afterward. The function definition was read back with only the operation field, the compatible `db_change` event/topic, and a pinned `pg_catalog, public` search path. Realtime's ephemeral message table could not be read back through the available tool, so this validates function definition and trigger execution, not an independent wire capture. Production and official TEST remain untouched.
