@@ -165,6 +165,29 @@ await assert.rejects(
 assert.ok(declineSequence.includes("/room/close"), "declined calls must clean up the temporary room");
 console.log("signaling call setup gate: 4 assertions passed");
 
+const abortSetupCalls = [];
+const abortSetupClient = createSignalingTransport({
+  enabled: true,
+  request: async (path) => {
+    abortSetupCalls.push(path);
+    if (path === "/room/create") return { status: 201, body: { roomId: "sig_call_abort" } };
+    if (path === "/room/status") return { status: 200, body: { participants: [{ name: "mari", status: "pending" }] } };
+    return { status: 200, body: { ok: true } };
+  },
+});
+const setupAbort = new AbortController();
+const abortedSetup = abortSetupClient.prepareCallRoom("call:logical-abort", "mari", {
+  intervalMs: 100,
+  timeoutMs: 1000,
+  signal: setupAbort.signal,
+});
+setTimeout(() => setupAbort.abort(), 5);
+await assert.rejects(() => abortedSetup, error => error.name === "AbortError");
+assert.ok(abortSetupCalls.includes("/room/close"), "cancelling an unaccepted call must close its provisional server room");
+assert.equal(abortSetupCalls.includes("/signal"), false, "cancelling before acceptance must never send media signaling");
+console.log("signaling call setup cancellation: 2 assertions passed");
+
+
 const abortClient = createSignalingTransport({
   enabled: true,
   request: async () => ({ status: 200, body: { participants: [{ name: "mari", status: "pending" }] } }),
