@@ -124,6 +124,7 @@ for(const artifact of [prodUser,testUser]){
   assert(artifact.includes(".on('broadcast',{event:'db_change'},function(){scheduleRealtimeChatRefresh();})"),"db_change payload rows must not be applied directly");
   assert(artifact.includes(".on('broadcast',{event:'chat_fast'},function(){handleRealtimeChatFast();})"),"chat_fast listener must not trust broadcast payloads");
   assert(artifact.includes(".on('broadcast',{event:'chat_read'},function(){scheduleRealtimeChatRefresh();})"),"public read receipts must be reconciled through canonical chat state");
+  assert(artifact.includes(".on('broadcast',{event:'user_status'},function(){refresh();})"),"user_status broadcasts must be refresh-only hints, never trusted profile/status payloads");
   assert(artifact.includes("if(c&&c.target===member)pollRemoteStatus();"),"remote_command broadcasts must trigger authenticated polling only");
   assert(artifact.includes(".on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"),"remote_result broadcasts must not be authoritative");
 }
