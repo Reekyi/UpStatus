@@ -18,17 +18,17 @@ The existing topic `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0` is broad
 | RT-02 | Sender identity | Publish a call event claiming another user's `from` identity | Server rejects it or recipient ignores it based on authenticated server identity | PASS: authenticated API test derives sender and strips identity claims |
 | RT-03 | Recipient binding | Send offer/answer/ICE with forged `to` | Server verifies recipient and room membership before delivery | PASS: recipient-scoped delivery and non-member rejection tested |
 | RT-04 | Room membership | Send join/presence/leave for a room the sender has not joined | Rejected; roster is unchanged | PASS: membership, pending/accepted gates, leave and owner handoff covered by authenticated API suite |
-| RT-05 | Call authorization | Forge `join_approved`, `join_declined`, or `ended` | Only an authorized participant can change call state | PARTIAL: invite/accept/decline and membership authorization tested; all legacy call-state transitions not covered |
+| RT-05 | Call authorization | Forge `join_approved`, `join_declined`, or `ended` | Only an authorized participant can change call state | PARTIAL: authenticated invitation/acceptance/decline, group join requests, and discovery-only decline hints tested; every legacy call-state transition is not covered |
 | RT-06 | Screen share | Forge screen-share offer/answer/ICE and presence/leave events | Only authenticated room members can negotiate; untrusted signals do not create unauthorized peers | PASS for isolated authenticated screen-video SDP/ICE negotiation and teardown; legacy UI path pending |
 | RT-07 | Voice room | Forge voice-room presence, join, leave, offer, answer, and ICE | Server validates membership and recipient before forwarding | PASS for isolated authenticated voice audio SDP/ICE negotiation and teardown; legacy UI path pending |
-| RT-08 | Replay | Replay an old signal after logout, room exit, or call end | Expired/revoked session or closed call is rejected | NOT PROVEN |
+| RT-08 | Replay | Replay an old signal after logout, room exit, or call end | Expired/revoked session or closed call is rejected | PARTIAL: closed-room, departed-member, and removed-binding replay paths return 403/404; warm-instance session revocation/cache-window behavior is not proven |
 | RT-09 | Abuse resistance | Flood malformed/oversized signaling messages | Bounded request size, rate limits, no unbounded memory/peer creation | PARTIAL: malformed, oversized, deep and wide payloads rejected; rate-limit load/scale testing remains |
 | RT-10 | Chat events | Forge `db_change`, `chat_fast`, and `chat_read` payloads | Client treats broadcasts as invalidation hints and refetches canonical state via authenticated API | STATIC CHECKS PASS; full browser abuse test pending |
 | RT-11 | Remote commands | Forge `remote_command` and `remote_result` events | No action/result is trusted from broadcast alone; server API remains authoritative | STATIC CHECKS PASS; full browser abuse test pending |
 | RT-12 | Session revocation | Revoke a session while an Edge Function instance is warm | Requests fail after documented cache window; no long-lived stale authorization | NOT PROVEN |
 | RT-13 | Migration grants | Execute the three trigger-only functions as `anon` and `authenticated` | Direct EXECUTE is denied; triggers still run for legitimate database writes | PASS: isolated catalog privilege checks show EXECUTE denied to both roles; trigger smoke operations previously passed |
 | RT-14 | Table grants | Read/write the nine backend-owned tables directly as `anon` and `authenticated` | Direct access denied; authenticated backend flows continue to work | PASS: isolated privilege checks show no SELECT on messages/users/sessions for either role; authenticated API suite passes |
-| RT-15 | Cross-client compatibility | Normal and Team Lite clients join/leave calls and share screens across supported versions | No insecure downgrade; no broken call, voice, or screen-share workflow | NOT RUN |
+| RT-15 | Cross-client compatibility | Normal and Team Lite clients join/leave calls and share screens across supported versions | No insecure downgrade; no broken call, voice, or screen-share workflow | PARTIAL: normal and Team Lite server templates now have identical token hashing/session lookup and session-creation contracts; shared isolated API/browser tests pass, but both product userscripts have not yet been exercised together in one live session |
 | RT-16 | Regression | Login/logout, chat CRUD, reactions, receipts, typing, uploads, updater, remote status | No browser console/network regressions | PARTIAL: CI/static tests only |
 
 ## Required architecture decision
@@ -57,7 +57,7 @@ Before marking this work complete, attach:
 
 ## Current conclusion
 
-The existing candidate CI validates builds and selected regression invariants. It does not authenticate public Realtime senders and does not replace integration tests. Public signaling remains a release-blocking security gap until one of the server-authorized designs above is implemented and verified.
+Both normal UpStatus and Team Lite candidates now include the default-off server-mediated signaling path. When explicitly enabled, call, voice, and screen signaling use authenticated room-scoped APIs; public Realtime is limited to non-authoritative discovery hints and legacy fallback remains active only when the flag is off. The isolated API and browser suites pass, including three-member group invitation/fanout and mesh coverage once the current CI run completes. This does not authenticate or retire the legacy public topic for clients that have not migrated. Public Realtime and production grant cleanup remain release blockers until a coordinated migration is approved and verified.
 
 
 ## 2026-11-03 isolated validation update
@@ -76,3 +76,13 @@ The existing candidate CI validates builds and selected regression invariants. I
 - Read-only privilege checks in isolated project: `anon` and `authenticated` cannot EXECUTE any of the three trigger-only broadcast functions and cannot SELECT `messages`, `users`, or `upstatus_sessions`. `service_role` retains required privileges. This complements prior trigger smoke tests; it does not claim a full REST negative-write matrix for every table.
 - Production Security Advisor still reports the three broad-EXECUTE warnings. No production migration has been applied.
 - Team Lite candidate validation is not cross-client signaling validation: Team Lite still uses the legacy public Realtime media-signaling path. RT-15 remains blocked.
+
+
+## 2026-11-03 fail-closed and group-mesh follow-up
+
+- Normal UpStatus and Team Lite now both reject public call-control events while authenticated transport is enabled, ignore public voice/screen media broadcasts, and fail closed rather than falling back to public signaling when the endpoint or room binding is unavailable.
+- Group join approval now fails closed if the authenticated room mapping is missing; public decline is emitted only as a discovery-only hint.
+- The normal and Team Lite server templates are statically checked for identical token hashing/session lookup and session creation contracts over the shared `upstatus_sessions` table.
+- The browser harness has been extended to create a three-member group, exercise dynamic invitation/acceptance and authenticated roster fanout, negotiate all three peer-to-peer audio links, and verify peer/media teardown. Latest CI for this extended group-mesh suite is pending.
+- A race in concurrent CI fixture provisioning was corrected: session rows are inserted before user rows, identity columns allocate IDs, and stale-fixture cleanup preserves every unexpired session/room. This prevents one run from deleting another run's active test identities.
+- Production catalog checks still show broad `anon`/`authenticated` EXECUTE on the three trigger-only broadcast functions and direct client grants on nine RLS-enabled backend tables. The candidate revocation migrations are staged and validated in isolation; none has been applied to production or official TEST.
