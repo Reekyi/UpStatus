@@ -46,8 +46,8 @@ async function waitForGathering(page) {
   });
 }
 
-async function waitForEvent(page, user, expectedType, timeoutMs = 20000) {
-  return page.evaluate(async ({ endpoint, token, roomId, expectedType, timeoutMs }) => {
+async function waitForEvent(page, user, expectedType, eventType = "call_signal", timeoutMs = 20000) {
+  return page.evaluate(async ({ endpoint, token, roomId, expectedType, eventType, timeoutMs }) => {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       const response = await fetch(endpoint + "/poll", {
@@ -57,7 +57,7 @@ async function waitForEvent(page, user, expectedType, timeoutMs = 20000) {
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error("Polling failed: HTTP " + response.status);
-      const event = (json.events || []).find(item => item.event_type === "call_signal" && item.payload?.type === expectedType);
+      const event = (json.events || []).find(item => item.event_type === eventType && item.payload?.type === expectedType);
       if (event) {
         await fetch(endpoint + "/ack", {
           method: "POST",
@@ -69,7 +69,87 @@ async function waitForEvent(page, user, expectedType, timeoutMs = 20000) {
       await new Promise(resolve => setTimeout(resolve, 150));
     }
     throw new Error("Timed out waiting for " + expectedType);
-  }, { endpoint, token: user.token, roomId, expectedType, timeoutMs });
+  }, { endpoint, token: user.token, roomId, expectedType, eventType, timeoutMs });
+}
+
+async function negotiateMedia({ bindingType, eventType, logicalId, trackKind }) {
+  const bound = await api(pageA, users.A, "/room/bind", { roomId, bindingType, logicalId });
+  assert.ok([200, 201].includes(bound.status), bindingType + " binding must be created");
+  const resolved = await api(pageB, users.B, "/room/resolve", { bindingType, logicalId });
+  assert.equal(resolved.status, 200, bindingType + " binding must resolve for accepted member");
+  assert.equal(resolved.json.roomId, roomId, bindingType + " binding must resolve to the accepted room");
+
+  await Promise.all([
+    pageA.evaluate(async kind => {
+      const pc = new RTCPeerConnection({ iceServers: [] });
+      let stream;
+      if (kind === "audio") {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } else {
+        const canvas = document.createElement("canvas");
+        canvas.width = 32; canvas.height = 32;
+        const ctx = canvas.getContext("2d");
+        ctx.fillRect(0, 0, 32, 32);
+        stream = canvas.captureStream(5);
+      }
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      window.__upPc = pc; window.__upStream = stream;
+    }, trackKind),
+    pageB.evaluate(async kind => {
+      const pc = new RTCPeerConnection({ iceServers: [] });
+      pc.ontrack = event => {
+        if (event.track?.kind) {
+          window.__upRemoteTrackKinds = window.__upRemoteTrackKinds || [];
+          window.__upRemoteTrackKinds.push(event.track.kind);
+        }
+      };
+      if (kind === "audio") {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => pc.addTrack(track, stream));
+        window.__upStream = stream;
+      }
+      window.__upPc = pc; window.__upRemoteTrackKinds = [];
+    }, trackKind),
+  ]);
+
+  await pageA.evaluate(async () => {
+    const pc = window.__upPc;
+    await pc.setLocalDescription(await pc.createOffer());
+  });
+  await waitForGathering(pageA);
+  const offer = await pageA.evaluate(() => window.__upPc.localDescription.toJSON());
+  assert.match(offer.sdp, /a=candidate:/, bindingType + " offer must contain gathered ICE candidates");
+  const offerSent = await api(pageA, users.A, "/signal", {
+    roomId, recipient: users.B.name, eventType,
+    payload: { type: "offer", callId: logicalId, sdp: offer },
+  });
+  assert.equal(offerSent.status, 202, bindingType + " offer must be accepted by authenticated transport");
+
+  const offerEvent = await waitForEvent(pageB, users.B, "offer", eventType);
+  assert.equal(offerEvent.sender, users.A.name);
+  await pageB.evaluate(async sdp => {
+    const pc = window.__upPc;
+    await pc.setRemoteDescription(sdp);
+    await pc.setLocalDescription(await pc.createAnswer());
+  }, offerEvent.payload.sdp);
+  await waitForGathering(pageB);
+  const answer = await pageB.evaluate(() => window.__upPc.localDescription.toJSON());
+  assert.match(answer.sdp, /a=candidate:/, bindingType + " answer must contain gathered ICE candidates");
+  const answerSent = await api(pageB, users.B, "/signal", {
+    roomId, recipient: users.A.name, eventType,
+    payload: { type: "answer", callId: logicalId, sdp: answer },
+  });
+  assert.equal(answerSent.status, 202, bindingType + " answer must be accepted by authenticated transport");
+
+  const answerEvent = await waitForEvent(pageA, users.A, "answer", eventType);
+  assert.equal(answerEvent.sender, users.B.name);
+  await pageA.evaluate(async sdp => window.__upPc.setRemoteDescription(sdp), answerEvent.payload.sdp);
+  await Promise.all([
+    pageA.waitForFunction(() => window.__upPc.connectionState === "connected", undefined, { timeout: 20000 }),
+    pageB.waitForFunction(() => window.__upPc.connectionState === "connected", undefined, { timeout: 20000 }),
+  ]);
+  await pageB.waitForFunction(kind => (window.__upRemoteTrackKinds || []).includes(kind), trackKind, { timeout: 10000 });
+  console.log("PASS authenticated browser " + bindingType + " WebRTC negotiation and remote " + trackKind + " track delivery.");
 }
 
 try {
@@ -161,8 +241,16 @@ try {
   await pageB.waitForFunction(() => (window.__upRemoteTracks || 0) > 0, undefined, { timeout: 10000 });
   const remoteAudioTrack = await pageB.evaluate(() => window.__upRemoteTracks > 0);
   assert.equal(remoteAudioTrack, true, "callee must receive the caller's remote audio track");
+  console.log("PASS authenticated browser call WebRTC negotiation and remote audio track delivery.");
 
-  console.log("PASS isolated authenticated browser E2E: invitation acceptance, SDP offer/answer, gathered ICE candidates, and bidirectional audio peer connection.");
+  await negotiateMedia({
+    bindingType: "voice", eventType: "voice_room_signal",
+    logicalId: "browser-e2e-voice-" + Date.now(), trackKind: "audio",
+  });
+  await negotiateMedia({
+    bindingType: "screen", eventType: "screen_signal",
+    logicalId: "browser-e2e-screen-" + Date.now(), trackKind: "video",
+  });
 } finally {
   if (roomId && pageA) {
     try { await api(pageA, users.A, "/room/close", { roomId }); } catch {}
