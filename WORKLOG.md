@@ -494,3 +494,11 @@ Last updated: 2026-10-29
 - Applied the migration only to isolated Supabase project `upstatus-security-test` (project ref `bfpjtfqlnypisxljoxkb`), where both trigger functions and their attached triggers were present. Verified the resulting function definitions contain only operation payloads and pin `search_path=pg_catalog, public`. Insert/update trigger smoke operations completed, then temporary probe rows were deleted and post-cleanup counts were zero. Direct inspection of `realtime.messages` was blocked by the tool security layer, so payload delivery itself was not independently read back.
 - Production project `dlfvkawaiqduhlazsszm`, official TEST, and official Team Lite remain untouched. The migration is still staged for a coordinated rollout and must not be applied to those environments without explicit approval.
 - Remaining public-channel risks include `chat_presence`, health ping/pong, and call/voice/screen-share signaling. The authenticated signaling transport remains default-off pending full userscript UI/GM bridge, real hardware permissions, collision/reconnect, and cross-client validation.
+
+
+### Isolated signaling foreign-key performance follow-up (2026-11-03)
+
+- Supabase Performance Advisor on the isolated security-test project found one unindexed foreign key: `upstatus_signal_room_bindings.created_by` referencing `users(name)`.
+- Added migration candidate `20261103171000_index_signal_room_bindings_created_by.sql` to PR #74 and applied it only to `upstatus-security-test`.
+- Verified the index exists and re-ran Performance Advisor. The unindexed-foreign-key finding cleared. The advisor now reports the new index as unused because the isolated database has no sustained workload; it is retained because it covers the FK cascade path. Existing unused-index notices were not acted on.
+- Added a build-validation assertion to keep this index migration from silently disappearing. Production and official TEST were not changed.
