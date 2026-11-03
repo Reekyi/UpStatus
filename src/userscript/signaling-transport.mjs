@@ -220,6 +220,11 @@ export function createSignalingTransport({
     }
   }
 
+  async function leave(roomId) {
+    if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
+    return post("/room/leave", { roomId });
+  }
+
   async function close(roomId) {
     if (typeof roomId !== "string" || !roomId) throw new TypeError("Invalid room ID");
     return post("/room/close", { roomId });
@@ -318,7 +323,7 @@ export function createSignalingTransport({
 
   return Object.freeze({
     createRoom, bindRoom, resolveRoom, invite, requestInvite, invitations, roomStatus, roomMembers, waitForAcceptance, accept, decline,
-    sendSignal, sendToRoom, poll, ack, close, prepareCallRoom, startPolling, stopPolling, stopAll,
+    sendSignal, sendToRoom, poll, ack, leave, close, prepareCallRoom, startPolling, stopPolling, stopAll,
     get enabled() { return enabled; },
     get activePollCount() { return activePolls.size; },
     get now() { return now(); },
