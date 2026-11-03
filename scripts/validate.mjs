@@ -133,6 +133,8 @@ for(const artifact of [prodUser,testUser]){
   assert(artifact.includes("if(remotePollHintTimer)return;") && artifact.includes("if(token===expectedToken&&member===expectedMember)pollRemoteStatus();"),"remote command hint timers must coalesce and remain session-bound");
   assert(artifact.includes("sendRealtimeEvent('remote_command',{op:'hint'})"),"client remote_command broadcasts must contain only a generic hint");
   assert(!artifact.includes("sendRealtimeEvent('remote_result'"),"client must not broadcast remote result metadata publicly");
+  assert(artifact.includes("if(upCall&&upCall.active)callCleanup(true,'hangup');"),"normal logout must end active call signaling and media before clearing credentials");
+  assert(artifact.includes("if(!token||!member||!signalTransport||!signalTransportFlag||signalInvitationPollBusy)return;"),"normal invitation polling must stop issuing requests while logged out");
   assert(artifact.includes(".on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"),"remote_result broadcasts must not be authoritative");
 }
 
