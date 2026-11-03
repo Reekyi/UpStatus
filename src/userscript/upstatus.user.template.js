@@ -2328,6 +2328,15 @@ function renderChatText(text){
   // The shared Realtime topic is public. Treat broadcast payloads as untrusted hints,
   // and reconcile chat state only from the authenticated API.
   function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}
+  var remotePollHintTimer=null;
+  function scheduleRemoteStatusPoll(){
+    if(remotePollHintTimer)return;
+    var expectedToken=token,expectedMember=member;
+    remotePollHintTimer=setTimeout(function(){
+      remotePollHintTimer=null;
+      if(token===expectedToken&&member===expectedMember)pollRemoteStatus();
+    },1100);
+  }
   var realtimeStatusRefreshTimer=null,realtimeStatusRefreshLastAt=0;
   function scheduleRealtimeStatusRefresh(){
     if(realtimeStatusRefreshTimer)return;
@@ -2354,10 +2363,7 @@ function renderChatText(text){
         .on('broadcast',{event:'chat_presence'},function(payload){var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();})
         .on('broadcast',{event:'health_ping'},function(payload){handleHealthPing(payload&&payload.payload||{});})
         .on('broadcast',{event:'health_pong'},function(payload){handleHealthPong(payload&&payload.payload||{});})
-        .on('broadcast',{event:'remote_command'},function(){
-          var expectedToken=token,expectedMember=member;
-          setTimeout(function(){if(token===expectedToken&&member===expectedMember)pollRemoteStatus();},1100);
-        })
+        .on('broadcast',{event:'remote_command'},function(){scheduleRemoteStatusPoll();})
         .on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{});})
         .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){voiceRoomReceive(payload&&payload.payload||{});})
         .on('broadcast',{event:SCREEN_ROOM_EVENT},function(payload){screenShareReceive(payload&&payload.payload||{});})
@@ -2384,6 +2390,7 @@ function renderChatText(text){
   }
   function stopRealtime(){
     realtimeActive=false;
+    if(remotePollHintTimer){clearTimeout(remotePollHintTimer);remotePollHintTimer=null;}
     if(realtimeStatusRefreshTimer){clearTimeout(realtimeStatusRefreshTimer);realtimeStatusRefreshTimer=null;}
     if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}
     try{if(realtimeChannel)realtimeChannel.unsubscribe();}catch(e){}
