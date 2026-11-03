@@ -35,9 +35,9 @@ async function cleanupStaleFixtures() {
   // used only for temporary CI identities, so clean interrupted prior attempts
   // before provisioning a new set of fixtures.
   const [rooms, users, sessions] = await Promise.all([
-    rest("/upstatus_signal_rooms?select=room_id,created_by&created_by=like.__signal_test_%"),
-    rest("/users?select=name&name=like.__signal_test_%"),
-    rest("/upstatus_sessions?select=user_name&user_name=like.__signal_test_%"),
+    rest("/upstatus_signal_rooms?select=room_id,created_by&created_by=like.__signal_test_*"),
+    rest("/users?select=name&name=like.__signal_test_*"),
+    rest("/upstatus_sessions?select=user_name&user_name=like.__signal_test_*"),
   ]);
   const roomIds = (rooms || []).filter(row => String(row.created_by || "").startsWith("__signal_test_"))
     .map(row => String(row.room_id || "")).filter(Boolean);
@@ -55,9 +55,9 @@ async function cleanupStaleFixtures() {
     await rest("/users?name=" + identity, { method: "DELETE" });
   }
   const [remainingRooms, remainingUsers, remainingSessions] = await Promise.all([
-    rest("/upstatus_signal_rooms?select=room_id,created_by&created_by=like.__signal_test_%"),
-    rest("/users?select=name&name=like.__signal_test_%"),
-    rest("/upstatus_sessions?select=user_name&user_name=like.__signal_test_%"),
+    rest("/upstatus_signal_rooms?select=room_id,created_by&created_by=like.__signal_test_*"),
+    rest("/users?select=name&name=like.__signal_test_*"),
+    rest("/upstatus_sessions?select=user_name&user_name=like.__signal_test_*"),
   ]);
   const leftovers = [
     ...(remainingRooms || []).filter(row => String(row.created_by || "").startsWith("__signal_test_")),
