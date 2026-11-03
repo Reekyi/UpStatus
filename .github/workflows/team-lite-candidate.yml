@@ -28,6 +28,10 @@ on:
       - "scripts/test-signaling-browser.mjs"
       - ".github/workflows/team-lite-candidate.yml"
 
+concurrency:
+  group: upstatus-signaling-isolated-tests
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
