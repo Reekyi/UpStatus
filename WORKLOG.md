@@ -519,3 +519,11 @@ Last updated: 2026-10-29
 - Read back `upstatus_broadcast_messages()`: the function now sends only `jsonb_build_object('op', TG_OP)`, retains the existing `db_change` event/topic, and pins `search_path=pg_catalog, public`.
 - Direct readback of the ephemeral Realtime message table remains blocked by the tool security layer, so the verified evidence is the function definition plus successful trigger execution, not an independently captured wire payload.
 - Production and official TEST were not touched.
+
+
+### Authenticated signaling and browser suite re-run (2026-11-03)
+
+- Signaling smoke run [41672561235](https://github.com/Reekyi/UpStatus/actions/runs/41672561235) completed successfully on commit `52567ad`.
+- All 79/79 authenticated integration checks passed. Chromium then passed authenticated call audio, voice-room audio, and screen-video negotiation, gathered ICE, remote track delivery, peer teardown, and local media-track shutdown.
+- Temporary users, sessions, rooms, memberships, and events were confirmed cleaned up.
+- Follow-up tests for simultaneous independent call rooms and transient polling recovery/concurrent pollers have since been added to the candidate. Their newest smoke run is pending; do not count those additional scenarios as passed until that run completes.
