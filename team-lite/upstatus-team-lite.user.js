@@ -2680,7 +2680,7 @@ function renderChatText(text){
       try{accepted=window.confirm(requester+' quer entrar na sua chamada em grupo.\n\nPermitir a entrada?');}catch(e){}
       if(signalTransport&&signalRoomByCallId[p.callId]){
         if(accepted)callSendTo(requester,'invite',{participants:upCall.participants.slice(),initiator:upCall.initiator||member});
-        else sendRealtimeEvent('call_signal',{type:'join_declined',callId:p.callId,from:member,to:requester,updatedAt:Date.now()});
+        else callSendTo(requester,'join_declined',{updatedAt:Date.now()});
       }else sendRealtimeEvent('call_signal',{type:accepted?'join_approved':'join_declined',callId:p.callId,from:member,to:requester,participants:upCall.participants.slice(),updatedAt:Date.now()});
       if(accepted)message('Você aceitou o pedido de '+requester+'. Enviando convite para entrar…',false);
       return;
