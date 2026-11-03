@@ -1940,9 +1940,9 @@ function renderChatText(text){
   function callPublishPresence(){
     if(!upCall.active||!upCall.callId)return;
     var roomId=signalRoomByCallId[upCall.callId];
-    if(signalTransport&&roomId){
-      callSendAll('presence',{initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false});
-      // Public Realtime is retained only as a discovery hint; all call control and media signals use the authenticated room.
+    if(signalTransportFlag){
+      if(signalTransport&&roomId)callSendAll('presence',{initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false});
+      // Public Realtime is discovery-only while authenticated signaling is enabled.
       sendRealtimeEvent('call_signal',{type:'presence',callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false,discoveryOnly:true});
       return;
     }
@@ -2019,8 +2019,8 @@ function renderChatText(text){
     var cleanupPromise=Promise.resolve();
     var callId=upCall.callId,signalRoomId=signalRoomByCallId[callId],signalRoomCreator=signalCreatorCallIds[callId]===true,pendingSignals=[];
     if(callId&&upCall.active){
-      if(signalTransport&&signalRoomId){
-        if(!upCall.pendingInvite)pendingSignals.push(callSendAll('ended',{updatedAt:Date.now()}));
+      if(signalTransportFlag){
+        if(signalTransport&&signalRoomId&&!upCall.pendingInvite)pendingSignals.push(callSendAll('ended',{updatedAt:Date.now()}));
         if(signalRoomCreator)sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now(),discoveryOnly:true});
       }else sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now()});
     }
