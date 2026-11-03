@@ -174,6 +174,8 @@ checkSyntax(luccaInline[2],"lucca-site/index.html inline script");
 assert(luccaHtml.includes("sendMedia(file)"),"Lucca media upload flow missing");
 assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Lucca");'),"Lucca guest login/logout/expiry must preserve shared chat history");
 assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Ycaro")'),"Ycaro guest login/logout/expiry must preserve shared chat history");
+assert(prodUser.includes("var upNetworkOffline=false") && prodUser.includes("window.addEventListener('offline'") && prodUser.includes("window.addEventListener('online'"),"Normal production artifact must reset local media state offline and reconnect Realtime online");
+assert(testUser.includes("var upNetworkOffline=false") && testUser.includes("window.addEventListener('offline'") && testUser.includes("window.addEventListener('online'"),"Normal test artifact must reset local media state offline and reconnect Realtime online");
 assert(prodFn.includes("const html="+JSON.stringify(ycaroHtml)+";"),"Ycaro page embedding mismatch");
 assert(prodFn.includes('if(path==="/ycaro"||path==="/ycaro.html")'),"Ycaro page route missing");
 assert(prodFn.includes('Deno.env.get("YCARO_PASSWORD")'),"Ycaro password setting missing");
