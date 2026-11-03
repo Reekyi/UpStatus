@@ -181,3 +181,6 @@ console.log("Chat regression tests passed: chat, updater, notifications, untrust
 
 assert(source.includes("sendRealtimeEvent('remote_command',{op:'hint'})"),"client remote-command broadcast must contain only a generic hint");
 assert(!source.includes("sendRealtimeEvent('remote_result'"),"client must not broadcast remote result metadata publicly");
+
+assert(source.includes(".on('broadcast',{event:'user_status'},function(){scheduleRealtimeStatusRefresh();})"),"public user status events must use a throttled authenticated refresh scheduler");
+assert(source.includes("if(token!==expectedToken||member!==expectedMember)return;"),"scheduled public status refresh must be bound to the active normal session");
