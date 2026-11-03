@@ -2667,7 +2667,7 @@ function renderChatText(text){
   }
   async function receiveCallSignal(p){
     if(!p||typeof p.type!=='string'||typeof p.callId!=='string'||!p.callId||p.callId.length>160||typeof p.from!=='string'||!p.from||p.from.length>80||p.from===member)return;
-    if(signalTransportFlag&&!p._authenticatedTransport&&!((p.type==='presence'||p.type==='ended')&&p.discoveryOnly===true))return;
+    if(signalTransportFlag&&!p._authenticatedTransport&&!((p.type==='presence'||p.type==='ended'||p.type==='join_declined')&&p.discoveryOnly===true))return;
     if(p.type!=='presence'&&p.type!=='ended'&&p.to!==member)return;
     if((p.type==='offer'||p.type==='answer')&&(!p.sdp||typeof p.sdp.sdp!=='string'||p.sdp.sdp.length>100000))return;
     if(p.type==='ice'&&(!p.candidate||JSON.stringify(p.candidate).length>4096))return;
@@ -2680,7 +2680,7 @@ function renderChatText(text){
       try{accepted=window.confirm(requester+' quer entrar na sua chamada em grupo.\n\nPermitir a entrada?');}catch(e){}
       if(signalTransport&&signalRoomByCallId[p.callId]){
         if(accepted)callSendTo(requester,'invite',{participants:upCall.participants.slice(),initiator:upCall.initiator||member});
-        else callSendTo(requester,'join_declined',{updatedAt:Date.now()});
+        else sendRealtimeEvent('call_signal',{type:'join_declined',callId:p.callId,from:member,to:requester,discoveryOnly:true,updatedAt:Date.now()});
       }else sendRealtimeEvent('call_signal',{type:accepted?'join_approved':'join_declined',callId:p.callId,from:member,to:requester,participants:upCall.participants.slice(),updatedAt:Date.now()});
       if(accepted)message('Você aceitou o pedido de '+requester+'. Enviando convite para entrar…',false);
       return;
