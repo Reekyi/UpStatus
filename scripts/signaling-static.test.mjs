@@ -235,5 +235,6 @@ assert.ok(userTemplate.includes("signalTransport.leave(leavingRoomId)") &&
 console.log("PASS authenticated room leave and owner handoff are wired into client cleanup");
 console.log("PASS browser E2E asserts peer and media teardown");
 console.log("PASS authenticated browser E2E covers call, voice, and screen media paths");
-console.log("13/13 signaling static regression groups passed.");
+console.log("PASS authenticated browser E2E covers dynamic group invitations, three-member fanout, and all peer mesh links");
+console.log("14/14 signaling static regression groups passed.");
 
