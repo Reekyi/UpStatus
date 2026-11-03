@@ -2248,6 +2248,15 @@ function renderChatText(text){
   // The shared Realtime topic is public. Treat broadcast payloads as untrusted hints,
   // and reconcile chat state only from the authenticated API.
   function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}
+  var remotePollHintTimer=null;
+  function scheduleRemoteStatusPoll(){
+    if(remotePollHintTimer||!isAuthenticated())return;
+    var expectedGeneration=authGeneration,expectedMember=member;
+    remotePollHintTimer=setTimeout(function(){
+      remotePollHintTimer=null;
+      if(isAuthenticated()&&expectedGeneration===authGeneration&&expectedMember===member)pollRemoteStatus();
+    },1100);
+  }
   var realtimeStatusRefreshTimer=null,realtimeStatusRefreshLastAt=0;
   function scheduleRealtimeStatusRefresh(){
     if(realtimeStatusRefreshTimer)return;
@@ -2275,9 +2284,7 @@ function renderChatText(text){
         .on('broadcast',{event:'health_ping'},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration)handleHealthPing(payload&&payload.payload||{});})
         .on('broadcast',{event:'health_pong'},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration)handleHealthPong(payload&&payload.payload||{});})
         .on('broadcast',{event:'remote_command'},function(){
-          if(!isAuthenticated()||realtimeGeneration!==authGeneration||realtimeMember!==member)return;
-          var expectedGeneration=authGeneration,expectedMember=member;
-          setTimeout(function(){if(isAuthenticated()&&expectedGeneration===authGeneration&&expectedMember===member)pollRemoteStatus();},1100);
+          if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)scheduleRemoteStatusPoll();
         })
         .on('broadcast',{event:'call_signal'},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)receiveCallSignal(payload&&payload.payload||{});})
         .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)voiceRoomReceive(payload&&payload.payload||{});})
@@ -2306,6 +2313,7 @@ function renderChatText(text){
   }
   function stopRealtime(){
     realtimeActive=false;
+    if(remotePollHintTimer){clearTimeout(remotePollHintTimer);remotePollHintTimer=null;}
     if(realtimeStatusRefreshTimer){clearTimeout(realtimeStatusRefreshTimer);realtimeStatusRefreshTimer=null;}
     if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}
     try{if(realtimeChannel)realtimeChannel.unsubscribe();}catch(e){}
