@@ -2424,6 +2424,9 @@ function renderChatText(text){
     upNetworkOffline=true;
     try{if(voiceRoom.active||voiceRoom.joining)voiceRoomLeave();}catch(e){}
     try{if(upCall&&upCall.active)callCleanup(false);}catch(e){}
+    if(signalInvitationTimer){clearInterval(signalInvitationTimer);signalInvitationTimer=null;}
+    try{if(signalTransport){signalTransport.stopAll();signalTransport=null;}}catch(e){}
+    signalVoiceRoomRoomId='';signalVoiceRoomCreator=false;signalVoiceRoomPrepared=false;
     stopRealtime();
   });
   window.addEventListener('online',function(){
