@@ -144,3 +144,12 @@ The second staged migration `supabase/migrations/20261029183000_revoke_unused_pu
 - Added build-validation assertions that reject a regression to row serialization.
 - This migration is staged only. It has not been applied to production or official TEST. Apply only in a coordinated rollout with the matching client behavior, after isolated trigger testing and explicit release approval.
 - This is a partial mitigation, not a complete Realtime privacy fix. The remote-state trigger still publishes command/result metadata, and the user-status trigger still publishes selected status fields. Call, voice-room, and screen-share signaling must also complete their authenticated cutover before the public topic can be considered safe.
+
+
+## Candidate mitigation: payload-free user-status and remote-state hints (2026-11-03)
+
+- Added migration `20261103170000_minimize_public_status_broadcasts.sql` in PR #74. The `user_status`, `remote_command`, and `remote_result` events now carry only the database operation type, not names, command IDs, sender/target, status, reasons, error text, or timestamps.
+- The normal and Team Lite candidate clients treat `remote_command` as a hint to poll `GET /api/remote-status`; the custom-session-authenticated endpoint returns only the current member's pending command. The clients do not use broadcast-supplied routing metadata.
+- User-status events already trigger an authenticated refresh in both candidates. Remote-result events remain non-authoritative; result polling uses the authenticated result endpoint.
+- The migration uses a pinned `pg_catalog, public` search path for both SECURITY DEFINER trigger functions. It is staged only and has not been applied to production or official TEST.
+- This remains partial: `chat_presence`, health pings/pongs, and call/voice/screen-share signaling still use the public channel. The latter signaling events remain a critical sender-authentication gap. Coordinate this migration with both matching client builds and isolated trigger tests before any authorized rollout.
