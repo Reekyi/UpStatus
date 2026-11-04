@@ -231,3 +231,7 @@ assert(serverTemplate.includes("const readAt=Math.max(previousReadAt,latestReadA
   "read cursor must advance only to the newest message actually marked read");
 assert(!serverTemplate.includes('last_read_at:new Date().toISOString()'),
   "a read request must not mark messages arriving after its snapshot as read");
+assert(serverTemplate.includes('db.rpc("merge_chat_read_receipts"') && serverTemplate.includes("p_messages:map"),
+  "read receipts must be merged atomically in the database instead of read-modify-upsert from Edge isolates");
+assert(!serverTemplate.includes('db.from("chat_reads").upsert('),
+  "chat receipt writes must not overwrite concurrent receipt maps from separate Edge isolates");
