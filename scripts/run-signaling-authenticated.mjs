@@ -152,6 +152,8 @@ try {
       const identity = encodeURIComponent("eq." + user.name);
       const cleanupTasks = [
         () => rest("/upstatus_signal_rooms?created_by=" + identity, { method: "DELETE" }),
+        () => rest("/upstatus_signal_rate_limits?bucket_key=eq." + encodeURIComponent(user.name + ":read"), { method: "DELETE" }),
+        () => rest("/upstatus_signal_rate_limits?bucket_key=eq." + encodeURIComponent(user.name + ":write"), { method: "DELETE" }),
         () => rest("/upstatus_sessions?user_name=" + identity, { method: "DELETE" }),
         () => rest("/users?name=" + identity, { method: "DELETE" }),
       ];
@@ -171,6 +173,8 @@ try {
         "/upstatus_signal_room_bindings?select=room_id&created_by=" + identity,
         "/upstatus_signal_events?select=event_id&sender=" + identity,
         "/upstatus_signal_events?select=event_id&recipient=" + identity,
+        "/upstatus_signal_rate_limits?select=bucket_key&bucket_key=eq." + encodeURIComponent(user.name + ":read"),
+        "/upstatus_signal_rate_limits?select=bucket_key&bucket_key=eq." + encodeURIComponent(user.name + ":write"),
       ]) {
         try {
           const remaining = await rest(path);
