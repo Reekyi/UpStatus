@@ -27,9 +27,10 @@ The existing topic `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0` is broad
 | RT-11 | Remote commands | Forge `remote_command` and `remote_result` events | No action/result is trusted from broadcast alone; server API remains authoritative | STATIC CHECKS PASS; full browser abuse test pending |
 | RT-12 | Session revocation | Revoke a session while an Edge Function instance is warm | Requests fail after documented cache window; no long-lived stale authorization | PARTIAL: server-side session cache is explicitly bounded to 5 seconds; live warm-isolate revocation timing test remains pending |
 | RT-13 | Migration grants | Execute the three trigger-only functions as `anon` and `authenticated` | Direct EXECUTE is denied; triggers still run for legitimate database writes | PASS: isolated catalog privilege checks show EXECUTE denied to both roles; trigger smoke operations previously passed |
-| RT-14 | Table grants | Read/write the nine backend-owned tables directly as `anon` and `authenticated` | Direct access denied; authenticated backend flows continue to work | PASS: isolated privilege checks show no SELECT on messages/users/sessions for either role; authenticated API suite passes |
+| RT-14 | Table grants | Read/write backend-owned tables directly as `anon` and `authenticated` | Direct access denied; authenticated backend flows continue to work | PARTIAL: current isolated catalog confirms no client SELECT/INSERT on chat, user, session, signaling, and status tables; `upstatus_visual_config` still has SELECT/INSERT grants for both client roles (RLS enabled with no policies, so row access remains denied) |
 | RT-15 | Cross-client compatibility | Normal and Team Lite clients join/leave calls and share screens across supported versions | No insecure downgrade; no broken call, voice, or screen-share workflow | PARTIAL: normal and Team Lite server templates now have identical token hashing/session lookup and session-creation contracts; shared isolated API/browser tests pass, but both product userscripts have not yet been exercised together in one live session |
 | RT-16 | Regression | Login/logout, chat CRUD, reactions, receipts, typing, uploads, updater, remote status | No browser console/network regressions | PARTIAL: CI/static tests only |
+| RT-17 | Realtime internal table grants | Inspect `realtime.messages` grants and RLS policies for anon/authenticated | No unnecessary direct client grants; authorization is enforced by explicit policies where private channels are used | PARTIAL: isolated catalog shows RLS enabled but no policies, while anon/authenticated retain SELECT/INSERT table grants; direct row access is denied by RLS, but grants remain unnecessary and require a reviewed migration |
 
 ## Required architecture decision
 
@@ -92,3 +93,15 @@ Both normal UpStatus and Team Lite candidates now include the default-off server
 - The browser harness has been extended to create a three-member group, exercise dynamic invitation/acceptance and authenticated roster fanout, negotiate all three peer-to-peer audio links, and verify peer/media teardown. Latest CI for this extended group-mesh suite is pending.
 - A race in concurrent CI fixture provisioning was corrected: session rows are inserted before user rows, identity columns allocate IDs, and stale-fixture cleanup preserves every unexpired session/room. This prevents one run from deleting another run's active test identities.
 - Production catalog checks still show broad `anon`/`authenticated` EXECUTE on the three trigger-only broadcast functions and direct client grants on nine RLS-enabled backend tables. The candidate revocation migrations are staged and validated in isolation; none has been applied to production or official TEST.
+
+
+## 2026-11-04 isolated catalog and advisor refresh
+
+Read-only verification against isolated project `bfpjtfqlnypisxljoxkb`:
+
+- The three public SECURITY DEFINER broadcast trigger functions deny EXECUTE to `anon` and `authenticated`; `service_role` retains EXECUTE. This confirms the trigger-only grant hardening is present in isolation.
+- Backend-owned tables `chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_signal_events`, `upstatus_signal_room_bindings`, `upstatus_signal_room_members`, `upstatus_signal_rooms`, `upstatus_state`, `upstatus_typing`, and `users` have RLS enabled and no client SELECT/INSERT grants; `service_role` retains access.
+- Exception: `public.upstatus_visual_config` still grants SELECT and INSERT to both client roles. RLS is enabled with no policies, so this catalog result does not prove row access, but the grants are unnecessary and RT-14 is now PARTIAL.
+- `realtime.messages` also has RLS enabled with no policies but retains anon/authenticated SELECT and INSERT grants. No direct row access is inferred; RT-17 tracks the unnecessary grants separately.
+- Security Advisor: 14 INFO notices for RLS-enabled/no-policy tables; no ERROR/WARN items were returned. Performance Advisor: five unused-index INFO notices, including the recent bindings index. Do not drop indexes without workload evidence.
+- No migration was applied during this audit. Production and official TEST were not queried or changed in this follow-up.
