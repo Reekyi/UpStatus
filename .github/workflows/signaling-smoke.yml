@@ -31,6 +31,8 @@ on:
       - "scripts/run-signaling-authenticated.mjs"
       - "scripts/test-signaling-browser.mjs"
       - "scripts/signaling-static.test.mjs"
+      - "scripts/chat-regression.test.mjs"
+      - "src/server/index.template.ts"
       - "scripts/signaling-transport.test.mjs"
       - "src/userscript/signaling-transport.mjs"
       - "scripts/signaling-body.test.mjs"
