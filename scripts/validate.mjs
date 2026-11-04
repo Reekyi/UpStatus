@@ -180,6 +180,12 @@ assert(prodUser.includes("voiceRoom.joinGeneration!==joinGeneration") && prodUse
 assert(testUser.includes("voiceRoom.joinGeneration!==joinGeneration") && testUser.includes("navigator.onLine===false"),"Normal test voice-room join must reject offline entry and stale getUserMedia completion");
 assert(prodUser.includes("signalTransport.stopAll()") && prodUser.includes("signalVoiceRoomPrepared=false"),"Normal offline recovery must stop stale authenticated signaling pollers and reset room preparation state");
 assert(testUser.includes("signalTransport.stopAll()") && testUser.includes("signalVoiceRoomPrepared=false"),"Normal test offline recovery must stop stale authenticated signaling pollers and reset room preparation state");
+const prodRealtimeStart=prodUser.match(/function startRealtime\(\)\s*\{([\s\S]*?)\n  \}/);
+const testRealtimeStart=testUser.match(/function startRealtime\(\)\s*\{([\s\S]*?)\n  \}/);
+const prodOnlineHandler=prodUser.match(/window.addEventListener\('online',function\(\)\{([\s\S]*?)\n  \}\);/);
+const testOnlineHandler=testUser.match(/window.addEventListener\('online',function\(\)\{([\s\S]*?)\n  \}\);/);
+assert(prodRealtimeStart && prodRealtimeStart[1].includes("initSignalingTransport();") && prodOnlineHandler && prodOnlineHandler[1].includes("startRealtime();"),"Normal reconnect must recreate authenticated signaling transport when Realtime restarts");
+assert(testRealtimeStart && testRealtimeStart[1].includes("initSignalingTransport();") && testOnlineHandler && testOnlineHandler[1].includes("startRealtime();"),"Normal TEST reconnect must recreate authenticated signaling transport when Realtime restarts");
 assert(prodFn.includes("const html="+JSON.stringify(ycaroHtml)+";"),"Ycaro page embedding mismatch");
 assert(prodFn.includes('if(path==="/ycaro"||path==="/ycaro.html")'),"Ycaro page route missing");
 assert(prodFn.includes('Deno.env.get("YCARO_PASSWORD")'),"Ycaro password setting missing");
