@@ -390,7 +390,6 @@ async function chatRoute(req:Request,name:string,sessionStartedAt=0){
       }
     }
     for(const m of messages)m.readBy=readBy[m.id]||[];
-    const me=(read||[]).find((x:any)=>x.user_name===name);
     const unreadCount=unreadChatCount(messages,readBy,name);
     const profileMap:Record<string,string>={};
     for(const p of profileRes.data||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
