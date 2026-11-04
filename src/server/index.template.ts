@@ -386,18 +386,29 @@ async function chatRoute(req:Request,name:string){
 async function readRoute(req:Request,name:string){
   const p:any=await readBody(req);
   const ids=Array.isArray(p.messageIds)?p.messageIds.map(String).filter(Boolean).slice(0,1000):[];
-  const {data:current}=await db.from("chat_reads").select("messages").eq("user_name",name).maybeSingle();
+  if(!ids.length)return response({ok:true});
+  const {data:current}=await db.from("chat_reads").select("messages,last_read_at").eq("user_name",name).maybeSingle();
   const map=current?.messages&&typeof current.messages==="object"?{...current.messages}:{};
-  if(ids.length){
-    const {data:valid}=await db.from("messages").select("id,user_name").in("id",ids);
-    const validIds=new Set((valid||[]).filter((x:any)=>x.user_name!==name).map((x:any)=>String(x.id)));
-    for(const id of ids)if(validIds.has(id)){
-      const list=Array.isArray(map[id])?[...map[id]]:[];
-      if(!list.includes(name))list.push(name);
-      map[id]=list;
-    }
+  const {data:valid,error:validError}=await db.from("messages").select("id,user_name,created_at").in("id",ids);
+  if(validError)throw validError;
+  const validRows=(valid||[]).filter((x:any)=>x.user_name!==name);
+  if(!validRows.length)return response({ok:true});
+  let latestReadAt=0;
+  for(const row of validRows){
+    const id=String(row.id);
+    const list=Array.isArray(map[id])?[...map[id]]:[];
+    if(!list.includes(name))list.push(name);
+    map[id]=list;
+    const createdAt=Date.parse(row.created_at);
+    if(Number.isFinite(createdAt))latestReadAt=Math.max(latestReadAt,createdAt);
   }
-  const {error}=await db.from("chat_reads").upsert({user_name:name,last_read_at:new Date().toISOString(),messages:map},{onConflict:"user_name"});
+  const previousReadAt=Date.parse(String(current?.last_read_at||""))||0;
+  const readAt=Math.max(previousReadAt,latestReadAt);
+  const {error}=await db.rpc("merge_chat_read_receipts",{
+    p_user_name:name,
+    p_messages:map,
+    p_last_read_at:readAt?new Date(readAt).toISOString():null
+  });
   if(error)throw error;
   return response({ok:true});
 }
