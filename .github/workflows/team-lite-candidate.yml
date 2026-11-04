@@ -9,6 +9,8 @@ on:
       - "lucca.html"
       - "ycaro.html"
       - "scripts/team-lite-candidate-check.mjs"
+      - "src/server/index.template.ts"
+      - "supabase/migrations/**"
       - "scripts/signaling-transport.test.mjs"
       - "src/userscript/signaling-transport.mjs"
       - "scripts/test-signaling-endpoint.mjs"
