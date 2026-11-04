@@ -212,7 +212,7 @@ assert(unreadHelperStart>=0&&unreadHelperEnd>unreadHelperStart,"server must expo
 const unreadHelperSource=serverTemplate.slice(unreadHelperStart,unreadHelperEnd);
 const unreadContext={};
 vm.createContext(unreadContext);
-vm.runInContext(unreadHelperSource+";this.unreadChatCount=unreadChatCount;",unreadContext);
+vm.runInContext(unreadHelperSource.replace(/:any\[\]/g,"").replace(/:any/g,"").replace(/:string/g,"")+";this.unreadChatCount=unreadChatCount;",unreadContext);
 const persistedReceipts={"read-before-refresh":["Ricardo"],"read-by-other":["Lohan"]};
 const afterRefresh=[
   {id:"read-before-refresh",user:"Lohan",type:"text"},
