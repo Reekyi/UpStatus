@@ -11,6 +11,7 @@ on:
       - "scripts/test-signaling-browser.mjs"
       - "scripts/signaling-static.test.mjs"
       - "scripts/chat-regression.test.mjs"
+      - "scripts/test-chat-read-receipts.mjs"
       - "src/server/index.template.ts"
       - "scripts/signaling-transport.test.mjs"
       - "src/userscript/signaling-transport.mjs"
@@ -54,6 +55,7 @@ jobs:
           node scripts/signaling-envelope.test.mjs
           node --check scripts/signaling-transport.test.mjs
           node scripts/signaling-transport.test.mjs
+          node --check scripts/test-chat-read-receipts.mjs
       - name: Run unauthenticated endpoint checks against isolated project
         env:
           UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
@@ -70,3 +72,8 @@ jobs:
           npm install --no-save --package-lock=false playwright
           npx playwright install --with-deps chromium
           node scripts/run-signaling-authenticated.mjs
+      - name: Verify atomic chat read-receipt concurrency
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+        run: node scripts/test-chat-read-receipts.mjs
