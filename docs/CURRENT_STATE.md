@@ -94,3 +94,12 @@ PR #74 includes a candidate fix for a false-read race: unread counts now use the
 - Team Lite Candidate Checks: run `41852223087` passed.
 - Normal Signaling Smoke: run `41853226497` was still running authenticated integration at last inspection; the newer smoke run `41853971486` was queued behind the shared isolated-project concurrency group.
 - Issue #24 remains open: the JSONB receipt map is still updated through read-modify-upsert and can lose updates under concurrent requests on separate Edge Function isolates. An atomic DB-side merge and isolated concurrency test remain necessary. No database migration, deployment, or production change was made.
+
+
+## Isolated Supabase grant audit (2026-11-04)
+
+- Three trigger-only SECURITY DEFINER broadcast functions deny EXECUTE to anon/authenticated; service_role retains EXECUTE.
+- Backend-owned chat, users, sessions, signaling, status and typing tables have RLS enabled and no client SELECT/INSERT grants.
+- Remaining exceptions: `public.upstatus_visual_config` and `realtime.messages` retain anon/authenticated SELECT/INSERT grants while RLS is enabled with no policies. This is an unnecessary grant surface; it does not prove row access. Matrix RT-14 is PARTIAL and RT-17 was added.
+- Security Advisor returned 14 INFO RLS-enabled/no-policy notices; Performance Advisor returned five unused-index INFO notices. No WARN/ERROR items returned.
+- No migration applied. A reviewed isolated migration is still needed. Supabase CLI was unavailable in this environment, so no migration filename was fabricated and no migration workflow was bypassed.
