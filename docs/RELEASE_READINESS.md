@@ -361,3 +361,87 @@ Both candidates keep authenticated signaling disabled by default. Static source 
 8. **PENDING — Scope:** issue #24 chat UI/unread and Sale Smartly confirmation; issue #16 Ycaro scope/secret/activation decision; issue #14 / PR #15 documentation review.
 
 This pass used GitHub read APIs, existing workflow logs, Supabase metadata/source reads and read-only SQL. No workflow was rerun; no shared fixture was mutated. No production SQL write, migration, Edge Function deployment, secret/flag change, userscript publication, merge, destructive operation or engineering-branch edit was performed. The only repository write in this pass is this append/correction on the isolated QA documentation branch, guarded by the current file blob SHA. No completion percentage is reported.
+
+
+## Revalidation 2026-11-04 — current GitHub and Supabase state
+
+This pass re-read this document from the QA branch before inspecting current refs. The file is still absent from `master`; it exists on `qa/release-readiness-2026-11-04-master` in PR #82. The file blob read before this append was `13c1df15ed866a169d8f9fc3f6eea2f5eaca41fb`. The QA branch remains separate from engineering PR #80 and the runtime candidates.
+
+### Exact repository state and concurrent work
+
+- `master` remains at `a9288ccfcb0f308d3a587bfca624418a395be07b`.
+- PR #74 remains open/Draft at `2a5574c0bae1be608dd9e6d9ce091c6c0768e35a`; PR #75 remains open/Draft at `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; PR #76 remains open/Draft at `3cf080156ae15c0defd2a981eb3b2221edf0d208`.
+- PR #80 remains open/Draft at `33aefd3bb80b5b6229730e104b946d4faf57aa36`; it was not edited. PR #82 was open/Draft at `24da6dde653207987ae2f33d8a65f10fe06e2e3f` before this append.
+- PR #76 is exactly 92 commits ahead of #75 and zero behind; its merge base is the #75 head. Treat #76 as the continuation of #75, not a separate sibling release payload.
+- Compare from the previously validated Normal runtime head `5d700050dfbd8e221be7d61e130585dde2003879` to #74 head `2a5574c` shows 21 later commits, including atomic chat receipts, distributed rate-limit candidate code, new tests, workflow changes and cutover/security documentation. Therefore the older passing smoke run [41853971486](https://github.com/Reekyi/UpStatus/actions/runs/41853971486) is not exact-head evidence for the current #74 candidate.
+- Issue #78 remains open; its acceptance checkboxes remain unchecked. Issue #79 remains open, but its body is still the 2026-11-03 snapshot with older candidate SHAs. Use current PR refs and exact-head workflow runs rather than the stale body table.
+
+### Current exact-head workflow evidence
+
+| PR | Exact head | Evidence | Classification |
+|---|---|---|---|
+| #74 Normal | `2a5574c0bae1be608dd9e6d9ce091c6c0768e35a` | Validate [41864124241](https://github.com/Reekyi/UpStatus/actions/runs/41864124241) passed; Signaling Smoke [41864124208](https://github.com/Reekyi/UpStatus/actions/runs/41864124208) failed | Validate **AUTOMATED PASS**; smoke **BLOCKED/FAIL** |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed | Historical **AUTOMATED PASS**, superseded by #76 |
+| #76 Team Lite signaling | `3cf080156ae15c0defd2a981eb3b2221edf0d208` | Candidate Checks [41863688477](https://github.com/Reekyi/UpStatus/actions/runs/41863688477) passed | **AUTOMATED PASS** |
+| #82 QA docs | `24da6dde653207987ae2f33d8a65f10fe06e2e3f` | Validate [41907601988](https://github.com/Reekyi/UpStatus/actions/runs/41907601988) failed | **BLOCKED** by the unchanged master validator baseline |
+
+**Normal smoke root cause is confirmed by job log.** Run 41864124208 failed in job `126694475658`, step 3, `Syntax-check signaling test harnesses`. The failing assertion in `scripts/signaling-static.test.mjs` still requires the old in-memory `rate.size >= 2000` map. The current isolated endpoint source instead calls `db.rpc("consume_upstatus_signal_rate_limit", ...)`. This is a stale static-test contract, not evidence of a runtime RPC failure. The unauthenticated endpoint, authenticated integration/browser, rate-limit concurrency and receipt-concurrency steps were skipped after the static failure. Do not report them as passed on the current Normal head.
+
+Team Lite job `126692567137` completed all steps on exact #76 head: authenticated API checks 86/86, Chromium call/voice/screen flows, three-member mesh and teardown, endpoint rate limit (90 accepted, one HTTP 429), RPC concurrency/reset, atomic receipt concurrency, and version/updater/portal checks. This is isolated-project CI evidence, not a physical Tampermonkey or network-loss acceptance test.
+
+The #82 Validate run 41907601988 failed at `scripts/validate.mjs` with `production updateURL mismatch`. PR #82 changes only `docs/RELEASE_READINESS.md`; the failure is in the unchanged master validation baseline. The current `.github/workflows/validate.yml` has no `paths-ignore`, so documentation-only PRs still run the build validator.
+
+### Workflow and release-control inspection
+
+- Normal `.github/workflows/signaling-smoke.yml` runs for PRs targeting `master` and via `workflow_dispatch`; it has no `push` trigger even though its concurrency comment mentions push runs. It uses the shared isolated-fixture concurrency group with `cancel-in-progress: false`, a 30-minute timeout, and mutable `actions/checkout@v4` without `persist-credentials: false`. Its path list repeats `supabase/migrations/**`.
+- Team Lite `.github/workflows/team-lite-candidate.yml` uses the same serialized fixture group and timeout, but pins checkout to a commit SHA and sets `persist-credentials: false`. Its path list also repeats `supabase/migrations/**` and includes the Normal server template path, causing some unrelated Normal changes to trigger Team Lite candidate checks.
+- `.github/workflows/deploy-production.yml` is manual-only, checks stable version 3.4.7, runs validation, and deploys the `upstatus` Edge Function. It does **not** apply database migrations. `.github/workflows/deploy-test.yml` is also manual-only and deploys the `upstatus-test` function. Migration application is a separate operation and must be sequenced before any backend that depends on new RPCs.
+- The production deploy workflow has a stable-version gate but no explicit branch/ref allowlist. Consider requiring the approved release ref and expected Supabase project ID in the workflow before any future dispatch. No workflow was dispatched in this audit.
+
+### Candidate integration and migration packaging
+
+- Both Normal `src/server/index.template.ts` and Team Lite `src/server/team-lite-index.template.ts` define `SESSION_CACHE_TTL_MS=5000` and call `merge_chat_read_receipts` from `readRoute`. The atomic receipt RPC is therefore integrated in both candidate templates by code inspection.
+- Neither product-facing template calls `consume_upstatus_signal_rate_limit`. The distributed limiter remains wired only into the isolated `upstatus-signal-test` Edge Function. RT-09 remains **PARTIAL**; candidate CI does not prove product endpoint enforcement.
+- The isolated limiter uses per-authenticated-UpStatus-user buckets split into `:read` and `:write`, with 240 reads/minute and 90 writes/minute. Its response helper returns 429 without `Retry-After`; add the header if it is part of the API contract.
+- The receipt and rate-limit SQL files are present in the canonical `supabase/migrations/` directory in both #74 and #76, with identical blob contents, despite the `_test.sql` suffix. Supabase CLI migration discovery is timestamp/path based; the suffix does not exclude them from a future `db push`. Keep these isolated-test migrations out of any production migration run until replaced by reviewed production migration files. The current deploy workflow does not run `db push`, so merging alone does not apply them.
+- The receipt RPC is `SECURITY INVOKER`, uses an empty search path, and grants EXECUTE only to `service_role`. The rate-limit RPC has the same invoker/empty-search-path/service-role-only pattern. Both are present in the isolated project, not production.
+
+### Production Supabase recheck — read-only
+
+Project `dlfvkawaiqduhlazsszm` remains `ACTIVE_HEALTHY` on Postgres 17.11.0.002. Its migration inventory still has seven entries; the latest is `20261027155438`. The production catalog still lacks `upstatus_signal_rate_limits`, `consume_upstatus_signal_rate_limit(text, integer, integer)`, and `merge_chat_read_receipts(text, jsonb, timestamptz)`.
+
+The three active production triggers still call SECURITY DEFINER functions with `search_path=public` and EXECUTE available to `anon`, `authenticated`, and `service_role`:
+- `upstatus_messages_broadcast` -> `upstatus_broadcast_messages()`
+- `upstatus_remote_state_broadcast` -> `upstatus_broadcast_remote_state()`
+- `upstatus_users_broadcast` -> `upstatus_broadcast_users()`
+
+The live message trigger still serializes the full OLD/NEW row and sends it to Realtime with `private=false`. The row schema includes `message`, `image_url`, `mentions`, `reply_to`, `reactions`, `file_name`, sender and timestamp. The remote-state trigger sends command/result metadata and the user trigger sends name/status/reason/update metadata, also with `private=false`. RT-01 remains **BLOCKED**. The candidate payload-minimization migrations send only operation hints, but are not applied in production and do not make the shared topic private.
+
+Read-only ACL and policy checks reconfirmed:
+- Nine backend-owned tables (`chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing`, `users`) have RLS enabled, zero policies, and broad client grants including SELECT/INSERT/UPDATE/DELETE/TRIGGER/TRUNCATE/REFERENCES. `FORCE ROW LEVEL SECURITY` is false.
+- `realtime.messages` has RLS enabled, zero policies, and anon/authenticated INSERT/SELECT/UPDATE grants.
+- `upstatus_visual_config` has RLS enabled, zero policies and no anon/authenticated table grants.
+- These ACLs are unnecessary privilege surface; they do not by themselves prove direct row access where RLS has no policies.
+- Security Advisor returned two WARN categories (three functions each: anon EXECUTE and authenticated EXECUTE) plus ten INFO findings for RLS-enabled tables without policies. Performance Advisor returned no findings.
+
+Production currently reports 38 ACTIVE Edge Functions, all with `verify_jwt=false`. The three inspected current runtime functions are:
+- `upstatus`: Edge Function version 480, internal version 3.4.7.
+- `upstatus-team-lite`: version 15, internal version 3.4.30.
+- `upstatus-screen-share-3-1-1-beta10`: version 6, internal version 3.1.1-beta8.
+
+The three deployed sources use a 30-second warm-instance session revalidation window and do not call either the receipt RPC or rate-limit RPC. The core functions validate the custom UpStatus session token at application level, so `verify_jwt=false` alone is not proof of missing route authentication. A route-by-route authentication inventory for all 38 active functions remains **NOT VERIFIED**.
+
+The isolated project `bfpjtfqlnypisxljoxkb` is `ACTIVE_HEALTHY), has 16 migrations, and hosts `upstatus-signal-test` ACTIVE version 27. Its RPC and endpoint CI evidence remains isolated-only.
+
+### Current gates and safe-work record
+
+1. **BLOCKED — RT-01:** remove full-row public broadcasts and complete an authenticated/private or server-mediated event path. Payload minimization is interim only.
+2. **BLOCKED — Normal exact-head smoke:** update the stale static assertion to validate the Postgres RPC contract, then obtain a complete Signaling Smoke pass on exact #74 head.
+3. **PARTIAL — RT-09:** integrate the distributed limiter into both actual product endpoints; validate quotas, concurrency, 429, retry semantics and cleanup there.
+4. **CANDIDATE INTEGRATED / PRODUCTION NOT VERIFIED — receipts:** validate the reviewed migration in official TEST and include it in the authorized database-before-backend cutover.
+5. **PENDING — production grants:** validate trigger EXECUTE revocations, backend-table grant revocations and Realtime authorization/rollback in official TEST. Do not revoke Realtime grants blindly while legacy clients still use the topic.
+6. **PENDING — session revocation/cutover:** deploy the candidate 5-second cache only as part of a coordinated endpoint/version/rollback plan; production remains at 30 seconds.
+7. **MANUAL PENDING — issue #78:** real no-F5 network recovery, voice-room re-entry, new calls, repeated drops, bidirectional audio, remaining participants, Tampermonkey profiles, real microphone/display capture and Normal ↔ Team Lite cross-client flows.
+8. **PENDING — scope:** issue #24 chat/unread and Sale Smartly confirmation; issue #16 Ycaro scope/secret/activation; issue #14 / PR #15 review.
+
+This pass used GitHub read APIs, existing workflow logs, Supabase metadata/function-source reads and read-only catalog SQL. No tests or workflows were rerun because Normal and Team Lite share the isolated fixture project. No production SQL write, migration, Edge Function deployment, secret/flag change, userscript publication, PR merge, destructive operation or engineering-branch edit was performed. The only repository write from this pass is this documentation append on the isolated QA branch, using the current file blob SHA as an optimistic concurrency guard. No completion percentage is reported.
