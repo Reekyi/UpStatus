@@ -26,32 +26,22 @@ const MAX_READS_PER_MINUTE = 240;
 const CLEANUP_INTERVAL_MS = 60_000;
 const MAX_EXPIRED_EVENTS_PER_CLEANUP = 500;
 const MAX_EXPIRED_ROOMS_PER_CLEANUP = 100;
-const rate = new Map<string,{start:number,count:number}>();
 let lastCleanupAt = 0;
 
 function response(body: unknown, status=200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type":"application/json; charset=utf-8", ...CORS } });
 }
 function hash(t: string) { return createHash("sha256").update(t).digest("hex"); }
-function rateLimit(name: string, limit = MAX_EVENTS_PER_MINUTE) {
-  const now = Date.now();
-  const old = rate.get(name);
-  if (old && now - old.start < 60_000) {
-    old.count++;
-    return old.count <= limit;
-  }
-
-  // Keep the per-isolate map bounded without evicting active counters, which
-  // would let older entries reset their rate limit under a many-user burst.
-  if (!old && rate.size >= 2000) {
-    for (const [key, value] of rate) {
-      if (now - value.start >= 60_000) rate.delete(key);
-    }
-    if (rate.size >= 2000) return false;
-  }
-  rate.set(name, { start: now, count: 1 });
-  return true;
+async function rateLimit(name: string, limit = MAX_EVENTS_PER_MINUTE) {
+  const { data, error } = await db.rpc("consume_upstatus_signal_rate_limit", {
+    p_bucket_key: name,
+    p_limit: limit,
+    p_window_seconds: 60
+  });
+  if (error) throw error;
+  return data === true;
 }
+
 async function cleanupExpired(now = new Date()) {
   const timestamp = now.toISOString();
   if (Date.now() - lastCleanupAt < CLEANUP_INTERVAL_MS) return;
@@ -151,7 +141,7 @@ Deno.serve(async (req: Request) => {
     if (!sender) return response({ error: "Valid UpStatus session required" }, 401);
     const readRoute = ["/poll", "/ack", "/room/status", "/room/members", "/room/invitations"].some(suffix => path.endsWith(suffix));
     const bucket = sender + (readRoute ? ":read" : ":write");
-    if (!rateLimit(bucket, readRoute ? MAX_READS_PER_MINUTE : MAX_EVENTS_PER_MINUTE))
+    if (!(await rateLimit(bucket, readRoute ? MAX_READS_PER_MINUTE : MAX_EVENTS_PER_MINUTE)))
       return response({ error: "Rate limit exceeded" }, 429);
     await cleanupExpired();
     const p = await readJsonObject(req) as Record<string, unknown>;
