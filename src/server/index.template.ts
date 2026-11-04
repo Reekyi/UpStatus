@@ -383,7 +383,7 @@ async function chatRoute(req:Request,name:string){
   if(error)throw error;
   return response({ok:true,message:{id,user:name,user_name:name,message,type,systemType:"",system_type:"",createdAt,imageUrl,image_url:imageUrl,mentions:mentionList,replyTo,reactions:{},readBy:[]}});
 }
-async function readRoute(req:Request,name:string){
+async function readRoute(req:Request,name:string,sessionStartedAt=0){
   const p:any=await readBody(req);
   const ids=Array.isArray(p.messageIds)?p.messageIds.map(String).filter(Boolean).slice(0,1000):[];
   if(!ids.length)return response({ok:true});
@@ -391,7 +391,7 @@ async function readRoute(req:Request,name:string){
   const map=current?.messages&&typeof current.messages==="object"?{...current.messages}:{};
   const {data:valid,error:validError}=await db.from("messages").select("id,user_name,created_at").in("id",ids);
   if(validError)throw validError;
-  const validRows=(valid||[]).filter((x:any)=>x.user_name!==name);
+  const validRows=(valid||[]).filter((x:any)=>x.user_name!==name&&(!sessionStartedAt||!Number.isFinite(sessionStartedAt)||sessionStartedAt<=0||Date.parse(x.created_at)>=sessionStartedAt));
   if(!validRows.length)return response({ok:true});
   let latestReadAt=0;
   for(const row of validRows){
