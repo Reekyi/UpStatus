@@ -83,7 +83,7 @@ assert(prodFn.includes('const bucket=kind==="avatar"?"profile-images":"chat-imag
 assert(prodFn.includes("async function chatRoute(req:Request,name:string,sessionStartedAt=0)"),"guest session history filter parameter missing");
 assert(prodFn.includes('if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&sessionStartedAt>0)'),"guest chat history must be filtered by server-side session start");
 assert(prodFn.includes('if(path==="/api/chat")return await chatRoute(req,name,ctx.guest?ctx.joinedAt:0);'),"guest chat requests must pass their session start time");
-assert(prodFn.includes('if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&sessionStartedAt>0)unreadQuery=unreadQuery.gte("created_at",new Date(Math.max(sessionStartedAt,Date.parse(cutoff))).toISOString());'),"guest unread counts must be scoped to the current session");
+assert(prodFn.includes('if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&sessionStartedAt>0)unreadRowsQuery=unreadRowsQuery.gte("created_at",new Date(Math.max(sessionStartedAt,Date.parse(cutoff))).toISOString());'),"guest unread counts must be scoped to the current session");
 assert(prodFn.includes('if(path==="/api/chat/read"&&req.method==="POST")return await readRoute(req,name,ctx.guest?ctx.joinedAt:0);'),"guest read receipts must receive the current session start time");
 assert(prodFn.includes('x.user_name!==name&&(!sessionStartedAt||!Number.isFinite(sessionStartedAt)||sessionStartedAt<=0||Date.parse(x.created_at)>=sessionStartedAt)'),"guest read receipts must not mark messages from prior sessions");
 assert(prodFn.includes('file_name:type==="document"&&fileName?fileName:null'),"document filename persistence missing from chat messages");
