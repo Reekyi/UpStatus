@@ -7,7 +7,7 @@ create table if not exists public.upstatus_signal_rate_limits (
 create index if not exists upstatus_signal_rate_limits_updated_at_idx on public.upstatus_signal_rate_limits (updated_at);
 alter table public.upstatus_signal_rate_limits enable row level security;
 revoke all privileges on table public.upstatus_signal_rate_limits from public, anon, authenticated;
-grant select, insert, update, delete on table public.upstatus_signal_limits to service_role;
+grant select, insert, update, delete on table public.upstatus_signal_rate_limits to service_role;
 create or replace function public.consume_upstatus_signal_rate_limit(p_bucket_key text,p_limit integer,p_window_seconds integer default 60)
 returns boolean language plpgsql security invoker set search_path = ''
 as $function$
