@@ -53,7 +53,7 @@ Two additional production trigger functions also broadcast to the same public to
 - `upstatus_broadcast_remote_state()` emits remote-command and remote-result metadata.
 - `upstatus_broadcast_users()` emits user name/status/reason/update metadata.
 
-The current candidate userscript handlers treat several chat/status broadcasts as refresh hints, but that client behavior does **not** prevent the server-side public broadcast from disclosing the full row. RT-01 remains **BLOCKED** until the payload and channel architecture are changed and validated. This is the highest-priority finding from this audit.
+The current candidate userscript handlers treat several chat/status broadcasts as refresh hints, but that client behavior does **not** prevent the server-side public broadcast from disclosing the full row. The authenticated signaling transport is also disabled by default in both candidates, so legacy call, voice-room, and screen-share signaling continues to use the public Realtime path while that flag is off. RT-01 remains **BLOCKED** until the payload and channel architecture are changed and validated. This is the highest-priority finding from this audit.
 
 ### SECURITY DEFINER and table grants
 
@@ -71,7 +71,7 @@ This grant inventory is an unnecessary privilege surface. Because RLS is enabled
 
 `public.upstatus_visual_config` currently has no anon/authenticated table grants. `realtime.messages` has RLS enabled with no policies but retains anon/authenticated SELECT and INSERT grants. Do not infer direct row access from those grants alone; RT-17 remains partial pending a reviewed Realtime authorization migration.
 
-Supabase Security Advisor returned three WARN findings for the SECURITY DEFINER functions (reported for anon and authenticated roles) and ten INFO findings for RLS-enabled tables without policies. Performance Advisor returned no findings.
+Supabase Security Advisor returned two WARN lint categories covering the same three SECURITY DEFINER functions: one category for anon EXECUTE and one for authenticated EXECUTE. It also returned ten INFO findings for RLS-enabled tables without policies. Performance Advisor returned no findings.
 
 ### Production Edge Functions and migration gaps
 
