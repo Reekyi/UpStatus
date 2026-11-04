@@ -31,6 +31,8 @@ on:
       - "scripts/run-signaling-authenticated.mjs"
       - "scripts/test-signaling-browser.mjs"
       - "scripts/signaling-static.test.mjs"
+      - "scripts/signaling-transport.test.mjs"
+      - "src/userscript/signaling-transport.mjs"
       - "scripts/signaling-body.test.mjs"
       - "supabase/functions/upstatus-signal-test/body.mjs"
       - ".github/workflows/signaling-smoke.yml"
