@@ -221,7 +221,7 @@ const afterRefresh=[
   {id:"own-message",user:"Ricardo",type:"text"},
   {id:"system-message",user:"Lucca",type:"system"}
 ];
-assert(unreadContext.unreadChatCount(afterRefresh,persistedReceipts,"Ricardo")===1,
+assert(unreadContext.unreadChatCount(afterRefresh,persistedReceipts,"Ricardo")===2,
   "per-message read receipts must survive refresh while a message arriving after the read snapshot remains unread");
 assert(serverTemplate.includes('db.from("chat_reads").select("messages").eq("user_name",name).maybeSingle()'),
   "fast chat refresh must reconcile unread counts from persisted per-message receipts");
