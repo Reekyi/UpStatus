@@ -11,6 +11,7 @@
  * session tokens or the service key. Run locally; do not commit secrets or paste them in chat.
  */
 import { createHash, randomBytes } from "node:crypto";
+import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 
 const EXPECTED_ORIGIN = "https://bfpjtfqlnypisxljoxkb.supabase.co";
@@ -80,7 +81,7 @@ async function cleanupStaleFixtures() {
 function token() { return randomBytes(32).toString("base64url"); }
 function tokenHash(value) { return createHash("sha256").update(value).digest("hex"); }
 const suffix = randomBytes(6).toString("hex");
-const users = ["A", "B", "C"].map(letter => ({
+const users = ["A", "B", "C", "D"].map(letter => ({
   letter, name: "__signal_test_" + letter.toLowerCase() + "_" + suffix, token: token(),
 }));
 let fixturesMayExist = false;
@@ -123,6 +124,21 @@ try {
     const browserRun = spawnSync(process.execPath, ["scripts/test-signaling-browser.mjs"], { env, stdio: "inherit" });
     testExitCode = browserRun.status === null ? 1 : browserRun.status;
     if (browserRun.error) throw new Error("Could not start browser E2E harness: " + browserRun.error.message);
+  }
+  if (testExitCode === 0) {
+    const limiter = users.find(user => user.letter === "D");
+    const responses = await Promise.all(Array.from({ length: 91 }, () =>
+      fetch(env.UPSTATUS_SIGNAL_URL + "/not-found", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-upstatus-token": limiter.token },
+        body: "{}",
+      })
+    ));
+    const statuses = responses.map(response => response.status);
+    assert.equal(statuses.filter(status => status === 404).length, 90, "first 90 writes should pass the limiter and reach the unknown route");
+    assert.equal(statuses.filter(status => status === 429).length, 1, "91st concurrent write should be rate limited");
+    assert.ok(statuses.every(status => status === 404 || status === 429), "rate-limit endpoint returned an unexpected status");
+    console.log("PASS distributed endpoint rate limit: 90 accepted, 1 rejected (HTTP 429).");
   }
 } catch (error) {
   console.error("Authenticated test setup/runner failed: " + String(error?.message || error));
