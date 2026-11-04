@@ -135,6 +135,6 @@ Continue UpStatus release-readiness in https://github.com/Reekyi/UpStatus. First
 
 ## Latest documentation pointer
 
-- Handoff is maintained in draft PR #80 targeting `develop`; current PR head at the last verification was `5d31a44adadd856cf7d57b8f7d53ba8137e2b536` (verify live before using).
+- Handoff is maintained in draft PR #80 targeting `develop` on branch `docs/continuity-handoff-2026-11-04`; fetch the live PR head before making any follow-up edit.
 - Issue #78 received the 2026-11-04 CI evidence comment `6633705412`; issue #79 was updated with the completed CI evidence in comment `6633632371`.
 - Normal and Team Lite candidate regression checks are green on the exact heads recorded above. The one remaining acceptance check that cannot be established by this remote CI is the physical Tampermonkey no-F5 network recovery test.
