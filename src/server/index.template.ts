@@ -336,7 +336,7 @@ async function contextName(req:Request) {
   if(yc&&ys.online&&ys.session===yc)return {name:"Ycaro",guest:true,joinedAt:Date.parse(String(ys.joinedAt))||Date.now()};
   return null;
 }
-function unreadChatCount(messages:any[],readMap:any,name:string){
+function unreadChatCount(messages,readMap,name){
   const receipts=readMap&&typeof readMap==="object"?readMap:{};
   return (messages||[]).filter((m:any)=>{
     if(!m||m.type==="system"||m.user===name)return false;
