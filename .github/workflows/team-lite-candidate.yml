@@ -10,6 +10,8 @@ on:
       - "ycaro.html"
       - "scripts/team-lite-candidate-check.mjs"
       - "scripts/test-chat-read-receipts.mjs"
+      - "scripts/test-signal-rate-limit.mjs"
+      - "supabase/migrations/**"
       - "src/server/index.template.ts"
       - "src/server/team-lite-index.template.ts"
       - "supabase/migrations/**"
@@ -57,6 +59,11 @@ jobs:
           npm install --no-save --package-lock=false playwright
           npx playwright install --with-deps chromium
           node scripts/run-signaling-authenticated.mjs
+      - name: Verify distributed signaling rate-limit concurrency
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+        run: node scripts/test-signal-rate-limit.mjs
       - name: Verify atomic chat read-receipt concurrency
         env:
           SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
