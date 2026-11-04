@@ -9,6 +9,7 @@ on:
       - "lucca.html"
       - "ycaro.html"
       - "scripts/team-lite-candidate-check.mjs"
+      - "scripts/test-chat-read-receipts.mjs"
       - "src/server/index.template.ts"
       - "supabase/migrations/**"
       - "scripts/signaling-transport.test.mjs"
@@ -55,5 +56,10 @@ jobs:
           npm install --no-save --package-lock=false playwright
           npx playwright install --with-deps chromium
           node scripts/run-signaling-authenticated.mjs
+      - name: Verify atomic chat read-receipt concurrency
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+        run: node scripts/test-chat-read-receipts.mjs
       - name: Check candidate scripts and version metadata
         run: node scripts/team-lite-candidate-check.mjs
