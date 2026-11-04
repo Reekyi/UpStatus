@@ -11,6 +11,7 @@ on:
       - "scripts/team-lite-candidate-check.mjs"
       - "scripts/test-chat-read-receipts.mjs"
       - "src/server/index.template.ts"
+      - "src/server/team-lite-index.template.ts"
       - "supabase/migrations/**"
       - "scripts/signaling-transport.test.mjs"
       - "src/userscript/signaling-transport.mjs"
