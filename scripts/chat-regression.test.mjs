@@ -205,3 +205,29 @@ assert(source.includes("if(signalTransportFlag){\n      if(signalTransport&&room
 
 
 assert(source.includes("if(token!==expectedToken||member!==expectedMember)return;"),"delayed invitation responses must be discarded after logout or account switch");
+
+const unreadHelperStart=serverTemplate.indexOf("function unreadChatCount(");
+const unreadHelperEnd=serverTemplate.indexOf("\n}",unreadHelperStart)+2;
+assert(unreadHelperStart>=0&&unreadHelperEnd>unreadHelperStart,"server must expose a per-message unread reconciliation helper");
+const unreadHelperSource=serverTemplate.slice(unreadHelperStart,unreadHelperEnd);
+const unreadContext={};
+vm.createContext(unreadContext);
+vm.runInContext(unreadHelperSource+";this.unreadChatCount=unreadChatCount;",unreadContext);
+const persistedReceipts={"read-before-refresh":["Ricardo"],"read-by-other":["Lohan"]};
+const afterRefresh=[
+  {id:"read-before-refresh",user:"Lohan",type:"text"},
+  {id:"arrived-after-read-snapshot",user:"Guilherme",type:"text"},
+  {id:"read-by-other",user:"Ícaro",type:"text"},
+  {id:"own-message",user:"Ricardo",type:"text"},
+  {id:"system-message",user:"Lucca",type:"system"}
+];
+assert(unreadContext.unreadChatCount(afterRefresh,persistedReceipts,"Ricardo")===1,
+  "per-message read receipts must survive refresh while a message arriving after the read snapshot remains unread");
+assert(serverTemplate.includes('db.from("chat_reads").select("messages").eq("user_name",name).maybeSingle()'),
+  "fast chat refresh must reconcile unread counts from persisted per-message receipts");
+assert(serverTemplate.includes("unreadChatCount(messages,readBy,name)"),
+  "full chat history must derive unread count from per-message receipts, not a moving request-time cursor");
+assert(serverTemplate.includes("const readAt=Math.max(previousReadAt,latestReadAt);"),
+  "read cursor must advance only to the newest message actually marked read");
+assert(!serverTemplate.includes('last_read_at:new Date().toISOString()'),
+  "a read request must not mark messages arriving after its snapshot as read");
