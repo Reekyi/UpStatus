@@ -17,6 +17,12 @@ Status: candidate preparation only. This document does not authorize production 
 - Stable userscript URL currently points to the team-lite-official branch.
 - Candidate changes are in PR #76 and must not be distributed from the stable URL before approval.
 
+### Realtime authorization dependency
+- The current userscript subscribes to a public Realtime topic and authenticates UpStatus API calls with its own x-upstatus-token. That custom token is not a Supabase Auth JWT.
+- Supabase private Realtime channels require config.private=true plus RLS policies on realtime.messages and a valid Auth JWT in the Realtime connection. See https://supabase.com/docs/guides/realtime/authorization.
+- Therefore, do not simply revoke anon/authenticated privileges on realtime.messages or flip the channel to private. First design and test a trusted JWT exchange or replace the public broadcast dependency with an authenticated server-mediated/polling path.
+- Keep RT-01 and RT-17 open until that migration is implemented and validated end-to-end.
+
 ### Signaling candidate
 - Isolated project function upstatus-signal-test is deployed at version 27.
 - It validates authenticated room signaling and now uses a Postgres-backed fixed-window rate limiter.
