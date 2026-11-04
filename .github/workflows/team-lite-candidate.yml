@@ -33,8 +33,10 @@ on:
       - ".github/workflows/team-lite-candidate.yml"
 
 concurrency:
-  group: upstatus-signaling-isolated-tests-${{ github.ref }}
-  cancel-in-progress: true
+  # Normal and Team Lite share the same isolated Supabase fixture project.
+  # Use one global group so concurrent runs cannot delete or overwrite each other's fixtures.
+  group: upstatus-signaling-isolated-tests
+  cancel-in-progress: false
 
 permissions:
   contents: read
