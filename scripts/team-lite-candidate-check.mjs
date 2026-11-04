@@ -64,6 +64,9 @@ assert.ok(backend.includes('const USERSCRIPT_BASE64 = "__UPSTATUS_USERSCRIPT_BAS
 assert.ok(backend.includes("async function chatRows(name:string,since?:string,guestJoinedAt=0)"), "guest chat history must be scoped to session start");
 assert.ok(backend.includes('query=query.gte("created_at",new Date(Math.max(guestJoinedAt,Date.parse(cutoff))).toISOString())'), "guest chat history cutoff missing");
 assert.ok(backend.includes("return await readRoute(req,name,ctx?.guest?ctx.joinedAt:0)"), "guest read route must receive session start");
+assert.ok(backend.includes('db.rpc("merge_chat_read_receipts"') && backend.includes("p_messages:map"), "chat receipts must merge atomically in Postgres");
+assert.ok(!backend.includes('db.from("chat_reads").upsert('), "chat reads must not use isolate-local read-modify-upsert");
+assert.ok(backend.includes("const readAt=Math.max(previousReadAt,latestReadAt);"), "read cursor must stop at the newest message actually marked read");
 assert.ok(backend.includes('return a?.role==="implementation_admin"'), "admin access must use stored role");
 assert.ok(!backend.includes('const isAdmin=name==="Ricardo"||await admin(name);'), "backend must not grant admin by name alone");
 assert.ok(backend.includes('const role=a.role||"implementation_user";'), "initial account setup must not grant admin privileges by matching a name");
