@@ -383,32 +383,21 @@ async function chatRoute(req:Request,name:string){
   if(error)throw error;
   return response({ok:true,message:{id,user:name,user_name:name,message,type,systemType:"",system_type:"",createdAt,imageUrl,image_url:imageUrl,mentions:mentionList,replyTo,reactions:{},readBy:[]}});
 }
-async function readRoute(req:Request,name:string,sessionStartedAt=0){
+async function readRoute(req:Request,name:string){
   const p:any=await readBody(req);
   const ids=Array.isArray(p.messageIds)?p.messageIds.map(String).filter(Boolean).slice(0,1000):[];
-  if(!ids.length)return response({ok:true});
-  const {data:current}=await db.from("chat_reads").select("messages,last_read_at").eq("user_name",name).maybeSingle();
+  const {data:current}=await db.from("chat_reads").select("messages").eq("user_name",name).maybeSingle();
   const map=current?.messages&&typeof current.messages==="object"?{...current.messages}:{};
-  const {data:valid,error:validError}=await db.from("messages").select("id,user_name,created_at").in("id",ids);
-  if(validError)throw validError;
-  const validRows=(valid||[]).filter((x:any)=>x.user_name!==name&&(!sessionStartedAt||!Number.isFinite(sessionStartedAt)||sessionStartedAt<=0||Date.parse(x.created_at)>=sessionStartedAt));
-  if(!validRows.length)return response({ok:true});
-  let latestReadAt=0;
-  for(const row of validRows){
-    const id=String(row.id);
-    const list=Array.isArray(map[id])?[...map[id]]:[];
-    if(!list.includes(name))list.push(name);
-    map[id]=list;
-    const createdAt=Date.parse(row.created_at);
-    if(Number.isFinite(createdAt))latestReadAt=Math.max(latestReadAt,createdAt);
+  if(ids.length){
+    const {data:valid}=await db.from("messages").select("id,user_name").in("id",ids);
+    const validIds=new Set((valid||[]).filter((x:any)=>x.user_name!==name).map((x:any)=>String(x.id)));
+    for(const id of ids)if(validIds.has(id)){
+      const list=Array.isArray(map[id])?[...map[id]]:[];
+      if(!list.includes(name))list.push(name);
+      map[id]=list;
+    }
   }
-  const previousReadAt=Date.parse(String(current?.last_read_at||""))||0;
-  const readAt=Math.max(previousReadAt,latestReadAt);
-  const {error}=await db.rpc("merge_chat_read_receipts",{
-    p_user_name:name,
-    p_messages:map,
-    p_last_read_at:readAt?new Date(readAt).toISOString():null
-  });
+  const {error}=await db.from("chat_reads").upsert({user_name:name,last_read_at:new Date().toISOString(),messages:map},{onConflict:"user_name"});
   if(error)throw error;
   return response({ok:true});
 }
