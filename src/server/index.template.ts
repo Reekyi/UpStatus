@@ -336,6 +336,14 @@ async function contextName(req:Request) {
   if(yc&&ys.online&&ys.session===yc)return {name:"Ycaro",guest:true,joinedAt:Date.parse(String(ys.joinedAt))||Date.now()};
   return null;
 }
+function unreadChatCount(messages:any[],readMap:any,name:string){
+  const receipts=readMap&&typeof readMap==="object"?readMap:{};
+  return (messages||[]).filter((m:any)=>{
+    if(!m||m.type==="system"||m.user===name)return false;
+    const readers=receipts[String(m.id)];
+    return !(Array.isArray(readers)&&readers.includes(name));
+  }).length;
+}
 async function chatRoute(req:Request,name:string,sessionStartedAt=0){
   if(req.method==="GET"){
     const url=new URL(req.url);
@@ -346,20 +354,20 @@ async function chatRoute(req:Request,name:string,sessionStartedAt=0){
       const effectiveSince=since&&!Number.isNaN(since.getTime())?new Date(since.getTime()-2000).toISOString():"";
       const cutoffTyping=new Date(Date.now()-4500).toISOString();
       const cutoff=new Date(Date.now()-48*60*60*1000).toISOString();
-      const [messages,profileRes,typingRes,luccaStateNow,readRes]=await Promise.all([
+      let unreadRowsQuery=db.from("messages").select("id,user_name,type")
+        .gte("created_at",cutoff).neq("user_name",name).neq("type","system");
+      if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&sessionStartedAt>0)unreadRowsQuery=unreadRowsQuery.gte("created_at",new Date(Math.max(sessionStartedAt,Date.parse(cutoff))).toISOString());
+      const [messages,profileRes,typingRes,luccaStateNow,readRes,unreadRowsRes]=await Promise.all([
         chatRows(name,effectiveSince,sessionStartedAt),
         db.from("upstatus_profiles").select("user_name,avatar_url"),
         db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name),
         expireLucca(),
-        db.from("chat_reads").select("last_read_at").eq("user_name",name).maybeSingle()
+        db.from("chat_reads").select("messages").eq("user_name",name).maybeSingle(),
+        unreadRowsQuery
       ]);
-      const lastReadAt=(readRes.data as any)?.last_read_at||cutoff;
-      let unreadQuery=db.from("messages").select("id",{count:"exact",head:true})
-        .gte("created_at",cutoff).gt("created_at",lastReadAt)
-        .neq("user_name",name).neq("type","system");
-      if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&sessionStartedAt>0)unreadQuery=unreadQuery.gte("created_at",new Date(Math.max(sessionStartedAt,Date.parse(cutoff))).toISOString());
-      const {count:unreadCount,error:unreadError}=await unreadQuery;
-      if(unreadError)throw unreadError;
+      if(unreadRowsRes.error)throw unreadRowsRes.error;
+      const readMap=(readRes.data as any)?.messages&&typeof (readRes.data as any).messages==="object"?(readRes.data as any).messages:{};
+      const unreadCount=unreadChatCount((unreadRowsRes.data||[]).map((m:any)=>({id:String(m.id),user:m.user_name,type:m.type})),readMap,name);
       const profileMap:Record<string,string>={};
       for(const p of profileRes.data||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
       return response({messages,unreadCount:unreadCount||0,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
@@ -383,8 +391,7 @@ async function chatRoute(req:Request,name:string,sessionStartedAt=0){
     }
     for(const m of messages)m.readBy=readBy[m.id]||[];
     const me=(read||[]).find((x:any)=>x.user_name===name);
-    const lastRead=me?.last_read_at?Date.parse(me.last_read_at):0;
-    const unreadCount=messages.filter((m:any)=>m.type!=="system"&&m.user!==name&&Date.parse(m.createdAt)>lastRead).length;
+    const unreadCount=unreadChatCount(messages,readBy,name);
     const profileMap:Record<string,string>={};
     for(const p of profileRes.data||[])if(p.avatar_url)profileMap[p.user_name]=p.avatar_url;
     return response({messages,unreadCount,profiles:profileMap,typing:(typingRes.data||[]).map((x:any)=>x.user_name),luccaOnline:(luccaStateNow as any).online===true});
@@ -415,18 +422,25 @@ async function chatRoute(req:Request,name:string,sessionStartedAt=0){
 async function readRoute(req:Request,name:string,sessionStartedAt=0){
   const p:any=await readBody(req);
   const ids=Array.isArray(p.messageIds)?p.messageIds.map(String).filter(Boolean).slice(0,1000):[];
-  const {data:current}=await db.from("chat_reads").select("messages").eq("user_name",name).maybeSingle();
+  if(!ids.length)return response({ok:true});
+  const {data:current}=await db.from("chat_reads").select("messages,last_read_at").eq("user_name",name).maybeSingle();
   const map=current?.messages&&typeof current.messages==="object"?{...current.messages}:{};
-  if(ids.length){
-    const {data:valid}=await db.from("messages").select("id,user_name,created_at").in("id",ids);
-    const validIds=new Set((valid||[]).filter((x:any)=>x.user_name!==name&&(!sessionStartedAt||!Number.isFinite(sessionStartedAt)||sessionStartedAt<=0||Date.parse(x.created_at)>=sessionStartedAt)).map((x:any)=>String(x.id)));
-    for(const id of ids)if(validIds.has(id)){
-      const list=Array.isArray(map[id])?[...map[id]]:[];
-      if(!list.includes(name))list.push(name);
-      map[id]=list;
-    }
+  const {data:valid,error:validError}=await db.from("messages").select("id,user_name,created_at").in("id",ids);
+  if(validError)throw validError;
+  const validRows=(valid||[]).filter((x:any)=>x.user_name!==name&&(!sessionStartedAt||!Number.isFinite(sessionStartedAt)||sessionStartedAt<=0||Date.parse(x.created_at)>=sessionStartedAt));
+  if(!validRows.length)return response({ok:true});
+  let latestReadAt=0;
+  for(const row of validRows){
+    const id=String(row.id);
+    const list=Array.isArray(map[id])?[...map[id]]:[];
+    if(!list.includes(name))list.push(name);
+    map[id]=list;
+    const createdAt=Date.parse(row.created_at);
+    if(Number.isFinite(createdAt))latestReadAt=Math.max(latestReadAt,createdAt);
   }
-  const {error}=await db.from("chat_reads").upsert({user_name:name,last_read_at:new Date().toISOString(),messages:map},{onConflict:"user_name"});
+  const previousReadAt=Date.parse(String(current?.last_read_at||""))||0;
+  const readAt=Math.max(previousReadAt,latestReadAt);
+  const {error}=await db.from("chat_reads").upsert({user_name:name,last_read_at:readAt?new Date(readAt).toISOString():null,messages:map},{onConflict:"user_name"});
   if(error)throw error;
   return response({ok:true});
 }
