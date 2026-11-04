@@ -1,21 +1,6 @@
 name: Team Lite Candidate Checks
 
 on:
-  push:
-    branches: [team-lite/3.4.31-guest-fixes]
-    paths:
-      - "team-lite/**"
-      - "lucca-site/**"
-      - "lucca.html"
-      - "ycaro.html"
-      - "scripts/team-lite-candidate-check.mjs"
-      - "scripts/signaling-transport.test.mjs"
-      - "src/userscript/signaling-transport.mjs"
-      - "scripts/test-signaling-endpoint.mjs"
-      - "scripts/test-signaling-authenticated.mjs"
-      - "scripts/run-signaling-authenticated.mjs"
-      - "scripts/test-signaling-browser.mjs"
-      - ".github/workflows/team-lite-candidate.yml"
   pull_request:
     branches: [team-lite-official]
     paths:
