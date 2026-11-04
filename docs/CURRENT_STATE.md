@@ -84,3 +84,13 @@ This section supersedes older PR/runtime snapshots above where they conflict. Re
 - Team Lite #76 exact head `a3409dfe7b5ebb8a46073c086650a0d2f67ff44e`: Candidate Checks `41850263270` SUCCESS. Full job `126644365017` logs inspected: 86/86 authenticated checks, Chromium media, invitation/fanout, three-member mesh, teardown, fixture cleanup, candidate/version/portal/session/updater checks passed.
 - Known non-blocking workflow warning: `actions/checkout@v4` Node 20 deprecation under Node 24 runner.
 - Physical network recovery in Tampermonkey remains unverified; no runtime code or production resource changed.
+
+
+## Chat unread candidate checkpoint (2026-11-04)
+
+PR #74 includes a candidate fix for a false-read race: unread counts now use the persisted per-message receipt map in full and fast chat routes, and `last_read_at` advances only to the newest valid message in the submitted read batch. Empty/invalid batches do not advance the cursor. Regression coverage was added for persisted receipts after refresh and messages arriving after the read snapshot.
+
+- Normal Validate: run `41853971245` passed.
+- Team Lite Candidate Checks: run `41852223087` passed.
+- Normal Signaling Smoke: run `41853226497` was still running authenticated integration at last inspection; the newer smoke run `41853971486` was queued behind the shared isolated-project concurrency group.
+- Issue #24 remains open: the JSONB receipt map is still updated through read-modify-upsert and can lose updates under concurrent requests on separate Edge Function isolates. An atomic DB-side merge and isolated concurrency test remain necessary. No database migration, deployment, or production change was made.
