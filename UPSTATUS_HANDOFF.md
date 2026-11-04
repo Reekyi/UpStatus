@@ -186,3 +186,11 @@ Continue UpStatus release-readiness in https://github.com/Reekyi/UpStatus. First
 
 - Removed the redundant `push` trigger from Normal and Team Lite isolated smoke workflows. Both PR and manual dispatch triggers remain. The same branches were producing duplicate push + pull_request runs against one isolated Supabase fixture project, replacing queued runs in the shared concurrency group.
 - Global serialization and 30-minute job timeouts remain. Commits: Normal `5d700050dfbd8e221be7d61e130585dde2003879`, Team Lite `2d1fa7d1d66655bf7081362330edafe9ea54a9a8`. Issue #79 comment `6634230737` records this change.
+
+
+## Latest CI confirmation — 2026-11-04 15:10 UTC
+
+- Normal Validate run `41854832531`: SUCCESS on latest Normal PR head `5d700050dfbd8e221be7d61e130585dde2003879`.
+- Normal Signaling Smoke run `41853971486`: SUCCESS, including unauthenticated endpoint checks and authenticated integration/browser step. It ran on `fb1417ab69a16b0bf30611df5584e8d0d3466076`; subsequent Normal commits were workflow/docs-only and did not alter runtime signaling code.
+- Team Lite Candidate Checks run `41854846745` is in progress on latest workflow head `2d1fa7d1d66655bf7081362330edafe9ea54a9a8`. Adapter regression and unauthenticated endpoint steps passed; authenticated integration/browser step is still running. Earlier run `41852223087` passed on the previous candidate head.
+- Issue #79 comment `6634243752` records the evidence.
