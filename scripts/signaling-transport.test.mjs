@@ -284,3 +284,44 @@ assert.deepEqual(concurrentRoomEvents.sort((a, b) => a[0].localeCompare(b[0])),
   "parallel room pollers must dispatch only their own room events");
 assert.equal(concurrentClient.activePollCount, 0, "stopping parallel pollers must release both active poll slots");
 console.log("signaling parallel room polling: 2 assertions passed");
+
+
+let stopAllAbortObserved = false;
+let stopAllHandlerCalls = 0;
+let resolveStopAllAbort;
+const stopAllAbort = new Promise(resolve => { resolveStopAllAbort = resolve; });
+const stopAllClient = createSignalingTransport({
+  enabled: true,
+  request: async (path, body, options = {}) => {
+    if (path !== "/poll") return { status: 200, body: { ok: true } };
+    return new Promise((resolve, reject) => {
+      const signal = options.signal;
+      if (!signal) return reject(new Error("poll signal missing"));
+      const onAbort = () => {
+        stopAllAbortObserved = true;
+        resolveStopAllAbort();
+        const error = new Error("poll aborted by stopAll");
+        error.name = "AbortError";
+        reject(error);
+      };
+      if (signal.aborted) onAbort();
+      else signal.addEventListener("abort", onAbort, { once: true });
+    });
+  },
+});
+stopAllClient.startPolling("sig_stop_all", async () => { stopAllHandlerCalls++; });
+stopAllClient.stopAll();
+await Promise.race([
+  stopAllAbort,
+  new Promise((_, reject) => setTimeout(() => reject(new Error("stopAll did not abort in-flight poll")), 100)),
+]);
+await new Promise(resolve => setTimeout(resolve, 5));
+assert.equal(stopAllAbortObserved, true, "stopAll must abort every in-flight poll request");
+assert.equal(stopAllHandlerCalls, 0, "events from an aborted poll must not be dispatched");
+assert.equal(stopAllClient.activePollCount, 0, "stopAll must release all active poll slots");
+assert.throws(
+  () => stopAllClient.startPolling("sig_after_stop", async () => {}),
+  error => error.code === "SIGNALING_TRANSPORT_STOPPED",
+  "a stopped transport instance must reject new pollers; callers must create a fresh instance after reconnect",
+);
+console.log("signaling stopAll reconnect lifecycle: 4 assertions passed");
