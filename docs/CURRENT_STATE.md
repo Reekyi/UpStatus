@@ -76,3 +76,11 @@ This section supersedes older PR/runtime snapshots above where they conflict. Re
 - Team Lite PR #76 exact head `a3409dfe7b5ebb8a46073c086650a0d2f67ff44e` passed Candidate Checks run `41850263270`; full job `126644365017` logs inspected. 86/86 authenticated integration checks passed; Chromium call/voice/screen WebRTC and three-member mesh passed; invitation/fanout, teardown, fixture cleanup, version/portal/session/updater checks passed. The new Team Lite reconnect transport assertion passed.
 - Normal PR #74 exact head `00a2fbede2eb2088921bd0c8ca4b07d7b8d59d1c`: Validate run `41850211413` passed. Signaling Smoke run `41850210903` remained in progress during authenticated integration/browser tests at last check.
 - No runtime code changed in these two commits; issue #78 remains open because CI does not simulate a physical outage through the full Tampermonkey userscript.
+
+
+### CI completion — 2026-11-04 11:50 BRT
+
+- Normal #74 exact head `00a2fbede2eb2088921bd0c8ca4b07d7b8d59d1c`: Validate run `41850211413` and Signaling Smoke run `41850210903` both SUCCESS. Full smoke job `126644179048` logs inspected: 14/14 unauthenticated, 86/86 authenticated integration checks, Chromium call/voice/screen media, three-member mesh, teardown, and fixture cleanup passed.
+- Team Lite #76 exact head `a3409dfe7b5ebb8a46073c086650a0d2f67ff44e`: Candidate Checks `41850263270` SUCCESS. Full job `126644365017` logs inspected: 86/86 authenticated checks, Chromium media, invitation/fanout, three-member mesh, teardown, fixture cleanup, candidate/version/portal/session/updater checks passed.
+- Known non-blocking workflow warning: `actions/checkout@v4` Node 20 deprecation under Node 24 runner.
+- Physical network recovery in Tampermonkey remains unverified; no runtime code or production resource changed.
