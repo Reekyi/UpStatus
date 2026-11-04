@@ -439,7 +439,11 @@ async function readRoute(req:Request,name:string,sessionStartedAt=0){
   }
   const previousReadAt=Date.parse(String(current?.last_read_at||""))||0;
   const readAt=Math.max(previousReadAt,latestReadAt);
-  const {error}=await db.from("chat_reads").upsert({user_name:name,last_read_at:readAt?new Date(readAt).toISOString():null,messages:map},{onConflict:"user_name"});
+  const {error}=await db.rpc("merge_chat_read_receipts",{
+    p_user_name:name,
+    p_messages:map,
+    p_last_read_at:readAt?new Date(readAt).toISOString():null
+  });
   if(error)throw error;
   return response({ok:true});
 }
