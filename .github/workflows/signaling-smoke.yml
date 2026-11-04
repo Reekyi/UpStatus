@@ -39,6 +39,7 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+      # Includes chat read-receipt concurrency regression and the atomic migration contract.
       - name: Syntax-check signaling test harnesses
         run: |
           node --check scripts/test-signaling-endpoint.mjs
