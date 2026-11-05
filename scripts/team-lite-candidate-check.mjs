@@ -366,7 +366,7 @@ console.log("Team Lite voice leave sequencing tests passed: active leave awaits 
 
 
 const voiceSendStart = script.indexOf("function voiceRoomSend(");
-const voiceSendEnd = script.indexOf("\\nfunction voiceRoomMessage", voiceSendStart);
+const voiceSendEnd = script.indexOf("\nfunction voiceRoomMessage", voiceSendStart);
 assert.ok(voiceSendStart >= 0 && voiceSendEnd > voiceSendStart, "voice send implementation boundaries not found");
 const voiceSendSource = script.slice(voiceSendStart, voiceSendEnd);
 const leaveRpcPosition = voiceSendSource.indexOf("signalTransport.leave(room)");
