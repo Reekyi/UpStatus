@@ -146,3 +146,11 @@ No production SQL writes, migrations, deployments, secrets/flags changes, usersc
 - Production remains ACTIVE_HEALTHY, seven migrations through `20261027155438`; receipt/rate-limit objects are absent; public full-row message broadcast and broad trigger-function EXECUTE remain.
 - Commit [76de9fb](https://github.com/Reekyi/UpStatus/commit/76de9fbe5b24666aa79b64971b6521249f91a4e0) adds static coverage for the complete privilege-revocation migrations. Validate passed; Smoke pending.
 - No production writes, migration, deployment, merge, publication, or flag/secret changes.
+
+
+## 2026-11-05 14:10 BRT — default ACL root cause
+
+- Production `pg_default_acl` for schema `public` grants default ALL table privileges (including TRUNCATE, TRIGGER and PostgreSQL 17 MAINTAIN), EXECUTE on functions, and SELECT/UPDATE/USAGE on sequences to both `anon` and `authenticated`, for objects created by `postgres` and `supabase_admin`.
+- The existing candidate migration revokes privileges on the nine current backend-owned tables, but does not change default ACLs. Future objects can inherit client grants unless defaults are hardened for both owners and all three object types.
+- A separate migration is required. Generate it with the approved Supabase CLI workflow, preserve owner/service_role access, inventory dependencies, and validate in official TEST. CLI/official TEST was unavailable, so no migration filename was fabricated and no DDL was applied.
+- This finding is recorded in [issue #79 comment 6664233350](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6664233350). Production remains unchanged.
