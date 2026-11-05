@@ -889,3 +889,12 @@ A separate candidate branch was created from exact #76 head `4178e54654b1bd2c065
 - Team Lite #76 remains at `4178e54654b1bd2c06516fba9edea17d779b9ecd`, Candidate Checks [42119919319](https://github.com/Reekyi/UpStatus/actions/runs/42119919319) SUCCESS; the new voice-leave fix is on the separate branch above, not yet CI-validated.
 - Continuity #80 current head before this note: `635964324fe201d05e989460019519e8699bdd03`; Validate [42122553649](https://github.com/Reekyi/UpStatus/actions/runs/42122553649) failed on inherited develop assertion `client signed upload helper missing`.
 - QA #82 current head `bf2928cf4eaa8f4c942a5bbd38b751578701b848`; Validate [42122684334](https://github.com/Reekyi/UpStatus/actions/runs/42122684334) failed on inherited master assertion `production updateURL mismatch`. QA branch remains untouched.
+
+
+### Team Lite voice-leave branch head correction
+
+The separate candidate branch `team-lite/voice-leave-fix-candidate` has advanced to [`ea70498`](https://github.com/Reekyi/UpStatus/commit/ea70498a225b1c5d38d18a1a857789b7c977a739), **9 commits ahead / 0 behind** the #76 head `4178e54654b1bd2c06516fba9edea17d779b9ecd`. Diff remains exactly two files: `team-lite/upstatus-team-lite.user.js` (+51/-8) and `scripts/team-lite-candidate-check.mjs` (+191).
+
+The pure local V8 harness now also executes the actual `voiceRoomSend` source and verifies final leave signal → membership RPC ordering, room ID/prepared-state retention while the RPC is pending, and clearing only after RPC success. Previous checks still pass for coalesced leave calls, awaited active leave, fallback retry after failure, and logout waiting when local `active=false`. Userscript and test harness syntax pass.
+
+No PR has been opened and no Candidate Checks workflow was run. The Normal Smoke [42122609431](https://github.com/Reekyi/UpStatus/actions/runs/42122609431) remains IN_PROGRESS with its own isolated fixture active. The earlier unowned QA suffix `9bc23d87851e` currently has zero matches across signaling rooms, members, bindings, events, and rate-limit rows; the current active fixture is Normal Smoke suffix `60e1eae9f2aa`. Wait for the current run to complete and verify cleanup before opening the Draft PR/triggering fixture-mutating Team Lite checks.
