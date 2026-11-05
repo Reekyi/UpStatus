@@ -115,8 +115,10 @@ assert.ok(authenticatedHarness.includes("all legacy envelope smoke events can be
 assert.ok(signalingWorkflow.includes("secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY") &&
   signalingWorkflow.includes("node scripts/run-signaling-authenticated.mjs"),
   "CI must run the authenticated harness when the isolated-only secret is configured");
-assert.ok(signalingWorkflow.includes("UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY is not configured"),
-  "CI must clearly skip authenticated E2E when no isolated test secret is available");
+assert.ok(signalingWorkflow.includes("UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY is required; refusing to skip isolated fixture tests."),
+  "CI must fail closed when the isolated test secret is unavailable");
+assert.ok(signalingWorkflow.includes('UPSTATUS_SIGNAL_ALLOW_MUTATION: "1"'),
+  "CI must explicitly opt in before mutating isolated fixtures");
 assert.ok(signalingWorkflow.includes("scripts/signaling-envelope.test.mjs") &&
   signalingWorkflow.includes("node scripts/signaling-envelope.test.mjs"),
   "CI must run dedicated legacy envelope unit tests");
