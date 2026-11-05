@@ -123,7 +123,7 @@ assert.ok(signalingWorkflow.includes("scripts/signaling-envelope.test.mjs") &&
   signalingWorkflow.includes("node scripts/signaling-envelope.test.mjs"),
   "CI must run dedicated legacy envelope unit tests");
 
-assert.match(signalingWorkflow, /uses: actions\\/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd/,
+assert.match(signalingWorkflow, /uses: actions\/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd/,
   "signaling CI must pin actions/checkout to the reviewed v4 commit");
 assert.match(signalingWorkflow, /persist-credentials: false/,
   "signaling CI must not persist the GitHub token in the checkout workspace");
