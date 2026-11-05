@@ -869,3 +869,23 @@ Candidate-only change on PR #74:
 Commits: [1495716](https://github.com/Reekyi/UpStatus/commit/1495716cf3613c0be19a30a31ddd1ce2e710eaf1) (workflow guard/pin), [2f226e1](https://github.com/Reekyi/UpStatus/commit/2f226e11cbe7c19fd83cc5a72940eaf93bf274d8) (static regression). PR #74's current head is `2f226e11cbe7c19fd83cc5a72940eaf93bf274d8`; Validate is running and Signaling Smoke is queued at the time of this note.
 
 This is a candidate workflow edit only. No `workflow_dispatch` was triggered, no production deploy was attempted, and no secrets or GitHub environment settings were read/changed. GitHub Environment protection rules were not inspectable with the available repository connector. The workflow still deploys only Normal `upstatus`; Team Lite deployment coordination remains a separate gate.
+
+
+### Team Lite voice-leave/logout race — candidate fix and safe-test boundary (2026-11-05)
+
+QA's `TEAM-LITE-VOICE-LEAVE` note is directionally correct but the exact failure is an async race, not a missing call to `signalTransport.leave`: the active path invokes it indirectly from the `voiceRoomSend('leave')` Promise chain, but `voiceRoomLeave()` previously did not await that Promise. It set `voiceRoom.active=false` and returned; the menu then called `teamLiteEndSession()`, which saw `active=false` and skipped its own await. The session could be invalidated before the server leave request completed. The sender also cleared its room ID before the RPC confirmed success.
+
+A separate candidate branch was created from exact #76 head `4178e54654b1bd2c06516fba9edea17d779b9ecd`:
+- Branch `team-lite/voice-leave-fix-candidate`, head [dd04be2](https://github.com/Reekyi/UpStatus/commit/dd04be22a1eb57ab8fc349356ba29a588b74073a), 7 commits ahead / 0 behind #76. Diff is limited to `team-lite/upstatus-team-lite.user.js` and `scripts/team-lite-candidate-check.mjs`.
+- Runtime change: shared/idempotent `voiceRoomLeavePromise`; stop the call poller immediately; await final leave signal + membership RPC; retain room ID until the RPC succeeds; if it fails, attempt `signalReleaseVoiceRoom` fallback; session logout awaits an in-flight leave even after local `active` is false; menu delegates to the awaited session teardown; UI button stays disabled until completion.
+- Regression harness: concurrent leave coalescing, awaited server leave, failed-leave fallback retry, logout gate after local active reset, menu/UI handler assertions.
+- Pure local V8 validation against exact fetched source passed: userscript syntax, test-harness syntax, shared promise/idempotency, wait for server leave, fallback retry, and logout gate. No Supabase or fixture was accessed.
+
+**Full Candidate Checks deliberately not run.** Current QA `docs/RELEASE_READINESS.md` records an active fixture suffix `9bc23d87851e` in the shared isolated project without confirmed ownership. No cleanup was attempted. This branch has no PR yet, so it does not trigger the fixture-mutating Candidate Checks workflow. Wait for QA to attribute/clear the fixture before opening a PR or running the full integration suite. PR #76 and QA PR #82 were not modified.
+
+### Current CI follow-up
+
+- Normal #74 head `b0c0e03fbe820e02404d4ae7d9f83e2a18642e50`: Validate [42122609464](https://github.com/Reekyi/UpStatus/actions/runs/42122609464) SUCCESS; Signaling Smoke [42122609431](https://github.com/Reekyi/UpStatus/actions/runs/42122609431) IN_PROGRESS at this update. This head includes candidate-only production deploy workflow guards/pin and static regression; no workflow_dispatch was run.
+- Team Lite #76 remains at `4178e54654b1bd2c06516fba9edea17d779b9ecd`, Candidate Checks [42119919319](https://github.com/Reekyi/UpStatus/actions/runs/42119919319) SUCCESS; the new voice-leave fix is on the separate branch above, not yet CI-validated.
+- Continuity #80 current head before this note: `635964324fe201d05e989460019519e8699bdd03`; Validate [42122553649](https://github.com/Reekyi/UpStatus/actions/runs/42122553649) failed on inherited develop assertion `client signed upload helper missing`.
+- QA #82 current head `bf2928cf4eaa8f4c942a5bbd38b751578701b848`; Validate [42122684334](https://github.com/Reekyi/UpStatus/actions/runs/42122684334) failed on inherited master assertion `production updateURL mismatch`. QA branch remains untouched.
