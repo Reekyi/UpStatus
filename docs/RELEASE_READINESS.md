@@ -1683,3 +1683,105 @@ This pass used GitHub read APIs, existing workflow logs, source-file reads, Supa
 - [Normal Signaling Smoke 42040877642](https://github.com/Reekyi/UpStatus/actions/runs/42040877642)
 - [Team Lite Candidate Checks 42024542507](https://github.com/Reekyi/UpStatus/actions/runs/42024542507)
 - [QA Validate 42037114517](https://github.com/Reekyi/UpStatus/actions/runs/42037114517)
+
+
+## Revalidation 2026-11-05 15:37 UTC — current refs, CI, production catalog and deploy controls
+
+This pass re-read this file first, then refreshed PR/issue refs, exact-head workflow runs and jobs, current candidate templates/workflows/migrations, deployed Edge Function source, production migration inventory, Supabase advisors and read-only PostgreSQL catalogs. The candidate heads are unchanged from the 14:30 UTC checkpoint. No workflow was dispatched and no fixture script was run by QA.
+
+### Exact GitHub refs and reviews
+
+| PR | Exact head | Base | Current state | Compare |
+|---|---|---|---|---|
+| #74 Normal | `f59cf57d82d171029c081843a655423fa2c1f95a` | `master` | Open / Draft / mergeable=true; 612 commits, 51 files | 612 ahead, 0 behind |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | `team-lite-official` | Open / Draft / mergeable=true; 59 commits, 10 files | Historical baseline |
+| #76 Team Lite signaling | `578ba8a44dd67401a4bad0db897980c91fea3df5` | `team-lite-official` | Open / Draft / mergeable=true; 160 commits, 22 files | 101 ahead of #75, 0 behind |
+| #82 QA documentation | `f4bdf93fe0a1d778e6aa8603501c6a138c8193f6` | `master` | Open / Draft / mergeable=true; 24 commits, one file | 24 ahead, 0 behind |
+
+#76 is a continuation/descendant of #75, not an independent release payload. #74's merge base is master `a9288ccfcb0f308d3a587bfca624418a395be07b`; its 612-commit ancestry and 51-file diff still require deliberate history review. GitHub's mergeable flag is not a security or ancestry approval. No submitted reviews or inline review threads were found on #74, #75, #76 or #82. No PR is merged.
+
+### Exact-head CI evidence
+
+| Candidate | Exact head | Run | Result |
+|---|---|---|---|
+| Normal Validate | `f59cf57d82d171029c081843a655423fa2c1f95a` | [42040877440](https://github.com/Reekyi/UpStatus/actions/runs/42040877440) | **AUTOMATED PASS** |
+| Normal Signaling Smoke | same | [42040877642](https://github.com/Reekyi/UpStatus/actions/runs/42040877642) | **AUTOMATED PASS** |
+| Team Lite Candidate Checks | `578ba8a44dd67401a4bad0db897980c91fea3df5` | [42024542507](https://github.com/Reekyi/UpStatus/actions/runs/42024542507) | **AUTOMATED PASS** |
+| Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) | Historical **AUTOMATED PASS**, superseded by #76 |
+| QA documentation | `f4bdf93fe0a1d778e6aa8603501c6a138c8193f6` | [42046974106](https://github.com/Reekyi/UpStatus/actions/runs/42046974106) | **BLOCKED** by baseline validator failure |
+
+Normal Signaling Smoke job `127293440174` completed every step successfully: harness syntax, 14/14 unauthenticated endpoint checks, 86/86 authenticated API checks, Chromium call/voice/screen WebRTC with remote tracks, three-member pairwise mesh and teardown, 90 accepted + one HTTP 429, distributed rate-limit concurrency, atomic receipt concurrency, and isolated fixture cleanup. Normal Validate job `127291052964` passed.
+
+Team Lite job `127236981895` completed every step successfully on the exact #76 head: isolation guard, adapter and endpoint authentication, 86/86 authenticated checks, browser call/voice/screen, three-member mesh/teardown, 90 accepted + one HTTP 429, rate-limit and receipt concurrency, candidate version 3.4.31, updater scenarios and portal/session checks. These are automated isolated-project results, not production validation or physical Tampermonkey acceptance.
+
+QA Validate job `127312466191` checked out merge commit `be5900bdecac6c327d9ebfc23b65ade4a28c46fd` (PR head `f4bdf93` merged into master for validation), built Normal 3.4.7 / TEST 3.4.7, then failed at `scripts/validate.mjs:26`: `production updateURL mismatch`. PR #82 changes only `docs/RELEASE_READINESS.md`; this is the existing master/base validator contract, not a runtime regression in this documentation diff. Keep #82 Draft; do not weaken the validator to force green.
+
+### Candidate source and migration inspection
+
+**CODE INSPECTION:** both candidate userscripts now emit `chat_fast` as an empty invalidation event at both send sites; neither attaches the message object. Their receivers schedule authenticated chat refreshes rather than trusting a broadcast-supplied row. The exact candidate files are Normal `src/userscript/upstatus.user.template.js` (blob `25bbc080157a43ca56495a8d0379cff30de3a4ec`) and Team Lite `team-lite/upstatus-team-lite.user.js` (blob `73a72a0f6ddbc37e5b727af9495cbbee3a7cb3f9`).
+
+The authenticated signaling flag is still explicitly default-off in both clients (`GM_getValue(..., false) === true`). The Normal comment describes it as an opt-in migration path; Team Lite explicitly says legacy calls remain unchanged while disabled. Therefore the authenticated transport is not yet the default path for installed users. The candidate SQL migrations `20261103160000_minimize_public_chat_broadcast.sql` and `20261103170000_minimize_public_status_broadcasts.sql` reduce event payloads to `{op: TG_OP}`, but still pass `false` as the `realtime.send` private-channel argument. They minimize data; they do not make the topic private.
+
+Both product server templates set session-cache revalidation to 5 seconds and call `merge_chat_read_receipts` from the read route. Neither product template calls `consume_upstatus_signal_rate_limit`; the distributed limiter is tested only through the isolated test endpoint, so RT-09 remains **PARTIAL**.
+
+The timestamped files ending in `_test.sql` remain inside `supabase/migrations/`. They contain real DDL: the receipt file creates/replaces `merge_chat_read_receipts` and changes grants; the rate-limit file creates `upstatus_signal_rate_limits`, an index, RLS and the RPC. The suffix is not an exclusion mechanism for Supabase migration discovery. Keep these test artifacts out of any production migration push; create separately reviewed production migrations and validate them in official TEST.
+
+The production deploy workflow `.github/workflows/deploy-production.yml` is `workflow_dispatch` only, uses the `production` GitHub environment and checks `release.json` for stable version 3.4.7. It deploys only Edge Function `upstatus`, does not apply migrations, and uses Supabase CLI `latest`. **Additional CODE INSPECTION gate:** the step named “Checkout approved release ref” does not specify an explicit `ref:`; the workflow has no YAML-level allowlist for the dispatch branch/SHA and no assertion that `SUPABASE_PROJECT_ID` equals `dlfvkawaiqduhlazsszm`. External GitHub Environment required-reviewer protections were not inspected, so their presence/absence is **NOT VERIFIED**. Do not run this workflow as part of QA.
+
+### Production Supabase — read-only snapshot
+
+Project `dlfvkawaiqduhlazsszm` is `ACTIVE_HEALTHY`, region `us-west-2`, PostgreSQL 17.11. The migration inventory still has seven entries, latest `20261027155438`. The following remain absent: `public.upstatus_signal_rate_limits`, `public.consume_upstatus_signal_rate_limit(text, integer, integer)`, and `public.merge_chat_read_receipts(text, jsonb, timestamptz)`.
+
+The three active production runtime functions remain:
+- `upstatus`: Edge version 480, embedded userscript 3.4.7, source SHA `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`.
+- `upstatus-team-lite`: Edge version 15, embedded userscript 3.4.30, source SHA `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`.
+- `upstatus-screen-share-3-1-1-beta10`: Edge version 6, embedded userscript 3.1.1-beta8, source SHA `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29`.
+
+Decoded embedded userscripts in all three deployed sources still have two full-message `chat_fast` send sites and one `payload.message` read. All three server sources validate the custom `x-upstatus-token`; all three lack calls to the rate-limit and receipt RPCs. Their session-cache revalidation interval remains 30,000 ms. All 38 production Edge Functions are ACTIVE and report `verify_jwt=false`; this is gateway configuration, not proof that all routes are unauthenticated. Only the three core runtime functions were inspected for the custom-session flow; the route-by-route auth/owner/consumer inventory for the other 35 remains **NOT VERIFIED**.
+
+The production trigger `upstatus_messages_broadcast` is enabled on `public.messages` and calls `upstatus_broadcast_messages()`. The live function is SECURITY DEFINER, `search_path=public`, serializes OLD/NEW with `to_jsonb`, and publishes `{op, record}` on `db_change` with `private=false`. The two other enabled broadcast triggers publish remote-state and user-status metadata on the same public topic. Candidate payload minimization has not been applied to production.
+
+Catalog checks show the three broadcast functions remain SECURITY DEFINER with `search_path=public`; effective EXECUTE is true for `anon`, `authenticated` and `service_role`. Ten public tables (the nine backend-owned tables plus `upstatus_visual_config`) and `realtime.messages` all have RLS enabled, zero policies and `FORCE ROW LEVEL SECURITY=false`. The nine backend-owned tables retain broad client grants including CRUD/TRUNCATE/REFERENCES/TRIGGER; `upstatus_visual_config` has no anon/authenticated grants. `realtime.messages` retains anon/authenticated SELECT/INSERT/UPDATE grants. Grants are a privilege-surface finding; RLS with no policies means this catalog alone does not demonstrate direct row access.
+
+Security Advisor observed at 2026-11-05 15:36:58 UTC:
+- WARN `anon_security_definer_function_executable`: 3 functions.
+- WARN `authenticated_security_definer_function_executable`: the same 3 functions.
+- INFO `rls_enabled_no_policy`: 10 relations.
+- Performance Advisor: no findings.
+- Health Advisor: no findings.
+
+### Issues and manual acceptance
+
+- [Issue #78](https://github.com/Reekyi/UpStatus/issues/78) remains open with three comments and all acceptance checkboxes unchecked. The physical ~10-second internet-loss/recovery test without F5 remains **MANUAL PENDING** for both clients, including room re-entry, new calls, repeated drops, bidirectional audio and unaffected peers.
+- [Issue #79](https://github.com/Reekyi/UpStatus/issues/79) remains open with 43 comments. Its body still contains a 2026-11-03 snapshot. The latest engineering comment [#6661366138](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6661366138), at 12:01 BRT, records the exact Normal/Team Lite CI heads and the production read-only findings; it does not close the release gates.
+
+Manual acceptance remains pending for separate Tampermonkey profiles, real microphone permissions/audio, real display capture/stop-sharing, real network loss/recovery without F5, voice-room re-entry, new calls after reconnect, and installed Normal ↔ Team Lite cross-client tests. Chromium CI is not a substitute.
+
+### Updated gates
+
+1. **BLOCKED — RT-01:** remove full-row public message broadcasts and replace default public signaling with a private/authenticated or server-mediated design; validate unauthorized subscriptions and cross-user isolation. The custom UpStatus token is not automatically a Supabase Auth JWT.
+2. **PARTIAL — RT-09:** integrate the distributed limiter into both actual product endpoints; test per-user quotas, concurrency, 429, retry semantics and cleanup.
+3. **PENDING — production migration packaging:** keep test-suffixed DDL out of the deploy stream; produce reviewed production migrations and test ordering, permissions, data compatibility and rollback in official TEST.
+4. **PENDING — production hardening:** validate trigger-function EXECUTE revocations, backend-owned table grant revocations and Realtime policy/channel design in official TEST before any production change.
+5. **PENDING — Edge inventory:** classify auth, owner, consumers and rollback for all 38 functions; inspect the remaining 35 before disabling anything.
+6. **MANUAL PENDING — #78:** complete physical no-F5 reconnect and device acceptance in Normal and Team Lite.
+7. **PENDING — deploy controls:** add explicit approved ref/SHA and expected project-ID assertions; pin Supabase CLI to a reviewed version; inspect GitHub Environment protection rules.
+8. **PENDING — review process:** obtain human reviews and review #74's 612-commit ancestry before merge consideration; refresh #79's stale body.
+9. **BLOCKED — QA PR #82:** master validator fails at `production updateURL mismatch`; maintainers must fix the baseline contract or explicitly accept a documentation-only exception. Do not bypass it in QA.
+
+### Safety record
+
+This pass used GitHub read APIs, existing Actions logs, source-file reads, Supabase project/function/migration/advisor metadata and SELECT-only catalog SQL. No new workflow was dispatched; no fixture script was run. Existing CI logs confirm the two candidate suites ran in the allowlisted isolated project and cleaned their fixtures. No production write, migration, Edge Function deployment, secret/flag change, userscript publication, merge, destructive operation or engineering-branch edit occurred. The only repository write is this append-only checkpoint on the dedicated QA branch, guarded by the freshly fetched blob SHA. No completion percentage is reported.
+
+### Evidence links
+
+- [PR #74 Normal](https://github.com/Reekyi/UpStatus/pull/74)
+- [PR #75 Team Lite baseline](https://github.com/Reekyi/UpStatus/pull/75)
+- [PR #76 Team Lite signaling](https://github.com/Reekyi/UpStatus/pull/76)
+- [PR #82 QA documentation](https://github.com/Reekyi/UpStatus/pull/82)
+- [Issue #78 reconnect acceptance](https://github.com/Reekyi/UpStatus/issues/78)
+- [Issue #79 release checklist](https://github.com/Reekyi/UpStatus/issues/79)
+- [Normal Validate 42040877440](https://github.com/Reekyi/UpStatus/actions/runs/42040877440)
+- [Normal Signaling Smoke 42040877642](https://github.com/Reekyi/UpStatus/actions/runs/42040877642)
+- [Team Lite Candidate Checks 42024542507](https://github.com/Reekyi/UpStatus/actions/runs/42024542507)
+- [QA Validate 42046974106](https://github.com/Reekyi/UpStatus/actions/runs/42046974106)
