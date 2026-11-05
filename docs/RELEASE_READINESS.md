@@ -2856,3 +2856,8 @@ Todas as consultas Supabase desta rodada foram SELECT-only. O run #42125597354 f
 ### QA Validate após o commit documental desta rodada
 
 O commit documental `dc49f0a878135f2fd1fbad4b31e62d2367ad0a1c` disparou Validate [42130997021](https://github.com/Reekyi/UpStatus/actions/runs/42130997021). O job [127607267816](https://github.com/Reekyi/UpStatus/actions/runs/42130997021) falhou em `Validate build` com a mesma mensagem herdada `VALIDATION FAILED: production updateURL mismatch`. PR #82 continua alterando somente `docs/RELEASE_READINESS.md`; nenhum código foi modificado para contornar o validador. O novo commit documental não tem aprovação automatizada de Validate.
+
+
+### Head final da branch QA após os registros desta rodada
+
+A branch `qa/release-readiness-2026-11-04-master` foi conferida novamente após as duas escritas documentais: head exato `69012d2dc41c63c2d6ddcf3ef51d8a90c9a0708f`, 42 commits ahead / 0 behind de `master`. O arquivo `docs/RELEASE_READINESS.md` tem blob SHA `2e2f96a8abf933db54344651a1a265ff1ab2dc71`; PR #82 continua alterando somente esse arquivo. O commit `69012d2` ainda não tinha workflow associado na consulta final. O Validate [42130997021](https://github.com/Reekyi/UpStatus/actions/runs/42130997021) pertence ao commit anterior `dc49f0a` e falhou em `production updateURL mismatch`; não atribuir esse run ao head final nem declarar o novo head aprovado.
