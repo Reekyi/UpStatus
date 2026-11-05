@@ -3,6 +3,9 @@ import { chromium } from "playwright";
 
 const origin = "https://bfpjtfqlnypisxljoxkb.supabase.co";
 const endpoint = origin + "/functions/v1/upstatus-signal-test";
+if (process.env.UPSTATUS_SIGNAL_ALLOW_MUTATION !== "1") {
+  throw new Error("Refusing browser fixture mutations: set UPSTATUS_SIGNAL_ALLOW_MUTATION=1 explicitly.");
+}
 const users = {
   A: { name: process.env.UPSTATUS_SIGNAL_USER_A_NAME, token: process.env.UPSTATUS_SIGNAL_USER_A_TOKEN },
   B: { name: process.env.UPSTATUS_SIGNAL_USER_B_NAME, token: process.env.UPSTATUS_SIGNAL_USER_B_TOKEN },
