@@ -278,3 +278,41 @@ The large #74 ancestry is a separate merge-review risk even when CI is green. Be
 ### Documentation branch validation refresh (2026-11-05 11:02 BRT)
 
 The ancestry note above was committed as documentation-only HEAD `0a9b34c970167b6a247c4d4c89acddbc7509ad4e` on PR #80. Its new Validate run [42041133424](https://github.com/Reekyi/UpStatus/actions/runs/42041133424) completed FAILURE at the same pre-existing `client signed upload helper missing` assertion after building `3.0.40 / TEST 3.0.40-beta.22`. No runtime file changed. Keep the failure classified as a base/validator mismatch; do not bypass the assertion.
+
+
+## 2026-11-05 12:01 BRT — exact-head CI completion and production recheck
+
+### Exact GitHub refs and automated evidence
+
+All PRs remain open, Draft and unmerged.
+
+| PR | Exact head | Current comparison | Exact-head CI |
+|---|---|---|---|
+| #74 Normal | `f59cf57d82d171029c081843a655423fa2c1f95a` | 612 ahead / 0 behind `master` | Validate [42040877440](https://github.com/Reekyi/UpStatus/actions/runs/42040877440) SUCCESS; Signaling Smoke [42040877642](https://github.com/Reekyi/UpStatus/actions/runs/42040877642) SUCCESS |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | 59 ahead / 0 behind `team-lite-official` | Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) SUCCESS (baseline) |
+| #76 Team Lite signaling | `578ba8a44dd67401a4bad0db897980c91fea3df5` | 160 ahead / 0 behind `team-lite-official`; 101 ahead / 0 behind #75 | Candidate Checks [42024542507](https://github.com/Reekyi/UpStatus/actions/runs/42024542507) SUCCESS |
+| #80 continuity | `a01ca0d4e4f04584368582b9810cc598c09d9004` | 23 ahead / 0 behind `develop` | Validate [42041271313](https://github.com/Reekyi/UpStatus/actions/runs/42041271313) FAILURE |
+| #82 independent QA | `f4bdf93fe0a1d778e6aa8603501c6a138c8193f6` | 24 ahead / 0 behind `master` | Validate [42046974106](https://github.com/Reekyi/UpStatus/actions/runs/42046974106) FAILURE |
+
+Normal #74's latest exact-head smoke job `127293440174` completed all authenticated integration and browser phases, including call audio, voice-room audio, screen video, dynamic invitations, all three links in a three-member mesh, peer/media teardown, 90 accepted requests plus one HTTP 429, distributed rate-limit concurrency, atomic read-receipt concurrency, and temporary fixture cleanup. Team Lite #76's exact-head job `127236981895` completed the corresponding integration/browser, rate-limit, read-receipt, cleanup, version, updater and portal checks. These are isolated-project CI results, not physical Tampermonkey acceptance.
+
+The #80 failure is the existing `client signed upload helper missing` assertion after building `3.0.40 / TEST 3.0.40-beta.22`. The #82 failure is `production updateURL mismatch` after building `3.4.7 / TEST 3.4.7`. Both are documentation-only PRs; do not weaken either validator without reconciling the expected artifact. The QA-owned #82 branch was not edited.
+
+### Reconnect source inspection
+
+Both current candidate userscripts handle `offline` by stopping local call/voice resources and Realtime. On `online`, each calls `startRealtime()`; both `startRealtime()` implementations call `initSignalingTransport()`, recreating the authenticated signaling adapter when configured. Voice-room re-entry remains an explicit user action. This is source inspection plus static regression coverage, not a physical network-outage test. Issue #78 remains open until Ricardo confirms the real no-F5 scenario in both clients.
+
+### Production Supabase — read-only
+
+- Project `dlfvkawaiqduhlazsszm`: `ACTIVE_HEALTHY`, PostgreSQL `17.11.0.002`.
+- Seven production migrations; latest `20261027155438`.
+- `consume_upstatus_signal_rate_limit`, `upstatus_signal_rate_limits`, and `merge_chat_read_receipts` remain absent.
+- The production `upstatus_messages_broadcast` trigger still invokes `upstatus_broadcast_messages()`; the SECURITY DEFINER function serializes the full OLD/NEW row and sends `db_change` with `private=false`.
+- The three trigger broadcast functions remain executable by `anon` and `authenticated`.
+- Security Advisor: two WARN categories covering the three broadcast functions and ten INFO RLS-without-policy notices. Performance Advisor: no findings.
+- Production has 38 ACTIVE Edge Functions. The core deployed functions remain `upstatus` v480, `upstatus-team-lite` v15 and `upstatus-screen-share-3-1-1-beta10` v6. No production `upstatus-signal` endpoint is present.
+- Neither product server template calls `consume_upstatus_signal_rate_limit`; the atomic limiter is exercised by the isolated signaling test endpoint only. RT-09 remains PARTIAL. The test-suffixed SQL files under `supabase/migrations/` must not be sent to production as-is; production migration packaging and the coordinated endpoint cutover need separate review.
+
+### Safety
+
+This checkpoint used GitHub reads, existing Actions logs and read-only Supabase metadata/catalog/advisor queries. No production SQL write, migration, function deployment, secret/flag change, userscript publication, merge, or destructive operation occurred. Keep all five PRs Draft. Do not repeat the physical #78 test request; it remains pending until Ricardo reports its result.
