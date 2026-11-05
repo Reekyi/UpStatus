@@ -983,3 +983,12 @@ This revalidation used GitHub read APIs, exact-head workflow logs, source reads,
 ### Addendum — QA documentation CI for the 2026-11-05 revalidation
 
 After the documentation commit `863c62e0f4880060939fad2f47782447bf9fe307`, GitHub started Validate run [41962502185](https://github.com/Reekyi/UpStatus/actions/runs/41962502185) on the exact new PR #82 head. The job completed with failure at `scripts/validate.mjs`, reporting `VALIDATION FAILED: production updateURL mismatch`. The PR still changes only `docs/RELEASE_READINESS.md`; this is the same inherited `master` baseline assertion, not a runtime change from the QA append. Keep the PR Draft and do not bypass the assertion without reconciling the expected production update URL with the release artifact.
+
+
+### Addendum — scope boundary of automated signaling tests
+
+A final source comparison of the Normal and Team Lite test harnesses confirms that `scripts/test-signaling-browser.mjs` in both branches targets the isolated `/functions/v1/upstatus-signal-test` endpoint. The authenticated harness contains an explicit comment that its result does not claim the product userscript has migrated to that endpoint. The browser test exercises the isolated endpoint's polling/ack flow; it does not instantiate the installed Normal userscript against the Team Lite product runtime or vice versa.
+
+Therefore the Team Lite 86/86 result and the isolated Chromium WebRTC checks are valid candidate-endpoint automation, but they are **not** proof of a full Normal ↔ Team Lite product-client interoperability matrix or of the userscript cutover. Cross-client product acceptance remains **MANUAL PENDING**, and a product-level automated integration test should be added after the transport architecture is selected.
+
+The documentation commit `1c86d279c28f804ba26edb3a4b617877734c2b10` triggered Validate run [41962548517](https://github.com/Reekyi/UpStatus/actions/runs/41962548517), which was still queued at the time of this addendum. No result is claimed for that run here.
