@@ -6,6 +6,7 @@ import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
+execFileSync(process.execPath,[path.join(ROOT,"scripts/migration-layout.test.mjs")],{stdio:"inherit"});
 const rootArtifactPath=path.join(ROOT,"UpStatus.user.js");
 const rootArtifactBefore=fs.readFileSync(rootArtifactPath,"utf8");
 execFileSync(process.execPath,[path.join(ROOT,"scripts/build.mjs")],{stdio:"inherit"});

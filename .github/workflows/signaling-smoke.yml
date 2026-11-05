@@ -15,7 +15,9 @@ on:
       - "scripts/test-signal-rate-limit.mjs"
       - "scripts/assert-isolated-supabase.mjs"
       - "scripts/isolation-guard.test.mjs"
+      - "scripts/migration-layout.test.mjs"
       - "supabase/migrations/**"
+      - "supabase/test-migrations/**"
       - "src/server/index.template.ts"
       - "scripts/signaling-transport.test.mjs"
       - "src/userscript/signaling-transport.mjs"
@@ -64,6 +66,8 @@ jobs:
           node --check scripts/assert-isolated-supabase.mjs
           node --check scripts/isolation-guard.test.mjs
           node scripts/isolation-guard.test.mjs
+          node --check scripts/migration-layout.test.mjs
+          node scripts/migration-layout.test.mjs
           node --check scripts/test-chat-read-receipts.mjs
           node --check scripts/test-signal-rate-limit.mjs
       - name: Run unauthenticated endpoint checks against isolated project

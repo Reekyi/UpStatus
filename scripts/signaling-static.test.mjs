@@ -24,7 +24,7 @@ const bindingMigration = readFileSync(
   "supabase/migrations/20261030192000_signal_room_bindings.sql", "utf8",
 );
 const rateLimitMigration = readFileSync(
-  "supabase/migrations/20261104154623_distributed_signaling_rate_limit_test.sql", "utf8",
+  "supabase/test-migrations/20261104154623_distributed_signaling_rate_limit_test.sql", "utf8",
 );
 const authenticatedHarness = readFileSync("scripts/test-signaling-authenticated.mjs", "utf8");
 const authenticatedRunner = readFileSync("scripts/run-signaling-authenticated.mjs", "utf8");
