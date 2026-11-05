@@ -94,3 +94,12 @@ No production deployment, migration, feature-flag change, stable artifact public
 - Team Lite #76 exact runtime head `4178e54654b1bd2c06516fba9edea17d779b9ecd` passed Candidate Checks run [42119919319](https://github.com/Reekyi/UpStatus/actions/runs/42119919319), including 103/103 authenticated integration checks and browser WebRTC/mesh/teardown. Normal #74 Validate passed on `73c19d5a890d39ee9524c1fb5042b7f6ffb7f53b`; its Signaling Smoke run [42120068577](https://github.com/Reekyi/UpStatus/actions/runs/42120068577) was still running at the last check.
 - This does not authorize enabling the transport or deploying the migration. The isolated project has migration version `20261105220323`; production has no open-voice RPCs and remains unchanged. Keep the flag default-off until exact-head Normal Smoke, official TEST validation, and manual acceptance pass.
 - Physical no-F5 recovery, installed Tampermonkey behavior, real microphone/display capture, and live Normal ↔ Team Lite interoperability remain manual gates under issue #78.
+
+
+### Validation update — 2026-11-05
+
+The Normal runtime candidate at `73c19d5a890d39ee9524c1fb5042b7f6ffb7f53b` completed both Validate [42120068532](https://github.com/Reekyi/UpStatus/actions/runs/42120068532) and Signaling Smoke [42120068577](https://github.com/Reekyi/UpStatus/actions/runs/42120068577) successfully. The smoke log confirms 103/103 authenticated integration checks, open voice late-join/owner-race/capacity cases, browser call/voice/screen WebRTC, three-member mesh, cleanup, rate-limit concurrency, and atomic read-receipt concurrency. PR #74 then received documentation-only commits; no runtime/workflow inputs changed after the validated head.
+
+Team Lite #76 head `4178e54654b1bd2c06516fba9edea17d779b9ecd` also passed Candidate Checks [42119919319](https://github.com/Reekyi/UpStatus/actions/runs/42119919319) with 103/103 authenticated checks. These are isolated-candidate results, not manual or production acceptance.
+
+**Still blocked:** no production migration or Edge deployment; no Retry-After header on HTTP 429; distributed rate limiting is not yet integrated into the deployed product endpoints; public Realtime full-row broadcasts remain; physical network/device and live cross-client tests remain pending. Keep the transport default-off.
