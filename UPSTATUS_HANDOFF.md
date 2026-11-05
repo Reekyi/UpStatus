@@ -531,3 +531,14 @@ Latest head `1dfe050`:
 - Signaling Smoke [42081126527](https://github.com/Reekyi/UpStatus/actions/runs/42081126527): pending at last check.
 
 Fresh ancestry: #74 is 625 commits ahead / 0 behind master; #76 is 102 ahead / 0 behind #75; #80 is 34 ahead / 0 behind develop; #82 is 29 ahead / 0 behind master. All PRs remain Draft. No fixture tests ran in the two failed smoke jobs because the static step failed first.
+
+
+## 2026-11-05 15:00 BRT — latest exact-head CI result
+
+Normal PR #74 remains at `1dfe050ef5f3e4c25b16f3b71f10036214ab3142`.
+
+- Validate [42081126225](https://github.com/Reekyi/UpStatus/actions/runs/42081126225): **success**.
+- Signaling Smoke [42081126527](https://github.com/Reekyi/UpStatus/actions/runs/42081126527): **pending**, with no job created at the latest poll. Older queued smoke runs `42080591331` and `42080166863` also had no jobs. Do not call the new migration/static suite approved until a smoke job actually executes and finishes.
+- The prior Smoke failures on `019fdef` and `181f4d7` occurred at the static regression step, before any fixture or browser test ran. Their causes are recorded above; the assertions were corrected in `1dfe050`.
+
+All PRs remain open/Draft. Production project status and seven-migration history are unchanged. No production write occurred.
