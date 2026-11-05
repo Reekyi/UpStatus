@@ -2423,3 +2423,42 @@ This checkpoint used GitHub read APIs, exact PR refs, source-file reads, workflo
 - [QA Validate 42096117538](https://github.com/Reekyi/UpStatus/actions/runs/42096117538)
 - [Supabase Realtime Authorization](https://supabase.com/docs/guides/realtime/authorization)
 
+
+
+---
+
+## Isolated database and endpoint recheck — 2026-11-05 17:35 BRT
+
+A read-only follow-up was performed after the main checkpoint. It does not change the production conclusions.
+
+### Isolated project evidence
+
+Project `bfpjtfqlnypisxljoxkb` is `ACTIVE_HEALTHY`, PostgreSQL `17.11.0.003`. Its migration history contains 20 entries through `20261105190937`.
+
+The current isolated catalog confirms:
+- `public.upstatus_signal_rate_limits` exists.
+- `public.consume_upstatus_signal_rate_limit(text, integer, integer)` exists.
+- `public.merge_chat_read_receipts(text, jsonb, timestamptz)` exists.
+- No postgres-owned `public` default ACL entries grant privileges to anon/authenticated.
+- No global postgres default EXECUTE grant remains for PUBLIC.
+- The three broadcast trigger functions are not executable by anon/authenticated; service_role retains EXECUTE.
+
+The isolated migration history has two distinct version entries with the same name, `revoke_public_default_privileges_postgres_test` (`20261105180031` and `20261105180059`). They are separate history versions, not evidence of duplicate production migrations; retain the history and explain the retry/validation sequence rather than rewriting it.
+
+The isolated project has `upstatus-signal-test` ACTIVE v27 and `upstatus-signal-e2e-once` ACTIVE v3. The production inventory of 38 functions contains neither slug. Therefore the authenticated signaling backend is still isolated-only; no production signaling endpoint is available for the candidate clients.
+
+### SQL test reproducibility and guard boundary
+
+The test file `supabase/test-migrations/20261105170000_postgres_global_function_default_scope_test.sql` (blob `d300b568deba78362e8397f756d9f18713a05580`) creates a dedicated probe schema/function, asserts anon/authenticated lack EXECUTE while postgres retains it, then drops the probe schema with CASCADE. The README (blob `ce8a3dfc38ad08c90bc56e680069fa691af4429f`) explicitly restricts these DDL files to the isolated project and warns that the JavaScript fixture guard does not authorize SQL DDL.
+
+The current Normal smoke workflow (blob `deb67fbc82ef54635335aa4e834d6f8214d0ee7b`) runs `migration-layout.test.mjs`, the authenticated API/browser harness, and the two API-level concurrency scripts. It does not apply the SQL files under `supabase/test-migrations/` to a clean database. Thus:
+- The isolated catalog and migration history are current evidence of a successful engineering-applied test.
+- A clean-database, repeatable CI migration application remains unproven.
+- QA did not execute the DDL test file or any fixture script.
+
+The shared JavaScript mutation guard (blob `9a88c633789e502380fc81a249bf3f62a8944cd5`) requires the exact isolated project origin, service key, explicit `UPSTATUS_SIGNAL_ALLOW_MUTATION=1`, and a read-only preflight. That guard is used by API fixture scripts; it is not embedded in the SQL test migration itself. Manual SQL application therefore remains a separately controlled operation.
+
+### Post-update QA branch state
+
+The append-only QA update above was committed as `10eba8a7deb2e3036131b6ad7b0e299fa036731c`; the verified document blob is `fe887b564a68a5926d38dff99077d2a75606b912`. PR #82 remains open/Draft, unmerged, at this head. GitHub's mergeability recheck returned `mergeable=true`; compare against master is 33 ahead / 0 behind. No workflow run was associated with this documentation commit at the final check. The prior failure `42096117538` belongs to the previous QA head `0fd1877`, not this new commit.
+
