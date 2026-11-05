@@ -2735,3 +2735,8 @@ Após o checkpoint anterior, a engenharia avançou novamente a PR #74:
 - O workflow agora verifica branch master, checkout igual ao SHA despachado, project ID e versão da CLI. Ainda não há uma allowlist independente de release SHA; o SHA é o commit de master escolhido no dispatch e o gate de versão é 3.4.7. As proteções externas de aprovação do GitHub Environment `production` não foram inspecionadas. Nenhum deploy foi executado.
 
 A correção acima encerra a pendência anterior de ausência de branch/project/CLI guards no YAML, mas não altera o bloqueio de produção: migrations, Realtime, ACL, integração de rate limit, RPCs e validação manual continuam pendentes. TEAM-LITE-VOICE-LEAVE também permanece aberto no head atual #76.
+
+
+### Correção final de head #74 — 2026-11-05
+
+A #74 avançou novamente após o commit `2f226e11`. O head observado agora é `b0c0e03fbe820e02404d4ae7d9f83e2a18642e50`, 639 commits à frente de master e zero atrás, com 59 arquivos alterados. O commit [b0c0e03](https://github.com/Reekyi/UpStatus/commit/b0c0e03fbe820e02404d4ae7d9f83e2a18642e50) apenas corrige o contador da regressão estática de guards de deploy para `16/16`; não altera runtime nem o workflow de deploy. Nenhum workflow estava associado a esse head na última consulta. Portanto, o Smoke verde anterior continua ligado ao runtime head `73c19d5`; o guard de deploy foi validado em código, mas a regressão estática adicionada depois ainda precisa de execução no head atual.
