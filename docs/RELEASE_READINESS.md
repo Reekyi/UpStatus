@@ -1785,3 +1785,8 @@ This pass used GitHub read APIs, existing Actions logs, source-file reads, Supab
 - [Normal Signaling Smoke 42040877642](https://github.com/Reekyi/UpStatus/actions/runs/42040877642)
 - [Team Lite Candidate Checks 42024542507](https://github.com/Reekyi/UpStatus/actions/runs/42024542507)
 - [QA Validate 42046974106](https://github.com/Reekyi/UpStatus/actions/runs/42046974106)
+
+
+### Follow-up dependency check — chat read receipts
+
+A focused read of the current Normal and Team Lite server templates found that each `readRoute` calls `db.rpc("merge_chat_read_receipts", ...)` and immediately throws when the RPC returns an error (Normal line 442; Team Lite line 443). Production catalog checks confirm that RPC is absent. Therefore deploying either candidate server template before its separately reviewed receipt migration is installed would make this route fail at the RPC boundary; the migration is a hard deployment dependency, not optional cleanup. The required order is: validate the production-form migration in official TEST, approve/apply it through the separately authorized migration process, then deploy the matching server template. No such migration or deployment was performed here.
