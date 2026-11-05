@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 const read = (path) => fs.readFileSync(path, "utf8");
 const manifest = JSON.parse(read("team-lite/release.json"));
 const script = read("team-lite/upstatus-team-lite.user.js");
+const openVoiceMigration = read("supabase/migrations/20261105190000_open_voice_room_membership.sql");
 const signalingAdapterSource = read("src/userscript/signaling-transport.mjs").replace(/^export\s+/gm, "");
 const luccaSite = read("lucca-site/index.html");
 const luccaStandalone = read("lucca.html");
@@ -238,6 +239,15 @@ assert.ok(script.includes("signalTransportFlag&&!p._authenticatedTransport"), "p
 assert.ok(script.includes("to:member,_authenticatedTransport:true"), "server-issued call invitations must be accepted by the authenticated receive gate");
 assert.ok(script.includes("!signalTransportFlag&&isAuthenticated()") && script.includes("voiceRoomReceive(payload&&payload.payload||{})") && script.includes("screenShareReceive(payload&&payload.payload||{})"), "public voice and screen events must be ignored when authenticated transport is enabled");
 assert.ok(script.includes("if(!signalTransport||!signalRoomId)return false"), "call send paths must fail closed instead of falling back to public broadcasts");
+const voicePrepareStart=script.indexOf("async function signalPrepareVoiceRoom(){");
+const voicePrepareEnd=script.indexOf("function signalReleaseVoiceRoom(){",voicePrepareStart);
+const voicePrepareSource=script.slice(voicePrepareStart,voicePrepareEnd);
+assert.ok(voicePrepareStart>=0&&voicePrepareEnd>voicePrepareStart&&voicePrepareSource.includes("signalTransport.openVoiceRoom(voiceRoom.id)")&&!voicePrepareSource.includes("invitations")&&!voicePrepareSource.includes("accept(")&&!voicePrepareSource.includes("createRoom(")&&!voicePrepareSource.includes("bindRoom("),
+  "Team Lite voice room must use open authenticated membership, not invitation/acceptance");
+assert.ok(script.includes("function signalReleaseVoiceRoom()")&&script.includes("await signalReleaseVoiceRoom()")&&script.includes("signalTransport.leave(room)"),
+  "Team Lite must release a pending or failed open voice membership and stop its poller");
+assert.ok(openVoiceMigration.includes("pg_advisory_xact_lock")&&openVoiceMigration.includes("FOR UPDATE")&&openVoiceMigration.includes("ROOM_FULL")&&openVoiceMigration.includes("SECURITY INVOKER")&&openVoiceMigration.includes("SET search_path = ''")&&openVoiceMigration.includes("GRANT EXECUTE ON FUNCTION public.open_upstatus_signal_voice_room"),
+  "Team Lite open voice migration must be atomic, bounded, and service-role-only");
 assert.ok(script.includes("if(!signalTransport||!signalVoiceRoomRoomId){voiceRoomMessage") && script.includes("if(!signalTransport||!signalVoiceRoomRoomId){screenShareMessage"), "voice and screen send paths must fail closed when authenticated room binding is missing");
 assert.ok(script.includes("return sendRealtimeEvent('call_signal',p)"), "legacy fallback must remain available only while the opt-in transport is disabled");
 assert.ok(script.includes("signalTransport.requestInvite(callId).then(function(){"), "authenticated group join requests must use the server invitation route");
@@ -249,6 +259,7 @@ assert.ok(script.includes("if(signalTransportFlag){\n        if(signalTransport&
 assert.ok(script.includes("if(signalTransportFlag&&!p._authenticatedTransport") && script.includes("if(!signalTransport||!signalRoomId)return false"), "group call events must reject public control messages and fail closed without a room");
 assert.ok(script.includes("pendingSignals.map(function(p){return Promise.resolve(p);})") && script.includes("return signalTransport.leave(signalRoomId)"), "call teardown must wait for pending signals before leaving its authenticated room");
 const browserHarness = read("scripts/test-signaling-browser.mjs");
+assert.ok(browserHarness.includes('"/room/open"') && browserHarness.includes('"upstatus-team-lite-room-v1"') && browserHarness.includes("late Team Lite member must join without invitation") && browserHarness.includes('roomId: voiceRoomId, bindingType: "screen"'), "browser E2E must cover open late join, cross-client aliases, and shared voice/screen room");
 assert.ok(browserHarness.includes("async function runGroupMesh()") && browserHarness.includes("async function negotiateMeshPair("), "authenticated browser E2E must include a three-member group mesh");
 assert.ok(browserHarness.includes('"/room/invite"') && browserHarness.includes('"/room/members"') && browserHarness.includes('"/broadcast"'), "group browser E2E must cover dynamic invitation, accepted roster, and authenticated fanout");
 assert.ok(browserHarness.includes("await negotiateMeshPair(pageA, users.A, pageB, users.B, callId)") && browserHarness.includes("await negotiateMeshPair(pageA, users.A, pageC, users.C, callId)") && browserHarness.includes("await negotiateMeshPair(pageB, users.B, pageC, users.C, callId)"), "group browser E2E must establish every peer-to-peer mesh link");

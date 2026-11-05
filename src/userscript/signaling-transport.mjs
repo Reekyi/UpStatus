@@ -5,7 +5,7 @@
  * The caller supplies a same-origin HTTPS GM_xmlhttpRequest bridge that sends
  * the UpStatus session token in x-upstatus-token. The feature flag remains
  * disabled by default; do not enable for users until authenticated browser/WebRTC
- * E2E tests prove the invite/accept/offer state machine.
+ * E2E tests prove explicit call invitation/acceptance and open voice-room membership.
  */
 export function createSignalingTransport({
   request,
@@ -61,6 +61,17 @@ export function createSignalingTransport({
       throw new TypeError("Invalid room participants");
     }
     return post("/room/create", { participants: [...new Set(participants)] });
+  }
+
+  async function openVoiceRoom(logicalId) {
+    if (!["upstatus-team-room-v1", "upstatus-team-lite-room-v1"].includes(logicalId)) {
+      throw new TypeError("Invalid voice room logical ID");
+    }
+    const result = await post("/room/open", { logicalId });
+    if (!result || typeof result.roomId !== "string" || !result.roomId) {
+      throw new Error("Open voice room returned no room ID");
+    }
+    return result;
   }
 
   async function bindRoom({ roomId, bindingType, logicalId }) {
@@ -322,7 +333,7 @@ export function createSignalingTransport({
   }
 
   return Object.freeze({
-    createRoom, bindRoom, resolveRoom, invite, requestInvite, invitations, roomStatus, roomMembers, waitForAcceptance, accept, decline,
+    createRoom, openVoiceRoom, bindRoom, resolveRoom, invite, requestInvite, invitations, roomStatus, roomMembers, waitForAcceptance, accept, decline,
     sendSignal, sendToRoom, poll, ack, leave, close, prepareCallRoom, startPolling, stopPolling, stopAll,
     get enabled() { return enabled; },
     get activePollCount() { return activePolls.size; },

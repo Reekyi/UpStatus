@@ -19,7 +19,7 @@ const browser = await chromium.launch({
   headless: true,
   args: ["--no-sandbox", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
 });
-let roomId = "", groupRoomId = "";
+let roomId = "", groupRoomId = "", voiceRoomId = "";
 let pcA, pcB, streamA, streamB;
 let pageA, pageB, pageC;
 
@@ -220,12 +220,13 @@ async function runGroupMesh() {
   await teardownGroupMesh();
 }
 
-async function negotiateMedia({ bindingType, eventType, logicalId, trackKind }) {
-  const bound = await api(pageA, users.A, "/room/bind", { roomId, bindingType, logicalId });
-  assert.ok([200, 201].includes(bound.status), bindingType + " binding must be created");
+async function negotiateMedia({ roomId: mediaRoomId, bindingType, eventType, logicalId, trackKind }) {
   const resolved = await api(pageB, users.B, "/room/resolve", { bindingType, logicalId });
-  assert.equal(resolved.status, 200, bindingType + " binding must resolve for accepted member");
-  assert.equal(resolved.json.roomId, roomId, bindingType + " binding must resolve to the accepted room");
+  assert.equal(resolved.status, 200, bindingType + " binding must resolve for an open voice member");
+  assert.equal(resolved.json.roomId, mediaRoomId, bindingType + " binding must resolve to the open voice room");
+  const members = await api(pageA, users.A, "/room/members", { roomId: mediaRoomId });
+  assert.equal(members.status, 200, "open voice room must expose its accepted roster");
+  assert.ok([users.A.name, users.B.name].every(name => (members.json.members || []).includes(name)), "both browser peers must be accepted members before media negotiation");
 
   await Promise.all([
     pageA.evaluate(async kind => {
@@ -272,12 +273,12 @@ async function negotiateMedia({ bindingType, eventType, logicalId, trackKind }) 
   const offer = await pageA.evaluate(() => window.__upPc.localDescription.toJSON());
   assert.match(offer.sdp, /a=candidate:/, bindingType + " offer must contain gathered ICE candidates");
   const offerSent = await api(pageA, users.A, "/signal", {
-    roomId, recipient: users.B.name, eventType,
+    roomId: mediaRoomId, recipient: users.B.name, eventType,
     payload: { type: "offer", callId: logicalId, sdp: offer },
   });
   assert.equal(offerSent.status, 202, bindingType + " offer must be accepted by authenticated transport");
 
-  const offerEvent = await waitForEvent(pageB, users.B, "offer", eventType);
+  const offerEvent = await waitForEvent(pageB, users.B, "offer", eventType, 20000, logicalId, users.A.name, mediaRoomId);
   assert.equal(offerEvent.sender, users.A.name);
   await pageB.evaluate(async sdp => {
     const pc = window.__upPc;
@@ -288,12 +289,12 @@ async function negotiateMedia({ bindingType, eventType, logicalId, trackKind }) 
   const answer = await pageB.evaluate(() => window.__upPc.localDescription.toJSON());
   assert.match(answer.sdp, /a=candidate:/, bindingType + " answer must contain gathered ICE candidates");
   const answerSent = await api(pageB, users.B, "/signal", {
-    roomId, recipient: users.A.name, eventType,
+    roomId: mediaRoomId, recipient: users.A.name, eventType,
     payload: { type: "answer", callId: logicalId, sdp: answer },
   });
   assert.equal(answerSent.status, 202, bindingType + " answer must be accepted by authenticated transport");
 
-  const answerEvent = await waitForEvent(pageA, users.A, "answer", eventType);
+  const answerEvent = await waitForEvent(pageA, users.A, "answer", eventType, 20000, logicalId, users.B.name, mediaRoomId);
   assert.equal(answerEvent.sender, users.B.name);
   await pageA.evaluate(async sdp => window.__upPc.setRemoteDescription(sdp), answerEvent.payload.sdp);
   await Promise.all([
@@ -399,19 +400,31 @@ try {
   console.log("PASS authenticated browser call WebRTC negotiation and remote audio track delivery.");
   await teardownPeerConnections();
 
-  await negotiateMedia({
-    bindingType: "voice", eventType: "voice_room_signal",
-    logicalId: "browser-e2e-voice-" + Date.now(), trackKind: "audio",
-  });
-  await negotiateMedia({
-    bindingType: "screen", eventType: "screen_signal",
-    logicalId: "browser-e2e-screen-" + Date.now(), trackKind: "video",
-  });
+  const voiceOpenA = await api(pageA, users.A, "/room/open", { logicalId: "upstatus-team-room-v1" });
+  assert.equal(voiceOpenA.status, 201, "first browser member must create the open team voice room");
+  voiceRoomId = voiceOpenA.json.roomId;
+  const voiceOpenB = await api(pageB, users.B, "/room/open", { logicalId: "upstatus-team-lite-room-v1" });
+  assert.equal(voiceOpenB.status, 200, "late Team Lite member must join without invitation");
+  assert.equal(voiceOpenB.json.roomId, voiceRoomId, "Normal and Team Lite aliases must resolve to one room");
+  const voiceOpenC = await api(pageC, users.C, "/room/open", { logicalId: "upstatus-team-room-v1" });
+  assert.equal(voiceOpenC.status, 200, "third late member must join the open voice room");
+  assert.equal(voiceOpenC.json.roomId, voiceRoomId);
+  const voiceMembers = await api(pageA, users.A, "/room/members", { roomId: voiceRoomId });
+  assert.ok([users.A.name, users.B.name, users.C.name].every(name => (voiceMembers.json.members || []).includes(name)), "late members must be accepted without invitation or acceptance");
+  const voicePresence = await api(pageA, users.A, "/broadcast", { roomId: voiceRoomId, eventType: "voice_room_signal", payload: { type: "presence", callId: "browser-open-voice", roomId: "upstatus-team-room-v1", active: true } });
+  assert.equal(voicePresence.status, 202, "open voice member must broadcast to the accepted roster");
+  const lateJoinEvent = await waitForEvent(pageC, users.C, "presence", "voice_room_signal", 20000, "browser-open-voice", users.A.name, voiceRoomId);
+  assert.equal(lateJoinEvent.sender, users.A.name, "late member must receive server-authenticated fanout");
+  await negotiateMedia({ roomId: voiceRoomId, bindingType: "voice", eventType: "voice_room_signal", logicalId: "upstatus-team-lite-room-v1", trackKind: "audio" });
+  await negotiateMedia({ roomId: voiceRoomId, bindingType: "screen", eventType: "screen_signal", logicalId: "upstatus-team-room-v1", trackKind: "video" });
 
   await runGroupMesh();
 } finally {
   if (roomId && pageA) {
     try { await api(pageA, users.A, "/room/close", { roomId }); } catch {}
+  }
+  if (voiceRoomId && pageA) {
+    for (const [page, user] of [[pageA, users.A], [pageB, users.B], [pageC, users.C]]) { if (page) { try { await api(page, user, "/room/leave", { roomId: voiceRoomId }); } catch {} } }
   }
   if (groupRoomId && pageA) {
     try { await api(pageA, users.A, "/room/close", { roomId: groupRoomId }); } catch {}

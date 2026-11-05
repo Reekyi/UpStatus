@@ -35,6 +35,13 @@ if (parsed.protocol !== "https:" || parsed.hostname !== "bfpjtfqlnypisxljoxkb.su
   console.error("Refusing to run: URL must target the isolated upstatus-security-test project.");
   process.exit(2);
 }
+const projectUrlRaw = process.env.SUPABASE_URL || "";
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+if (!projectUrlRaw || !serviceKey) { console.error("Missing isolated Supabase URL or service-role key for database contract probes."); process.exit(2); }
+const projectUrl = new URL(projectUrlRaw);
+if (projectUrl.protocol !== "https:" || projectUrl.hostname !== "bfpjtfqlnypisxljoxkb.supabase.co" || projectUrl.pathname !== "/") {
+  console.error("Refusing database contract probes outside the isolated signaling project."); process.exit(2);
+}
 const users = {
   A: { name: process.env.UPSTATUS_SIGNAL_USER_A_NAME, token: process.env.UPSTATUS_SIGNAL_USER_A_TOKEN },
   B: { name: process.env.UPSTATUS_SIGNAL_USER_B_NAME, token: process.env.UPSTATUS_SIGNAL_USER_B_TOKEN },
@@ -64,6 +71,17 @@ async function requestRaw(user, route, rawBody) {
   try { json = await res.json(); } catch {}
   return { status: res.status, json };
 }
+async function serviceRpc(name, payload) {
+  if (name !== "open_upstatus_signal_voice_room") throw new Error("Unexpected isolated RPC probe");
+  const res = await fetch(projectUrl.origin + "/rest/v1/rpc/" + name, {
+    method: "POST",
+    headers: { apikey: serviceKey, authorization: "Bearer " + serviceKey, "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  let json = null;
+  try { json = await res.json(); } catch {}
+  return { status: res.status, json };
+}
 const results = [];
 let roomId = "";
 let declineRoomId = "";
@@ -71,6 +89,9 @@ let conflictRoomId = "";
 let leaveRoomId = "";
 let parallelRoomOneId = "";
 let parallelRoomTwoId = "";
+let voiceRoomId = "";
+let raceRoomId = "";
+let capacityRoomId = "";
 function check(name, ok, detail = "") {
   results.push({ name, ok });
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " (" + detail + ")" : ""}`);
@@ -464,6 +485,98 @@ try {
     ]) check(name, false, "one or both concurrent room creations failed");
   }
 
+  const invalidVoiceOpen = await request(users.A, "/room/open", { logicalId: "call:forbidden" });
+  check("open voice route rejects non-team logical IDs", invalidVoiceOpen.status === 400, "HTTP " + invalidVoiceOpen.status);
+  const voiceOpenedA = await request(users.A, "/room/open", { logicalId: "upstatus-team-room-v1" });
+  voiceRoomId = voiceOpenedA.json?.roomId || "";
+  check("first authenticated team member creates an open voice room",
+    voiceOpenedA.status === 201 && voiceOpenedA.json?.created === true && voiceOpenedA.json?.joined === true && !!voiceRoomId,
+    "HTTP " + voiceOpenedA.status);
+  if (voiceRoomId) {
+    const voiceOpenedB = await request(users.B, "/room/open", { logicalId: "upstatus-team-lite-room-v1" });
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const voiceOpenedC = await request(users.C, "/room/open", { logicalId: "upstatus-team-room-v1" });
+    check("late members join the same voice room through Normal and Team Lite aliases",
+      voiceOpenedB.status === 200 && voiceOpenedC.status === 200 && voiceOpenedB.json?.roomId === voiceRoomId &&
+      voiceOpenedC.json?.roomId === voiceRoomId && voiceOpenedB.json?.joined === true && voiceOpenedC.json?.joined === true,
+      "B=" + voiceOpenedB.status + ", C=" + voiceOpenedC.status);
+    const repeatB = await request(users.B, "/room/open", { logicalId: "upstatus-team-lite-room-v1" });
+    check("repeated open voice join is idempotent", repeatB.status === 200 && repeatB.json?.roomId === voiceRoomId && repeatB.json?.joined === false, "HTTP " + repeatB.status);
+    const voiceMembers = await request(users.A, "/room/members", { roomId: voiceRoomId });
+    check("open voice room roster contains only accepted members",
+      voiceMembers.status === 200 && [users.A.name, users.B.name, users.C.name].every(name => (voiceMembers.json?.members || []).includes(name)),
+      "HTTP " + voiceMembers.status);
+    const bInvitations = await request(users.B, "/room/invitations", {});
+    check("open voice join creates no pending invitation",
+      bInvitations.status === 200 && !(bInvitations.json?.invitations || []).some(item => item.roomId === voiceRoomId), "HTTP " + bInvitations.status);
+    const screenAlias = await request(users.B, "/room/resolve", { bindingType: "screen", logicalId: "upstatus-team-lite-room-v1" });
+    check("open voice operation atomically binds voice and screen aliases", screenAlias.status === 200 && screenAlias.json?.roomId === voiceRoomId, "HTTP " + screenAlias.status);
+    const ownerLeave = await request(users.A, "/room/leave", { roomId: voiceRoomId });
+    check("voice room owner can leave without closing a room with other members",
+      ownerLeave.status === 200 && ownerLeave.json?.roomClosed === false && ownerLeave.json?.ownerTransferred === true, "HTTP " + ownerLeave.status);
+    const statusB = await request(users.B, "/room/status", { roomId: voiceRoomId });
+    const statusA = await request(users.A, "/room/status", { roomId: voiceRoomId });
+    check("earliest voice joiner receives owner control and departed owner loses it",
+      statusB.status === 200 && statusA.status === 403 && !(statusB.json?.participants || []).some(item => item.name === users.A.name),
+      "B=" + statusB.status + ", A=" + statusA.status);
+    const rejoinA = await request(users.A, "/room/open", { logicalId: "upstatus-team-lite-room-v1" });
+    check("departed member can rejoin the open voice room without invitation", rejoinA.status === 200 && rejoinA.json?.roomId === voiceRoomId && rejoinA.json?.joined === true, "HTTP " + rejoinA.status);
+    await request(users.C, "/room/leave", { roomId: voiceRoomId });
+    await request(users.A, "/room/leave", { roomId: voiceRoomId });
+    const lastVoiceLeave = await request(users.B, "/room/leave", { roomId: voiceRoomId });
+    const voiceGone = await request(users.B, "/room/resolve", { bindingType: "voice", logicalId: "upstatus-team-room-v1" });
+    const screenGone = await request(users.B, "/room/resolve", { bindingType: "screen", logicalId: "upstatus-team-lite-room-v1" });
+    check("last open voice member closes the room and removes both aliases",
+      lastVoiceLeave.status === 200 && lastVoiceLeave.json?.roomClosed === true && voiceGone.status === 404 && screenGone.status === 404,
+      "leave=" + lastVoiceLeave.status + ", voice=" + voiceGone.status + ", screen=" + screenGone.status);
+    voiceRoomId = "";
+  } else {
+    for (const name of ["late members join the same voice room through Normal and Team Lite aliases","repeated open voice join is idempotent","open voice room roster contains only accepted members","open voice join creates no pending invitation","open voice operation atomically binds voice and screen aliases","voice room owner can leave without closing a room with other members","earliest voice joiner receives owner control and departed owner loses it","departed member can rejoin the open voice room without invitation","last open voice member closes the room and removes both aliases"]) check(name, false, "open voice room creation failed");
+  }
+  const raceCreated = await request(users.A, "/room/open", { logicalId: "upstatus-team-room-v1" });
+  raceRoomId = raceCreated.json?.roomId || "";
+  check("race fixture creates an open voice room", raceCreated.status === 201 && !!raceRoomId, "HTTP " + raceCreated.status);
+  if (raceRoomId) {
+    const [raceOwnerLeave, raceLateJoin] = await Promise.all([
+      request(users.A, "/room/leave", { roomId: raceRoomId }),
+      request(users.B, "/room/open", { logicalId: "upstatus-team-lite-room-v1" }),
+    ]);
+    const finalRaceRoomId = raceLateJoin.json?.roomId || raceRoomId;
+    raceRoomId = finalRaceRoomId;
+    check("owner departure and late open join serialize without losing the room",
+      raceOwnerLeave.status === 200 && [200, 201].includes(raceLateJoin.status) && !!finalRaceRoomId,
+      "leave=" + raceOwnerLeave.status + ", join=" + raceLateJoin.status);
+    const raceMembers = await request(users.B, "/room/members", { roomId: finalRaceRoomId });
+    const raceStatus = await request(users.B, "/room/status", { roomId: finalRaceRoomId });
+    check("concurrent owner departure leaves a valid room owned by the surviving joiner",
+      raceMembers.status === 200 && (raceMembers.json?.members || []).includes(users.B.name) && raceStatus.status === 200,
+      "members=" + raceMembers.status + ", status=" + raceStatus.status);
+    const raceLastLeave = await request(users.B, "/room/leave", { roomId: finalRaceRoomId });
+    const raceResolve = await request(users.B, "/room/resolve", { bindingType: "voice", logicalId: "upstatus-team-room-v1" });
+    check("concurrent open room closes cleanly after the final member leaves",
+      raceLastLeave.status === 200 && raceLastLeave.json?.roomClosed === true && raceResolve.status === 404,
+      "leave=" + raceLastLeave.status + ", resolve=" + raceResolve.status);
+    raceRoomId = "";
+  } else {
+    check("owner departure and late open join serialize without losing the room", false, "race room creation failed");
+    check("concurrent owner departure leaves a valid room owned by the surviving joiner", false, "race room creation failed");
+    check("concurrent open room closes cleanly after the final member leaves", false, "race room creation failed");
+  }
+  const capacityA = await serviceRpc("open_upstatus_signal_voice_room", { p_logical_id: "upstatus-team-room-v1", p_user_name: users.A.name, p_max_members: 2 });
+  capacityRoomId = capacityA.json?.roomId || "";
+  const capacityB = await serviceRpc("open_upstatus_signal_voice_room", { p_logical_id: "upstatus-team-lite-room-v1", p_user_name: users.B.name, p_max_members: 2 });
+  const capacityC = await serviceRpc("open_upstatus_signal_voice_room", { p_logical_id: "upstatus-team-room-v1", p_user_name: users.C.name, p_max_members: 2 });
+  check("open voice RPC enforces its server-side member capacity",
+    capacityA.status === 200 && capacityA.json?.created === true && capacityB.status === 200 && capacityB.json?.joined === true &&
+    capacityC.status === 200 && capacityC.json?.error === "ROOM_FULL",
+    "A=" + capacityA.status + ", B=" + capacityB.status + ", C=" + capacityC.status);
+  if (capacityRoomId) {
+    await request(users.A, "/room/leave", { roomId: capacityRoomId });
+    const capacityLastLeave = await request(users.B, "/room/leave", { roomId: capacityRoomId });
+    check("capacity probe room closes after accepted members leave", capacityLastLeave.status === 200 && capacityLastLeave.json?.roomClosed === true, "HTTP " + capacityLastLeave.status);
+    capacityRoomId = "";
+  } else check("capacity probe room closes after accepted members leave", false, "capacity fixture creation failed");
+
   const leaveRoom = await request(users.A, "/room/create", { participants: [users.B.name, users.C.name] });
   leaveRoomId = leaveRoom.json?.roomId || "";
   check("creator can create a room for membership leave and owner handoff",
@@ -568,6 +681,9 @@ try {
   }
   if (parallelRoomTwoId) {
     try { await request(users.A, "/room/close", { roomId: parallelRoomTwoId }); } catch {}
+  }
+  for (const id of [voiceRoomId, raceRoomId, capacityRoomId].filter(Boolean)) {
+    for (const user of [users.A, users.B, users.C]) { try { await request(user, "/room/leave", { roomId: id }); } catch {} }
   }
 }
 const passed = results.filter(r => r.ok).length;
