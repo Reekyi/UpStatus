@@ -23,6 +23,12 @@ const envelopeMigration = readFileSync(
 const bindingMigration = readFileSync(
   "supabase/migrations/20261030192000_signal_room_bindings.sql", "utf8",
 );
+const triggerGrantMigration = readFileSync(
+  "supabase/migrations/20261029170500_restrict_trigger_function_execute.sql", "utf8",
+);
+const tableGrantMigration = readFileSync(
+  "supabase/migrations/20261029183000_revoke_unused_public_table_grants.sql", "utf8",
+);
 const rateLimitMigration = readFileSync(
   "supabase/test-migrations/20261104154623_distributed_signaling_rate_limit_test.sql", "utf8",
 );
@@ -41,6 +47,20 @@ assert.match(envelopeMigration, /'call_signal','voice_room_signal','screen_signa
   "database event-type constraint must permit the three legacy transport envelopes");
 assert.ok(bindingMigration.includes("PRIMARY KEY (binding_type, logical_id)"),
   "logical room bindings must have a unique server-owned type/id key");
+const backendOwnedTables = [
+  "public.chat_reads", "public.messages", "public.reactions", "public.status_history",
+  "public.upstatus_profiles", "public.upstatus_sessions", "public.upstatus_state",
+  "public.upstatus_typing", "public.users",
+];
+assert.ok(
+  triggerGrantMigration.includes("REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon, authenticated") &&
+  ["upstatus_broadcast_messages", "upstatus_broadcast_remote_state", "upstatus_broadcast_users"]
+    .every(name => triggerGrantMigration.includes("public." + name + "()")),
+  "trigger-only SECURITY DEFINER broadcasts must not be directly executable by client roles");
+assert.ok(
+  tableGrantMigration.includes("REVOKE ALL PRIVILEGES ON TABLE %s FROM PUBLIC, anon, authenticated") &&
+  backendOwnedTables.every(name => tableGrantMigration.includes("to_regclass(\'" + name + "\')")),
+  "all privileges, including TRUNCATE/TRIGGER/REFERENCES, must be revoked from client roles on backend-owned tables");
 assert.ok(bindingMigration.includes("ENABLE ROW LEVEL SECURITY") &&
   bindingMigration.includes("REVOKE ALL PRIVILEGES") && bindingMigration.includes("GRANT ALL PRIVILEGES") &&
   bindingMigration.includes("service_role"),
