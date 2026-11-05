@@ -363,3 +363,54 @@ assert.ok(
   "voice leave UI must keep its control disabled until asynchronous membership cleanup settles"
 );
 console.log("Team Lite voice leave sequencing tests passed: active leave awaits transport, duplicate leave coalesces, logout waits for in-flight leave.");
+
+
+const voiceSendStart = script.indexOf("function voiceRoomSend(");
+const voiceSendEnd = script.indexOf("\\nfunction voiceRoomMessage", voiceSendStart);
+assert.ok(voiceSendStart >= 0 && voiceSendEnd > voiceSendStart, "voice send implementation boundaries not found");
+const voiceSendSource = script.slice(voiceSendStart, voiceSendEnd);
+const leaveRpcPosition = voiceSendSource.indexOf("signalTransport.leave(room)");
+const clearRoomPosition = voiceSendSource.indexOf("signalVoiceRoomRoomId='';");
+assert.ok(leaveRpcPosition >= 0 && clearRoomPosition > leaveRpcPosition,
+  "Team Lite must retain the room binding until the authenticated leave RPC succeeds");
+
+const fallbackEvents = [];
+let finishFallbackLeave;
+const pendingFallbackLeave = new Promise(resolve => {
+  finishFallbackLeave = () => {
+    fallbackEvents.push("fallback-complete");
+    fallbackLeaveContext.signalVoiceRoomRoomId = "";
+    resolve(true);
+  };
+});
+const fallbackLeaveContext = {
+  voiceRoom: {
+    joinGeneration: 0, active: true, joining: false, recoveryTimers: {}, recoveryAttempts: {},
+    timer: null, levelTimer: null, pingTimer: null, pingMs: null, peers: {}, stream: null,
+    muted: false, participants: {}
+  },
+  signalVoiceRoomRoomId: "team-lite-voice-room-fallback",
+  screenShareStop: () => {},
+  signalStopCallPolling: () => {},
+  voiceRoomPlayCue: () => {},
+  voiceRoomSend: () => { fallbackEvents.push("first-leave-failed"); return Promise.resolve(false); },
+  signalReleaseVoiceRoom: () => { fallbackEvents.push("fallback-start"); return pendingFallbackLeave; },
+  clearTimeout: () => {},
+  clearInterval: () => {},
+  voiceRoomDrop: () => {},
+  voiceRoomRender: () => {},
+  voiceRoomMessage: () => {},
+  member: "Team Lite Tester"
+};
+vm.runInNewContext(voiceLeaveSource, fallbackLeaveContext, { timeout: 1000 });
+const fallbackPromise = fallbackLeaveContext.__candidateVoiceRoomLeave();
+let fallbackSettled = false;
+fallbackPromise.then(() => { fallbackSettled = true; });
+await Promise.resolve();
+await Promise.resolve();
+assert.ok(fallbackEvents.includes("fallback-start"), "failed active leave must retry through signalReleaseVoiceRoom while the room binding remains");
+assert.equal(fallbackSettled, false, "voice leave must await the fallback membership release");
+finishFallbackLeave();
+await fallbackPromise;
+assert.equal(fallbackSettled, true, "voice leave must settle after fallback membership release");
+console.log("Team Lite voice leave fallback retry test passed.");
