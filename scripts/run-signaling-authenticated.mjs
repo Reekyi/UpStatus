@@ -21,6 +21,10 @@ if (projectUrl !== EXPECTED_ORIGIN || !serviceKey) {
   console.error("Refusing to run: set SUPABASE_URL to the isolated test project and provide its service-role key locally.");
   process.exit(2);
 }
+if (process.env.UPSTATUS_SIGNAL_ALLOW_MUTATION !== "1") {
+  console.error("Refusing fixture mutations: set UPSTATUS_SIGNAL_ALLOW_MUTATION=1 explicitly.");
+  process.exit(2);
+}
 const api = projectUrl + "/rest/v1";
 const headers = { apikey: serviceKey, authorization: "Bearer " + serviceKey, "content-type": "application/json" };
 
