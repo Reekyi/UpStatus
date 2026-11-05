@@ -269,3 +269,97 @@ const teamLiteOnlineHandler=script.match(/window.addEventListener\('online',func
 assert.ok(teamLiteRealtimeStart && teamLiteRealtimeStart[1].includes("initSignalingTransport();") && teamLiteOnlineHandler && teamLiteOnlineHandler[1].includes("startRealtime();"), "Team Lite reconnect must recreate authenticated signaling transport when Realtime restarts");
 assert.ok(script.includes("voiceRoom.joinGeneration!==joinGeneration") && script.includes("navigator.onLine===false"), "Team Lite voice-room join must reject offline entry and stale getUserMedia completion");
 console.log("Candidate updater runtime scenarios passed: newer/current/mismatch/downgrade/manifest-offline/script-offline/invalid-manifest.");
+
+
+// Team Lite voice-room leave must await the authenticated server membership cleanup.
+// The active UI path sends the final leave signal and its promise includes the /room/leave RPC.
+const voiceLeaveStart = script.indexOf("var voiceRoomLeavePromise=null;");
+const voiceLeaveEnd = script.indexOf("\\nwindow.addEventListener('pagehide'", voiceLeaveStart);
+assert.ok(voiceLeaveStart >= 0 && voiceLeaveEnd > voiceLeaveStart, "voice leave promise boundaries not found");
+const voiceLeaveSource = script.slice(voiceLeaveStart, voiceLeaveEnd) + "\\nthis.__candidateVoiceRoomLeave=voiceRoomLeave;";
+const leaveEvents = [];
+let finishVoiceLeave;
+const pendingVoiceLeave = new Promise(resolve => {
+  finishVoiceLeave = () => {
+    leaveEvents.push("server-leave-complete");
+    voiceLeaveContext.signalVoiceRoomRoomId = "";
+    resolve(true);
+  };
+});
+const voiceLeaveContext = {
+  voiceRoom: {
+    joinGeneration: 0, active: true, joining: false, recoveryTimers: {}, recoveryAttempts: {},
+    timer: null, levelTimer: null, pingTimer: null, pingMs: null, peers: {}, stream: null,
+    muted: false, participants: {}
+  },
+  signalVoiceRoomRoomId: "team-lite-voice-room",
+  screenShareStop: () => leaveEvents.push("screen-stop"),
+  signalStopCallPolling: room => leaveEvents.push("poll-stop:" + room),
+  voiceRoomPlayCue: () => {},
+  voiceRoomSend: () => { leaveEvents.push("leave-signal-start"); return pendingVoiceLeave; },
+  signalReleaseVoiceRoom: async () => { leaveEvents.push("release-fallback"); },
+  clearTimeout: () => {},
+  clearInterval: () => {},
+  voiceRoomDrop: () => {},
+  voiceRoomRender: () => {},
+  voiceRoomMessage: () => {},
+  member: "Team Lite Tester"
+};
+vm.runInNewContext(voiceLeaveSource, voiceLeaveContext, { timeout: 1000 });
+const firstVoiceLeave = voiceLeaveContext.__candidateVoiceRoomLeave();
+const duplicateVoiceLeave = voiceLeaveContext.__candidateVoiceRoomLeave();
+assert.equal(firstVoiceLeave, duplicateVoiceLeave, "concurrent leave/logout callers must share one in-flight voice cleanup");
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.ok(leaveEvents.includes("leave-signal-start") && leaveEvents.includes("poll-stop:team-lite-voice-room"), "active voice leave must stop its poller and begin the final leave signal");
+let voiceLeaveSettled = false;
+firstVoiceLeave.then(() => { voiceLeaveSettled = true; });
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(voiceLeaveSettled, false, "voiceRoomLeave must remain pending until the authenticated leave request settles");
+finishVoiceLeave();
+await firstVoiceLeave;
+assert.equal(voiceLeaveSettled, true, "voiceRoomLeave must settle after the server leave request");
+
+const releaseGateStart = script.indexOf("  async function teamLiteReleaseVoiceRoomBeforeLogout(){");
+const releaseGateEnd = script.indexOf("  async function teamLiteEndSession(){", releaseGateStart);
+assert.ok(releaseGateStart >= 0 && releaseGateEnd > releaseGateStart, "logout voice-release gate boundaries not found");
+const releaseGateSource = script.slice(releaseGateStart, releaseGateEnd) + "\\nthis.__candidateReleaseVoiceBeforeLogout=teamLiteReleaseVoiceRoomBeforeLogout;";
+const logoutEvents = [];
+let finishLogoutVoiceLeave;
+const pendingLogoutVoiceLeave = new Promise(resolve => {
+  finishLogoutVoiceLeave = () => { logoutEvents.push("voice-leave-complete"); resolve(true); };
+});
+const logoutGateContext = {
+  voiceRoomLeavePromise: pendingLogoutVoiceLeave,
+  voiceRoom: { active: false, joining: false },
+  signalVoiceRoomRoomId: "",
+  voiceRoomLeave: () => { logoutEvents.push("await-inflight-voice-leave"); return pendingLogoutVoiceLeave; }
+};
+vm.runInNewContext(releaseGateSource, logoutGateContext, { timeout: 1000 });
+const logoutGate = logoutGateContext.__candidateReleaseVoiceBeforeLogout();
+let logoutGateSettled = false;
+logoutGate.then(() => { logoutGateSettled = true; });
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(logoutGateSettled, false, "logout must await an in-flight voice leave even after local active state was cleared");
+finishLogoutVoiceLeave();
+await logoutGate;
+assert.equal(logoutGateSettled, true, "logout voice-release gate must settle after server leave");
+
+const endSessionStart = script.indexOf("async function teamLiteEndSession(){");
+const endSessionEnd = script.indexOf("\\n  function teamLiteStartIdleTimer", endSessionStart);
+const endSessionSource = script.slice(endSessionStart, endSessionEnd);
+assert.ok(
+  endSessionSource.includes("await teamLiteReleaseVoiceRoomBeforeLogout()") &&
+  endSessionSource.indexOf("await teamLiteReleaseVoiceRoomBeforeLogout()") < endSessionSource.indexOf("await api('POST','/api/logout',{})"),
+  "Team Lite logout must await voice membership release before invalidating the session"
+);
+assert.ok(
+  script.includes("logout.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();menuPanel.classList.add('hidden');menuToggle.setAttribute('aria-expanded','false');broadcastChatPresence(false);teamLiteEndSession();});") &&
+  !script.includes("voiceRoomLeave();broadcastChatPresence(false);teamLiteEndSession();"),
+  "menu logout must delegate to the awaited session teardown instead of fire-and-forget voice leave"
+);
+assert.ok(
+  script.includes("card.querySelector('.up-voice-leave').onclick=async function(e){") &&
+  script.includes("try{await voiceRoomLeave();}finally{button.disabled=false;}"),
+  "voice leave UI must keep its control disabled until asynchronous membership cleanup settles"
+);
+console.log("Team Lite voice leave sequencing tests passed: active leave awaits transport, duplicate leave coalesces, logout waits for in-flight leave.");
