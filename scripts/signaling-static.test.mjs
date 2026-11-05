@@ -325,7 +325,7 @@ console.log("PASS authenticated room leave and owner handoff are wired into clie
 console.log("PASS browser E2E asserts peer and media teardown");
 console.log("PASS authenticated browser E2E covers call, voice, and screen media paths");
 console.log("PASS authenticated browser E2E covers dynamic group invitations, three-member fanout, and all peer mesh links");
-console.log("15/15 signaling static regression groups passed.");
+
 
 
 
@@ -348,3 +348,4 @@ assert.ok(
   productionReleasePosition < productionCliPosition && productionCliPosition < productionDeployPosition,
   "production deploy must be master-only, exact-SHA checked, project-ID guarded, credential-checked, release-locked, and use a pinned Supabase CLI before deploy");
 console.log("PASS production deploy ref, project, credential, release, and CLI-version guards");
+console.log("16/16 signaling static regression groups passed.");
