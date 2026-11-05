@@ -35,6 +35,9 @@ const defaultPrivilegesMigration = readFileSync(
 const defaultPrivilegesTest = readFileSync(
   "supabase/test-migrations/20261105150000_postgres_public_default_privileges_test.sql", "utf8",
 );
+const readReceiptsProductionMigration = readFileSync(
+  "supabase/migrations/20261105160000_merge_chat_read_receipts.sql", "utf8",
+);
 const rateLimitMigration = readFileSync(
   "supabase/test-migrations/20261104154623_distributed_signaling_rate_limit_test.sql", "utf8",
 );
@@ -84,6 +87,15 @@ assert.ok(
   defaultPrivilegesTest.includes("service_role") &&
   defaultPrivilegesTest.includes("DROP TABLE"),
   "isolated default-ACL test must cover table/sequence/function grants, PostgreSQL 17 MAINTAIN, service_role preservation, and probe cleanup");
+assert.ok(
+  readReceiptsProductionMigration.includes("SECURITY INVOKER") &&
+  readReceiptsProductionMigration.includes("SET search_path = ''") &&
+  readReceiptsProductionMigration.includes("ON CONFLICT (user_name) DO UPDATE") &&
+  readReceiptsProductionMigration.includes("greatest(public.chat_reads.last_read_at, excluded.last_read_at)") &&
+  /REVOKE ALL ON FUNCTION public\\.merge_chat_read_receipts\\(text, jsonb, timestamptz\\)[\\s\\S]*FROM PUBLIC, anon, authenticated/.test(readReceiptsProductionMigration) &&
+  /GRANT EXECUTE ON FUNCTION public\\.merge_chat_read_receipts\\(text, jsonb, timestamptz\\)[\\s\\S]*TO service_role/.test(readReceiptsProductionMigration) &&
+  !/SECURITY DEFINER/i.test(readReceiptsProductionMigration),
+  "production read-receipt RPC must merge atomically/monotonically, use an empty search_path, and remain service-role-only");
 assert.ok(bindingMigration.includes("ENABLE ROW LEVEL SECURITY") &&
   bindingMigration.includes("REVOKE ALL PRIVILEGES") && bindingMigration.includes("GRANT ALL PRIVILEGES") &&
   bindingMigration.includes("service_role"),
