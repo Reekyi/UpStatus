@@ -414,3 +414,49 @@ finishFallbackLeave();
 await fallbackPromise;
 assert.equal(fallbackSettled, true, "voice leave must settle after fallback membership release");
 console.log("Team Lite voice leave fallback retry test passed.");
+
+
+const voiceSendStart = script.indexOf("function voiceRoomSend(");
+const voiceSendEnd = script.indexOf("\\nfunction voiceRoomMessage", voiceSendStart);
+assert.ok(voiceSendStart >= 0 && voiceSendEnd > voiceSendStart, "voice send boundaries not found");
+const voiceSendSource = script.slice(voiceSendStart, voiceSendEnd) + "\\nthis.__candidateVoiceRoomSend=voiceRoomSend;";
+const sendEvents = [];
+let finishLeaveRpc;
+const pendingLeaveRpc = new Promise(resolve => {
+  finishLeaveRpc = () => { sendEvents.push("leave-rpc-complete"); resolve({ ok: true }); };
+});
+const voiceSendContext = {
+  voiceRoom: { id: "upstatus-team-lite-room-v1", active: false, muted: false, speakersMuted: false, sessionId: "session-test", sessionStartedAt: 0 },
+  signalTransportFlag: true,
+  signalTransport: {
+    sendToRoom: () => { sendEvents.push("final-leave-signal"); return Promise.resolve({ ok: true }); },
+    leave: room => { sendEvents.push("leave-rpc-start:" + room); return pendingLeaveRpc; }
+  },
+  signalVoiceRoomRoomId: "team-lite-room-send-test",
+  signalVoiceRoomPrepared: true,
+  signalVoiceRoomCreator: true,
+  signalStopCallPolling: room => sendEvents.push("poll-stop:" + room),
+  voiceRoomMessage: () => {},
+  CURRENT_VERSION: "3.4.31",
+  member: "Team Lite Tester"
+};
+vm.runInNewContext(voiceSendSource, voiceSendContext, { timeout: 1000 });
+const voiceSendPromise = voiceSendContext.__candidateVoiceRoomSend("leave", "", { active: false });
+await Promise.resolve();
+await Promise.resolve();
+assert.ok(sendEvents.includes("final-leave-signal") && sendEvents.includes("leave-rpc-start:team-lite-room-send-test"),
+  "voiceRoomSend must deliver the final leave signal before invoking the membership RPC");
+assert.equal(voiceSendContext.signalVoiceRoomRoomId, "team-lite-room-send-test",
+  "voiceRoomSend must retain the room ID while the membership RPC is pending");
+assert.equal(voiceSendContext.signalVoiceRoomPrepared, true,
+  "voiceRoomSend must retain prepared state until membership RPC succeeds");
+let voiceSendSettled = false;
+voiceSendPromise.then(() => { voiceSendSettled = true; });
+await Promise.resolve();
+assert.equal(voiceSendSettled, false, "voiceRoomSend must await the membership RPC");
+finishLeaveRpc();
+await voiceSendPromise;
+assert.equal(voiceSendContext.signalVoiceRoomRoomId, "", "successful membership RPC must clear the room ID");
+assert.equal(voiceSendContext.signalVoiceRoomPrepared, false, "successful membership RPC must clear prepared state");
+assert.equal(voiceSendContext.signalVoiceRoomCreator, false, "successful membership RPC must clear creator state");
+console.log("Team Lite voice send/leave RPC ordering test passed.");
