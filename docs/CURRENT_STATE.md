@@ -135,3 +135,14 @@ The candidate Normal and Team Lite product server templates do not yet call `con
 ### Safety
 
 No production SQL writes, migrations, deployments, secrets/flags changes, userscript publication, PR merges, or destructive operations occurred. All Supabase production checks were read-only. The next action is to inspect the exact-head Normal smoke and update this checkpoint with its final logs before advancing the product endpoint/cutover design.
+
+
+## 2026-11-05 14:07 BRT — exact engineering checkpoint
+
+- Normal #74 HEAD: `76de9fbe5b24666aa79b64971b6521249f91a4e0`; Validate passed, Signaling Smoke running.
+- Team Lite #76 HEAD: `61672adfdbbd1e020cf5922838404b0958b832e6`; Candidate Checks passed on the exact head. #76 is 102 commits ahead of #75 and carries its baseline.
+- Continuity #80 now includes the new handoff checkpoint in commit `f14a2f843468777b838300897336ba817da9636c`. Its previous Validate failed on the existing `client signed upload helper missing` assertion. Independent QA #82 HEAD `e03033544dd91eb23d7b02d61c689ba8bcbbfa26`; Validate fails on `production updateURL mismatch`. QA branch was not edited.
+- Production catalog audit found effective anon/authenticated ALL table privileges (including TRUNCATE, TRIGGER and REFERENCES) on nine backend-owned tables despite RLS enabled/no policies. Candidate #74 stages REVOKE ALL for those tables; not applied in production. `realtime.messages` SELECT/INSERT/UPDATE remains intentionally untouched pending client cutover.
+- Production remains ACTIVE_HEALTHY, seven migrations through `20261027155438`; receipt/rate-limit objects are absent; public full-row message broadcast and broad trigger-function EXECUTE remain.
+- Commit [76de9fb](https://github.com/Reekyi/UpStatus/commit/76de9fbe5b24666aa79b64971b6521249f91a4e0) adds static coverage for the complete privilege-revocation migrations. Validate passed; Smoke pending.
+- No production writes, migration, deployment, merge, publication, or flag/secret changes.
