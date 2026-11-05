@@ -2163,3 +2163,133 @@ This pass used GitHub read APIs, exact-head commit/PR/workflow metadata and logs
 - [Supabase Advisor: SECURITY DEFINER callable by anon](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable)
 - [Supabase Advisor: SECURITY DEFINER callable by authenticated](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
 - [Supabase Advisor: RLS enabled without policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
+
+
+---
+
+## Independent QA audit checkpoint — 2026-11-05 16:32 BRT
+
+This checkpoint was appended after reading the current QA document and confirming PR #82 head `7253bb6d4bbcb8e4ba2137e659ef95581073ebe8` and blob SHA `b43c65a08bf5319247fc5861676dd7c03c048086`. It does not modify engineering branches or production resources.
+
+### Exact GitHub heads and CI
+
+All four PRs remain open, Draft and unmerged. No submitted reviews or review threads were found.
+
+| PR | Exact head | Changed files | Comparison |
+|---|---|---:|---|
+| [#74 Normal](https://github.com/Reekyi/UpStatus/pull/74) | `b981a716f30bb1a9a960f74d050315dd51a3735f` | 57 | 629 ahead / 0 behind master |
+| [#75 Team Lite baseline](https://github.com/Reekyi/UpStatus/pull/75) | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | 10 | Baseline for #76 |
+| [#76 Team Lite candidate](https://github.com/Reekyi/UpStatus/pull/76) | `bd89a5364f66ca81780869b1bff17c061f90245c` | 24 | 103 ahead / 0 behind #75 |
+| [#82 QA documentation](https://github.com/Reekyi/UpStatus/pull/82) | `7253bb6d4bbcb8e4ba2137e659ef95581073ebe8` | 1 | 30 ahead / 0 behind master |
+
+The latest Normal and Team Lite commits only pin Playwright to published version `1.64.1`. The preceding CI failure was dependency resolution attempting unavailable `playwright-core@1.65.0`; the pin removed that failure.
+
+- **AUTOMATED PASS — Normal Validate:** [42091463530](https://github.com/Reekyi/UpStatus/actions/runs/42091463530), exact head #74.
+- **AUTOMATED PASS — Normal Signaling Smoke:** [42091463609](https://github.com/Reekyi/UpStatus/actions/runs/42091463609), exact head #74. Job completed SUCCESS; 14/14 unauthenticated checks, 86/86 authenticated checks, Chromium call/voice/screen WebRTC, three-member mesh, media teardown, 90 accepted + 1 HTTP 429, rate-limit/read-receipt concurrency and fixture cleanup passed.
+- **AUTOMATED PASS — Team Lite Candidate Checks:** [42091473392](https://github.com/Reekyi/UpStatus/actions/runs/42091473392), exact head #76. All steps completed SUCCESS, including isolated mutation guard, authenticated adapter, endpoint checks, browser integration, rate limit, receipts, migration-layout guard and version/updater checks. Candidate version remains 3.4.31.
+- **HISTORICAL PASS — Team Lite baseline:** [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127), head #75.
+- **BLOCKED — QA Validate:** [42086096708](https://github.com/Reekyi/UpStatus/actions/runs/42086096708), head #82. Fails in `scripts/validate.mjs:26` with inherited `production updateURL mismatch`. No bypass was introduced; no successful validation is claimed for #82.
+
+### Candidate client/backend inspection
+
+Source files were read at the current PR branch refs.
+
+- Normal userscript template SHA: `25bbc080157a43ca56495a8d0379cff30de3a4ec`. Its two `chat_fast` send sites call `sendRealtimeEvent('chat_fast')` without a message object.
+- Team Lite userscript SHA: `73a72a0f6ddbc37e5b727af9495cbbee3a7cb3f9`. Its two send sites are also payload-free.
+- The deployed Normal and Team Lite userscripts are still older; see production inventory below.
+- Both candidate server templates use `SESSION_CACHE_TTL_MS=5000` and call `merge_chat_read_receipts`. Neither template calls `consume_upstatus_signal_rate_limit`; the distributed limiter remains **PARTIAL / NOT INTEGRATED** into the real product endpoints.
+- The authenticated signaling adapter defaults to `enabled=false`; the userscript flag `signaling_transport_enabled` defaults to false and the endpoint setting defaults empty. The authenticated transport is therefore **OPT-IN / NOT ACTIVE BY DEFAULT**. Isolated API/Chromium tests do not prove the installed userscript cutover.
+- The candidate read-receipt RPC is `SECURITY INVOKER`, has an empty `search_path`, revokes EXECUTE from PUBLIC/anon/authenticated and grants EXECUTE to service_role. It merges reader arrays atomically and keeps the read timestamp monotonic. Production still lacks this RPC, so the candidate templates must not be deployed before the production migration is separately validated and authorized.
+- Production `readRoute` still performs read-modify-upsert of `chat_reads.messages`; concurrent requests for the same user can overwrite one another. The isolated atomic RPC addresses this race, but the fix is not yet in production.
+
+### New compatibility gate — open voice-room semantics
+
+Issue [#78](https://github.com/Reekyi/UpStatus/issues/78) explicitly states that a voice room is an open channel: no invitation or acceptance flow should be introduced as part of reconnect recovery.
+
+Static inspection found that both authenticated candidate clients model voice-room membership using pending invitations:
+- `signalPrepareVoiceRoom()` first resolves a logical voice room; otherwise it checks `invitations()` and calls `accept(roomId)`.
+- If no invitation exists, it snapshots `/api/members`, creates a room with the current roster as participants, then binds `voice` and `screen` logical IDs (including Normal/Team Lite aliases).
+- The server-mediated integration tests explicitly exercise pending invitations, acceptance and rejection of polling before acceptance.
+- A late-added/otherwise unlisted team member has no open-join path for an already active voice room. The adapter's `requestInvite()` is hard-coded to `bindingType: "call"`, not `voice`.
+
+This is a **SPEC-COMPATIBILITY RISK / PENDING DESIGN GATE**, not a confirmed production regression: the transport flag remains disabled by default. Before enabling it, preserve open voice-room behavior for any currently authorized team member, including late joiners, without a user-visible invite/accept step. Add automated coverage for open join, concurrent join, late join, Normal ↔ Team Lite aliases and room-owner departure. Do not treat the current invitation state-machine PASS as approval of the open voice-room requirement.
+
+### Production Supabase — fresh read-only catalog inspection
+
+Projects:
+- Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`.
+- Isolated `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 20 migration-history entries including isolated ACL, signaling, rate-limit and receipt test entries. This is not production.
+
+Production still has no:
+- `public.upstatus_signal_rate_limits`
+- `public.consume_upstatus_signal_rate_limit(...)`
+- `public.merge_chat_read_receipts(...)`
+
+Read-only catalog findings in production:
+- Nine backend-owned public tables (`chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing`, `users`) have RLS enabled, zero policies, FORCE RLS disabled, and effective anon/authenticated privileges including SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER and MAINTAIN. This is an excessive privilege surface; it is not proof that PostgREST can directly perform every operation through RLS.
+- `upstatus_visual_config` has no anon/authenticated table privileges.
+- `realtime.messages` has RLS enabled, zero policies and SELECT/INSERT/UPDATE grants for anon/authenticated; no DELETE grant. Do not infer direct row access from grants alone.
+- The three existing broadcast functions remain SECURITY DEFINER with `search_path=public` and EXECUTE effective for anon/authenticated/service_role.
+- Production `upstatus_messages_broadcast` still calls `upstatus_broadcast_messages()`, which serializes OLD/NEW with `to_jsonb` and sends `{op, record}` to `db_change` using `private=false`. The remote-state and user-status triggers also publish metadata to public topics.
+- Security Advisor: 3 WARN findings for SECURITY DEFINER executable by anon, the same 3 for authenticated, and 10 INFO RLS-without-policy findings; Performance and Health Advisors returned no findings.
+
+### Default ACL scope refined
+
+The fresh production `pg_default_acl` query confirms client defaults across more than the UpStatus-owned `public` schema:
+- Owner `postgres`: anon/authenticated defaults in `public` **and** `storage`, for tables, functions and sequences.
+- Owner `supabase_admin`: anon/authenticated defaults in `graphql`, `graphql_public` and `public`, for tables, functions and sequences. No anon/authenticated rows were returned for its `extensions` or `realtime` defaults in this filtered query.
+
+The candidate migration `20261105150000_revoke_public_default_privileges_postgres.sql` changes only postgres defaults in `public`, plus a global PUBLIC EXECUTE revoke for future functions created by postgres in any schema. It deliberately leaves postgres `storage` and all supabase_admin defaults untouched. Do not broaden revokes into Supabase-managed schemas without dependency review and an authorized supported administrative path.
+
+Read-only confirmation in the isolated project:
+- postgres defaults in `public` now retain only service_role grants for tables/functions/sequences;
+- all nine existing backend-owned public tables have no anon/authenticated effective privileges;
+- the three broadcast functions have EXECUTE false for anon/authenticated and true for service_role, with `search_path=pg_catalog, public`;
+- the receipt and rate-limit RPCs exist as SECURITY INVOKER with empty `search_path`, EXECUTE false for anon/authenticated and true for service_role;
+- minimized broadcast trigger payloads contain only `op`, but still use `private=false`. The isolated result is not evidence of a production change.
+
+### Deployed Edge Functions and Realtime gap
+
+Production still lists 38 ACTIVE Edge Functions, all with `verify_jwt=false`; this gateway flag alone does not prove missing custom authentication. The three principal deployed functions use the UpStatus custom session token:
+- `upstatus`: Edge v480, userscript 3.4.7, source SHA `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`.
+- `upstatus-team-lite`: Edge v15, userscript 3.4.30, source SHA `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`.
+- `upstatus-screen-share-3-1-1-beta10`: Edge v6, userscript 3.1.1-beta8, source SHA `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29`.
+
+The deployed Normal and Team Lite bundles were decoded again: each still has two `chat_fast` send sites carrying the full message object and one `payload.message` read. Production session-cache validation remains 30 seconds versus 5 seconds in the candidates. The deployed read-receipt path still uses non-atomic read/merge/upsert.
+
+The active backup `upstatus-backup-327-pre328` remains version 1 with a zero-byte `index.ts` (SHA `3d6c4f8e5f777830ea720ab2938cb023b5a4e4c7d26f3fc02b926ce0e4d0dd90`). Runtime behavior was not probed; owner, consumers and rollback purpose remain **NOT VERIFIED**. Do not disable blindly. The remaining historical/test/backup functions still need route-level authentication and consumer inventory.
+
+### Workflow and issues
+
+- `.github/workflows/signaling-smoke.yml` and `.github/workflows/team-lite-candidate.yml` now pin Playwright 1.64.1, serialize fixture-mutating jobs under one concurrency group, require the isolated project guard and explicit mutation opt-in, and fail if the service-role test secret is absent.
+- The SQL test migrations under `supabase/test-migrations/` remain executable DDL outside Supabase CLI discovery. `migration-layout.test.mjs` checks their location, but the current CI does **not** apply the SQL test-migration files to a clean database. The default-ACL SQL probe was executed by engineering in the isolated project; QA only inspected the migration history and queried the resulting catalog. Reproducible SQL migration execution in CI remains pending.
+- `.github/workflows/deploy-production.yml` pins checkout and sets `persist-credentials: false`, but has no explicit approved `ref`, no in-workflow assertion of expected project ID `dlfvkawaiqduhlazsszm`, and uses Supabase CLI `latest`. It deploys only `upstatus`, not Team Lite. GitHub Environment protection was not inspected.
+- [Issue #78](https://github.com/Reekyi/UpStatus/issues/78) remains open with 3 comments and all acceptance boxes unchecked. Physical no-F5 recovery, real microphone/display capture and installed Normal ↔ Team Lite acceptance remain **MANUAL PENDING**.
+- [Issue #79](https://github.com/Reekyi/UpStatus/issues/79) remains open with 50 comments; its body still carries the 2026-11-03 snapshot. Latest engineering comment [#6666905725](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6666905725) records the Playwright pin, completed runs and expanded default-ACL schema inventory. QA did not edit either issue.
+
+### Updated gates
+
+1. **BLOCKED — RT-01:** remove production full-row public message broadcasts and complete coordinated Normal/Team Lite/legacy client cutover; keep channel authorization, rollback and cross-user isolation explicit.
+2. **BLOCKED — ACL-02:** validate postgres default-ACL hardening in official TEST; review global PUBLIC EXECUTE scope; obtain supported authorized path for supabase_admin defaults. Keep storage/GraphQL managed-schema defaults out of blanket revokes until reviewed.
+3. **PENDING — current-object hardening:** validate table and trigger-function revocations in official TEST, including TRUNCATE/MAINTAIN, service_role preservation and trigger execution.
+4. **PARTIAL — RT-09:** integrate distributed rate limiting into both real product endpoints; test quotas, concurrency, 429/Retry-After and cleanup.
+5. **BLOCKED deployment dependency — receipts:** production receipt RPC is absent; validate and apply its official migration through the authorized process before deploying either server template that calls it.
+6. **PENDING — SQL test reproducibility:** provide a clean isolated-database workflow that actually applies test migrations; static layout/text checks are not SQL execution evidence.
+7. **PENDING — voice-room semantics:** reconcile invitation/acceptance-based membership with issue #78's open-room/no-invite requirement before enabling authenticated transport.
+8. **NOT VERIFIED — Edge inventory:** resolve the empty active backup entrypoint and complete route-level auth/owner/consumer/retention/rollback inventory for all 38 functions.
+9. **MANUAL PENDING — #78:** physical no-F5 reconnect, real microphone/display capture and installed Normal ↔ Team Lite acceptance.
+10. **PENDING — deploy controls:** require approved ref/SHA and expected project-ID assertions, pin Supabase CLI, inspect GitHub Environment protection, and define coordinated Normal + Team Lite deploy/rollback.
+11. **PENDING — review process:** obtain human reviews; review #74's 629-commit ancestry; refresh stale #79 body.
+12. **BLOCKED — QA PR #82 validation:** current run 42086096708 fails on inherited `production updateURL mismatch`; maintainers must fix the baseline contract or explicitly accept a documentation-only exception. Do not bypass it.
+
+### Safety record
+
+This pass used GitHub read APIs, exact-head PR/commit/workflow metadata and CI logs, source reads of both candidate clients/templates/migrations and deployed Edge Functions, Supabase project/migration/function/advisor metadata, and SELECT-only catalog queries in production and the isolated project. QA did not execute fixture scripts, SQL probes or workflows. Existing engineering CI and isolated migration results were inspected; production remained read-only. No production SQL write, migration, Edge deployment, secret/flag change, userscript publication, merge, destructive operation, role switch/membership change or engineering-branch edit occurred. The only repository write is this append-only documentation update on the dedicated QA branch, guarded by the freshly fetched blob SHA. No completion percentage is reported.
+
+### Evidence links
+
+- [PR #74](https://github.com/Reekyi/UpStatus/pull/74) · [PR #75](https://github.com/Reekyi/UpStatus/pull/75) · [PR #76](https://github.com/Reekyi/UpStatus/pull/76) · [PR #82](https://github.com/Reekyi/UpStatus/pull/82)
+- [Issue #78](https://github.com/Reekyi/UpStatus/issues/78) · [Issue #79](https://github.com/Reekyi/UpStatus/issues/79)
+- [Normal Validate 42091463530](https://github.com/Reekyi/UpStatus/actions/runs/42091463530) · [Normal Smoke 42091463609](https://github.com/Reekyi/UpStatus/actions/runs/42091463609) · [Team Lite Checks 42091473392](https://github.com/Reekyi/UpStatus/actions/runs/42091473392)
+- [QA Validate 42086096708](https://github.com/Reekyi/UpStatus/actions/runs/42086096708)
+- [Supabase Advisor — anon SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable) · [authenticated SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) · [RLS without policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
