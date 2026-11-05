@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { verifyIsolatedSupabaseMutationTarget } from "./assert-isolated-supabase.mjs";
 
-const baseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
+const configuredUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
 const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
-if (!baseUrl || !serviceKey) {
-  console.log("SKIP: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
-  process.exit(0);
-}
+const baseUrl = await verifyIsolatedSupabaseMutationTarget({
+  baseUrl: configuredUrl,
+  serviceKey,
+  allowMutation: process.env.UPSTATUS_SIGNAL_ALLOW_MUTATION,
+});
 
 const userName = "__upstatus_atomic_receipt_ci_" + randomUUID().replace(/-/g, "");
 const sharedMessage = "shared-" + randomUUID();
