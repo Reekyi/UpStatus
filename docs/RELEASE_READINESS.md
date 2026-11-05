@@ -2851,3 +2851,8 @@ A função de sinalização autenticada continua ausente da lista de produção.
 ### Segurança e execução desta rodada
 
 Todas as consultas Supabase desta rodada foram SELECT-only. O run #42125597354 foi iniciado pela engenharia, não por esta auditoria; seu log confirma uso do projeto isolado permitido, opt-in explícito de mutação e cleanup. A auditoria confirmou zero linhas residuais nas tabelas de fixtures. Nenhum workflow foi disparado pela QA. Nenhuma escrita em produção, migration, deploy, alteração de secret/flag/role, publicação de userscript, merge ou operação destrutiva foi realizada. A única escrita desta rodada é este registro documental na branch QA dedicada.
+
+
+### QA Validate após o commit documental desta rodada
+
+O commit documental `dc49f0a878135f2fd1fbad4b31e62d2367ad0a1c` disparou Validate [42130997021](https://github.com/Reekyi/UpStatus/actions/runs/42130997021). O job [127607267816](https://github.com/Reekyi/UpStatus/actions/runs/42130997021) falhou em `Validate build` com a mesma mensagem herdada `VALIDATION FAILED: production updateURL mismatch`. PR #82 continua alterando somente `docs/RELEASE_READINESS.md`; nenhum código foi modificado para contornar o validador. O novo commit documental não tem aprovação automatizada de Validate.
