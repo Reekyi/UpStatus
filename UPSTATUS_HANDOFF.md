@@ -412,3 +412,61 @@ Therefore, a normal migration executed by the current postgres connection cannot
 2. Defaults owned by supabase_admin require a separately authorized administrative execution path supported by Supabase.
 
 The current public tables and functions are owned by postgres (10 tables, 3 functions), but the supabase_admin defaults remain a future-object risk. This constraint is recorded in [issue #79 comment 6664265799](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6664265799). No ALTER DEFAULT PRIVILEGES, SET ROLE, role-membership change, credential access, or production write was attempted.
+
+
+## 2026-11-05 14:56 BRT — candidate default-ACL hardening for postgres owner
+
+### Exact candidate and CI state
+
+- Normal PR #74 remains open/Draft. New head: `e24f105b57664a4a6d28f58737b5e5fd1d3067fe`.
+- UpStatus Validate [42080166961](https://github.com/Reekyi/UpStatus/actions/runs/42080166961) passed on this exact head.
+- Signaling Smoke [42080166863](https://github.com/Reekyi/UpStatus/actions/runs/42080166863) was pending at the last check; inspect its final result before treating the head as fully validated.
+- Team Lite PR #76 remains open/Draft at `61672adfdbbd1e020cf5922838404b0958b832e6`; Candidate Checks [42062435489](https://github.com/Reekyi/UpStatus/actions/runs/42062435489) passed on that exact head.
+- Team Lite baseline #75 remains open/Draft at `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed.
+- Continuity #80 remains at `dc0a384d5349668c6b8509edfa16a80bbb172840`; Validate [42071989209](https://github.com/Reekyi/UpStatus/actions/runs/42071989209) fails at the existing `client signed upload helper missing` assertion (build 3.0.40 / TEST 3.0.40-beta.22).
+- QA #82 remains on its separate branch at `d8a6a42c6f7b6df0bd5a0f2c84cee1c7b6946420`; Validate [42076102639](https://github.com/Reekyi/UpStatus/actions/runs/42076102639) fails at the existing `production updateURL mismatch` assertion (build 3.4.7 / TEST 3.4.7). The QA branch was not modified.
+
+### Candidate migration added
+
+Normal #74 now contains:
+
+- Production candidate: `supabase/migrations/20261105150000_revoke_public_default_privileges_postgres.sql`.
+- Isolated probe: `supabase/test-migrations/20261105150000_postgres_public_default_privileges_test.sql`.
+- Static regression in `scripts/signaling-static.test.mjs`, committed at `e24f105`.
+
+The migration addresses defaults for objects created by role `postgres` only:
+
+1. In schema `public`, revoke all default table privileges from `anon` and `authenticated` (including PostgreSQL 17 `MAINTAIN`).
+2. In schema `public`, revoke default function EXECUTE from `anon` and `authenticated`.
+3. In schema `public`, revoke all default sequence privileges from `anon` and `authenticated`.
+4. Globally for functions created by `postgres`, revoke the PostgreSQL default EXECUTE grant from `PUBLIC`. This global statement is necessary because a schema-specific revoke cannot remove the global PUBLIC default.
+
+The migration deliberately preserves `service_role` defaults and does not target `supabase_admin`. The global function PUBLIC revoke applies to future functions created by `postgres` in any schema, not only `public`; review that scope before production approval. Existing-object revocations remain a separate migration.
+
+### Isolated validation and correction
+
+The isolated project `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`, PostgreSQL 17.11.0.003) was re-confirmed ACTIVE_HEALTHY and its initial public default ACLs matched production.
+
+- First probe attempt failed because new functions still inherited global PUBLIC EXECUTE even after the schema-specific anon/authenticated revoke. This exposed a real gap in the first candidate draft.
+- Added `ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`.
+- Re-applied the corrected test migration successfully.
+- Probe assertions verified that future public tables have no anon/authenticated SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER or MAINTAIN; future sequences have no anon/authenticated USAGE/SELECT/UPDATE; future functions are not executable by anon/authenticated.
+- The same probe verified that `service_role` and owner `postgres` retain required access.
+- A follow-up SELECT confirmed the probe table, sequence and function were dropped; postgres-owned public client defaults were removed; service_role defaults remained; supabase_admin public defaults remained.
+
+The isolated migration history records both the failed first attempt and successful retry under the same test migration name. This is confined to the isolated test project and does not alter the repository's production migration history.
+
+### Production remains unchanged
+
+Read-only checks reconfirmed production project `dlfvkawaiqduhlazsszm` is ACTIVE_HEALTHY, PostgreSQL 17.11, with seven migrations through `20261027155438`. The catalog still has 24 postgres-owned public default ACL entries for anon/authenticated and 24 supabase_admin-owned public default ACL entries. No production migration, SQL write, role change, deployment or secret change was made.
+
+The remaining ACL-02 gate is the `supabase_admin` default ACL path. The available SQL executor runs as `postgres`, which is not a member of `supabase_admin`; do not attempt SET ROLE, grant membership or credential workarounds. Obtain a supported administrative path separately. This candidate closes only the `postgres`-owned portion after approved migration review and application.
+
+### Other release gates unchanged
+
+- RT-01 remains blocked: production chat broadcasts still publish full OLD/NEW rows to public Realtime; candidate migrations are not deployed.
+- RT-09 remains partial: the distributed limiter is still not integrated into both deployed product endpoints.
+- The production read-receipt RPC remains absent; both candidate server templates call it, so the production migration must be installed before either matching server is deployed.
+- Issue #78 remains MANUAL PENDING for physical no-F5 recovery in Normal and Team Lite.
+- PR #74 still has 614 commits ahead of master and needs full history review; #76 is 102 commits ahead and zero behind #75, so #75/#76 are not independent merge payloads.
+- Keep all PRs Draft. No merge, production migration, deploy, release, userscript publication, flag/secret change or production write is authorized.
