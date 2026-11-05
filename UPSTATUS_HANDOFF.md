@@ -542,3 +542,67 @@ Normal PR #74 remains at `1dfe050ef5f3e4c25b16f3b71f10036214ab3142`.
 - The prior Smoke failures on `019fdef` and `181f4d7` occurred at the static regression step, before any fixture or browser test ran. Their causes are recorded above; the assertions were corrected in `1dfe050`.
 
 All PRs remain open/Draft. Production project status and seven-migration history are unchanged. No production write occurred.
+
+
+## 2026-11-05 16:04 BRT — exact-head CI, default-ACL scope, and browser-test dependency
+
+This checkpoint supersedes earlier CI and ACL snapshots above where they conflict. All observations below were re-fetched from GitHub/Supabase during this run.
+
+### Exact candidate heads and workflows
+
+| PR | Branch | Exact head | Current workflow evidence |
+|---|---|---|---|
+| #74 Normal | `chore/continuity-foundation` | `b981a716f30bb1a9a960f74d050315dd51a3735f` | Validate [42091463530](https://github.com/Reekyi/UpStatus/actions/runs/42091463530) passed; Signaling Smoke [42091463609](https://github.com/Reekyi/UpStatus/actions/runs/42091463609) is running. |
+| #75 Team Lite baseline | `team-lite/3.4.31-guest-fixes` | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed on this unchanged baseline. |
+| #76 Team Lite signaling | `team-lite/signaling-transport-candidate` | `bd89a5364f66ca81780869b1bff17c061f90245c` | Candidate Checks [42091473392](https://github.com/Reekyi/UpStatus/actions/runs/42091473392) is pending behind Normal because both suites share the isolated fixture project. |
+| #80 Continuity | `docs/continuity-handoff-2026-11-04` | `920648f1cd91b0b3d5dff424df411b8a4162f7bd` | Validate [42081616004](https://github.com/Reekyi/UpStatus/actions/runs/42081616004) failed on the baseline assertion `client signed upload helper missing` after building 3.0.40 / TEST 3.0.40-beta.22. |
+| #82 Independent QA | `qa/release-readiness-2026-11-04-master` | `7253bb6d4bbcb8e4ba2137e659ef95581073ebe8` | Validate [42086096708](https://github.com/Reekyi/UpStatus/actions/runs/42086096708) failed on the baseline assertion `production updateURL mismatch` after building 3.4.7 / TEST 3.4.7. QA branch was not modified. |
+
+All five PRs remain open and Draft. Fresh comparisons: #74 is 625 commits ahead / 0 behind master; #76 is 102 ahead / 0 behind #75; #80 is 36 ahead / 0 behind develop; #82 is 30 ahead / 0 behind master. #75/#76 remain a baseline/descendant pair, not independent merge payloads.
+
+### Normal exact-head smoke and Playwright dependency correction
+
+- Previous Normal head `1dfe050ef5f3e4c25b16f3b71f10036214ab3142` passed Validate [42081126225](https://github.com/Reekyi/UpStatus/actions/runs/42081126225) and Signaling Smoke [42081126527](https://github.com/Reekyi/UpStatus/actions/runs/42081126527). The full smoke job confirmed 14/14 static groups, 14/14 unauthenticated checks, 86/86 authenticated checks, Chromium call/voice/screen WebRTC with remote tracks, three-member mesh, teardown, fixture cleanup, 90 accepted + 1 HTTP 429, distributed rate-limit concurrency, and atomic read-receipt concurrency.
+- A subsequent test-only/documentation head `c6815912d86258ca99d35d70ed612512257c949e` passed Validate [42091168292](https://github.com/Reekyi/UpStatus/actions/runs/42091168292), but Smoke [42091168664](https://github.com/Reekyi/UpStatus/actions/runs/42091168664) failed during dependency installation before authenticated/browser tests: npm resolved `playwright-core@1.65.0`, which was not published in the registry used by the runner. Static regressions and 14/14 unauthenticated checks had passed; the failure was not an application or fixture failure.
+- Pinned both candidate workflows to the published stable `playwright@1.64.1`: Normal commit [b981a71](https://github.com/Reekyi/UpStatus/commit/b981a716f30bb1a9a960f74d050315dd51a3735f), Team Lite commit [bd89a53](https://github.com/Reekyi/UpStatus/commit/bd89a5364f66ca81780869b1bff17c061f90245c). The package listing reports 1.64.1 as the published package version: https://www.npmjs.com/package/playwright.
+- On current Normal head `b981a71`, Validate is green and Smoke has passed the static and unauthenticated stages; authenticated integration/browser work is still running. Team Lite is queued behind it. Do not transfer the earlier 1dfe050 smoke pass to either newer head.
+
+### Default-ACL inventory: expanded scope discovered
+
+The production `pg_default_acl` inventory is broader than the earlier public-schema-only summary:
+
+- Defaults owned by `postgres` exist in schemas `public` and `storage` for tables, functions, and sequences. The schema-specific ACL arrays in both schemas include explicit `anon`, `authenticated`, and `service_role` grants.
+- Defaults owned by `supabase_admin` exist in `extensions`, `graphql`, `graphql_public`, `public`, and `realtime`. The `graphql`, `graphql_public`, and `public` ACL arrays include `anon` and `authenticated`; `extensions` and `realtime` do not show those client grants in the current inventory.
+- The candidate migration `20261105150000_revoke_public_default_privileges_postgres.sql` only revokes explicit client defaults for `postgres` in `public`. Its separate global `REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC` applies to future functions created by `postgres` in every schema. It does not revoke the explicit `postgres` defaults in `storage` or any `supabase_admin` defaults.
+- Do not expand revocations into `storage`, `graphql`, `graphql_public`, `realtime`, or `extensions` without a Supabase-managed-schema dependency review. The global PUBLIC-function change is also broader than the public schema and requires explicit release review.
+- Role boundary remains confirmed: `postgres` is not superuser and is not a member of `supabase_admin`; `supabase_admin` is a login-capable superuser. No role escalation, membership change, credential access, or workaround was attempted.
+
+### New isolated regression for the global function-default scope
+
+Added `supabase/test-migrations/20261105170000_postgres_global_function_default_scope_test.sql` and wired it into `scripts/migration-layout.test.mjs`. The test creates a temporary schema outside `public`, creates a function as `postgres`, verifies anon/authenticated cannot execute it while the owner can, then drops the schema.
+
+- Test file commit [81693f5](https://github.com/Reekyi/UpStatus/commit/81693f5afe8ae5b08714b617b3b957c4e1234957).
+- Layout-guard commit [0f4c31c](https://github.com/Reekyi/UpStatus/commit/0f4c31c4d6bcb9cc305e4972e7425229fd5264).
+- Test-migrations README update [c681591](https://github.com/Reekyi/UpStatus/commit/c6815912d86258ca99d35d70ed612512257c949e).
+
+Applied only to isolated project `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`, ACTIVE_HEALTHY, PostgreSQL 17.11.0.003) using migration `verify_postgres_default_acl_global_function_scope_20261105`. The application returned success. Read-only verification confirmed the probe schema was removed, the global postgres function ACL was `{postgres=X/postgres}`, PUBLIC EXECUTE was absent, and anon/authenticated EXECUTE was absent. This proves the global effect outside `public`; it is not production validation.
+
+### Production runtime and security recheck
+
+Production project `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY on PostgreSQL 17.11.0.002 with seven migrations through `20261027155438`. Both `merge_chat_read_receipts(text,jsonb,timestamptz)` and `consume_upstatus_signal_rate_limit(text,integer,integer)` remain absent.
+
+The production Edge Function inventory contains 38 ACTIVE functions; all currently report `verify_jwt=false`. Core versions remain `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15, and legacy `upstatus-screen-share-3-1-1-beta10` v6. No production `upstatus-signal` function exists. The deployed Normal and Team Lite function sources do not call either candidate RPC. The candidate server templates do call the read-receipt RPC, so that migration must be installed through the approved TEST/production sequence before deploying either matching server. The product-facing rate limiter remains unintegrated.
+
+The current production trigger-function definitions were re-read:
+- `upstatus_broadcast_messages()` sends the complete OLD/NEW row as `record` on `db_change`, with `private=false`.
+- `upstatus_broadcast_remote_state()` sends command/result metadata (including IDs, sender/target, status, reason, timestamps, and result error fields) on public remote-command/result events.
+- `upstatus_broadcast_users()` sends name/status/reason/update/sync metadata on the public user-status event.
+- All three remain SECURITY DEFINER and broadly executable by anon/authenticated. Candidate migrations reduce payloads to an `op` hint, but they are not deployed.
+
+Security Advisor still reports three anon EXECUTE warnings, three authenticated EXECUTE warnings, and ten RLS-enabled/no-policy INFO notices. Performance and health advisors returned no findings. RLS without policies continues to deny ordinary row access; grants alone are not proof of successful row access.
+
+### Manual and release gates
+
+- Issue #78 remains open: physical no-F5 network recovery is still MANUAL PENDING in both Normal and Team Lite. Do not re-request the test unless a material runtime change requires it.
+- Public Realtime cutover, production migrations, product rate-limit integration, read-receipt migration sequencing, endpoint/version alignment, real Tampermonkey/device tests, and full #74 ancestry review remain release gates.
+- No production SQL write, migration, Edge Function deployment, secret/flag change, userscript publication, PR merge, or destructive operation occurred in this checkpoint.
