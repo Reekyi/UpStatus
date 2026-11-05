@@ -2293,3 +2293,10 @@ This pass used GitHub read APIs, exact-head PR/commit/workflow metadata and CI l
 - [Normal Validate 42091463530](https://github.com/Reekyi/UpStatus/actions/runs/42091463530) · [Normal Smoke 42091463609](https://github.com/Reekyi/UpStatus/actions/runs/42091463609) · [Team Lite Checks 42091473392](https://github.com/Reekyi/UpStatus/actions/runs/42091473392)
 - [QA Validate 42086096708](https://github.com/Reekyi/UpStatus/actions/runs/42086096708)
 - [Supabase Advisor — anon SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable) · [authenticated SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) · [RLS without policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
+
+
+### Supplementary default-function ACL check
+
+A separate read-only query of `acldefault('f', postgres)` confirmed that production's built-in default function ACL still contains EXECUTE for **PUBLIC** as well as the owner. Production has no global `pg_default_acl` override for postgres-owned functions. The schema-specific `public` and `storage` ACL rows do not remove this built-in PUBLIC grant. The candidate migration's global `ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC` is therefore necessary; it is not redundant with the per-schema anon/authenticated revokes.
+
+The isolated project has a global function-default override whose effective ACL contains only the postgres owner, matching the intended test result. Production remains unchanged. This finding reinforces ACL-02 and the requirement to validate the global scope against managed schemas before release.
