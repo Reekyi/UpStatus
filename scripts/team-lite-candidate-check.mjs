@@ -274,9 +274,9 @@ console.log("Candidate updater runtime scenarios passed: newer/current/mismatch/
 // Team Lite voice-room leave must await the authenticated server membership cleanup.
 // The active UI path sends the final leave signal and its promise includes the /room/leave RPC.
 const voiceLeaveStart = script.indexOf("var voiceRoomLeavePromise=null;");
-const voiceLeaveEnd = script.indexOf("\\nwindow.addEventListener('pagehide'", voiceLeaveStart);
+const voiceLeaveEnd = script.indexOf("\nwindow.addEventListener('pagehide'", voiceLeaveStart);
 assert.ok(voiceLeaveStart >= 0 && voiceLeaveEnd > voiceLeaveStart, "voice leave promise boundaries not found");
-const voiceLeaveSource = script.slice(voiceLeaveStart, voiceLeaveEnd) + "\\nthis.__candidateVoiceRoomLeave=voiceRoomLeave;";
+const voiceLeaveSource = script.slice(voiceLeaveStart, voiceLeaveEnd) + "\nthis.__candidateVoiceRoomLeave=voiceRoomLeave;";
 const leaveEvents = [];
 let finishVoiceLeave;
 const pendingVoiceLeave = new Promise(resolve => {
@@ -322,7 +322,7 @@ assert.equal(voiceLeaveSettled, true, "voiceRoomLeave must settle after the serv
 const releaseGateStart = script.indexOf("  async function teamLiteReleaseVoiceRoomBeforeLogout(){");
 const releaseGateEnd = script.indexOf("  async function teamLiteEndSession(){", releaseGateStart);
 assert.ok(releaseGateStart >= 0 && releaseGateEnd > releaseGateStart, "logout voice-release gate boundaries not found");
-const releaseGateSource = script.slice(releaseGateStart, releaseGateEnd) + "\\nthis.__candidateReleaseVoiceBeforeLogout=teamLiteReleaseVoiceRoomBeforeLogout;";
+const releaseGateSource = script.slice(releaseGateStart, releaseGateEnd) + "\nthis.__candidateReleaseVoiceBeforeLogout=teamLiteReleaseVoiceRoomBeforeLogout;";
 const logoutEvents = [];
 let finishLogoutVoiceLeave;
 const pendingLogoutVoiceLeave = new Promise(resolve => {
@@ -345,7 +345,7 @@ await logoutGate;
 assert.equal(logoutGateSettled, true, "logout voice-release gate must settle after server leave");
 
 const endSessionStart = script.indexOf("async function teamLiteEndSession(){");
-const endSessionEnd = script.indexOf("\\n  function teamLiteStartIdleTimer", endSessionStart);
+const endSessionEnd = script.indexOf("\n  function teamLiteStartIdleTimer", endSessionStart);
 const endSessionSource = script.slice(endSessionStart, endSessionEnd);
 assert.ok(
   endSessionSource.includes("await teamLiteReleaseVoiceRoomBeforeLogout()") &&
