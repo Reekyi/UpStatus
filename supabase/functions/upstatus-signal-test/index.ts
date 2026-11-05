@@ -172,6 +172,28 @@ Deno.serve(async (req: Request) => {
       }, 201);
     }
 
+    if (path.endsWith("/room/open")) {
+      const logicalId = String(p.logicalId || "");
+      if (!["upstatus-team-room-v1", "upstatus-team-lite-room-v1"].includes(logicalId))
+        return response({ error: "Invalid open voice room logical ID" }, 400);
+      const { data, error } = await db.rpc("open_upstatus_signal_voice_room", {
+        p_logical_id: logicalId, p_user_name: sender, p_max_members: 32
+      });
+      if (error) {
+        const message = String(error.message || "");
+        if (message.includes("VOICE_ROOM_BINDING_CONFLICT")) return response({ error: "Voice room binding conflict" }, 409);
+        throw error;
+      }
+      const result = data as Record<string, unknown> | null;
+      if (!result || typeof result !== "object") return response({ error: "Open voice room failed" }, 500);
+      if (result.error) {
+        const code = String(result.error);
+        const status = code === "INVALID_LOGICAL_ID" || code === "INVALID_ARGUMENT" ? 400 : code === "UNKNOWN_USER" ? 404 : 409;
+        return response({ error: code, memberCount: result.memberCount }, status);
+      }
+      return response(result, result.created === true ? 201 : 200);
+    }
+
     if (path.endsWith("/room/bind")) {
       const roomId = String(p.roomId || "");
       const bindingType = String(p.bindingType || "");
@@ -361,55 +383,19 @@ Deno.serve(async (req: Request) => {
 
     if (path.endsWith("/room/leave")) {
       const roomId = String(p.roomId || "");
-      const activeRoom = roomId ? await room(roomId) : null;
-      if (!activeRoom || !(await isMember(roomId, sender)))
-        return response({ error: "Accepted room membership required" }, 404);
-      // Clean the departing member's inbox before changing membership so a
-      // storage failure cannot leave an accepted-member row half-deleted.
-      // Preserve events sent by the departing member so peers can receive the
-      // final leave/hangup signal; discard only events addressed to that member.
-      const { error: inboxError } = await db.from("upstatus_signal_events")
-        .delete().eq("room_id", roomId).eq("recipient", sender);
-      if (inboxError) throw inboxError;
-      const { data: departed, error: leaveError } = await db.from("upstatus_signal_room_members")
-        .delete().eq("room_id", roomId).eq("user_name", sender).eq("status", "accepted")
-        .select("user_name").maybeSingle();
-      if (leaveError) throw leaveError;
-      if (!departed) return response({ error: "Room membership already ended" }, 409);
-
-      const { data: remaining, error: membersError } = await db.from("upstatus_signal_room_members")
-        .select("user_name,joined_at").eq("room_id", roomId).eq("status", "accepted")
-        .order("joined_at", { ascending: true }).limit(32);
-      if (membersError) throw membersError;
-
-      if (!remaining?.length) {
-        const { error: closeError } = await db.from("upstatus_signal_rooms")
-          .update({ status: "closed" }).eq("room_id", roomId).eq("status", "active");
-        if (closeError) throw closeError;
-        const { error: bindingError } = await db.from("upstatus_signal_room_bindings").delete().eq("room_id", roomId);
-        if (bindingError) throw bindingError;
-        const { error: eventsError } = await db.from("upstatus_signal_events").delete().eq("room_id", roomId);
-        if (eventsError) throw eventsError;
-        const { error: pendingError } = await db.from("upstatus_signal_room_members").delete().eq("room_id", roomId);
-        if (pendingError) throw pendingError;
-        return response({ ok: true, roomClosed: true, ownerTransferred: false });
+      if (!roomId || roomId.length > 128) return response({ error: "Invalid room ID" }, 400);
+      const { data, error } = await db.rpc("leave_upstatus_signal_room", {
+        p_room_id: roomId, p_user_name: sender
+      });
+      if (error) throw error;
+      const result = data as Record<string, unknown> | null;
+      if (!result || typeof result !== "object") return response({ error: "Room leave failed" }, 500);
+      if (result.error) {
+        const code = String(result.error);
+        const status = code === "INVALID_ARGUMENT" ? 400 : code === "ROOM_UNAVAILABLE" ? 404 : 409;
+        return response({ error: code }, status);
       }
-
-      let ownerTransferred = false;
-      if (activeRoom.created_by === sender) {
-        const nextOwner = remaining[0].user_name;
-        const { data: updatedRoom, error: ownerError } = await db.from("upstatus_signal_rooms")
-          .update({ created_by: nextOwner }).eq("room_id", roomId).eq("created_by", sender)
-          .select("room_id").maybeSingle();
-        if (ownerError) throw ownerError;
-        if (updatedRoom) {
-          const { error: bindingOwnerError } = await db.from("upstatus_signal_room_bindings")
-            .update({ created_by: nextOwner }).eq("room_id", roomId);
-          if (bindingOwnerError) throw bindingOwnerError;
-          ownerTransferred = true;
-        }
-      }
-      return response({ ok: true, roomClosed: false, ownerTransferred });
+      return response(result);
     }
 
     if (path.endsWith("/room/close")) {

@@ -38,6 +38,7 @@ const defaultPrivilegesTest = readFileSync(
 const readReceiptsProductionMigration = readFileSync(
   "supabase/migrations/20261105160000_merge_chat_read_receipts.sql", "utf8",
 );
+const openVoiceMigration = readFileSync("supabase/migrations/20261105190000_open_voice_room_membership.sql", "utf8");
 const rateLimitMigration = readFileSync(
   "supabase/test-migrations/20261104154623_distributed_signaling_rate_limit_test.sql", "utf8",
 );
@@ -267,14 +268,11 @@ assert.ok(userTemplate.includes("signalTransport.accept(signalRoomId)") &&
   userTemplate.includes("signalTransport.decline(roomId)") &&
   userTemplate.includes("signalTransport.sendSignal({roomId:signalRoomId,recipient:to,eventType:'call_signal',payload:p})"),
   "the call client must accept/decline explicit invitations and route mapped signals through the server transport");
-assert.ok(userTemplate.includes("signalPrepareVoiceRoom()") &&
-  userTemplate.includes("bindingType:'voice'") &&
-  userTemplate.includes("bindingType:'screen'") &&
-  userTemplate.includes("eventType:'voice_room_signal'") &&
-  userTemplate.includes("eventType:'screen_signal'") &&
-  userTemplate.includes("await voiceRoomReceive(voicePayload)") &&
-  userTemplate.includes("await screenShareReceive(screenPayload)"),
-  "voice and screen signaling must use separate authenticated bindings and the shared room poller");
+const voicePrepareStart = userTemplate.indexOf("async function signalPrepareVoiceRoom(){");
+const voicePrepareEnd = userTemplate.indexOf("\\nasync function voiceRoomJoin(){", voicePrepareStart);
+const voicePrepareSource = userTemplate.slice(voicePrepareStart, voicePrepareEnd);
+assert.ok(voicePrepareStart >= 0 && voicePrepareEnd > voicePrepareStart && voicePrepareSource.includes("signalTransport.openVoiceRoom(voiceRoom.id)") && !voicePrepareSource.includes("invitations") && !voicePrepareSource.includes("accept(") && !voicePrepareSource.includes("createRoom(") && !voicePrepareSource.includes("bindRoom(") && userTemplate.includes("eventType:'voice_room_signal'") && userTemplate.includes("eventType:'screen_signal'") && userTemplate.includes("await voiceRoomReceive(voicePayload)") && userTemplate.includes("await screenShareReceive(screenPayload)"),
+  "voice rooms must use authenticated open membership without invite/accept; voice and screen media share the room poller");
 assert.ok(functionSource.includes("MAX_EVENTS_PER_MINUTE = 90") &&
   functionSource.includes("MAX_READS_PER_MINUTE = 240") &&
   functionSource.includes("readRoute ? MAX_READS_PER_MINUTE : MAX_EVENTS_PER_MINUTE"),
@@ -308,6 +306,7 @@ assert.ok(readFileSync("scripts/test-signaling-browser.mjs","utf8").includes("as
   readFileSync("scripts/test-signaling-browser.mjs","utf8").includes('state === "ended"'),
   "browser E2E must assert peer closure and local media track teardown");
 const browserHarness = readFileSync("scripts/test-signaling-browser.mjs", "utf8");
+assert.ok(functionSource.includes('path.endsWith("/room/open")') && functionSource.includes('db.rpc("open_upstatus_signal_voice_room"') && functionSource.includes('p_max_members: 32') && openVoiceMigration.includes("pg_advisory_xact_lock") && openVoiceMigration.includes("FOR UPDATE") && openVoiceMigration.includes("p_max_members") && openVoiceMigration.includes("ROOM_FULL") && openVoiceMigration.includes("SECURITY INVOKER") && openVoiceMigration.includes("SET search_path = ''") && openVoiceMigration.includes("REVOKE ALL ON FUNCTION public.open_upstatus_signal_voice_room") && openVoiceMigration.includes("GRANT EXECUTE ON FUNCTION public.open_upstatus_signal_voice_room") && authenticatedHarness.includes("late members join the same voice room") && authenticatedHarness.includes("owner departure and late open join serialize") && authenticatedHarness.includes("ROOM_FULL"), "open voice join must be authenticated, transactional, idempotent, capacity-bounded, and serialized with leave");
 assert.ok(browserHarness.includes("async function runGroupMesh()") && browserHarness.includes("async function negotiateMeshPair("),
   "authenticated browser E2E must include a three-member group mesh");
 assert.ok(browserHarness.includes('"/room/invite"') && browserHarness.includes('"/room/members"') && browserHarness.includes('"/broadcast"'),
@@ -316,10 +315,8 @@ assert.ok(browserHarness.includes("await negotiateMeshPair(pageA, users.A, pageB
   browserHarness.includes("await negotiateMeshPair(pageA, users.A, pageC, users.C, callId)") &&
   browserHarness.includes("await negotiateMeshPair(pageB, users.B, pageC, users.C, callId)"),
   "group browser E2E must establish every peer-to-peer mesh link");
-assert.ok(functionSource.includes('path.endsWith("/room/leave")') &&
-  functionSource.includes('update({ created_by: nextOwner })') &&
-  functionSource.includes('eq("recipient", sender)'),
-  "room leave must remove the member, transfer ownership, and preserve outgoing signals");
+assert.ok(functionSource.includes('path.endsWith("/room/leave")') && functionSource.includes('db.rpc("leave_upstatus_signal_room"') && openVoiceMigration.includes("DELETE FROM public.upstatus_signal_events AS e") && openVoiceMigration.includes("e.recipient = p_user_name") && openVoiceMigration.includes("SET created_by = v_next_owner"),
+  "room leave must use one transaction to remove inbox events, transfer ownership, and preserve outgoing signals");
 assert.ok(userTemplate.includes("signalTransport.leave(leavingRoomId)") &&
   userTemplate.includes("signalTransport.leave(signalRoomId)") &&
   userTemplate.includes("signalTransport.leave(failedRoom)"),
@@ -328,5 +325,5 @@ console.log("PASS authenticated room leave and owner handoff are wired into clie
 console.log("PASS browser E2E asserts peer and media teardown");
 console.log("PASS authenticated browser E2E covers call, voice, and screen media paths");
 console.log("PASS authenticated browser E2E covers dynamic group invitations, three-member fanout, and all peer mesh links");
-console.log("14/14 signaling static regression groups passed.");
+console.log("15/15 signaling static regression groups passed.");
 

@@ -5,6 +5,7 @@ const calls = [];
 const request = async (path, body, options) => {
   calls.push({ path, body, options });
   if (path === "/poll") return { status: 200, body: { events: [] } };
+  if (path === "/room/open") return { status: 201, body: { ok: true, roomId: "sig_open_voice", created: true, joined: true } };
   if (path === "/room/invitations") return { status: 200, body: { invitations: [] } };
   return { status: 200, body: { ok: true } };
 };
@@ -16,6 +17,11 @@ assert.equal(calls.length, 0, "disabled transport must not send requests");
 const client = createSignalingTransport({ request, enabled: true });
 await client.createRoom(["mari", "mari"]);
 assert.deepEqual(calls.at(-1).body, { participants: ["mari"] });
+const openVoice = await client.openVoiceRoom("upstatus-team-room-v1");
+assert.equal(calls.at(-1).path, "/room/open");
+assert.deepEqual(calls.at(-1).body, { logicalId: "upstatus-team-room-v1" });
+assert.equal(openVoice.roomId, "sig_open_voice");
+await assert.rejects(() => client.openVoiceRoom("call:forbidden"), /Invalid voice room logical ID/);
 await client.bindRoom({ roomId: "sig_123", bindingType: "call", logicalId: "call:abc" });
 assert.equal(calls.at(-1).path, "/room/bind");
 await client.resolveRoom({ bindingType: "voice", logicalId: "voice-room-v1" });
@@ -46,7 +52,7 @@ const failing = createSignalingTransport({
 });
 await assert.rejects(() => failing.poll("sig_123"), error => error.status === 403 && error.message === "Room membership required");
 
-console.log("signaling transport adapter: 13 assertions passed");
+console.log("signaling transport adapter: 17 assertions passed");
 
 const pollCalls = [];
 let handled = 0;
