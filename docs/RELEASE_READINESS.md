@@ -978,3 +978,8 @@ The candidate workflows and scripts were re-read:
 ### Safety record
 
 This revalidation used GitHub read APIs, exact-head workflow logs, source reads, commit comparisons, Supabase metadata/advisors, and read-only PostgreSQL catalog/function-definition queries. No tests or workflows were rerun because Normal and Team Lite share the isolated fixture project. No production write, migration, deploy, Edge Function change, secret/flag change, userscript publication, merge, destructive operation, or engineering/handoff branch edit was performed. The only repository write is this documentation append on the isolated QA branch, guarded by the freshly fetched file blob SHA. No completion percentage is reported.
+
+
+### Addendum — QA documentation CI for the 2026-11-05 revalidation
+
+After the documentation commit `863c62e0f4880060939fad2f47782447bf9fe307`, GitHub started Validate run [41962502185](https://github.com/Reekyi/UpStatus/actions/runs/41962502185) on the exact new PR #82 head. The job completed with failure at `scripts/validate.mjs`, reporting `VALIDATION FAILED: production updateURL mismatch`. The PR still changes only `docs/RELEASE_READINESS.md`; this is the same inherited `master` baseline assertion, not a runtime change from the QA append. Keep the PR Draft and do not bypass the assertion without reconciling the expected production update URL with the release artifact.
