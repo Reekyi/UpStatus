@@ -898,3 +898,14 @@ The separate candidate branch `team-lite/voice-leave-fix-candidate` has advanced
 The pure local V8 harness now also executes the actual `voiceRoomSend` source and verifies final leave signal → membership RPC ordering, room ID/prepared-state retention while the RPC is pending, and clearing only after RPC success. Previous checks still pass for coalesced leave calls, awaited active leave, fallback retry after failure, and logout waiting when local `active=false`. Userscript and test harness syntax pass.
 
 No PR has been opened and no Candidate Checks workflow was run. The Normal Smoke [42122609431](https://github.com/Reekyi/UpStatus/actions/runs/42122609431) remains IN_PROGRESS with its own isolated fixture active. The earlier unowned QA suffix `9bc23d87851e` currently has zero matches across signaling rooms, members, bindings, events, and rate-limit rows; the current active fixture is Normal Smoke suffix `60e1eae9f2aa`. Wait for the current run to complete and verify cleanup before opening the Draft PR/triggering fixture-mutating Team Lite checks.
+
+
+### Team Lite leave/rejoin serialization — latest candidate head
+
+The isolated branch `team-lite/voice-leave-fix-candidate` is now at [`5610263`](https://github.com/Reekyi/UpStatus/commit/561026304756b9a2e5bd2029e59eda630df1b5cd), **12 commits ahead / 0 behind** #76 head `4178e54654b1bd2c06516fba9edea17d779b9ecd`. Diff remains exactly two files: `team-lite/upstatus-team-lite.user.js` (+54/-10) and `scripts/team-lite-candidate-check.mjs` (+229).
+
+Additional race closed: while the server leave RPC is pending, the join control now remains disabled with “Saindo...” and `voiceRoomJoin` waits for the shared leave promise before re-entering. This prevents a delayed leave response from removing a newly recreated membership.
+
+Latest pure local V8 validation against exact source passed: userscript syntax; concurrent leave coalescing; final signal before leave RPC; room ID/prepared-state retained until RPC success; failed-leave fallback retry; logout waiting after local `active=false`; rejoin serialization; candidate harness syntax. No Supabase or fixtures were accessed.
+
+No PR opened and no Candidate Checks run. Normal Smoke [42122609431](https://github.com/Reekyi/UpStatus/actions/runs/42122609431) is still IN_PROGRESS with its own isolated fixture active; wait for completion and verify cleanup before triggering Team Lite's fixture-mutating suite.
