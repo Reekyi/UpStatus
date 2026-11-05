@@ -992,3 +992,8 @@ A final source comparison of the Normal and Team Lite test harnesses confirms th
 Therefore the Team Lite 86/86 result and the isolated Chromium WebRTC checks are valid candidate-endpoint automation, but they are **not** proof of a full Normal ↔ Team Lite product-client interoperability matrix or of the userscript cutover. Cross-client product acceptance remains **MANUAL PENDING**, and a product-level automated integration test should be added after the transport architecture is selected.
 
 The documentation commit `1c86d279c28f804ba26edb3a4b617877734c2b10` triggered Validate run [41962548517](https://github.com/Reekyi/UpStatus/actions/runs/41962548517), which was still queued at the time of this addendum. No result is claimed for that run here.
+
+
+### Addendum — completion of the preceding documentation validation
+
+The previously queued Validate run [41962548517](https://github.com/Reekyi/UpStatus/actions/runs/41962548517) has now completed with failure at `scripts/validate.mjs`, again reporting `production updateURL mismatch`. The run was associated with documentation-only commit `1c86d279`; no runtime path changed in that commit. A new Validate run [41962597104](https://github.com/Reekyi/UpStatus/actions/runs/41962597104) was queued for the latest documentation head `e6c34b990e15e96a21a9afb9d94819bb2a48c80e` and had no result at the time of this note. Do not claim a passing validation for the current QA head.
