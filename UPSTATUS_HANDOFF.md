@@ -273,3 +273,8 @@ Fresh GitHub compare results:
 - Independent QA #82 vs `master`: **23 commits ahead, 0 behind**.
 
 The large #74 ancestry is a separate merge-review risk even when CI is green. Before any merge decision, inspect the full 612-commit range and confirm that the branch contains only intended history. Do not squash/merge or retarget as a shortcut. #76 carries #75's baseline; keep the pair as one related Team Lite line rather than two independent merge candidates.
+
+
+### Documentation branch validation refresh (2026-11-05 11:02 BRT)
+
+The ancestry note above was committed as documentation-only HEAD `0a9b34c970167b6a247c4d4c89acddbc7509ad4e` on PR #80. Its new Validate run [42041133424](https://github.com/Reekyi/UpStatus/actions/runs/42041133424) completed FAILURE at the same pre-existing `client signed upload helper missing` assertion after building `3.0.40 / TEST 3.0.40-beta.22`. No runtime file changed. Keep the failure classified as a base/validator mismatch; do not bypass the assertion.
