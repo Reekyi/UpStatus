@@ -68,7 +68,7 @@ assert.ok(
   "trigger-only SECURITY DEFINER broadcasts must not be directly executable by client roles");
 assert.ok(
   tableGrantMigration.includes("REVOKE ALL PRIVILEGES ON TABLE %s FROM PUBLIC, anon, authenticated") &&
-  backendOwnedTables.every(name => tableGrantMigration.includes("to_regclass(\\'" + name + "\\')")),
+  backendOwnedTables.every(name => tableGrantMigration.includes("to_regclass(\'" + name + "\')")),
   "all privileges, including TRUNCATE/TRIGGER/REFERENCES, must be revoked from client roles on backend-owned tables");
 assert.ok(
   defaultPrivilegesMigration.includes("ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public") &&
