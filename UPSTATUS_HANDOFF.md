@@ -350,3 +350,37 @@ All three production broadcast functions remain SECURITY DEFINER and executable 
 **Hard dependency confirmed in both candidate server templates:** Normal `src/server/index.template.ts` and Team Lite `src/server/team-lite-index.template.ts` call `db.rpc("merge_chat_read_receipts", ...)` in `readRoute` and immediately throw on RPC error. Because the RPC is absent in production, deploying either candidate server template before its separately reviewed receipt migration is installed would break that route. Required order: author/review production-form migration separately, validate in the approved TEST environment, apply only through the separately authorized migration process, then deploy the matching server template. The test-suffixed SQL files moved above are not production migrations.
 
 No production SQL write, migration, Edge Function deployment, secret/flag change, userscript publication, merge, or destructive operation occurred. Keep all five PRs Draft. Do not repeat the physical #78 no-F5 test request; it remains pending until Ricardo reports the result.
+
+
+## 2026-11-05 14:05 BRT — privilege audit and exact-head refresh
+
+### Current candidate state
+
+- Normal PR #74: HEAD `76de9fbe5b24666aa79b64971b6521249f91a4e0`, open/Draft. Validate [42071213103](https://github.com/Reekyi/UpStatus/actions/runs/42071213103) passed. Signaling Smoke [42071213058](https://github.com/Reekyi/UpStatus/actions/runs/42071213058) was still running at this checkpoint.
+- Team Lite PR #76: HEAD `61672adfdbbd1e020cf5922838404b0958b832e6`, open/Draft. Candidate Checks [42062435489](https://github.com/Reekyi/UpStatus/actions/runs/42062435489) passed on this exact head, including mutation guard, migration-layout guard, 14/14 unauthenticated checks, 86/86 authenticated checks, browser/WebRTC, rate-limit concurrency, and atomic read receipts.
+- Team Lite baseline #75 remains at `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed.
+- #76 is 102 commits ahead and zero behind #75; it carries the baseline and is not an independent merge payload.
+- #74 is 613 commits ahead and zero behind master; the large ancestry remains a separate review gate.
+- Continuity #80: HEAD `3d7378a727818e59cb39c4b82570b3aacecbac73`; Validate [42062564203](https://github.com/Reekyi/UpStatus/actions/runs/42062564203) fails at the existing `client signed upload helper missing` assertion.
+- Independent QA #82: HEAD `e03033544dd91eb23d7b02d61c689ba8bcbbfa26`; Validate [42066570047](https://github.com/Reekyi/UpStatus/actions/runs/42066570047) fails at `production updateURL mismatch`. QA branch remains untouched.
+
+### New production privilege finding
+
+A fresh SELECT-only catalog audit of `dlfvkawaiqduhlazsszm` used `has_table_privilege` to inspect effective grants, not only the RLS state:
+
+- Both `anon` and `authenticated` have effective SELECT, INSERT, UPDATE, DELETE, TRUNCATE, TRIGGER and REFERENCES privileges on the nine backend-owned tables: `chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing`, and `users`.
+- RLS remains enabled with no policies. RLS blocks ordinary row access but does not protect TRUNCATE; this is a broader privilege surface than previously recorded. This catalog result does not prove that PostgREST exposes a direct TRUNCATE operation.
+- `upstatus_visual_config` has no client-role privileges.
+- `realtime.messages` retains SELECT/INSERT/UPDATE for client roles, but not DELETE/TRUNCATE. Do not revoke these until the public Realtime client cutover is coordinated.
+
+The candidate migration `20261029183000_revoke_unused_public_table_grants.sql` already uses `REVOKE ALL PRIVILEGES` on the nine backend-owned tables. The trigger-function migration revokes direct EXECUTE on the three trigger-only SECURITY DEFINER functions. Neither migration has been applied to production.
+
+To guard this contract, Normal #74 gained [commit 76de9fb](https://github.com/Reekyi/UpStatus/commit/76de9fbe5b24666aa79b64971b6521249f91a4e0), extending `scripts/signaling-static.test.mjs` to assert all nine tables are covered by `REVOKE ALL PRIVILEGES` and all three broadcast functions are protected from direct client EXECUTE. Validate passed; the exact-head Smoke remains pending at this checkpoint.
+
+### Production snapshot and safety
+
+- Project `dlfvkawaiqduhlazsszm`: `ACTIVE_HEALTHY`, PostgreSQL 17.11, seven migrations through `20261027155438`.
+- `merge_chat_read_receipts`, `upstatus_signal_rate_limits`, and `consume_upstatus_signal_rate_limit` remain absent in production.
+- The message trigger still publishes full OLD/NEW rows to public `db_change` (`private=false`); the three broadcast functions remain SECURITY DEFINER and executable by anon/authenticated.
+- 38 Edge Functions are ACTIVE and report `verify_jwt=false`. That gateway setting alone does not establish whether custom application auth exists. Three core runtime functions have source-level custom-token review; the remaining 35 require route-by-route auth/owner/consumer/rollback inventory.
+- No production SQL write, migration, function deployment, secret/flag change, userscript publication, merge, or destructive operation occurred. All production database checks were SELECT-only.
