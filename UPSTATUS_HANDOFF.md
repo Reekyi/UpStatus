@@ -516,3 +516,18 @@ Fresh branch comparisons:
 - #82 vs master: 29 ahead, 0 behind.
 
 All five PRs remain open and Draft. #76 remains a descendant of #75, not an independent merge payload. The QA branch #82 remains untouched.
+
+
+## 2026-11-05 14:59 BRT — static regression correction and queued exact-head checks
+
+Normal PR #74 advanced to `1dfe050ef5f3e4c25b16f3b71f10036214ab3142`. The two production-form migrations are unchanged. The latest edits corrected static-test assertions after two exact-head smoke failures:
+
+- Head `019fdef`: the existing backend-table migration assertion was accidentally over-escaped while adding new checks; Smoke [42080821123](https://github.com/Reekyi/UpStatus/actions/runs/42080821123) failed at the static-test step before any fixture mutation.
+- Head `181f4d7`: after restoring the table assertion, the new default-ACL assertion incorrectly treated the explanatory `service_role` comment as a revoke target; Smoke [42081010541](https://github.com/Reekyi/UpStatus/actions/runs/42081010541) failed at the static-test step before fixture mutation.
+- Corrected the check to inspect uncommented REVOKE statements and use proper regex word boundaries. This is test-only; SQL migrations were not changed.
+
+Latest head `1dfe050`:
+- Validate [42081126225](https://github.com/Reekyi/UpStatus/actions/runs/42081126225): in progress at last check.
+- Signaling Smoke [42081126527](https://github.com/Reekyi/UpStatus/actions/runs/42081126527): pending at last check.
+
+Fresh ancestry: #74 is 625 commits ahead / 0 behind master; #76 is 102 ahead / 0 behind #75; #80 is 34 ahead / 0 behind develop; #82 is 29 ahead / 0 behind master. All PRs remain Draft. No fixture tests ran in the two failed smoke jobs because the static step failed first.
