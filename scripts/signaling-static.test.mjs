@@ -77,7 +77,7 @@ assert.ok(
   defaultPrivilegesMigration.includes("REVOKE ALL PRIVILEGES ON SEQUENCES FROM anon, authenticated") &&
   defaultPrivilegesMigration.includes("REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC") &&
   !/ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin/i.test(defaultPrivilegesMigration) &&
-  !/REVOKE[^;]*\\bservice_role\\b/i.test(defaultPrivilegesMigration.replace(/--.*$/gm, "")),
+  !/REVOKE[^;]*\bservice_role\b/i.test(defaultPrivilegesMigration.replace(/--.*$/gm, "")),
   "postgres default ACL migration must remove client defaults while preserving service_role and leaving supabase_admin to its separate admin path");
 assert.ok(
   defaultPrivilegesTest.includes("has_table_privilege") &&
