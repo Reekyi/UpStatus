@@ -606,3 +606,98 @@ Security Advisor still reports three anon EXECUTE warnings, three authenticated 
 - Issue #78 remains open: physical no-F5 network recovery is still MANUAL PENDING in both Normal and Team Lite. Do not re-request the test unless a material runtime change requires it.
 - Public Realtime cutover, production migrations, product rate-limit integration, read-receipt migration sequencing, endpoint/version alignment, real Tampermonkey/device tests, and full #74 ancestry review remain release gates.
 - No production SQL write, migration, Edge Function deployment, secret/flag change, userscript publication, PR merge, or destructive operation occurred in this checkpoint.
+
+
+## Revalidation 2026-11-05 17:02 BRT — exact-head CI and production catalog
+
+This checkpoint was appended after re-fetching the live PR heads, exact-head Actions runs, current release documents, and production catalog. It supersedes the earlier 16:04 BRT checkpoint where the Normal Smoke and Team Lite run were still pending.
+
+### Current PR refs and exact-head CI
+
+All five PRs remain open, Draft, and unmerged.
+
+| PR | Branch / base | Exact head | Exact-head workflow evidence |
+|---|---|---|---|
+| #74 Normal | `chore/continuity-foundation` → `master` | `b981a716f30bb1a9a960f74d050315dd51a3735f` | Validate [42091463530](https://github.com/Reekyi/UpStatus/actions/runs/42091463530) SUCCESS; Signaling Smoke [42091463609](https://github.com/Reekyi/UpStatus/actions/runs/42091463609) SUCCESS |
+| #75 Team Lite baseline | `team-lite/3.4.31-guest-fixes` → `team-lite-official` | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) historical SUCCESS; superseded for signaling work by #76 |
+| #76 Team Lite signaling | `team-lite/signaling-transport-candidate` → `team-lite-official` | `bd89a5364f66ca81780869b1bff17c061f90245c` | Candidate Checks [42091473392](https://github.com/Reekyi/UpStatus/actions/runs/42091473392) SUCCESS |
+| #80 Continuity | `docs/continuity-handoff-2026-11-04` → `develop` | `a0fca9c75e65755533c391217133b501660cdabf` | Validate [42091857000](https://github.com/Reekyi/UpStatus/actions/runs/42091857000) FAILURE: `client signed upload helper missing` |
+| #82 QA readiness | `qa/release-readiness-2026-11-04-master` → `master` | `0fd1877c4989b1681093eefc151a617dd7212e50` | Validate [42096117538](https://github.com/Reekyi/UpStatus/actions/runs/42096117538) FAILURE: `production updateURL mismatch` |
+
+The Normal and Team Lite workflows both completed on their exact current heads. Full job logs confirm:
+- 14/14 static signaling regression groups and 14/14 unauthenticated endpoint checks.
+- 86/86 authenticated integration checks.
+- Chromium WebRTC call audio, voice-room audio, and screen-share video negotiation with remote tracks.
+- Dynamic group invitation/fanout, all three pairwise links in a three-member mesh, peer/media teardown.
+- 90 accepted writes followed by one HTTP 429; distributed rate-limit RPC concurrency/window-reset test passed.
+- Atomic chat read-receipt concurrency test passed.
+- Temporary users, sessions, rooms, memberships and events were cleaned up.
+- Team Lite version/manifest, portal syntax, guest-session isolation and updater scenarios passed.
+
+Both workflows now resolve `playwright@1.64.1`; the exact-head jobs completed without the earlier npm `playwright-core@1.65.0` resolution failure.
+
+The #80 and #82 failures are documentation-branch validation failures in their respective existing build baselines. Logs show #80 built `3.0.40 / TEST 3.0.40-beta.22` before failing on `client signed upload helper missing`; #82 built `3.4.7 / TEST 3.4.7` before failing on `production updateURL mismatch`. Do not weaken the validators or modify the independent QA branch to hide these failures.
+
+### Current ancestry
+
+Fresh GitHub comparisons:
+- #74: 629 commits ahead / 0 behind `master`.
+- #76: 103 ahead / 0 behind #75.
+- #80: 37 ahead / 0 behind `develop`.
+- #82: 32 ahead / 0 behind `master`.
+
+#76 remains a descendant of #75, not an independent sibling merge payload. The #74 ancestry is large and remains a separate full-review gate even though its current CI is green.
+
+### Production Supabase — read-only revalidation
+
+Project `dlfvkawaiqduhlazsszm` is `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002. The migration inventory still has seven entries, latest `20261027155438`.
+
+The catalog confirms that production still lacks:
+- `public.merge_chat_read_receipts(text,jsonb,timestamptz)`;
+- `public.consume_upstatus_signal_rate_limit(text,integer,integer)`;
+- `public.upstatus_signal_rate_limits`.
+
+The nine backend-owned tables `chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing`, and `users` have RLS enabled with zero policies. For both `anon` and `authenticated`, the catalog reports all eight table privileges: SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER and MAINTAIN. This is an unnecessary privilege surface; RLS with no policies means the grant inventory alone does not prove ordinary row access. `upstatus_visual_config` has no client table privileges.
+
+`realtime.messages` has RLS enabled, zero policies, and SELECT/INSERT/UPDATE for `anon` and `authenticated`. Do not revoke these grants or make channels private until the client authentication/Realtime cutover is designed and validated.
+
+The three production broadcast functions remain SECURITY DEFINER with `search_path=public` and EXECUTE available to anon/authenticated:
+- `upstatus_broadcast_messages()` serializes the complete OLD/NEW message row and publishes `db_change` with `private=false`.
+- `upstatus_broadcast_remote_state()` publishes remote command/result metadata with `private=false`.
+- `upstatus_broadcast_users()` publishes name/status/reason/update/sync metadata with `private=false`.
+
+Security Advisor: three anon EXECUTE WARN findings, three authenticated EXECUTE WARN findings, and ten RLS-enabled/no-policy INFO findings. Performance and health advisors returned no findings.
+
+The production inventory contains 38 ACTIVE Edge Functions; all report `verify_jwt=false`. This flag alone does not prove anonymous application access. Current core versions are `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15, and legacy `upstatus-screen-share-3-1-1-beta10` v6. No production `upstatus-signal` function exists. A full route/auth inventory for all 38 functions remains open.
+
+### Default ACL and role boundary
+
+Current default ACLs remain broad:
+- `postgres`: schema-specific defaults in `public` and `storage` for anon/authenticated/service_role on tables, functions and sequences.
+- `supabase_admin`: defaults in `graphql`, `graphql_public` and `public` include anon/authenticated/service_role. The broader catalog inventory also contains managed-schema defaults that require a dependency review before any change.
+- Current SQL session is `postgres`, not superuser and not a member of `supabase_admin`; `supabase_admin` is a login-capable superuser. No role escalation or membership change was attempted.
+
+The candidate default-ACL migration only addresses explicit defaults for `postgres` in `public`; its global PUBLIC EXECUTE revocation affects future functions created by postgres in every schema. It does not address postgres defaults in `storage` or supabase_admin defaults. Keep the global scope under explicit review and do not extend changes into Supabase-managed schemas without dependency evidence.
+
+### Candidate code and release dependencies
+
+Both candidate product templates call `merge_chat_read_receipts` from `readRoute`; neither calls `consume_upstatus_signal_rate_limit`. Thus atomic receipts are integrated in candidate code but cannot work against production until the reviewed RPC migration is applied before the matching backend cutover. The distributed limiter remains isolated-test-only and RT-09 remains PARTIAL.
+
+The release cutover plan and Realtime matrix were read again. Normal's build-time API `CLOUD_SERVER` still targets the legacy screen-share beta10 function while the update artifact URL points at `upstatus`; these paths require one coordinated version/backend/client rollback plan. The authenticated signaling feature remains opt-in/default-off, and the legacy public Realtime path remains active.
+
+Issue #78 remains open with all physical no-F5 acceptance criteria unchecked. Do not ask Ricardo to repeat the already-requested test unless a material runtime change makes a fresh test necessary.
+
+### Documentation lookup note
+
+`UPSTATUS_HANDOFF.md`, `docs/RELEASE_CUTOVER_PLAN.md`, `docs/REALTIME_SECURITY_TEST_MATRIX.md`, and the QA branch's `docs/RELEASE_READINESS.md` were read. Attempts to fetch `docs/PROJECT_GUIDE.md` and `docs/CURRENT_STATE.md` on the inspected refs returned 404; do not assume those files exist until their path/ref is verified.
+
+### Safety record and next work
+
+This checkpoint used GitHub read APIs, existing workflow logs, Supabase project/advisor/function metadata, and SELECT-only catalog queries. No workflow was dispatched or rerun. No production SQL write, migration, Edge Function deployment, secret/flag change, userscript publication, PR merge, or destructive action occurred.
+
+Next safe work:
+1. Review the default-ACL migration's global PUBLIC EXECUTE scope and document its managed-schema impact.
+2. Prepare a supported official-TEST migration sequence for atomic receipts and backend grants; production remains untouched.
+3. Design product endpoint rate-limit integration and the Retry-After contract before claiming RT-09.
+4. Complete the trusted-auth/server-mediated Realtime cutover plan.
+5. Continue full ancestry review of #74 and manual device/network acceptance tracking.
