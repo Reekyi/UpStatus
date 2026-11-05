@@ -23,6 +23,9 @@ const envelopeMigration = readFileSync(
 const bindingMigration = readFileSync(
   "supabase/migrations/20261030192000_signal_room_bindings.sql", "utf8",
 );
+const rateLimitMigration = readFileSync(
+  "supabase/migrations/20261104154623_distributed_signaling_rate_limit_test.sql", "utf8",
+);
 const authenticatedHarness = readFileSync("scripts/test-signaling-authenticated.mjs", "utf8");
 const authenticatedRunner = readFileSync("scripts/run-signaling-authenticated.mjs", "utf8");
 const signalingWorkflow = readFileSync(".github/workflows/signaling-smoke.yml", "utf8");
@@ -151,8 +154,26 @@ assert.match(functionSource, /entry\.depth > 64/,
   "payload sanitizer must reject excessive nesting before serialization");
 assert.match(functionSource, /visitedNodes > 4096/,
   "payload sanitizer must bound traversal work for very wide JSON");
-assert.match(functionSource, /if \(!old && rate\.size >= 2000\)[\s\S]*if \(rate\.size >= 2000\) return false/,
-  "rate-limit buckets must remain bounded without evicting active counters");
+assert.ok(
+  functionSource.includes('db.rpc("consume_upstatus_signal_rate_limit"') &&
+  functionSource.includes("p_bucket_key: name") &&
+  functionSource.includes("p_limit: limit") &&
+  functionSource.includes("p_window_seconds: 60") &&
+  functionSource.includes("if (error) throw error") &&
+  functionSource.includes("return data === true"),
+  "rate limits must use the atomic database RPC and fail closed when the RPC errors");
+assert.ok(
+  functionSource.includes('const bucket = sender + (readRoute ? ":read" : ":write")') &&
+  functionSource.includes('return response({ error: "Rate limit exceeded" }, 429)'),
+  "per-user read/write quotas must reject exhausted buckets with HTTP 429");
+assert.ok(
+  rateLimitMigration.includes("on conflict(bucket_key) do update set") &&
+  rateLimitMigration.includes("return v_count <= p_limit") &&
+  rateLimitMigration.includes("security invoker set search_path = ''") &&
+  rateLimitMigration.includes("revoke all on function public.consume_upstatus_signal_rate_limit") &&
+  rateLimitMigration.includes("grant execute on function public.consume_upstatus_signal_rate_limit") &&
+  rateLimitMigration.includes("to service_role"),
+  "distributed rate-limit RPC must atomically count requests and remain service-role-only");
 assert.match(functionSource, /try \{[\s\S]*JSON\.stringify\(p\)\.length[\s\S]*catch \{\s*return null;/,
   "payload serialization failures must be rejected as invalid payloads");
 
@@ -211,7 +232,7 @@ console.log("PASS authenticated harness is mutation-gated and test-project scope
 console.log("PASS bounded streaming body reads and JSON body shape validation");
 console.log("PASS recursive case-insensitive identity payload sanitization");
 console.log("PASS payload nesting and traversal bounds");
-console.log("PASS bounded per-isolate rate-limit state");
+console.log("PASS distributed database-backed rate-limit contract");
 console.log("PASS legacy call/voice/screen envelope types are explicitly allowlisted");
 console.log("PASS authenticated negative cases cover JSON/body/payload limits");
 console.log("PASS legacy envelope validator and client-change CI trigger");
