@@ -1506,3 +1506,8 @@ Next gates: (1) design and validate a coordinated public-Realtime cutover for bo
 ### Safety record
 
 No production SQL write, migration, Edge Function deployment, secret/flag change, userscript publication, PR merge, destructive operation, issue edit, or engineering-branch edit was performed. QA did not run fixture-mutating scripts or trigger/rerun workflows. Existing engineering CI logs were inspected; CI fixture writes shown in those logs were confined to the exact allowlisted isolated project and cleanup was verified. All SQL executed by QA was read-only. The only repository write for this pass is this append to `docs/RELEASE_READINESS.md` on the dedicated QA branch, using the freshly fetched blob SHA. No completion percentage is reported.
+
+
+## QA documentation commit validation follow-up — 2026-11-05
+
+The append above was committed as `286819fa564e8f81603922431d29233934c7113e` (blob `bdd520bed6d403d49570f63985927366d3000a2a`). Exact-head Validate [42036998107](https://github.com/Reekyi/UpStatus/actions/runs/42036998107) completed FAILURE in `scripts/validate.mjs:26` with `production updateURL mismatch`. The job's checkout succeeded and the Validate build step failed. This is the same baseline URL assertion observed on the previous QA commit; PR #82 still changes only this Markdown file. No validator bypass or runtime change was made. Keep #82 Draft. The failure is recorded as a documentation-branch validation blocker, not a failure of the audit findings.
