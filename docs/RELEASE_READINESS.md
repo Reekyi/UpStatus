@@ -2740,3 +2740,11 @@ A correção acima encerra a pendência anterior de ausência de branch/project/
 ### Correção final de head #74 — 2026-11-05
 
 A #74 avançou novamente após o commit `2f226e11`. O head observado agora é `b0c0e03fbe820e02404d4ae7d9f83e2a18642e50`, 639 commits à frente de master e zero atrás, com 59 arquivos alterados. O commit [b0c0e03](https://github.com/Reekyi/UpStatus/commit/b0c0e03fbe820e02404d4ae7d9f83e2a18642e50) apenas corrige o contador da regressão estática de guards de deploy para `16/16`; não altera runtime nem o workflow de deploy. Nenhum workflow estava associado a esse head na última consulta. Portanto, o Smoke verde anterior continua ligado ao runtime head `73c19d5`; o guard de deploy foi validado em código, mas a regressão estática adicionada depois ainda precisa de execução no head atual.
+
+
+### Atualização de CI do head #74 — 2026-11-05
+
+A execução associada ao head atual `b0c0e03fbe820e02404d4ae7d9f83e2a18642e50` apareceu após a correção anterior:
+- Validate [42122609464](https://github.com/Reekyi/UpStatus/actions/runs/42122609464): SUCCESS.
+- Signaling Smoke [42122609431](https://github.com/Reekyi/UpStatus/actions/runs/42122609431): PENDING, ainda sem job na consulta.
+O novo teste estático de deploy está incluído no `signaling-static.test.mjs`, executado pelo Signaling Smoke. Portanto, aguardar esse run é necessário para validar o contador 16/16 no head atual.
