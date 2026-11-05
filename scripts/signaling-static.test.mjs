@@ -29,6 +29,12 @@ const triggerGrantMigration = readFileSync(
 const tableGrantMigration = readFileSync(
   "supabase/migrations/20261029183000_revoke_unused_public_table_grants.sql", "utf8",
 );
+const defaultPrivilegesMigration = readFileSync(
+  "supabase/migrations/20261105150000_revoke_public_default_privileges_postgres.sql", "utf8",
+);
+const defaultPrivilegesTest = readFileSync(
+  "supabase/test-migrations/20261105150000_postgres_public_default_privileges_test.sql", "utf8",
+);
 const rateLimitMigration = readFileSync(
   "supabase/test-migrations/20261104154623_distributed_signaling_rate_limit_test.sql", "utf8",
 );
@@ -59,8 +65,25 @@ assert.ok(
   "trigger-only SECURITY DEFINER broadcasts must not be directly executable by client roles");
 assert.ok(
   tableGrantMigration.includes("REVOKE ALL PRIVILEGES ON TABLE %s FROM PUBLIC, anon, authenticated") &&
-  backendOwnedTables.every(name => tableGrantMigration.includes("to_regclass(\'" + name + "\')")),
+  backendOwnedTables.every(name => tableGrantMigration.includes("to_regclass(\\'" + name + "\\')")),
   "all privileges, including TRUNCATE/TRIGGER/REFERENCES, must be revoked from client roles on backend-owned tables");
+assert.ok(
+  defaultPrivilegesMigration.includes("ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public") &&
+  defaultPrivilegesMigration.includes("REVOKE ALL PRIVILEGES ON TABLES FROM anon, authenticated") &&
+  defaultPrivilegesMigration.includes("REVOKE EXECUTE ON FUNCTIONS FROM anon, authenticated") &&
+  defaultPrivilegesMigration.includes("REVOKE ALL PRIVILEGES ON SEQUENCES FROM anon, authenticated") &&
+  defaultPrivilegesMigration.includes("REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC") &&
+  !/FOR ROLE supabase_admin/i.test(defaultPrivilegesMigration) &&
+  !/service_role/i.test(defaultPrivilegesMigration),
+  "postgres default ACL migration must remove client defaults while preserving service_role and leaving supabase_admin to its separate admin path");
+assert.ok(
+  defaultPrivilegesTest.includes("has_table_privilege") &&
+  defaultPrivilegesTest.includes("has_sequence_privilege") &&
+  defaultPrivilegesTest.includes("has_function_privilege") &&
+  defaultPrivilegesTest.includes("'MAINTAIN'") &&
+  defaultPrivilegesTest.includes("service_role") &&
+  defaultPrivilegesTest.includes("DROP TABLE"),
+  "isolated default-ACL test must cover table/sequence/function grants, PostgreSQL 17 MAINTAIN, service_role preservation, and probe cleanup");
 assert.ok(bindingMigration.includes("ENABLE ROW LEVEL SECURITY") &&
   bindingMigration.includes("REVOKE ALL PRIVILEGES") && bindingMigration.includes("GRANT ALL PRIVILEGES") &&
   bindingMigration.includes("service_role"),
