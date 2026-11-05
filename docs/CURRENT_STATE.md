@@ -154,3 +154,11 @@ No production SQL writes, migrations, deployments, secrets/flags changes, usersc
 - The existing candidate migration revokes privileges on the nine current backend-owned tables, but does not change default ACLs. Future objects can inherit client grants unless defaults are hardened for both owners and all three object types.
 - A separate migration is required. Generate it with the approved Supabase CLI workflow, preserve owner/service_role access, inventory dependencies, and validate in official TEST. CLI/official TEST was unavailable, so no migration filename was fabricated and no DDL was applied.
 - This finding is recorded in [issue #79 comment 6664233350](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6664233350). Production remains unchanged.
+
+
+## 2026-11-05 14:12 BRT — default ACL authority limitation
+
+- SQL connector executes as `postgres`; postgres is not superuser and is not a member of `supabase_admin`. `supabase_admin` is a login-capable superuser.
+- A standard migration run as postgres cannot alter default privileges for supabase_admin. Do not add a migration that assumes otherwise or attempt role membership/credential workarounds.
+- Default privileges owned by postgres can be addressed via normal migration after official TEST validation. Supabase_admin defaults require a separately authorized admin execution path.
+- Recorded in [issue #79 comment 6664265799](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6664265799). No ALTER DEFAULT PRIVILEGES, SET ROLE, membership change, credential access, or production write occurred.
