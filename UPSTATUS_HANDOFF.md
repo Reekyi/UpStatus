@@ -852,3 +852,20 @@ Fetched the deployed source for the four relevant functions directly from produc
 - `upstatus-backup-327-pre328` v1, SHA `3d6c4f8e5f777830ea720ab2938cb023b5a4e4c7d26f3fc02b926ce0e4d0dd90`, `index.ts` 0 bytes; function is ACTIVE. Do not disable without consumer/dependency and rollback evidence.
 
 All four report `verify_jwt=false`. The three primary/legacy runtime sources contain `x-upstatus-token`, `token_hash`, and `expires_at` custom session-authentication markers. They do not contain calls to `merge_chat_read_receipts`, `consume_upstatus_signal_rate_limit`, or `open_upstatus_signal_voice_room`. Thus the deployed runtime is still on the legacy path; the RPC dependency and new open voice behavior exist only in candidate source. The empty backup has no source-level auth markers, but its route/consumer behavior was not exercised. No production function was deployed or modified.
+
+
+### Production deployment workflow hardening candidate — 2026-11-05
+
+A fresh review of `.github/workflows/deploy-production.yml` found a time-sensitive CLI risk: the workflow used `supabase/setup-cli` with `version: latest`. Supabase's official Nov 4, 2026 changelog says CLI v3.0.0 became the default on Nov 2; unattended hosted mutations such as `functions deploy` now fail in CI unless explicitly confirmed with `--yes`, and several CLI defaults/flags changed. Source: https://supabase.com/changelog/supabase-cli-v3
+
+Candidate-only change on PR #74:
+- Pin Supabase CLI to `2.122.1` instead of mutable `latest` to keep the current v2 command contract until a separately reviewed v3 migration.
+- Require `GITHUB_REF=refs/heads/master`.
+- Require checked-out `HEAD` to equal `GITHUB_SHA`.
+- Require `SUPABASE_PROJECT_ID=dlfvkawaiqduhlazsszm` and a non-empty `SUPABASE_ACCESS_TOKEN`.
+- Preserve the existing stable release lock at `3.4.7`.
+- Add a static regression assertion to `scripts/signaling-static.test.mjs` that verifies guard ordering and pinned CLI before the deploy step.
+
+Commits: [1495716](https://github.com/Reekyi/UpStatus/commit/1495716cf3613c0be19a30a31ddd1ce2e710eaf1) (workflow guard/pin), [2f226e1](https://github.com/Reekyi/UpStatus/commit/2f226e11cbe7c19fd83cc5a72940eaf93bf274d8) (static regression). PR #74's current head is `2f226e11cbe7c19fd83cc5a72940eaf93bf274d8`; Validate is running and Signaling Smoke is queued at the time of this note.
+
+This is a candidate workflow edit only. No `workflow_dispatch` was triggered, no production deploy was attempted, and no secrets or GitHub environment settings were read/changed. GitHub Environment protection rules were not inspectable with the available repository connector. The workflow still deploys only Normal `upstatus`; Team Lite deployment coordination remains a separate gate.
