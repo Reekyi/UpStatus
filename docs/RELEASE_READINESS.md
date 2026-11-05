@@ -1917,3 +1917,112 @@ This pass used GitHub read APIs, exact-head Actions jobs/logs, candidate source 
 - [Normal Signaling Smoke 42062127943](https://github.com/Reekyi/UpStatus/actions/runs/42062127943)
 - [Team Lite Candidate Checks 42062435489](https://github.com/Reekyi/UpStatus/actions/runs/42062435489)
 - [QA Validate 42057223983](https://github.com/Reekyi/UpStatus/actions/runs/42057223983)
+
+
+## Revalidation 2026-11-05 17:30 UTC — exact CI refresh, default ACL root cause and full Edge inventory
+
+This checkpoint supersedes earlier snapshots where exact heads, run status, issue comment counts, production catalog privileges, or Edge Function inventory differ. The QA file was freshly fetched immediately before this append (blob SHA `b49f766b8a3760911ece5e2b29ff0814cfafd410`); PR #82 still targets the dedicated QA branch at head `e03033544dd91eb23d7b02d61c689ba8bcbbfa26`. Only this document is changed below.
+
+### Exact GitHub refs and automated evidence
+
+| PR | Exact head | State / comparison | Current evidence |
+|---|---|---|---|
+| #74 Normal | `76de9fbe5b24666aa79b64971b6521249f91a4e0` | Open / Draft; 614 ahead of master, 0 behind; 53 files | Validate [42071213103](https://github.com/Reekyi/UpStatus/actions/runs/42071213103) **AUTOMATED PASS**; Signaling Smoke [42071213058](https://github.com/Reekyi/UpStatus/actions/runs/42071213058) **AUTOMATED PASS** |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Open / Draft; historical baseline | Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) historical **AUTOMATED PASS**, superseded for signaling work by #76 |
+| #76 Team Lite signaling | `61672adfdbbd1e020cf5922838404b0958b832e6` | Open / Draft; 102 ahead of #75, 0 behind; 24 files | Candidate Checks [42062435489](https://github.com/Reekyi/UpStatus/actions/runs/42062435489) **AUTOMATED PASS** |
+| #82 QA documentation | `e03033544dd91eb23d7b02d61c689ba8bcbbfa26` | Open / Draft; 27 ahead of master, 0 behind; one file | Validate [42066570047](https://github.com/Reekyi/UpStatus/actions/runs/42066570047) **BLOCKED** by baseline assertion `production updateURL mismatch` |
+
+#74's latest commit [76de9fb](https://github.com/Reekyi/UpStatus/commit/76de9fbe5b24666aa79b64971b6521249f91a4e0) changes only `scripts/signaling-static.test.mjs`. It adds static assertions that the staged migrations revoke EXECUTE on the three trigger-only SECURITY DEFINER functions and REVOKE ALL PRIVILEGES on the nine backend-owned tables. The exact-head Validate and Smoke runs above both completed successfully. Smoke job `127399317167` reports every step SUCCESS: static harness checks, unauthenticated endpoint checks, authenticated integration/browser checks, distributed rate-limit concurrency and atomic receipt concurrency. Its log confirms 86/86 authenticated checks, call/voice/screen remote media, three-member mesh, 90 accepted plus one HTTP 429, and isolated fixture cleanup. This is **AUTOMATED PASS in the isolated project**, not production validation or manual browser acceptance.
+
+Team Lite job `127369608239` for run 42062435489 also completed every step SUCCESS. The log confirms 86/86 authenticated checks, call/voice/screen remote tracks, three-member mesh, 90 accepted plus one HTTP 429, rate-limit and receipt concurrency, migration-layout guard, userscript/portal syntax, version 3.4.31 and updater scenarios. No workflow was dispatched by QA.
+
+All four PRs remain open and Draft, with no submitted reviews and no inline review threads. #76 is a descendant of #75 and must not be treated as an independent parallel merge. #74's 614-commit ancestry still requires explicit history review; GitHub `mergeable=true` is not an approval.
+
+### New production finding — default ACLs are the root cause of recurring grants
+
+Fresh SELECT-only queries to `pg_default_acl`, `aclexplode`, `pg_roles`, and `has_table_privilege` confirm default privileges in schema `public` for objects created by both owners, `postgres` and `supabase_admin`:
+
+- **Tables:** defaults grant anon, authenticated and service_role SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER and MAINTAIN.
+- **Functions:** defaults grant EXECUTE to anon, authenticated and service_role.
+- **Sequences:** defaults grant SELECT, UPDATE and USAGE to anon, authenticated and service_role.
+
+The nine existing backend-owned tables also currently report all of those table privileges effective for both anon and authenticated, including **TRUNCATE and MAINTAIN**. All nine have RLS enabled, zero policies and FORCE RLS false. RLS does not filter table-level TRUNCATE/MAINTAIN privileges. No direct exploit through PostgREST was demonstrated; the finding is an excessive effective privilege surface, not a claim that a public REST request can successfully truncate a table. `upstatus_visual_config` has no client grants.
+
+The existing candidate migration `20261029183000_revoke_unused_public_table_grants.sql` revokes current-object grants, and `20261029170500_restrict_trigger_function_execute.sql` revokes direct client EXECUTE on the three trigger functions. Neither changes `pg_default_acl`. Consequently, a later table/function/sequence created by either owner can inherit the same client grants again. The new #74 static regression added at 76de9fb checks migration text for current-object REVOKE statements; it does **not** test or remediate default ACLs.
+
+### Administrative authority limitation — supabase_admin defaults
+
+The same read-only catalog query reports:
+- `current_user = session_user = postgres`;
+- `postgres` is not a superuser and is not a member of `supabase_admin`;
+- `supabase_admin` is a login-enabled superuser.
+
+Therefore a normal migration/session running as `postgres` cannot alter default privileges owned by `supabase_admin` using `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin`. Engineering recorded this limitation in [issue #79 comment 6664265799](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6664265799). No role switch, membership grant, credential request, default-ACL change or write was attempted.
+
+Split the remediation into two separately authorized paths:
+1. Prepare and validate default-ACL hardening for objects created by `postgres` through the normal migration process in official TEST.
+2. Obtain a supported administrative mechanism, explicitly authorized by the project owner/Supabase, for defaults owned by `supabase_admin`. Do not try to bypass the role boundary or ship a migration that will fail under the available `postgres` executor.
+
+Preserve owner and service_role privileges deliberately, and cover tables, functions and sequences. Re-query default ACLs and effective privileges after the authorized change. This is a new **BLOCKED security-hardening gate (ACL-02)**.
+
+### Production catalog and Realtime — unchanged
+
+Project `dlfvkawaiqduhlazsszm` remains `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, seven migrations through `20261027155438`. The rate-limit table/RPC and `merge_chat_read_receipts(text,jsonb,timestamptz)` remain absent.
+
+The message trigger `upstatus_messages_broadcast` still invokes `public.upstatus_broadcast_messages()`. The function remains SECURITY DEFINER with `search_path=public`, serializes the OLD/NEW message row using `to_jsonb`, and calls `realtime.send(..., 'db_change', ..., false)`. The final `false` is the public-channel flag. The three broadcast functions remain EXECUTE-able by anon/authenticated/service_role. `realtime.messages` has RLS enabled, zero policies, and anon/authenticated SELECT/INSERT/UPDATE; no DELETE/TRUNCATE was observed. Do not infer direct row access from these grants alone.
+
+Security Advisor observed at 2026-11-05 17:30:35 UTC:
+- WARN `anon_security_definer_function_executable`: 3 functions.
+- WARN `authenticated_security_definer_function_executable`: the same 3 functions.
+- INFO `rls_enabled_no_policy`: 10 relations.
+- Performance and Health Advisors: no findings.
+
+### Full Edge Function metadata/source inventory
+
+The Supabase API lists **38/38 functions ACTIVE**, all with `verify_jwt=false`. This is gateway metadata, not proof that every route is unauthenticated. I fetched the source bundle for all 38 functions. Thirty-seven have non-empty `index.ts` entrypoints and contain the custom UpStatus token/session lookup pattern (`x-upstatus-token`, token hashing and `upstatus_sessions`) in static inspection. This marker scan does not prove every route in every historical copy enforces the guard correctly; route-by-route authorization and consumer review remains required.
+
+**New anomaly:** `upstatus-backup-327-pre328` is ACTIVE (version 1, `verify_jwt=false`) but its retrieved entrypoint `index.ts` is **zero bytes** (source SHA `3d6c4f8e5f777830ea720ab2938cb023b5a4e4c7d26f3fc02b926ce0e4d0dd90`). Its runtime behavior was not probed. Treat this as **NOT VERIFIED / inventory anomaly**, not as evidence of a working or exploitable endpoint. Identify owner/consumers and decide its fate through a separately reviewed cleanup plan; do not disable it blindly.
+
+The active inventory includes multiple `upstatus-test*`, `upstatus-screen-share-*-beta*`, and `upstatus-backup*` endpoints. All remain deployed/ACTIVE. Create an explicit owner, purpose, auth, data-access, consumer, retention and rollback record for each before retiring any. Only the three principal runtime functions were fully examined for embedded userscript behavior:
+
+| Function | Edge version | Embedded userscript | Source SHA |
+|---|---:|---|---|
+| `upstatus` | 480 | 3.4.7 | `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd` |
+| `upstatus-team-lite` | 15 | 3.4.30 | `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb` |
+| `upstatus-screen-share-3-1-1-beta10` | 6 | 3.1.1-beta8 | `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29` |
+
+Decoded deployed scripts still have two `chat_fast` send sites attaching complete message objects and one `payload.message` read. Their server sources contain zero calls to `consume_upstatus_signal_rate_limit` and zero calls to `merge_chat_read_receipts`; session-cache revalidation remains 30 seconds. Candidate code changes have not reached these deployed bundles.
+
+### Deploy workflow inspection
+
+Current candidate `.github/workflows/deploy-production.yml` blob SHA `8252c6c6e7005c98625603b5b02b14cb1e50a519` has a pinned checkout action SHA and `persist-credentials: false`, which closes the earlier checkout-action concern. Remaining gaps:
+- the checkout step does not set an explicit approved `ref`/commit SHA despite its name “Checkout approved release ref”;
+- the workflow does not assert that `SUPABASE_PROJECT_ID` equals the expected production project `dlfvkawaiqduhlazsszm`;
+- Supabase CLI is configured as `latest`, not a reviewed fixed version;
+- this workflow deploys only Edge Function `upstatus`, not Team Lite;
+- GitHub Environment required-reviewer/protection settings were not inspected.
+
+It is manual and uses environment `production`, and validates stable version 3.4.7. Do not treat those controls as a substitute for explicit ref/project assertions. No workflow was run.
+
+### Issues and manual acceptance
+
+- [Issue #78](https://github.com/Reekyi/UpStatus/issues/78) remains open with three comments; all acceptance checkboxes remain unchecked. Physical ~10-second network loss/recovery without F5 is still **MANUAL PENDING**.
+- [Issue #79](https://github.com/Reekyi/UpStatus/issues/79) is open with 47 comments and a stale 2026-11-03 body. Latest engineering notes include default ACL root cause [6664233350](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6664233350) and the `supabase_admin` authority limitation [6664265799](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6664265799). The issue body was not edited by QA.
+
+### Updated release gates
+
+1. **BLOCKED — RT-01:** remove full-row public message broadcasts and complete coordinated authenticated/private or server-mediated transport cutover, including legacy clients, Normal, Team Lite, trigger changes, authorization and rollback.
+2. **BLOCKED — ACL-02:** remediate default ACLs for both `postgres` and `supabase_admin`; the latter requires an explicitly supported administrative path. Current-object REVOKE migrations alone do not close this.
+3. **PENDING — current object grants:** validate current-table/function revocations in official TEST, preserving service_role/owner access; include TRUNCATE and MAINTAIN in effective-privilege assertions.
+4. **PARTIAL — RT-09:** integrate distributed rate limiting into both actual product endpoints and test per-user quotas, concurrency, HTTP 429, retry guidance and cleanup.
+5. **BLOCKED deployment dependency — read receipts:** install the separately reviewed production receipt RPC through the authorized migration process before deploying either server template that calls it.
+6. **PENDING — production migration packaging:** keep test DDL under `supabase/test-migrations/`; author distinct production migrations and validate ordering, privileges, rollback and data compatibility in official TEST.
+7. **NOT VERIFIED — Edge inventory:** resolve the empty active backup entrypoint and complete per-route auth/owner/consumer/retention/rollback review for all 38 functions before disabling any.
+8. **MANUAL PENDING — #78:** physical no-F5 reconnect, real microphone/display capture and installed Normal ↔ Team Lite cross-client acceptance.
+9. **PENDING — deploy controls:** set approved ref/SHA and expected project-ID assertions, pin CLI, inspect environment protections, and define coordinated Normal + Team Lite deployment/rollback.
+10. **PENDING — review process:** obtain human reviews and review #74's 614-commit ancestry before merge consideration; refresh #79's stale body.
+11. **BLOCKED — QA PR #82 validation:** latest run [42066570047](https://github.com/Reekyi/UpStatus/actions/runs/42066570047) fails at `scripts/validate.mjs` with `production updateURL mismatch`. The PR changes only this Markdown file; do not weaken the validator to force green.
+
+### Safety record
+
+This revalidation used GitHub read APIs, exact-head workflow steps/logs, candidate source reads, Supabase project/migration/function/advisor metadata, and SELECT-only PostgreSQL catalog queries. All 38 Edge Function bundles were fetched for static inventory; no function endpoint was probed. No workflow was dispatched by QA and no fixture script was run. No production SQL write, migration, Edge deployment, secret/flag change, userscript publication, PR merge, destructive operation, role switch, role-membership change or engineering-branch edit occurred. The only repository write is this append-only checkpoint on the dedicated QA branch, guarded by the freshly fetched file blob SHA. No completion percentage is reported.
