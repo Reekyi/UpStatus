@@ -835,3 +835,8 @@ After the checkpoint above, Normal Signaling Smoke [42120068577](https://github.
 The current #74 branch subsequently advanced through documentation-only commits `2f0c6ac`, `fd55588`, `15b95ad`, and `8f07ea9`; none changes runtime or workflow inputs. Current PR #74 head is `8f07ea9c26f02f28159d53fedd04dcc79c8d5ef6`. The exact runtime validation remains tied to `73c19d5`; docs-only commits do not invalidate those runtime checks.
 
 Team Lite #76 remains green at `4178e54654b1bd2c06516fba9edea17d779b9ecd`, Candidate Checks [42119919319](https://github.com/Reekyi/UpStatus/actions/runs/42119919319), including 103/103 authenticated checks. The open-join design incompatibility is therefore implemented and automated-tested in both candidate product lines. Manual physical recovery and installed Normal ↔ Team Lite acceptance remain open.
+
+
+### Isolated Edge Function source parity correction — 2026-11-05
+
+The isolated project `bfpjtfqlnypisxljoxkb` reports `upstatus-signal-test` version **28** (not the earlier documented v27), ACTIVE, `verify_jwt=false`, source SHA `e26011f026c74821a1e05bf314340604d715820ab864b63d66fd481d93d00d4f`. I retrieved the deployed source and compared it with current PR #74 candidate source: `body.mjs` and `legacy-envelope.mjs` match byte-for-byte; `index.ts` matches after whitespace normalization, with only formatting/line-wrap differences. The deployed v28 therefore contains the same open-join logic as the current Normal candidate. It still has no `Retry-After` header. No isolated or production deployment was performed during this checkpoint.
