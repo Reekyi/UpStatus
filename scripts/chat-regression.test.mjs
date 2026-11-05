@@ -155,6 +155,7 @@ assert(source.includes(".up-chat-link-card{display:flex")&&source.includes('clas
 assert(source.includes("function scheduleRealtimeChatRefresh()"),"public chat broadcasts must use a canonical refresh scheduler");
 assert(source.includes("var wait=Math.max(0,1000-(Date.now()-realtimeChatRefreshLastAt));"),"public broadcast spam must be throttled before it triggers authenticated chat refreshes");
 assert(source.includes("function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}"),"chat_fast payloads must not be trusted as canonical message data");
+assert(source.includes("sendRealtimeEvent('chat_fast')")&&!source.includes("sendRealtimeEvent('chat_fast',{message:created})")&&!source.includes("sendRealtimeEvent('chat_fast',{message:r.message})"),"chat_fast must publish only an empty refresh hint, never a message row");
 assert(source.includes(".on('broadcast',{event:'db_change'},function(){scheduleRealtimeChatRefresh();})"),"database-change broadcasts must trigger an authenticated refresh instead of applying the supplied row");
 assert(source.includes(".on('broadcast',{event:'chat_fast'},function(){handleRealtimeChatFast();})"),"chat_fast listener must ignore attacker-controlled payloads");
 assert(source.includes(".on('broadcast',{event:'chat_read'},function(){scheduleRealtimeChatRefresh();})"),"read receipt broadcasts must be reconciled from the authenticated API");
