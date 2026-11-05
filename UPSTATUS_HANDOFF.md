@@ -840,3 +840,15 @@ Team Lite #76 remains green at `4178e54654b1bd2c06516fba9edea17d779b9ecd`, Candi
 ### Isolated Edge Function source parity correction — 2026-11-05
 
 The isolated project `bfpjtfqlnypisxljoxkb` reports `upstatus-signal-test` version **28** (not the earlier documented v27), ACTIVE, `verify_jwt=false`, source SHA `e26011f026c74821a1e05bf314340604d715820ab864b63d66fd481d93d00d4f`. I retrieved the deployed source and compared it with current PR #74 candidate source: `body.mjs` and `legacy-envelope.mjs` match byte-for-byte; `index.ts` matches after whitespace normalization, with only formatting/line-wrap differences. The deployed v28 therefore contains the same open-join logic as the current Normal candidate. It still has no `Retry-After` header. No isolated or production deployment was performed during this checkpoint.
+
+
+### Production Edge Function source inventory recheck — 2026-11-05
+
+Fetched the deployed source for the four relevant functions directly from production metadata/source APIs:
+
+- `upstatus` v480, SHA `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`, `index.ts` 894,196 bytes.
+- `upstatus-team-lite` v15, SHA `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`, `index.ts` 1,013,011 bytes.
+- `upstatus-screen-share-3-1-1-beta10` v6, SHA `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29`, `index.ts` 1,023,201 bytes.
+- `upstatus-backup-327-pre328` v1, SHA `3d6c4f8e5f777830ea720ab2938cb023b5a4e4c7d26f3fc02b926ce0e4d0dd90`, `index.ts` 0 bytes; function is ACTIVE. Do not disable without consumer/dependency and rollback evidence.
+
+All four report `verify_jwt=false`. The three primary/legacy runtime sources contain `x-upstatus-token`, `token_hash`, and `expires_at` custom session-authentication markers. They do not contain calls to `merge_chat_read_receipts`, `consume_upstatus_signal_rate_limit`, or `open_upstatus_signal_voice_room`. Thus the deployed runtime is still on the legacy path; the RPC dependency and new open voice behavior exist only in candidate source. The empty backup has no source-level auth markers, but its route/consumer behavior was not exercised. No production function was deployed or modified.
