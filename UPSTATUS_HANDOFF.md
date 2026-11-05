@@ -262,3 +262,14 @@ Continue UpStatus release-readiness in https://github.com/Reekyi/UpStatus. First
 - Issue [#78](https://github.com/Reekyi/UpStatus/issues/78) remains OPEN. Real network interruption/recovery without F5, room re-entry, post-reconnect calls, real devices, and installed Normal ↔ Team Lite acceptance remain MANUAL PENDING. No runtime reconnect code changed in this checkpoint.
 - No production SQL write, migration, Edge Function deployment, secret/flag change, userscript publication, merge, or destructive operation occurred.
 - Next: inspect Signaling Smoke [42040877642](https://github.com/Reekyi/UpStatus/actions/runs/42040877642) on exact #74 HEAD; then continue design/implementation of product-endpoint rate limiting and the authenticated Realtime cutover without touching production or the QA-owned #82 branch.
+
+
+### Exact ancestry comparison (2026-11-05 11:00 BRT)
+
+Fresh GitHub compare results:
+- Normal #74 vs `master`: **612 commits ahead, 0 behind**.
+- Team Lite signaling #76 vs baseline #75: **101 commits ahead, 0 behind**.
+- Continuity #80 vs `develop`: **21 commits ahead, 0 behind**.
+- Independent QA #82 vs `master`: **23 commits ahead, 0 behind**.
+
+The large #74 ancestry is a separate merge-review risk even when CI is green. Before any merge decision, inspect the full 612-commit range and confirm that the branch contains only intended history. Do not squash/merge or retarget as a shortcut. #76 carries #75's baseline; keep the pair as one related Team Lite line rather than two independent merge candidates.
