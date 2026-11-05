@@ -327,3 +327,24 @@ console.log("PASS authenticated browser E2E covers call, voice, and screen media
 console.log("PASS authenticated browser E2E covers dynamic group invitations, three-member fanout, and all peer mesh links");
 console.log("15/15 signaling static regression groups passed.");
 
+
+
+const productionDeployWorkflow = readFileSync(".github/workflows/deploy-production.yml", "utf8");
+const productionGuardPosition = productionDeployWorkflow.indexOf("Require approved release ref and production project");
+const productionReleasePosition = productionDeployWorkflow.indexOf("Require explicitly approved stable release");
+const productionCliPosition = productionDeployWorkflow.indexOf("Setup Supabase CLI");
+const productionDeployPosition = productionDeployWorkflow.indexOf("Deploy PRODUCTION only");
+assert.ok(
+  productionDeployWorkflow.includes("workflow_dispatch:") &&
+  productionDeployWorkflow.includes('if [ "$GITHUB_REF" != "refs/heads/master" ]') &&
+  productionDeployWorkflow.includes('if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]') &&
+  productionDeployWorkflow.includes("EXPECTED_SUPABASE_PROJECT_ID: dlfvkawaiqduhlazsszm") &&
+  productionDeployWorkflow.includes('if [ -z "$SUPABASE_PROJECT_ID" ]') &&
+  productionDeployWorkflow.includes('if [ -z "$SUPABASE_ACCESS_TOKEN" ]') &&
+  productionDeployWorkflow.includes("version: 2.122.1") &&
+  !productionDeployWorkflow.includes("version: latest") &&
+  productionDeployWorkflow.includes("r.version !== '3.4.7'") &&
+  productionGuardPosition >= 0 && productionGuardPosition < productionReleasePosition &&
+  productionReleasePosition < productionCliPosition && productionCliPosition < productionDeployPosition,
+  "production deploy must be master-only, exact-SHA checked, project-ID guarded, credential-checked, release-locked, and use a pinned Supabase CLI before deploy");
+console.log("PASS production deploy ref, project, credential, release, and CLI-version guards");
