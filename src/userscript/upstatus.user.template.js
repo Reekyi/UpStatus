@@ -3142,7 +3142,7 @@ function chatAvatarPresence(name){
           chatCache=chatCache.filter(function(m){return String(m.id)!==String(tempId);});
           loadChat(true);
         }
-        try{sendRealtimeEvent('chat_fast',{message:created});}catch(_){}
+        try{sendRealtimeEvent('chat_fast');}catch(_){}
       }else{
         chatCache=chatCache.filter(function(m){return m.id!==tempId;});
         loadChat(true);
@@ -3184,7 +3184,7 @@ function chatAvatarPresence(name){
       var idx=chatCache.findIndex(function(m){return String(m.id)===String(tempId);});
       if(idx>=0)chatCache[idx]=created;else if(!chatCache.some(function(m){return String(m.id)===String(created.id);}))chatCache.push(created);
       chatCache.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});renderChat();
-      try{sendRealtimeEvent('chat_fast',{message:r.message});}catch(e){}
+      try{sendRealtimeEvent('chat_fast');}catch(e){}
     }).catch(function(e){chatCache=chatCache.filter(function(m){return String(m.id)!==String(tempId);});chatPendingAttachment=file;var input=chat.querySelector('.up-chat-input');if(input){input.value=String(caption||'');saveChatDraft(input);}setPendingAttachment(file);if(input)updateLinkPreview(input.value||'');setChatReply(reply);try{renderChat();}catch(_){}showChatError(e&&e.message||'Não foi possível enviar o anexo. O arquivo e a legenda foram restaurados para você tentar novamente.');});
   }
 
