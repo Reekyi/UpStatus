@@ -499,3 +499,20 @@ Latest #74 code head: `d38b8f1b646fe4a9147c15ee714ea1d624ffda87`.
 - Signaling Smoke [42080591331](https://github.com/Reekyi/UpStatus/actions/runs/42080591331): pending at the last check.
 
 Production remains unchanged: `merge_chat_read_receipts(text,jsonb,timestamptz)` is still absent, with seven migrations through `20261027155438`. Keep the production migration as a release dependency; apply only after approved TEST validation and explicit production authorization.
+
+
+## 2026-11-05 14:58 BRT — exact-head refresh after static-regex correction
+
+Normal PR #74 advanced to `019fdef2b14861e3405f3970fc39155393f42640`. The SQL migrations did not change; this commit corrected an over-escaped regular expression in the static regression for the read-receipt migration.
+
+- UpStatus Validate [42080821136](https://github.com/Reekyi/UpStatus/actions/runs/42080821136): in progress at the last check.
+- Signaling Smoke [42080821123](https://github.com/Reekyi/UpStatus/actions/runs/42080821123): queued at the last check.
+- The immediately preceding head `d38b8f1` had Validate success [42080591304](https://github.com/Reekyi/UpStatus/actions/runs/42080591304); its smoke [42080591331](https://github.com/Reekyi/UpStatus/actions/runs/42080591331) was still pending. Do not transfer a result to the newer head.
+
+Fresh branch comparisons:
+- #74 vs master: 622 ahead, 0 behind.
+- #76 vs #75: 102 ahead, 0 behind.
+- #80 vs develop: 33 ahead, 0 behind.
+- #82 vs master: 29 ahead, 0 behind.
+
+All five PRs remain open and Draft. #76 remains a descendant of #75, not an independent merge payload. The QA branch #82 remains untouched.
