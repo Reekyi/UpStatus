@@ -233,3 +233,32 @@ Continue UpStatus release-readiness in https://github.com/Reekyi/UpStatus. First
 - No production SQL write, migration, Edge Function deployment, secret/flag change, userscript publication, PR merge, or destructive operation occurred.
 - Next: inspect completion of Normal Signaling Smoke on exact HEAD `0150ac0`; record its full integration and cleanup logs; then plan product-endpoint rate-limit integration and the Realtime/client cutover without changing production.
 - Keep #74, #75, #76, #80, and #82 Draft while gates remain. Do not edit the QA-owned #82 branch from engineering.
+
+
+## 2026-11-05 10:58 BRT — exact-head refresh and CI checkout hardening
+
+### Current candidate refs and CI
+
+- **Normal PR #74** remains open/Draft on `chore/continuity-foundation`, HEAD `f59cf57d82d171029c081843a655423fa2c1f95a`.
+  - Previous exact runtime head `0150ac0276a55bd32fbb46acc68c15df5b5403d0`: Validate [42032008035](https://github.com/Reekyi/UpStatus/actions/runs/42032008035) and complete Signaling Smoke [42032007996](https://github.com/Reekyi/UpStatus/actions/runs/42032007996) both SUCCESS. The smoke log confirms 14/14 unauthenticated checks, 86/86 authenticated integration checks, Chromium call/voice/screen WebRTC, three-member mesh/teardown, 90 accepted + 1 HTTP 429, distributed rate-limit concurrency, atomic read-receipt concurrency, and fixture cleanup.
+  - Workflow hardening: commit [f868a96](https://github.com/Reekyi/UpStatus/commit/f868a963e2f470070b8e58a6af035c3dc6601eec) pins `actions/checkout` to the reviewed v4 commit SHA and sets `persist-credentials: false`. Static regression assertion was added in `07a5ae1` and corrected for valid regex escaping in [f59cf57](https://github.com/Reekyi/UpStatus/commit/f59cf57d82d171029c081843a655423fa2c1f95a).
+  - Exact-head Validate [42040877440](https://github.com/Reekyi/UpStatus/actions/runs/42040877440) is SUCCESS. Exact-head Signaling Smoke [42040877642](https://github.com/Reekyi/UpStatus/actions/runs/42040877642) is PENDING at this checkpoint; do not infer its result from the previous head.
+- **Team Lite PR #76** remains open/Draft at `578ba8a44dd67401a4bad0db897980c91fea3df5`. Candidate Checks [42024542507](https://github.com/Reekyi/UpStatus/actions/runs/42024542507) completed SUCCESS. Full logs confirm guard preflight, 14/14 unauthenticated checks, 86/86 authenticated checks, Chromium call/voice/screen media, three-member mesh, 90 accepted + 1 HTTP 429, distributed rate-limit concurrency, atomic read-receipt concurrency, fixture cleanup, and version/updater/portal checks.
+- **Team Lite baseline PR #75** remains open/Draft at `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed. #76 is the current signaling candidate and carries the baseline; do not merge both independently.
+- **Continuity PR #80** remains open/Draft at `20fe32c0fc9632239c0728f5a9187cd9750bc8cf`. Validate [42032264419](https://github.com/Reekyi/UpStatus/actions/runs/42032264419) failed at the existing `client signed upload helper missing` assertion after building `3.0.40 / TEST 3.0.40-beta.22`. The PR changes documentation only; do not weaken the validator without reconciling the expected TEST artifact.
+- **Independent QA PR #82** remains open/Draft at `2b9fbf3809c89659eaa978f3cbf83b8dd9685a15`. Validate [42037114517](https://github.com/Reekyi/UpStatus/actions/runs/42037114517) failed at the existing `production updateURL mismatch` assertion. This branch is QA-owned and was not edited by engineering.
+
+### Production Supabase — read-only 10:58 BRT recheck
+
+- Project `dlfvkawaiqduhlazsszm` remains `ACTIVE_HEALTHY`, PostgreSQL 17.11; migration history remains seven entries through `20261027155438`.
+- Read-only `to_regclass`/`to_regprocedure` checks return NULL for `public.upstatus_signal_rate_limits`, `public.consume_upstatus_signal_rate_limit(text, integer, integer)`, and `public.merge_chat_read_receipts(text, jsonb, timestamptz)`.
+- Production trigger `upstatus_messages_broadcast` still invokes `public.upstatus_broadcast_messages()`. Its current SECURITY DEFINER body serializes OLD/NEW with `to_jsonb` and calls `realtime.send(..., 'db_change', ..., false)`; effective EXECUTE remains true for anon and authenticated.
+- Nine backend-owned tables (`chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing`, `users`) have RLS enabled, zero policies, and effective anon/authenticated SELECT/INSERT grants. This is an unnecessary privilege surface; RLS with zero policies does not itself prove direct row access.
+- Security Advisor still reports two WARN categories covering the three trigger functions (anon and authenticated EXECUTE) plus ten INFO RLS-without-policy notices. Performance Advisor returned no findings.
+- Candidate rate limiting remains isolated-test-only: neither real Normal nor Team Lite server template calls `consume_upstatus_signal_rate_limit`. Product endpoint integration and the coordinated Realtime/client cutover remain release blockers.
+
+### Manual and safety gates
+
+- Issue [#78](https://github.com/Reekyi/UpStatus/issues/78) remains OPEN. Real network interruption/recovery without F5, room re-entry, post-reconnect calls, real devices, and installed Normal ↔ Team Lite acceptance remain MANUAL PENDING. No runtime reconnect code changed in this checkpoint.
+- No production SQL write, migration, Edge Function deployment, secret/flag change, userscript publication, merge, or destructive operation occurred.
+- Next: inspect Signaling Smoke [42040877642](https://github.com/Reekyi/UpStatus/actions/runs/42040877642) on exact #74 HEAD; then continue design/implementation of product-endpoint rate limiting and the authenticated Realtime cutover without touching production or the QA-owned #82 branch.
