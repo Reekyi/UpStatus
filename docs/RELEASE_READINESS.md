@@ -2460,5 +2460,5 @@ The shared JavaScript mutation guard (blob `9a88c633789e502380fc81a249bf3f62a894
 
 ### Post-update QA branch state
 
-The append-only QA update above was committed as `10eba8a7deb2e3036131b6ad7b0e299fa036731c`; the verified document blob is `fe887b564a68a5926d38dff99077d2a75606b912`. PR #82 remains open/Draft, unmerged, at this head. GitHub's mergeability recheck returned `mergeable=true`; compare against master is 33 ahead / 0 behind. No workflow run was associated with this documentation commit at the final check. The prior failure `42096117538` belongs to the previous QA head `0fd1877`, not this new commit.
+The immediately preceding checkpoint commit was `10eba8a7deb2e3036131b6ad7b0e299fa036731c` (blob `fe887b564a68a5926d38dff99077d2a75606b912`). At the time of this isolated-project recheck, the QA branch was at `e030a112ef6faab6c54e4170182baebc20a91779` (blob `673bc54066af482475941a3d4c4a5a2da4dbdab2`); GitHub REST reported PR #82 `mergeable=true`, `mergeable_state=clean`, 34 ahead / 0 behind master. No workflow run was associated with `e030a112`; the failure `42096117538` belongs to the older QA head `0fd1877`.
 
