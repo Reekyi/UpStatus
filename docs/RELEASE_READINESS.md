@@ -2748,3 +2748,106 @@ A execução associada ao head atual `b0c0e03fbe820e02404d4ae7d9f83e2a18642e50` 
 - Validate [42122609464](https://github.com/Reekyi/UpStatus/actions/runs/42122609464): SUCCESS.
 - Signaling Smoke [42122609431](https://github.com/Reekyi/UpStatus/actions/runs/42122609431): PENDING, ainda sem job na consulta.
 O novo teste estático de deploy está incluído no `signaling-static.test.mjs`, executado pelo Signaling Smoke. Portanto, aguardar esse run é necessário para validar o contador 16/16 no head atual.
+
+
+## Revalidação independente — 2026-11-05 20:34 BRT
+
+Esta fotografia foi acrescentada após nova leitura do documento QA, comparação dos refs, inspeção dos workflows e consultas SELECT-only nos projetos de produção e isolado. Ela substitui os estados anteriores quando os heads/runs abaixo forem mais recentes.
+
+### Heads e evidência exata de CI
+
+| PR | Head confirmado | Comparação | Evidência atual | Resultado |
+|---|---|---|---|---|
+| #74 Normal | `b0c0e03fbe820e02404d4ae7d9f83e2a18642e50` | 639 ahead / 0 behind de master | Validate [42122609464](https://github.com/Reekyi/UpStatus/actions/runs/42122609464); Smoke [42122609431](https://github.com/Reekyi/UpStatus/actions/runs/42122609431) | **AUTOMATED PASS** nos dois workflows |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | 59 ahead / 0 behind de team-lite-official | Histórico Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) | **HISTORICAL PASS**, superado pelo trabalho de #76 |
+| #76 Team Lite | `561026304756b9a2e5bd2029e59eda630df1b5cd` | 175 ahead / 0 behind de team-lite-official; 116 ahead / 0 behind de #75 | Candidate Checks [42125597354](https://github.com/Reekyi/UpStatus/actions/runs/42125597354), job [127588838635](https://github.com/Reekyi/UpStatus/actions/runs/42125597354) | **FAIL** no último passo de regressões do candidato |
+| #82 QA | `bf2928cf4eaa8f4c942a5bbd38b751578701b848` | 40 ahead / 0 behind de master | Validate [42122684334](https://github.com/Reekyi/UpStatus/actions/runs/42122684334) | **BLOCKED** pelo baseline `production updateURL mismatch` |
+
+#74 permanece aberto/Draft e não mesclado. O job Smoke `127581999363` passou no head exato: 15/15 verificações não autenticadas, 103/103 autenticadas, open voice join/late join por aliases, idempotência, capacidade, owner handoff e corrida owner-leave/late-join, WebRTC call/voice/screen, mesh de três participantes, teardown, rate limit 90 aceitos + 1 HTTP 429, concorrência de rate limit e recibos atômicos. A limpeza das fixtures foi confirmada. O run verde é do head `b0c0e03`, não deve ser atribuído a outro SHA.
+
+#75 continua sendo baseline histórico; #76 é sua continuação, não um merge independente. Nenhum dos quatro PRs (#74/#75/#76/#82) possui review humano submetido ou thread de revisão registrada na consulta desta rodada.
+
+### TEAM-LITE-VOICE-LEAVE — nova falha no CI e risco residual
+
+A correção de saída Team Lite foi fast-forward para a branch da PR #76. O source atual da PR tem blob SHA `5337a5e8c7a8bbe81fdf6870b2aebccc54d521cc`; o harness tem blob SHA `5de3124f6cb2314b05ad13ae2840b0d79b91a535`.
+
+O workflow [42125597354](https://github.com/Reekyi/UpStatus/actions/runs/42125597354) completou:
+- 103/103 verificações autenticadas;
+- open join, late join, idempotência, aliases, capacidade, owner handoff e concorrência;
+- Chromium WebRTC de chamada, voz e tela, mesh e teardown;
+- rate limit, recibos atômicos e migration-layout guard;
+- limpeza das fixtures.
+
+Mas falhou no passo `Check candidate scripts and version metadata`, em `scripts/team-lite-candidate-check.mjs:411`, com a asserção: `failed active leave must retry through signalReleaseVoiceRoom while the room binding remains`. Portanto, #76 **não está verde no head 5610263**.
+
+A inspeção do userscript confirma que `voiceRoomLeave()` agora compartilha uma Promise, aguarda o sinal final e o leave RPC, interrompe o polling, faz logout aguardando o leave e serializa reentrada durante a saída. Porém, a função `signalReleaseVoiceRoom()` ainda limpa `signalVoiceRoomRoomId`, `signalVoiceRoomPrepared` e `signalVoiceRoomCreator` antes de o RPC confirmar sucesso e captura/suprime a falha. Se o fallback de leave também falhar, o cliente perde o identificador necessário para retry. Isso é um risco confirmado por inspeção de código.
+
+A falha da asserção mostra que o harness não observou o fallback esperado; a causa imediata dessa divergência entre o fluxo extraído e o mock ainda não foi isolada. Não classificar como mero falso positivo nem como falha comprovada de runtime sem corrigir/reproduzir o caso. Próximo gate: preservar room ID/prepared state até sucesso confirmado, propagar ou registrar falha, permitir retry idempotente, e testar saída pela UI, logout, falha do primeiro leave, falha do fallback e rejoin. O teste atual chama diretamente a função/harness; ainda é necessária cobertura de UI/browser.
+
+### Deploy de produção
+
+O workflow `.github/workflows/deploy-production.yml` foi reconsultado; blob SHA `f3493d19cb59bb4d9f41eb4ab05d542befa2b8ce`. A inspeção confirma:
+- checkout explícito em `${{ github.sha }}` com action fixada e `persist-credentials: false`;
+- execução somente em `refs/heads/master`;
+- conferência `git rev-parse HEAD == GITHUB_SHA`;
+- project ID esperado `dlfvkawaiqduhlazsszm` comparado ao secret;
+- token de acesso obrigatório;
+- release estável fixada em 3.4.7;
+- Supabase CLI fixado em 2.122.1.
+
+O workflow ainda implanta somente `upstatus`, não o Team Lite. O SHA é o commit de master selecionado no dispatch, não uma allowlist independente de release SHA. As proteções externas do GitHub Environment `production` continuam **NOT VERIFIED**. Nenhum deploy foi executado.
+
+### Projeto Supabase isolado
+
+Projeto `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, região sa-east-1, PostgreSQL 17.11.0.003, 21 migrations até `20261105220323`. `upstatus-signal-test` está ACTIVE v28; `upstatus-signal-e2e-once` ACTIVE v3.
+
+Após o run #76 que falhou no último harness, uma consulta independente SELECT-only encontrou zero linhas em `upstatus_signal_rooms`, `upstatus_signal_room_members`, `upstatus_signal_room_bindings`, `upstatus_signal_events` e `upstatus_signal_rate_limits`. Não foi necessária nem tentada limpeza manual. O workflow da engenharia já havia registrado cleanup verificado.
+
+### Produção Supabase — nova fotografia read-only
+
+Projeto `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, us-west-2, PostgreSQL 17.11.0.002, sete migrations até `20261027155438`.
+
+Continuam ausentes:
+- `public.upstatus_signal_rate_limits`;
+- `public.consume_upstatus_signal_rate_limit(text, integer, integer)`;
+- `public.merge_chat_read_receipts(text, jsonb, timestamptz)`;
+- `public.open_upstatus_signal_voice_room`;
+- `public.leave_upstatus_signal_room`.
+
+As nove tabelas backend-owned (`chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing`, `users`) mantêm RLS ativo, zero policies, FORCE RLS desativado e privilégios efetivos anon/authenticated para SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER e MAINTAIN. `upstatus_visual_config` mantém RLS sem grants de cliente. `realtime.messages` mantém RLS ativo, zero policies e grants SELECT/INSERT/UPDATE para anon/authenticated. Esses grants são superfície excessiva; não constituem, isoladamente, prova de leitura/escrita de linhas com RLS ativo e sem policies.
+
+A sessão SQL continua `current_user=postgres`, `session_user=postgres`; postgres não é superuser e não é membro de `supabase_admin`. Os default ACLs de postgres continuam concedendo aos papéis cliente privilégios de tabelas, EXECUTE de funções e SELECT/UPDATE/USAGE de sequences em `public` e `storage`. Os defaults de `supabase_admin` continuam concedendo os mesmos tipos de privilégios em `public`, `graphql` e `graphql_public`. Defaults de schemas gerenciados `extensions` e `realtime` também foram listados, mas os grants observados ali são de postgres/dashboard_user, não anon/authenticated. ACL-02 continua **BLOCKED**, especialmente para o owner `supabase_admin`.
+
+As três funções `upstatus_broadcast_messages()`, `upstatus_broadcast_remote_state()` e `upstatus_broadcast_users()` continuam SECURITY DEFINER, `search_path=public`, EXECUTE para anon/authenticated/service_role. O trigger `upstatus_messages_broadcast` continua AFTER INSERT/UPDATE/DELETE em `public.messages`; a função serializa OLD/NEW com `to_jsonb` e publica `db_change` com `private=false`. Os triggers de status de usuários e estado remoto também continuam em tópicos públicos. RT-01 permanece bloqueador.
+
+Security Advisor observado em 2026-11-05 23:36:47 UTC: 3 WARN para SECURITY DEFINER executável por anon, 3 WARN para authenticated e 10 INFO de RLS sem policies. Performance e Health Advisors sem findings. Remediações: [anon SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable), [authenticated SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable), [RLS sem policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
+
+### Edge Functions de produção
+
+A lista atual contém 38/38 funções ACTIVE; todas reportam `verify_jwt=false`, o que não prova ausência de autenticação própria. Versões e source hashes principais permanecem:
+- `upstatus`: v480, SHA `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`;
+- `upstatus-team-lite`: v15, SHA `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`;
+- `upstatus-screen-share-3-1-1-beta10`: v6, SHA `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29`;
+- `upstatus-backup-327-pre328`: v1, entrypoint `index.ts` com zero bytes, SHA `3d6c4f8e5f777830ea720ab2938cb023b5a4e4c7d26f3fc02b926ce0e4d0dd90`.
+
+A função de sinalização autenticada continua ausente da lista de produção. O backup vazio não foi exercitado nem desativado; identificar consumers e rollback antes de qualquer ação.
+
+### Issues e aceitação manual
+
+- [#78](https://github.com/Reekyi/UpStatus/issues/78) permanece aberta, 10 comentários, critérios de aceite ainda desmarcados. Perda real de internet por ~10 segundos, recuperação sem F5, reentrada, chamadas novas, áudio/microfone/tela reais e interoperabilidade Tampermonkey Normal ↔ Team Lite continuam **MANUAL PENDING**.
+- [#79](https://github.com/Reekyi/UpStatus/issues/79) permanece aberta, 63 comentários. O corpo principal ainda usa a fotografia de 2026-11-03. O comentário mais recente da engenharia dizia que Candidate Checks #42125597354 estava em andamento; esse run agora terminou **FAIL** no teste de fallback acima. O corpo/checklist precisa ser atualizado pelo responsável, mas esta auditoria não alterou a issue.
+
+### Próximos gates
+
+1. Corrigir o fallback de leave Team Lite sem perder room ID/retry context e fazer Candidate Checks verde no head atualizado.
+2. Cobrir saída pela UI, logout, falha de RPC e reentrada com browser harness.
+3. Implementar `Retry-After` no HTTP 429 e integrar o rate limiter nos endpoints reais.
+4. Manter RT-01 bloqueado até eliminar o broadcast público de conteúdo completo e validar cutover dos clientes legados.
+5. Validar migrations oficiais de recibos, rate limit, open/leave e ACL no ambiente autorizado de TEST; obter caminho administrativo suportado para `supabase_admin`.
+6. Rever escopo de default ACL em schemas gerenciados antes de qualquer rollout.
+7. Completar testes físicos da #78, inventário das 35 Edge Functions restantes e investigação do backup vazio.
+8. Obter reviews humanos e revisar a ancestralidade extensa de #74/#76.
+
+### Segurança e execução desta rodada
+
+Todas as consultas Supabase desta rodada foram SELECT-only. O run #42125597354 foi iniciado pela engenharia, não por esta auditoria; seu log confirma uso do projeto isolado permitido, opt-in explícito de mutação e cleanup. A auditoria confirmou zero linhas residuais nas tabelas de fixtures. Nenhum workflow foi disparado pela QA. Nenhuma escrita em produção, migration, deploy, alteração de secret/flag/role, publicação de userscript, merge ou operação destrutiva foi realizada. A única escrita desta rodada é este registro documental na branch QA dedicada.
