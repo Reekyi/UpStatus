@@ -10,6 +10,8 @@ on:
       - "ycaro.html"
       - "scripts/team-lite-candidate-check.mjs"
       - "scripts/test-chat-read-receipts.mjs"
+      - "scripts/assert-isolated-supabase.mjs"
+      - "scripts/isolation-guard.test.mjs"
       - "scripts/test-signal-rate-limit.mjs"
       - "supabase/migrations/**"
       - "src/server/index.template.ts"
@@ -41,20 +43,26 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
+      - name: Verify isolated Supabase mutation guard
+        run: |
+          node --check scripts/assert-isolated-supabase.mjs
+          node --check scripts/isolation-guard.test.mjs
+          node scripts/isolation-guard.test.mjs
       - name: Test authenticated signaling adapter
         run: node scripts/signaling-transport.test.mjs
       - name: Test isolated signaling endpoint authentication
         env:
           UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
         run: node scripts/test-signaling-endpoint.mjs
-      - name: Run authenticated isolated integration and browser tests when secret is configured
+      - name: Run authenticated isolated integration and browser tests
         env:
           SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_SIGNAL_ALLOW_MUTATION: "1"
         run: |
           if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "SKIP: UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY is not configured; authenticated HTTP and browser tests were not run."
-            exit 0
+            echo "::error::UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY is required; refusing to skip isolated fixture tests."
+            exit 1
           fi
           npm install --no-save --package-lock=false playwright
           npx playwright install --with-deps chromium
@@ -63,11 +71,13 @@ jobs:
         env:
           SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_SIGNAL_ALLOW_MUTATION: "1"
         run: node scripts/test-signal-rate-limit.mjs
       - name: Verify atomic chat read-receipt concurrency
         env:
           SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_SIGNAL_ALLOW_MUTATION: "1"
         run: node scripts/test-chat-read-receipts.mjs
       - name: Check candidate scripts and version metadata
         run: node scripts/team-lite-candidate-check.mjs
