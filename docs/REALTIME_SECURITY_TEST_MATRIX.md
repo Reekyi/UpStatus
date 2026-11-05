@@ -162,3 +162,12 @@ The authenticated signaling suite currently verifies malformed JSON, oversized r
 - The isolated project migration inventory includes `20261105220323 open_voice_room_membership_candidate`. Production does not contain either voice membership RPC; the candidate transport remains default-off. This is isolated candidate evidence, not production readiness.
 - **Still pending:** real browser/Tampermonkey network-loss recovery without F5, microphone/display-capture permissions, and live Normal ↔ Team Lite interoperability. The physical recovery criteria in issue #78 remain open.
 - **RT-09 remains PARTIAL:** the 429 response currently has no `Retry-After` header. Add and test an explicit conservative retry interval before treating the HTTP contract as complete.
+
+
+### Normal exact-head validation completion — 2026-11-05
+
+- Normal runtime head `73c19d5a890d39ee9524c1fb5042b7f6ffb7f53b`: Validate [42120068532](https://github.com/Reekyi/UpStatus/actions/runs/42120068532) and Signaling Smoke [42120068577](https://github.com/Reekyi/UpStatus/actions/runs/42120068577) both completed SUCCESS.
+- Full smoke log confirms 14/14 static regression groups, 14/14 unauthenticated endpoint checks, **103/103 authenticated integration checks**, open voice late join/alias/idempotency/capacity/owner-handoff/race/last-member cleanup, Chromium call/voice/screen WebRTC with remote tracks, three-member mesh, peer/media teardown, fixture cleanup, 90 accepted + 1 HTTP 429, distributed rate-limit concurrency, and atomic read-receipt concurrency.
+- The current PR #74 branch head is now `fd55588379c6a35ae4817ddafd556a8e8728997f` after documentation-only commits `2f0c6ac` and `fd55588`. No runtime or workflow-input file changed after the validated runtime head, so the exact runtime smoke evidence remains applicable. The Validate workflow ignores Markdown/docs.
+- Team Lite #76 exact head `4178e54654b1bd2c06516fba9edea17d779b9ecd` independently passed Candidate Checks [42119919319](https://github.com/Reekyi/UpStatus/actions/runs/42119919319), also with 103/103 authenticated checks and the same open-join/WebRTC/rate-limit/read-receipt gates.
+- RT-09 remains PARTIAL because the 429 response still lacks `Retry-After`, and the distributed limiter is not integrated into the deployed product endpoints. Manual network/device/cross-client acceptance remains pending.
