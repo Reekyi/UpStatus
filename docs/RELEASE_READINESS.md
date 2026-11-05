@@ -2714,3 +2714,24 @@ Próximos gates:
 8. Obter reviews humanos e revisar a ancestralidade extensa do #74.
 
 Nenhuma escrita em produção, migration, deploy, merge, release, publicação de userscript, alteração de secret/flag/role ou operação destrutiva foi realizada. As consultas Supabase foram SELECT-only. Não foram executados testes mutáveis pela auditoria.
+
+
+## Correção de fotografia — 2026-11-05: novo head Normal e hardening do deploy
+
+Após o checkpoint anterior, a engenharia avançou novamente a PR #74:
+
+- **Head atual #74**: `2f226e11cbe7c19fd83cc5a72940eaf93bf274d8`, 638 commits à frente de master e zero atrás; 59 arquivos alterados; PR aberta e Draft.
+- Commit intermediário [1495716](https://github.com/Reekyi/UpStatus/commit/1495716cf3613c0be19a30a31ddd1ce2e710eaf1) adicionou hardening a `.github/workflows/deploy-production.yml`:
+  - checkout explícito em `${{ github.sha }}`;
+  - execução permitida somente em `refs/heads/master`;
+  - validação de `git rev-parse HEAD == GITHUB_SHA`;
+  - project ID esperado fixado em `dlfvkawaiqduhlazsszm`, comparado ao secret `SUPABASE_PROJECT_ID`;
+  - exigência de `SUPABASE_ACCESS_TOKEN`;
+  - release estável travada em 3.4.7;
+  - Supabase CLI fixado em 2.122.1 e action de setup fixada por SHA.
+- O workflow continua implantando somente a Edge Function `upstatus`; não faz deploy coordenado de Team Lite.
+- Commit [2f226e1](https://github.com/Reekyi/UpStatus/commit/2f226e11cbe7c19fd83cc5a72940eaf93bf274d8) acrescentou uma regressão estática no `scripts/signaling-static.test.mjs`, blob SHA `0fda7903e2a5b72f966ee58500a1a3866c77b706`, para conferir os guards de branch, SHA, projeto, credenciais, versão estável e CLI antes do deploy.
+- O Validate [42122463533](https://github.com/Reekyi/UpStatus/actions/runs/42122463533) passou no commit intermediário `1495716`; o Smoke [42122463556](https://github.com/Reekyi/UpStatus/actions/runs/42122463556) estava PENDING. O head mais novo `2f226e11` ainda não apresentava workflow associado na última consulta. O novo guard estático precisa passar no Smoke do head atual.
+- O workflow agora verifica branch master, checkout igual ao SHA despachado, project ID e versão da CLI. Ainda não há uma allowlist independente de release SHA; o SHA é o commit de master escolhido no dispatch e o gate de versão é 3.4.7. As proteções externas de aprovação do GitHub Environment `production` não foram inspecionadas. Nenhum deploy foi executado.
+
+A correção acima encerra a pendência anterior de ausência de branch/project/CLI guards no YAML, mas não altera o bloqueio de produção: migrations, Realtime, ACL, integração de rate limit, RPCs e validação manual continuam pendentes. TEAM-LITE-VOICE-LEAVE também permanece aberto no head atual #76.
