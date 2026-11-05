@@ -2026,3 +2026,8 @@ It is manual and uses environment `production`, and validates stable version 3.4
 ### Safety record
 
 This revalidation used GitHub read APIs, exact-head workflow steps/logs, candidate source reads, Supabase project/migration/function/advisor metadata, and SELECT-only PostgreSQL catalog queries. All 38 Edge Function bundles were fetched for static inventory; no function endpoint was probed. No workflow was dispatched by QA and no fixture script was run. No production SQL write, migration, Edge deployment, secret/flag change, userscript publication, PR merge, destructive operation, role switch, role-membership change or engineering-branch edit occurred. The only repository write is this append-only checkpoint on the dedicated QA branch, guarded by the freshly fetched file blob SHA. No completion percentage is reported.
+
+
+### QA validation after the 17:30 UTC checkpoint
+
+The documentation commit `d688e7dff169cb79212f62e56d6e34f558574de0` triggered [Validate run 42075999388](https://github.com/Reekyi/UpStatus/actions/runs/42075999388) on the updated #82 head. Job `127416221826` failed only at `scripts/validate.mjs` with `VALIDATION FAILED: production updateURL mismatch`. The checkout completed successfully; the failing step was the existing build validator. This PR still changes only `docs/RELEASE_READINESS.md`. Do not weaken the validator to manufacture a pass.
