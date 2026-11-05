@@ -768,3 +768,61 @@ Next safe engineering work:
 ### Post-update validation of the refreshed continuity checkpoint
 
 After the two documentation commits above, PR #80 is now at HEAD `8016e211fe89ddf4488662509d68b6cc4e2a92c5`, 40 commits ahead / 0 behind `develop`. Validate [42108753435](https://github.com/Reekyi/UpStatus/actions/runs/42108753435) completed and reproduced the same baseline assertion `client signed upload helper missing`; no validator was weakened. The failure is not caused by the handoff content. The #80 branch remains Draft. The independent QA branch #82 remains untouched.
+
+
+## Engineering checkpoint — 2026-11-05 19:23 BRT
+
+This checkpoint supersedes earlier candidate-head and open-join notes where they conflict. Exact refs were re-fetched from GitHub and production Supabase was queried read-only.
+
+### Current PR heads and CI
+
+- **Normal #74** — branch `chore/continuity-foundation`, source head `73c19d5a890d39ee9524c1fb5042b7f6ffb7f53b` at start of this checkpoint. Validate [42120068532](https://github.com/Reekyi/UpStatus/actions/runs/42120068532) passed. Signaling Smoke [42120068577](https://github.com/Reekyi/UpStatus/actions/runs/42120068577) was still in progress at the last poll; the job had completed static harness checks and 14/14 unauthenticated endpoint checks, while authenticated/browser and concurrency steps remained in progress/pending. Two documentation-only commits were then added to this branch: [2f0c6ac](https://github.com/Reekyi/UpStatus/commit/2f0c6ac4dfc284cf4fdb44f9a4f43548e43613f2) (security matrix) and [fd55588](https://github.com/Reekyi/UpStatus/commit/fd55588379c6a35ae4817ddafd556a8e8728997f) (cutover plan). They do not change runtime or workflow inputs; the successful Validate and in-progress Smoke refer to the preceding runtime head.
+- **Team Lite #76** — branch `team-lite/signaling-transport-candidate`, exact head `4178e54654b1bd2c06516fba9edea17d779b9ecd`. Candidate Checks [42119919319](https://github.com/Reekyi/UpStatus/actions/runs/42119919319) passed. Full job logs show **103/103 authenticated integration checks**, including open voice late join through both logical aliases, idempotent repeated join, no pending invitation, accepted roster, owner departure/handoff, departed-member rejoin, last-member closure/binding cleanup, owner-departure/late-join race, server-side capacity, WebRTC call/voice/screen, three-member mesh, teardown, 90 accepted + 1 HTTP 429, distributed rate-limit concurrency, atomic read-receipt concurrency, and migration-layout checks. Candidate/version/updater/portal checks passed.
+- **Team Lite baseline #75** — exact head `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed. #76 is 104 commits ahead and zero behind #75; it is the descendant candidate, not an independent merge.
+- **Continuity #80** — exact head at start `0c3374aec9e26a84c23aeff41c8fa458884757bb`; last Validate [42108902345](https://github.com/Reekyi/UpStatus/actions/runs/42108902345) failed on the inherited develop baseline assertion `client signed upload helper missing` after building TEST 3.0.40-beta.22. No validator bypass was introduced.
+- **Independent QA #82** — exact head `9fc5bfd3ff72ab4b1c44a9b0a0740432ae20e27d`; Validate [42114185476](https://github.com/Reekyi/UpStatus/actions/runs/42114185476) failed on the inherited master baseline assertion `production updateURL mismatch` after building 3.4.7. QA branch remains untouched.
+
+All five PRs remain open and Draft. Current branch comparisons: #74 is 631 commits ahead / 0 behind master; #76 is 163 ahead / 0 behind team-lite-official and 104 ahead / 0 behind #75; #80 is 42 ahead / 0 behind develop; #82 is 36 ahead / 0 behind master. #74's 631-commit ancestry remains a separate integration-review gate.
+
+### VOICE-OPEN-JOIN — implementation now present in candidates
+
+The earlier note that no open-join path existed is superseded for the current candidate sources. The Normal and Team Lite candidates now contain:
+- Authenticated `POST /room/open`, deriving the caller from the validated `x-upstatus-token` session and accepting only the two voice logical IDs.
+- `open_upstatus_signal_voice_room(text,text,integer)`, a service-role-only SECURITY INVOKER RPC with empty search_path. It validates the user, serializes Normal/Team Lite aliases with an advisory transaction lock, locks the active room row, enforces a maximum of 32 accepted members, and joins without invitation/acceptance.
+- `leave_upstatus_signal_room(text,text)`, which serializes against room operations, removes the departing member, transfers owner control to the earliest remaining accepted member, and closes/cleans the room when the last member leaves.
+- Voice uses open membership; one-to-one call invitations remain separate.
+
+The isolated migration inventory contains `20261105220323 open_voice_room_membership_candidate`. The isolated endpoint is still the only deployed candidate environment. Production does not contain either RPC. Keep the authenticated transport disabled by default until exact-head Normal Smoke and all manual/cutover gates pass.
+
+### Production Supabase — fresh read-only confirmation
+
+Project `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11, current SQL session `postgres`, seven migrations through `20261027155438`, 38 ACTIVE Edge Functions. Core versions remain `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15, and legacy screen-share beta10 v6. No production `upstatus-signal` function exists.
+
+Production still lacks:
+- `public.open_upstatus_signal_voice_room(text,text,integer)`;
+- `public.leave_upstatus_signal_room(text,text)`;
+- `public.merge_chat_read_receipts(text,jsonb,timestamptz)`;
+- `public.consume_upstatus_signal_rate_limit(text,integer,integer)`;
+- `public.upstatus_signal_rate_limits`.
+
+The nine backend-owned tables still have RLS enabled with no policies and effective anon/authenticated SELECT/INSERT/TRUNCATE/MAINTAIN grants; `upstatus_visual_config` has no client table grants. The three broadcast functions remain SECURITY DEFINER, `search_path=public`, and executable by anon/authenticated. The messages trigger still publishes full OLD/NEW rows to public `db_change`. Security Advisor: 3 anon EXECUTE WARN, 3 authenticated EXECUTE WARN, 10 RLS-without-policy INFO; performance and health advisors have no findings.
+
+Default ACLs remain explicit for `postgres` in `public` and `storage`, and `supabase_admin` in `public`, `graphql`, and `graphql_public`. The SQL session is not superuser and is not a member of `supabase_admin`; no role escalation or workaround was attempted.
+
+### Remaining release gates
+
+1. Complete Normal #74 Smoke on the exact runtime head; inspect full logs.
+2. Add/verify `Retry-After` on HTTP 429; current isolated endpoint returns 429 without that header.
+3. Reconcile production/official TEST source baselines before any backend deployment; current candidate migrations are not in production.
+4. Validate read-receipt and voice-membership migrations in official TEST before any dependent server cutover.
+5. Integrate the distributed limiter into both real product endpoints; current product templates do not call the limiter RPC.
+6. Replace or safely retire public Realtime full-row broadcasts while preserving legacy compatibility.
+7. Review default ACL scope and obtain an authorized Supabase-supported path for `supabase_admin`.
+8. Complete the route-level auth/owner/consumer/rollback inventory for all Edge Functions and investigate the active backup with an empty entrypoint.
+9. Add clean-database reproducibility for SQL candidate migrations; current CI exercises the persistent isolated project and does not apply the SQL probe set from scratch.
+10. Perform real Tampermonkey/device/network recovery tests, including no-F5 re-entry, new inbound/outbound calls, repeated drops, microphone/screen capture, and live Normal ↔ Team Lite.
+11. Review #74's 631-commit ancestry and resolve #80/#82 inherited validator baseline mismatches without weakening validation.
+
+### Safety
+
+This checkpoint used GitHub read APIs, source/doc reads, workflow job steps/logs, Supabase project/migration/function metadata, advisor results, and SELECT-only production catalog queries. The only writes were documentation commits on the existing candidate #74 branch and this handoff on #80. No fixture-mutating script or workflow was run by this checkpoint. No production SQL write, migration, Edge Function deployment, secret/flag/role change, userscript publication, merge, release, or destructive operation occurred.
