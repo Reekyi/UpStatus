@@ -13,6 +13,8 @@ on:
       - "scripts/chat-regression.test.mjs"
       - "scripts/test-chat-read-receipts.mjs"
       - "scripts/test-signal-rate-limit.mjs"
+      - "scripts/assert-isolated-supabase.mjs"
+      - "scripts/isolation-guard.test.mjs"
       - "supabase/migrations/**"
       - "src/server/index.template.ts"
       - "scripts/signaling-transport.test.mjs"
@@ -26,8 +28,8 @@ on:
       - "docs/REALTIME_SIGNALING_PROTOTYPE.md"
   workflow_dispatch:
 
-# The isolated Supabase test project is shared by push and pull_request runs.
-# Serialize the fixture-mutating integration suite to avoid concurrent ID allocation.
+# Normal and Team Lite share the same isolated Supabase fixture project.
+# Serialize fixture-mutating suites to prevent cross-product fixture races.
 concurrency:
   group: upstatus-signaling-isolated-tests
   cancel-in-progress: false
@@ -57,20 +59,24 @@ jobs:
           node scripts/signaling-envelope.test.mjs
           node --check scripts/signaling-transport.test.mjs
           node scripts/signaling-transport.test.mjs
+          node --check scripts/assert-isolated-supabase.mjs
+          node --check scripts/isolation-guard.test.mjs
+          node scripts/isolation-guard.test.mjs
           node --check scripts/test-chat-read-receipts.mjs
           node --check scripts/test-signal-rate-limit.mjs
       - name: Run unauthenticated endpoint checks against isolated project
         env:
           UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
         run: node scripts/test-signaling-endpoint.mjs
-      - name: Run authenticated tests when isolated test secret is configured
+      - name: Run authenticated isolated integration and browser tests
         env:
           SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_SIGNAL_ALLOW_MUTATION: "1"
         run: |
           if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "SKIP: UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY is not configured; authenticated HTTP tests were not run."
-            exit 0
+            echo "::error::UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY is required; refusing to skip isolated fixture tests."
+            exit 1
           fi
           npm install --no-save --package-lock=false playwright
           npx playwright install --with-deps chromium
@@ -79,9 +85,11 @@ jobs:
         env:
           SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_SIGNAL_ALLOW_MUTATION: "1"
         run: node scripts/test-signal-rate-limit.mjs
       - name: Verify atomic chat read-receipt concurrency
         env:
           SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_SIGNAL_ALLOW_MUTATION: "1"
         run: node scripts/test-chat-read-receipts.mjs

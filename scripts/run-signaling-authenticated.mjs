@@ -13,14 +13,14 @@
 import { createHash, randomBytes } from "node:crypto";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { verifyIsolatedSupabaseMutationTarget } from "./assert-isolated-supabase.mjs";
 
-const EXPECTED_ORIGIN = "https://bfpjtfqlnypisxljoxkb.supabase.co";
-const projectUrl = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-if (projectUrl !== EXPECTED_ORIGIN || !serviceKey) {
-  console.error("Refusing to run: set SUPABASE_URL to the isolated test project and provide its service-role key locally.");
-  process.exit(2);
-}
+const projectUrl = await verifyIsolatedSupabaseMutationTarget({
+  baseUrl: process.env.SUPABASE_URL,
+  serviceKey,
+  allowMutation: process.env.UPSTATUS_SIGNAL_ALLOW_MUTATION,
+});
 const api = projectUrl + "/rest/v1";
 const headers = { apikey: serviceKey, authorization: "Bearer " + serviceKey, "content-type": "application/json" };
 
@@ -109,7 +109,7 @@ try {
   console.log("Temporary test fixtures created in the isolated project. Session tokens will not be printed.");
   const env = {
     ...process.env,
-    UPSTATUS_SIGNAL_URL: EXPECTED_ORIGIN + "/functions/v1/upstatus-signal-test",
+    UPSTATUS_SIGNAL_URL: projectUrl + "/functions/v1/upstatus-signal-test",
     UPSTATUS_SIGNAL_ALLOW_MUTATION: "1",
   };
   for (const user of users) {
