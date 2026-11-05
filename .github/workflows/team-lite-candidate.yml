@@ -12,8 +12,10 @@ on:
       - "scripts/test-chat-read-receipts.mjs"
       - "scripts/assert-isolated-supabase.mjs"
       - "scripts/isolation-guard.test.mjs"
+      - "scripts/migration-layout.test.mjs"
       - "scripts/test-signal-rate-limit.mjs"
       - "supabase/migrations/**"
+      - "supabase/test-migrations/**"
       - "src/server/index.template.ts"
       - "src/server/team-lite-index.template.ts"
       - "supabase/migrations/**"
@@ -79,5 +81,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
           UPSTATUS_SIGNAL_ALLOW_MUTATION: "1"
         run: node scripts/test-chat-read-receipts.mjs
+      - name: Verify test migrations stay outside Supabase CLI discovery
+        run: node scripts/migration-layout.test.mjs
       - name: Check candidate scripts and version metadata
         run: node scripts/team-lite-candidate-check.mjs
