@@ -2609,3 +2609,108 @@ This checkpoint used GitHub read APIs, exact PR refs, source reads, workflow job
 - [QA Validate 42105592944](https://github.com/Reekyi/UpStatus/actions/runs/42105592944)
 - [Supabase Advisor — anon SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable) · [authenticated SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) · [RLS without policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
 - [Supabase Realtime Authorization](https://supabase.com/docs/guides/realtime/authorization)
+
+
+## Auditoria independente — 2026-11-05: open voice join, lifecycle e revalidação de produção
+
+### Heads e workflows conferidos
+
+- **PR #74 Normal**: head atual `4c9c1ffac1b1cafd630e6f52337bff33788170e1`, branch `chore/continuity-foundation`, 636 commits à frente de master e zero atrás; 58 arquivos alterados; Draft e aberta. Validate [42122093281](https://github.com/Reekyi/UpStatus/actions/runs/42122093281) passou. Smoke [42122093257](https://github.com/Reekyi/UpStatus/actions/runs/42122093257) estava PENDING, sem job disponível na consulta.
+- O último head com runtime validado é `73c19d5a890d39ee9524c1fb5042b7f6ffb7f53b). Seu Signaling Smoke [42120068577](https://github.com/Reekyi/UpStatus/actions/runs/42120068577) e Validate [42120068532](https://github.com/Reekyi/UpStatus/actions/runs/42120068532) passaram. Os commits posteriores até `4c9c1ff` são documentais; o novo Smoke do head documental ainda deve concluir antes de declarar aprovação exata do head atual.
+- **PR #76 Team Lite**: head `4178e54654b1bd2c06516fba9edea17d779b9ecd`, 163 commits à frente de `team-lite-official`, zero atrás; 104 commits à frente de #75; 25 arquivos alterados; Draft e aberta. Candidate Checks [42119919319](https://github.com/Reekyi/UpStatus/actions/runs/42119919319) passou.
+- **PR #75 baseline**: head `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; Candidate Checks histórico [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passou.
+- **PR #82 QA**: head `9fc5bfd3ff72ab4b1c44a9b0a0740432ae20e27d`, 36 commits à frente de master e zero atrás, um único arquivo alterado; Draft e aberta. Validate [42114185476](https://github.com/Reekyi/UpStatus/actions/runs/42114185476) falhou no baseline herdado `production updateURL mismatch`. Nenhum contorno foi feito.
+- As quatro PRs permanecem abertas e Draft. Não há reviews submetidos nem threads de revisão nos PRs #74, #75, #76 e #82.
+
+### VOICE-OPEN-JOIN: implementação candidata confirmada
+
+A incompatibilidade de sala aberta registrada na #78 recebeu implementação candidata nos dois produtos:
+
+- Normal #74 e Team Lite #76 usam `POST /room/open`.
+- O endpoint deriva o nome do usuário da sessão UpStatus autenticada, valida os dois logical IDs permitidos e chama `open_upstatus_signal_voice_room` por service role.
+- A migration `20261105190000_open_voice_room_membership.sql` cria as RPCs de abertura/entrada e saída. A abertura usa advisory lock, lock de linha, associação `accepted` sem convite, aliases compartilhados Normal/Team Lite, limite de 32 membros e idempotência. A saída transfere o owner ao membro aceito mais antigo e fecha/remove aliases quando o último membro sai.
+- No projeto isolado, `open_upstatus_signal_voice_room` e `leave_upstatus_signal_room` são SECURITY INVOKER, usam `search_path` vazio e têm EXECUTE apenas para `service_role`; anon/authenticated não executam as RPCs.
+- O projeto isolado `bfpjtfqlnypisxljoxkb` está ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, com 21 migrations; a última é `20261105220323 open_voice_room_membership_candidate`. `upstatus-signal-test` está ACTIVE v28, source SHA `e26011f026c74821a1e05bf314340604d715820ab864b63d66fd481d93d00d4f`; `upstatus-signal-e2e-once` está ACTIVE v3.
+- Comparei a função implantada no projeto isolado com o source da branch #74: `index.ts` coincide após normalização de whitespace; `body.mjs` e `legacy-envelope.mjs` coincidem byte a byte. Isso confirma a paridade do endpoint usado nos testes, não uma implantação em produção.
+- Normal runtime head `73c19d5`: 103/103 verificações autenticadas; testes de late join pelos aliases Normal/Team Lite, idempotência, ausência de convite, rejoin, capacidade, owner handoff, corrida owner-leave/late-join, fechamento e limpeza passaram. Chromium validou WebRTC call/voice/screen, mesh de três participantes e teardown; rate limit 90 aceitos + 1 HTTP 429 e concorrência de recibos passaram.
+- Team Lite head `4178e546`: Candidate Checks confirmou 103/103 verificações autenticadas, late join, aliases, idempotência, owner handoff/race, capacidade, fechamento, WebRTC, rate limit, recibos e limpeza.
+- VOICE-OPEN-JOIN deixa de ser bloqueador de desenho nos candidatos. A issue #78 continua aberta para testes manuais de perda real de rede, recuperação sem F5, reentrada, chamadas novas, microfone/tela reais e interoperabilidade instalada Normal ↔ Team Lite.
+
+### Novo achado de código: Team Lite não libera a associação ao sair de uma sala ativa
+
+**TEAM-LITE-VOICE-LEAVE — bloqueador para habilitar o transporte no Team Lite.**
+
+No userscript Team Lite da PR #76, blob SHA `516b22afba2e8bd05871993be702c47ea4cca2d8`, a função `voiceRoomLeave()` tem este fluxo:
+
+- Quando `wasActive` é verdadeiro, envia `voiceRoomSend('leave', ...)`.
+- Só chama `signalReleaseVoiceRoom()` no ramo `else`, quando a sala não estava ativa.
+- O ramo ativo não chama `signalReleaseVoiceRoom()`, `signalStopCallPolling()` nem `signalTransport.leave(room)`.
+
+A função `signalReleaseVoiceRoom()` existe e interrompe o poller, limpa o ID local e chama `POST /room/leave`, mas não é usada pelo caminho normal de saída ativa. O logout Team Lite delega a saída à mesma função, portanto herda o risco.
+
+Consequências prováveis: a associação `accepted` permanece no servidor, o owner não é transferido, a sala não fecha quando deveria, o poller continua ativo e a associação residual pode consumir capacidade ou manter leitura de eventos depois da saída/logout. Isso é inspeção de código, não observação de produção.
+
+A cobertura atual não detecta o problema:
+- `scripts/team-lite-candidate-check.mjs` verifica a existência de `signalReleaseVoiceRoom()`, de uma chamada `await signalReleaseVoiceRoom()` e de `signalTransport.leave(room)`, mas não exige a chamada no ramo `wasActive`.
+- O browser harness limpa a sala chamando diretamente a API `/room/leave` no bloco final; não aciona a saída real da UI Team Lite.
+- O Normal faz a liberação no caminho ativo, aguardando os sinais pendentes e chamando `signalTransport.leave(leavingRoomId)`.
+
+**Correção exigida:** fazer o caminho ativo do Team Lite aguardar os sinais finais, parar o poller, limpar o estado local e chamar a RPC de leave; acrescentar teste de UI/logout que comprove remoção da associação, transferência de owner e fechamento do último membro. Endurecer a asserção estática para verificar especificamente o ramo ativo.
+
+### RT-09: resposta 429 sem Retry-After
+
+O endpoint isolado limita eventos a 90/minuto e leituras a 240/minuto. Quando `rateLimit()` retorna falso, a rota responde HTTP 429 com `{ error: "Rate limit exceeded" }`, mas o helper de resposta não inclui `Retry-After`. O cliente não recebe indicação explícita de quando tentar novamente. A implementação candidata deve calcular e enviar o tempo de espera, e testar o cabeçalho. O rate limiter também continua sem integração nos endpoints reais implantados.
+
+### Snapshot de fixtures do projeto isolado
+
+Uma consulta SELECT-only encontrou, durante a rodada, um conjunto ativo com sufixo `9bc23d87851e`: quatro usuários de teste, quatro sessões, dez salas, treze associações, dois eventos e duas salas ativas no snapshot detalhado. Esse sufixo não apareceu nos logs dos dois runs concluídos inspecionados. Pode pertencer a outra execução concorrente; a origem não foi atribuída. **Nenhuma limpeza foi tentada** para não interferir em uma execução possivelmente ativa. Os logs dos runs concluídos continuam registrando a limpeza das próprias fixtures, mas não se declara que o projeto isolado esteja globalmente vazio.
+
+### Produção: fotografia permanece bloqueada
+
+Projeto `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, região us-west-2, PostgreSQL 17.11.0.002, sete migrations até `20261027155438`.
+
+Continuam ausentes:
+- `upstatus_signal_rate_limits`
+- `consume_upstatus_signal_rate_limit`
+- `merge_chat_read_receipts`
+- `open_upstatus_signal_voice_room`
+- `leave_upstatus_signal_room`
+
+As nove tabelas backend-owned continuam com RLS habilitado, zero policies e privilégios efetivos excessivos para anon/authenticated (SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER e MAINTAIN). `upstatus_visual_config` não tem grants de cliente. `realtime.messages` mantém RLS ativo, zero policies e grants de SELECT/INSERT/UPDATE para os papéis cliente.
+
+Os default ACLs continuam concedendo privilégios de cliente: postgres nos schemas `public` e `storage`; supabase_admin em `public`, `graphql` e `graphql_public`. O ACL padrão de funções de postgres ainda inclui EXECUTE para PUBLIC. A sessão administrativa continua `postgres`, sem superuser e sem membership em `supabase_admin`; ACL-02 segue bloqueado para o owner supabase_admin.
+
+As três funções de broadcast continuam SECURITY DEFINER, `search_path=public`, EXECUTE para anon/authenticated/service_role. O trigger de `public.messages` continua serializando OLD/NEW com `to_jsonb` e publicando `db_change` com `private=false`. RT-01 permanece bloqueador.
+
+Security Advisor observado em 2026-11-05 às 22:30:38 UTC: três WARN de SECURITY DEFINER executável por anon, três WARN para authenticated e dez INFO de RLS sem policies. Performance e Health Advisors sem findings.
+
+### Edge Functions de produção
+
+As 38 funções continuam ACTIVE e reportam `verify_jwt=false`; isso não prova ausência de autenticação própria. As três funções principais foram inspecionadas e os bundles incorporados foram decodificados:
+
+| Função | Edge version | Userscript | Source SHA |
+|---|---:|---|---|
+| `upstatus` | 480 | 3.4.7 | `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd` |
+| `upstatus-team-lite` | 15 | 3.4.30 | `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb` |
+| `upstatus-screen-share-3-1-1-beta10` | 6 | 3.1.1-beta8 | `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29` |
+
+Os três bundles ainda têm dois emissores `chat_fast` com mensagem completa e um receptor que lê `payload.message`; nenhum contém `openVoiceRoom` ou chamadas às RPCs de recibos/rate limit. O endpoint de sinalização existe somente no projeto isolado, não na lista de produção.
+
+A função `upstatus-backup-327-pre328` permanece ACTIVE v1 com entrypoint `index.ts` de zero bytes e SHA `3d6c4f8e5f777830ea720ab2938cb023b5a4e4c7d26f3fc02b926ce0e4d0dd90`; comportamento e consumidores não verificados.
+
+### Issues e próximos gates
+
+- #78 está aberta, seis comentários; a engenharia reconheceu a implementação candidata de open join. Os critérios manuais continuam desmarcados.
+- #79 está aberta, 56 comentários. O corpo principal continua com a fotografia antiga de 2026-11-03; os comentários recentes registram os heads, open join, source parity e produção inalterada.
+
+Próximos gates:
+1. Corrigir TEAM-LITE-VOICE-LEAVE e cobrir saída real da UI/logout.
+2. Implementar `Retry-After` e integrar rate limit aos endpoints de produto.
+3. Obter o Smoke do head documental atual #74.
+4. Resolver RT-01 e planejar corte coordenado dos clientes legados.
+5. Validar migrations oficiais de voz, recibos, rate limit e ACL no ambiente oficial de TEST; obter caminho administrativo suportado para supabase_admin.
+6. Completar testes manuais da #78 e interoperabilidade instalada.
+7. Auditar as 35 Edge Functions restantes, incluindo o backup vazio.
+8. Obter reviews humanos e revisar a ancestralidade extensa do #74.
+
+Nenhuma escrita em produção, migration, deploy, merge, release, publicação de userscript, alteração de secret/flag/role ou operação destrutiva foi realizada. As consultas Supabase foram SELECT-only. Não foram executados testes mutáveis pela auditoria.
