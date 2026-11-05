@@ -92,8 +92,8 @@ assert.ok(
   readReceiptsProductionMigration.includes("SET search_path = ''") &&
   readReceiptsProductionMigration.includes("ON CONFLICT (user_name) DO UPDATE") &&
   readReceiptsProductionMigration.includes("greatest(public.chat_reads.last_read_at, excluded.last_read_at)") &&
-  /REVOKE ALL ON FUNCTION public\\.merge_chat_read_receipts\\(text, jsonb, timestamptz\\)[\\s\\S]*FROM PUBLIC, anon, authenticated/.test(readReceiptsProductionMigration) &&
-  /GRANT EXECUTE ON FUNCTION public\\.merge_chat_read_receipts\\(text, jsonb, timestamptz\\)[\\s\\S]*TO service_role/.test(readReceiptsProductionMigration) &&
+  /REVOKE ALL ON FUNCTION public\.merge_chat_read_receipts\(text, jsonb, timestamptz\)[\s\S]*FROM PUBLIC, anon, authenticated/.test(readReceiptsProductionMigration) &&
+  /GRANT EXECUTE ON FUNCTION public\.merge_chat_read_receipts\(text, jsonb, timestamptz\)[\s\S]*TO service_role/.test(readReceiptsProductionMigration) &&
   !/SECURITY DEFINER/i.test(readReceiptsProductionMigration),
   "production read-receipt RPC must merge atomically/monotonically, use an empty search_path, and remain service-role-only");
 assert.ok(bindingMigration.includes("ENABLE ROW LEVEL SECURITY") &&
