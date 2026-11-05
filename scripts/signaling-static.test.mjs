@@ -269,7 +269,7 @@ assert.ok(userTemplate.includes("signalTransport.accept(signalRoomId)") &&
   userTemplate.includes("signalTransport.sendSignal({roomId:signalRoomId,recipient:to,eventType:'call_signal',payload:p})"),
   "the call client must accept/decline explicit invitations and route mapped signals through the server transport");
 const voicePrepareStart = userTemplate.indexOf("async function signalPrepareVoiceRoom(){");
-const voicePrepareEnd = userTemplate.indexOf("\\nasync function voiceRoomJoin(){", voicePrepareStart);
+const voicePrepareEnd = userTemplate.indexOf("\nasync function voiceRoomJoin(){", voicePrepareStart);
 const voicePrepareSource = userTemplate.slice(voicePrepareStart, voicePrepareEnd);
 assert.ok(voicePrepareStart >= 0 && voicePrepareEnd > voicePrepareStart && voicePrepareSource.includes("signalTransport.openVoiceRoom(voiceRoom.id)") && !voicePrepareSource.includes("invitations") && !voicePrepareSource.includes("accept(") && !voicePrepareSource.includes("createRoom(") && !voicePrepareSource.includes("bindRoom(") && userTemplate.includes("eventType:'voice_room_signal'") && userTemplate.includes("eventType:'screen_signal'") && userTemplate.includes("await voiceRoomReceive(voicePayload)") && userTemplate.includes("await screenShareReceive(screenPayload)"),
   "voice rooms must use authenticated open membership without invite/accept; voice and screen media share the room poller");
