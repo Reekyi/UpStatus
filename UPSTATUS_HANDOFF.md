@@ -763,3 +763,8 @@ Next safe engineering work:
 2. Add late-join, duplicate/concurrent join, capacity, owner-departure and Normal/Team Lite alias tests in the isolated project.
 3. Keep authenticated transport default-off until that contract passes.
 4. Continue production Realtime, read-receipt migration, product rate-limit and ACL/deployment-control gates separately.
+
+
+### Post-update validation of the refreshed continuity checkpoint
+
+After the two documentation commits above, PR #80 is now at HEAD `8016e211fe89ddf4488662509d68b6cc4e2a92c5`, 40 commits ahead / 0 behind `develop`. Validate [42108753435](https://github.com/Reekyi/UpStatus/actions/runs/42108753435) completed and reproduced the same baseline assertion `client signed upload helper missing`; no validator was weakened. The failure is not caused by the handoff content. The #80 branch remains Draft. The independent QA branch #82 remains untouched.
