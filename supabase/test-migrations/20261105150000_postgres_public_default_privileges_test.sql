@@ -10,6 +10,11 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE ALL PRIVILEGES ON SEQUENCES FROM anon, authenticated;
 
+-- PostgreSQL grants EXECUTE to PUBLIC on new functions globally by default.
+-- This global revoke is required in addition to the schema-specific role revokes.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+
 CREATE TABLE public.__upstatus_default_acl_probe_20261105 (id bigint);
 CREATE SEQUENCE public.__upstatus_default_acl_probe_seq_20261105;
 CREATE FUNCTION public.__upstatus_default_acl_probe_fn_20261105()
