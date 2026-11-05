@@ -470,3 +470,32 @@ The remaining ACL-02 gate is the `supabase_admin` default ACL path. The availabl
 - Issue #78 remains MANUAL PENDING for physical no-F5 recovery in Normal and Team Lite.
 - PR #74 still has 614 commits ahead of master and needs full history review; #76 is 102 commits ahead and zero behind #75, so #75/#76 are not independent merge payloads.
 - Keep all PRs Draft. No merge, production migration, deploy, release, userscript publication, flag/secret change or production write is authorized.
+
+
+## 2026-11-05 14:56 BRT — production-form read-receipt RPC candidate
+
+Normal PR #74 now also contains `supabase/migrations/20261105160000_merge_chat_read_receipts.sql` (commit `b8aa4ba`, current code head later advanced to `d38b8f1`).
+
+The production migration defines `public.merge_chat_read_receipts(text,jsonb,timestamptz)` with:
+- `SECURITY INVOKER` and an empty `search_path`;
+- validation for non-empty user name, object payload, and array-valued receipt entries;
+- atomic `INSERT ... ON CONFLICT (user_name) DO UPDATE`;
+- monotonic `last_read_at = greatest(existing, excluded)`;
+- per-message union of unique non-empty reader strings;
+- explicit revoke from `PUBLIC`, `anon`, and `authenticated`, then EXECUTE only for `service_role`.
+
+Before authoring, a SELECT-only production catalog query confirmed `public.chat_reads.user_name` is the primary key and the table has the expected `last_read_at` and `messages` columns. The production RPC remains absent.
+
+Applied this production-form migration only to the isolated `upstatus-security-test` project (`bfpjtfqlnypisxljoxkb`) as a test. Follow-up catalog inspection confirmed:
+- `prosecdef=false` (SECURITY INVOKER);
+- `search_path=""`;
+- EXECUTE false for anon and authenticated;
+- EXECUTE true for service_role and owner postgres.
+
+The migration is now part of the Normal candidate, not production. The Team Lite server template also calls this shared RPC, so the shared database migration must be installed and verified before deploying either matching server template. Do not deploy one server first.
+
+Latest #74 code head: `d38b8f1b646fe4a9147c15ee714ea1d624ffda87`.
+- Validate [42080591304](https://github.com/Reekyi/UpStatus/actions/runs/42080591304): success.
+- Signaling Smoke [42080591331](https://github.com/Reekyi/UpStatus/actions/runs/42080591331): pending at the last check.
+
+Production remains unchanged: `merge_chat_read_receipts(text,jsonb,timestamptz)` is still absent, with seven migrations through `20261027155438`. Keep the production migration as a release dependency; apply only after approved TEST validation and explicit production authorization.
