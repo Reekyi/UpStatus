@@ -110,3 +110,28 @@ PR #74 includes a candidate fix for a false-read race: unread counts now use the
 - Normal Validate run `41854832531` passed on latest Normal PR head `5d700050dfbd8e221be7d61e130585dde2003879`.
 - Normal Signaling Smoke run `41853971486` passed unauthenticated endpoint and authenticated integration/browser checks on `fb1417ab69a16b0bf30611df5584e8d0d3466076`; later Normal commits were workflow/docs-only.
 - Team Lite Candidate Checks run `41854846745` is still running on workflow head `2d1fa7d1d66655bf7081362330edafe9ea54a9a8`; adapter and unauthenticated endpoint checks passed, authenticated integration/browser step remains in progress.
+
+
+
+## 2026-11-05 10:00 BRT — current engineering checkpoint
+
+### Verified candidate refs
+
+- **Normal PR #74:** open, Draft, unmerged. Branch `chore/continuity-foundation`, HEAD `0150ac0276a55bd32fbb46acc68c15df5b5403d0`. Commit `db08471` ports the isolated Supabase mutation guard to the Normal test workflow and scripts. Commit `0150ac0` updates the static CI contract from SKIP to fail-closed.
+- **Normal CI:** Validate [42032008035](https://github.com/Reekyi/UpStatus/actions/runs/42032008035) passed. Signaling Smoke [42032007996](https://github.com/Reekyi/UpStatus/actions/runs/42032007996) is in progress at this snapshot. New guard syntax/static wiring tests and unauthenticated endpoint checks passed; authenticated integration/browser step is still running; rate-limit and read-receipt concurrency steps are pending.
+- **Team Lite PR #76:** open, Draft, unmerged, HEAD `578ba8a44dd67401a4bad0db897980c91fea3df5`; Candidate Checks [42024542507](https://github.com/Reekyi/UpStatus/actions/runs/42024542507) passed with guard preflight, 86/86 authenticated checks, endpoint 429, rate-limit concurrency, and atomic read receipts.
+- **Team Lite baseline #75:** open, Draft, HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; baseline CI passed.
+- **Continuity #80:** open, Draft, HEAD `33aefd3bb80b5b6229730e104b946d4faf57aa36`; Validate `41855199729` failed at the existing `client signed upload helper missing` assertion.
+- **Independent QA #82:** open, Draft, HEAD `c747f9baba5f54afabcda05a95fb1d3a72494b91`; Validate `42029048298` failed at `production updateURL mismatch`. QA branch was not edited.
+- **Issue #78:** open; physical no-F5 recovery on Tampermonkey remains pending in Normal and Team Lite.
+- **Issue #79:** open release checklist; add the Normal guard and exact-head CI outcome after the smoke completes.
+
+### Runtime and release state
+
+Production Supabase `dlfvkawaiqduhlazsszm` remains `ACTIVE_HEALTHY` on PostgreSQL 17.11.0.002, with seven migrations through `20261027155438`. The distributed rate-limit table/RPC and atomic read-receipt RPC are absent. Read-only catalog inspection reconfirmed the public `db_change` trigger broadcasts the full OLD/NEW message row with `private=false`; the SECURITY DEFINER broadcast function remains executable by anon/authenticated. Security Advisor shows two WARN categories for the three broadcast functions and ten INFO RLS-without-policy findings; Performance Advisor has no findings.
+
+The candidate Normal and Team Lite product server templates do not yet call `consume_upstatus_signal_rate_limit`. The isolated test endpoint does. Product-endpoint integration, production migrations, and coordinated Realtime/client cutover remain open gates.
+
+### Safety
+
+No production SQL writes, migrations, deployments, secrets/flags changes, userscript publication, PR merges, or destructive operations occurred. All Supabase production checks were read-only. The next action is to inspect the exact-head Normal smoke and update this checkpoint with its final logs before advancing the product endpoint/cutover design.

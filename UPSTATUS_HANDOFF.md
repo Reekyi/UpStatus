@@ -194,3 +194,42 @@ Continue UpStatus release-readiness in https://github.com/Reekyi/UpStatus. First
 - Normal Signaling Smoke run `41853971486`: SUCCESS, including unauthenticated endpoint checks and authenticated integration/browser step. It ran on `fb1417ab69a16b0bf30611df5584e8d0d3466076`; subsequent Normal commits were workflow/docs-only and did not alter runtime signaling code.
 - Team Lite Candidate Checks run `41854846745` is in progress on latest workflow head `2d1fa7d1d66655bf7081362330edafe9ea54a9a8`. Adapter regression and unauthenticated endpoint steps passed; authenticated integration/browser step is still running. Earlier run `41852223087` passed on the previous candidate head.
 - Issue #79 comment `6634243752` records the evidence.
+
+
+
+## 2026-11-05 10:00 BRT — Normal fixture guard ported; exact-head smoke pending
+
+### Engineering branch and CI evidence
+
+- Normal PR #74 remains open and Draft on `chore/continuity-foundation`. Its current HEAD is `0150ac0276a55bd32fbb46acc68c15df5b5403d0`.
+- Commit `db08471c58aed97344dbbea59d7cc91eb8038e02` ports the Team Lite isolated-fixture guard to Normal:
+  - exact allowlist for `https://bfpjtfqlnypisxljoxkb.supabase.co`;
+  - requires service-role key and `UPSTATUS_SIGNAL_ALLOW_MUTATION=1`;
+  - performs a read-only PostgREST preflight before fixture mutation;
+  - removes SKIP/exit-0 behavior from direct rate-limit and read-receipt fixture tests;
+  - protects the authenticated runner and browser harness;
+  - makes the workflow fail closed when the isolated secret is missing;
+  - adds unit and static wiring checks, including the workflow's explicit opt-in/fail-closed contract.
+- The first smoke attempt on `db08471` failed only because `scripts/signaling-static.test.mjs` still asserted that missing secrets must SKIP. That stale assertion was corrected in commit `0150ac0276a55bd32fbb46acc68c15df5b5403d0` to require fail-closed behavior.
+- On exact HEAD `0150ac0`: UpStatus Validate run [42032008035](https://github.com/Reekyi/UpStatus/actions/runs/42032008035) is SUCCESS. Signaling Smoke run [42032007996](https://github.com/Reekyi/UpStatus/actions/runs/42032007996) was IN_PROGRESS at this checkpoint: syntax/static checks (including the new isolation guard and wiring tests) passed, unauthenticated isolated endpoint checks passed, authenticated integration/browser checks were still running, and the rate-limit/read-receipt concurrency steps had not started. Do not claim full smoke success until the run completes and its logs are inspected.
+- Team Lite PR #76 remains open and Draft at HEAD `578ba8a44dd67401a4bad0db897980c91fea3df5`. Candidate Checks [42024542507](https://github.com/Reekyi/UpStatus/actions/runs/42024542507) completed SUCCESS. Full job logs confirm the guard preflight, 86/86 authenticated integration checks, 90 accepted plus one 429 endpoint response, distributed rate-limit concurrency, atomic read-receipt concurrency, and candidate/version/portal checks.
+- Team Lite baseline PR #75 remains open and Draft at `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; its baseline Candidate Checks run `41674353127` passed. PR #76 is 101 commits ahead and zero behind #75; it carries the baseline and should not be treated as an independent merge candidate.
+- Documentation PR #80 itself remains Draft. Its latest recorded Validate run `41855199729` failed on the pre-existing `client signed upload helper missing` assertion. Independent QA PR #82 remains Draft; its latest Validate run `42029048298` failed on `production updateURL mismatch`. Do not alter the QA branch or weaken either validator without proving the expected production artifact.
+- Issue #78 remains open. Physical no-F5 network recovery in Tampermonkey is still a manual acceptance gate; the fixture-safety changes above do not change runtime behavior and do not require repeating that manual test.
+- Issue #79 remains the release checklist and should receive a concise evidence update after the Normal smoke completes.
+
+### Production Supabase — read-only recheck
+
+- Project `dlfvkawaiqduhlazsszm`: `ACTIVE_HEALTHY`, PostgreSQL `17.11.0.002`.
+- Production migration history remains seven migrations through `20261027155438`.
+- `public.upstatus_signal_rate_limits`, `public.consume_upstatus_signal_rate_limit(text, integer, integer)`, and `public.merge_chat_read_receipts(text, jsonb, timestamptz)` are absent.
+- Read-only catalog query confirmed the production `upstatus_messages_broadcast` trigger still calls `public.upstatus_broadcast_messages()`. That SECURITY DEFINER function serializes the complete OLD/NEW row with `to_jsonb(...)` and sends `{op, record}` on `db_change` with `private=false`. The function remains executable by `anon` and `authenticated`.
+- The same catalog query found zero RLS policies across the nine backend-owned tables checked. This is an unnecessary privilege surface, but RLS/no-policy alone is not proof of direct row access.
+- Security Advisor at approximately 09:57 BRT: two WARN categories covering the same three SECURITY DEFINER broadcast functions (anon and authenticated EXECUTE), plus ten INFO RLS-without-policy notices. Performance Advisor returned no findings.
+- Both real product server templates were inspected: neither currently calls `consume_upstatus_signal_rate_limit`; the RPC is used only by the isolated signaling test endpoint. Product endpoint integration and the coordinated client/API cutover remain blocked pending a reviewed migration and rollout plan.
+
+### Safety and next actions
+
+- No production SQL write, migration, Edge Function deployment, secret/flag change, userscript publication, PR merge, or destructive operation occurred.
+- Next: inspect completion of Normal Signaling Smoke on exact HEAD `0150ac0`; record its full integration and cleanup logs; then plan product-endpoint rate-limit integration and the Realtime/client cutover without changing production.
+- Keep #74, #75, #76, #80, and #82 Draft while gates remain. Do not edit the QA-owned #82 branch from engineering.
