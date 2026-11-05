@@ -400,3 +400,15 @@ The existing candidate migration `20261029183000_revoke_unused_public_table_gran
 Required design: separately revoke default table/function/sequence privileges for `anon` and `authenticated` under both `postgres` and `supabase_admin`, while preserving owner and `service_role` access. Inventory expected public objects and dependencies first. Generate the migration through the approved Supabase CLI workflow and validate it in official TEST. The CLI/official TEST environment was unavailable in this pass, so no migration filename was fabricated and no DDL was applied.
 
 This root-cause finding was recorded in [issue #79 comment 6664233350](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6664233350). Production remains unchanged.
+
+
+## 2026-11-05 14:12 BRT — default ACL administration boundary
+
+A read-only role audit confirmed that SQL access is `current_user = session_user = postgres`; postgres is not superuser and is not a member of `supabase_admin`. `supabase_admin` is a login-capable superuser.
+
+Therefore, a normal migration executed by the current postgres connection cannot run `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin`. Do not add such a migration assuming it will succeed, and do not attempt role membership changes or credential workarounds. The default-privilege remediation has two distinct gates:
+
+1. Defaults owned by postgres can be addressed through the normal migration path after approved TEST validation.
+2. Defaults owned by supabase_admin require a separately authorized administrative execution path supported by Supabase.
+
+The current public tables and functions are owned by postgres (10 tables, 3 functions), but the supabase_admin defaults remain a future-object risk. This constraint is recorded in [issue #79 comment 6664265799](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6664265799). No ALTER DEFAULT PRIVILEGES, SET ROLE, role-membership change, credential access, or production write was attempted.
