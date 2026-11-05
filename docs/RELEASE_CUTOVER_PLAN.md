@@ -85,3 +85,12 @@ Status: candidate preparation only. This document does not authorize production 
 ## Safety boundary
 
 No production deployment, migration, feature-flag change, stable artifact publication, PR merge, or endpoint cutover is authorized by this plan. Each requires explicit approval after the preceding gates pass.
+
+
+## Voice-room membership contract — candidate checkpoint (2026-11-05)
+
+- Authenticated voice-room entry is now separate from call invitations. `POST /room/open` accepts only `upstatus-team-room-v1` and `upstatus-team-lite-room-v1`; caller identity is derived from the validated UpStatus session, then the Edge Function invokes the service-role-only RPC.
+- The candidate SQL migration `20261105190000_open_voice_room_membership.sql` creates an atomic open/join operation and a coordinated leave operation. It serializes both product aliases, enforces a maximum of 32 accepted members, makes repeated joins idempotent, hands owner control to the earliest remaining member, and closes the room when its final member leaves.
+- Team Lite #76 exact runtime head `4178e54654b1bd2c06516fba9edea17d779b9ecd` passed Candidate Checks run [42119919319](https://github.com/Reekyi/UpStatus/actions/runs/42119919319), including 103/103 authenticated integration checks and browser WebRTC/mesh/teardown. Normal #74 Validate passed on `73c19d5a890d39ee9524c1fb5042b7f6ffb7f53b`; its Signaling Smoke run [42120068577](https://github.com/Reekyi/UpStatus/actions/runs/42120068577) was still running at the last check.
+- This does not authorize enabling the transport or deploying the migration. The isolated project has migration version `20261105220323`; production has no open-voice RPCs and remains unchanged. Keep the flag default-off until exact-head Normal Smoke, official TEST validation, and manual acceptance pass.
+- Physical no-F5 recovery, installed Tampermonkey behavior, real microphone/display capture, and live Normal ↔ Team Lite interoperability remain manual gates under issue #78.
