@@ -384,3 +384,19 @@ To guard this contract, Normal #74 gained [commit 76de9fb](https://github.com/Re
 - The message trigger still publishes full OLD/NEW rows to public `db_change` (`private=false`); the three broadcast functions remain SECURITY DEFINER and executable by anon/authenticated.
 - 38 Edge Functions are ACTIVE and report `verify_jwt=false`. That gateway setting alone does not establish whether custom application auth exists. Three core runtime functions have source-level custom-token review; the remaining 35 require route-by-route auth/owner/consumer/rollback inventory.
 - No production SQL write, migration, function deployment, secret/flag change, userscript publication, merge, or destructive operation occurred. All production database checks were SELECT-only.
+
+
+## 2026-11-05 14:10 BRT — default-privilege root cause
+
+A second SELECT-only catalog pass found the root cause behind the broad client grants:
+
+- `pg_default_acl` for schema `public` grants default table privileges to `anon`, `authenticated`, and `service_role` for objects created by both `postgres` and `supabase_admin`. The table ACL includes SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER and PostgreSQL 17 MAINTAIN.
+- Default function ACL grants EXECUTE to the same three roles for functions created by both owners.
+- Default sequence ACL grants SELECT, UPDATE and USAGE to the same three roles.
+- `has_table_privilege` confirms anon/authenticated MAINTAIN is effective on the nine backend-owned tables. Neither role has CREATE on schema `public`.
+
+The existing candidate migration `20261029183000_revoke_unused_public_table_grants.sql` revokes all privileges on current backend-owned tables, but it does not change default ACLs. Without a separate default-privilege hardening migration, future public tables, functions and sequences created by either owner can inherit client grants again.
+
+Required design: separately revoke default table/function/sequence privileges for `anon` and `authenticated` under both `postgres` and `supabase_admin`, while preserving owner and `service_role` access. Inventory expected public objects and dependencies first. Generate the migration through the approved Supabase CLI workflow and validate it in official TEST. The CLI/official TEST environment was unavailable in this pass, so no migration filename was fabricated and no DDL was applied.
+
+This root-cause finding was recorded in [issue #79 comment 6664233350](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6664233350). Production remains unchanged.
