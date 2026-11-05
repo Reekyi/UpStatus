@@ -316,3 +316,37 @@ Both current candidate userscripts handle `offline` by stopping local call/voice
 ### Safety
 
 This checkpoint used GitHub reads, existing Actions logs and read-only Supabase metadata/catalog/advisor queries. No production SQL write, migration, function deployment, secret/flag change, userscript publication, merge, or destructive operation occurred. Keep all five PRs Draft. Do not repeat the physical #78 test request; it remains pending until Ricardo reports its result.
+
+
+## 2026-11-05 — test-migration isolation and release-gate refresh
+
+### Test-only SQL packaging hazard corrected
+
+Two executable DDL files with a `_test.sql` suffix were found inside `supabase/migrations/` on both signaling candidate branches. Supabase CLI migration discovery is directory-based; the filename suffix is not an exclusion mechanism. A normal migration push could therefore treat isolated-test DDL as deployable migration history.
+
+- Normal PR #74: moved both files to `supabase/test-migrations/` in commit [4d07a75](https://github.com/Reekyi/UpStatus/commit/4d07a755fae6ebe6a993b5ef1a563755b40af2a3).
+- Team Lite PR #76: the same move in commit [61672ad](https://github.com/Reekyi/UpStatus/commit/61672adfdbbd1e020cf5922838404b0958b832e6).
+- Added `supabase/test-migrations/README.md` restricting manual use to isolated project ref `bfpjtfqlnypisxljoxkb`; these files must never be applied to production or shared/official TEST.
+- Added `scripts/migration-layout.test.mjs`, which fails if test-suffixed SQL is placed under `supabase/migrations/` and verifies the isolated copies and safety README.
+- Normal Validate and Signaling Smoke, plus Team Lite Candidate Checks, are wired to run the guard. The Normal static test now reads the rate-limit SQL from the isolated test-migrations directory.
+- Verified on both branches that the old paths are absent and the new paths/guard/README exist.
+
+### Exact candidate heads and CI
+
+- **Normal #74:** HEAD `4d07a755fae6ebe6a993b5ef1a563755b40af2a3`, open/Draft. Validate [42062127872](https://github.com/Reekyi/UpStatus/actions/runs/42062127872) passed. Signaling Smoke [42062127943](https://github.com/Reekyi/UpStatus/actions/runs/42062127943) is still running; the migration-layout guard and unauthenticated endpoint step passed, while authenticated/browser and concurrency steps were pending at the last inspection.
+- **Team Lite #76:** HEAD `61672adfdbbd1e020cf5922838404b0958b832e6`, open/Draft. The workflow includes the migration-layout guard and new path filter. No workflow run was visible for this exact head at the last lookup; the prior pass on `578ba8a` does not validate this new commit.
+- **Team Lite baseline #75:** unchanged at `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; its historical CI pass remains baseline-only.
+- #76 is now 102 commits ahead and zero behind #75; it carries the baseline and must not be treated as an independent merge payload.
+- #74 is 613 commits ahead and zero behind master; its large ancestry remains a separate review gate.
+- **Continuity #80:** HEAD `ced6c746f252ad28984f895ff4e0e31a0c185e72`; Validate [42051290807](https://github.com/Reekyi/UpStatus/actions/runs/42051290807) fails at the existing `client signed upload helper missing` assertion after building 3.0.40 / TEST 3.0.40-beta.22.
+- **Independent QA #82:** HEAD `40676d360fb65bdb466758caa7f546cc67063671`; Validate [42057223983](https://github.com/Reekyi/UpStatus/actions/runs/42057223983) fails at the existing `production updateURL mismatch` assertion after building 3.4.7 / TEST 3.4.7. QA branch remains untouched.
+
+### Production Supabase and hard deployment dependency
+
+Read-only checks reconfirmed project `dlfvkawaiqduhlazsszm` is `ACTIVE_HEALTHY`, PostgreSQL 17.11, with seven migrations through `20261027155438`. The rate-limit table/RPC and atomic read-receipt RPC remain absent.
+
+All three production broadcast functions remain SECURITY DEFINER and executable by `anon`, `authenticated`, and `service_role`. The messages trigger still serializes the full OLD/NEW row and publishes `db_change` with `private=false`. `realtime.messages` has RLS enabled with zero policies but still has anon/authenticated SELECT, INSERT, and UPDATE grants; the nine backend-owned public tables also retain broad client grants. RLS with no policies does not by itself prove direct row access, but the grants remain unnecessary privilege surface.
+
+**Hard dependency confirmed in both candidate server templates:** Normal `src/server/index.template.ts` and Team Lite `src/server/team-lite-index.template.ts` call `db.rpc("merge_chat_read_receipts", ...)` in `readRoute` and immediately throw on RPC error. Because the RPC is absent in production, deploying either candidate server template before its separately reviewed receipt migration is installed would break that route. Required order: author/review production-form migration separately, validate in the approved TEST environment, apply only through the separately authorized migration process, then deploy the matching server template. The test-suffixed SQL files moved above are not production migrations.
+
+No production SQL write, migration, Edge Function deployment, secret/flag change, userscript publication, merge, or destructive operation occurred. Keep all five PRs Draft. Do not repeat the physical #78 no-F5 test request; it remains pending until Ricardo reports the result.
