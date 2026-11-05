@@ -463,9 +463,9 @@ console.log("Team Lite voice send/leave RPC ordering test passed.");
 
 
 const voiceJoinStart = script.indexOf("async function voiceRoomJoin(){");
-const voiceJoinEnd = script.indexOf("\\nfunction voiceRoomToggleSpeakers", voiceJoinStart);
+const voiceJoinEnd = script.indexOf("\nfunction voiceRoomToggleSpeakers", voiceJoinStart);
 assert.ok(voiceJoinStart >= 0 && voiceJoinEnd > voiceJoinStart, "voice join boundaries not found");
-const voiceJoinSource = script.slice(voiceJoinStart, voiceJoinEnd) + "\\nthis.__candidateVoiceRoomJoin=voiceRoomJoin;";
+const voiceJoinSource = script.slice(voiceJoinStart, voiceJoinEnd) + "\nthis.__candidateVoiceRoomJoin=voiceRoomJoin;";
 assert.ok(
   script.includes("j.disabled=voiceRoom.joining||!!voiceRoomLeavePromise;") &&
   script.includes("voiceRoomLeavePromise?'Saindo...':voiceRoom.joining?") &&
