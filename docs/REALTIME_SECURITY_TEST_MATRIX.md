@@ -171,3 +171,8 @@ The authenticated signaling suite currently verifies malformed JSON, oversized r
 - The current PR #74 branch head is now `fd55588379c6a35ae4817ddafd556a8e8728997f` after documentation-only commits `2f0c6ac` and `fd55588`. No runtime or workflow-input file changed after the validated runtime head, so the exact runtime smoke evidence remains applicable. The Validate workflow ignores Markdown/docs.
 - Team Lite #76 exact head `4178e54654b1bd2c06516fba9edea17d779b9ecd` independently passed Candidate Checks [42119919319](https://github.com/Reekyi/UpStatus/actions/runs/42119919319), also with 103/103 authenticated checks and the same open-join/WebRTC/rate-limit/read-receipt gates.
 - RT-09 remains PARTIAL because the 429 response still lacks `Retry-After`, and the distributed limiter is not integrated into the deployed product endpoints. Manual network/device/cross-client acceptance remains pending.
+
+
+### Isolated endpoint source parity — 2026-11-05
+
+The isolated project `bfpjtfqlnypisxljoxkb` currently reports `upstatus-signal-test` version **28**, ACTIVE, `verify_jwt=false`, deployed source SHA `e26011f026c74821a1e05bf314340604d715820ab864b63d66fd481d93d00d4f`. Retrieved its actual Edge Function source and compared `index.ts`, `body.mjs`, and `legacy-envelope.mjs` with PR #74 head `8f07ea9`: the two helper modules match byte-for-byte; `index.ts` differs only in whitespace/line wrapping (whitespace-normalized content matches). This confirms the isolated endpoint logic under test matches the candidate source. It still has no `Retry-After` header on 429. Production Edge Functions and production database were not modified.
