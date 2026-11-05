@@ -416,10 +416,10 @@ assert.equal(fallbackSettled, true, "voice leave must settle after fallback memb
 console.log("Team Lite voice leave fallback retry test passed.");
 
 
-const voiceSendStart = script.indexOf("function voiceRoomSend(");
-const voiceSendEnd = script.indexOf("\\nfunction voiceRoomMessage", voiceSendStart);
-assert.ok(voiceSendStart >= 0 && voiceSendEnd > voiceSendStart, "voice send boundaries not found");
-const voiceSendSource = script.slice(voiceSendStart, voiceSendEnd) + "\\nthis.__candidateVoiceRoomSend=voiceRoomSend;";
+const voiceSendRuntimeStart = script.indexOf("function voiceRoomSend(");
+const voiceSendRuntimeEnd = script.indexOf("\nfunction voiceRoomMessage", voiceSendStart);
+assert.ok(voiceSendStart >= 0 && voiceSendRuntimeEnd > voiceSendStart, "voice send boundaries not found");
+const voiceSendRuntimeSource = script.slice(voiceSendStart, voiceSendRuntimeEnd) + "\nthis.__candidateVoiceRoomSend=voiceRoomSend;";
 const sendEvents = [];
 let finishLeaveRpc;
 const pendingLeaveRpc = new Promise(resolve => {
@@ -440,7 +440,7 @@ const voiceSendContext = {
   CURRENT_VERSION: "3.4.31",
   member: "Team Lite Tester"
 };
-vm.runInNewContext(voiceSendSource, voiceSendContext, { timeout: 1000 });
+vm.runInNewContext(voiceSendRuntimeSource, voiceSendContext, { timeout: 1000 });
 const voiceSendPromise = voiceSendContext.__candidateVoiceRoomSend("leave", "", { active: false });
 await Promise.resolve();
 await Promise.resolve();
