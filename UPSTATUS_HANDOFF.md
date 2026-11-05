@@ -826,3 +826,12 @@ Default ACLs remain explicit for `postgres` in `public` and `storage`, and `supa
 ### Safety
 
 This checkpoint used GitHub read APIs, source/doc reads, workflow job steps/logs, Supabase project/migration/function metadata, advisor results, and SELECT-only production catalog queries. The only writes were documentation commits on the existing candidate #74 branch and this handoff on #80. No fixture-mutating script or workflow was run by this checkpoint. No production SQL write, migration, Edge Function deployment, secret/flag/role change, userscript publication, merge, release, or destructive operation occurred.
+
+
+### Follow-up — Normal Signaling Smoke completed
+
+After the checkpoint above, Normal Signaling Smoke [42120068577](https://github.com/Reekyi/UpStatus/actions/runs/42120068577) completed SUCCESS on runtime head `73c19d5a890d39ee9524c1fb5042b7f6ffb7f53b`; Validate [42120068532](https://github.com/Reekyi/UpStatus/actions/runs/42120068532) was also SUCCESS. The full Smoke job log confirms 14/14 static groups, 14/14 unauthenticated checks, 103/103 authenticated integration checks, open voice join/alias/idempotency/capacity/owner-race/owner-transfer/last-member cleanup, Chromium call/voice/screen WebRTC, three-member mesh, peer/media teardown, 90 accepted + 1 HTTP 429, isolated fixture cleanup, rate-limit concurrency and atomic read-receipt concurrency.
+
+The current #74 branch subsequently advanced through documentation-only commits `2f0c6ac`, `fd55588`, `15b95ad`, and `8f07ea9`; none changes runtime or workflow inputs. Current PR #74 head is `8f07ea9c26f02f28159d53fedd04dcc79c8d5ef6`. The exact runtime validation remains tied to `73c19d5`; docs-only commits do not invalidate those runtime checks.
+
+Team Lite #76 remains green at `4178e54654b1bd2c06516fba9edea17d779b9ecd`, Candidate Checks [42119919319](https://github.com/Reekyi/UpStatus/actions/runs/42119919319), including 103/103 authenticated checks. The open-join design incompatibility is therefore implemented and automated-tested in both candidate product lines. Manual physical recovery and installed Normal ↔ Team Lite acceptance remain open.
