@@ -460,3 +460,41 @@ assert.equal(voiceSendContext.signalVoiceRoomRoomId, "", "successful membership 
 assert.equal(voiceSendContext.signalVoiceRoomPrepared, false, "successful membership RPC must clear prepared state");
 assert.equal(voiceSendContext.signalVoiceRoomCreator, false, "successful membership RPC must clear creator state");
 console.log("Team Lite voice send/leave RPC ordering test passed.");
+
+
+const voiceJoinStart = script.indexOf("async function voiceRoomJoin(){");
+const voiceJoinEnd = script.indexOf("\\nfunction voiceRoomToggleSpeakers", voiceJoinStart);
+assert.ok(voiceJoinStart >= 0 && voiceJoinEnd > voiceJoinStart, "voice join boundaries not found");
+const voiceJoinSource = script.slice(voiceJoinStart, voiceJoinEnd) + "\\nthis.__candidateVoiceRoomJoin=voiceRoomJoin;";
+assert.ok(
+  script.includes("j.disabled=voiceRoom.joining||!!voiceRoomLeavePromise;") &&
+  script.includes("voiceRoomLeavePromise?'Saindo...':voiceRoom.joining?") &&
+  script.includes("voiceRoomLeavePromise=leavePromise.finally(function(){voiceRoomLeavePromise=null;voiceRoomRender();});"),
+  "voice UI must remain disabled and refresh when leave is in flight"
+);
+const joinEvents = [];
+let finishJoinWait;
+const pendingJoinWait = new Promise(resolve => {
+  finishJoinWait = () => {
+    joinEvents.push("leave-finished");
+    joinContext.voiceRoomLeavePromise = null;
+    resolve(true);
+  };
+});
+const joinContext = {
+  voiceRoomLeavePromise: pendingJoinWait,
+  voiceRoom: { active: false, joining: false },
+  navigator: { onLine: false },
+  voiceRoomMessage: message => joinEvents.push("message:" + message)
+};
+vm.runInNewContext(voiceJoinSource, joinContext, { timeout: 1000 });
+const joinAfterLeave = joinContext.__candidateVoiceRoomJoin();
+let joinSettled = false;
+joinAfterLeave.then(() => { joinSettled = true; });
+await Promise.resolve();
+assert.equal(joinEvents.length, 0, "a new voice join must wait while leave membership cleanup is pending");
+assert.equal(joinSettled, false, "voice join must remain pending until the previous leave finishes");
+finishJoinWait();
+await joinAfterLeave;
+assert.ok(joinEvents.some(x => x.startsWith("message:Sem conexão")), "voice join must continue only after leave settles");
+console.log("Team Lite rejoin serialization test passed.");
