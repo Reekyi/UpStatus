@@ -453,10 +453,12 @@ assert.equal(coalescedLeave.events.filter(event => event === "screen-stop:true")
 releaseCoalescedLeave();
 await firstCoalescedLeave;
 const offlineLeave = makeVoiceLeaveContext();
-await offlineLeave.context.__candidateVoiceRoomLeave({ skipServerLeave: true });
+const offlineLeaveResult = await offlineLeave.context.__candidateVoiceRoomLeave({ skipServerLeave: true });
+assert.equal(offlineLeaveResult, false, "offline teardown must report that server-owned membership was not released");
 assert.ok(offlineLeave.events.includes("screen-stop:false"), "offline teardown must stop screen capture without sending a signal");
 assert.equal(offlineLeave.events.some(event => event.startsWith("network-")), false, "offline teardown must not call signaling or membership RPCs");
-assert.equal(offlineLeave.context.signalVoiceRoomRoomId, "", "offline teardown must clear stale local room context");
+assert.equal(offlineLeave.context.signalVoiceRoomRoomId, "normal-offline-room", "offline teardown must retain server room context for logout retry");
+assert.equal(offlineLeave.context.signalVoiceRoomCreator, false, "offline teardown must clear stale local ownership");
 assert.equal(offlineLeave.context.signalVoiceRoomPrepared, false, "offline teardown must require a fresh open-room handshake");
 
 let leaveAttempts = 0;
@@ -485,4 +487,52 @@ assert.equal(oldTransportLeaves, 0, "leave must not use a transport instance tha
 assert.equal(newTransportLeaves, 0, "an old leave promise must never release membership through the replacement transport");
 console.log("Normal offline voice recovery, Realtime readiness, leave retry, and stale-transport tests passed.");
 
-console.log("18/18 signaling static regression groups passed.");
+console.log("20/20 signaling static regression groups passed.");
+
+
+// An HTTP-success response that explicitly denies membership removal must not clear the room binding.
+const deniedLeave = makeVoiceLeaveContext({ transport: { leave: async () => ({ ok: false, error: "membership remains" }) } });
+const deniedLeaveResult = await deniedLeave.context.__candidateVoiceRoomLeave();
+assert.equal(deniedLeaveResult, false, "Normal leave must reject an explicit unsuccessful RPC response");
+assert.equal(deniedLeave.context.signalVoiceRoomRoomId, "normal-offline-room", "an unsuccessful leave response must preserve the room ID");
+assert.equal(deniedLeave.context.signalVoiceRoomPrepared, false, "an unsuccessful leave response must force a fresh room handshake before rejoin");
+console.log("Normal unconfirmed membership leave response tests passed.");
+
+// Logout is blocked while the authenticated room ID remains; the session is kept for a retry.
+const logoutReleaseStart = userTemplate.indexOf("async function normalReleaseVoiceRoomBeforeLogout(){");
+const logoutReleaseEnd = userTemplate.indexOf("\\nwindow.addEventListener('pagehide'", logoutReleaseStart);
+assert.ok(logoutReleaseStart >= 0 && logoutReleaseEnd > logoutReleaseStart, "Normal logout voice-release gate source boundaries not found");
+const logoutReleaseSource = userTemplate.slice(logoutReleaseStart, logoutReleaseEnd) + "\\nthis.__candidateNormalLogoutRelease=normalReleaseVoiceRoomBeforeLogout;";
+const logoutReleaseEvents = [];
+const logoutReleaseContext = {
+  signalVoiceRoomRoomId: "normal-pending-logout-room",
+  voiceRoomLeave: async () => false,
+  voiceRoomMessage: message => logoutReleaseEvents.push("message:" + message),
+  card: { classList: { remove: value => logoutReleaseEvents.push("show-card:" + value) } },
+  voiceRoomRender: () => logoutReleaseEvents.push("render")
+};
+vm.runInNewContext(logoutReleaseSource, logoutReleaseContext, { timeout: 1000 });
+assert.equal(await logoutReleaseContext.__candidateNormalLogoutRelease(), false, "Normal logout must abort when membership remains on the server");
+assert.equal(logoutReleaseContext.signalVoiceRoomRoomId, "normal-pending-logout-room", "failed Normal logout must preserve the room ID");
+assert.ok(logoutReleaseEvents.some(event => event.startsWith("message:")) && logoutReleaseEvents.includes("show-card:hidden"),
+  "failed Normal logout must show a retry message and restore the card");
+logoutReleaseContext.voiceRoomLeave = async () => { logoutReleaseContext.signalVoiceRoomRoomId = ""; return true; };
+assert.equal(await logoutReleaseContext.__candidateNormalLogoutRelease(), true, "Normal logout may proceed after a confirmed leave retry");
+
+const logoutHandlerStart = userTemplate.indexOf("card.querySelector('.up-logout').onclick=async function(){");
+const logoutHandlerEnd = userTemplate.indexOf("\\n    history.querySelector", logoutHandlerStart);
+assert.ok(logoutHandlerStart >= 0 && logoutHandlerEnd > logoutHandlerStart, "Normal logout handler source boundaries not found");
+const logoutHandler = userTemplate.slice(logoutHandlerStart, logoutHandlerEnd);
+assert.ok(logoutHandler.includes("if(!await normalReleaseVoiceRoomBeforeLogout())return;") &&
+  logoutHandler.indexOf("normalReleaseVoiceRoomBeforeLogout") < logoutHandler.indexOf("await api('POST','/api/logout',{})") &&
+  logoutHandler.indexOf("normalReleaseVoiceRoomBeforeLogout") < logoutHandler.indexOf("token='';") &&
+  logoutHandler.indexOf("normalReleaseVoiceRoomBeforeLogout") < logoutHandler.indexOf("GM_setValue(key+'token','');"),
+  "Normal logout must confirm voice membership release before API logout and local credential invalidation");
+const offlineHandlerStart = userTemplate.indexOf("window.addEventListener('offline'");
+const onlineHandlerStart = userTemplate.indexOf("window.addEventListener('online'", offlineHandlerStart);
+assert.ok(offlineHandlerStart >= 0 && onlineHandlerStart > offlineHandlerStart, "Normal offline handler source boundaries not found");
+const offlineHandler = userTemplate.slice(offlineHandlerStart, onlineHandlerStart);
+assert.ok(offlineHandler.includes("voiceRoomLeave({skipServerLeave:true})") &&
+  !offlineHandler.includes("signalVoiceRoomRoomId=''"),
+  "Normal offline teardown must preserve the server-owned room ID for a later logout retry");
+console.log("Normal logout confirmation and session-retention tests passed.");
