@@ -1152,3 +1152,44 @@ No production SQL write, migration, Edge Function update, secret/flag/role chang
 The documentation commits advanced PR #80 to HEAD `41dd77d69b1866ea0f2bae97f2634fcad43415d1`, now 81 commits ahead / 0 behind `develop`. Exact-head Validate [42154265009](https://github.com/Reekyi/UpStatus/actions/runs/42154265009) completed and reproduced the inherited `client signed upload helper missing` assertion after building `3.0.40 / TEST 3.0.40-beta.22`. This is the same base-validator mismatch already recorded; no validator was weakened and the documentation-only changes did not alter runtime code.
 
 Team Lite PR #76 remains at `3627557f244c98a9c7e1cc986c7cea43124863a9`; Candidate Checks [42153971733](https://github.com/Reekyi/UpStatus/actions/runs/42153971733) is still in the authenticated integration/browser step. Its exact adapter/bundle equality fix is committed, but final CI and post-run fixture cleanup remain pending.
+
+
+## 2026-11-06 live engineering checkpoint
+
+This section supersedes older PR/CI snapshots above where exact refs differ. Rechecked against GitHub and Supabase during the 2026-11-06 engineering run. All PRs remain open, Draft, and unmerged.
+
+### Current candidate refs and CI
+
+- **Normal PR #74**: branch `chore/continuity-foundation`, base `master`, HEAD `872d567a6c5cbe227ab44d808befca702b34da5a`; 664 commits ahead / 0 behind `master`.
+  - The isolated `normal/reconnect-recovery-candidate` branch was 20 commits ahead / 0 behind the prior #74 head before a fast-forward. Its four-file diff contained the reconnect/leave lifecycle implementation and regression coverage. The PR branch was fast-forwarded with expected-head protection; no force update or merge.
+  - Candidate follow-ups corrected two stale assertions in the static/validate harnesses and fixed a real cleanup gap: microphone/setup failure after opening an authenticated voice room now calls the confirmed `voiceRoomLeave()` path rather than clearing `signalVoiceRoomRoomId` before an unconfirmed RPC. If leave fails, the room ID remains available for logout/retry. A regression assertion guards against reintroducing the early clear.
+  - Validate [42160740788](https://github.com/Reekyi/UpStatus/actions/runs/42160740788) passed on the exact HEAD. Signaling Smoke [42160740799](https://github.com/Reekyi/UpStatus/actions/runs/42160740799) is pending behind the shared isolated-fixture concurrency group. Earlier Smoke [42160472429](https://github.com/Reekyi/UpStatus/actions/runs/42160472429), on prior head `8942324`, was still in progress at the last poll; do not claim exact-head Smoke success until the queued run finishes.
+- **Team Lite PR #76**: branch `team-lite/signaling-transport-candidate`, HEAD `3627557f244c98a9c7e1cc986c7cea43124863a9`; 197 ahead / 0 behind `team-lite-official`, and 138 ahead / 0 behind PR #75.
+  - Candidate Checks [42153971733](https://github.com/Reekyi/UpStatus/actions/runs/42153971733) passed on the exact HEAD. Full job logs confirm 103/103 authenticated integration checks, call/voice/screen WebRTC with remote tracks, three-member mesh, open voice join/late-member/owner-handoff/race/capacity checks, 90 accepted + 1 rejected (429), distributed rate-limit concurrency, atomic read-receipt concurrency, Team Lite leave/retry/offline recovery checks, updater/portal/version checks, and fixture cleanup.
+- **Team Lite baseline PR #75**: HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed. #76 is a descendant/continuation, not an independent sibling release payload.
+- **Continuity PR #80**: HEAD `8c49bb39af368bcb3c73b8cc38eef58976dbd099`; 83 ahead / 0 behind `develop`. Validate [42154459967](https://github.com/Reekyi/UpStatus/actions/runs/42154459967) fails at the inherited `client signed upload helper missing` assertion.
+- **Independent QA PR #82**: HEAD `704ba71795d31eb63278dffa0ac74ebcb30572ba`; 49 ahead / 0 behind `master`. Validate [42157072865](https://github.com/Reekyi/UpStatus/actions/runs/42157072865) fails at the inherited `production updateURL mismatch` assertion. QA branch was not modified.
+
+### Normal reconnect/leave findings
+
+- The Normal candidate waits for Realtime subscription before legacy voice rejoin/outgoing call allocation, serializes leave/rejoin, coalesces duplicate leave, invalidates stale outgoing attempts, preserves room ID on unconfirmed leave, and prevents an old leave promise from using a replacement transport.
+- A second orphan-membership path was found in the microphone/setup failure catch: it previously cleared the room ID and swallowed `signalTransport.leave()` failure. The candidate now routes this through `voiceRoomLeave()`, which only clears the ID after terminal/confirmed release; failure retains the context and adds a user-visible retry warning.
+- The first exact-head runs on `1ca2de6` exposed stale test contracts, not runtime regressions: the static test expected a standalone `var leavingTransport` declaration although it is part of a comma declaration, and Validate expected a direct `return leavePromise` / direct logout call although the helper returns `voiceRoomLeavePromise` and logout uses `normalReleaseVoiceRoomBeforeLogout()`. Assertions were updated to validate the actual semantics. Latest Validate passed; latest Smoke remains pending.
+
+### Production Supabase recheck — read-only
+
+- Project `dlfvkawaiqduhlazsszm`: `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, seven migrations through `20261027155438`.
+- The 38 listed Edge Functions are ACTIVE and report `verify_jwt=false`; this is not proof that every route lacks application-level auth. Core UpStatus functions use the custom session token, and the per-function auth inventory remains a separate gate.
+- Production still lacks `open_upstatus_signal_voice_room`, `leave_upstatus_signal_room`, `merge_chat_read_receipts`, `consume_upstatus_signal_rate_limit`, and the distributed rate-limit table.
+- Nine backend-owned tables (`chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing`, `users`) retain all eight table privileges for `anon` and `authenticated`, while RLS is enabled with zero policies. `upstatus_visual_config` has no client table grants. `realtime.messages` retains client SELECT/INSERT/UPDATE grants with RLS and no policies; do not infer direct row access from grants alone.
+- The three trigger functions `upstatus_broadcast_messages()`, `upstatus_broadcast_remote_state()`, and `upstatus_broadcast_users()` remain SECURITY DEFINER with `search_path=public` and EXECUTE available to `anon` and `authenticated`. The messages trigger still serializes the complete OLD/NEW row and broadcasts to the public `db_change` topic.
+- Default ACLs remain broad: `postgres` has anon/authenticated defaults for tables/functions/sequences in `public` and `storage`; `supabase_admin` has them in `public`, `graphql`, and `graphql_public`. Its `realtime` defaults in the catalog are for `dashboard_user`, not the client roles. SQL session is `postgres`, not superuser and not a member of `supabase_admin`; no role escalation was attempted.
+- Security Advisor: 3 WARN for anon-executable SECURITY DEFINER functions, 3 WARN for authenticated-executable functions, 10 INFO for RLS without policies. Performance and health advisors returned no findings.
+- Isolated project `bfpjtfqlnypisxljoxkb` is `ACTIVE_HEALTHY` on PostgreSQL 17.11.0.003 and contains the candidate/test migrations used by CI. This does not change production state.
+
+### Remaining release gates
+
+- Issue #78 remains open: physical no-F5 network interruption/recovery in full Tampermonkey, real microphone/display-capture permissions, installed Normal ↔ Team Lite interoperability, and reload/close-while-offline room membership behavior remain unverified.
+- Voice-room room IDs are currently held in page memory. Closing the browser while offline can still leave a server membership until its two-hour room TTL; durable recovery across full page/process termination is not established.
+- Public Realtime payload minimization/cutover, default ACL hardening (including the administrative `supabase_admin` path), production migration ordering, endpoint/function cutover and rollback, and version bump remain blockers.
+- No production SQL write, migration, Edge Function update, secret/flag/role change, deploy, release, userscript publication, merge, or destructive action occurred in this checkpoint.
