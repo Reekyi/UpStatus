@@ -578,6 +578,11 @@ const logoutReleaseSource = userTemplate.slice(logoutReleaseStart, logoutRelease
 const logoutReleaseEvents = [];
 const logoutReleaseContext = {
   signalVoiceRoomRoomId: "normal-pending-logout-room",
+  signalVoiceRoomAttemptId: "",
+  signalPendingVoiceRoomAttempts: Object.create(null),
+  signalRetryPendingVoiceRoomAttempts: async () => true,
+  upNetworkOffline: false,
+  member: "Normal Tester",
   voiceRoomLeave: async () => false,
   voiceRoomMessage: message => logoutReleaseEvents.push("message:" + message),
   card: { classList: { remove: value => logoutReleaseEvents.push("show-card:" + value) } },
