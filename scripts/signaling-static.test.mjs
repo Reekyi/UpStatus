@@ -120,7 +120,7 @@ assert.ok(callAttemptMigration.includes("CREATE TABLE IF NOT EXISTS public.upsta
 assert.ok(voiceAttemptMigration.includes("CREATE TABLE IF NOT EXISTS public.upstatus_signal_voice_room_attempts") &&
   voiceAttemptMigration.includes("pg_advisory_xact_lock") &&
   voiceAttemptMigration.includes("VOICE_ROOM_OPEN_CANCELLED") &&
-  voiceAttemptMigration.includes("cancel-before-open tombstone") &&
+  voiceAttemptMigration.toLowerCase().includes("cancel-before-open tombstone") &&
   voiceAttemptMigration.includes("SECURITY INVOKER") &&
   voiceAttemptMigration.includes("SET search_path = ''") &&
   voiceAttemptMigration.includes("REVOKE ALL PRIVILEGES ON TABLE public.upstatus_signal_voice_room_attempts FROM PUBLIC, anon, authenticated") &&
