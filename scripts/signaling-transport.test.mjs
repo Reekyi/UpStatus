@@ -369,3 +369,48 @@ assert.throws(
   "a stopped transport instance must reject new pollers; callers must create a fresh instance after reconnect",
 );
 console.log("signaling stopAll reconnect lifecycle: 4 assertions passed");
+
+
+const voiceAttemptCalls = [];
+const voiceAttemptClient = createSignalingTransport({
+  enabled: true,
+  request: async (path, body, options) => {
+    voiceAttemptCalls.push({ path, body, options });
+    if (path === "/room/open") return { status: 201, body: { ok: true, created: true, roomId: "sig_voice_attempt_1", attemptId: body.attemptId } };
+    if (path === "/room/cancel-open") return { status: 200, body: { ok: true, cancelled: true } };
+    return { status: 200, body: { ok: true } };
+  },
+});
+const attemptOpened = await voiceAttemptClient.openVoiceRoom("upstatus-team-room-v1", "ricardo-voice-attempt-1");
+assert.equal(attemptOpened.roomId, "sig_voice_attempt_1");
+assert.deepEqual(voiceAttemptCalls[0], {
+  path: "/room/open",
+  body: { logicalId: "upstatus-team-room-v1", attemptId: "ricardo-voice-attempt-1" },
+  options: {},
+});
+const attemptCancelled = await voiceAttemptClient.cancelVoiceRoomOpen("upstatus-team-room-v1", "ricardo-voice-attempt-1");
+assert.equal(attemptCancelled.cancelled, true);
+assert.deepEqual(voiceAttemptCalls[1], {
+  path: "/room/cancel-open",
+  body: { logicalId: "upstatus-team-room-v1", attemptId: "ricardo-voice-attempt-1" },
+  options: {},
+});
+await assert.rejects(
+  () => voiceAttemptClient.cancelVoiceRoomOpen("upstatus-team-room-v1", "invalid attempt id"),
+  error => error instanceof TypeError,
+);
+await assert.rejects(
+  () => voiceAttemptClient.openVoiceRoom("upstatus-team-room-v1", "invalid attempt id"),
+  error => error instanceof TypeError,
+);
+const legacyVoiceClient = createSignalingTransport({
+  enabled: true,
+  request: async (path, body) => {
+    assert.equal(path, "/room/open");
+    assert.deepEqual(body, { logicalId: "upstatus-team-room-v1" }, "legacy callers must remain backward compatible");
+    return { status: 201, body: { ok: true, created: true, roomId: "sig_voice_legacy" } };
+  },
+});
+assert.equal((await legacyVoiceClient.openVoiceRoom("upstatus-team-room-v1")).roomId, "sig_voice_legacy");
+console.log("signaling voice attempt transport: 9 assertions passed");
+
