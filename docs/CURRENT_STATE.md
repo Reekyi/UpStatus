@@ -766,3 +766,56 @@ Production `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002
 Issue #78 remains open with 0/8 physical acceptance criteria; Issue #79 remains open with 16/35 checklist items checked. No physical Tampermonkey/no-F5, microphone, display-capture, or installed Normal-to-Team-Lite acceptance has been recorded.
 
 No production SQL write, migration, Edge Function deployment, merge, release, secret/role/feature-flag change, userscript publication, or destructive operation occurred. All production database inspection was SELECT-only.
+
+
+## 2026-11-06 — isolated rate-limit runtime proof, Retry-After contract, and remote-command hint hardening
+
+### Rate-limit cleanup: now applied and runtime-tested in the isolated project
+
+The test-only migration `supabase/test-migrations/20261106191000_bounded_rate_limit_cleanup_test.sql` (blob `2a76b07d84fefe709fb27ea1bbd66b57c0aedc3c`) was applied only to isolated project `bfpjtfqlnypisxljoxkb`, after both candidate CI activity had drained and a SELECT-only preflight showed zero reserved-prefix fixtures and zero stale rate-limit buckets.
+
+- Isolated migration ledger records `20261106210556_bounded_rate_limit_cleanup_isolated_test`.
+- `consume_upstatus_signal_rate_limit(text,integer,integer)` now uses a deterministic stale-row CTE with `ORDER BY updated_at, bucket_key`, `LIMIT 100`, and `FOR UPDATE SKIP LOCKED`.
+- Catalog inspection confirms SECURITY INVOKER, empty search_path, EXECUTE denied to anon/authenticated and granted only to service_role.
+- The migration's DO regression completed successfully: 150 synthetic expired buckets were reduced to 50, then the test probe/expired rows were removed.
+- Post-test SELECT-only verification found zero reserved-prefix users/sessions/rooms/events/rate-limit buckets and zero globally stale rate-limit rows.
+
+No production migration or SQL write was performed.
+
+### Isolated endpoint: Retry-After contract
+
+The isolated `upstatus-signal-test` Edge Function was deployed as version 32 (project `bfpjtfqlnypisxljoxkb` only). It now:
+- returns `Retry-After: 60` on HTTP 429;
+- exposes `Retry-After` through `Access-Control-Expose-Headers` for browser JavaScript;
+- keeps custom UpStatus session-token authentication (`verify_jwt=false` at gateway, application auth enforced in the function).
+
+Normal and Team Lite test harnesses assert the 429 header; unauthenticated CORS preflight passed on the first post-deploy Normal Smoke. The authenticated 90+1 request assertion is still waiting for exact-head CI completion. The current userscript GM bridge still discards response headers, so client-side Retry-After handling remains a separate follow-up; do not claim the client honors it yet.
+
+### Remote-command public broadcast payload removed from both candidates
+
+Independent QA found a second remote-command sender that still published the full command object in the public Realtime topic. Both candidate artifacts were inspected and corrected:
+
+- Normal #74: all two `remote_command` senders now publish only `{op:'hint'}`; the receiver polls the authenticated command endpoint. Static regression requires exactly two hint-only senders and rejects command/result payload broadcasts.
+- Team Lite #76: the second sender now also publishes only `{op:'hint'}`; the existing receiver remains hint-only and the result waiter reconciles through the authenticated result endpoint. Candidate check requires exactly two hint-only senders and rejects a full command object.
+
+Commits:
+- Normal source `6418c29`, regression guard `432aaed`; current HEAD `432aaed84bf8f6c1c9b7fcda2c34c1b13e566866`.
+- Team Lite artifact `3e88807`, regression guard `28ea63d`; current HEAD `28ea63d5090cbed198d87eee055d62ac732d9464`.
+
+These new remote-command checks have not yet completed exact-head CI. The deployed production bundles and database triggers remain unchanged and still require the coordinated Realtime migration.
+
+### Exact current PR/workflow state
+
+- **#74 Normal** HEAD `432aaed84bf8f6c1c9b7fcda2c34c1b13e566866`: Validate [42295034638](https://github.com/Reekyi/UpStatus/actions/runs/42295034638) passed; Smoke [42295034716](https://github.com/Reekyi/UpStatus/actions/runs/42295034716) pending. An earlier Smoke [42294427574](https://github.com/Reekyi/UpStatus/actions/runs/42294427574) remains in authenticated/browser integration and is using isolated fixtures; do not alter the test project until it drains.
+- **#76 Team Lite** HEAD `28ea63d5090cbed198d87eee055d62ac732d9464`: Candidate Checks [42295045320](https://github.com/Reekyi/UpStatus/actions/runs/42295045320) pending behind the shared isolated-test concurrency queue. A rerun of the preceding pre-deploy attempt is also queued.
+- **#75 baseline** remains `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, historical CI pass only.
+- **#80 continuity** remains `d5e32fd6f90b8c28c15f74b1dda346505a7cb4b3`; Validate [42285874121](https://github.com/Reekyi/UpStatus/actions/runs/42285874121) fails on inherited `client signed upload helper missing`.
+- **#82 QA** remains `281db0c32be7b13e670e6f88e4dd24b998c8dea9`; Validate [42289399418](https://github.com/Reekyi/UpStatus/actions/runs/42289399418) fails on inherited `production updateURL mismatch`. QA branch remains untouched.
+
+All five PRs remain open and Draft. No human approval is recorded. Issue #78 remains 0/8 physical acceptance criteria; Issue #79 remains 16/35 checklist items checked.
+
+### Production snapshot remains read-only and blocked
+
+Production `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations through `20261027155438`, and 38 ACTIVE Edge Functions. Catalog inspection confirms production still lacks the rate-limit table/RPC, atomic read-receipt RPC, call/voice attempt tables, and dedicated `upstatus-signal` endpoint. The three public broadcast SECURITY DEFINER functions remain executable by anon/authenticated with `search_path=public`; the message trigger still publishes complete OLD/NEW rows to `db_change` with `private=false`. The public Realtime cutover and default-off transport flag remain release blockers.
+
+No production SQL write, migration, Edge Function deployment, merge, release, secret/role/feature-flag change, userscript publication, or destructive operation occurred.
