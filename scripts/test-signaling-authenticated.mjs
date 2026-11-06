@@ -760,6 +760,114 @@ try {
       "last-member departure removes all logical room bindings",
     ]) check(name, false, "leave room creation failed");
   }
+
+  const voiceAttemptPrefix = users.A.name.replace(/[^A-Za-z0-9._:-]/g, "_").slice(0, 80) + "-voice-";
+  const makeVoiceAttemptId = label => voiceAttemptPrefix + label + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+
+  const cancelledVoiceAttemptId = makeVoiceAttemptId("cancel");
+  const cancelBeforeOpen = await request(users.A, "/room/cancel-open", {
+    logicalId: "upstatus-team-room-v1", attemptId: cancelledVoiceAttemptId,
+  });
+  check("voice cancel-before-open writes an idempotent tombstone",
+    cancelBeforeOpen.status === 200 && cancelBeforeOpen.json?.cancelled === true && cancelBeforeOpen.json?.notFound === true,
+    "HTTP " + cancelBeforeOpen.status);
+  const lateVoiceOpen = await request(users.A, "/room/open", {
+    logicalId: "upstatus-team-room-v1", attemptId: cancelledVoiceAttemptId,
+  });
+  check("late voice open cannot pass a cancel-before-open tombstone",
+    lateVoiceOpen.status === 410 && lateVoiceOpen.json?.error === "VOICE_ROOM_OPEN_CANCELLED",
+    "HTTP " + lateVoiceOpen.status);
+
+  const activeVoiceAttemptA = makeVoiceAttemptId("active-a");
+  const activeVoiceOpenA = await request(users.A, "/room/open", {
+    logicalId: "upstatus-team-room-v1", attemptId: activeVoiceAttemptA,
+  });
+  const activeVoiceRoomId = activeVoiceOpenA.json?.roomId || "";
+  check("voice open attempt creates a membership and records its attempt ID",
+    activeVoiceOpenA.status === 201 && activeVoiceOpenA.json?.created === true &&
+      activeVoiceOpenA.json?.attemptId === activeVoiceAttemptA && !!activeVoiceRoomId,
+    "HTTP " + activeVoiceOpenA.status);
+
+  const activeVoiceAttemptB = users.B.name.replace(/[^A-Za-z0-9._:-]/g, "_").slice(0, 80) +
+    "-voice-active-b-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  const activeVoiceOpenB = await request(users.B, "/room/open", {
+    logicalId: "upstatus-team-lite-room-v1", attemptId: activeVoiceAttemptB,
+  });
+  check("Normal and Team Lite attempt aliases join the same voice room",
+    activeVoiceOpenB.status === 200 && activeVoiceOpenB.json?.roomId === activeVoiceRoomId &&
+      activeVoiceOpenB.json?.joined === true,
+    "HTTP " + activeVoiceOpenB.status);
+
+  const repeatVoiceOpenA = await request(users.A, "/room/open", {
+    logicalId: "upstatus-team-room-v1", attemptId: activeVoiceAttemptA,
+  });
+  check("repeated voice open with the same attempt is idempotent",
+    repeatVoiceOpenA.status === 200 && repeatVoiceOpenA.json?.roomId === activeVoiceRoomId &&
+      repeatVoiceOpenA.json?.existing === true,
+    "HTTP " + repeatVoiceOpenA.status);
+
+  const forgedVoiceCancel = await request(users.B, "/room/cancel-open", {
+    logicalId: "upstatus-team-room-v1", attemptId: activeVoiceAttemptA,
+  });
+  check("another member cannot cancel a voice attempt it does not own",
+    forgedVoiceCancel.status === 400,
+    "HTTP " + forgedVoiceCancel.status);
+
+  const cancelActiveVoiceA = await request(users.A, "/room/cancel-open", {
+    logicalId: "upstatus-team-room-v1", attemptId: activeVoiceAttemptA,
+  });
+  check("cancelling an active voice attempt removes only that member",
+    cancelActiveVoiceA.status === 200 && cancelActiveVoiceA.json?.cancelled === true &&
+      cancelActiveVoiceA.json?.roomClosed === false,
+    "HTTP " + cancelActiveVoiceA.status);
+  const membersAfterVoiceCancel = await request(users.B, "/room/members", { roomId: activeVoiceRoomId });
+  check("voice attempt cancellation preserves the other accepted member",
+    membersAfterVoiceCancel.status === 200 &&
+      (membersAfterVoiceCancel.json?.members || []).includes(users.B.name) &&
+      !(membersAfterVoiceCancel.json?.members || []).includes(users.A.name),
+    "HTTP " + membersAfterVoiceCancel.status);
+
+  const repeatVoiceCancelA = await request(users.A, "/room/cancel-open", {
+    logicalId: "upstatus-team-room-v1", attemptId: activeVoiceAttemptA,
+  });
+  check("repeated voice attempt cancellation is idempotent",
+    repeatVoiceCancelA.status === 200 && repeatVoiceCancelA.json?.alreadyCancelled === true,
+    "HTTP " + repeatVoiceCancelA.status);
+
+  const cancelActiveVoiceB = await request(users.B, "/room/cancel-open", {
+    logicalId: "upstatus-team-lite-room-v1", attemptId: activeVoiceAttemptB,
+  });
+  const resolveAfterVoiceAttempts = await request(users.B, "/room/resolve", {
+    bindingType: "voice", logicalId: "upstatus-team-room-v1",
+  });
+  check("last voice attempt cancellation closes the shared room and removes aliases",
+    cancelActiveVoiceB.status === 200 && cancelActiveVoiceB.json?.roomClosed === true &&
+      resolveAfterVoiceAttempts.status === 404,
+    "cancel=" + cancelActiveVoiceB.status + ", resolve=" + resolveAfterVoiceAttempts.status);
+
+  const racingVoiceAttemptId = makeVoiceAttemptId("race");
+  const [racingVoiceOpen, racingVoiceCancel] = await Promise.all([
+    request(users.A, "/room/open", { logicalId: "upstatus-team-room-v1", attemptId: racingVoiceAttemptId }),
+    request(users.A, "/room/cancel-open", { logicalId: "upstatus-team-room-v1", attemptId: racingVoiceAttemptId }),
+  ]);
+  check("concurrent voice open and cancel serialize without an orphan membership",
+    [201, 410].includes(racingVoiceOpen.status) && racingVoiceCancel.status === 200 &&
+      racingVoiceCancel.json?.cancelled === true,
+    "open=" + racingVoiceOpen.status + ", cancel=" + racingVoiceCancel.status);
+  const resolveAfterVoiceRace = await request(users.A, "/room/resolve", {
+    bindingType: "voice", logicalId: "upstatus-team-room-v1",
+  });
+  check("voice open/cancel race leaves no resolvable membership",
+    resolveAfterVoiceRace.status === 404,
+    "HTTP " + resolveAfterVoiceRace.status);
+
+  const wrongLogicalReuse = await request(users.A, "/room/open", {
+    logicalId: "upstatus-team-lite-room-v1", attemptId: activeVoiceAttemptA,
+  });
+  check("voice attempt cannot be replayed under the other logical alias",
+    wrongLogicalReuse.status === 409 && wrongLogicalReuse.json?.error === "VOICE_ATTEMPT_CONFLICT",
+    "HTTP " + wrongLogicalReuse.status);
+
 } catch (error) {
   console.error("Integration request failed:", String(error));
   results.push({ name: "test runner completed without transport error", ok: false });
