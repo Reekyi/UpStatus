@@ -28,6 +28,7 @@ assert.deepEqual(misplaced, [], "test-only SQL must stay outside supabase/migrat
 for (const name of [
   "20261104152847_atomic_chat_read_receipts_and_visual_config_grants_test.sql",
   "20261104154623_distributed_signaling_rate_limit_test.sql",
+  "20261106191000_bounded_rate_limit_cleanup_test.sql",
   "20261105150000_postgres_public_default_privileges_test.sql",
   "20261105170000_postgres_global_function_default_scope_test.sql",
   "20261106080200_call_room_attempt_recovery_test.sql",
@@ -63,5 +64,15 @@ for (const column of ["created_by", "recipient", "room_id"]) {
 }
 assert.ok(callAttemptIndexTest.includes("indisvalid") && callAttemptIndexTest.includes("indisready") && callAttemptIndexTest.includes("indkey[0]"),
   "isolated call-attempt index test must verify valid leading-key indexes");
+
+const boundedRateLimitCleanupTest = readFileSync(
+  path.join(testMigrationsRoot, "20261106191000_bounded_rate_limit_cleanup_test.sql"), "utf8"
+);
+assert.match(boundedRateLimitCleanupTest, /LIMIT\\s+100/i,
+  "rate-limit cleanup must delete at most 100 stale buckets per request");
+assert.match(boundedRateLimitCleanupTest, /FOR UPDATE SKIP LOCKED/i,
+  "bounded cleanup must skip rows already locked by concurrent cleanup");
+assert.match(boundedRateLimitCleanupTest, /v_remaining <> 50/i,
+  "isolated SQL regression must prove that 150 stale buckets leave exactly 50 after cleanup");
 
 console.log("Test migration layout guard passed.");
