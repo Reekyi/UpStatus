@@ -10,6 +10,7 @@ on:
       - "ycaro.html"
       - "scripts/team-lite-candidate-check.mjs"
       - "scripts/team-lite-voice-room-attempt-recovery.test.mjs"
+      - "scripts/screen-share-recovery.test.mjs"
       - "scripts/test-chat-read-receipts.mjs"
       - "scripts/assert-isolated-supabase.mjs"
       - "scripts/isolation-guard.test.mjs"
@@ -57,6 +58,10 @@ jobs:
         run: |
           node --check scripts/team-lite-voice-room-attempt-recovery.test.mjs
           node scripts/team-lite-voice-room-attempt-recovery.test.mjs
+      - name: Test screen-share signaling recovery
+        run: |
+          node --check scripts/screen-share-recovery.test.mjs
+          node scripts/screen-share-recovery.test.mjs team-lite/upstatus-team-lite.user.js
       - name: Test isolated signaling endpoint authentication
         env:
           UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
