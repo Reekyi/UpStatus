@@ -311,6 +311,19 @@ assert(readFileSync("scripts/build.mjs","utf8").includes("signalingTransportTemp
   readFileSync("src/userscript/signaling-transport.mjs","utf8").includes("enabled = false"),
   "the shared build must bundle the adapter while keeping it disabled by default");
 
+const remoteCommandCalls = [...userTemplate.matchAll(/sendRealtimeEvent\(['"]remote_command['"]\s*,\s*\{([^}]*)\}\)/g)];
+assert.equal(remoteCommandCalls.length, 2,
+  "Normal remote-control entry points must each publish one Realtime hint");
+assert.ok(remoteCommandCalls.every(match => /^\s*op\s*:\s*['"]hint['"]\s*$/.test(match[1])),
+  "Normal remote_command broadcasts must contain only the generic hint field");
+assert.doesNotMatch(userTemplate, /sendRealtimeEvent\(['"]remote_command['"]\s*,\s*\{\s*command\s*:/,
+  "Normal must never publish a remote command object over public Realtime");
+assert.doesNotMatch(userTemplate, /sendRealtimeEvent\(['"]remote_result['"]\s*,\s*\{\s*result\s*:/,
+  "Normal must never publish a remote result object over public Realtime");
+assert.ok(userTemplate.includes(".on('broadcast',{event:'remote_command'},function(){scheduleRemoteStatusPoll();})") &&
+  userTemplate.includes("waitRemoteResult polls the authenticated result endpoint"),
+  "Normal remote-command/result events must be untrusted hints reconciled through authenticated APIs");
+
 const chatFastCalls = [...userTemplate.matchAll(/sendRealtimeEvent\('chat_fast'([^)]*)\)/g)];
 assert.equal(chatFastCalls.length, 2,
   "Normal message and attachment sends must each emit one chat_fast refresh hint");
