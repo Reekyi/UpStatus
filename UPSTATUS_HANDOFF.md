@@ -1080,3 +1080,35 @@ Re-read current PR refs after the documentation and logout-gate commits:
 - Normal recovery candidate `bbf1f2b` vs PR #74 head `b0c0e03`: 18 ahead / 0 behind.
 
 All five PRs remain Draft. Team Lite exact-head Candidate Checks [42149391376](https://github.com/Reekyi/UpStatus/actions/runs/42149391376) remains in progress on `8678b4b`; Normal candidate remains unvalidated.
+
+
+## Engineering refresh — 2026-11-05 23:31 BRT
+
+### Exact current GitHub state
+
+All five PRs remain open, Draft, and unmerged. Refs and CI were re-fetched; do not reuse earlier heads:
+
+- **#74 Normal** `b0c0e03fbe820e02404d4ae7d9f83e2a18642e50`, 639 ahead / 0 behind `master`. Validate [42122609464](https://github.com/Reekyi/UpStatus/actions/runs/42122609464) and Signaling Smoke [42122609431](https://github.com/Reekyi/UpStatus/actions/runs/42122609431) passed on this exact head.
+- **#75 Team Lite baseline** `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 ahead / 0 behind `team-lite-official`. Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed historically on this unchanged baseline.
+- **#76 Team Lite signaling** `88a0865efee9194c868dc685f3de946b128d83bd`, 196 ahead / 0 behind `team-lite-official`, 137 ahead / 0 behind #75. The preceding exact head `8678b4b` passed Candidate Checks [42149391376](https://github.com/Reekyi/UpStatus/actions/runs/42149391376); the new exact-head run [42150807002](https://github.com/Reekyi/UpStatus/actions/runs/42150807002) is in progress for the terminal-leave normalization added at `88a0865`.
+- **#80 continuity** `7de59898a4f76645d89df390b9b3f002f97b3172`, 78 ahead / 0 behind `develop`. Validate [42149838692](https://github.com/Reekyi/UpStatus/actions/runs/42149838692) fails at the pre-existing `client signed upload helper missing` assertion.
+- **#82 independent QA** `b916551b925da245d7bc1583f3c7ee1b9e641ba8`, 46 ahead / 0 behind `master`. Validate [42144878286](https://github.com/Reekyi/UpStatus/actions/runs/42144878286) fails at `production updateURL mismatch`. QA branch remains untouched.
+
+### Voice-room leave terminal states
+
+- The Normal recovery candidate branch `normal/reconnect-recovery-candidate` has advanced independently to `1ca2de6e3abbb383be1ccb4afff09d8b3c13dc12`, 20 commits ahead / 0 behind #74. It now normalizes only `ROOM_UNAVAILABLE` and `ROOM_MEMBERSHIP_ENDED` as idempotent successful leaves for both 2xx JSON error bodies and non-2xx error responses. Other membership errors still reject. Adapter regressions cover both codes in both response forms plus a non-terminal 403. This branch has no CI run/status yet; do not call it validated or fast-forward it into #74 without exact-head checks.
+- The same narrowly scoped adapter behavior and five assertions were ported to Team Lite PR #76 in commit [88a0865](https://github.com/Reekyi/UpStatus/commit/88a0865efee9194c868dc685f3de946b128d83bd). It changes only `src/userscript/signaling-transport.mjs` and `scripts/signaling-transport.test.mjs`. Exact-head Candidate Checks [42150807002](https://github.com/Reekyi/UpStatus/actions/runs/42150807002) is still running; no PASS is claimed for `88a0865` until it completes and fixture cleanup is verified.
+- The previous Team Lite head `8678b4b` passed 103/103 authenticated integration checks, browser WebRTC call/voice/screen with remote tracks, three-member mesh, open-voice late join/owner handoff/race/capacity/last-member cleanup, 90 accepted + 1 HTTP 429, rate-limit concurrency, atomic read-receipt concurrency, migration-layout guard, candidate metadata/updater tests, and voice leave/logout retry tests. Adapter unit test reported 17 assertions. The isolated project cleanup check afterward returned zero test-prefixed users, sessions, rooms, memberships, events, rate-limit buckets, and chat-read rows.
+- The two terminal codes are deliberately treated as success only by `leave()`; non-terminal authorization/network failures remain failures so clients retain room context and block logout. This does not resolve the two-hour stale-membership lease or room-ID loss after a full offline browser reload.
+
+### Production and release gates (read-only)
+
+Production `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations through `20261027155438`, 38 active Edge Functions. The production SQL session is `postgres`.
+
+- `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15, and `upstatus-screen-share-3-1-1-beta10` v6 remain the relevant deployed functions. No dedicated `upstatus-signal` exists.
+- Production still lacks `upstatus_signal_rate_limits`, `consume_upstatus_signal_rate_limit`, `merge_chat_read_receipts`, `open_upstatus_signal_voice_room`, and `leave_upstatus_signal_room`.
+- The three public broadcast functions remain SECURITY DEFINER, `search_path=public`, and executable by anon/authenticated. The message trigger still publishes OLD/NEW row JSON to public `db_change`. Nine backend-owned tables retain all eight client table privileges while RLS is enabled with no policies. Default ACLs remain broad for postgres in `public`/`storage` and supabase_admin in `public`/`graphql`/`graphql_public`; current SQL role cannot administer supabase_admin defaults.
+- Security Advisor: 3 WARN for anon-executable SECURITY DEFINER functions, 3 WARN for authenticated-executable functions, and 10 INFO for RLS without policies. Performance and health advisors have no findings.
+- Physical no-F5 recovery, real Tampermonkey GM bridge, microphone/display capture, and installed Normal ↔ Team Lite interoperability remain MANUAL PENDING under #78. The authenticated transport remains default-off. Production remains read-only.
+
+No merge, deploy, release, production SQL write/migration, secret/flag/role change, userscript publication, or destructive action occurred in this checkpoint.
