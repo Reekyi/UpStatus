@@ -385,7 +385,7 @@ assert.equal(attemptOpened.roomId, "sig_voice_attempt_1");
 assert.deepEqual(voiceAttemptCalls[0], {
   path: "/room/open",
   body: { logicalId: "upstatus-team-room-v1", attemptId: "ricardo-voice-attempt-1" },
-  options: undefined,
+  options: {},
 });
 const attemptCancelled = await voiceAttemptClient.cancelVoiceRoomOpen("upstatus-team-room-v1", "ricardo-voice-attempt-1");
 assert.equal(attemptCancelled.cancelled, true);
@@ -411,5 +411,5 @@ const legacyVoiceClient = createSignalingTransport({
   },
 });
 assert.equal((await legacyVoiceClient.openVoiceRoom("upstatus-team-room-v1")).roomId, "sig_voice_legacy");
-console.log("signaling voice attempt transport: 8 assertions passed");
+console.log("signaling voice attempt transport: 9 assertions passed");
 
