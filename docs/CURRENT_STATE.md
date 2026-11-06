@@ -381,3 +381,13 @@ The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fe
 - Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations, 38 active functions. Public SECURITY DEFINER broadcasts, backend table grants, and broad default ACLs remain release blockers. No production signaling/read-receipt/rate-limit RPCs or rate-limit table are installed.
 - Manual close/reload-offline, no-F5 recovery, real device permissions, installed cross-version interoperability, human reviews, and production cutover remain open. A close during in-flight `prepareCallRoom` before the room ID is returned is an additional unverified orphan-room risk.
 - Production remained read-only. No merge, deploy, release, migration, secret/role/flag change, userscript publication, or destructive action occurred.
+
+
+## 2026-11-06 — exact-head CI closure
+
+- Normal #74 HEAD `2db440814d374ad1e06b48645920573eaa8db978`: Validate [42172723990](https://github.com/Reekyi/UpStatus/actions/runs/42172723990) and Signaling Smoke [42172723820](https://github.com/Reekyi/UpStatus/actions/runs/42172723820) both passed.
+- Team Lite #76 HEAD `28e8d948f82d4d86fa853ba20d1ac6cadcd1574a`: Candidate Checks [42178075022](https://github.com/Reekyi/UpStatus/actions/runs/42178075022) passed. New durable pagehide/reload call-room leave tests passed; authenticated 103/103, unauthenticated 15/15, browser call/voice/screen WebRTC, three-member mesh, rate-limit and receipt concurrency, migration layout, metadata, and cleanup all passed. Post-run isolated fixture counts returned zero.
+- #75 baseline remains historical pass. #80 Validate [42178888759](https://github.com/Reekyi/UpStatus/actions/runs/42178888759) repeats inherited `client signed upload helper missing`; #82 Validate [42175677100](https://github.com/Reekyi/UpStatus/actions/runs/42175677100) repeats inherited `production updateURL mismatch`. The underlying baseline causes are documented in UPSTATUS_HANDOFF.md; neither validator was weakened.
+- #74 and #76 remain open/Draft with no submitted reviews or inline review comments. All other tracked PRs also remain open/Draft.
+- Physical browser close/reload while offline, no-F5 recovery, real microphone/display permissions, installed Normal ↔ Team Lite interoperability, human review, production Realtime security cutover, rate-limit integration, and production migration rehearsal remain open gates.
+- Production remained read-only; no migration/write, deploy, release, merge, secret/role/flag change, userscript publication, or destructive operation occurred.
