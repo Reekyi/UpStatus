@@ -4265,3 +4265,89 @@ O endpoint isolado v29 chama `consume_upstatus_signal_rate_limit`, mas a respost
 ### Registro de segurança desta rodada
 
 Todas as consultas SQL bem-sucedidas foram SELECT-only/catalog/contagens. Uma consulta diagnóstica de default ACL falhou por alias SQL incorreto e não alterou estado; a consulta corrigida foi somente leitura. Não foram executados scripts de teste, workflows ou mutações de fixtures pela auditoria. Os workflows #74/#76 foram iniciados pela engenharia/GitHub e seus logs foram inspecionados read-only. Nenhuma escrita em produção, migration, deploy/invocação de Edge Function, secret/flag/role change, merge, release, publicação de userscript ou operação destrutiva ocorreu. A única escrita desta rodada é este append documental na branch QA dedicada. Não declarar percentual de conclusão.
+
+
+## Auditoria independente — 2026-11-06 08:33 BRT (revalidação de CI, índices e voice-room)
+
+Este checkpoint começa pela leitura do próprio `docs/RELEASE_READINESS.md` na branch QA. O blob imediatamente anterior à atualização foi `09b0d7dd79bd19f546d1c646e023c21a85b11b28`. A escrita abaixo é somente neste arquivo e nesta branch; o SHA do conteúdo é usado como precondição para impedir sobrescrita de edição concorrente.
+
+### Heads reais, ancestry e CI
+
+As quatro PRs solicitadas permanecem abertas, Draft, não mescladas e mergeable. Reviews submetidas e inline review threads continuam zeradas em #74, #75, #76 e #82.
+
+- **Normal #74** — `chore/continuity-foundation`, HEAD `3ed7b9d6e3fbe7ab77a285201eea2f96d941316f`, 703 commits ahead / 0 behind `master`. Validate [42207304139](https://github.com/Reekyi/UpStatus/actions/runs/42207304139) e Signaling Smoke [42207304173](https://github.com/Reekyi/UpStatus/actions/runs/42207304173) concluíram SUCCESS no SHA exato. O Smoke terminou 17/17 verificações não autenticadas e 116/116 autenticadas. Logs confirmam prepare/cancel por logical call ID, tombstone contra prepare atrasado, serialização de corrida prepare/cancel, WebRTC call/voice/screen com tracks remotas, mesh de três participantes, teardown, rate limit 90 aceitas + 1 HTTP 429, concorrência do rate limiter e read receipts atômicos. Também passaram regressões de voice offline/realtime readiness/leave retry, membership leave sem confirmação, falha de join de voz, logout com retenção de sessão, pagehide/reload de call rooms, storage failure antes do prepare e recipient fail-closed.
+- **Team Lite #76** — `team-lite/signaling-transport-candidate`, HEAD `5cc5df4865250a0d67935937ea43e206217730d5`, 208 ahead / 0 behind `team-lite-official`, 149 ahead / 0 behind #75. Candidate Checks [42194948317](https://github.com/Reekyi/UpStatus/actions/runs/42194948317) concluiu SUCCESS: 15/15 não autenticadas, 103/103 autenticadas, WebRTC call/voice/screen, mesh de três membros, rate limit 90+1, concorrência de rate limit/read receipts, updater/portal/version checks, falhas GM Storage, recipient fail-closed, logout gate e cleanup. O log também cobre sequenciamento de voice leave, preservação do contexto durante offline/online e teardown local offline; isso não equivale a persistência voice-room após unload completo.
+- **Team Lite baseline #75** — HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 ahead / 0 behind `team-lite-official`. Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) é aprovação histórica do baseline; #76 é a linha atual de sinalização.
+- **QA #82** — HEAD `aec1192cbec2da61d2dacb62b83f308b2d2f8903`, 58 ahead / 0 behind `master`, um único caminho alterado. Validate [42203746245](https://github.com/Reekyi/UpStatus/actions/runs/42203746245) falhou em `production updateURL mismatch` (`scripts/validate.mjs:26`). A causa foi revalidada no código: em master, `scripts/build.mjs` deriva `updateUrl` de `cloud`, que aponta para o runtime legado `upstatus-screen-share-3-1-1-beta10`; o validador exige `/functions/v1/upstatus/upstatus.user.js`. `release.json` já contém a URL correta, e o build candidato #74 separa o endpoint de API da URL de publicação via `release.scriptUrl`. A falha é herdada do baseline master, não do Markdown. O validador não foi enfraquecido.
+
+Links e estados foram conferidos por refs reais, workflow runs, jobs e logs. Nenhuma suíte foi disparada pela auditoria.
+
+### Voice-room durability — bloqueador funcional ainda aberto
+
+**CODE INSPECTION; MANUAL PENDING; não reproduzido fisicamente.** A leitura dos userscripts nos heads atuais confirma que o problema continua nos dois produtos:
+
+- Normal, blob `bf65750581961b3a4bf78259de3f9f22ad710742`: `signalPrepareVoiceRoom()` aguarda `openVoiceRoom(voiceRoom.id)` e só depois grava `signalVoiceRoomRoomId` em memória. Não há `signalPendingVoiceRoom`, storage key ou marcador pré-open token-free.
+- Team Lite, blob `186226bb68e48409ec98ef3362ebeb4d0e8fc20e`: mesma dependência do room ID retornado e ausência de marcador persistente.
+- Adapter compartilhado, blob `e33e5bca2a984bc1849401e853290e1edddc2fc7`, já expõe `openVoiceRoom` e `resolveRoom`; o contrato existe, mas os clientes não o usam para restaurar membership após unload.
+- Os handlers `offline` executam `voiceRoomLeave({skipServerLeave:true})` e interrompem o transporte/Reatime para parar mídia local sem depender da rede. O handler `pagehide` chama `voiceRoomLeave()` em fire-and-forget; não aguarda confirmação remota. Após fechar a página offline, a referência em memória desaparece e a membership pode permanecer até TTL/cleanup (TTL de sala observado: duas horas).
+
+A solução candidata não exige nova migration com a evidência atual: o endpoint isolado v29 já oferece `POST /room/open`, `POST /room/resolve` e `POST /room/leave`; `resolve` verifica membership aceita do usuário autenticado antes de devolver o room ID. Desenho recomendado, ainda não implementado/testado: persistir antes de `/room/open` um marcador por membro contendo apenas logical ID, member e timestamp; falha de GM Storage deve bloquear a abertura; após reautenticação, resolver pelo mesmo logical ID e executar leave autenticado; remover o marcador somente após leave confirmado ou 404 terminal. Nunca persistir token. Cobrir resposta perdida de open, pagehide online/offline, reload offline, conta diferente, expiração, storage failure, retry e ausência de mídia local órfã.
+
+[Issue #78](https://github.com/Reekyi/UpStatus/issues/78) continua aberta, 22 comentários e 0/8 critérios de aceite marcados. O comentário de engenharia [6682414062](https://github.com/Reekyi/UpStatus/issues/78#issuecomment-6682414062) descreve corretamente o contrato open/resolve/leave, mas declara que o marcador ainda não foi implementado/testado. Os testes automatizados de offline/realtime readiness no Smoke verificam recuperação enquanto o contexto permanece vivo; não provam recuperação após fechar/recarregar a página.
+
+### Supabase produção — catálogo e segurança atuais
+
+Projeto `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL `17.11.0.002`, sete migrations até `20261027155438`, 38 Edge Functions ACTIVE.
+
+Ausentes em produção: `upstatus_signal_call_attempts`, `upstatus_signal_rate_limits`, RPCs prepare/cancel, rate-limit, read-receipt merge e voice-room open/leave, além da Edge Function dedicada `upstatus-signal`.
+
+SELECT-only/catalog confirmou:
+
+- Nove tabelas backend-owned (`chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing`, `users`) têm RLS ativo, zero policies e os oito privilégios efetivos para anon/authenticated: SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER e MAINTAIN. Isso é superfície excessiva de privilégios; não prova acesso às linhas enquanto RLS está ativo sem policies.
+- `upstatus_visual_config` tem RLS/zero policies e nenhum grant de tabela para os papéis cliente.
+- `realtime.messages` tem RLS, zero policies e SELECT/INSERT/UPDATE efetivos para anon/authenticated.
+- `upstatus_broadcast_messages()`, `upstatus_broadcast_remote_state()` e `upstatus_broadcast_users()` continuam SECURITY DEFINER, `search_path=public`, EXECUTE para PUBLIC/anon/authenticated/service_role. Os três triggers estão habilitados.
+- `upstatus_broadcast_messages()` serializa OLD/NEW completos com `to_jsonb` e chama `realtime.send(...,'db_change',...,false)`. A tabela `messages` contém `message`, `image_url`, `mentions`, `reply_to`, `reactions` e `file_name`; portanto o payload público inclui conteúdo e metadados de anexos. **RT-01 permanece bloqueador crítico.**
+- Default ACLs continuam amplos para postgres em `public` e `storage`, e para supabase_admin em `public`, `graphql`, `graphql_public`. A sessão é postgres, não superuser e não membro de supabase_admin; não tem autoridade para corrigir os defaults desse proprietário.
+- Security Advisor observado em `2026-11-06T11:33:49Z`: 3 WARN para SECURITY DEFINER executável por anon, 3 WARN para authenticated e 10 INFO de RLS sem policy. Performance e Health Advisor de produção sem findings.
+
+### Supabase isolado — índices, grants e provenance
+
+Projeto allowlisted `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL `17.11.0.003`, 25 migrations até `20261106110221`; `upstatus-signal-test` ACTIVE v29, SHA `0593e8a5245358ece4473cd7504b699adff20372311e43923cde60b19c6808b1`.
+
+As seis tabelas de sinalização verificadas têm RLS ativo, zero policies, sem SELECT/INSERT para anon/authenticated e privilégios de service_role. As seis RPCs de call attempts, rate limit, receipts e voice-room verificadas são SECURITY INVOKER, `search_path` vazio, EXECUTE negado a anon/authenticated e permitido a service_role.
+
+A correção de performance dos call attempts agora está presente no schema isolado: PK em `call_id`, índice em `expires_at` e índices B-tree cobrindo `created_by`, `recipient` e `room_id`; as três FKs foram confirmadas. O Performance Advisor atual não reporta mais foreign keys sem índice; restam quatro avisos INFO de índices antigos unused (`messages_created_at_idx`, `status_history_created_at_idx`, `upstatus_sessions_expiry_idx`, `idx_users_client_seen_at`). Como as fixtures estão vazias, não remover esses índices sem evidência de carga. Security Advisor isolado: 16 INFO de RLS sem policy, sem WARN SECURITY DEFINER; Health Advisor sem findings.
+
+A migration candidata no PR #74 é `supabase/migrations/20261106111000_call_attempt_foreign_key_indexes.sql` (blob `ae3c2f3d14bf8eeb4a9db08c7899535fdb834f5c`), com teste `supabase/test-migrations/20261106111000_call_attempt_foreign_key_indexes_test.sql` (blob `4587d38f3262b43767c05340808fd2538c9761c3`). A história do projeto isolado registra versões locais `20261106110214` e `20261106110221` para os objetos/teste de índices. O schema foi verificado, mas não afirmo que o arquivo versionado `20261106111000` foi aplicado pelo Supabase CLI com o mesmo version ID. Reconciliar lineage e validar o arquivo exato no TEST oficial antes de promover.
+
+Contagens SELECT-only pós-CI no projeto isolado: rooms 0, members 0, bindings 0, events 0, call attempts 0 e rate-limit buckets 0. Nenhuma limpeza manual foi executada.
+
+O hardening de default ACL no projeto isolado é parcial: defaults de postgres global para funções e no schema public estão restritos a postgres/service_role; storage ainda mantém defaults amplos; defaults de supabase_admin em public/graphql/graphql_public continuam amplos. A sessão postgres não é superuser nem membro de supabase_admin.
+
+### Rate limit, read receipts e Edge Functions
+
+O endpoint isolado v29 usa `consume_upstatus_signal_rate_limit`, tem evidência de CI 90 aceitas + 1 HTTP 429 e teste de concorrência; sua resposta 429 ainda não inclui `Retry-After`. Os templates de servidor Normal e Team Lite incluem `merge_chat_read_receipts`, mas não chamam `consume_upstatus_signal_rate_limit`. Em produção, ambas as RPCs e a tabela de rate limit continuam ausentes.
+
+Produção lista 38/38 Edge Functions ACTIVE, todas com `verify_jwt=false`. Isso não prova ausência de autenticação própria: as funções core `upstatus` v480 (SHA `bb2713ce...`) e `upstatus-team-lite` v15 (SHA `2c13414a...`) validam `x-upstatus-token` e usam `timingSafeEqual`. `upstatus-test` está v281 (SHA `7b5dfb12...`); screen-share beta10 está v6 (SHA `f6c5f8a4...`). Os bundles implantados core não contêm rotas open/resolve/leave, rate-limit RPC, merge de read receipts ou `Retry-After`. O endpoint isolado v29 contém open/resolve/leave e rate-limit RPC; não contém `Retry-After`.
+
+O workflow deploy em master usa Supabase CLI `latest`, não fixa branch/SHA/project ID no próprio job e implanta somente `upstatus`. O workflow candidato #74 valida `refs/heads/master`, checkout SHA igual a `GITHUB_SHA`, project ID fixo `dlfvkawaiqduhlazsszm`, token presente e CLI `2.122.1`; ainda implanta somente Normal e não está ativo em master. Nenhum deploy foi executado.
+
+### Issues e gates manuais
+
+- [#78](https://github.com/Reekyi/UpStatus/issues/78): aberta, 22 comentários, 0/8 checkboxes; teste físico offline/online sem F5, voice-room, call, áudio/microfone/display reais e compatibilidade instalada continuam MANUAL PENDING.
+- [#79](https://github.com/Reekyi/UpStatus/issues/79): aberta, 75 comentários, 16/35 checkboxes marcados; o corpo mantém RT-01, testes físicos, migrations/cutover, issues #24/#16 e revisão final pendentes. A fotografia do corpo não acompanha integralmente o CI mais recente e precisa ser atualizada pelo release owner.
+
+### Próximos gates
+
+1. Implementar marcador voice-room token-free pré-open em Normal e Team Lite, restore via resolve e leave confirmado; cobrir resposta perdida de open e falha do GM Storage.
+2. Executar aceitação física de #78 em ambos os userscripts instalados, inclusive reload offline/no-F5 e permissões reais.
+3. Reconciliar o versionamento da migration de índices e validar o arquivo exato no TEST oficial com plano de rollback.
+4. Integrar rate limit distribuído aos endpoints reais e implementar/testar `Retry-After`.
+5. Resolver RT-01 por cutover autenticado coordenado; resolver ACL-02 por caminho administrativo autorizado.
+6. Validar migrations de grants/Realtime/read receipts no TEST oficial; mapear consumidores e rollback das 38 Edge Functions antigas.
+7. Atualizar #79, obter reviews humanas e manter #74/#76 Draft até todos os gates de segurança, CI, teste físico e cutover estarem aprovados.
+
+### Registro de segurança desta rodada
+
+Todas as consultas SQL bem-sucedidas foram SELECT-only, de catálogo, privilégios, definições e contagens. Uma consulta de diagnóstico inicial falhou por incompatibilidade de tipos em UNION; foi corrigida e não realizou escrita. Não foram executados scripts, workflows ou mutações de fixtures pela auditoria. Os workflows #74/#76 foram iniciados pela engenharia/GitHub e inspecionados read-only. Nenhuma escrita em produção, migration, deploy/invocação de Edge Function, alteração de secret/flag/role, merge, release, publicação de userscript ou operação destrutiva ocorreu. A única escrita desta rodada é este append documental nesta branch QA.
