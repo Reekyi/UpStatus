@@ -218,17 +218,23 @@ export function createSignalingTransport({
     validId(logicalId, "logical call ID");
     if (typeof recipient !== "string" || !recipient || recipient.length > 80)
       throw new TypeError("Invalid recipient");
-    const created = await createRoom([recipient]);
+    const created = await post("/room/prepare-call", { logicalId, recipient }, options);
     const roomId = created.roomId;
-    if (typeof roomId !== "string" || !roomId) throw new Error("Room creation returned no room ID");
+    if (typeof roomId !== "string" || !roomId) throw new Error("Call preparation returned no room ID");
     try {
-      await bindRoom({ roomId, bindingType: "call", logicalId });
       await waitForAcceptance(roomId, recipient, options);
       return { roomId, logicalId, recipient };
     } catch (error) {
-      try { await close(roomId); } catch {}
+      // Cancellation is keyed by the logical call ID, not the room ID. This also
+      // handles a prepare response lost after the server committed the room.
+      try { await cancelCallRoom(logicalId); } catch {}
       throw error;
     }
+  }
+
+  async function cancelCallRoom(logicalId, options = {}) {
+    validId(logicalId, "logical call ID");
+    return post("/room/cancel-call", { logicalId }, options);
   }
 
   async function leave(roomId) {
@@ -348,7 +354,7 @@ export function createSignalingTransport({
 
   return Object.freeze({
     createRoom, openVoiceRoom, bindRoom, resolveRoom, invite, requestInvite, invitations, roomStatus, roomMembers, waitForAcceptance, accept, decline,
-    sendSignal, sendToRoom, poll, ack, leave, close, prepareCallRoom, startPolling, stopPolling, stopAll,
+    sendSignal, sendToRoom, poll, ack, leave, close, prepareCallRoom, cancelCallRoom, startPolling, stopPolling, stopAll,
     get enabled() { return enabled; },
     get activePollCount() { return activePolls.size; },
     get now() { return now(); },
