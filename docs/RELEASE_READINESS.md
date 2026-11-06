@@ -3409,3 +3409,183 @@ O workflow de deploy em master, blob `8252c6c6e7005c98625603b5b02b14cb1e50a519`,
 Todas as consultas SQL foram SELECT-only. O run 42153971733 foi iniciado pela engenharia no projeto isolado e apenas inspecionado pela auditoria. A limpeza foi confirmada por log e consulta posterior; nenhuma fixture foi alterada pela auditoria. Não houve escrita em produção, migration, deploy, merge, release, publicação de userscript, alteração de secret/flag/role ou operação destrutiva. A única escrita desta rodada é este append documental na branch QA dedicada.
 
 Não declarar percentual de conclusão. #76 tem AUTOMATED PASS no head exato; isso não equivale a teste manual, review humano ou prontidão de produção. RT-01, ACL-02, cutover/migrations, testes físicos e revisão humana continuam bloqueadores.
+
+
+## Revalidação independente — 2026-11-06 (rodada 13; CI 04:11–04:17 UTC, catálogo 04:27 UTC)
+
+Esta seção supersede snapshots anteriores quando houver divergência de head, workflow ou catálogo. A leitura foi feita na branch QA dedicada. A escrita abaixo é append-only e usa o blob SHA obtido imediatamente antes da atualização. Nenhuma branch de engenharia foi alterada.
+
+### Heads reais, PRs e ancestralidade
+
+| PR | HEAD exato | Base | Estado |
+|---|---|---|---|
+| #74 Normal | `562d60e73e5827a8d87d6959c06e87af4c356588` | `master` | aberta / Draft / não mesclada |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | `team-lite-official` | aberta / Draft / não mesclada |
+| #76 Team Lite signaling | `3627557f244c98a9c7e1cc986c7cea43124863a9` | `team-lite-official` | aberta / Draft / não mesclada |
+| #82 QA | `704ba71795d31eb63278dffa0ac74ebcb30572ba` | `master` | aberta / Draft / não mesclada |
+
+Comparações GitHub atuais:
+- #74: 665 commits à frente / 0 atrás de `master`; 59 arquivos alterados.
+- #75: 59 à frente / 0 atrás de `team-lite-official`; 10 arquivos alterados.
+- #76: 197 à frente / 0 atrás de `team-lite-official`; 138 à frente / 0 atrás de #75; 25 arquivos alterados.
+- #82: 49 à frente / 0 atrás de `master`; somente `docs/RELEASE_READINESS.md` alterado.
+- A branch `normal/reconnect-recovery-candidate` agora compara como **identical** com `chore/continuity-foundation` / #74: ambos apontam para `562d60e73e5827a8d87d6959c06e87af4c356588`. O snapshot anterior que a tratava como branch separada em `1ca2de6` está superado.
+
+Os PRs #74, #75, #76 e #82 continuam abertos e Draft. As consultas de reviews e review threads retornaram zero submissões e zero threads nos quatro PRs.
+
+### CI por HEAD exato
+
+- **Normal #74 — AUTOMATED PASS:** Validate [42161030346](https://github.com/Reekyi/UpStatus/actions/runs/42161030346) e Signaling Smoke [42161030275](https://github.com/Reekyi/UpStatus/actions/runs/42161030275) concluíram SUCCESS no head `562d60e`.
+  - 15/15 verificações não autenticadas.
+  - 103/103 verificações autenticadas.
+  - Open voice join, late join por aliases Normal/Team Lite, idempotência, capacidade, owner handoff e corridas de saída/entrada.
+  - Chromium WebRTC de chamada, voz e tela com entrega de tracks remotas; teardown de peers/tracks.
+  - Convites dinâmicos e malha autenticada de três participantes, com os três links par-a-par.
+  - Rate limit isolado: 90 aceitas e 1 rejeitada com HTTP 429; concorrência do rate limiter aprovada.
+  - Concorrência de recibos atômicos aprovada e cleanup das fixtures confirmado pelo log.
+- **Team Lite #76 — AUTOMATED PASS:** Candidate Checks [42153971733](https://github.com/Reekyi/UpStatus/actions/runs/42153971733), job `127683584177`, concluiu SUCCESS no head `3627557`.
+  - Mutation guard do projeto isolado, adapter autenticado e autenticação do endpoint aprovados.
+  - 103/103 verificações autenticadas, open join/late join, owner handoff, capacidade e concorrência aprovados.
+  - WebRTC de chamada/voz/tela, mesh de três participantes e teardown aprovados.
+  - Rate limit 90+1 HTTP 429, concorrência do rate limiter, recibos atômicos e migration-layout guard aprovados.
+  - Bundle parity, versão 3.4.31, sintaxe de userscript/portais, updater, retry de leave, coalescência, reentrada serializada, recuperação offline/online e gate de logout aprovados.
+  - Cleanup confirmado pelo workflow e por consulta posterior somente de leitura no projeto isolado.
+- **Team Lite #75 — aprovação histórica:** Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passou no baseline `7bbf9b9`; #76 é 138 commits à frente e deve ser tratado como o candidato de sinalização atual. Não mesclar #75 e #76 independentemente sem decisão explícita sobre a sobreposição.
+- **QA #82 — BLOCKED por validação de base:** Validate [42157072865](https://github.com/Reekyi/UpStatus/actions/runs/42157072865) falhou em `scripts/validate.mjs:18` com `production updateURL mismatch`. O PR contém somente este Markdown; nenhum validador foi alterado ou contornado. Manter Draft até resolver a incompatibilidade herdada ou aceitar formalmente uma exceção documental.
+
+Os runs acima foram iniciados pela engenharia. Esta auditoria apenas inspecionou os resultados; não disparou workflows nem iniciou uma suíte mutável concorrente.
+
+### Novo achado de código — call-room cleanup perde o retry handle
+
+**ID sugerido: CALL-CLEANUP-RETRY — CODE INSPECTION / RELEASE GATE para o transporte autenticado de chamadas.**
+
+O código atual de `callCleanup()` é estruturalmente igual nos dois candidatos:
+- Normal: `src/userscript/upstatus.user.template.js`, blob `28e7ac93bc5084b9fc4e62930add0468e072a3dc`, linhas 2087–2097.
+- Team Lite: `team-lite/upstatus-team-lite.user.js`, blob `f18cf6e17fc149c03daeaa512f1c69030e4e9232`, linhas 2614–2624.
+
+Sequência observada:
+1. Lê `signalRoomId` de `signalRoomByCallId[callId]`.
+2. Interrompe o polling e apaga imediatamente `signalRoomByCallId`, `signalCallIdByRoom` e `signalRosterCache`.
+3. Agenda `Promise.allSettled(pendingSignals).then(() => signalTransport.leave(signalRoomId))`.
+4. O callback consulta a variável global mutável `signalTransport`, não uma referência local capturada.
+5. Qualquer falha é absorvida por `.catch(function(){})`; o estado de chamada e o call ID são limpos antes da confirmação do servidor.
+
+**Corrida determinística no caminho offline:** o handler Normal chama `callCleanup(false)` e, no mesmo turno síncrono, executa `signalTransport.stopAll(); signalTransport=null` (linhas 2499–2506). O handler Team Lite chama `callCleanup(false)` e imediatamente `stopRealtime({preserveVoiceRoomContext:true})`; essa função define `signalTransport=null` e zera os mapas de sala/chamada (linhas 3016–3035). Quando a continuação assíncrona de `Promise.allSettled(...)` roda, ela tenta acessar `signalTransport.leave` já com a variável global nula; o erro é engolido. Assim, o leave do call-room não é enviado e o mapa local para retry já foi removido.
+
+Também há fragilidade fora do evento offline:
+- No Normal, o handler de logout aguarda `callCleanup(true,'hangup')`, mas o catch interno transforma falha de leave em Promise resolvida; o logout pode prosseguir sem confirmação.
+- No Team Lite, `teamLiteEndSession()` chama `callCleanup(true,'hangup')` sem `await` (linha 772), depois aguarda apenas a liberação da sala de voz; o call-room é uma associação separada.
+- Os testes atuais verificam estaticamente a presença/ordem de `signalTransport.leave` após os sinais pendentes, mas não exercitam o handler offline, a nulificação do transporte, falha de leave e retry. Referências: [Normal static test](https://github.com/Reekyi/UpStatus/blob/chore/continuity-foundation/scripts/signaling-static.test.mjs#L321-L326) e [Team Lite candidate checker](https://github.com/Reekyi/UpStatus/blob/team-lite/signaling-transport-candidate/scripts/team-lite-candidate-check.mjs#L255-L262).
+
+Evidências de código:
+- [Normal callCleanup](https://github.com/Reekyi/UpStatus/blob/chore/continuity-foundation/src/userscript/upstatus.user.template.js#L2087-L2097)
+- [Normal offline handler](https://github.com/Reekyi/UpStatus/blob/chore/continuity-foundation/src/userscript/upstatus.user.template.js#L2499-L2506)
+- [Normal logout](https://github.com/Reekyi/UpStatus/blob/chore/continuity-foundation/src/userscript/upstatus.user.template.js#L3534)
+- [Team Lite callCleanup](https://github.com/Reekyi/UpStatus/blob/team-lite/signaling-transport-candidate/team-lite/upstatus-team-lite.user.js#L2614-L2624)
+- [Team Lite stopRealtime/offline](https://github.com/Reekyi/UpStatus/blob/team-lite/signaling-transport-candidate/team-lite/upstatus-team-lite.user.js#L3016-L3041)
+- [Team Lite logout](https://github.com/Reekyi/UpStatus/blob/team-lite/signaling-transport-candidate/team-lite/upstatus-team-lite.user.js#L769-L794)
+
+**Impacto:** quando o transporte autenticado de chamadas está habilitado, uma chamada encerrada durante perda de rede ou falha transitória pode deixar a membership do call-room no servidor até expiração/limpeza. O cliente já perdeu o room ID e o handle de transporte para repetir o leave. Não é evidência de vazamento de conteúdo nem de membership permanente; é risco de consistência, capacidade e teardown.
+
+O endpoint candidato define TTL de sala de duas horas e executa limpeza periódica a cada 60 segundos (`supabase/functions/upstatus-signal-test/index.ts`, `ROOM_TTL_MS` e `CLEANUP_INTERVAL_MS`). Logo, uma membership abandonada pode consumir capacidade até expiração e o próximo ciclo de cleanup.
+
+**Correção exigida:** capturar a instância de transporte antes do teardown; manter um registro pendente de leave separado do estado de mídia; só remover o mapa/handle depois de confirmação ou estado terminal idempotente; não engolir erros não terminais; propagar sucesso/falha ao logout; e adicionar testes dinâmicos offline/fail-then-success/falha persistente/owner handoff. A mídia local deve continuar sendo encerrada imediatamente mesmo quando o servidor estiver indisponível.
+
+Classificação: **CODE INSPECTION confirmado; runtime ainda não reproduzido manualmente.** O PASS do CI #74/#76 não cobre este cenário. Tratar como gate para habilitar/publicar o transporte autenticado de chamadas.
+
+### Normal/Team Lite: integração de rate limit ainda parcial
+
+A inspeção dos templates de produto no head atual encontrou:
+- `src/server/index.template.ts`: chamada a `merge_chat_read_receipts`, mas nenhuma referência a `consume_upstatus_signal_rate_limit` ou `upstatus_signal_rate_limits`.
+- `src/server/team-lite-index.template.ts`: mesma situação.
+- O endpoint isolado `supabase/functions/upstatus-signal-test/index.ts` contém a chamada à RPC de rate limit, mas não contém o cabeçalho `Retry-After`.
+
+Portanto, os testes 90+1 HTTP 429 e de concorrência comprovam o endpoint isolado, não a aplicação de quotas distribuídas nos endpoints de produto Normal/Team Lite. RT-09 permanece **PARTIAL**. Integrar a RPC nos endpoints coordenados e definir/testar Retry-After antes de declarar o rate limit pronto para produção.
+
+### Supabase de produção — revalidação somente leitura
+
+Projeto `dlfvkawaiqduhlazsszm`: `ACTIVE_HEALTHY`, região `us-west-2`, PostgreSQL `17.11.0.002`. A migration inventory continua com sete entradas até `20261027155438`.
+
+Ausentes no schema `public`:
+- `upstatus_signal_rate_limits`;
+- `consume_upstatus_signal_rate_limit`;
+- `merge_chat_read_receipts`;
+- `open_upstatus_signal_voice_room`;
+- `leave_upstatus_signal_room`.
+
+RLS/grants confirmados por catálogo:
+- As nove tabelas backend-owned continuam com RLS ativo e zero policies.
+- Para `anon` e `authenticated`, `has_table_privilege` retornou true para SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER e MAINTAIN em cada uma das nove tabelas. Isso confirma a superfície excessiva de grants, mas não prova acesso efetivo a linhas: RLS está ativo e sem policies.
+- `upstatus_visual_config` tem RLS e zero policies, sem grants de tabela para os papéis cliente.
+- `realtime.messages` tem RLS e zero policies, com SELECT/INSERT/UPDATE para anon/authenticated.
+
+As funções `upstatus_broadcast_messages()`, `upstatus_broadcast_remote_state()` e `upstatus_broadcast_users()` continuam SECURITY DEFINER, `search_path=public`, executáveis por anon/authenticated/service_role. O trigger `upstatus_messages_broadcast` continua habilitado após INSERT/UPDATE/DELETE em `public.messages`. A definição exata da função de mensagens serializa OLD/NEW com `to_jsonb` e chama `realtime.send(..., 'db_change', ..., false)`; RT-01 permanece bloqueador confirmado.
+
+Default ACL:
+- `acldefault('f', ...)` confirma PUBLIC EXECUTE no default de funções para os proprietários postgres e supabase_admin.
+- Os defaults por schema permanecem amplos nos schemas já registrados em snapshots anteriores.
+- A sessão atual é `postgres`, não superuser e sem membership em `supabase_admin`; ACL-02 continua sem caminho administrativo autorizado nesta sessão.
+
+Security Advisor observado em `2026-11-06T04:27:31Z`: 3 WARN para SECURITY DEFINER executável por anon, 3 WARN para authenticated e 10 INFO para RLS sem policy. Performance Advisor sem findings; Health Advisor sem findings.
+
+Não inferir exploração direta somente dos grants. O caminho de divulgação confirmado continua sendo o trigger SECURITY DEFINER que envia a linha completa para broadcast público.
+
+### Supabase isolado — bfpjtfqlnypisxljoxkb
+
+Projeto `ACTIVE_HEALTHY`, região `sa-east-1`, PostgreSQL `17.11.0.003`, 21 migrations até `20261105220323`. Edge Functions isoladas: `upstatus-signal-test` ACTIVE v28 e `upstatus-signal-e2e-once` ACTIVE v3.
+
+As quatro RPCs candidatas existem:
+- `consume_upstatus_signal_rate_limit`;
+- `merge_chat_read_receipts`;
+- `open_upstatus_signal_voice_room`;
+- `leave_upstatus_signal_room`.
+
+Todas são SECURITY INVOKER, têm `search_path` vazio, EXECUTE negado a anon/authenticated e EXECUTE permitido a service_role. As cinco tabelas de sinalização/rate limit têm RLS ativo, zero policies e nenhum SELECT/INSERT para anon/authenticated.
+
+Consulta SELECT-only posterior ao CI retornou zero rooms, members, bindings, events e rate-limit rows. Nenhuma limpeza manual foi realizada.
+
+### Edge Functions e deploy
+
+Produção lista 38/38 Edge Functions ACTIVE; todas reportam `verify_jwt=false`. Isso não prova ausência de autenticação própria. A inspeção de fonte das três funções principais confirmou validação própria por `x-upstatus-token` e `timingSafeEqual`:
+- `upstatus`: v480, SHA `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`, versão interna 3.4.7.
+- `upstatus-team-lite`: v15, SHA `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`, versão interna 3.4.30.
+- `upstatus-screen-share-3-1-1-beta10`: v6, SHA `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29`, versão interna 3.1.1-beta8.
+
+A função dedicada `upstatus-signal` continua ausente em produção. As demais 31 funções não incluídas nessa amostra ainda precisam de inventário individual de rota, consumidor e autenticação.
+
+Backups ainda ACTIVE:
+- `upstatus-backup-327-pre328`: v1, entrypoint vazio, SHA `3d6c4f8e5f777830ea720ab2938cb023b5a4e4c7d26f3fc02b926ce0e4d0dd90`.
+- `upstatus-backup-328-pre329`: v1, versão interna 3.2.8, SHA `1d08d9f0fc475a99afdc73bee4d96810b9cf5ed1b4ebe99536bee823be76411a`.
+- `upstatus-backup-329-pre330`: v1, versão interna 3.2.9, SHA `61349cabf45da6e7a6f6162693709e91235bc281ea01c34dcb0dff086ae9071b`.
+- `upstatus-backup-330-pre331`: v1, versão interna 3.3.0, SHA `d62e501bbadd99e7f976613b059a21170948511a6ef6480ce6a8c25bc2bca412`.
+
+Consumidores e plano de rollback desses backups continuam não verificados. Não foram chamados nem desativados.
+
+Workflow:
+- Master ainda usa deploy com CLI `latest`, sem as verificações de branch/SHA/projeto presentes no candidato.
+- O candidato #74, blob `f3493d19cb59bb4d9f41eb4ab05d542befa2b8ce`, fixa checkout em `github.sha`, exige master, compara HEAD/GITHUB_SHA, fixa project ID `dlfvkawaiqduhlazsszm` e CLI 2.122.1.
+- Mesmo o candidato ainda implanta somente `upstatus`, sem Team Lite e sem allowlist independente de SHA aprovado; #74 não foi mesclado. Nenhum deploy ocorreu.
+
+### Issues e aceitação manual
+
+- [#78](https://github.com/Reekyi/UpStatus/issues/78) continua aberta, 19 comentários; os oito critérios de aceite permanecem desmarcados. O corpo ainda descreve falha manual de recuperação sem F5 após cerca de dez segundos offline. Áudio/microfone real, compartilhamento físico, chamadas após reconexão, múltiplas quedas e interoperabilidade instalada seguem MANUAL PENDING.
+- [#79](https://github.com/Reekyi/UpStatus/issues/79) continua aberta, 73 comentários; o corpo principal ainda contém a fotografia de 2026-11-03 e está desatualizado em relação aos heads/runs atuais. O comentário de engenharia [6676647352](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6676647352) já menciona o risco de `callCleanup()`; esta rodada o confirmou independentemente por inspeção de código.
+
+### Próximos gates
+
+1. Corrigir `callCleanup()` em Normal e Team Lite: capturar o transporte, preservar retry handle/membership até confirmação, propagar falhas e aguardar corretamente no logout.
+2. Acrescentar testes dinâmicos para offline handler, transporte nulificado, falha de leave, retry fail-then-success, falha persistente, owner handoff e cleanup após reconexão.
+3. Manter #74/#76 Draft até review humano e aceitação física; os PASSs atuais são automatizados e não cobrem o novo achado.
+4. Completar testes físicos da #78: queda/retorno sem F5, novas chamadas, microfone real, display capture e compatibilidade Normal ↔ Team Lite instalada.
+5. Integrar rate limit distribuído aos endpoints reais Normal/Team Lite e implementar/testar Retry-After.
+6. Planejar RT-01 com troca coordenada de payloads públicos e autorização Realtime compatível com identidade confiável. A documentação Supabase exige RLS em `realtime.messages`, canal `private: true` e identidade JWT; um token UpStatus customizado não substitui automaticamente um Supabase Auth JWT. Ver [Realtime Authorization](https://supabase.com/docs/guides/realtime/authorization).
+7. Validar migrations de grants, SECURITY DEFINER, recibos, rate limit e voz no ambiente oficial de TEST, com rollback e caminho administrativo suportado para supabase_admin.
+8. Atualizar #79, auditar as 31 Edge Functions restantes e mapear consumidores/rollback dos backups.
+9. Endurecer o workflow de deploy em master e planejar cutover coordenado Normal/Team Lite com allowlist de SHA aprovado.
+10. Obter reviews humanos de #74, #75, #76 e #82.
+
+### Registro de segurança desta rodada
+
+Todas as consultas SQL foram SELECT-only. Os workflows 42161030346, 42161030275 e 42153971733 foram iniciados pela engenharia e apenas inspecionados. Nenhum workflow foi disparado por esta auditoria; nenhuma fixture foi alterada ou limpa por esta auditoria. Não houve escrita em produção, migration, deploy, merge, release, publicação de userscript, alteração de secret/flag/role ou operação destrutiva. A única escrita desta rodada é este append documental na branch QA dedicada.
+
+Não declarar percentual de conclusão. #74 e #76 têm AUTOMATED PASS nos heads exatos; isso não equivale a teste manual, review humano ou prontidão de produção. CALL-CLEANUP-RETRY, RT-01, ACL-02, rate-limit cutover, migrations, testes físicos e revisão humana continuam gates abertos.
