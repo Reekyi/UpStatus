@@ -40,6 +40,34 @@ await client.ack("sig_123", [1, 1, 2]);
 assert.deepEqual(calls.at(-1).body.eventIds, [1, 2]);
 await client.leave("sig_123");
 assert.equal(calls.at(-1).path, "/room/leave");
+
+for (const code of ["ROOM_UNAVAILABLE", "ROOM_MEMBERSHIP_ENDED"]) {
+  const expiredRoomClient = createSignalingTransport({
+    enabled: true,
+    request: async () => ({ status: 200, body: { error: code } }),
+  });
+  assert.deepEqual(await expiredRoomClient.leave("sig_expired"), {
+    ok: true, alreadyGone: true, code,
+  }, `2xx ${code} must be treated as an idempotent completed leave`);
+
+  const missingMembershipClient = createSignalingTransport({
+    enabled: true,
+    request: async () => ({ status: 404, body: { error: code } }),
+  });
+  assert.deepEqual(await missingMembershipClient.leave("sig_missing"), {
+    ok: true, alreadyGone: true, code,
+  }, `non-2xx ${code} must be treated as an idempotent completed leave`);
+}
+const activeMembershipClient = createSignalingTransport({
+  enabled: true,
+  request: async () => ({ status: 403, body: { error: "ROOM_MEMBERSHIP_REQUIRED" } }),
+});
+await assert.rejects(
+  () => activeMembershipClient.leave("sig_forbidden"),
+  error => error.status === 403 && error.code === "ROOM_MEMBERSHIP_REQUIRED",
+  "non-terminal membership errors must remain failures",
+);
+console.log("signaling leave terminal-state normalization: 5 assertions passed");
 await client.close("sig_123");
 
 await assert.rejects(() => client.bindRoom({ roomId: "sig_123", bindingType: "bad", logicalId: "x" }), /Invalid binding type/);
