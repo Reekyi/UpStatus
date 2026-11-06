@@ -258,4 +258,4 @@ After the two documentation commits above, PR #80 is now at HEAD `af7bdf81ea4f9e
 
 Static review found Normal #74 also clears the authenticated voice-room ID/owner state before the leave RPC is confirmed and suppresses RPC failure. This is not yet changed or runtime-tested. Defer its patch until Team Lite Candidate Checks `42134550466` completes and the shared isolated fixture project is confirmed clean; then add a Normal fail-then-success retry regression.
 
-Correction: PR #80 current head `010082d96f08834de0441ac83f8d1389f5e46e9e` is 56 commits ahead / 0 behind `develop`; the earlier 52 count predates the documentation follow-up commits.
+The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fetch the live comparison before using any branch-distance figure.
