@@ -295,3 +295,14 @@ The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fe
 
 - Candidate voice rooms expire after 2 hours. The leave RPC returns `ROOM_UNAVAILABLE` for closed/expired rooms and `ROOM_MEMBERSHIP_ENDED` when membership is already absent. The shared adapter exposes these as `error.code` on non-2xx responses or JSON `error` bodies on 2xx responses. Current Normal/Team Lite client code treats both as failure and can block logout even though no active membership remains. Next fix: normalize only these two terminal codes to idempotent success in the shared adapter, with tests for 2xx and non-2xx; retain failures for all other codes. Not yet implemented.
 - Team Lite Candidate Checks [42149391376](https://github.com/Reekyi/UpStatus/actions/runs/42149391376) on `8678b4b` remains in progress. Normal candidate `bbf1f2b` remains isolated and unvalidated.
+
+
+## 2026-11-05 23:26 BRT — ancestry refresh
+
+- #74 `b0c0e03`: 639 ahead/0 behind master.
+- #75 `7bbf9b9`: baseline unchanged.
+- #76 `8678b4b`: 195 ahead/0 behind team-lite-official; 136 ahead/0 behind #75.
+- #80 `e04146e`: 76 ahead/0 behind develop.
+- #82 `b916551`: 46 ahead/0 behind master.
+- Normal recovery candidate `bbf1f2b`: 18 ahead/0 behind PR #74 head.
+- All PRs remain Draft; Team Lite exact-head run [42149391376](https://github.com/Reekyi/UpStatus/actions/runs/42149391376) is still in progress.
