@@ -1529,3 +1529,18 @@ All production database queries in this checkpoint were SELECT/catalog reads. No
 - Physical Tampermonkey offline close/reload, same-member no-F5 recovery, real microphone/display permissions, and live Normal ↔ Team Lite interoperability remain MANUAL PENDING.
 - Integrate distributed rate limiting into product endpoints with Retry-After; resolve RT-01 public Realtime disclosure and ACL/default-privilege gates; validate reviewed migrations and rollback in official TEST; obtain human reviews.
 - Keep PRs Draft. No merge, deploy, release, publication, production migration, or irreversible action is authorized by this checkpoint.
+
+
+### Voice-room recovery design correction — 2026-11-06
+
+A focused read of the current Normal server route, signaling transport, and candidate voice-room migration corrects the earlier tombstone proposal:
+
+- Client openVoiceRoom(logicalId) calls authenticated POST /room/open.
+- open_upstatus_signal_voice_room() takes an advisory transaction lock across the Normal/Team Lite aliases, reuses the existing active logical-room binding, and treats an already-accepted member as an idempotent repeat. Retrying the same logicalId for the same member returns the same active room ID rather than creating another membership.
+- The existing authenticated /room/resolve route already checks isMember(binding.room_id, sender) and returns the active room ID only to a current member; otherwise it returns 404.
+- Therefore the open-response-loss case does not appear to require a new server-side call-attempt/tombstone migration. A token-free per-member pending marker can be persisted before open with logicalId/member/timestamp. After re-authentication, resolveRoom({bindingType: "voice", logicalId}) can recover the existing room ID for that same member, followed by confirmed leave. When the room ID is already known, persist it as well and retry leave directly.
+- If storage cannot persist the pre-open marker, fail closed before opening the room. Keep the marker until leave is confirmed or the membership-scoped resolve definitively returns 404.
+
+The pagehide handler in both clients calls voiceRoomLeave(), which attempts the remote leave, but the pagehide handler does not await it. If the browser is offline or unload aborts the request, the leave is unconfirmed and the room ID exists only in page memory; a full unload loses that reference. No durable voice-room pending record currently exists.
+
+This is code/design inspection only. The marker/resolve/retry flow is not implemented or tested yet. Keep issue #78 open. No new database migration is proposed unless implementation testing reveals a gap in the existing idempotent open/resolve contract.
