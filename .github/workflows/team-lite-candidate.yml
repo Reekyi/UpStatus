@@ -31,8 +31,9 @@ on:
 
 concurrency:
   # Normal and Team Lite share the same isolated Supabase fixture project.
-  # Use one global group so concurrent runs cannot delete or overwrite each other's fixtures.
+  # Retain a bounded queue so a new Normal run cannot cancel a pending Team Lite run.
   group: upstatus-signaling-isolated-tests
+  queue: max
   cancel-in-progress: false
 
 permissions:
