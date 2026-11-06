@@ -56,6 +56,15 @@ new vm.Script(script, { filename: "team-lite/upstatus-team-lite.user.js" });
 assert.ok(script.includes("if(served!==remote)throw new Error"), "manifest/script version mismatch must block updates");
 assert.ok(script.includes("if(cmp>0){setUpdateAvailable(true,served)"), "only a newer remote version may show the update prompt");
 assert.ok(script.includes("try{checkUpdate();}catch(_){}"), "updater must be invoked");
+
+assert.ok(
+  script.includes("headers:r.responseHeaders||''") &&
+  signalingAdapterSource.includes("function readResponseHeader") &&
+  signalingAdapterSource.includes("function parseRetryAfter") &&
+  signalingAdapterSource.includes("error.retryAfterMs") &&
+  signalingAdapterSource.includes("Math.max(exponentialBackoff, retryAfterMs)"),
+  "Team Lite GM bridge must preserve Retry-After and polling must honor the server delay"
+);
 assert.ok(luccaSite.includes("/api/lucca/login"), "Lucca portal must use the Lucca login route");
 assert.ok(luccaStandalone.includes("/api/lucca/login"), "standalone Lucca page must use the Lucca login route");
 assert.ok(ycaro.includes("/api/ycaro/login"), "Ycaro portal must use its separate login route");
