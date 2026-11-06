@@ -1050,7 +1050,7 @@ assert.equal(Object.keys(liteAttemptStorageFailure.signalPendingCallAttempts).le
   "failed call-attempt persistence must not leave a false in-memory durable handle");
 
 const liteOutgoingStartStart = script.indexOf("  async function startOutgoingCallWithTransport(target){");
-const liteOutgoingStartEnd = script.indexOf("  function callNewId(){", liteOutgoingStartStart);
+const liteOutgoingStartEnd = script.indexOf("  async function signalPrepareVoiceRoom(){", liteOutgoingStartStart);
 assert.ok(liteOutgoingStartStart >= 0 && liteOutgoingStartEnd > liteOutgoingStartStart,
   "Team Lite outgoing-call start source boundaries not found");
 const liteOutgoingStartSource = script.slice(liteOutgoingStartStart, liteOutgoingStartEnd) +
