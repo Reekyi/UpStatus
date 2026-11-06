@@ -121,6 +121,7 @@ const ownMemberCorruptions = [
   { label: "future timestamp", record: { attemptId: "Team_Lite_Tester-voice-future", logicalId: "upstatus-team-room-v1", member: "Team Lite Tester", createdAt: Date.now() + 8 * 24 * 60 * 60 * 1000 } },
   { label: "unsupported logical ID", record: { attemptId: "Team_Lite_Tester-voice-wrong-logical", logicalId: "call:wrong", member: "Team Lite Tester", createdAt: Date.now() } },
   { label: "missing member", record: { attemptId: "Team_Lite_Tester-voice-missing-member", logicalId: "upstatus-team-room-v1", createdAt: Date.now() } },
+  { label: "member label conflicts with attempt prefix", record: { attemptId: "Team_Lite_Tester-voice-corrupt-member", logicalId: "upstatus-team-room-v1", member: "Other Member", createdAt: Date.now() } },
   { label: "unexpected session field", record: { attemptId: "Team_Lite_Tester-voice-unexpected-field", logicalId: "upstatus-team-room-v1", member: "Team Lite Tester", createdAt: Date.now(), token: "must-not-be-discarded-silently" } },
   { label: "duplicate attempt ID", record: { ...validStoredRecord } },
   { label: "non-object entry", record: null },
