@@ -1193,3 +1193,13 @@ This section supersedes older PR/CI snapshots above where exact refs differ. Rec
 - Voice-room room IDs are currently held in page memory. Closing the browser while offline can still leave a server membership until its two-hour room TTL; durable recovery across full page/process termination is not established.
 - Public Realtime payload minimization/cutover, default ACL hardening (including the administrative `supabase_admin` path), production migration ordering, endpoint/function cutover and rollback, and version bump remain blockers.
 - No production SQL write, migration, Edge Function update, secret/flag/role change, deploy, release, userscript publication, merge, or destructive action occurred in this checkpoint.
+
+
+## 2026-11-06 Normal exact-head follow-up
+
+- Normal PR #74 advanced from `872d567` to `562d60e73e5827a8d87d6959c06e87af4c356588`. The only change after `872d567` is a test assertion update: the microphone/setup-failure catch now uses the shared confirmed leave helper, so the static contract must not require the removed direct `signalTransport.leave(failedRoom)` call.
+- Exact-head Validate [42161030346](https://github.com/Reekyi/UpStatus/actions/runs/42161030346) passed.
+- Smoke [42161030275](https://github.com/Reekyi/UpStatus/actions/runs/42161030275) is in progress. Static harnesses and unauthenticated endpoint checks passed; authenticated isolated integration/browser tests are running. Do not claim exact-head Smoke success until this run completes.
+- Smoke [42160472429](https://github.com/Reekyi/UpStatus/actions/runs/42160472429) completed successfully on prior head `8942324`; this is useful baseline evidence but not exact-head evidence for the microphone-failure fix.
+- Smoke [42160740799](https://github.com/Reekyi/UpStatus/actions/runs/42160740799) failed on `872d567` only at a stale static assertion expecting the old direct `failedRoom` call. The candidate now tests the confirmed shared leave path and preserves the room ID on failure.
+- The latest continuity-doc Validate [42160896890](https://github.com/Reekyi/UpStatus/actions/runs/42160896890) on PR #80 HEAD `33ea888` reproduced the inherited `client signed upload helper missing` assertion. No validator was weakened.
