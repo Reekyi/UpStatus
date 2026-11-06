@@ -322,7 +322,7 @@ assert.ok(userTemplate.includes("leavingTransport.leave(leavingRoomId)") &&
   userTemplate.includes("signalTransport!==leavingTransport") &&
   userTemplate.includes("signalVoiceRoomRoomId!==leavingRoomId") &&
   userTemplate.includes("signalTransport.leave(signalRoomId)") &&
-  userTemplate.includes("signalTransport.leave(failedRoom)"),
+  userTemplate.includes("await voiceRoomLeave()"),
   "voice and call teardown paths must release authenticated room membership without using a replacement transport after reconnect");
 const normalStartCallStart=userTemplate.indexOf("async function startOutgoingCall(target){");
 const normalStartCallEnd=userTemplate.indexOf("async function callAcceptIncomingOffer",normalStartCallStart);
