@@ -376,6 +376,29 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
     signalPersistPendingCallLeaves();
     return restored;
   }
+  function signalTrackPendingCallLeave(roomId,callId,transport){
+    var now=Date.now();
+    var record=signalNormalizePendingCallLeaveRecord({roomId:roomId,member:member,callId:callId,createdAt:now},member,now);
+    if(!record)return false;
+    var existing=signalPendingCallLeaves[record.roomId];
+    if(existing){
+      if(existing.member!==member||(existing.callId&&existing.callId!==record.callId))return false;
+      existing.callId=record.callId;
+      existing.transport=existing.transport||transport||signalTransport;
+      if(!existing.createdAt)existing.createdAt=now;
+    }else{
+      var count=Object.keys(signalPendingCallLeaves).filter(function(id){
+        var entry=signalPendingCallLeaves[id];return !!entry&&entry.member===member;
+      }).length;
+      if(count>=20)return false;
+      signalPendingCallLeaves[record.roomId]={roomId:record.roomId,callId:record.callId,member:member,transport:transport||signalTransport,promise:null,createdAt:now};
+    }
+    if(!signalPersistPendingCallLeaves()){
+      if(!existing)delete signalPendingCallLeaves[record.roomId];
+      return false;
+    }
+    return true;
+  }
   function signalPendingCallAttemptsStorageKey(memberName){
     return key+'signal_pending_call_attempts_v1_'+encodeURIComponent(String(memberName||''));
   }
@@ -2488,6 +2511,10 @@ function renderChatText(text){
     }
     if(signalTransport&&signalRoomId){
       try{
+        if(!signalTrackPendingCallLeave(signalRoomId,upCall.callId,signalTransport)){
+          message('Não foi possível preparar a recuperação da chamada. Verifique o armazenamento do userscript e tente novamente.',true);
+          return;
+        }
         await signalTransport.accept(signalRoomId);
         upCall.pendingInvite=null;upCall.role='member';callMergeParticipants(invite.participants||[invite.from]);
         upCall.waitingForConnection=true;signalStartCallPolling(signalRoomId,upCall.callId);callStartPresence();

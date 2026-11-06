@@ -573,6 +573,10 @@ assert.ok(logoutHandler.includes("var callsReleased=false;") &&
   logoutHandler.includes("await signalRetryPendingCallLeaves()"),
   "Normal logout must confirm every authenticated call-room leave before voice leave, API logout and credential invalidation");
 assert.ok(logoutHandler.indexOf("await signalRetryPendingCallAttempts()")>=0 && logoutHandler.indexOf("await signalRetryPendingCallAttempts()")<logoutHandler.indexOf("await signalRetryPendingCallLeaves()"), "Normal idle logout must cancel logical call attempts before retrying room leaves");
+const normalAcceptGroupStart=userTemplate.indexOf("async function callAcceptGroupInvite(){");
+const normalAcceptGroupEnd=userTemplate.indexOf("async function callAcceptIncomingCall(){",normalAcceptGroupStart);
+const normalAcceptGroupSource=userTemplate.slice(normalAcceptGroupStart,normalAcceptGroupEnd);
+assert.ok(normalAcceptGroupStart>=0 && normalAcceptGroupEnd>normalAcceptGroupStart && normalAcceptGroupSource.indexOf("signalTrackPendingCallLeave(signalRoomId,upCall.callId,signalTransport)")>=0 && normalAcceptGroupSource.indexOf("signalTrackPendingCallLeave(signalRoomId,upCall.callId,signalTransport)")<normalAcceptGroupSource.indexOf("signalTransport.accept(signalRoomId)"), "Normal must persist the recipient leave handle before accepting an authenticated call");
 const offlineHandlerStart = userTemplate.indexOf("window.addEventListener('offline'");
 const onlineHandlerStart = userTemplate.indexOf("window.addEventListener('online'", offlineHandlerStart);
 assert.ok(offlineHandlerStart >= 0 && onlineHandlerStart > offlineHandlerStart, "Normal offline handler source boundaries not found");
@@ -604,7 +608,7 @@ assert.ok(callLeaveHelperStart >= 0 && callLeaveHelperEnd > callLeaveHelperStart
   "Normal call-membership cleanup source boundaries not found");
 const callRuntimeSource = userTemplate.slice(callLeaveHelperStart, callLeaveHelperEnd) +
   userTemplate.slice(callCleanupStart, callCleanupEnd) +
-  "\nthis.__candidateCallCleanup=callCleanup;this.__candidateRetryPendingCallLeaves=signalRetryPendingCallLeaves;this.__candidatePersistPendingCallLeaves=signalPersistPendingCallLeaves;this.__candidateRestorePendingCallLeaves=signalRestorePendingCallLeaves;this.__candidateStorageKey=signalPendingCallLeavesStorageKey;this.__candidateTrackPendingCallAttempt=signalTrackPendingCallAttempt;this.__candidateRestorePendingCallAttempts=signalRestorePendingCallAttempts;this.__candidateRetryPendingCallAttempts=signalRetryPendingCallAttempts;this.__candidateAttemptPendingCallAttempt=signalAttemptPendingCallAttempt;this.__candidateAttemptStorageKey=signalPendingCallAttemptsStorageKey;";
+  "\nthis.__candidateCallCleanup=callCleanup;this.__candidateRetryPendingCallLeaves=signalRetryPendingCallLeaves;this.__candidatePersistPendingCallLeaves=signalPersistPendingCallLeaves;this.__candidateRestorePendingCallLeaves=signalRestorePendingCallLeaves;this.__candidateStorageKey=signalPendingCallLeavesStorageKey;this.__candidateTrackPendingCallAttempt=signalTrackPendingCallAttempt;this.__candidateRestorePendingCallAttempts=signalRestorePendingCallAttempts;this.__candidateRetryPendingCallAttempts=signalRetryPendingCallAttempts;this.__candidateAttemptPendingCallAttempt=signalAttemptPendingCallAttempt;this.__candidateAttemptStorageKey=signalPendingCallAttemptsStorageKey;this.__candidateTrackPendingCallLeave=signalTrackPendingCallLeave;";
 function makeCallCleanupContext({ transport, callSendAll, storage = new Map(), member = "Normal Tester" } = {}) {
   const roomId = "normal-call-room";
   const callId = "normal-call-1";
@@ -922,3 +926,44 @@ assert.equal(normalUnknownRoomRetries,1,"call-ID recovery must retry exactly onc
 assert.equal(Object.keys(normalOfflineAttemptContext.signalPendingCallAttempts).length,0,
   "confirmed retry must clear the durable call-attempt handle");
 console.log("Normal pre-prepare call-ID persistence, storage-failure gate, active-call reconnect guard and unknown-room recovery tests passed.");
+
+const normalRecipientLeaveStorage = new Map();
+const normalRecipientLeaveContext = makeCallCleanupContext({ transport: null, storage: normalRecipientLeaveStorage });
+const normalRecipientRoomId = "normal-recipient-room";
+const normalRecipientCallId = "Normal_Tester-recipient-call";
+assert.equal(normalRecipientLeaveContext.__candidateTrackPendingCallLeave(normalRecipientRoomId,normalRecipientCallId,null),true,
+  "Normal must persist a recipient room-ID leave handle before accepting an authenticated call");
+const normalRecipientLeaveEnvelope = normalRecipientLeaveStorage.get(normalRecipientLeaveContext.__candidateStorageKey("Normal Tester"));
+assert.equal(normalRecipientLeaveEnvelope.version,1,"Normal recipient leave storage must be versioned");
+assert.equal(normalRecipientLeaveEnvelope.entries.length,1,"Normal recipient leave storage must contain the pending room");
+assert.deepEqual(Object.keys(normalRecipientLeaveEnvelope.entries[0]).sort(),["callId","createdAt","member","roomId"],
+  "Normal recipient leave storage may contain only room ID, call ID, member and timestamp");
+assert.equal(Object.prototype.hasOwnProperty.call(normalRecipientLeaveEnvelope.entries[0],"token"),false,
+  "Normal recipient leave storage must not persist a session token");
+const normalRecipientLeaveStorageFailure = makeCallCleanupContext({
+  transport:null,
+  storage:{has:()=>false,get:()=>null,set:()=>{throw new Error("userscript storage unavailable");}}
+});
+assert.equal(normalRecipientLeaveStorageFailure.__candidateTrackPendingCallLeave(normalRecipientRoomId,normalRecipientCallId,null),false,
+  "Normal must fail closed when recipient leave storage is unavailable");
+assert.equal(Object.keys(normalRecipientLeaveStorageFailure.signalPendingCallLeaves).length,0,
+  "failed Normal recipient leave persistence must not create a false durable handle");
+const normalAcceptEvents=[];
+const normalAcceptSource=normalAcceptGroupSource+"\nthis.__candidateAcceptGroupInvite=callAcceptGroupInvite;";
+const normalAcceptContext={
+  upCall:{pendingInvite:{from:"Caller",participants:["Caller"]},active:true,callId:normalRecipientCallId},
+  signalRoomByCallId:{[normalRecipientCallId]:normalRecipientRoomId},
+  signalTransportFlag:true,
+  signalTransport:{accept:async()=>{normalAcceptEvents.push("accept");}},
+  signalTrackPendingCallLeave:()=>{normalAcceptEvents.push("persist");return false;},
+  message:value=>normalAcceptEvents.push("message:"+value),
+  callCleanup:()=>normalAcceptEvents.push("cleanup"),
+  Promise,Object,Error
+};
+vm.runInNewContext(normalAcceptSource,normalAcceptContext,{timeout:1000});
+await normalAcceptContext.__candidateAcceptGroupInvite();
+assert.deepEqual(normalAcceptEvents.filter(x=>x==="persist"||x==="accept"||x==="cleanup"),["persist"],
+  "Normal must not accept into an active membership when pre-accept persistence fails");
+assert.ok(normalAcceptEvents.some(x=>x.includes("armazenamento do userscript")),
+  "Normal must explain that recipient call acceptance was blocked by storage failure");
+console.log("Normal recipient call acceptance now fails closed without durable leave storage.");
