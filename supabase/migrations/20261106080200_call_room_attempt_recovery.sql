@@ -104,10 +104,8 @@ BEGIN
     WHERE m.room_id = v_room.room_id AND m.user_name = p_recipient;
 
     IF v_sender_status IS DISTINCT FROM 'accepted'
-       OR v_recipient_status NOT IN ('pending', 'accepted') THEN
-      UPDATE public.upstatus_signal_call_attempts
-        SET status = 'closed', expires_at = pg_catalog.now() + interval '7 days'
-      WHERE call_id = p_call_id;
+       OR (v_recipient_status IS DISTINCT FROM 'pending'
+           AND v_recipient_status IS DISTINCT FROM 'accepted') THEN
       RETURN pg_catalog.jsonb_build_object('error', 'CALL_MEMBERSHIP_ENDED');
     END IF;
 
@@ -153,11 +151,8 @@ BEGIN
     WHERE m.room_id = v_room.room_id AND m.user_name = p_recipient;
 
     IF v_sender_status IS DISTINCT FROM 'accepted'
-       OR v_recipient_status NOT IN ('pending', 'accepted') THEN
-      INSERT INTO public.upstatus_signal_call_attempts
-        (call_id, created_by, recipient, room_id, status, expires_at)
-      VALUES
-        (p_call_id, p_user_name, p_recipient, NULL, 'closed', pg_catalog.now() + interval '7 days');
+       OR (v_recipient_status IS DISTINCT FROM 'pending'
+           AND v_recipient_status IS DISTINCT FROM 'accepted') THEN
       RETURN pg_catalog.jsonb_build_object('error', 'CALL_MEMBERSHIP_ENDED');
     END IF;
 
