@@ -625,7 +625,8 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
       return 0;
     }
     var now=Date.now(),restored=0,seen=Object.create(null);
-    stored.entries.slice(0,20).forEach(function(raw){
+    if(stored.entries.length>20){signalPendingVoiceRoomStorageHealthy=false;return 0;}
+    stored.entries.forEach(function(raw){
       var record=signalNormalizePendingVoiceRoomAttemptRecord(raw,member,now);
       if(!record||seen[record.attemptId])return;
       seen[record.attemptId]=true;
