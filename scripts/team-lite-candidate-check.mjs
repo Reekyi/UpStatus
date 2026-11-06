@@ -273,6 +273,32 @@ const teamLiteStartCallEnd=script.indexOf("async function callAcceptIncomingOffe
 const teamLiteStartCallSource=script.slice(teamLiteStartCallStart,teamLiteStartCallEnd);
 assert.ok(teamLiteStartCallStart>=0&&teamLiteStartCallEnd>teamLiteStartCallStart&&teamLiteStartCallSource.indexOf("await waitForRealtimeReady(10000)")>=0&&teamLiteStartCallSource.indexOf("await waitForRealtimeReady(10000)")<teamLiteStartCallSource.indexOf("upCall.callId=callNewId()"),"Team Lite legacy outgoing calls must wait for Realtime before allocating a call");
 assert.ok(script.includes("async function callRequestToJoin(callId,target)")&&script.includes("await waitForRealtimeReady(10000)"),"Team Lite legacy group-call join requests must wait for Realtime after reconnect");
+assert.ok(script.includes("if(upCall.starting){") && script.includes("upCall.startAttempt=(upCall.startAttempt||0)+1;upCall.starting=false;"), "outgoing-call recovery must serialize duplicate clicks and invalidate pending attempts on cleanup");
+const outgoingStartStart=script.indexOf("async function startOutgoingCall(target){");
+const outgoingStartEnd=script.indexOf("async function callAcceptIncomingOffer",outgoingStartStart);
+assert.ok(outgoingStartStart>=0&&outgoingStartEnd>outgoingStartStart,"outgoing-call recovery source boundaries not found");
+const outgoingStartSource=script.slice(outgoingStartStart,outgoingStartEnd)+"\\nthis.__candidateStartOutgoingCall=startOutgoingCall;";
+let finishRealtimeWait;
+const pendingRealtimeWait=new Promise(resolve=>{finishRealtimeWait=resolve;});
+let realtimeWaitCalls=0,callIdsCreated=0;
+const outgoingContext={
+  upCall:{active:false,starting:false,startAttempt:0},
+  member:"Reconnect Tester",signalTransportFlag:false,realtimeActive:false,realtimeChannel:null,
+  waitForRealtimeReady:()=>{realtimeWaitCalls++;return pendingRealtimeWait;},
+  message:()=>{},callNewId:()=>{callIdsCreated++;return "should-not-start";}
+};
+vm.runInNewContext(outgoingStartSource,outgoingContext,{timeout:1000});
+const firstOutgoingAttempt=outgoingContext.__candidateStartOutgoingCall("Peer");
+assert.equal(outgoingContext.upCall.starting,true,"first outgoing call must reserve the start slot while Realtime reconnects");
+await outgoingContext.__candidateStartOutgoingCall("Peer");
+assert.equal(realtimeWaitCalls,1,"a duplicate click must not start a second Realtime readiness wait");
+outgoingContext.upCall.startAttempt++;
+outgoingContext.upCall.starting=false;
+finishRealtimeWait(true);
+await firstOutgoingAttempt;
+assert.equal(outgoingContext.upCall.active,false,"a call attempt invalidated by cleanup must not start after reconnect");
+assert.equal(callIdsCreated,0,"a stale outgoing call must not allocate a call ID after cleanup");
+
 assert.ok(script.includes("voiceRoomLeave({skipServerLeave:true})") && script.includes("async function waitForRealtimeReady(") && script.includes("await waitForRealtimeReady(10000)"), "offline recovery must tear down locally without waiting for network leave and wait for Realtime readiness before legacy voice rejoin");
 console.log("Candidate updater runtime scenarios passed: newer/current/mismatch/downgrade/manifest-offline/script-offline/invalid-manifest.");
 
