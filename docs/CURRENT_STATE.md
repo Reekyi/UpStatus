@@ -306,3 +306,14 @@ The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fe
 - #82 `b916551`: 46 ahead/0 behind master.
 - Normal recovery candidate `bbf1f2b`: 18 ahead/0 behind PR #74 head.
 - All PRs remain Draft; Team Lite exact-head run [42149391376](https://github.com/Reekyi/UpStatus/actions/runs/42149391376) is still in progress.
+
+
+## Engineering refresh — 2026-11-06
+
+- All five PRs remain open, Draft, and unmerged. #74 `b0c0e03` has exact-head Validate and Signaling Smoke passes; #75 `7bbf9b9` has historical baseline Candidate Checks pass.
+- Team Lite #76 is now at `3627557f244c98a9c7e1cc986c7cea43124863a9`. Its previous exact-head run `42150807002` passed 103/103 authenticated integration, browser WebRTC call/voice/screen, three-member room race, rate limit 90+1, concurrency, atomic read receipts, migration-layout and fixture cleanup, but failed the final candidate check because the embedded userscript adapter lagged behind the shared source. Commit `3627557` synchronizes the bundled adapter without weakening the checker. Exact-head Candidate Checks `42153971733` is in progress; no PASS is claimed yet.
+- Normal reconnect candidate `1ca2de6e3abbb383be1ccb4afff09d8b3c13dc12` is 20 ahead / 0 behind PR #74 and remains separate/unvalidated. Do not fast-forward until the shared isolated test group is free and exact-head CI passes.
+- #80 `222edce` Validate `42150956107` fails at `client signed upload helper missing`; #82 `151f637` Validate `42151484883` fails at `production updateURL mismatch`. These are existing base-validator failures; no checks were weakened and QA branch was not changed.
+- Production `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, 38 active Edge Functions. Voice open/leave, atomic receipt, distributed rate-limit RPC/table and dedicated `upstatus-signal` remain absent. The three public broadcast SECURITY DEFINER functions remain executable by client roles; nine backend tables retain broad grants with RLS/no policies; `realtime.messages` retains client SELECT/INSERT/UPDATE grants; default ACLs remain broad for postgres/public+storage and supabase_admin/public+graphql+graphql_public.
+- The isolated project cleanup check after run `42150807002` returned zero test fixtures. The new run `42153971733` is currently using the isolated project; do not overlap another fixture-mutating suite.
+- No production write, migration, deploy, release, flag/secret/role change, userscript publication, merge, or destructive action occurred.
