@@ -447,7 +447,7 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
     var callId=String(record.callId||'').trim(),recordMember=String(record.member||''),createdAt=Number(record.createdAt);
     if(!expectedMember||recordMember!==expectedMember)return null;
     if(!/^[A-Za-z0-9._:-]{1,128}$/.test(callId))return null;
-    var prefix=String(expectedMember).replace(/[^A-Za-z0-9._:-]/g,'_').slice(0,80)+'-';
+    var prefix=String(expectedMember).replace(/[^A-Za-z0-9._:-]/gu,'_').slice(0,80)+'-';
     if(callId.indexOf(prefix)!==0)return null;
     if(!Number.isFinite(createdAt)||createdAt<=0||createdAt>now+60000||now-createdAt>7*24*60*60*1000)return null;
     return {callId:callId,member:recordMember,createdAt:createdAt};
@@ -565,9 +565,9 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
     if(!expectedMember||recordMember!==expectedMember)return null;
     if(logicalId!=='upstatus-team-room-v1'&&logicalId!=='upstatus-team-lite-room-v1')return null;
     if(!/^[A-Za-z0-9._:-]{1,128}$/.test(attemptId))return null;
-    var prefix=String(expectedMember).replace(/[^A-Za-z0-9._:-]/g,'_')+'-voice-';
+    var prefix=String(expectedMember).replace(/[^A-Za-z0-9._:-]/gu,'_')+'-voice-';
     if(attemptId.indexOf(prefix)!==0)return null;
-    if(!Number.isFinite(createdAt)||createdAt<=0||createdAt>now+60000||now-createdAt>7*24*60*60*1000)return null;
+    if(!Number.isFinite(createdAt)||createdAt<=0||createdAt>now+7*24*60*60*1000||now-createdAt>7*24*60*60*1000)return null;
     return {attemptId:attemptId,logicalId:logicalId,member:recordMember,createdAt:createdAt};
   }
   function signalPersistPendingVoiceRoomAttempts(){
@@ -636,7 +636,7 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
   }
   function signalNewVoiceRoomAttemptId(){
     if(!member)return '';
-    var prefix=String(member).replace(/[^A-Za-z0-9._:-]/g,'_')+'-voice-';
+    var prefix=String(member).replace(/[^A-Za-z0-9._:-]/gu,'_')+'-voice-';
     return prefix+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,12);
   }
   function signalAttemptPendingVoiceRoomCancel(attemptId,expectedTransport,requireExpectedTransport){
@@ -2300,7 +2300,7 @@ function renderChatText(text){
       setTimeout(function(){if(!upCall.active)showChatToast(pending);},0);
     }
   }
-  function signalSafeCallId(id){return String(id||'call').replace(/[^A-Za-z0-9._:-]/g,'_').slice(0,128)||('call-'+Date.now().toString(36));}
+  function signalSafeCallId(id){return String(id||'call').replace(/[^A-Za-z0-9._:-]/gu,'_').slice(0,128)||('call-'+Date.now().toString(36));}
   async function signalGetRoomMembers(roomId){
     var cached=signalRosterCache[roomId];
     if(cached&&Date.now()-cached.at<3000)return cached.members.slice();
