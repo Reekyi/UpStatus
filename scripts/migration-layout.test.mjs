@@ -31,6 +31,7 @@ for (const name of [
   "20261105150000_postgres_public_default_privileges_test.sql",
   "20261105170000_postgres_global_function_default_scope_test.sql",
   "20261106080200_call_room_attempt_recovery_test.sql",
+  "20261106111000_call_attempt_foreign_key_indexes_test.sql",
 ]) {
   const testPath = path.join(testMigrationsRoot, name);
   const migrationPath = path.join(migrationsRoot, name);
@@ -44,5 +45,22 @@ assert.equal(existsSync(readmePath), true, "isolated test migration safety READM
 const readmeText = readFileSync(readmePath, "utf8");
 assert.ok(readmeText.includes("bfpjtfqlnypisxljoxkb"), "test migration allowlist project ref missing");
 assert.ok(readmeText.includes("Never apply these files"), "test migration production exclusion warning missing");
+
+
+const callAttemptIndexMigration = readFileSync(
+  path.join(migrationsRoot, "20261106111000_call_attempt_foreign_key_indexes.sql"), "utf8"
+);
+const callAttemptIndexTest = readFileSync(
+  path.join(testMigrationsRoot, "20261106111000_call_attempt_foreign_key_indexes_test.sql"), "utf8"
+);
+for (const column of ["created_by", "recipient", "room_id"]) {
+  const indexName = "upstatus_signal_call_attempts_" + column + "_idx";
+  assert.ok(callAttemptIndexMigration.includes("CREATE INDEX IF NOT EXISTS " + indexName),
+    "production migration must add the call-attempt foreign-key index: " + column);
+  assert.ok(callAttemptIndexMigration.includes("(" + column + ")"),
+    "call-attempt index must lead with the foreign-key column: " + column);
+}
+assert.ok(callAttemptIndexTest.includes("indisvalid") && callAttemptIndexTest.includes("indisready") && callAttemptIndexTest.includes("indkey[0]"),
+  "isolated call-attempt index test must verify valid leading-key indexes");
 
 console.log("Test migration layout guard passed.");
