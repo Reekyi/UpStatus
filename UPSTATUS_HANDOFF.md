@@ -1000,3 +1000,48 @@ Project `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL 17.11. Product
 The three public broadcast functions remain SECURITY DEFINER and executable by anon/authenticated. The message broadcast still publishes OLD/NEW row JSON to public `db_change`. Nine backend-owned tables still have broad client table grants while RLS is enabled with no policies. Default ACLs remain broad for `postgres` in `public`/`storage` and `supabase_admin` in `public`/`graphql`/`graphql_public`. The available SQL role cannot alter `supabase_admin` defaults.
 
 No production SQL write, migration, function update, flag change, secret change, deploy, release, or publication occurred. All catalog checks were SELECT-only.
+
+
+## Engineering checkpoint — 2026-11-05 23:10 BRT
+
+### Team Lite: confirmed voice leave is now a logout gate
+
+The independent release-readiness audit identified that Team Lite awaited the voice leave path but did not require a confirmed server membership release before calling `/api/logout`, invalidating the auth generation, stopping Realtime, and clearing the stored token. The offline handler also stopped the transport and discarded the room ID, making a later retry impossible in the same page.
+
+The Draft PR #76 branch `team-lite/signaling-transport-candidate` is now at `f5739813c3d49f889eb4d51bb65cea44248e60d6` and contains these candidate changes:
+
+- Preserve the authenticated room ID through offline and online Realtime teardown; reset only transport/prepared/owner state so the next join performs a fresh open-room handshake.
+- Treat explicit `false`, `{ok:false}`, or error responses from the leave RPC as unconfirmed; do not clear the room binding on those responses.
+- Make `voiceRoomLeave()` return a confirmation boolean and retain the room ID when both the primary leave and fallback fail.
+- Block logout while offline or while a server-owned room ID remains. On failure, keep the authenticated session/token/storage intact, restore the card, and show a retry message. A later online retry can use the reinitialized authenticated transport.
+- Extend the candidate harness for room-context preservation, denied leave responses, logout gating, and session/token retention.
+
+Commit sequence after the previously validated head: `24e5c64`, `fea56b0`, `6c1fcf5`, `f573981`.
+
+Validation is intentionally not claimed for the new head yet. The prior exact head `092dc83` passed Candidate Checks run [42143206998](https://github.com/Reekyi/UpStatus/actions/runs/42143206998), including 103/103 authenticated integration checks, browser WebRTC call/voice/screen tests, three-member mesh, 90 accepted plus one HTTP 429, rate-limit and read-receipt concurrency, migration-layout guard, candidate metadata, and fixture cleanup. For the new work, run [42148017860](https://github.com/Reekyi/UpStatus/actions/runs/42148017860) is still in progress on older commit `24e5c64`; the latest exact-head run [42148155469](https://github.com/Reekyi/UpStatus/actions/runs/42148155469) is pending behind the shared isolated-test concurrency group. Do not start another mutating suite until these runs finish and cleanup is verified.
+
+### Normal: same logout failure found and isolated candidate updated
+
+The Normal source template had the same underlying risk: offline teardown cleared `signalVoiceRoomRoomId`, and the logout click handler ignored the result of `voiceRoomLeave()` before calling `/api/logout` and clearing local credentials.
+
+The separate branch `normal/reconnect-recovery-candidate` is now at `bbf1f2bc5464d7c4fa862473241df8d49bd26381`, 18 commits ahead and zero behind PR #74's current head `b0c0e03`. It preserves the room ID on offline teardown, treats unsuccessful leave RPC responses as failures, and gates logout before API/session/token invalidation. Static regressions cover the retained room ID, denied RPC response, and logout retry UI. This branch has not been run through CI and remains isolated; do not fast-forward it into PR #74 until the shared test group is free and its exact-head checks pass.
+
+### Current PR and CI state
+
+- #74 Normal: `b0c0e03`, Draft; Validate [42122609464](https://github.com/Reekyi/UpStatus/actions/runs/42122609464) and Signaling Smoke [42122609431](https://github.com/Reekyi/UpStatus/actions/runs/42122609431) passed on that exact PR head. The newer Normal recovery branch is separate and unvalidated.
+- #75 Team Lite baseline: `7bbf9b9`, Draft; Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed historically.
+- #76 Team Lite signaling: `f573981`, Draft; exact-head Candidate Checks [42148155469](https://github.com/Reekyi/UpStatus/actions/runs/42148155469) pending.
+- #80 continuity: `c6fabac`, Draft; Validate [42143354543](https://github.com/Reekyi/UpStatus/actions/runs/42143354543) fails with `client signed upload helper missing`.
+- #82 independent QA: `b916551`, Draft; Validate [42144878286](https://github.com/Reekyi/UpStatus/actions/runs/42144878286) fails with `production updateURL mismatch`. QA branch remains untouched.
+
+Ancestry at this checkpoint: #74 is 639 commits ahead of `master`; #76 is 194 ahead of `team-lite-official` and 135 ahead of #75; #80 is 68 ahead of `develop`; #82 is 46 ahead of `master`.
+
+### Residual lifecycle limitation
+
+The room ID is currently preserved in page memory, not persisted across a full browser reload. If the browser is closed while offline, the token remains in userscript storage but the in-memory room ID is lost; server membership can remain until its TTL. The candidate fixes prevent same-page logout from invalidating the session without confirmation, but they do not yet eliminate the reload/TTL case. Follow-up should either persist a pending room binding safely (scoped to the authenticated member/session) or provide an authenticated server-side cleanup path. Keep issue #78 open until physical outage/recovery and this lifecycle edge are verified.
+
+### Production remains read-only
+
+The production project `dlfvkawaiqduhlazsszm` was rechecked with SELECT/catalog/advisor reads only. It remains ACTIVE_HEALTHY on PostgreSQL 17.11.0.002 with 7 migrations through `20261027155438` and 38 active Edge Functions. Production still lacks the open/leave voice RPCs, `merge_chat_read_receipts`, `consume_upstatus_signal_rate_limit`, the rate-limit table, and a dedicated `upstatus-signal` function. The three public broadcast functions remain SECURITY DEFINER and executable by anon/authenticated; the message broadcast still includes OLD/NEW row JSON on public `db_change`. Nine backend-owned tables retain broad client grants with RLS enabled and no policies. Default ACLs remain broad for `postgres` in `public`/`storage` and `supabase_admin` in `public`/`graphql`/`graphql_public`; the available SQL role cannot modify the latter defaults.
+
+No production SQL write, migration, function update, flag change, secret change, deploy, release, merge, or userscript publication occurred.
