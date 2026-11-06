@@ -500,7 +500,8 @@ function makeVoiceLeaveContext({ transport, roomId = "normal-offline-room", scre
       timer: null, levelTimer: null, pingTimer: null, pingMs: null, peers: {}, stream: null,
       muted: false, participants: {}
     },
-    signalVoiceRoomRoomId: roomId, signalVoiceRoomCreator: true, signalVoiceRoomPrepared: true,
+    signalVoiceRoomRoomId: roomId, signalVoiceRoomCreator: true, signalVoiceRoomPrepared: true, signalVoiceRoomAttemptId: "",
+    signalPendingVoiceRoomAttempts: Object.create(null),
     signalTransport: transport || { leave: async () => ({ ok: true }) },
     signalRosterCache: { [roomId]: {} }, member: "Normal Tester", Promise,
     screenShareStop: send => { events.push("screen-stop:" + send); return screenShareStop ? screenShareStop() : Promise.resolve(); },
