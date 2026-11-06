@@ -415,3 +415,18 @@ The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fe
 - Production remains read-only and unchanged: seven migrations, 38 active Edge Functions, no call-attempt/voice/receipt/rate-limit RPCs or dedicated signaling endpoint; 3+3 SECURITY DEFINER WARN, 10 RLS/no-policy INFO, broad backend grants/default ACLs, RT-01 and ACL-02 remain blockers.
 - Next: finish #76 Candidate Checks and verify cleanup; then fast-forward Normal logout-gate candidate `cf99b1b` into #74 and run exact-head Validate + Smoke; add fail-closed recipient storage handling; continue rate-limit/Retry-After, RT-01, ACL-02 and official TEST rehearsal.
 - No production write/migration, function deployment, secret/role/flag change, merge, deploy, release, userscript publication or destructive operation occurred.
+
+
+
+## Engineering checkpoint — 2026-11-06 06:30 BRT
+
+- #76 Team Lite HEAD `5cc5df4865250a0d67935937ea43e206217730d5`: Candidate Checks [42194948317](https://github.com/Reekyi/UpStatus/actions/runs/42194948317) passed. Confirmed 103/103 authenticated checks, real-browser WebRTC call/voice/screen, three-member mesh, 90+1 rate-limit, atomic receipts, pagehide/reload recovery, pre-prepare call-ID persistence, idle-logout cancellation and recipient fail-closed acceptance. Cleanup passed; read-only post-run counts were zero. #76 is 208 ahead / 0 behind team-lite-official and 149 ahead / 0 behind #75.
+- #74 Normal HEAD `cf99b1b14f69b1caf6606684d2d42f9898f03a1e`: Validate [42195926899](https://github.com/Reekyi/UpStatus/actions/runs/42195926899) failed because `scripts/validate.mjs` expected the old logout expression; Smoke [42195926855](https://github.com/Reekyi/UpStatus/actions/runs/42195926855) was still running at this checkpoint. #74 is 693 ahead / 0 behind master.
+- Isolated Normal branch `normal/recipient-call-recovery-20261106` HEAD `1a62a38b44968a89dd72685132ad2235f4b0c569`, 4 ahead / 0 behind #74. It adds recipient leave persistence before authenticated accept, fail-closed behavior when GM storage throws, VM regressions and a corrected validator contract. Not yet integrated or CI-tested; wait for the shared Smoke/lab to finish.
+- #75 remains `7bbf9b9`, 59 ahead / 0 behind team-lite-official; historical CI passed.
+- #80 remains `f96b719`, 102 ahead / 0 behind develop; Validate [42194285929](https://github.com/Reekyi/UpStatus/actions/runs/42194285929) fails inherited `client signed upload helper missing`.
+- #82 QA remains `a4b675b`, 57 ahead / 0 behind master; Validate [42196233886](https://github.com/Reekyi/UpStatus/actions/runs/42196233886) fails inherited `production updateURL mismatch`. QA branch was not modified.
+- New code-review gap: voice-room membership has no durable per-member leave handle. The room ID is held only in page memory; pagehide/offline can lose it on reload. This is separate from call-room logical-ID recovery and remains open in both clients.
+- Production remains read-only: seven migrations, 38 active Edge Functions, no call-attempt/voice/receipt/rate-limit RPCs or dedicated signaling endpoint; 3+3 SECURITY DEFINER WARN, 10 RLS/no-policy INFO, broad backend grants/default ACLs, RT-01 and ACL-02 remain blockers.
+- The isolated Supabase project is healthy; zero fixture counts were confirmed after #76 cleanup and before the currently running #74 Smoke. Do not start concurrent tests until that run finishes.
+- All five PRs remain open, Draft and unmerged. No production SQL write/migration, function deployment, secret/role/flag change, merge, deploy, release, userscript publication or destructive operation occurred.
