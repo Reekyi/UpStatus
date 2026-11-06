@@ -81,7 +81,12 @@ assert.ok(!backend.includes('db.from("messages").delete().eq("user_name","Lucca"
 assert.ok(backend.includes("async function luccaRoute(req:Request)") && backend.includes("async function ycaroRoute(req:Request)"), "Lucca and Ycaro must have separate auth handlers");
 assert.ok(script.includes(".on('broadcast',{event:'remote_command'},function(){") && script.includes("scheduleRemoteStatusPoll();"), "Team Lite remote command events must use a coalesced poll scheduler");
 assert.ok(script.includes("if(remotePollHintTimer||!isAuthenticated())return;") && script.includes("if(isAuthenticated()&&expectedGeneration===authGeneration&&expectedMember===member)pollRemoteStatus();"), "Team Lite remote command hint timers must coalesce and remain session-bound");
-assert.ok(script.includes("sendRealtimeEvent('remote_command',{op:'hint'})"), "Team Lite client remote command broadcasts must contain only a generic hint");
+const remoteCommandCalls = [...script.matchAll(/sendRealtimeEvent\(['"]remote_command['"]\s*,\s*\{([^}]*)\}\)/g)];
+assert.equal(remoteCommandCalls.length, 2, "Team Lite remote-control entry points must each publish one Realtime hint");
+assert.ok(remoteCommandCalls.every(match => /^\s*op\s*:\s*['"]hint['"]\s*$/.test(match[1])),
+  "Team Lite remote_command broadcasts must contain only the generic hint field");
+assert.doesNotMatch(script, /sendRealtimeEvent\(['"]remote_command['"]\s*,\s*\{\s*command\s*:/,
+  "Team Lite must never publish a remote command object over public Realtime");
 assert.ok(!script.includes("sendRealtimeEvent('remote_result'"), "Team Lite must not broadcast remote result metadata publicly");
 assert.ok(script.includes("callsReleased=upCall&&upCall.active?await callCleanup(true,'hangup'):await signalRetryPendingCallAttempts();") && script.includes("if(!callsReleased){") && script.includes("await signalRetryPendingCallLeaves();"), "Team Lite logout and idle session end must await confirmed call-room membership cleanup");
 assert.ok(script.includes("teamLiteSessionEnded=true;teamLiteClearIdleTimer();") && script.includes("authenticated=false;authGeneration++;"), "Team Lite session cleanup must run before auth generation invalidation");
