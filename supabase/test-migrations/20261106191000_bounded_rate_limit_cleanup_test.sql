@@ -67,7 +67,19 @@ DO $test$
 DECLARE
   v_probe_key text;
   v_remaining integer;
+  v_preexisting_stale integer;
 BEGIN
+  -- The cleanup query is global; require a clean stale-bucket baseline so this
+  -- regression proves its own 150 -> 50 result rather than deleting older fixtures.
+  SELECT count(*)
+  INTO v_preexisting_stale
+  FROM public.upstatus_signal_rate_limits
+  WHERE updated_at < pg_catalog.clock_timestamp() - interval '1 day';
+
+  IF v_preexisting_stale <> 0 THEN
+    RAISE EXCEPTION 'bounded cleanup regression requires zero pre-existing stale buckets; found %', v_preexisting_stale;
+  END IF;
+
   SELECT '__bounded_cleanup_probe_' || series.n::text
   INTO v_probe_key
   FROM pg_catalog.generate_series(1, 10000) AS series(n)
