@@ -46,6 +46,14 @@ const cases = [
     expected: 401,
   },
   {
+    name: "voice room attempt cancellation requires a valid UpStatus session",
+    run: () => fetch(base + "/room/cancel-open", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ logicalId: "upstatus-team-room-v1", attemptId: "forged-voice-attempt" }),
+    }),
+    expected: 401,
+  },
+  {
     name: "signal submission requires a valid UpStatus session",
     run: () => fetch(base + "/signal", {
       method: "POST", headers: { "content-type": "application/json" },
