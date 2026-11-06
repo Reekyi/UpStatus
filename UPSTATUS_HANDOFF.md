@@ -1288,3 +1288,50 @@ No merge, deploy, release, production migration/write, secret/role/flag change, 
 - The new Normal storage record is versioned and per-member, bounded to 20 rooms, and contains only room ID, member, call ID and timestamp. It stores no token, validates member identity and opaque room ID, rejects control characters, stale (>7 days) and future-dated records, restores only after same-member authentication/transport initialization, and clears after confirmed leave. Physical browser close/reload/offline tests remain outstanding.
 
 No production writes or release actions occurred.
+
+
+## 2026-11-06 03:55 BRT — durable pagehide parity and exact-head status
+
+### PR refs and ancestry (re-fetched)
+
+All five tracked PRs remain open, Draft, and unmerged. No human approval is recorded for #74 or #76.
+
+- **#74 Normal** — HEAD `2db440814d374ad1e06b48645920573eaa8db978`, 674 ahead / 0 behind `master`. Exact-head Validate [42172723990](https://github.com/Reekyi/UpStatus/actions/runs/42172723990) and Signaling Smoke [42172723820](https://github.com/Reekyi/UpStatus/actions/runs/42172723820) both completed SUCCESS. The Smoke log confirms 15/15 unauthenticated checks, 103/103 authenticated checks, browser WebRTC call/voice/screen with remote tracks, three-member mesh teardown, rate-limit 90+1 and concurrency, atomic receipt concurrency, fixture cleanup, and the Normal durable pagehide/reload recovery regression.
+- **#75 Team Lite baseline** — HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 ahead / 0 behind `team-lite-official`. Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) remains historical baseline evidence.
+- **#76 Team Lite** — HEAD `28e8d948f82d4d86fa853ba20d1ac6cadcd1574a`, 203 ahead / 0 behind `team-lite-official`, 144 ahead / 0 behind #75. The branch was advanced only by a verified fast-forward from an isolated candidate branch based on prior HEAD `95d88e3`; no merge occurred.
+- **#80 continuity** — HEAD `93888cc8caba3f62a95232f5c68b9d7ed5263cd1`, 93 ahead / 0 behind `develop`.
+- **#82 independent QA** — HEAD `4e8c6634d7d32b072fbd524530ccd76f54cbbcef`, 53 ahead / 0 behind `master`. The QA branch was not modified.
+
+### Team Lite durable pagehide candidate
+
+Candidate branch `team-lite/pagehide-recovery-20261106` was created from exact PR #76 parent HEAD `95d88e34c25679e161f09654f5f7e372f2a7a430`, reviewed, and fast-forwarded into the PR branch using an expected-HEAD lease. Commits:
+
+- [`2c09fd8`](https://github.com/Reekyi/UpStatus/commit/2c09fd8b094b18fedf0ffb465fd5b9ba4f4e938c) — persist call-room leave records and invoke call cleanup from pagehide.
+- [`28e8d94`](https://github.com/Reekyi/UpStatus/commit/28e8d948f82d4d86fa853ba20d1ac6cadcd1574a) — add durable pagehide/reload regressions.
+
+The Team Lite userscript now starts `callCleanup(false,'pagehide')` before voice-room leave. Authenticated pagehide skips the final broadcast, persists a versioned per-member GM-storage envelope before attempting server leave, and retains the room/call/member/timestamp handle when leave is unconfirmed. No token or transport object is persisted. The schema is bounded to 20 entries and seven days; room IDs use `[A-Za-z0-9._:-]{1,128}`; restore is same-member only and occurs after authenticated transport initialization, before retry. Confirmed leave rewrites the envelope without the completed entry.
+
+The Team Lite VM harness now covers pagehide persistence, exact stored fields/token absence, cross-member isolation, same-member reload retry, clearing after confirmed leave, and malformed/stale/future record rejection.
+
+Exact-head Candidate Checks [42178075022](https://github.com/Reekyi/UpStatus/actions/runs/42178075022), HEAD `28e8d94`: isolation guard, authenticated adapter, and endpoint-authentication steps passed; authenticated integration/browser step was in progress at this checkpoint. Rate-limit concurrency, read-receipt concurrency, migration-layout, candidate metadata, and final cleanup were still pending. The shared isolated project `bfpjtfqlnypisxljoxkb` was owned by this run; a read-only mid-run snapshot showed 4 test users, 4 sessions, 12 rooms, 14 memberships, 5 bindings, 1 event, 6 rate-limit buckets, and 0 chat-read fixtures. Do not start another fixture-mutating suite until this run completes and cleanup is rechecked.
+
+The prior exact-head Team Lite run [42166848429](https://github.com/Reekyi/UpStatus/actions/runs/42166848429) passed on `95d88e3`, but it did not include durable pagehide persistence and is not evidence for the new HEAD.
+
+### Root causes of the two documentation-branch Validate failures
+
+- **#80 / develop** — Validate [42173007826](https://github.com/Reekyi/UpStatus/actions/runs/42173007826) failed at `client signed upload helper missing`. This is inherited branch-baseline drift, not a documentation change: the `develop` userscript template at the PR base lacks `uploadFileDirect`, while `master` contains it. `master` and `develop` are diverged (146 commits master-only, 114 develop-only). #80 changes only `UPSTATUS_HANDOFF.md` and `docs/CURRENT_STATE.md`; do not weaken the validator or add unrelated upload code to this documentation branch. The current #74 candidate includes the signed-upload path and its Validate passes.
+- **#82 / master** — Validate [42175677100](https://github.com/Reekyi/UpStatus/actions/runs/42175677100) failed at `production updateURL mismatch`. On the master baseline, `scripts/build.mjs` derives the production update URL from the API `CLOUD_SERVER` pointing at `upstatus-screen-share-3-1-1-beta10`, while `release.json.scriptUrl` and the validator's stable contract point to `/functions/v1/upstatus/upstatus.user.js`. The #74 candidate build now uses `release.scriptUrl` for the production updater while keeping the beta10 API server separate, and its exact-head Validate passes. The independent QA branch remains untouched; this is not a reason to relax the validator.
+
+### Production read-only snapshot
+
+Project `dlfvkawaiqduhlazsszm` remains `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, seven migrations through `20261027155438`, and 38 ACTIVE Edge Functions. Current relevant versions: `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15, screen-share beta10 v6. Production still lacks open/leave voice RPCs, `merge_chat_read_receipts`, `consume_upstatus_signal_rate_limit`, the rate-limit table, and dedicated `upstatus-signal`.
+
+The three public broadcast functions remain SECURITY DEFINER with `search_path=public` and EXECUTE for `anon`/`authenticated`; the message trigger still broadcasts OLD/NEW row JSON to public `db_change`. Nine backend-owned tables retain client table grants while RLS is enabled with zero policies. Default ACLs remain broad for `postgres` in `public`/`storage` and `supabase_admin` in `public`/`graphql`/`graphql_public`. The production SQL session is `postgres`, not superuser and not a member of `supabase_admin`. Security Advisor remains 3 WARN for anon-executable SECURITY DEFINER, 3 WARN for authenticated, and 10 INFO for RLS without policies; performance and health advisors are empty.
+
+### Remaining gates and limitations
+
+- Physical browser close/reload while offline, same-member recovery without F5, real microphone/display permissions, and installed Normal ↔ Team Lite interoperability remain unverified.
+- The durable handle is created after `prepareCallRoom` returns a room ID. A page close while that initial request is still in flight may leave a server-created room whose ID was never received/persisted; this is a review risk, not a reproduced failure. Investigate server-side lookup/idempotency by call ID before claiming all pagehide races are covered.
+- #78 remains open. #79 remains open. Keep #74/#76 Draft until physical, security, migration, human-review, and cutover gates are satisfied.
+
+No production write, migration, Edge deployment, secret/role/flag change, deploy, release, merge, userscript publication, or destructive operation occurred. Production remained read-only.
