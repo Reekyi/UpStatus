@@ -508,57 +508,83 @@ function voiceRoomToggleSpeakers(){if(!voiceRoom.active)return;voiceRoom.speaker
 function voiceRoomMute(){if(!voiceRoom.active||!voiceRoom.stream)return;voiceRoom.muted=!voiceRoom.muted;voiceRoom.stream.getAudioTracks().forEach(function(t){t.enabled=!voiceRoom.muted;});if(voiceRoom.participants[member]){voiceRoom.participants[member].muted=voiceRoom.muted;if(voiceRoom.muted)voiceRoom.participants[member].speaking=false;}voiceRoomSend('presence','',{});voiceRoomRender();}
 var voiceRoomLeavePromise=null;
 function voiceRoomLeave(options){
-if(voiceRoomLeavePromise)return voiceRoomLeavePromise;
-var skipServerLeave=!!(options&&options.skipServerLeave);
-voiceRoom.joinGeneration=(voiceRoom.joinGeneration||0)+1;
-var wasActive=voiceRoom.active,leaveSignal=null,leavingRoomId=signalVoiceRoomRoomId,
-  leavingAttemptId=signalVoiceRoomAttemptId,leavingTransport=signalTransport;
-var screenLeaveSignal=screenShareStop(!skipServerLeave);
-var leavePromise=Promise.resolve(!leavingRoomId&&!leavingAttemptId);
-voiceRoom.active=false;voiceRoom.joining=false;
-Object.keys(voiceRoom.recoveryTimers||{}).forEach(function(n){clearTimeout(voiceRoom.recoveryTimers[n]);});
-voiceRoom.recoveryTimers={};voiceRoom.recoveryAttempts={};
-if(wasActive&&!skipServerLeave){voiceRoomPlayCue('leave');leaveSignal=voiceRoomSend('leave','',{active:false});}
-if(voiceRoom.timer)clearInterval(voiceRoom.timer);
-if(voiceRoom.levelTimer)clearInterval(voiceRoom.levelTimer);
-if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);
-voiceRoom.timer=null;voiceRoom.levelTimer=null;voiceRoom.pingTimer=null;voiceRoom.pingMs=null;
-Object.keys(voiceRoom.peers).forEach(function(n){voiceRoomDrop(n);});
-try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}
-voiceRoom.stream=null;voiceRoom.muted=false;delete voiceRoom.participants[member];voiceRoomRender();voiceRoomMessage('');
-if(skipServerLeave){
-  if(leavingRoomId){signalStopCallPolling(leavingRoomId);delete signalRosterCache[leavingRoomId];}
-  signalVoiceRoomCreator=false;signalVoiceRoomPrepared=false;
-  leavePromise=Promise.resolve(!leavingRoomId&&!leavingAttemptId);
-}else if(leavingAttemptId&&leavingTransport){
-  if(leavingRoomId)signalStopCallPolling(leavingRoomId);
-  leavePromise=Promise.allSettled([screenLeaveSignal,leaveSignal].map(function(p){return Promise.resolve(p);})).then(function(){
-    if(signalTransport!==leavingTransport)return false;
-    return signalAttemptPendingVoiceRoomCancel(leavingAttemptId,leavingTransport,true);
-  }).then(function(ok){
-    if(!ok)throw new Error('O servidor não confirmou a saída da sala de voz.');
-    if(leavingRoomId)delete signalRosterCache[leavingRoomId];
-    return !signalVoiceRoomAttemptId&&!signalPendingVoiceRoomAttempts[leavingAttemptId];
-  }).catch(function(){signalVoiceRoomPrepared=false;return false;});
-}else if(leavingTransport&&leavingRoomId){
-  signalStopCallPolling(leavingRoomId);
-  leavePromise=Promise.allSettled([screenLeaveSignal,leaveSignal].map(function(p){return Promise.resolve(p);})).then(function(){
-    if(signalTransport!==leavingTransport||signalVoiceRoomRoomId!==leavingRoomId)return false;
-    return leavingTransport.leave(leavingRoomId);
-  }).then(function(result){
-    if(result===false||(result&&typeof result==='object'&&(result.ok===false||result.error)))throw new Error(result&&result.error?String(result.error):'O servidor não confirmou a saída da sala.');
-    if(signalTransport===leavingTransport&&signalVoiceRoomRoomId===leavingRoomId){
-      delete signalRosterCache[leavingRoomId];
-      signalVoiceRoomRoomId='';signalVoiceRoomCreator=false;signalVoiceRoomPrepared=false;
+  if(voiceRoomLeavePromise)return voiceRoomLeavePromise;
+  var skipServerLeave=!!(options&&options.skipServerLeave);
+  var leavePromise=(async function(){
+    voiceRoom.joinGeneration=(voiceRoom.joinGeneration||0)+1;
+    var screenLeaveSignal=screenShareStop(!skipServerLeave);
+    var wasActive=voiceRoom.active;
+    var leavingRoomId=signalVoiceRoomRoomId;
+    var leavingAttemptId=signalVoiceRoomAttemptId;
+    var leavingTransport=signalTransport;
+    voiceRoom.active=false;
+    voiceRoom.joining=false;
+    if(leavingRoomId)signalStopCallPolling(leavingRoomId);
+    Object.keys(voiceRoom.recoveryTimers||{}).forEach(function(n){clearTimeout(voiceRoom.recoveryTimers[n]);});
+    voiceRoom.recoveryTimers={};
+    voiceRoom.recoveryAttempts={};
+    var leaveSignal=null;
+    if(wasActive&&!skipServerLeave){
+      voiceRoomPlayCue('leave');
+      leaveSignal=voiceRoomSend('leave','',{active:false});
     }
-    return !signalVoiceRoomRoomId;
-  }).catch(function(){signalVoiceRoomPrepared=false;return false;});
-}else if(leavingRoomId||leavingAttemptId){
-  leavePromise=Promise.resolve(false);
-}
-voiceRoomLeavePromise=leavePromise.finally(function(){voiceRoomLeavePromise=null;voiceRoomRender();});
-voiceRoomRender();
-return voiceRoomLeavePromise;
+    if(voiceRoom.timer)clearInterval(voiceRoom.timer);
+    if(voiceRoom.levelTimer)clearInterval(voiceRoom.levelTimer);
+    if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);
+    voiceRoom.timer=null;
+    voiceRoom.levelTimer=null;
+    voiceRoom.pingTimer=null;
+    voiceRoom.pingMs=null;
+    Object.keys(voiceRoom.peers).forEach(function(n){voiceRoomDrop(n);});
+    try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}
+    voiceRoom.stream=null;
+    voiceRoom.muted=false;
+    delete voiceRoom.participants[member];
+    voiceRoomRender();
+    voiceRoomMessage('');
+    var leaveConfirmed=false;
+    if(skipServerLeave){
+      leaveConfirmed=!leavingRoomId&&!leavingAttemptId;
+      signalVoiceRoomCreator=false;
+      signalVoiceRoomPrepared=false;
+    }else if(leavingAttemptId&&leavingTransport){
+      await Promise.allSettled([screenLeaveSignal,leaveSignal].map(function(p){return Promise.resolve(p);}));
+      if(signalTransport===leavingTransport){
+        leaveConfirmed=await signalAttemptPendingVoiceRoomCancel(leavingAttemptId,leavingTransport,true);
+      }
+      if(!leaveConfirmed)signalVoiceRoomPrepared=false;
+      if(leaveConfirmed&&leavingRoomId)delete signalRosterCache[leavingRoomId];
+    }else if(leavingTransport&&leavingRoomId){
+      await Promise.allSettled([screenLeaveSignal,leaveSignal].map(function(p){return Promise.resolve(p);}));
+      if(signalTransport===leavingTransport&&signalVoiceRoomRoomId===leavingRoomId){
+        try{
+          var leaveResult=await leavingTransport.leave(leavingRoomId);
+          leaveConfirmed=leaveResult!==false&&!(leaveResult&&typeof leaveResult==='object'&&(leaveResult.ok===false||leaveResult.error));
+        }catch(e){leaveConfirmed=false;}
+        if(leaveConfirmed&&signalTransport===leavingTransport&&signalVoiceRoomRoomId===leavingRoomId){
+          signalVoiceRoomRoomId='';
+          signalVoiceRoomCreator=false;
+          signalVoiceRoomPrepared=false;
+          delete signalRosterCache[leavingRoomId];
+        }
+      }
+    }else if(wasActive){
+      var legacyResults=await Promise.allSettled([screenLeaveSignal,leaveSignal].map(function(p){return Promise.resolve(p);}));
+      var legacyLeave=legacyResults[1];
+      leaveConfirmed=legacyLeave&&legacyLeave.status==='fulfilled'&&(
+        legacyLeave.value===true||
+        (!!legacyLeave.value&&typeof legacyLeave.value==='object'&&legacyLeave.value.ok!==false&&!legacyLeave.value.error)
+      );
+    }else{
+      leaveConfirmed=!leavingRoomId&&!leavingAttemptId;
+    }
+    if(leavingRoomId&&signalVoiceRoomRoomId===leavingRoomId)leaveConfirmed=false;
+    if(leavingAttemptId&&signalPendingVoiceRoomAttempts[leavingAttemptId])leaveConfirmed=false;
+    return leaveConfirmed===true;
+  })();
+  voiceRoomLeavePromise=leavePromise.finally(function(){voiceRoomLeavePromise=null;voiceRoomRender();});
+  voiceRoomRender();
+  return voiceRoomLeavePromise;
 }
 window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').catch(function(){});}catch(e){}try{voiceRoomLeave().catch(function(){});}catch(e){}});
 
