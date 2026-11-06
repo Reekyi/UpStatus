@@ -629,7 +629,10 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
     stored.entries.forEach(function(raw){
       if(!raw||typeof raw!=='object'||Array.isArray(raw)){suspiciousOwnMember=true;return;}
       if(typeof raw.member==='string'&&raw.member!==member){
-        if(raw.member.trim()===raw.member&&raw.member.length>0)return;
+        if(raw.member.trim()!==raw.member||!raw.member){suspiciousOwnMember=true;return;}
+        var foreignPrefix=String(raw.member).replace(/[^A-Za-z0-9._:-]/gu,'_')+'-voice-';
+        var foreignAttemptId=String(raw.attemptId||'');
+        if(foreignAttemptId.indexOf(foreignPrefix)===0)return;
         suspiciousOwnMember=true;return;
       }
       var rawKeys=Object.keys(raw).sort();
