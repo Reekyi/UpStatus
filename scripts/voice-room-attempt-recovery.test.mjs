@@ -109,6 +109,24 @@ assert.equal(validation.__candidateRestore(), 1,
   "restore must reject cross-member, malformed, stale, future and unsupported logical IDs");
 assert.deepEqual(Object.keys(validation.signalPendingVoiceRoomAttempts), ["Normal_Tester-voice-valid"]);
 
+const oversizedStorage = new Map();
+const oversizedKey = "upstatus_signal_pending_voice_room_attempts_v1_Normal%20Tester";
+oversizedStorage.set(oversizedKey, {
+  version: 1,
+  entries: Array.from({ length: 21 }, (_, index) => ({
+    attemptId: "Normal_Tester-voice-overflow-" + index,
+    logicalId: "upstatus-team-room-v1",
+    member: "Normal Tester",
+    createdAt: Date.now(),
+  })),
+});
+const oversized = makeContext({ storage: oversizedStorage });
+assert.equal(oversized.__candidateRestore(), 0,
+  "oversized local recovery state must fail closed rather than truncate potentially live attempts");
+assert.equal(oversized.signalPendingVoiceRoomStorageHealthy, false);
+assert.equal(oversizedStorage.get(oversizedKey).entries.length, 21,
+  "an oversized recovery envelope must not be overwritten or partially discarded");
+
 const otherMember = makeContext({ storage, member: "Other Member" });
 assert.equal(otherMember.__candidateRestore(), 0, "voice attempts must never cross member identities");
 assert.equal(Object.keys(otherMember.signalPendingVoiceRoomAttempts).length, 0);
