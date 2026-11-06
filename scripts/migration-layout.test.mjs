@@ -30,6 +30,7 @@ for (const name of [
   "20261104154623_distributed_signaling_rate_limit_test.sql",
   "20261105150000_postgres_public_default_privileges_test.sql",
   "20261105170000_postgres_global_function_default_scope_test.sql",
+  "20261106080200_call_room_attempt_recovery_test.sql",
 ]) {
   const testPath = path.join(testMigrationsRoot, name);
   const migrationPath = path.join(migrationsRoot, name);
