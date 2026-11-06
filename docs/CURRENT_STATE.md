@@ -440,3 +440,10 @@ The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fe
 - Production Supabase remains read-only: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations, 38 active Edge Functions; no dedicated signaling function or the inspected call-attempt, voice-room, read-receipt, or rate-limit database objects. Nine public tables retain client grants; realtime.messages retains three client privileges; three SECURITY DEFINER broadcasts remain executable by anon/authenticated. Advisor: 3+3 WARN and 10 INFO; Performance/Health empty.
 - The separate voice-room recovery gap remains open: room ID is in page memory only; offline pagehide can lose it, and open-response-loss needs a server logical attempt/tombstone. Physical Tampermonkey/device/no-F5 and live cross-client tests remain pending.
 - All PRs remain Open/Draft. No production write/migration, deployment, secret/role/flag change, merge, release, userscript publication, or destructive operation occurred.
+
+
+### Voice-room recovery design correction — 2026-11-06
+
+The existing server contract appears sufficient to recover a lost open response without a new tombstone migration: open_upstatus_signal_voice_room() serializes the two product aliases, reuses the active binding, and treats repeated accepted membership as idempotent. The authenticated /room/resolve route returns the active room only when the requesting member is already in it. The candidate client design is therefore a token-free per-member logicalId marker persisted before open, then resolveRoom({bindingType: "voice", logicalId}) after re-authentication and confirmed leave. A known room ID is persisted directly. This remains design-only, not implemented/tested.
+
+Both pagehide handlers call voiceRoomLeave(), but do not await the returned promise. Offline/unload can prevent confirmation; the room ID is currently memory-only and is lost after full unload. Issue #78 remains open.
