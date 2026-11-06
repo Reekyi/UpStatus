@@ -810,6 +810,23 @@ const normalAttemptOtherMember=makeCallCleanupContext({transport:null,storage:no
 assert.equal(normalAttemptOtherMember.__candidateRestorePendingCallAttempts(),0,
   "call-attempt recovery must remain scoped to the authenticated member");
 
+// Realtime reconnect must not interpret the current live call as an abandoned attempt.
+let activeCallCancelCount=0;
+const activeCallAttemptContext=makeCallCleanupContext({
+  transport:{cancelCallRoom:async()=>{activeCallCancelCount++;return {ok:true,cancelled:true};}}
+});
+activeCallAttemptContext.signalPendingCallAttempts["normal-call-1"]={
+  callId:"normal-call-1",member:"Normal Tester",createdAt:Date.now(),roomId:"normal-call-room",transport:null,promise:null
+};
+assert.equal(await activeCallAttemptContext.__candidateRetryPendingCallAttempts(),true,
+  "reconnect retry must skip the call that is still active in this page");
+assert.equal(activeCallCancelCount,0,"active calls must not be cancelled by Realtime reconnect");
+activeCallAttemptContext.upCall.active=false;
+activeCallAttemptContext.upCall.callId="";
+assert.equal(await activeCallAttemptContext.__candidateRetryPendingCallAttempts(),true,
+  "the pending call ID must be cancelled after the call is no longer active");
+assert.equal(activeCallCancelCount,1,"the abandoned call must be cancelled exactly once after cleanup");
+
 const failingAttemptStorage={has:()=>false,get:()=>null,set:()=>{throw new Error("userscript storage unavailable");}};
 const normalAttemptStorageFailure=makeCallCleanupContext({transport:null,storage:failingAttemptStorage});
 assert.equal(normalAttemptStorageFailure.__candidateTrackPendingCallAttempt("Normal_Tester-call-storage-failure"),false,
@@ -874,4 +891,4 @@ assert.equal(await normalOfflineAttemptContext.__candidateRetryPendingCallAttemp
 assert.equal(normalUnknownRoomRetries,1,"call-ID recovery must retry exactly once after transport recreation");
 assert.equal(Object.keys(normalOfflineAttemptContext.signalPendingCallAttempts).length,0,
   "confirmed retry must clear the durable call-attempt handle");
-console.log("Normal pre-prepare call-ID persistence, storage-failure gate and unknown-room recovery tests passed.");
+console.log("Normal pre-prepare call-ID persistence, storage-failure gate, active-call reconnect guard and unknown-room recovery tests passed.");
