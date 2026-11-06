@@ -225,9 +225,13 @@ function makeContext({ active = true, member = "Alice" } = {}) {
   const pending = test.context.__screenShareOffer("Bob");
   const peer = test.context.screenShare.peers.Bob;
   let resolveOffer;
-  peer.pc.createOffer = () => new Promise(resolve => { resolveOffer = resolve; });
-  await Promise.resolve();
-  await Promise.resolve();
+  let announceCreateOffer;
+  const createOfferStarted = new Promise(resolve => { announceCreateOffer = resolve; });
+  peer.pc.createOffer = () => new Promise(resolve => {
+    resolveOffer = resolve;
+    announceCreateOffer();
+  });
+  await createOfferStarted;
   assert.equal(typeof resolveOffer, "function", "the local offer operation must be in flight");
   test.context.__screenShareDrop("Bob");
   resolveOffer({ type: "offer", sdp: "stale-local-offer" });
