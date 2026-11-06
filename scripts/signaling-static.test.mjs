@@ -839,10 +839,10 @@ assert.equal(normalAttemptStorageFailure.__candidateTrackPendingCallAttempt("Nor
 assert.equal(Object.keys(normalAttemptStorageFailure.signalPendingCallAttempts).length,0,
   "failed call-attempt persistence must not leave a false in-memory durable handle");
 
-const outgoingStartStart=userTemplate.indexOf("async function startOutgoingCallWithTransport(target){");
-const outgoingStartEnd=userTemplate.indexOf("\n  function callNewId()",outgoingStartStart);
-assert.ok(outgoingStartStart>=0&&outgoingStartEnd>outgoingStartStart,"Normal outgoing-call start source boundaries not found");
-const outgoingStartSource=userTemplate.slice(outgoingStartStart,outgoingStartEnd)+"\nthis.__candidateStartOutgoingCall=startOutgoingCallWithTransport;";
+const normalOutgoingStartStart=userTemplate.indexOf("async function startOutgoingCallWithTransport(target){");
+const normalOutgoingStartEnd=userTemplate.indexOf("\n  function callNewId()",normalOutgoingStartStart);
+assert.ok(normalOutgoingStartStart>=0&&normalOutgoingStartEnd>normalOutgoingStartStart,"Normal outgoing-call start source boundaries not found");
+const normalOutgoingStartSource=userTemplate.slice(normalOutgoingStartStart,normalOutgoingStartEnd)+"\nthis.__candidateStartOutgoingCall=startOutgoingCallWithTransport;";
 const outgoingStartMessages=[];
 let outgoingPrepareCalls=0;
 const outgoingStartContext={
@@ -854,7 +854,7 @@ const outgoingStartContext={
   signalTransport:{prepareCallRoom:async()=>{outgoingPrepareCalls++;return {roomId:"must-not-exist"};}},
   Promise,Object,Error
 };
-vm.runInNewContext(outgoingStartSource,outgoingStartContext,{timeout:1000});
+vm.runInNewContext(normalOutgoingStartSource,outgoingStartContext,{timeout:1000});
 await outgoingStartContext.__candidateStartOutgoingCall("Peer");
 assert.equal(outgoingPrepareCalls,0,"call preparation must not reach the server when durable storage fails");
 assert.ok(outgoingStartMessages.some(value=>value.includes("armazenamento do userscript")),
