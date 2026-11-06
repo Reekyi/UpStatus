@@ -1544,3 +1544,33 @@ A focused read of the current Normal server route, signaling transport, and cand
 The pagehide handler in both clients calls voiceRoomLeave(), which attempts the remote leave, but the pagehide handler does not await it. If the browser is offline or unload aborts the request, the leave is unconfirmed and the room ID exists only in page memory; a full unload loses that reference. No durable voice-room pending record currently exists.
 
 This is code/design inspection only. The marker/resolve/retry flow is not implemented or tested yet. Keep issue #78 open. No new database migration is proposed unless implementation testing reveals a gap in the existing idempotent open/resolve contract.
+
+
+### Engineering checkpoint — 2026-11-06 08:09 BRT
+
+#### Exact PR/CI state
+
+- #74 Normal, branch `chore/continuity-foundation`, HEAD `3ed7b9d6e3fbe7ab77a285201eea2f96d941316f`, 703 ahead / 0 behind master, Draft. Validate [42207304139](https://github.com/Reekyi/UpStatus/actions/runs/42207304139) passed on the exact HEAD. Smoke [42207304173](https://github.com/Reekyi/UpStatus/actions/runs/42207304173) remains in the authenticated integration/browser step; rate-limit concurrency, read-receipt concurrency, and final cleanup are pending. Do not call the new HEAD fully approved yet.
+- #76 Team Lite, HEAD `5cc5df4865250a0d67935937ea43e206217730d5`, 208 ahead / 0 behind team-lite-official and 149 ahead / 0 behind #75. Exact Candidate Checks [42194948317](https://github.com/Reekyi/UpStatus/actions/runs/42194948317) passed, including 103/103 authenticated checks, WebRTC/browser, pagehide/reload call recovery, storage-failure fail-closed acceptance, rate-limit and receipt concurrency, and cleanup.
+- #75 remains at `7bbf9b9`, 59 ahead / 0 behind team-lite-official; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed.
+- #80 remains at `5d45f9b`, 108 ahead / 0 behind develop; Validate [42200688810](https://github.com/Reekyi/UpStatus/actions/runs/42200688810) reproduces inherited `client signed upload helper missing`.
+- #82 remains at `aec1192`, 58 ahead / 0 behind master; Validate [42203746245](https://github.com/Reekyi/UpStatus/actions/runs/42203746245) reproduces `production updateURL mismatch`. The independent QA branch and `docs/RELEASE_READINESS.md` were not modified.
+- All five PRs remain open and Draft. #74/#76 have no submitted human reviews.
+
+#### Candidate performance migration — isolated only
+
+A focused catalog query and isolated Performance Advisor confirmed three unindexed child-side FKs on `public.upstatus_signal_call_attempts`: `created_by`, `recipient`, and `room_id`. The candidate branch `normal/call-attempt-indexes-20261106` was reviewed as exactly three commits ahead / zero behind #74, then fast-forwarded without force. Current #74 includes:
+- `supabase/migrations/20261106111000_call_attempt_foreign_key_indexes.sql` — three simple B-tree indexes, one per FK column.
+- `supabase/test-migrations/20261106111000_call_attempt_foreign_key_indexes_test.sql` — isolated SQL assertion for valid leading-key indexes.
+- `scripts/migration-layout.test.mjs` — guards the test migration location and required index contract.
+
+Only isolated project `bfpjtfqlnypisxljoxkb` was modified. The migration and test were applied there; the connector recorded isolated history entries `20261106110214` and `20261106110221`. Read-only catalog inspection confirmed all three indexes. The isolated Performance Advisor no longer reports unindexed foreign keys; seven unused-index INFO findings remain because the test project has no workload. Do not remove these indexes based only on an empty-fixture advisor. The production project was not touched.
+
+#### Release gates still open
+
+- Durable voice-room recovery remains unimplemented in Normal and Team Lite. Existing authenticated `/room/open` and membership-scoped `/room/resolve` appear sufficient for recovery without a new tombstone migration: persist a token-free logical ID/member/timestamp before open, resolve after reauthentication, then leave and clear only after confirmation or definitive 404. Storage failure before open must fail closed.
+- Physical Tampermonkey offline/reload/no-F5, real microphone/display permissions, and installed Normal ↔ Team Lite interoperability remain manual pending.
+- Rate limiting is not integrated into product endpoints; isolated 429 still lacks `Retry-After`.
+- RT-01 public full-row Realtime broadcast and ACL-02 default ACL ownership remain blockers. Official TEST migration/rollback rehearsal and human reviews are also pending.
+
+Production remains read-only. No merge, deploy, release, production migration/SQL write, secret/role/flag change, userscript publication, or destructive action occurred.
