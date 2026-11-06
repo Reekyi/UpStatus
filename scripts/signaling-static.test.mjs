@@ -286,8 +286,15 @@ assert.ok(
   "rate limits must use the atomic database RPC and fail closed when the RPC errors");
 assert.ok(
   functionSource.includes('const bucket = sender + (readRoute ? ":read" : ":write")') &&
-  functionSource.includes('return response({ error: "Rate limit exceeded" }, 429)'),
-  "per-user read/write quotas must reject exhausted buckets with HTTP 429");
+  functionSource.includes('return response({ error: "Rate limit exceeded" }, 429, {') &&
+  functionSource.includes('"Retry-After": String(RATE_LIMIT_RETRY_AFTER_SECONDS)'),
+  "per-user read/write quotas must reject exhausted buckets with HTTP 429 and Retry-After");
+assert.ok(
+  functionSource.includes('const RATE_LIMIT_RETRY_AFTER_SECONDS = 60') &&
+  functionSource.includes('"Access-Control-Expose-Headers": "Retry-After"') &&
+  authenticatedHarness.includes('headers.get("retry-after")') &&
+  readFileSync("scripts/test-signaling-endpoint.mjs","utf8").includes("access-control-expose-headers"),
+  "Retry-After must be conservative, visible to browser JavaScript, and asserted by endpoint tests");
 assert.ok(
   rateLimitMigration.includes("on conflict(bucket_key) do update set") &&
   rateLimitMigration.includes("return v_count <= p_limit") &&
