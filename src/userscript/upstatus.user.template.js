@@ -2168,12 +2168,13 @@ function renderChatText(text){
       if(!signalTransport){message('A sinalização autenticada não está configurada. A chamada não foi iniciada.',true);return;}
       return startOutgoingCallWithTransport(target);
     }
+    
+    if(upCall.active){message('Voc\u00ea j\u00e1 est\u00e1 em uma chamada.',true);return;}
     if(!realtimeActive||!realtimeChannel){
       message('Reconectando a conexão das chamadas...',false);
       var realtimeReady=await waitForRealtimeReady(10000);
       if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
     }
-    if(upCall.active){message('Voc\u00ea j\u00e1 est\u00e1 em uma chamada.',true);return;}
     upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
     upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
     callStartPresence();callPrimeAudio();callStartRingtone();callRender(target,'Chamando\u2026',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true,'hangup');}}]);
