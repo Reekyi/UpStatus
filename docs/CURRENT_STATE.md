@@ -391,3 +391,15 @@ The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fe
 - #74 and #76 remain open/Draft with no submitted reviews or inline review comments. All other tracked PRs also remain open/Draft.
 - Physical browser close/reload while offline, no-F5 recovery, real microphone/display permissions, installed Normal ↔ Team Lite interoperability, human review, production Realtime security cutover, rate-limit integration, and production migration rehearsal remain open gates.
 - Production remained read-only; no migration/write, deploy, release, merge, secret/role/flag change, userscript publication, or destructive operation occurred.
+
+
+## 2026-11-06 05:30 BRT — superseding engineering state
+
+- #74 Normal HEAD: `0ff4ef9a50c79717250d9eed7e60ed85fa9c8a41`; exact Validate [42188549612](https://github.com/Reekyi/UpStatus/actions/runs/42188549612) passed. Exact Smoke [42188549610](https://github.com/Reekyi/UpStatus/actions/runs/42188549610) is still running after syntax and unauthenticated checks passed. The previous parent Smoke failed on a duplicate VM-harness const; commit `0ff4ef9` renamed only the second declaration block and was fast-forwarded with an expected-HEAD lease.
+- #76 Team Lite HEAD: `28e8d948f82d4d86fa853ba20d1ac6cadcd1574a`; exact Candidate Checks [42178075022](https://github.com/Reekyi/UpStatus/actions/runs/42178075022) passed, including durable pagehide/reload for known call-room IDs and cleanup. #75 baseline remains `7bbf9b9` with historical CI success.
+- #80 HEAD `f810b14`: Validate [42179012720](https://github.com/Reekyi/UpStatus/actions/runs/42179012720) still fails inherited `client signed upload helper missing`. #82 HEAD `e79dd623`: Validate [42183661932](https://github.com/Reekyi/UpStatus/actions/runs/42183661932) still fails inherited `production updateURL mismatch`. All tracked PRs remain open/Draft/unmerged.
+- Normal now contains logical call-attempt prepare/cancel RPCs and tombstone semantics in candidate migration `20261106080200_call_room_attempt_recovery.sql`; isolated migration versions `20261106082526` and `20261106082546` are present. The active Normal Smoke owns the shared isolated fixture project.
+- Team Lite source still uses create-room/bind/acceptance and has no cancel-by-logical-call-ID adapter method or durable call-attempt handle. Its known-room pagehide recovery passed, but the in-flight prepare race remains a parity gap.
+- Production remains read-only and unchanged: 7 migrations, 38 active Edge Functions, no call-attempt/open-voice/receipt/rate-limit RPCs or dedicated signaling endpoint. Three public SECURITY DEFINER broadcasts, broad backend table grants, broad default ACLs, and 3+3 WARN / 10 INFO security findings remain.
+- #78/#79 remain open. Physical no-F5 and installed cross-product tests, Team Lite call-attempt parity, product-endpoint rate limiting with Retry-After, RT-01, ACL-02, official TEST rehearsal, and human reviews remain gates.
+- No merge, deploy, release, production write/migration, secret/role/flag change, userscript publication, or destructive operation occurred.
