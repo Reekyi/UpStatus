@@ -324,11 +324,16 @@ assert.ok(userTemplate.includes("leavingTransport.leave(leavingRoomId)") &&
   userTemplate.includes("signalTransport.leave(signalRoomId)") &&
   userTemplate.includes("signalTransport.leave(failedRoom)"),
   "voice and call teardown paths must release authenticated room membership without using a replacement transport after reconnect");
+const normalStartCallStart=userTemplate.indexOf("async function startOutgoingCall(target){");
+const normalStartCallEnd=userTemplate.indexOf("async function callAcceptIncomingOffer",normalStartCallStart);
+const normalStartCallSource=userTemplate.slice(normalStartCallStart,normalStartCallEnd);
+assert.ok(normalStartCallStart>=0&&normalStartCallEnd>normalStartCallStart&&normalStartCallSource.indexOf("await waitForRealtimeReady(10000)")>=0&&normalStartCallSource.indexOf("await waitForRealtimeReady(10000)")<normalStartCallSource.indexOf("upCall.callId=callNewId()"),"Normal legacy outgoing calls must wait for Realtime before allocating a call");
+assert.ok(userTemplate.includes("async function callRequestToJoin(callId,target)")&&userTemplate.includes("await waitForRealtimeReady(10000)"),"Normal legacy group-call join requests must wait for Realtime after reconnect");
 assert.ok(userTemplate.includes("voiceRoomLeave({skipServerLeave:true})") &&
   userTemplate.includes("screenShareStop(!skipServerLeave)") &&
   userTemplate.includes("signalVoiceRoomPrepared=false") &&
-  userTemplate.includes("async function waitForVoiceRealtimeReady(") &&
-  userTemplate.includes("await waitForVoiceRealtimeReady(10000)"),
+  userTemplate.includes("async function waitForRealtimeReady(") &&
+  userTemplate.includes("await waitForRealtimeReady(10000)"),
   "Normal offline recovery must tear down locally without network leave and wait for Realtime readiness before legacy voice rejoin");
 assert.ok(userTemplate.includes("var leavingTransport=signalTransport") &&
   userTemplate.includes("if(signalTransport!==leavingTransport||signalVoiceRoomRoomId!==leavingRoomId)return false") &&
@@ -364,12 +369,12 @@ console.log("PASS production deploy ref, project, credential, release, and CLI-v
 
 const voiceLeaveStart = userTemplate.indexOf("function voiceRoomLeave(options){");
 const voiceLeaveEnd = userTemplate.indexOf("window.addEventListener('pagehide'", voiceLeaveStart);
-const realtimeReadyStart = userTemplate.indexOf("async function waitForVoiceRealtimeReady(");
+const realtimeReadyStart = userTemplate.indexOf("async function waitForRealtimeReady(");
 const realtimeReadyEnd = userTemplate.indexOf("\nasync function voiceRoomJoin", realtimeReadyStart);
 assert.ok(voiceLeaveStart >= 0 && voiceLeaveEnd > voiceLeaveStart, "Normal voice leave source boundaries not found");
 assert.ok(realtimeReadyStart >= 0 && realtimeReadyEnd > realtimeReadyStart, "Normal Realtime readiness source boundaries not found");
 const voiceLeaveSource = userTemplate.slice(voiceLeaveStart, voiceLeaveEnd) + "\nthis.__candidateVoiceRoomLeave=voiceRoomLeave;";
-const realtimeReadySource = userTemplate.slice(realtimeReadyStart, realtimeReadyEnd) + "\nthis.__candidateWaitForVoiceRealtimeReady=waitForVoiceRealtimeReady;";
+const realtimeReadySource = userTemplate.slice(realtimeReadyStart, realtimeReadyEnd) + "\nthis.__candidateWaitForVoiceRealtimeReady=waitForRealtimeReady;";
 const readyContext = {
   navigator: { onLine: true }, token: "session-token", realtimeActive: false, realtimeChannel: null,
   realtimeClient: null, realtimeRetryTimer: null, Date, Promise, setTimeout,
