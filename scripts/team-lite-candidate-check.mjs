@@ -261,6 +261,11 @@ assert.ok(script.includes("pendingSignals.map(function(p){return Promise.resolve
   script.includes("function signalAttemptPendingCallLeave(roomId,expectedTransport,requireExpectedTransport)") &&
   script.includes("transportForAttempt.leave(roomId)") &&
   script.includes("signalPendingCallLeaves[signalRoomId]={"), "call teardown must preserve retryable authenticated room membership and use a captured transport");
+const liteInitStart=script.indexOf("function initSignalingTransport(){");
+const liteInitEnd=script.indexOf("function signalSafeCallId(",liteInitStart);
+const liteInitSource=script.slice(liteInitStart,liteInitEnd);
+assert.ok(liteInitStart>=0&&liteInitEnd>liteInitStart&&liteInitSource.includes("signalRetryPendingCallLeaves();"),
+  "Team Lite signaling transport initialization must retry pending call-room leaves after reconnect");
 const browserHarness = read("scripts/test-signaling-browser.mjs");
 assert.ok(browserHarness.includes('"/room/open"') && browserHarness.includes('"upstatus-team-lite-room-v1"') && browserHarness.includes("late Team Lite member must join without invitation") && browserHarness.includes('roomId: voiceRoomId, bindingType: "screen"'), "browser E2E must cover open late join, cross-client aliases, and shared voice/screen room");
 assert.ok(browserHarness.includes("async function runGroupMesh()") && browserHarness.includes("async function negotiateMeshPair("), "authenticated browser E2E must include a three-member group mesh");
