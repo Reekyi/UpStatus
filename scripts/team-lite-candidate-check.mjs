@@ -349,6 +349,13 @@ const voiceLeaveContext = {
     muted: false, participants: {}
   },
   signalVoiceRoomRoomId: "team-lite-voice-room",
+  // Mirror the globals now read by voiceRoomLeave after durable attempt recovery landed.
+  signalVoiceRoomAttemptId: "",
+  signalPendingVoiceRoomAttempts: Object.create(null),
+  signalTransport: null,
+  signalVoiceRoomCreator: false,
+  signalVoiceRoomPrepared: false,
+  signalRosterCache: Object.create(null),
   screenShareStop: () => leaveEvents.push("screen-stop"),
   signalStopCallPolling: room => leaveEvents.push("poll-stop:" + room),
   voiceRoomPlayCue: () => {},
