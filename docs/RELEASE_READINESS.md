@@ -5246,3 +5246,17 @@ Não declarar percentual. CI automatizado, inspeção estática, browser harness
 ### Registro de segurança desta rodada
 
 Nenhuma escrita SQL em produção, migration, deploy, merge, release, publicação de userscript, alteração de secret/flag/role ou operação destrutiva foi realizada. Todas as consultas SQL foram SELECT-only. Os workflows #74/#76 foram executados pela engenharia/GitHub e somente inspecionados; a auditoria não iniciou workflows nem testes mutáveis. Fixtures foram contadas por SELECT depois do término dos dois runs. A única escrita desta auditoria é este append documental na branch QA, usando o blob SHA atual como precondição.
+
+
+### Addendum — causa exata do Validate vermelho na PR #82 (2026-11-06, 15:33 BRT)
+
+O run da nova revisão documental [42272292360](https://github.com/Reekyi/UpStatus/actions/runs/42272292360) terminou com FAILURE. O log confirma `Built UpStatus 3.4.7 / TEST 3.4.7` e falha em `VALIDATION FAILED: production updateURL mismatch`.
+
+A causa foi localizada por inspeção comparativa dos arquivos atuais de master e #74:
+- `scripts/build.mjs`, blob `e68bc2ad3c1ada638a384f0c07f9a8c48bc87192`, calcula `cloud` de produção como `https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-screen-share-3-1-1-beta10` e depois define `updateUrl=cloud+"/upstatus.user.js"`.
+- `release.json`, blob `93caf1701ea508575c90d002c0b8c3037b34d82a`, define `scriptUrl` como `https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js`.
+- `scripts/validate.mjs`, blob `b1fa56c204c9e4dc6a689bced81efb9f5466b48f`, exige que o header `@updateURL` do artefato contenha `/upstatus/upstatus.user.js`.
+
+O builder ignora `release.scriptUrl` para o header de produção e reutiliza o endpoint de API legado para `@updateURL`. Assim o header gerado aponta para `/upstatus-screen-share-3-1-1-beta10/upstatus.user.js`, enquanto o validador exige `/upstatus/upstatus.user.js`. O erro é determinístico e reproduzido no HEAD documental; não foi introduzido pelo append.
+
+**Correção de engenharia recomendada:** separar explicitamente `updateUrl` de `cloud`: usar `release.scriptUrl` para `@updateURL/@downloadURL` e manter `CLOUD_SERVER` apontando ao endpoint legado até o cutover coordenado. Não alterar o servidor de API para satisfazer a asserção do updater e não enfraquecer o validador. Nenhum arquivo de build/runtime foi modificado nesta auditoria.
