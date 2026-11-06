@@ -172,7 +172,7 @@ async function signalPrepareVoiceRoom(){
   signalStartCallPolling(opened.roomId,voiceRoom.id);
 }
 
-async function waitForVoiceRealtimeReady(timeoutMs){
+async function waitForRealtimeReady(timeoutMs){
   var deadline=Date.now()+(Number(timeoutMs)||10000);
   while(Date.now()<deadline){
     if(typeof navigator!=='undefined'&&navigator.onLine===false)return false;
@@ -194,7 +194,7 @@ if(signalTransportFlag&&!signalVoiceRoomPrepared){
 }
 if(!signalTransportFlag&&(!realtimeActive||!realtimeChannel)){
   voiceRoom.joining=true;voiceRoomRender();voiceRoomMessage('Reconectando a conexão da sala...');
-  var realtimeReady=await waitForVoiceRealtimeReady(10000);
+  var realtimeReady=await waitForRealtimeReady(10000);
   voiceRoom.joining=false;
   if(!realtimeReady){voiceRoomMessage('A conexão da sala ainda não foi restabelecida. Tente novamente.');voiceRoomRender();return;}
 }
@@ -2168,6 +2168,11 @@ function renderChatText(text){
       if(!signalTransport){message('A sinalização autenticada não está configurada. A chamada não foi iniciada.',true);return;}
       return startOutgoingCallWithTransport(target);
     }
+    if(!realtimeActive||!realtimeChannel){
+      message('Reconectando a conexão das chamadas...',false);
+      var realtimeReady=await waitForRealtimeReady(10000);
+      if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
+    }
     if(upCall.active){message('Voc\u00ea j\u00e1 est\u00e1 em uma chamada.',true);return;}
     upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
     upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
@@ -2180,6 +2185,10 @@ function renderChatText(text){
   }
   async function callAcceptIncomingOffer(remoteName){
     var p=callGetPeer(remoteName),sdp=upCall.pendingOffers[remoteName];if(!p||!sdp)return;
+    if(!signalTransportFlag&&(!realtimeActive||!realtimeChannel)){
+      var realtimeReady=await waitForRealtimeReady(10000);
+      if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
+    }
     callStartPresence();
     try{
       upCall.waitingForConnection=true;await callGetMicrophone();await callCreatePeer(remoteName);
@@ -2195,6 +2204,10 @@ function renderChatText(text){
   async function callAcceptGroupInvite(){
     var invite=upCall.pendingInvite;if(!invite||!upCall.active)return;
     var signalRoomId=signalRoomByCallId[upCall.callId];
+    if(!signalTransportFlag&&(!realtimeActive||!realtimeChannel)){
+      var realtimeReady=await waitForRealtimeReady(10000);
+      if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
+    }
     if(signalTransport&&signalRoomId){
       try{
         await signalTransport.accept(signalRoomId);
@@ -2218,7 +2231,7 @@ function renderChatText(text){
     if(upCall.pendingInvite)return callAcceptGroupInvite();
     var names=Object.keys(upCall.pendingOffers||{});if(names.length)return callAcceptIncomingOffer(names[0]);
   }
-  function callRequestToJoin(callId,target){
+  async function callRequestToJoin(callId,target){
     var entry=upCallDirectory[callId];
     if(upCall.active){message('Você já está em uma chamada.',true);return;}
     if(!entry||!entry.participants||entry.participants.indexOf(target)<0){message('A chamada não está mais disponível. Atualize a equipe.',true);return;}
@@ -2230,6 +2243,10 @@ function renderChatText(text){
         message(e.status===409?'Já existe um convite ou pedido pendente para esta chamada.':e.status===404?'A chamada não está mais disponível.':'Não foi possível enviar o pedido de entrada.',true);
       });
       return;
+    }
+    if(!realtimeActive||!realtimeChannel){
+      var realtimeReady=await waitForRealtimeReady(10000);
+      if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
     }
     var sent=sendRealtimeEvent('call_signal',{type:'join_request',callId:callId,from:member,to:target,target:target,participants:entry.participants.slice(),updatedAt:Date.now()});
     if(sent)message('Pedido para entrar enviado a '+target+'. Aguarde a confirmação.',false);
