@@ -135,10 +135,12 @@ try {
       })
     ));
     const statuses = responses.map(response => response.status);
+    const rateLimitedResponses = responses.filter(response => response.status === 429);
     assert.equal(statuses.filter(status => status === 404).length, 90, "first 90 writes should pass the limiter and reach the unknown route");
-    assert.equal(statuses.filter(status => status === 429).length, 1, "91st concurrent write should be rate limited");
+    assert.equal(rateLimitedResponses.length, 1, "91st concurrent write should be rate limited");
+    assert.equal(rateLimitedResponses[0]?.headers.get("retry-after"), "60", "HTTP 429 must expose a conservative Retry-After value");
     assert.ok(statuses.every(status => status === 404 || status === 429), "rate-limit endpoint returned an unexpected status");
-    console.log("PASS distributed endpoint rate limit: 90 accepted, 1 rejected (HTTP 429).");
+    console.log("PASS distributed endpoint rate limit: 90 accepted, 1 rejected (HTTP 429, Retry-After 60s).");
   }
 } catch (error) {
   console.error("Authenticated test setup/runner failed: " + String(error?.message || error));
