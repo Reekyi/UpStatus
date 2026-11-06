@@ -10,6 +10,7 @@ on:
       - "scripts/run-signaling-authenticated.mjs"
       - "scripts/test-signaling-browser.mjs"
       - "scripts/signaling-static.test.mjs"
+      - "scripts/screen-share-recovery.test.mjs"
       - "scripts/voice-room-attempt-recovery.test.mjs"
       - "scripts/chat-regression.test.mjs"
       - "scripts/test-chat-read-receipts.mjs"
@@ -58,6 +59,8 @@ jobs:
           node --check scripts/test-signaling-browser.mjs
           node --check scripts/signaling-static.test.mjs
           node scripts/signaling-static.test.mjs
+          node --check scripts/screen-share-recovery.test.mjs
+          node scripts/screen-share-recovery.test.mjs src/userscript/upstatus.user.template.js
           node --check scripts/voice-room-attempt-recovery.test.mjs
           node scripts/voice-room-attempt-recovery.test.mjs
           node --check scripts/signaling-body.test.mjs
