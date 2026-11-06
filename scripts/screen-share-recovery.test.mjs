@@ -278,16 +278,15 @@ function makeContext({ active = true, member = "Alice" } = {}) {
     type: "offer",
     sdp: { type: "offer", sdp: "remote-offer-1" },
   };
-  await test.context.__screenShareReceive(incoming);
+  await Promise.all([
+    test.context.__screenShareReceive(incoming),
+    test.context.__screenShareReceive(incoming),
+  ]);
   const peer = test.context.screenShare.peers.Bob;
-  assert.equal(peer.pc.createAnswerCalls, 1);
-  const firstAnswer = test.sent.find(item => item.type === "answer");
-  assert.ok(firstAnswer);
-  await test.context.__screenShareReceive(incoming);
   const answers = test.sent.filter(item => item.type === "answer");
-  assert.equal(peer.pc.createAnswerCalls, 1, "duplicate offer must not create a second answer");
-  assert.equal(answers.length, 2, "duplicate offer must retransmit the cached answer");
-  assert.equal(answers[1].data.sdp.sdp, firstAnswer.data.sdp.sdp);
+  assert.equal(peer.pc.createAnswerCalls, 1, "concurrent duplicate offers must create one answer");
+  assert.equal(answers.length, 2, "the queued duplicate offer must retransmit the cached answer");
+  assert.equal(answers[1].data.sdp.sdp, answers[0].data.sdp.sdp);
 }
 
 // A disconnected peer is discarded before a fresh offer is created.
@@ -330,4 +329,4 @@ function makeContext({ active = true, member = "Alice" } = {}) {
   assert.equal(droppedPeer.pc.closed, true);
 }
 
-console.log("Screen-share offer/answer retransmission, bounded recovery, stale-peer replacement and timer cleanup passed for " + sourcePath + ".");
+console.log("Screen-share serialized offer/answer negotiation, glare recovery, bounded retries and teardown passed for " + sourcePath + ".");
