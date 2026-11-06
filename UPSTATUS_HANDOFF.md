@@ -966,3 +966,37 @@ Issue #78 continua aberta para testes físicos de queda/retorno de internet sem 
 ### Final ancestry correction — 2026-11-05
 
 The branch advanced with documentation follow-ups after the earlier 52-ahead snapshot. Its exact current ancestry must be re-fetched from GitHub before any integration decision; do not rely on the historical count.
+
+## Engineering checkpoint — 2026-11-05 22:xx BRT
+
+### Current PR and CI state
+
+| PR | Current HEAD | Current evidence |
+|---|---|---|
+| #74 Normal | `b0c0e03fbe820e02404d4ae7d9f83e2a18642e50` | Validate 42122609464 and Signaling Smoke 42122609431 passed on this exact HEAD |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Candidate Checks 41674353127 passed historically on this exact baseline |
+| #76 Team Lite | `7538296fd7e0d5208fe96da6baed0c9263f12e33` | Candidate Checks 42142527307 running; prior intermediate 6ba88b failed only in a new VM-test source-boundary escape |
+| #80 Continuity | `6a516cb09249f18cf814e5be9fa03cdf1bb79233` | Validate 42135175714 failed at `client signed upload helper missing` |
+| #82 QA | `3cb3539ba10c0061d104d5936c2c04ee5bb81b79` | Validate 42137572524 failed at `production updateURL mismatch` |
+
+All five PRs remain open and Draft. #76 remains a descendant of #75; do not treat them as independent merges. Current ancestry comparisons: #74 is 639 commits ahead of master; #76 is 178 ahead of `team-lite-official` and 119 ahead of #75; #80 is 60 ahead of develop; #82 is 45 ahead of master. The large #74 ancestry remains a separate integration-review gate.
+
+### Reconnect failure is confirmed
+
+Issue #78 now records a manual failure in both candidate clients: after approximately 10 seconds offline during voice use, the user cannot reliably re-enter the room or recover call signaling without F5. This is a confirmed release blocker, not a pending manual test.
+
+Code inspection found that offline handlers start voice leave while offline and immediately stop Realtime/signaling and clear room context. The leave path can therefore wait on an unreachable final signal or membership request while the transport is being torn down. Team Lite serializes a new join behind the leave promise. Normal also had a leave continuation that could consult a replacement global transport after reconnect. Legacy outgoing calls and group-call join requests did not wait for Realtime SUBSCRIBED before sending.
+
+Isolated candidate branches now contain the proposed recovery:
+- Team Lite `team-lite/reconnect-recovery-candidate`, head `7538296fd7e0d5208fe96da6baed0c9263f12e33`: local-only voice teardown on offline; Realtime readiness wait before legacy voice/call actions; tests for offline teardown, readiness, leave retry and stale transport.
+- Normal `normal/reconnect-recovery-candidate`, head `4c8e1b63fb6d3d784a9865c860bef400097d3825`: equivalent local-only teardown, readiness gates, captured-transport leave retry and VM regressions.
+
+The Team Lite branch has been fast-forwarded into Draft PR #76. Normal remains isolated until the shared Supabase test group is free. Neither candidate is declared approved until its exact-head CI passes. The physical 10-second outage test must be repeated after CI, including voice re-entry, outgoing/incoming calls, and duplicate-peer/polling cleanup.
+
+### Production Supabase — read-only revalidation
+
+Project `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL 17.11. Production still has 7 migrations through `20261027155438` and 38 active Edge Functions. There is no dedicated `upstatus-signal` function and the production catalog still lacks open/leave voice RPCs, `merge_chat_read_receipts`, `consume_upstatus_signal_rate_limit`, and the rate-limit table.
+
+The three public broadcast functions remain SECURITY DEFINER and executable by anon/authenticated. The message broadcast still publishes OLD/NEW row JSON to public `db_change`. Nine backend-owned tables still have broad client table grants while RLS is enabled with no policies. Default ACLs remain broad for `postgres` in `public`/`storage` and `supabase_admin` in `public`/`graphql`/`graphql_public`. The available SQL role cannot alter `supabase_admin` defaults.
+
+No production SQL write, migration, function update, flag change, secret change, deploy, release, or publication occurred. All catalog checks were SELECT-only.
