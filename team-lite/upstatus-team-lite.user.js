@@ -376,7 +376,7 @@ function createSignalingTransport({
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
   // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
   // Mantido isolado do chat, status e demais recursos do UpStatus.
-  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,overlay:null,callId:'',peer:'',role:'',initiator:'',participants:[],pendingInvites:{},pendingOffers:{},pendingInvite:null,peers:{},active:false,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0,waitingForConnection:false,notice:'',ringtoneTimer:null,ringtoneCtx:null,ringtoneAllowed:false,ringtoneLoadId:0,ringtoneSource:null,ringtoneGain:null,presenceTimer:null};
+  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,overlay:null,callId:'',peer:'',role:'',initiator:'',participants:[],pendingInvites:{},pendingOffers:{},pendingInvite:null,peers:{},active:false,starting:false,startAttempt:0,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0,waitingForConnection:false,notice:'',ringtoneTimer:null,ringtoneCtx:null,ringtoneAllowed:false,ringtoneLoadId:0,ringtoneSource:null,ringtoneGain:null,presenceTimer:null};
   
 var upCallDirectory={};
 var voiceControlBubble=null,voiceControlAvatar=null,voiceControlWave=null,voiceControlSpeakerName=''; var voiceRoom={id:'upstatus-team-room-v1',seenSignals:{},sessionId:'vr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10),active:false,muted:false,speakersMuted:false,stream:null,peers:{},participants:{},timer:null,joining:false,audioContext:null,levelTimer:null,sessionStartedAt:0,sessionTimer:null,pingTimer:null,pingMs:null,lastSpeaker:'',currentSpeaker:'',recoveryAttempts:{},recoveryTimers:{}};
@@ -2548,6 +2548,7 @@ function renderChatText(text){
   }
   function callCleanup(sendSignal,signalType){
     var cleanupPromise=Promise.resolve();
+    upCall.startAttempt=(upCall.startAttempt||0)+1;upCall.starting=false;
     var callId=upCall.callId,signalRoomId=signalRoomByCallId[callId],signalRoomCreator=signalCreatorCallIds[callId]===true,pendingSignals=[];
     if(callId&&upCall.active){
       if(signalTransportFlag){
@@ -2675,11 +2676,23 @@ function renderChatText(text){
     if(signalTransportFlag){if(!signalTransport){message('A sinalização autenticada não está configurada. A chamada não foi enviada.',true);return;}startOutgoingCallWithTransport(target);return;}
     
     if(upCall.active){message('Voc\u00ea j\u00e1 est\u00e1 em uma chamada.',true);return;}
+    if(upCall.starting){message('Uma chamada já está sendo preparada.',false);return;}
+    var callStartAttempt=(upCall.startAttempt||0)+1;
+    upCall.startAttempt=callStartAttempt;upCall.starting=true;
     if(!realtimeActive||!realtimeChannel){
       message('Reconectando a conexão das chamadas...',false);
-      var realtimeReady=await waitForRealtimeReady(10000);
-      if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
+      var realtimeReady=false;
+      try{realtimeReady=await waitForRealtimeReady(10000);}catch(e){}
+      if(!realtimeReady||upCall.startAttempt!==callStartAttempt){
+        if(upCall.startAttempt===callStartAttempt)upCall.starting=false;
+        if(!realtimeReady)message('A conexão ainda não foi restabelecida. Tente novamente.',true);
+        return;
+      }
     }
+    if(upCall.startAttempt!==callStartAttempt){return;}
+    upCall.starting=false;
+    
+    
     upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
     upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
     callStartPresence();callPrimeAudio();callStartRingtone();callRender(target,'Chamando\u2026',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true,'hangup');}}]);
