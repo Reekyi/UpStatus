@@ -512,7 +512,9 @@ function voiceRoomLeave(options){
   var skipServerLeave=!!(options&&options.skipServerLeave);
   var leavePromise=(async function(){
     voiceRoom.joinGeneration=(voiceRoom.joinGeneration||0)+1;
-    var screenLeaveSignal=screenShareStop(!skipServerLeave);
+    var screenLeaveSignal;
+    try{screenLeaveSignal=screenShareStop(!skipServerLeave);}catch(e){screenLeaveSignal=Promise.reject(e);}
+    Promise.resolve(screenLeaveSignal).catch(function(){});
     var wasActive=voiceRoom.active;
     var leavingRoomId=signalVoiceRoomRoomId;
     var leavingAttemptId=signalVoiceRoomAttemptId;
@@ -548,15 +550,17 @@ function voiceRoomLeave(options){
       signalVoiceRoomCreator=false;
       signalVoiceRoomPrepared=false;
     }else if(leavingAttemptId&&leavingTransport){
-      await Promise.allSettled([screenLeaveSignal,leaveSignal].map(function(p){return Promise.resolve(p);}));
+      if(leaveSignal)Promise.resolve(leaveSignal).catch(function(){});
       if(signalTransport===leavingTransport){
         leaveConfirmed=await signalAttemptPendingVoiceRoomCancel(leavingAttemptId,leavingTransport,true);
       }
       if(!leaveConfirmed)signalVoiceRoomPrepared=false;
       if(leaveConfirmed&&leavingRoomId)delete signalRosterCache[leavingRoomId];
     }else if(leavingTransport&&leavingRoomId){
-      await Promise.allSettled([screenLeaveSignal,leaveSignal].map(function(p){return Promise.resolve(p);}));
-      if(signalTransport===leavingTransport&&signalVoiceRoomRoomId===leavingRoomId){
+      if(leaveSignal){try{await Promise.resolve(leaveSignal);}catch(e){}}
+      if(signalTransport===leavingTransport&&signalVoiceRoomRoomId!==leavingRoomId){
+        leaveConfirmed=true;
+      }else if(signalTransport===leavingTransport&&signalVoiceRoomRoomId===leavingRoomId){
         try{
           var leaveResult=await leavingTransport.leave(leavingRoomId);
           leaveConfirmed=leaveResult!==false&&!(leaveResult&&typeof leaveResult==='object'&&(leaveResult.ok===false||leaveResult.error));
@@ -569,11 +573,10 @@ function voiceRoomLeave(options){
         }
       }
     }else if(wasActive){
-      var legacyResults=await Promise.allSettled([screenLeaveSignal,leaveSignal].map(function(p){return Promise.resolve(p);}));
-      var legacyLeave=legacyResults[1];
-      leaveConfirmed=legacyLeave&&legacyLeave.status==='fulfilled'&&(
-        legacyLeave.value===true||
-        (!!legacyLeave.value&&typeof legacyLeave.value==='object'&&legacyLeave.value.ok!==false&&!legacyLeave.value.error)
+      var legacyLeave=null;
+      try{legacyLeave=await Promise.resolve(leaveSignal);}catch(e){}
+      leaveConfirmed=legacyLeave===true||(
+        !!legacyLeave&&typeof legacyLeave==='object'&&legacyLeave.ok!==false&&!legacyLeave.error
       );
     }else{
       leaveConfirmed=!leavingRoomId&&!leavingAttemptId;
