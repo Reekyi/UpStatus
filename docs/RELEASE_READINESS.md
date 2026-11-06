@@ -4167,3 +4167,101 @@ Próximos gates em ordem:
 ### Registro de segurança desta rodada
 
 Todas as consultas SQL desta rodada foram SELECT-only e de catálogo/contagens. A primeira consulta de catálogo falhou por qualificar incorretamente `realtime.messages` como `public.realtime.messages`; foi corrigida para o schema `realtime` e não realizou qualquer escrita. Uma consulta de contagem incluiu dois nomes de tabelas de fixtures inexistentes e falhou sem mutação; a consulta subsequente usou somente as seis tabelas confirmadas e encontrou zero resíduos. O Candidate Checks Team Lite foi iniciado pela engenharia/GitHub e inspecionado read-only; a auditoria não iniciou testes mutáveis. Nenhuma produção write, migration, deploy, secret/flag/role change, merge, release, publicação de userscript ou operação destrutiva ocorreu. A única escrita desta rodada é este append documental nesta branch QA dedicada.
+
+
+## Auditoria independente — 2026-11-06 07:29 BRT (voice-room durability e revalidação exata)
+
+Este checkpoint foi preparado após nova leitura do PR #82 e do blob atual de `docs/RELEASE_READINESS.md`. PR #82 estava aberto/Draft, sem merge, na branch `qa/release-readiness-2026-11-04-master`; o blob usado como precondição foi `3d681f0e67a3d7e52565fbf22eb96961acf9196d`. A atualização abaixo altera somente este Markdown na branch QA. Se o arquivo tiver sido alterado concorrentemente, a atualização por SHA deve falhar em vez de sobrescrever a edição.
+
+### Heads reais, ancestry e CI
+
+Todos os PRs #74, #75, #76 e #82 permanecem abertos, Draft, não mesclados e mergeable. Consultas atuais de reviews e inline review threads retornaram zero em todos os quatro PRs.
+
+- **Normal #74** — `chore/continuity-foundation`, HEAD `18201b01f875d1ab5d3706e4e35f07ab23ed1c86`, 700 commits ahead / 0 behind `master`. Validate [42200054443](https://github.com/Reekyi/UpStatus/actions/runs/42200054443) e Signaling Smoke [42200054440](https://github.com/Reekyi/UpStatus/actions/runs/42200054440) concluíram SUCCESS no SHA exato. O Smoke terminou 116/116 verificações autenticadas, integração HTTP de prepare/cancel/tombstone, negociação WebRTC call/voice/screen com tracks remotas, mesh de três participantes, rate limit 90 aceitas + 1 HTTP 429, concorrência do rate limiter e read receipts atômicos. O log confirma os testes Normal de persistência do call ID antes do prepare, falha de GM Storage bloqueando criação, recuperação de room ID desconhecido, logout bloqueado por cancelamento lógico não confirmado e aceitação do destinatário fail-closed antes de aceitar membership.
+- **Team Lite #76** — `team-lite/signaling-transport-candidate`, HEAD `5cc5df4865250a0d67935937ea43e206217730d5`, 208 ahead / 0 behind `team-lite-official`, 149 ahead / 0 behind #75. Candidate Checks exato [42194948317](https://github.com/Reekyi/UpStatus/actions/runs/42194948317) concluiu SUCCESS. O log confirma 103/103 checks autenticados, WebRTC call/voice/screen, mesh de três membros, retry/logout gate, pagehide/reload de call rooms, logical call ID persistido antes do prepare, storage-failure fail-closed para criador e destinatário, rate limit 90+1, concorrência de rate limit/read receipts e cleanup.
+- **Team Lite baseline #75** — HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 ahead / 0 behind `team-lite-official`. Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) continua sendo evidência histórica do baseline; #76 é o candidato de sinalização atual.
+- **QA #82** — HEAD `a4b675bace4f94ce2e4fb961b3446ca55887b4d3`, 57 ahead / 0 behind `master`; um único caminho alterado, este Markdown. Validate [42196233886](https://github.com/Reekyi/UpStatus/actions/runs/42196233886) falhou com `production updateURL mismatch` em `scripts/validate.mjs:26`. A causa foi revalidada: em master, `scripts/build.mjs` usa o endpoint legado `upstatus-screen-share-3-1-1-beta10` como `cloud` e deriva dele o `updateUrl`; o validador exige `/functions/v1/upstatus/upstatus.user.js`. O build candidato de #74 separa API `cloud` de URL de publicação e lê `release.scriptUrl`. A falha de #82 é herdada do baseline master, não erro de Markdown; o validador não foi enfraquecido.
+- Comparações atuais: #74 = 700/0 vs master; #76 = 208/0 vs team-lite-official e 149/0 vs #75; #82 = 57/0 vs master. Nenhum PR foi mesclado e nenhuma review humana foi registrada.
+
+### Call-room logical attempts — gates anteriores agora fechados no CI exato
+
+A inspeção dos arquivos atuais e os logs exatos confirmam que os dois gaps Normal identificados na rodada anterior foram corrigidos no HEAD #74:
+
+1. **N-LOGOUT:** quando não há chamada ativa, o logout agora tenta `signalRetryPendingCallAttempts()` antes de `signalRetryPendingCallLeaves()`; só prossegue para voice-room leave, API logout e limpeza de credenciais após confirmação. A regressão `chat-regression.test.mjs` foi alinhada ao novo contrato e o Validate + Smoke do HEAD `18201b01` passaram.
+2. **N-RECIPIENT-STORAGE:** `callAcceptGroupInvite()` agora exige `signalTrackPendingCallLeave(roomId, callId, transport)` antes de `signalTransport.accept(roomId)`. Se o armazenamento não aceitar a gravação, o convite permanece pendente e a membership não é aceita. O Smoke exato registra: “Normal recipient call acceptance fails closed without durable leave storage and persists before accept.”
+
+O Team Lite #76 já tinha os dois gates e seu Candidate Checks exato permanece verde. A paridade de call-room logical attempts, storage fail-closed do destinatário e logout gate pode ser marcada como **AUTOMATED PASS** nos dois candidatos. Isso não cobre ainda a persistência da membership separada de voice room descrita abaixo.
+
+### Novo gate funcional: voice-room leave ainda não é durável
+
+**VOICE-ROOM-DURABILITY — CODE INSPECTION; MANUAL PENDING; não reproduzido fisicamente.**
+
+Os dois userscripts atuais ainda não possuem marcador persistente para membership de sala de voz:
+
+- Normal `signalPrepareVoiceRoom()` chama `signalTransport.openVoiceRoom(voiceRoom.id)` e só depois da resposta grava `signalVoiceRoomRoomId = opened.roomId` em memória.
+- Team Lite faz a mesma sequência.
+- Não há `signalPendingVoiceRoom`, storage key, persistência token-free de logical ID/membro/timestamp ou restore/retry pós-autenticação. A inspeção de ambos os arquivos não encontrou marcador durável de voice-room.
+- O handler `pagehide` chama `voiceRoomLeave()`, mas não aguarda a Promise nem persiste um handle de recuperação.
+- Os handlers `offline` chamam `voiceRoomLeave({skipServerLeave:true})` e interrompem o transporte/Realtime para encerrar mídia local sem depender da rede. Isso é adequado para não manter microfone/peers locais ativos, mas o room ID permanece apenas em memória. Se a página/processo for encerrado offline, a referência local desaparece sem confirmação de leave.
+
+O efeito possível é uma membership de voice room abandonada no servidor até expiração/cleanup. O endpoint candidato define TTL de duas horas e cleanup best-effort por requisição; isso limita a duração, mas não prova saída imediata nem recuperação durável. Este achado é distinto do protocolo de call-room logical attempts, que já passou nos testes.
+
+### Contrato existente que permite recuperação sem nova migration, sujeito a implementação/teste
+
+A inspeção do adapter compartilhado, da migration candidata `20261105190000_open_voice_room_membership.sql` e do endpoint isolado v29 confirmou um caminho de recuperação já disponível no ambiente isolado:
+
+- `open_upstatus_signal_voice_room(text,text,integer)` normaliza os aliases `upstatus-team-room-v1` e `upstatus-team-lite-room-v1`, usa advisory transaction lock, reutiliza o binding ativo e trata a reabertura pelo mesmo membro como idempotente.
+- O endpoint autenticado `POST /room/open` chama essa RPC com o usuário derivado da sessão.
+- `POST /room/resolve` só devolve o room ID se a sala estiver ativa e `isMember(roomId, sender)` confirmar membership aceita do usuário autenticado; caso contrário responde 404.
+- A RPC `leave_upstatus_signal_room(text,text)` permite saída confirmada. No projeto isolado, open/leave são SECURITY INVOKER, `search_path` vazio, EXECUTE negado a anon/authenticated e permitido a service_role.
+
+Desenho recomendado, ainda **não implementado nem testado**: persistir, antes de `openVoiceRoom`, um marcador por membro contendo somente `logicalId`, `member` e `createdAt` (nunca token). Se a escrita GM falhar, bloquear a abertura antes de criar/joinar membership. Após reautenticação, chamar `resolveRoom({bindingType:"voice", logicalId})`; se a membership ainda existir, executar leave e manter o marcador até confirmação. Remover o marcador somente após leave confirmado ou resolve retornar 404 terminal. Se o room ID já for conhecido, também pode ser persistido. Testar falha de resposta de `/room/open`, pagehide online/offline, reload offline, storage write failure, conta diferente, sala expirada, resolve 404, retry e aliases Normal ↔ Team Lite. Não manter mídia local aberta enquanto a limpeza remota aguarda.
+
+O contrato acima foi confirmado **somente no projeto isolado**. Produção ainda não possui a RPC open/leave nem a Edge Function dedicada; portanto não há evidência de que esse fluxo esteja implantado no runtime oficial.
+
+### Supabase produção — catálogo, privilégios e Advisor atuais
+
+Projeto `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, região `us-west-2`, PostgreSQL `17.11.0.002`, sete migrations até `20261027155438`. Permanecem ausentes em produção: `upstatus_signal_call_attempts`, RPCs prepare/cancel, tabela/RPC de rate limit, `merge_chat_read_receipts`, RPCs open/leave voice-room e Edge Function dedicada `upstatus-signal`.
+
+SELECT-only/catalog revalidou:
+- Nove tabelas backend-owned em `public` têm RLS ativo, zero policies e os oito privilégios efetivos para anon/authenticated (SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN). É uma superfície excessiva de privilégios, não prova de acesso às linhas enquanto RLS está ativo sem policies.
+- `public.upstatus_visual_config` tem RLS e zero policies, sem grants de tabela para anon/authenticated.
+- `realtime.messages` tem RLS, zero policies e SELECT/INSERT/UPDATE para anon/authenticated.
+- `upstatus_broadcast_messages()`, `upstatus_broadcast_remote_state()` e `upstatus_broadcast_users()` continuam SECURITY DEFINER, `search_path=public`, EXECUTE para anon/authenticated/service_role e triggers habilitados.
+- O trigger `upstatus_messages_broadcast` dispara após INSERT/UPDATE/DELETE em `public.messages`. A função serializa OLD/NEW completos com `to_jsonb` e chama `realtime.send(...,'db_change',...,false)`. Conteúdo da mensagem e metadados de anexos continuam no broadcast público. **RT-01 permanece bloqueador crítico.**
+- Default ACLs seguem amplos: postgres em `public`/`storage` e supabase_admin em `public`/`graphql`/`graphql_public`; os defaults globais de função incluem PUBLIC EXECUTE. A sessão é postgres, não superuser e não membro de supabase_admin. **ACL-02 permanece bloqueado** até caminho administrativo autorizado.
+- Security Advisor observado em `2026-11-06T10:29:28Z`: 3 WARN para SECURITY DEFINER executável por anon, 3 WARN para authenticated e 10 INFO para RLS sem policy. Performance Advisor e Health Advisor de produção sem findings.
+
+### Supabase isolado — schema, grants, Advisor e fixtures
+
+Projeto `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, `sa-east-1`, PostgreSQL `17.11.0.003`, 23 migrations até `20261106082546`; `upstatus-signal-test` está ACTIVE v29.
+
+As tabelas de sinalização, incluindo `upstatus_signal_call_attempts`, têm RLS ativo, zero policies, sem SELECT/INSERT para anon/authenticated e privilégios de service_role. As RPCs call prepare/cancel, rate limit, receipts e voice open/leave verificadas são SECURITY INVOKER, `search_path` vazio, EXECUTE negado a anon/authenticated e permitido a service_role.
+
+Após os workflows existentes, consultas SELECT-only encontraram zero linhas em rooms, members, bindings, events, call attempts, rate-limit buckets, users, sessions, messages e chat_reads. Nenhuma limpeza manual foi executada.
+
+Novo detalhe de performance no projeto isolado: o Performance Advisor observado em `2026-11-06T10:33:10Z` reportou três foreign keys sem índice cobridor em `upstatus_signal_call_attempts` (`created_by`, `recipient`, `room_id`). A migration atual cria a PK de `call_id` e índice de `expires_at`, mas não índices para essas três FKs. Avaliar índices adequados antes de produção/volume, especialmente para deletes/cascades e lookup por room/recipient. O Advisor também marcou quatro índices antigos como unused; com as fixtures zeradas, não remover esses índices sem evidência de carga/uso. Security Advisor isolado retornou 16 INFO de RLS habilitado sem policy, incluindo as seis tabelas server-owned de sinalização; não houve WARN SECURITY DEFINER. Health Advisor isolado sem findings.
+
+O endpoint isolado v29 chama `consume_upstatus_signal_rate_limit`, mas a resposta HTTP 429 ainda não inclui `Retry-After`. Os templates reais de produto ainda não integram o RPC de rate limit; produção também não possui a tabela/RPC. Rate limiting segue **isolated candidate pass / product integration pending**.
+
+### Edge Functions, deploy e issues
+
+- Produção lista 38/38 Edge Functions ACTIVE, todas com `verify_jwt=false`. Isso não prova ausência de autenticação da aplicação: os runtimes principais `upstatus` v480 e `upstatus-team-lite` v15 usam `x-upstatus-token` e comparação timing-safe. Seus bundles implantados não contêm logical call attempts, voice-room durable marker, RPC de rate limit, merge de read receipts ou `Retry-After`. A função dedicada `upstatus-signal` permanece ausente.
+- O mapeamento individual de rota/auth/consumidor/rollback das funções antigas ainda está incompleto. O backup `upstatus-backup-327-pre328` permanece ACTIVE v1 com entrypoint vazio; nenhuma função foi invocada ou desativada.
+- Master deploy ainda usa Supabase CLI `latest` e não tem todas as verificações de branch/SHA/project do workflow candidato #74. O workflow candidato fixa SHA/branch/project e CLI `2.122.1`, mas só implanta Normal e ainda não está ativo em master.
+- [#78](https://github.com/Reekyi/UpStatus/issues/78) permanece aberta, 22 comentários, 8/8 critérios de aceite desmarcados. O comentário de engenharia [6682414062](https://github.com/Reekyi/UpStatus/issues/78#issuecomment-6682414062) descreve o desenho open/resolve/leave, mas declara explicitamente que marcador durável ainda não foi implementado nem testado. Teste físico Tampermonkey offline/reload/no-F5, microfone/display reais e interoperabilidade instalada continuam **MANUAL PENDING**.
+- [#79](https://github.com/Reekyi/UpStatus/issues/79) permanece aberta, 75 comentários; o corpo principal ainda mostra a fotografia de 2026-11-03. O corpo contém 35 checkboxes, 16 marcados e 19 pendentes. Atualizar pela engenharia/release owner antes de usá-la como fonte de verdade.
+
+### Próximos gates
+
+1. Implementar marcador token-free de voice-room antes de `openVoiceRoom`, restore via `resolveRoom` e leave confirmado em Normal e Team Lite; testar storage failure e resposta perdida de open.
+2. Completar os testes físicos de #78: queda de rede de ~10 s, reentrada sem F5, reload offline, permissões reais e interoperabilidade instalada.
+3. Avaliar índices para as três FKs de `upstatus_signal_call_attempts` antes de promover a migration; não remover índices apenas por advisor em fixture vazia.
+4. Integrar rate limit aos endpoints reais e adicionar/testar `Retry-After`.
+5. Resolver RT-01 com cutover autenticado coordenado e resolver ACL-02 por caminho administrativo autorizado.
+6. Ensaiar migrations/rollback no TEST oficial; mapear consumidores/rollback das Edge Functions antigas; atualizar #79; obter reviews humanas.
+7. Manter #74/#76 Draft. Não liberar enquanto RT-01, ACL-02, voice-room durable recovery, aceitação física e cutover coordenado permanecerem pendentes.
+
+### Registro de segurança desta rodada
+
+Todas as consultas SQL bem-sucedidas foram SELECT-only/catalog/contagens. Uma consulta diagnóstica de default ACL falhou por alias SQL incorreto e não alterou estado; a consulta corrigida foi somente leitura. Não foram executados scripts de teste, workflows ou mutações de fixtures pela auditoria. Os workflows #74/#76 foram iniciados pela engenharia/GitHub e seus logs foram inspecionados read-only. Nenhuma escrita em produção, migration, deploy/invocação de Edge Function, secret/flag/role change, merge, release, publicação de userscript ou operação destrutiva ocorreu. A única escrita desta rodada é este append documental na branch QA dedicada. Não declarar percentual de conclusão.
