@@ -268,7 +268,12 @@ const teamLiteRealtimeStart=script.match(/function startRealtime\(\)\s*\{([\s\S]
 const teamLiteOnlineHandler=script.match(/window.addEventListener\('online',function\(\)\{([\s\S]*?)\n  \}\);/);
 assert.ok(teamLiteRealtimeStart && teamLiteRealtimeStart[1].includes("initSignalingTransport();") && teamLiteOnlineHandler && teamLiteOnlineHandler[1].includes("startRealtime();"), "Team Lite reconnect must recreate authenticated signaling transport when Realtime restarts");
 assert.ok(script.includes("voiceRoom.joinGeneration!==joinGeneration") && script.includes("navigator.onLine===false"), "Team Lite voice-room join must reject offline entry and stale getUserMedia completion");
-assert.ok(script.includes("voiceRoomLeave({skipServerLeave:true})") && script.includes("async function waitForVoiceRealtimeReady(") && script.includes("await waitForVoiceRealtimeReady(10000)"), "offline recovery must tear down locally without waiting for network leave and wait for Realtime readiness before legacy voice rejoin");
+const teamLiteStartCallStart=script.indexOf("async function startOutgoingCall(target){");
+const teamLiteStartCallEnd=script.indexOf("async function callAcceptIncomingOffer",teamLiteStartCallStart);
+const teamLiteStartCallSource=script.slice(teamLiteStartCallStart,teamLiteStartCallEnd);
+assert.ok(teamLiteStartCallStart>=0&&teamLiteStartCallEnd>teamLiteStartCallStart&&teamLiteStartCallSource.indexOf("await waitForRealtimeReady(10000)")>=0&&teamLiteStartCallSource.indexOf("await waitForRealtimeReady(10000)")<teamLiteStartCallSource.indexOf("upCall.callId=callNewId()"),"Team Lite legacy outgoing calls must wait for Realtime before allocating a call");
+assert.ok(script.includes("async function callRequestToJoin(callId,target)")&&script.includes("await waitForRealtimeReady(10000)"),"Team Lite legacy group-call join requests must wait for Realtime after reconnect");
+assert.ok(script.includes("voiceRoomLeave({skipServerLeave:true})") && script.includes("async function waitForRealtimeReady(") && script.includes("await waitForRealtimeReady(10000)"), "offline recovery must tear down locally without waiting for network leave and wait for Realtime readiness before legacy voice rejoin");
 console.log("Candidate updater runtime scenarios passed: newer/current/mismatch/downgrade/manifest-offline/script-offline/invalid-manifest.");
 
 
@@ -539,10 +544,10 @@ finishJoinWait();
 await joinAfterLeave;
 assert.ok(joinEvents.some(x => x.startsWith("message:Sem conexão")), "voice join must continue only after leave settles");
 console.log("Team Lite rejoin serialization test passed.");
-const realtimeReadyStart = script.indexOf("async function waitForVoiceRealtimeReady(");
+const realtimeReadyStart = script.indexOf("async function waitForRealtimeReady(");
 const realtimeReadyEnd = script.indexOf("\nasync function voiceRoomJoin", realtimeReadyStart);
 assert.ok(realtimeReadyStart >= 0 && realtimeReadyEnd > realtimeReadyStart, "voice Realtime readiness helper boundaries not found");
-const realtimeReadySource = script.slice(realtimeReadyStart, realtimeReadyEnd) + "\nthis.__candidateWaitForVoiceRealtimeReady=waitForVoiceRealtimeReady;";
+const realtimeReadySource = script.slice(realtimeReadyStart, realtimeReadyEnd) + "\nthis.__candidateWaitForVoiceRealtimeReady=waitForRealtimeReady;";
 let realtimeStartCalls = 0;
 const readyContext = {
   navigator: { onLine: true },
