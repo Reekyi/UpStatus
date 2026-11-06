@@ -697,3 +697,36 @@ This checkpoint used GitHub metadata/workflow logs and read-only Supabase metada
 - The previous isolated-project post-run SELECT snapshot showed zero reserved-prefix fixtures. Because the new Normal run is currently mutating the isolated project and Team Lite is queued, no new cleanup count is claimed until the full queue completes.
 - These changes are static-test-only; no runtime behavior or Supabase schema changed. Both main PRs remain Draft.
 
+
+
+## 2026-11-06 16:02 BRT — chat_fast guard CI completion and release snapshot
+
+Live GitHub refs were re-fetched before this checkpoint. All five PRs remain open, Draft, and unmerged. No submitted human reviews were found on #74, #76, or #82.
+
+### Exact candidate heads and CI
+
+- **Normal #74** — `chore/continuity-foundation`, HEAD `206a2fff08a67d024291e8f074e930e54a72baf9`. Validate [42267444815](https://github.com/Reekyi/UpStatus/actions/runs/42267444815) and Signaling Smoke [42267444841](https://github.com/Reekyi/UpStatus/actions/runs/42267444841) both completed successfully on this exact HEAD. Smoke job [128062940262](https://github.com/Reekyi/UpStatus/actions/runs/42267444841) passed 129/129 authenticated integration checks, browser call/voice/screen WebRTC with remote media, three-member mesh, voice-attempt open/cancel races, 90 accepted + 1 HTTP 429, distributed rate-limit concurrency, atomic read-receipt concurrency, and cleanup.
+- **Team Lite #76** — `team-lite/signaling-transport-candidate`, HEAD `6e247d7b6107b965d9341ddb814f1498a4f3b8e4`. Candidate Checks [42267664191](https://github.com/Reekyi/UpStatus/actions/runs/42267664191) completed successfully. Job [128066050701](https://github.com/Reekyi/UpStatus/actions/runs/42267664191) passed 103/103 authenticated checks, browser call/voice/screen WebRTC, three-member mesh, open voice-room membership/owner handoff/races/capacity, voice-attempt recovery, rate limit, atomic receipts, migration-layout guard, version/portal/session/updater checks, and cleanup.
+- **Team Lite baseline #75** — unchanged HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed. #76 remains the active signaling candidate.
+- **Continuity #80** — `docs/continuity-handoff-2026-11-04`, HEAD `a2499d439d972fe8f742b6de3f8aa565f4256c42`. Validate [42267976464](https://github.com/Reekyi/UpStatus/actions/runs/42267976464) failed at the inherited `client signed upload helper missing` assertion. This PR changes documentation only.
+- **Independent QA #82** — `qa/release-readiness-2026-11-04-master`, HEAD `452fbe3138323585a1d18ade51fc553e0d9ad1b7`. Validate [42272448952](https://github.com/Reekyi/UpStatus/actions/runs/42272448952) failed at `production updateURL mismatch`. QA's branch and document were not modified by engineering.
+
+### Builder mismatch clarification
+
+The QA failure is reproducible on the #82 branch's `master` base. The current #74 candidate already separates the production userscript `updateUrl` from the legacy API `cloud`: `scripts/build.mjs` uses `release.json.scriptUrl` for `@updateURL/@downloadURL` while preserving the legacy `CLOUD_SERVER` endpoint until coordinated cutover. The #74 Validate run above passed with that implementation. Do not copy engineering changes into the independent QA branch or weaken the validator; the mismatch should disappear only when the reviewed builder fix is incorporated into the QA base through normal repository review/coordination.
+
+### Supabase verification
+
+- Isolated project `bfpjtfqlnypisxljoxkb` is `ACTIVE_HEALTHY` (PostgreSQL 17.11.0.003). After both exact-head workflows completed, a sequential SELECT-only count returned **zero** `__signal_test_` rows across users, sessions, rooms, memberships, bindings, signaling events, call attempts, voice-room attempts, rate-limit buckets, chat reads, and messages. No manual cleanup was performed.
+- Production `dlfvkawaiqduhlazsszm` is `ACTIVE_HEALTHY` (PostgreSQL 17.11.0.002), with seven migrations through `20261027155438`. A fresh SELECT-only catalog query confirms that the distributed rate-limit table/RPC and atomic read-receipt RPC are absent, and all three public broadcast SECURITY DEFINER functions remain executable by client roles. Security Advisor reports 3 anon EXECUTE WARN, 3 authenticated EXECUTE WARN, and 10 RLS/no-policy INFO findings; performance and health advisors returned no findings.
+- Production remains unchanged. No SQL write, migration, Edge Function deployment, secret/role/flag change, userscript publication, merge, or destructive operation occurred.
+
+### Remaining gates
+
+1. The distributed limiter is validated only in the isolated signaling endpoint; neither product's deployed endpoint integrates it, and the 429 contract still lacks `Retry-After`.
+2. The candidate rate-limit RPC's opportunistic cleanup still performs an unbounded stale-bucket DELETE on 1-in-64 requests. Do not promote that migration or the divergent Retry-After branch as a unit; rebuild with bounded or scheduled cleanup and endpoint-level tests.
+3. RT-01 remains blocked: production's legacy public Realtime path still broadcasts full chat rows; private/server-mediated cutover and its trust boundary require design and rollback validation.
+4. Issue #78 remains open with 0/8 physical acceptance criteria. Real Tampermonkey network-loss recovery without F5, device permissions, and installed Normal/Team Lite interoperability remain manual pending.
+5. Official TEST migration/rollback rehearsal, complete 38-function auth/ownership inventory, human reviews, scope decisions, and explicit release approval remain open.
+
+The #74/#76 chat_fast changes in these heads are regression-test-only; they do not change runtime behavior or production. CI approval is not physical browser acceptance or production deployment.
