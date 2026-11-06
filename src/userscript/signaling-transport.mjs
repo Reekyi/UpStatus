@@ -63,15 +63,28 @@ export function createSignalingTransport({
     return post("/room/create", { participants: [...new Set(participants)] });
   }
 
-  async function openVoiceRoom(logicalId) {
+  async function openVoiceRoom(logicalId, attemptId) {
     if (!["upstatus-team-room-v1", "upstatus-team-lite-room-v1"].includes(logicalId)) {
       throw new TypeError("Invalid voice room logical ID");
     }
-    const result = await post("/room/open", { logicalId });
+    const payload = { logicalId };
+    if (attemptId !== undefined && attemptId !== null && attemptId !== "") {
+      validId(attemptId, "voice room attempt ID");
+      payload.attemptId = attemptId;
+    }
+    const result = await post("/room/open", payload);
     if (!result || typeof result.roomId !== "string" || !result.roomId) {
       throw new Error("Open voice room returned no room ID");
     }
     return result;
+  }
+
+  async function cancelVoiceRoomOpen(logicalId, attemptId, options = {}) {
+    if (!["upstatus-team-room-v1", "upstatus-team-lite-room-v1"].includes(logicalId)) {
+      throw new TypeError("Invalid voice room logical ID");
+    }
+    validId(attemptId, "voice room attempt ID");
+    return post("/room/cancel-open", { logicalId, attemptId }, options);
   }
 
   async function bindRoom({ roomId, bindingType, logicalId }) {
@@ -353,7 +366,7 @@ export function createSignalingTransport({
   }
 
   return Object.freeze({
-    createRoom, openVoiceRoom, bindRoom, resolveRoom, invite, requestInvite, invitations, roomStatus, roomMembers, waitForAcceptance, accept, decline,
+    createRoom, openVoiceRoom, cancelVoiceRoomOpen, bindRoom, resolveRoom, invite, requestInvite, invitations, roomStatus, roomMembers, waitForAcceptance, accept, decline,
     sendSignal, sendToRoom, poll, ack, leave, close, prepareCallRoom, cancelCallRoom, startPolling, stopPolling, stopAll,
     get enabled() { return enabled; },
     get activePollCount() { return activePolls.size; },
