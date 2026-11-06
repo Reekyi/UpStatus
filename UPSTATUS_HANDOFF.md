@@ -2006,3 +2006,12 @@ No production SQL write, migration, Edge Function deployment, secret/role/flag c
 - The final heads add the concurrent duplicate-remote-offer regression on top of the already-tested per-peer queue/glare implementation. Do not call final-head CI complete until both queued workflows finish.
 - The isolated project remains in use by the final Normal Smoke; no manual fixture cleanup or overlapping mutating suite was started. Verify zero fixtures only after the queue drains.
 - The rate-limit candidate branch `normal/rate-limit-retry-after-20261106` is now 10 commits ahead / 18 behind current #74 and remains divergent. Its migration still performs an unbounded stale-bucket DELETE on 1-in-64 requests; do not integrate it as a unit.
+
+
+## 2026-11-06 16:02 BRT — latest engineering continuation
+
+See `docs/CURRENT_STATE.md` for the complete exact-head CI and Supabase checkpoint. The functional candidates now have fresh exact-head automated passes: Normal #74 `206a2fff08a67d024291e8f074e930e54a72baf9` (Validate [42267444815](https://github.com/Reekyi/UpStatus/actions/runs/42267444815), Smoke [42267444841](https://github.com/Reekyi/UpStatus/actions/runs/42267444841), 129/129 authenticated checks) and Team Lite #76 `6e247d7b6107b965d9341ddb814f1498a4f3b8e4` (Candidate Checks [42267664191](https://github.com/Reekyi/UpStatus/actions/runs/42267664191), 103/103 authenticated checks). Both runs completed browser call/voice/screen WebRTC and cleanup; the isolated project subsequently showed zero reserved-prefix fixtures in eleven inspected tables.
+
+The #74 candidate also contains the reviewed builder correction that sources production `@updateURL/@downloadURL` from `release.json.scriptUrl` while keeping the legacy API cloud endpoint separate. The independent QA #82 branch still fails its master-based Validate with `production updateURL mismatch`; do not edit the QA branch or weaken its validator. #80's inherited Validate failure remains `client signed upload helper missing`.
+
+Production was rechecked read-only: seven migrations through `20261027155438`, no distributed rate-limit or atomic read-receipt RPC, and three public broadcast SECURITY DEFINER functions remain client-executable. The distributed limiter is still isolated-only and its candidate cleanup is unbounded; RT-01 public Realtime, physical Tampermonkey acceptance, official TEST migration/rollback, human reviews, and release approval remain gates. No production writes or deployment occurred.
