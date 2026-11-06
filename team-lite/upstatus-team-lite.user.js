@@ -453,7 +453,7 @@ function voiceRoomScheduleRecovery(n,peer,state){if(!voiceRoom.active||!peer||vo
 async function voiceRoomMakePeer(n){var p=voiceRoom.peers[n];if(p&&p.pc&&p.pc.signalingState!=='closed')return p;if(!voiceRoom.stream)throw new Error('Microfone não iniciado');p=p||{pc:null,pending:[],audio:null,analyser:null,audioSource:null,remoteStream:null};p.pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]});p.pending=p.pending||[];p.remoteStream=p.remoteStream||new MediaStream();voiceRoom.peers[n]=p;voiceRoom.stream.getAudioTracks().forEach(function(t){if(t.readyState==='live')p.pc.addTrack(t,voiceRoom.stream);});p.pc.onicecandidate=function(e){if(e.candidate&&voiceRoom.active)voiceRoomSend('ice',n,{candidate:e.candidate});};p.pc.onconnectionstatechange=function(){if(!p.pc||voiceRoom.peers[n]!==p)return;var state=p.pc.connectionState;if(state==='failed'||state==='disconnected')voiceRoomScheduleRecovery(n,p,state);};p.pc.oniceconnectionstatechange=function(){if(!p.pc||voiceRoom.peers[n]!==p)return;var state=p.pc.iceConnectionState;if(state==='failed'||state==='disconnected')voiceRoomScheduleRecovery(n,p,state);};p.pc.ontrack=function(e){try{var track=e.track;if(!track)return;if(!p.remoteStream.getTracks().some(function(t){return t.id===track.id;}))p.remoteStream.addTrack(track);if(!p.audio){p.audio=document.createElement('audio');p.audio.autoplay=true;p.audio.playsInline=true;p.audio.setAttribute('playsinline','');p.audio.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-100px;bottom:0';document.body.appendChild(p.audio);}if(p.audio.srcObject!==p.remoteStream)p.audio.srcObject=p.remoteStream;p.audio.muted=!!voiceRoom.speakersMuted;p.audio.volume=1;var playRemote=function(){if(!voiceRoom.active||!p.audio)return;if(voiceRoom.audioContext&&voiceRoom.audioContext.state==='suspended')voiceRoom.audioContext.resume().catch(function(){});var play=p.audio.play();if(play&&play.catch)play.catch(function(){voiceRoomMessage('O navegador bloqueou a reprodução do áudio. Clique uma vez na sala para liberar o som.');});};track.onunmute=playRemote;track.onended=function(){try{p.remoteStream.removeTrack(track);}catch(e){}};if(voiceRoom.audioContext&&!p.analyser){p.audioSource=voiceRoom.audioContext.createMediaStreamSource(p.remoteStream);p.analyser=voiceRoom.audioContext.createAnalyser();p.analyser.fftSize=512;p.audioSource.connect(p.analyser);p.levelData=new Uint8Array(p.analyser.frequencyBinCount);}playRemote();}catch(err){voiceRoomMessage('Erro ao preparar o áudio de '+n+': '+(err.message||err));}};return p;}
 async function voiceRoomOffer(n){if(!voiceRoom.active||String(member).localeCompare(String(n),'pt-BR')>=0)return;var p=await voiceRoomMakePeer(n);if(p.pc.signalingState!=='stable'||p.pc.localDescription)return;var offer=await p.pc.createOffer();await p.pc.setLocalDescription(offer);voiceRoomSend('offer',n,{sdp:p.pc.localDescription});}
 async function voiceRoomReceive(p){if(!p||(p.roomId!==voiceRoom.id&&p.roomId!=='upstatus-team-lite-room-v1')||typeof p.from!=='string'||!p.from||p.from.length>80||p.from===member||p.to&&p.to!==member)return;if((p.type==='offer'||p.type==='answer'||p.type==='ice')&&p.to!==member)return;if((p.type==='offer'||p.type==='answer')&&(!p.sdp||typeof p.sdp.sdp!=='string'||p.sdp.sdp.length>100000))return;if(p.type==='ice'&&(!p.candidate||JSON.stringify(p.candidate).length>4096))return;var signalKey=[p.from,p.to||'',p.type||'',p.sessionId||'',p.at||'',p.sdp&&p.sdp.type||'',p.candidate&&p.candidate.candidate||''].join('|');voiceRoom.seenSignals=voiceRoom.seenSignals||{};if(voiceRoom.seenSignals[signalKey])return;voiceRoom.seenSignals[signalKey]=Date.now();var seenSignalKeys=Object.keys(voiceRoom.seenSignals);if(seenSignalKeys.length>300)seenSignalKeys.slice(0,seenSignalKeys.length-200).forEach(function(k){delete voiceRoom.seenSignals[k];});if(p.type==='presence'){if(p.active){if(!voiceRoomApplyParticipantSignal(p))return;voiceRoomRender();if(!p.to)voiceRoomSend('presence',p.from,{});if(voiceRoom.active&&String(member).localeCompare(String(p.from),'pt-BR')<0)voiceRoomOffer(p.from).catch(function(e){voiceRoomMessage('Não foi possível iniciar áudio com '+p.from+': '+(e.message||e));});if(voiceRoom.active&&screenShare.active)screenShareOffer(p.from).catch(function(){});}else voiceRoomRemoveParticipantSignal(p);return;}if(p.type==='join'){if(p.active){if(!voiceRoomApplyParticipantSignal(p))return;if(voiceRoom.active)voiceRoomPlayCue('join');voiceRoomRender();if(voiceRoom.active&&screenShare.active)screenShareOffer(p.from).catch(function(){});}return;}if(p.type==='leave'){if(voiceRoom.active)voiceRoomPlayCue('leave');voiceRoomRemoveParticipantSignal(p);return;}if(!voiceRoom.active)return;if(p.type==='offer'&&p.sdp&&String(member).localeCompare(String(p.from),'pt-BR')>0){try{var existing=voiceRoom.peers[p.from];if(existing&&existing.pc&&(existing.pc.connectionState==='failed'||existing.pc.connectionState==='closed'||existing.pc.iceConnectionState==='failed'))voiceRoomDrop(p.from);var peer=await voiceRoomMakePeer(p.from);if(peer.pc.remoteDescription&&peer.pc.remoteDescription.sdp===p.sdp.sdp)return;await peer.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));await voiceRoomFlushCandidates(peer);var answer=await peer.pc.createAnswer();await peer.pc.setLocalDescription(answer);voiceRoomSend('answer',p.from,{sdp:peer.pc.localDescription});}catch(e){voiceRoomMessage('Falha ao negociar áudio com '+p.from+': '+(e.message||e));}return;}if(p.type==='answer'&&p.sdp){var ap=voiceRoom.peers[p.from];if(ap&&ap.pc&&!ap.pc.remoteDescription){try{await ap.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));await voiceRoomFlushCandidates(ap);}catch(e){voiceRoomMessage('Falha ao aceitar áudio de '+p.from+': '+(e.message||e));}}return;}if(p.type==='ice'&&p.candidate){var ip=voiceRoom.peers[p.from];if(!ip){ip={pc:null,pending:[],audio:null,analyser:null,audioSource:null,remoteStream:null};voiceRoom.peers[p.from]=ip;}var incomingCandidate=p.candidate instanceof RTCIceCandidate?p.candidate:new RTCIceCandidate(p.candidate);if(ip.pc&&ip.pc.remoteDescription){if(voiceRoomCandidateMatchesRemote(incomingCandidate,ip.pc)){try{await ip.pc.addIceCandidate(incomingCandidate);}catch(e){if(!/ufrag/i.test(String(e&&e.message||e)))voiceRoomMessage('Falha ao configurar áudio de '+p.from+': '+(e.message||e));}}}else if(ip.pending.length<128)ip.pending.push(incomingCandidate);}}
-async function waitForVoiceRealtimeReady(timeoutMs){
+async function waitForRealtimeReady(timeoutMs){
   var deadline=Date.now()+(Number(timeoutMs)||10000);
   while(Date.now()<deadline){
     if(typeof navigator!=='undefined'&&navigator.onLine===false)return false;
@@ -466,7 +466,7 @@ async function waitForVoiceRealtimeReady(timeoutMs){
 }
 async function voiceRoomJoin(){while(voiceRoomLeavePromise){try{await voiceRoomLeavePromise;}catch(e){}}if(typeof navigator!=='undefined'&&navigator.onLine===false){voiceRoomMessage('Sem conexão com a internet. Aguarde a reconexão e tente novamente.');return;}if(voiceRoom.active||voiceRoom.joining)return;if(signalTransportFlag&&!signalVoiceRoomPrepared){voiceRoom.joining=true;voiceRoomRender();voiceRoomMessage('');try{initSignalingTransport();await signalPrepareVoiceRoom();voiceRoom.joining=false;signalVoiceRoomPrepared=true;await voiceRoomJoin();signalVoiceRoomPrepared=false;return;}catch(e){await signalReleaseVoiceRoom();voiceRoom.joining=false;signalVoiceRoomPrepared=false;voiceRoomMessage(e.message||'Não foi possível preparar a sala autenticada.');voiceRoomRender();return;}}if(!signalTransportFlag&&(!realtimeActive||!realtimeChannel)){
   voiceRoom.joining=true;voiceRoomRender();voiceRoomMessage('Reconectando a conexão da sala...');
-  var realtimeReady=await waitForVoiceRealtimeReady(10000);
+  var realtimeReady=await waitForRealtimeReady(10000);
   voiceRoom.joining=false;
   if(!realtimeReady){voiceRoomMessage('A conexão da sala ainda não foi restabelecida. Tente novamente.');voiceRoomRender();return;}
 }
@@ -2673,6 +2673,11 @@ function renderChatText(text){
   async function startOutgoingCall(target){
     if(!target||target===member)return;
     if(signalTransportFlag){if(!signalTransport){message('A sinalização autenticada não está configurada. A chamada não foi enviada.',true);return;}startOutgoingCallWithTransport(target);return;}
+    if(!realtimeActive||!realtimeChannel){
+      message('Reconectando a conexão das chamadas...',false);
+      var realtimeReady=await waitForRealtimeReady(10000);
+      if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
+    }
     if(upCall.active){message('Voc\u00ea j\u00e1 est\u00e1 em uma chamada.',true);return;}
     upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
     upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
@@ -2685,6 +2690,10 @@ function renderChatText(text){
   }
   async function callAcceptIncomingOffer(remoteName){
     var p=callGetPeer(remoteName),sdp=upCall.pendingOffers[remoteName];if(!p||!sdp)return;
+    if(!signalTransportFlag&&(!realtimeActive||!realtimeChannel)){
+      var realtimeReady=await waitForRealtimeReady(10000);
+      if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
+    }
     callStartPresence();
     try{
       upCall.waitingForConnection=true;await callGetMicrophone();await callCreatePeer(remoteName);
@@ -2700,6 +2709,10 @@ function renderChatText(text){
   async function callAcceptGroupInvite(){
     var invite=upCall.pendingInvite;if(!invite||!upCall.active)return;
     var signalRoomId=signalRoomByCallId[upCall.callId];
+    if(!signalTransportFlag&&(!realtimeActive||!realtimeChannel)){
+      var realtimeReady=await waitForRealtimeReady(10000);
+      if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
+    }
     if(signalTransportFlag){
       if(!signalTransport||!signalRoomId){callCleanup(false);message('A sala autenticada não está disponível. Tente novamente.',true);return;}
       try{
@@ -2724,7 +2737,7 @@ function renderChatText(text){
     if(upCall.pendingInvite)return callAcceptGroupInvite();
     var names=Object.keys(upCall.pendingOffers||{});if(names.length)return callAcceptIncomingOffer(names[0]);
   }
-  function callRequestToJoin(callId,target){
+  async function callRequestToJoin(callId,target){
     var entry=upCallDirectory[callId];
     if(upCall.active){message('Você já está em uma chamada.',true);return;}
     if(!entry||!entry.participants||entry.participants.indexOf(target)<0){message('A chamada não está mais disponível. Atualize a equipe.',true);return;}
@@ -2736,6 +2749,10 @@ function renderChatText(text){
         message(e.status===409?'Já existe um convite ou pedido pendente para esta chamada.':e.status===404?'A chamada não está mais disponível.':'Não foi possível enviar o pedido de entrada.',true);
       });
       return;
+    }
+    if(!realtimeActive||!realtimeChannel){
+      var realtimeReady=await waitForRealtimeReady(10000);
+      if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
     }
     var sent=sendRealtimeEvent('call_signal',{type:'join_request',callId:callId,from:member,to:target,target:target,participants:entry.participants.slice(),updatedAt:Date.now()});
     if(sent)message('Pedido para entrar enviado a '+target+'. Aguarde a confirmação.',false);
