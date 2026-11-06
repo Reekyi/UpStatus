@@ -133,6 +133,11 @@ assert.ok(functionSource.includes('from("upstatus_signal_room_bindings").delete(
   "closing a room must remove its logical bindings");
 assert.ok(authenticatedHarness.includes("closed room binding is removed and cannot be resolved"),
   "authenticated harness must cover binding cleanup on room close");
+assert.ok(authenticatedHarness.includes("concurrent prepare and cancel serialize to at most one call room") &&
+  authenticatedHarness.includes("a late prepare cannot pass a cancel-before-prepare tombstone") &&
+  authenticatedRunner.includes("upstatus_signal_call_attempts?created_by=") &&
+  authenticatedRunner.includes("upstatus_signal_call_attempts?select=call_id&created_by="),
+  "authenticated call-attempt tests and cleanup must cover prepare/cancel races without leaving fixtures");
 assert.ok(functionSource.includes('path.endsWith("/broadcast")') &&
   functionSource.includes("filter(name => name !== sender)") &&
   authenticatedHarness.includes("server broadcast fans out only to accepted members") &&
@@ -523,7 +528,7 @@ assert.equal(oldTransportLeaves, 0, "leave must not use a transport instance tha
 assert.equal(newTransportLeaves, 0, "an old leave promise must never release membership through the replacement transport");
 console.log("Normal offline voice recovery, Realtime readiness, leave retry, and stale-transport tests passed.");
 
-console.log("21/21 signaling static regression groups passed.");
+console.log("Signaling static regression groups passed.");
 
 
 // An HTTP-success response that explicitly denies membership removal must not clear the room binding.
