@@ -502,3 +502,10 @@ No production writes or release actions occurred.
 - Physical Tampermonkey no-F5, real microphone/display capture, live Normal ↔ Team Lite interoperability, RT-01, ACL-02, official TEST migration/rollback, and human review remain release gates.
 
 No merge, deploy, release, production write/migration, secret/role/flag change, userscript publication, or destructive action.
+
+
+### Follow-up — 2026-11-06
+
+Team Lite #76 is now at `8746abf0988a2ce28c1ce57b35f780f1e315d7c8`. The latest Candidate Checks [42228414423](https://github.com/Reekyi/UpStatus/actions/runs/42228414423) has passed isolation, adapter, voice-attempt, and endpoint-auth steps; authenticated/browser integration is still running. Previous run [42227413397](https://github.com/Reekyi/UpStatus/actions/runs/42227413397) passed integration, rate-limit/read-receipt concurrency and migration layout but found one more missing VM global in the standalone release-helper context. All affected VM contexts were seeded before the current run.
+
+The Normal rate-limit/Retry-After candidate is `7fa1b0aef76aec6acc293c350414309b38362744` (10 ahead / 0 behind #74), not integrated or CI-validated. Production remains unchanged; no deployment or production migration occurred.
