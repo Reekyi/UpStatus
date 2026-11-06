@@ -138,7 +138,7 @@ for(const artifact of [prodUser,testUser]){
   assert(!artifact.includes("sendRealtimeEvent('remote_result'"),"client must not broadcast remote result metadata publicly");
   assert(artifact.includes("if(upCall&&upCall.active)await callCleanup(true,'hangup');"),"normal logout must end active call signaling and media before clearing credentials");
   assert(artifact.includes("await api('POST','/api/logout',{})"),"normal logout must revoke the server session before clearing the local token");
-  assert(artifact.includes("return cleanupPromise;") && artifact.includes("return leavePromise;"),"normal call and voice cleanup must expose completion promises");
+  assert(artifact.includes("return cleanupPromise;") && artifact.includes("voiceRoomLeavePromise=leavePromise.finally") && artifact.includes("return voiceRoomLeavePromise;"),"normal call and voice cleanup must expose completion promises");
   const logoutStart=artifact.indexOf("card.querySelector('.up-logout').onclick=async function()");
   const logoutCallCleanup=artifact.indexOf("await callCleanup(true,'hangup')",logoutStart);
   const logoutVoiceCleanup=artifact.indexOf("await voiceRoomLeave()",logoutStart);
