@@ -413,3 +413,56 @@ const legacyVoiceClient = createSignalingTransport({
 assert.equal((await legacyVoiceClient.openVoiceRoom("upstatus-team-room-v1")).roomId, "sig_voice_legacy");
 console.log("signaling voice attempt transport: 9 assertions passed");
 
+// Retry-After must survive the GM bridge contract and be exposed on rate-limit errors.
+const retryAfterClient = createSignalingTransport({
+  enabled: true,
+  now: () => 100_000,
+  request: async () => ({
+    status: 429,
+    body: { error: "Rate limit exceeded" },
+    headers: "content-type: application/json\\r\\nReTrY-AfTeR: 60\\r\\n",
+  }),
+});
+await assert.rejects(
+  () => retryAfterClient.poll("sig_retry_after"),
+  error => error.status === 429 && error.retryAfterMs === 60_000 && error.retryAfterSeconds === 60,
+  "delta-seconds Retry-After must be preserved on the transport error",
+);
+const retryAfterDateClient = createSignalingTransport({
+  enabled: true,
+  now: () => 100_000,
+  request: async () => ({
+    status: 429,
+    body: { error: "Rate limit exceeded" },
+    headers: { "Retry-After": new Date(160_000).toUTCString() },
+  }),
+});
+await assert.rejects(
+  () => retryAfterDateClient.poll("sig_retry_after_date"),
+  error => error.retryAfterMs === 60_000,
+  "HTTP-date Retry-After must be converted relative to the injected clock",
+);
+
+const scheduledRetryTimers = [];
+const retryPollingClient = createSignalingTransport({
+  enabled: true,
+  pollIntervalMs: 900,
+  maxBackoffMs: 8_000,
+  setTimeoutFn: (callback, delay) => {
+    scheduledRetryTimers.push({ callback, delay });
+    return scheduledRetryTimers.length;
+  },
+  clearTimeoutFn: () => {},
+  request: async () => ({
+    status: 429,
+    body: { error: "Rate limit exceeded" },
+    headers: "Retry-After: 60\\r\\n",
+  }),
+});
+const stopRetryPolling = retryPollingClient.startPolling("sig_retry_after_poll", async () => {});
+for (let i = 0; i < 12 && !scheduledRetryTimers.length; i++) await Promise.resolve();
+assert.equal(scheduledRetryTimers.length, 1, "one failed poll must schedule one retry");
+assert.equal(scheduledRetryTimers[0].delay, 60_000,
+  "polling must wait at least the server's 60-second Retry-After instead of the shorter exponential backoff");
+stopRetryPolling();
+console.log("Retry-After polling backoff tests passed");

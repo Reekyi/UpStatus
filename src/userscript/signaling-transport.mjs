@@ -13,8 +13,41 @@ export function createSignalingTransport({
   pollIntervalMs = 900,
   maxBackoffMs = 8000,
   now = () => Date.now(),
+  setTimeoutFn = setTimeout,
+  clearTimeoutFn = clearTimeout,
 } = {}) {
   if (typeof request !== "function") throw new TypeError("request must be a function");
+
+  function readResponseHeader(headers, name) {
+    const target = String(name).toLowerCase();
+    if (typeof headers === "string") {
+      const line = headers.split(/\r?\n/).find(entry => {
+        const separator = entry.indexOf(":");
+        return separator > 0 && entry.slice(0, separator).trim().toLowerCase() === target;
+      });
+      return line ? line.slice(line.indexOf(":") + 1).trim() : "";
+    }
+    if (headers && typeof headers === "object") {
+      const key = Object.keys(headers).find(entry => entry.toLowerCase() === target);
+      if (!key) return "";
+      const value = headers[key];
+      return Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "");
+    }
+    return "";
+  }
+
+  function parseRetryAfter(headers, currentTime) {
+    const value = readResponseHeader(headers, "retry-after");
+    if (!value) return null;
+    const maxDelayMs = 2_147_483_647;
+    if (/^\d+(?:\.\d+)?$/.test(value)) {
+      const delay = Number(value) * 1000;
+      return Number.isFinite(delay) ? Math.min(delay, maxDelayMs) : null;
+    }
+    const timestamp = Date.parse(value);
+    if (!Number.isFinite(timestamp)) return null;
+    return Math.min(Math.max(0, timestamp - currentTime), maxDelayMs);
+  }
 
   let stopped = false;
   const activePolls = new Map();
@@ -39,10 +72,16 @@ export function createSignalingTransport({
     if (!result || typeof result !== "object") throw new Error("Invalid signaling response");
     const status = Number(result.status ?? 200);
     const body = result.body ?? result.data ?? {};
+    const headers = result.headers ?? result.responseHeaders ?? null;
     if (status < 200 || status >= 300) {
       const error = new Error(typeof body.error === "string" ? body.error : `Signaling request failed (${status})`);
       error.status = status;
       error.code = body.error || "SIGNALING_REQUEST_FAILED";
+      const retryAfterMs = parseRetryAfter(headers, now());
+      if (retryAfterMs !== null) {
+        error.retryAfterMs = retryAfterMs;
+        error.retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
+      }
       throw error;
     }
     return body;
@@ -278,7 +317,7 @@ export function createSignalingTransport({
     const poller = activePolls.get(roomId);
     if (!poller) return;
     poller.cancelled = true;
-    if (poller.timer) clearTimeout(poller.timer);
+    if (poller.timer) clearTimeoutFn(poller.timer);
     if (poller.controller) poller.controller.abort();
     activePolls.delete(roomId);
   }
@@ -300,7 +339,7 @@ export function createSignalingTransport({
 
     const finish = () => {
       state.cancelled = true;
-      if (state.timer) clearTimeout(state.timer);
+      if (state.timer) clearTimeoutFn(state.timer);
       if (state.controller) state.controller.abort();
       if (signal && state.externalAbortHandler) signal.removeEventListener("abort", state.externalAbortHandler);
       if (activePolls.get(roomId) === state) activePolls.delete(roomId);
@@ -313,7 +352,7 @@ export function createSignalingTransport({
 
     const schedule = delay => {
       if (!state.cancelled && activePolls.get(roomId) === state) {
-        state.timer = setTimeout(run, Math.max(0, delay));
+        state.timer = setTimeoutFn(run, Math.max(0, delay));
       }
     };
 
@@ -355,7 +394,11 @@ export function createSignalingTransport({
           finish();
           return;
         }
-        state.backoff = Math.min(maxBackoffMs, Math.max(intervalMs, state.backoff * 2));
+        const exponentialBackoff = Math.min(maxBackoffMs, Math.max(intervalMs, state.backoff * 2));
+        const retryAfterMs = Number(error && error.retryAfterMs);
+        state.backoff = Number.isFinite(retryAfterMs) && retryAfterMs > 0
+          ? Math.max(exponentialBackoff, retryAfterMs)
+          : exponentialBackoff;
         schedule(state.backoff);
       } finally {
         state.controller = null;

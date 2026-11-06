@@ -933,7 +933,7 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
           method:'POST',url:signalTransportEndpoint.replace(/\/$/,'')+route,
           headers:{'Content-Type':'application/json','X-UpStatus-Token':token,'Cache-Control':'no-store'},
           data:JSON.stringify(payload||{}),timeout:12000,
-          onload:function(r){var body={};try{body=JSON.parse(r.responseText||'{}')}catch(e){body={error:'Invalid signaling response'}}finish(resolve,{status:Number(r.status)||0,body:body});},
+          onload:function(r){var body={};try{body=JSON.parse(r.responseText||'{}')}catch(e){body={error:'Invalid signaling response'}}finish(resolve,{status:Number(r.status)||0,body:body,headers:r.responseHeaders||''});},
           onerror:function(){finish(reject,new Error('Signaling network request failed'));},
           ontimeout:function(){finish(reject,new Error('Signaling request timed out'));},
           onabort:function(){var e=new Error('Signaling request aborted');e.name='AbortError';finish(reject,e);}

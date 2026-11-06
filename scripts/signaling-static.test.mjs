@@ -295,6 +295,15 @@ assert.ok(
   authenticatedRunner.includes('headers.get("retry-after")') &&
   readFileSync("scripts/test-signaling-endpoint.mjs","utf8").includes("access-control-expose-headers"),
   "Retry-After must be conservative, visible to browser JavaScript, and asserted by endpoint tests");
+
+assert.ok(
+  userTemplate.includes("headers:r.responseHeaders||''") &&
+  transportSource.includes("function readResponseHeader") &&
+  transportSource.includes("function parseRetryAfter") &&
+  transportSource.includes("error.retryAfterMs") &&
+  transportSource.includes("Math.max(exponentialBackoff, retryAfterMs)"),
+  "the GM bridge must preserve Retry-After and polling must honor the server delay"
+);
 assert.ok(
   rateLimitMigration.includes("on conflict(bucket_key) do update set") &&
   rateLimitMigration.includes("return v_count <= p_limit") &&
