@@ -587,3 +587,17 @@ No merge, deploy, release, production write/migration, secret/role/flag change, 
 - Shared isolated project is reserved by #74 Smoke [42246115760](https://github.com/Reekyi/UpStatus/actions/runs/42246115760). No concurrent fixture-mutating run.
 
 Production remains read-only; all release and physical acceptance gates remain open.
+
+
+## 2026-11-06 12:54 BRT - both candidate clients green
+
+- Normal #74 exact HEAD `aa33645cb242c913cb4bc5e71a22f3de70d4034c`: Validate [42246115559](https://github.com/Reekyi/UpStatus/actions/runs/42246115559) and Smoke [42246115760](https://github.com/Reekyi/UpStatus/actions/runs/42246115760) PASS. Smoke includes 129/129 authenticated checks, browser call/voice/screen media, three-member mesh, rate-limit 90+1/concurrency, atomic read receipts, voice offer/answer retransmission regressions and cleanup.
+- Team Lite #76 exact HEAD `86e71f5e549cc2b2e16629c5fcc06f047470f52f`: Candidate Checks [42245339846](https://github.com/Reekyi/UpStatus/actions/runs/42245339846) PASS, including 103/103 authenticated checks, WebRTC, three-member mesh, same voice retransmission regressions, rate-limit/read-receipt concurrency and cleanup.
+- Post-run read-only fixture counts are zero across rooms, memberships, bindings, events, call attempts, voice attempts, rate-limit buckets and chat reads.
+- Voice reconnect candidate fix is in both clients; physical Tampermonkey close/reload-offline/no-F5 remains pending (issue #78 0/8).
+- Follow-up found analogous one-shot offer/answer behavior in screen-share negotiation without a bounded recovery timer; not changed in this round.
+- #80 continuity is `0c28f38d71064757af87f508a9ed623c16725fe7`, 135 ahead / 0 behind develop, with inherited `client signed upload helper missing` Validate failure. #82 QA is `f6a9eaed2b127b4d2d4a4de9a413470666ecff06`, 66 ahead / 0 behind master, with inherited `production updateURL mismatch`; QA branch and release-readiness doc untouched.
+- Rate-limit candidate remains diverged 10 ahead / 5 behind and has unbounded request-path bucket cleanup; do not integrate.
+- Production remains read-only with no dedicated signaling endpoint or candidate signaling/rate-limit/read-receipt schema deployed. Security findings remain 3 anon SECURITY DEFINER WARN, 3 authenticated WARN, 10 RLS/no-policy INFO.
+
+No merge, deploy, release, production write/migration, secret/role/flag change, userscript publication or destructive operation.
