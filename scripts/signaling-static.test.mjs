@@ -560,7 +560,7 @@ assert.ok(normalVoiceJoinCatch.includes("await voiceRoomLeave()") &&
   "Normal microphone/setup failure must use confirmed leave and preserve room context when release fails");
 console.log("Normal voice join failure membership-retention test passed.");
 
-const callLeaveHelperStart = userTemplate.indexOf("function signalAttemptPendingCallLeave(");
+const callLeaveHelperStart = userTemplate.indexOf("function signalPendingCallLeavesStorageKey(");
 const callLeaveHelperEnd = userTemplate.indexOf("function initSignalingTransport(", callLeaveHelperStart);
 const callCleanupStart = userTemplate.indexOf("function callCleanup(sendSignal,signalType){");
 const callCleanupEnd = userTemplate.indexOf("  function callFail(", callCleanupStart);
@@ -569,8 +569,8 @@ assert.ok(callLeaveHelperStart >= 0 && callLeaveHelperEnd > callLeaveHelperStart
   "Normal call-membership cleanup source boundaries not found");
 const callRuntimeSource = userTemplate.slice(callLeaveHelperStart, callLeaveHelperEnd) +
   userTemplate.slice(callCleanupStart, callCleanupEnd) +
-  "\nthis.__candidateCallCleanup=callCleanup;this.__candidateRetryPendingCallLeaves=signalRetryPendingCallLeaves;";
-function makeCallCleanupContext({ transport, callSendAll } = {}) {
+  "\nthis.__candidateCallCleanup=callCleanup;this.__candidateRetryPendingCallLeaves=signalRetryPendingCallLeaves;this.__candidatePersistPendingCallLeaves=signalPersistPendingCallLeaves;this.__candidateRestorePendingCallLeaves=signalRestorePendingCallLeaves;this.__candidateStorageKey=signalPendingCallLeavesStorageKey;";
+function makeCallCleanupContext({ transport, callSendAll, storage = new Map(), member = "Normal Tester" } = {}) {
   const roomId = "normal-call-room";
   const callId = "normal-call-1";
   const context = {
@@ -589,8 +589,11 @@ function makeCallCleanupContext({ transport, callSendAll } = {}) {
     signalPollStops: {},
     signalTransport: transport || null,
     signalTransportFlag: true,
-    member: "Normal Tester",
+    member,
     token: "normal-session-token",
+    key: "upstatus_normal_",
+    GM_getValue: (name, fallback) => storage.has(name) ? storage.get(name) : fallback,
+    GM_setValue: (name, value) => storage.set(name, value),
     signalStopCallPolling: () => {},
     callSendAll: callSendAll || (() => Promise.resolve(true)),
     callSend: () => Promise.resolve(true),
@@ -680,3 +683,73 @@ assert.equal(normalLogoutEvents.some(event => event === "api-logout" || event ==
 console.log("Normal authenticated call-room cleanup retry and logout-gate tests passed.");
 
 
+// Durable call-room leave recovery is token-free, member-bound and restored only after authentication.
+assert.ok(userTemplate.includes("window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide')"),
+  "Normal pagehide must initiate call-room cleanup before the document is discarded");
+const normalInitForPersistenceStart=userTemplate.indexOf("function initSignalingTransport(){");
+const normalInitForPersistenceEnd=userTemplate.indexOf("var lastMember=",normalInitForPersistenceStart);
+const normalInitForPersistence=userTemplate.slice(normalInitForPersistenceStart,normalInitForPersistenceEnd);
+assert.ok(normalInitForPersistence.indexOf("signalRestorePendingCallLeaves()")>=0 &&
+  normalInitForPersistence.indexOf("signalRestorePendingCallLeaves()")<normalInitForPersistence.indexOf("signalRetryPendingCallLeaves()"),
+  "Normal must restore durable leave handles before retrying them on authenticated transport initialization");
+
+const normalPendingLeaveStorage=new Map();
+let normalPagehideSignalCalls=0;
+const normalPagehideContext=makeCallCleanupContext({
+  transport:null,
+  storage:normalPendingLeaveStorage,
+  callSendAll:()=>{normalPagehideSignalCalls++;return Promise.resolve(true);}
+});
+assert.equal(await normalPagehideContext.__candidateCallCleanup(false,"pagehide"),false,
+  "Normal pagehide cleanup without a transport must retain an unconfirmed leave");
+assert.equal(normalPagehideSignalCalls,0,
+  "Normal authenticated pagehide cleanup must not wait for a final broadcast before persisting/releasing membership");
+const normalPendingStorageKey=normalPagehideContext.__candidateStorageKey("Normal Tester");
+const normalPendingEnvelope=normalPendingLeaveStorage.get(normalPendingStorageKey);
+assert.equal(normalPendingEnvelope.version,1,"Normal pending leave storage must use an explicit schema version");
+assert.equal(normalPendingEnvelope.entries.length,1,"Normal pagehide must persist its pending call room");
+assert.deepEqual(Object.keys(normalPendingEnvelope.entries[0]).sort(),["callId","createdAt","member","roomId"],
+  "Normal pending leave storage must contain only room ID, member, call ID and timestamp");
+assert.equal(Object.prototype.hasOwnProperty.call(normalPendingEnvelope.entries[0],"token"),false,
+  "Normal pending leave storage must never persist a session token");
+
+const normalOtherMemberReload=makeCallCleanupContext({transport:null,storage:normalPendingLeaveStorage,member:"Other Member"});
+assert.equal(normalOtherMemberReload.__candidateRestorePendingCallLeaves(),0,
+  "Normal pending call-room recovery must not cross member identities");
+assert.equal(Object.keys(normalOtherMemberReload.signalPendingCallLeaves).length,0,
+  "Normal other-member session must not receive another member's pending leave");
+
+let normalReloadLeaveCalls=0;
+const normalReloadContext=makeCallCleanupContext({
+  transport:{leave:async roomId=>{normalReloadLeaveCalls++;assert.equal(roomId,"normal-call-room");return {ok:true};}},
+  storage:normalPendingLeaveStorage
+});
+normalReloadContext.upCall.callId="";
+normalReloadContext.upCall.active=false;
+normalReloadContext.signalRoomByCallId=Object.create(null);
+normalReloadContext.signalCallIdByRoom=Object.create(null);
+assert.equal(normalReloadContext.__candidateRestorePendingCallLeaves(),1,
+  "Normal reload must restore a pending leave after the same member authenticates");
+assert.equal(await normalReloadContext.__candidateRetryPendingCallLeaves(),true,
+  "Normal authenticated reload must retry and confirm the persisted leave");
+assert.equal(normalReloadLeaveCalls,1,"Normal reload must retry the persisted room exactly once");
+assert.equal(normalPendingLeaveStorage.get(normalPendingStorageKey).entries.length,0,
+  "Normal confirmed reload retry must clear the persisted pending leave");
+
+const normalValidationStorage=new Map();
+normalValidationStorage.set(normalReloadContext.__candidateStorageKey("Normal Tester"),{
+  version:1,
+  entries:[
+    {roomId:"normal-call-room",member:"Normal Tester",callId:"normal-call-1",createdAt:Date.now()},
+    {roomId:"bad room",member:"Normal Tester",callId:"bad",createdAt:Date.now()},
+    {roomId:"other-member-room",member:"Different User",callId:"other",createdAt:Date.now()},
+    {roomId:"stale-room",member:"Normal Tester",callId:"stale",createdAt:Date.now()-8*24*60*60*1000},
+    {roomId:"future-room",member:"Normal Tester",callId:"future",createdAt:Date.now()+120000}
+  ]
+});
+const normalValidationContext=makeCallCleanupContext({transport:null,storage:normalValidationStorage});
+assert.equal(normalValidationContext.__candidateRestorePendingCallLeaves(),1,
+  "Normal restore must reject malformed, cross-member, stale and future-dated records");
+assert.deepEqual(Object.keys(normalValidationContext.signalPendingCallLeaves),["normal-call-room"],
+  "Normal restore must retain only the validated pending room");
+console.log("Normal durable pagehide/reload call-room leave recovery tests passed.");
