@@ -396,6 +396,14 @@ const logoutGateContext = {
   voiceRoomLeavePromise: pendingLogoutVoiceLeave,
   voiceRoom: { active: false, joining: false },
   signalVoiceRoomRoomId: "",
+  signalVoiceRoomAttemptId: "",
+  signalPendingVoiceRoomAttempts: Object.create(null),
+  signalPendingVoiceRoomStorageHealthy: true,
+  member: "Team Lite Tester",
+  card: { classList: { add: () => {}, remove: () => {} } },
+  voiceRoomMessage: () => {},
+  voiceRoomRender: () => {},
+  signalRetryPendingVoiceRoomAttempts: async () => { logoutEvents.push("retry-pending-voice-attempts"); return true; },
   voiceRoomLeave: () => { logoutEvents.push("await-inflight-voice-leave"); return pendingLogoutVoiceLeave; }
 };
 vm.runInNewContext(releaseGateSource, logoutGateContext, { timeout: 1000 });
