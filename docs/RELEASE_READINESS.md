@@ -3589,3 +3589,131 @@ Workflow:
 Todas as consultas SQL foram SELECT-only. Os workflows 42161030346, 42161030275 e 42153971733 foram iniciados pela engenharia e apenas inspecionados. Nenhum workflow foi disparado por esta auditoria; nenhuma fixture foi alterada ou limpa por esta auditoria. Não houve escrita em produção, migration, deploy, merge, release, publicação de userscript, alteração de secret/flag/role ou operação destrutiva. A única escrita desta rodada é este append documental na branch QA dedicada.
 
 Não declarar percentual de conclusão. #74 e #76 têm AUTOMATED PASS nos heads exatos; isso não equivale a teste manual, review humano ou prontidão de produção. CALL-CLEANUP-RETRY, RT-01, ACL-02, rate-limit cutover, migrations, testes físicos e revisão humana continuam gates abertos.
+
+
+## Independent audit checkpoint — 2026-11-06 02:30 BRT
+
+This checkpoint supersedes earlier call-cleanup findings where noted below. Snapshot was read from the QA branch before this append; no engineering branch was modified.
+
+### PR heads, ancestry and exact-head CI
+
+All four PRs remain open, Draft, unmerged and mergeable. Current reviews and inline review threads: zero on #74, #75, #76 and #82.
+
+- **#74 Normal** — HEAD 2e346162d6db9fe05a68a97d501039ddb6de4547; 671 ahead / 0 behind master. Exact-head Validate [42166842757](https://github.com/Reekyi/UpStatus/actions/runs/42166842757) and Signaling Smoke [42166842803](https://github.com/Reekyi/UpStatus/actions/runs/42166842803) both SUCCESS. Smoke log: 15/15 unauthenticated, 103/103 authenticated, 21/21 signaling static regression groups, authenticated browser call/voice/screen WebRTC, three-member mesh, rate limit 90 accepted + 1 HTTP 429, atomic read-receipt concurrency and fixture cleanup. The new Normal call-room cleanup retry/logout-gate regressions passed.
+- **#75 Team Lite baseline** — HEAD 7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309; 59 ahead / 0 behind team-lite-official. Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) is historical baseline evidence only; #76 is the newer candidate.
+- **#76 Team Lite** — HEAD 95d88e34c25679e161f09654f5f7e372f2a7a430; 201 ahead / 0 behind team-lite-official and 142 ahead / 0 behind #75. Exact-head Candidate Checks [42166848429](https://github.com/Reekyi/UpStatus/actions/runs/42166848429) SUCCESS. Log: 15/15 unauthenticated, 103/103 authenticated, call/voice/screen WebRTC, three-member mesh, open join/late join/owner handoff/race/capacity, rate limit 90+1, read-receipt concurrency, migration-layout guard, candidate version 3.4.31, call-room retry/logout-gate tests and fixture cleanup.
+- **#82 QA** — HEAD 4b85bb1cbe11794380eebe38daf760a0ee2305f0; 51 ahead / 0 behind master before this append. Validate [42163103958](https://github.com/Reekyi/UpStatus/actions/runs/42163103958) failed at the inherited assertion “production updateURL mismatch” in scripts/validate.mjs:26. This is not a runtime test failure, but it remains a red check on the current documentation head.
+
+The call-room retry branches normal/call-room-leave-retry-20261106 and team-lite/call-room-leave-retry-20261106 compare identical to the corresponding PR heads (0 ahead / 0 behind). No separate unmerged code delta was found.
+
+### Call-room cleanup retry — previous finding corrected in current candidates
+
+The earlier finding that callCleanup discarded the retry context during an offline transport replacement is **fixed in the current #74 and #76 heads by code inspection and exact-head automated tests**.
+
+Both candidates now:
+- Capture the member and transport instance before asynchronous teardown.
+- Create a member-bound signalPendingCallLeaves entry containing room ID, call ID, member and promise.
+- Keep the pending entry until the server confirms leave or an idempotent terminal state.
+- Refuse to switch a still-running operation silently to a replacement transport.
+- Retry the pending leave after the authenticated transport is recreated.
+- Return an unconfirmed result on persistent failure.
+- Gate logout/session revocation before API logout, Realtime shutdown and credential clearing.
+
+Dynamic tests in scripts/signaling-static.test.mjs and scripts/team-lite-candidate-check.mjs cover fail-then-success, transport replacement, no transport/offline retry, persistent failure, member/account isolation and logout gating. Relevant logs: [Normal Smoke 42166842803](https://github.com/Reekyi/UpStatus/actions/runs/42166842803) and [Team Lite Candidate Checks 42166848429](https://github.com/Reekyi/UpStatus/actions/runs/42166848429).
+
+### Remaining lifecycle gap — pagehide does not clean up authenticated calls
+
+A separate issue remains and is confirmed on both current heads:
+
+- Normal pagehide handler at src/userscript/upstatus.user.template.js:258 calls only voiceRoomLeave().
+- Team Lite pagehide handler at team-lite/upstatus-team-lite.user.js:544 calls only voiceRoomLeave().catch(...).
+- Neither handler invokes callCleanup() for an active authenticated call.
+- signalPendingCallLeaves is an in-memory object; it is not persisted in userscript storage.
+
+Therefore, closing the tab during an active call may never create a pending call-room leave handle. If offline teardown has already created one, full reload/process termination loses it. The server membership may remain until the room expires.
+
+The isolated endpoint uses ROOM_TTL_MS = 2 hours and best-effort cleanup on requests with a 60-second cooldown and a maximum of 100 expired rooms per cleanup pass. The membership table has no participant heartbeat/last_seen_at. This bounds the stale membership but does not make page termination cleanup reliable.
+
+Issue [#78 follow-up 6677503321](https://github.com/Reekyi/UpStatus/issues/78#issuecomment-6677503321) records the next safe design: best-effort call cleanup on pagehide; persist only validated room ID, member, call ID and timestamp (never the session token); restore/retry only after the same member authenticates; clear persisted state only after confirmed or terminal-idempotent leave. Required tests: online pagehide, offline pagehide + reload, expired room, malformed/stale stored state and account isolation. This is not implemented and remains MANUAL/IMPLEMENTATION PENDING.
+
+### Supabase production — current read-only catalog
+
+Project dlfvkawaiqduhlazsszm remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, us-west-2, seven migrations through 20261027155438.
+
+The candidate objects remain absent from production:
+- upstatus_signal_rate_limits and consume_upstatus_signal_rate_limit;
+- merge_chat_read_receipts;
+- open_upstatus_signal_voice_room;
+- leave_upstatus_signal_room;
+- dedicated upstatus-signal Edge Function.
+
+RLS/grants were checked with catalog queries and has_table_privilege():
+- Nine backend-owned public tables have RLS enabled and zero policies, but anon and authenticated still have SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER and MAINTAIN.
+- public.upstatus_visual_config has RLS enabled, zero policies and no anon/authenticated table grants.
+- realtime.messages has RLS enabled, zero policies and client SELECT/INSERT/UPDATE grants.
+
+The grants are excessive privilege surface, but do not by themselves prove row access while RLS has no policies. Do not infer direct table disclosure solely from grants.
+
+The enabled trigger upstatus_messages_broadcast remains AFTER INSERT/UPDATE/DELETE on public.messages. Its function upstatus_broadcast_messages() is SECURITY DEFINER, search_path=public, executable by anon/authenticated/service_role, and serializes OLD/NEW with to_jsonb before calling realtime.send on db_change with private=false. This confirms the public full-row message broadcast path remains present. The other two broadcast functions, upstatus_broadcast_remote_state() and upstatus_broadcast_users(), are also SECURITY DEFINER and executable by client roles.
+
+Security Advisor observed at 2026-11-06T05:30:14Z: 3 WARN anon-executable SECURITY DEFINER, 3 WARN authenticated-executable SECURITY DEFINER, 10 INFO RLS enabled without policies; performance and health advisors had no findings.
+
+Production default ACL catalog entries remain broad:
+- postgres: public and storage defaults grant object privileges to anon/authenticated/service_role;
+- supabase_admin: public, graphql and graphql_public defaults grant object privileges to anon/authenticated/service_role.
+There is no global default-ACL override for function EXECUTE in production. SQL session is postgres, not superuser and not a member of supabase_admin; ACL-02 cannot be completed by this session.
+
+### Supabase isolated project — current read-only catalog
+
+Project bfpjtfqlnypisxljoxkb remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, sa-east-1, 21 migrations through 20261105220323. Isolated Edge Functions: upstatus-signal-test ACTIVE v28 (SHA e26011f026c74821a1e05bf314340604d715820ab864b63d66fd481d93d00d4f) and upstatus-signal-e2e-once ACTIVE v3.
+
+The four candidate RPCs exist: consume_upstatus_signal_rate_limit, merge_chat_read_receipts, open_upstatus_signal_voice_room and leave_upstatus_signal_room. All are SECURITY INVOKER, have empty search_path, deny EXECUTE to anon/authenticated and allow service_role. Signal/receipt/rate-limit tables have RLS enabled, zero policies and no anon/authenticated SELECT/INSERT.
+
+Post-CI read-only counts were zero for rooms, memberships, events, bindings and rate-limit buckets; users, messages and chat_reads were also zero. No manual cleanup was run by this audit.
+
+Effective default ACL scope in the isolated project is narrower but not global across all owners/schemas:
+- postgres global function default is restricted to postgres;
+- postgres defaults in public restrict tables/functions/sequences to postgres and service_role;
+- postgres defaults in storage remain broad;
+- supabase_admin defaults in public/graphql/graphql_public remain broad.
+The isolated hardening must not be described as covering every managed schema/owner.
+
+The isolated signal endpoint authenticates x-upstatus-token by hashing it and resolving an unexpired upstatus_sessions row plus an existing user. It calls consume_upstatus_signal_rate_limit for event/read buckets; 90+1 and concurrency passed in CI. However, the endpoint does not emit Retry-After, and neither current product server template (src/server/index.template.ts, src/server/team-lite-index.template.ts) references consume_upstatus_signal_rate_limit. Product endpoint integration and Retry-After remain pending.
+
+### Production Edge Function inventory and deployed bundle parity
+
+Production currently lists 38/38 Edge Functions ACTIVE; all report verify_jwt=false. That gateway setting does not prove absence of application authentication.
+
+Source inspection covered 31/38 functions: the two primary product runtimes, all 13 screen-share versions, all 11 backup functions and five legacy/test endpoints. The sampled non-empty functions contain custom token/session-auth markers; seven remaining legacy/test variants still need route/consumer/auth review.
+
+Primary runtimes:
+- upstatus v480, SHA bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd, internal userscript 3.4.7.
+- upstatus-team-lite v15, SHA 2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb, internal userscript 3.4.30.
+- upstatus-screen-share-3-1-1-beta10 v6, SHA f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29, internal userscript 3.1.1-beta8.
+
+The embedded Normal and Team Lite userscripts were decoded and searched. Neither contains signalPendingCallLeaves, signalRetryPendingCallLeaves, openVoiceRoom, consume_upstatus_signal_rate_limit or Retry-After. Thus the production bundles have not received the candidate call-room retry/open-voice/rate-limit integration, even though their visible version strings may look close to candidate versions. Production Team Lite is still 3.4.30; candidate #76 is 3.4.31.
+
+The 11 active backup endpoints include upstatus-backup-327-pre328, whose index.ts is empty (0 bytes; SHA 3d6c4f8e5f777830ea720ab2938cb023b5a4e4c7d26f3fc02b926ce0e4d0dd90). Other backups contain older runtime snapshots. The 12 active upstatus-test* endpoints and 13 screen-share version endpoints remain a sizeable legacy surface; consumer mapping and decommission/rollback decisions are pending. No endpoint was invoked and no function was disabled.
+
+### Deploy, issues and remaining release gates
+
+The master deploy workflow still differs from the candidate in #74: master uses the unpinned CLI latest path and lacks the candidate's explicit branch/SHA/project checks. The candidate workflow pins checkout to github.sha, requires master, compares HEAD/GITHUB_SHA, pins project ID dlfvkawaiqduhlazsszm and Supabase CLI 2.122.1, but it is not merged and deploys only Normal. No deploy occurred.
+
+- [#78](https://github.com/Reekyi/UpStatus/issues/78) remains open (21 comments). Physical no-F5 reconnection, pagehide/reload offline, installed Normal ↔ Team Lite, real microphone/audio and physical display capture remain unverified.
+- [#79](https://github.com/Reekyi/UpStatus/issues/79) remains open (74 comments). Its latest engineering checkpoint [6677465427](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6677465427) still described Team Lite run 42166848429 as in progress; that run has since completed successfully. Update the issue checkpoint before using it as the release source of truth.
+
+Priority gates:
+1. Implement token-free durable pagehide/reload recovery for pending call-room leaves and test online/offline/account-isolation cases.
+2. Keep #74/#76 Draft until human review and physical installed-browser acceptance.
+3. Integrate distributed rate limiting into real Normal/Team Lite product endpoints and add Retry-After.
+4. Resolve RT-01 with coordinated private Realtime authorization/payload cutover compatible with the UpStatus session model.
+5. Resolve ACL-02 with a supported administrative path for supabase_admin and least-privilege defaults.
+6. Validate production-intended migrations only in the authorized TEST project, including rollback and grants/SECURITY DEFINER checks.
+7. Audit the seven remaining test endpoints, map all backup consumers and rollback paths, and retire only after owner approval.
+8. Update #79 and complete the physical #78 acceptance checklist.
+
+### Safety record
+
+All Supabase queries in this audit were SELECT-only/catalog reads. The CI workflows linked above were initiated by engineering and inspected read-only; their isolated test scripts used the explicit project guard and mutation opt-in, not this audit. This audit did not start workflows, execute test scripts, mutate fixtures or clean data. No production write, migration, deploy, merge, release, userscript publication, secret/flag/role change or destructive operation occurred. The only write from this audit is this append to docs/RELEASE_READINESS.md on the dedicated QA branch.
+
+Do not publish a completion percentage. #74 and #76 have exact-head AUTOMATED PASS, but pagehide durability, physical/manual acceptance, human reviews, RT-01, ACL-02, product rate-limit cutover and production migrations remain open gates.
