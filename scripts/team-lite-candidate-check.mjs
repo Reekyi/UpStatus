@@ -395,6 +395,10 @@ const endSessionStart = script.indexOf("async function teamLiteEndSession(){");
 const endSessionEnd = script.indexOf("\n  function teamLiteStartIdleTimer", endSessionStart);
 const endSessionSource = script.slice(endSessionStart, endSessionEnd) + "\nthis.__candidateEndSession=teamLiteEndSession;";
 assert.ok(endSessionSource.indexOf("await signalRetryPendingCallAttempts()")>=0 && endSessionSource.indexOf("await signalRetryPendingCallAttempts()")<endSessionSource.indexOf("await signalRetryPendingCallLeaves()"), "Team Lite idle logout must cancel pending logical call attempts before retrying room leaves");
+const liteAcceptGroupStart=script.indexOf("async function callAcceptGroupInvite(){");
+const liteAcceptGroupEnd=script.indexOf("async function callAcceptIncomingCall(){",liteAcceptGroupStart);
+const liteAcceptGroupSource=script.slice(liteAcceptGroupStart,liteAcceptGroupEnd);
+assert.ok(liteAcceptGroupStart>=0 && liteAcceptGroupEnd>liteAcceptGroupStart && liteAcceptGroupSource.indexOf("signalTrackPendingCallLeave(signalRoomId,upCall.callId,signalTransport)")>=0 && liteAcceptGroupSource.indexOf("signalTrackPendingCallLeave(signalRoomId,upCall.callId,signalTransport)")<liteAcceptGroupSource.indexOf("signalTransport.accept(signalRoomId)"), "Team Lite must persist the recipient leave handle before accepting an authenticated call");
 assert.ok(
   endSessionSource.includes("await teamLiteReleaseVoiceRoomBeforeLogout()") &&
   endSessionSource.indexOf("await teamLiteReleaseVoiceRoomBeforeLogout()") < endSessionSource.indexOf("if(!voiceReleased)") &&
@@ -797,7 +801,7 @@ assert.ok(liteCallLeaveHelperStart >= 0 && liteCallLeaveHelperEnd > liteCallLeav
   "Team Lite call-membership cleanup source boundaries not found");
 const liteCallRuntimeSource = script.slice(liteCallLeaveHelperStart, liteCallLeaveHelperEnd) +
   script.slice(liteCallCleanupStart, liteCallCleanupEnd) +
-  "\nthis.__candidateCallCleanup=callCleanup;this.__candidateRetryPendingCallLeaves=signalRetryPendingCallLeaves;this.__candidatePersistPendingCallLeaves=signalPersistPendingCallLeaves;this.__candidateRestorePendingCallLeaves=signalRestorePendingCallLeaves;this.__candidateStorageKey=signalPendingCallLeavesStorageKey;this.__candidateTrackPendingCallAttempt=signalTrackPendingCallAttempt;this.__candidateRetryPendingCallAttempts=signalRetryPendingCallAttempts;this.__candidatePersistPendingCallAttempts=signalPersistPendingCallAttempts;this.__candidateRestorePendingCallAttempts=signalRestorePendingCallAttempts;this.__candidateAttemptsStorageKey=signalPendingCallAttemptsStorageKey;";
+  "\nthis.__candidateCallCleanup=callCleanup;this.__candidateRetryPendingCallLeaves=signalRetryPendingCallLeaves;this.__candidatePersistPendingCallLeaves=signalPersistPendingCallLeaves;this.__candidateRestorePendingCallLeaves=signalRestorePendingCallLeaves;this.__candidateStorageKey=signalPendingCallLeavesStorageKey;this.__candidateTrackPendingCallAttempt=signalTrackPendingCallAttempt;this.__candidateRetryPendingCallAttempts=signalRetryPendingCallAttempts;this.__candidatePersistPendingCallAttempts=signalPersistPendingCallAttempts;this.__candidateRestorePendingCallAttempts=signalRestorePendingCallAttempts;this.__candidateAttemptsStorageKey=signalPendingCallAttemptsStorageKey;this.__candidateTrackPendingCallLeave=signalTrackPendingCallLeave;";
 function makeLiteCallCleanupContext({ transport, callSendAll, storage = new Map(), member = "Team Lite Tester" } = {}) {
   const roomId = "team-lite-call-room";
   const callId = "team-lite-call-1";
@@ -1167,3 +1171,44 @@ assert.equal(pendingAttemptLogoutEvents.includes("retry-leaves"), false, "Team L
 assert.equal(pendingAttemptLogoutEvents.some(event => event === "voice-release" || event === "api-logout" || event === "stop-realtime" || event === "storage-clear" || event === "login"), false,
   "Team Lite must not leave voice, logout, stop Realtime or clear credentials while a logical call attempt remains");
 console.log("Team Lite idle logout blocks on unconfirmed logical call-attempt cancellation.");
+
+const liteRecipientLeaveStorage = new Map();
+const liteRecipientLeaveContext = makeLiteCallCleanupContext({ transport: null, storage: liteRecipientLeaveStorage });
+const liteRecipientRoomId = "team-lite-recipient-room";
+const liteRecipientCallId = "Team_Lite_Tester-recipient-call";
+assert.equal(liteRecipientLeaveContext.__candidateTrackPendingCallLeave(liteRecipientRoomId,liteRecipientCallId,null),true,
+  "Team Lite must persist a recipient room-ID leave handle before accepting an authenticated call");
+const liteRecipientLeaveEnvelope = liteRecipientLeaveStorage.get(liteRecipientLeaveContext.__candidateStorageKey("Team Lite Tester"));
+assert.equal(liteRecipientLeaveEnvelope.version,1,"Team Lite recipient leave storage must be versioned");
+assert.equal(liteRecipientLeaveEnvelope.entries.length,1,"Team Lite recipient leave storage must contain the pending room");
+assert.deepEqual(Object.keys(liteRecipientLeaveEnvelope.entries[0]).sort(),["callId","createdAt","member","roomId"],
+  "Team Lite recipient leave storage may contain only room ID, call ID, member and timestamp");
+assert.equal(Object.prototype.hasOwnProperty.call(liteRecipientLeaveEnvelope.entries[0],"token"),false,
+  "Team Lite recipient leave storage must not persist a session token");
+const liteRecipientLeaveStorageFailure = makeLiteCallCleanupContext({
+  transport:null,
+  storage:{has:()=>false,get:()=>null,set:()=>{throw new Error("userscript storage unavailable");}}
+});
+assert.equal(liteRecipientLeaveStorageFailure.__candidateTrackPendingCallLeave(liteRecipientRoomId,liteRecipientCallId,null),false,
+  "Team Lite must fail closed when recipient leave storage is unavailable");
+assert.equal(Object.keys(liteRecipientLeaveStorageFailure.signalPendingCallLeaves).length,0,
+  "failed recipient leave persistence must not create a false durable handle");
+const liteAcceptEvents=[];
+const liteAcceptSource=liteAcceptGroupSource+"\nthis.__candidateAcceptGroupInvite=callAcceptGroupInvite;";
+const liteAcceptContext={
+  upCall:{pendingInvite:{from:"Caller",participants:["Caller"]},active:true,callId:liteRecipientCallId},
+  signalRoomByCallId:{[liteRecipientCallId]:liteRecipientRoomId},
+  signalTransportFlag:true,
+  signalTransport:{accept:async()=>{liteAcceptEvents.push("accept");}},
+  signalTrackPendingCallLeave:()=>{liteAcceptEvents.push("persist");return false;},
+  message:value=>liteAcceptEvents.push("message:"+value),
+  callCleanup:()=>liteAcceptEvents.push("cleanup"),
+  Promise,Object,Error
+};
+vm.runInNewContext(liteAcceptSource,liteAcceptContext,{timeout:1000});
+await liteAcceptContext.__candidateAcceptGroupInvite();
+assert.deepEqual(liteAcceptEvents.filter(x=>x==="persist"||x==="accept"||x==="cleanup"),["persist"],
+  "Team Lite must not accept or clean up into an active membership when pre-accept persistence fails");
+assert.ok(liteAcceptEvents.some(x=>x.includes("armazenamento do userscript")),
+  "Team Lite must explain that recipient call acceptance was blocked by storage failure");
+console.log("Team Lite recipient call acceptance now fails closed without durable leave storage.");
