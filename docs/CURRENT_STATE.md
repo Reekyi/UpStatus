@@ -447,3 +447,15 @@ The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fe
 The existing server contract appears sufficient to recover a lost open response without a new tombstone migration: open_upstatus_signal_voice_room() serializes the two product aliases, reuses the active binding, and treats repeated accepted membership as idempotent. The authenticated /room/resolve route returns the active room only when the requesting member is already in it. The candidate client design is therefore a token-free per-member logicalId marker persisted before open, then resolveRoom({bindingType: "voice", logicalId}) after re-authentication and confirmed leave. A known room ID is persisted directly. This remains design-only, not implemented/tested.
 
 Both pagehide handlers call voiceRoomLeave(), but do not await the returned promise. Offline/unload can prevent confirmation; the room ID is currently memory-only and is lost after full unload. Issue #78 remains open.
+
+
+## 2026-11-06 08:09 BRT — engineering checkpoint
+
+- Normal #74 HEAD `3ed7b9d` (703/0 vs master): Validate [42207304139](https://github.com/Reekyi/UpStatus/actions/runs/42207304139) passed; Smoke [42207304173](https://github.com/Reekyi/UpStatus/actions/runs/42207304173) still running authenticated/browser integration. Do not mark exact-head Smoke green until concurrency checks and cleanup finish.
+- Team Lite #76 HEAD `5cc5df4` (208/0 vs team-lite-official; 149/0 vs #75): Candidate Checks [42194948317](https://github.com/Reekyi/UpStatus/actions/runs/42194948317) passed in full. #75 baseline remains `7bbf9b9` (59/0).
+- #80 `5d45f9b` (108/0 vs develop) still fails inherited `client signed upload helper missing` in Validate [42200688810](https://github.com/Reekyi/UpStatus/actions/runs/42200688810). #82 QA `aec1192` (58/0 vs master) still fails `production updateURL mismatch` in Validate [42203746245](https://github.com/Reekyi/UpStatus/actions/runs/42203746245). QA branch unchanged. All PRs remain Draft.
+- Isolated-only candidate migration adds B-tree indexes on `upstatus_signal_call_attempts(created_by)`, `(recipient)`, and `(room_id)`. Applied with its SQL test only to `bfpjtfqlnypisxljoxkb`; catalog confirmed indexes and Performance Advisor no longer reports unindexed FKs. Seven unused-index INFOs remain on the empty test database. The GitHub candidate files are in #74; production has not received them.
+- Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, 38 ACTIVE Edge Functions; `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15, screen-share beta10 v6. Security Advisor remains 3 WARN anon, 3 WARN authenticated, 10 INFO RLS without policy; RT-01 and ACL-02 remain open.
+- Durable voice-room marker/resolve/leave recovery is not implemented; existing open/resolve contract appears sufficient. Physical no-F5 tests remain pending. Product endpoint rate-limit integration and `Retry-After` remain pending.
+
+No production writes, migrations, deployment, merge, release, secret/role/flag changes, userscript publication, or destructive operations.
