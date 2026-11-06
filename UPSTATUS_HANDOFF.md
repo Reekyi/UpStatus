@@ -955,3 +955,9 @@ Issue #78 continua aberta para testes físicos de queda/retorno de internet sem 
 - Issue #78 remains open: real offline/online recovery without F5, pagehide, devices, and installed Normal ↔ Team Lite interoperability are not proven by CI.
 - Public Realtime disclosure, missing production migrations/RPCs, production endpoint cutover, distributed rate-limit integration in deployed endpoints, default ACL hardening, and the #74 639-commit ancestry review remain blockers.
 - Keep all candidate PRs Draft. No merge, deploy, release, publication, production migration, or feature-flag change is authorized by this checkpoint.
+
+
+### Cross-product leave review — 2026-11-05 21:04 BRT
+
+- Static review of Normal PR #74 head `b0c0e03fbe820e02404d4ae7d9f83e2a18642e50` found the same retry-context risk: `voiceRoomLeave()` clears `signalVoiceRoomRoomId` and owner state before awaiting `signalTransport.leave(leavingRoomId)`, then suppresses RPC failure. The roster cache is also cleared before server confirmation. This is code inspection, not a runtime failure reproduction.
+- Do not start another fixture-mutating workflow while Team Lite Candidate Checks `42134550466` is pending in the shared isolated-project concurrency group. After #76 completes and cleanup is confirmed, port the retain-until-success behavior to Normal with a fail-then-success regression. #74 remains otherwise CI-green on its current exact head.
