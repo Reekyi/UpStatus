@@ -340,7 +340,7 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
     if(!record||typeof record!=='object'||Array.isArray(record))return null;
     var roomId=String(record.roomId||'').trim(),recordMember=String(record.member||''),callId=String(record.callId||'').trim(),createdAt=Number(record.createdAt);
     if(!expectedMember||recordMember!==expectedMember)return null;
-    if(!roomId||roomId.length>128||signalHasControlChars(roomId))return null;
+    if(!/^[A-Za-z0-9._:-]{1,128}$/.test(roomId))return null;
     if(!callId||callId.length>160||signalHasControlChars(callId))return null;
     if(!Number.isFinite(createdAt)||createdAt<=0||createdAt>now+60000||now-createdAt>7*24*60*60*1000)return null;
     return {roomId:roomId,member:recordMember,callId:callId,createdAt:createdAt};
