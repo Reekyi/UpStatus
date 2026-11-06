@@ -365,11 +365,11 @@ console.log("PASS production deploy ref, project, credential, release, and CLI-v
 const voiceLeaveStart = userTemplate.indexOf("function voiceRoomLeave(options){");
 const voiceLeaveEnd = userTemplate.indexOf("window.addEventListener('pagehide'", voiceLeaveStart);
 const realtimeReadyStart = userTemplate.indexOf("async function waitForVoiceRealtimeReady(");
-const realtimeReadyEnd = userTemplate.indexOf("\\nasync function voiceRoomJoin", realtimeReadyStart);
+const realtimeReadyEnd = userTemplate.indexOf("\nasync function voiceRoomJoin", realtimeReadyStart);
 assert.ok(voiceLeaveStart >= 0 && voiceLeaveEnd > voiceLeaveStart, "Normal voice leave source boundaries not found");
 assert.ok(realtimeReadyStart >= 0 && realtimeReadyEnd > realtimeReadyStart, "Normal Realtime readiness source boundaries not found");
-const voiceLeaveSource = userTemplate.slice(voiceLeaveStart, voiceLeaveEnd) + "\\nthis.__candidateVoiceRoomLeave=voiceRoomLeave;";
-const realtimeReadySource = userTemplate.slice(realtimeReadyStart, realtimeReadyEnd) + "\\nthis.__candidateWaitForVoiceRealtimeReady=waitForVoiceRealtimeReady;";
+const voiceLeaveSource = userTemplate.slice(voiceLeaveStart, voiceLeaveEnd) + "\nthis.__candidateVoiceRoomLeave=voiceRoomLeave;";
+const realtimeReadySource = userTemplate.slice(realtimeReadyStart, realtimeReadyEnd) + "\nthis.__candidateWaitForVoiceRealtimeReady=waitForVoiceRealtimeReady;";
 const readyContext = {
   navigator: { onLine: true }, token: "session-token", realtimeActive: false, realtimeChannel: null,
   realtimeClient: null, realtimeRetryTimer: null, Date, Promise, setTimeout,
