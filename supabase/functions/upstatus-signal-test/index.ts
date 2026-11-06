@@ -10,6 +10,7 @@ const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "content-type, x-upstatus-token, authorization, apikey",
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+  "Access-Control-Expose-Headers": "Retry-After",
   "Cache-Control": "no-store"
 };
 const TYPES = new Set([
@@ -23,13 +24,14 @@ const ROOM_TTL_MS = 2 * 60 * 60 * 1000;
 const MAX_BODY = 20 * 1024;
 const MAX_EVENTS_PER_MINUTE = 90;
 const MAX_READS_PER_MINUTE = 240;
+const RATE_LIMIT_RETRY_AFTER_SECONDS = 60;
 const CLEANUP_INTERVAL_MS = 60_000;
 const MAX_EXPIRED_EVENTS_PER_CLEANUP = 500;
 const MAX_EXPIRED_ROOMS_PER_CLEANUP = 100;
 let lastCleanupAt = 0;
 
-function response(body: unknown, status=200) {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type":"application/json; charset=utf-8", ...CORS } });
+function response(body: unknown, status=200, extraHeaders: Record<string,string> = {}) {
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type":"application/json; charset=utf-8", ...CORS, ...extraHeaders } });
 }
 function hash(t: string) { return createHash("sha256").update(t).digest("hex"); }
 async function rateLimit(name: string, limit = MAX_EVENTS_PER_MINUTE) {
@@ -157,7 +159,9 @@ Deno.serve(async (req: Request) => {
     const readRoute = ["/poll", "/ack", "/room/status", "/room/members", "/room/invitations"].some(suffix => path.endsWith(suffix));
     const bucket = sender + (readRoute ? ":read" : ":write");
     if (!(await rateLimit(bucket, readRoute ? MAX_READS_PER_MINUTE : MAX_EVENTS_PER_MINUTE)))
-      return response({ error: "Rate limit exceeded" }, 429);
+      return response({ error: "Rate limit exceeded" }, 429, {
+        "Retry-After": String(RATE_LIMIT_RETRY_AFTER_SECONDS)
+      });
     await cleanupExpired();
     const p = await readJsonObject(req) as Record<string, unknown>;
 
