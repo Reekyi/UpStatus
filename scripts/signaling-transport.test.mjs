@@ -167,60 +167,70 @@ const callSequence = [];
 let callStatusReads = 0;
 const callSetupClient = createSignalingTransport({
   enabled: true,
-  request: async (path, body) => {
-    callSequence.push(path);
-    if (path === "/room/create") return { status: 201, body: { ok: true, roomId: "sig_call_1" } };
+  request: async (path, body, options) => {
+    callSequence.push({ path, body, options });
+    if (path === "/room/prepare-call") return { status: 201, body: { ok: true, created: true, roomId: "sig_call_1" } };
     if (path === "/room/status") {
       callStatusReads++;
       return { status: 200, body: { participants: [{ name: "mari", status: callStatusReads === 1 ? "pending" : "accepted" }] } };
     }
+    if (path === "/room/cancel-call") return { status: 200, body: { ok: true, cancelled: true } };
     return { status: 200, body: { ok: true } };
   },
 });
-const prepared = await callSetupClient.prepareCallRoom("call:logical-1", "mari", { intervalMs: 1, timeoutMs: 100 });
+const prepared = await callSetupClient.prepareCallRoom("ricardo-call:logical-1", "mari", { intervalMs: 1, timeoutMs: 100 });
 assert.equal(prepared.roomId, "sig_call_1");
-assert.deepEqual(callSequence.slice(0, 3), ["/room/create", "/room/bind", "/room/status"]);
-assert.equal(callSequence[3], "/room/status", "call setup must observe accepted state before returning to offer creation");
+assert.deepEqual(callSequence.slice(0, 3).map(call => call.path),
+  ["/room/prepare-call", "/room/status", "/room/status"]);
+assert.equal(callSequence[0].body.logicalId, "ricardo-call:logical-1");
+assert.equal(callSequence[0].body.recipient, "mari");
+assert.equal(callStatusReads, 2, "call setup must observe accepted state before returning to offer creation");
+await callSetupClient.cancelCallRoom("ricardo-call:logical-1");
+assert.equal(callSequence.at(-1).path, "/room/cancel-call");
+assert.deepEqual(callSequence.at(-1).body, { logicalId: "ricardo-call:logical-1" });
+console.log("signaling call setup and logical-id cancellation: 6 assertions passed");
 
 const declineSequence = [];
 const declinedSetupClient = createSignalingTransport({
   enabled: true,
   request: async path => {
     declineSequence.push(path);
-    if (path === "/room/create") return { status: 201, body: { roomId: "sig_call_declined" } };
+    if (path === "/room/prepare-call") return { status: 201, body: { roomId: "sig_call_declined" } };
     if (path === "/room/status") return { status: 200, body: { participants: [{ name: "mari", status: "declined" }] } };
-    return { status: 200, body: { ok: true } };
+    return { status: 200, body: { ok: true, cancelled: true } };
   },
 });
 await assert.rejects(
-  () => declinedSetupClient.prepareCallRoom("call:logical-2", "mari", { intervalMs: 1, timeoutMs: 100 }),
+  () => declinedSetupClient.prepareCallRoom("ricardo-call:logical-2", "mari", { intervalMs: 1, timeoutMs: 100 }),
   error => error.code === "SIGNALING_INVITATION_DECLINED",
 );
-assert.ok(declineSequence.includes("/room/close"), "declined calls must clean up the temporary room");
-console.log("signaling call setup gate: 4 assertions passed");
+assert.ok(declineSequence.includes("/room/cancel-call"), "declined calls must cancel by logical call ID");
+assert.equal(declineSequence.includes("/room/close"), false, "call cleanup must not depend on a room ID");
+console.log("signaling declined call cleanup: 3 assertions passed");
 
 const abortSetupCalls = [];
 const abortSetupClient = createSignalingTransport({
   enabled: true,
-  request: async (path) => {
-    abortSetupCalls.push(path);
-    if (path === "/room/create") return { status: 201, body: { roomId: "sig_call_abort" } };
+  request: async (path, body, options) => {
+    abortSetupCalls.push({ path, body, options });
+    if (path === "/room/prepare-call") return { status: 201, body: { roomId: "sig_call_abort" } };
     if (path === "/room/status") return { status: 200, body: { participants: [{ name: "mari", status: "pending" }] } };
-    return { status: 200, body: { ok: true } };
+    return { status: 200, body: { ok: true, cancelled: true } };
   },
 });
 const setupAbort = new AbortController();
-const abortedSetup = abortSetupClient.prepareCallRoom("call:logical-abort", "mari", {
+const abortedSetup = abortSetupClient.prepareCallRoom("ricardo-call:logical-abort", "mari", {
   intervalMs: 100,
   timeoutMs: 1000,
   signal: setupAbort.signal,
 });
 setTimeout(() => setupAbort.abort(), 5);
 await assert.rejects(() => abortedSetup, error => error.name === "AbortError");
-assert.ok(abortSetupCalls.includes("/room/close"), "cancelling an unaccepted call must close its provisional server room");
-assert.equal(abortSetupCalls.includes("/signal"), false, "cancelling before acceptance must never send media signaling");
+assert.ok(abortSetupCalls.some(call => call.path === "/room/cancel-call"),
+  "aborting an unaccepted call must cancel by logical call ID");
+assert.equal(abortSetupCalls.some(call => call.path === "/signal"), false,
+  "cancelling before acceptance must never send media signaling");
 console.log("signaling call setup cancellation: 2 assertions passed");
-
 
 const abortClient = createSignalingTransport({
   enabled: true,
