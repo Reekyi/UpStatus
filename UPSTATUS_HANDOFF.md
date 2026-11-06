@@ -1066,3 +1066,17 @@ The isolated test project `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`, Post
 Read the candidate migration `20261105190000_open_voice_room_membership.sql` on the Team Lite branch. It sets voice-room expiry to two hours and the leave RPC returns terminal JSON errors `ROOM_UNAVAILABLE` when the room is closed/expired and `ROOM_MEMBERSHIP_ENDED` when the user is no longer an accepted member. The shared signaling adapter's `post()` throws with `error.code` for non-2xx responses and returns JSON bodies for 2xx responses. The current Normal and Team Lite clients treat any `result.error` or thrown leave error as an unconfirmed failure, retaining the room ID and blocking logout. That is too strict for these two terminal states: the server is saying there is no active membership to release. The next safe fix is to normalize only `ROOM_UNAVAILABLE` and `ROOM_MEMBERSHIP_ENDED` to an idempotent successful leave in the shared adapter (cover both 2xx JSON and non-2xx error responses), while preserving failure behavior for all other errors. This is not implemented yet and must receive adapter/client regressions before release.
 
 Team Lite exact-head run [42149391376](https://github.com/Reekyi/UpStatus/actions/runs/42149391376) on `8678b4b` is still in progress; the prior `f573981` run's only failure was the VM test stub receiver and was corrected in `8678b4b`. Keep PR #76 Draft until the new run and cleanup pass. Normal candidate `bbf1f2b` remains isolated and unvalidated.
+
+
+## Ancestry refresh — 2026-11-05 23:26 BRT
+
+Re-read current PR refs after the documentation and logout-gate commits:
+
+- #74 `b0c0e03` vs `master`: 639 ahead / 0 behind.
+- #75 `7bbf9b9` vs `team-lite-official`: baseline unchanged.
+- #76 `8678b4b` vs `team-lite-official`: 195 ahead / 0 behind; vs #75: 136 ahead / 0 behind.
+- #80 `e04146e` vs `develop`: 76 ahead / 0 behind (documentation-only commits account for the increase).
+- #82 `b916551` vs `master`: 46 ahead / 0 behind.
+- Normal recovery candidate `bbf1f2b` vs PR #74 head `b0c0e03`: 18 ahead / 0 behind.
+
+All five PRs remain Draft. Team Lite exact-head Candidate Checks [42149391376](https://github.com/Reekyi/UpStatus/actions/runs/42149391376) remains in progress on `8678b4b`; Normal candidate remains unvalidated.
