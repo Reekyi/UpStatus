@@ -819,3 +819,44 @@ All five PRs remain open and Draft. No human approval is recorded. Issue #78 rem
 Production `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations through `20261027155438`, and 38 ACTIVE Edge Functions. Catalog inspection confirms production still lacks the rate-limit table/RPC, atomic read-receipt RPC, call/voice attempt tables, and dedicated `upstatus-signal` endpoint. The three public broadcast SECURITY DEFINER functions remain executable by anon/authenticated with `search_path=public`; the message trigger still publishes complete OLD/NEW rows to `db_change` with `private=false`. The public Realtime cutover and default-off transport flag remain release blockers.
 
 No production SQL write, migration, Edge Function deployment, merge, release, secret/role/feature-flag change, userscript publication, or destructive operation occurred.
+
+## 2026-11-06 — client-side Retry-After propagation in Normal and Team Lite
+
+### Candidate implementation
+
+Both functional candidate branches now preserve the HTTP response headers returned by Tampermonkey's `GM_xmlhttpRequest` bridge and pass them into the shared authenticated signaling adapter.
+
+- **Normal #74:** bridge + adapter commit [efb3dd4](https://github.com/Reekyi/UpStatus/commit/efb3dd409343d7a545801402f1a37754f82472b8); test-fixture correction [057645f](https://github.com/Reekyi/UpStatus/commit/057645fc5196eaf4431389987e5cc4b346df3368).
+- **Team Lite #76:** bridge + adapter commit [5f25ad8](https://github.com/Reekyi/UpStatus/commit/5f25ad84357c89383c6f98f8911f8d9590ac8a84); test-fixture correction [d7067da](https://github.com/Reekyi/UpStatus/commit/d7067da0c5d88f9b1d04c679aa82994e949c5080).
+- Shared adapter blob in both branches: `011abfb28d042afcfa4709abf40162a78ec7156c`.
+
+The adapter now parses `Retry-After` in delta-seconds and HTTP-date forms, exposes `error.retryAfterMs` and `error.retryAfterSeconds` on non-2xx responses, and makes the polling loop wait for at least the server-provided delay (while retaining exponential backoff for errors without that header). Non-polling write operations are **not** automatically retried, to avoid duplicate non-idempotent actions; callers receive the retry metadata.
+
+Regression coverage checks raw GM response-header strings, case-insensitive header names, HTTP-date conversion, and that a 429 with `Retry-After: 60` schedules the next poll after 60,000 ms. Static checks require both product bridges to preserve `responseHeaders`.
+
+### Exact-head CI after the implementation
+
+- **Normal #74**, HEAD `057645fc5196eaf4431389987e5cc4b346df3368`: Validate [42302293285](https://github.com/Reekyi/UpStatus/actions/runs/42302293285) passed. Smoke [42302293297](https://github.com/Reekyi/UpStatus/actions/runs/42302293297) is in progress; the static harness/unit-test step and unauthenticated endpoint checks have passed, while authenticated integration/browser, rate-limit concurrency, read-receipt concurrency, and final cleanup are not yet complete.
+- **Team Lite #76**, HEAD `d7067da0c5d88f9b1d04c679aa82994e949c5080`: Candidate Checks [42302314056](https://github.com/Reekyi/UpStatus/actions/runs/42302314056) is queued behind the Normal run because both workflows share the isolated Supabase fixture project.
+- The first Normal Smoke attempt [42302133868](https://github.com/Reekyi/UpStatus/actions/runs/42302133868) stopped in the new unit test because the fixture encoded CRLF characters twice. The fixture was corrected in `057645f` and `d7067da`; the subsequent Normal Validate and static/unit-test step passed.
+
+Do not run cleanup or apply further isolated mutations while the shared CI queue is active. A post-queue SELECT-only zero-fixture check is still required.
+
+### Fresh release-gate snapshot
+
+- PR #74: open, Draft, unmerged; Validate passed and exact-head Smoke is still running.
+- PR #75: open, Draft, unmerged; historical baseline CI only.
+- PR #76: open, Draft, unmerged; exact-head Candidate Checks queued.
+- PR #80: open, Draft; current HEAD `208e7d33b92fa97ee758e7a16940f392d80c9dc6`; Validate [42295672751](https://github.com/Reekyi/UpStatus/actions/runs/42295672751) still fails on inherited `client signed upload helper missing`.
+- PR #82 (independent QA): open, Draft; current HEAD `76ceacbffa108ef88f4cf2ea1504dc34e61e8fa7`; Validate [42298090990](https://github.com/Reekyi/UpStatus/actions/runs/42298090990) still fails on inherited `production updateURL mismatch`. QA branch and report were not edited.
+- Issue #78 remains 0/8 physical acceptance criteria. Issue #79 still shows 16/35 checklist items; this is not an overall completion percentage.
+
+### Supabase snapshot, read-only at 2026-11-06 22:08 UTC
+
+Production `dlfvkawaiqduhlazsszm` remains `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, seven migrations through `20261027155438`, and 38 ACTIVE Edge Functions. The isolated project `bfpjtfqlnypisxljoxkb` is also `ACTIVE_HEALTHY`; its `upstatus-signal-test` is ACTIVE v32 and its isolated migration ledger includes `20261106210556_bounded_rate_limit_cleanup_isolated_test`.
+
+Production Security Advisor still reports three SECURITY DEFINER broadcast functions executable by `anon` and the same three by `authenticated`, plus ten RLS-enabled/no-policy INFO notices. Production Performance and Health advisors returned no findings. Production still lacks the dedicated `upstatus-signal` endpoint, distributed rate-limit table/RPC, atomic read-receipt RPC, and call/voice-attempt structures. Public full-row Realtime broadcasts remain a release blocker.
+
+The isolated test project is currently in use by the shared Normal/Team Lite CI queue. No post-run cleanup count is claimed.
+
+No production SQL write, migration, Edge Function deployment, merge, release, secret/role/feature-flag change, userscript publication, or destructive operation occurred.
