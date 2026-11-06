@@ -536,3 +536,17 @@ assert.ok(offlineHandler.includes("voiceRoomLeave({skipServerLeave:true})") &&
   !offlineHandler.includes("signalVoiceRoomRoomId=''"),
   "Normal offline teardown must preserve the server-owned room ID for a later logout retry");
 console.log("Normal logout confirmation and session-retention tests passed.");
+
+const normalVoiceJoinStart = userTemplate.indexOf("async function voiceRoomJoin()");
+const normalVoiceJoinEnd = userTemplate.indexOf("function voiceRoomToggleSpeakers", normalVoiceJoinStart);
+assert.ok(normalVoiceJoinStart >= 0 && normalVoiceJoinEnd > normalVoiceJoinStart, "Normal voice join source boundaries not found");
+const normalVoiceJoinSource = userTemplate.slice(normalVoiceJoinStart, normalVoiceJoinEnd);
+const normalVoiceJoinCatchStart = normalVoiceJoinSource.lastIndexOf("}catch(e){");
+const normalVoiceJoinCatchEnd = normalVoiceJoinSource.indexOf("}finally", normalVoiceJoinCatchStart);
+const normalVoiceJoinCatch = normalVoiceJoinSource.slice(normalVoiceJoinCatchStart, normalVoiceJoinCatchEnd);
+assert.ok(normalVoiceJoinCatch.includes("await voiceRoomLeave()") &&
+  !normalVoiceJoinCatch.includes("signalVoiceRoomRoomId=''") &&
+  !normalVoiceJoinCatch.includes("signalTransport.leave(failedRoom)"),
+  "Normal microphone/setup failure must use confirmed leave and preserve room context when release fails");
+console.log("Normal voice join failure membership-retention test passed.");
+
