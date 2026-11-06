@@ -317,3 +317,9 @@ The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fe
 - Production `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, 38 active Edge Functions. Voice open/leave, atomic receipt, distributed rate-limit RPC/table and dedicated `upstatus-signal` remain absent. The three public broadcast SECURITY DEFINER functions remain executable by client roles; nine backend tables retain broad grants with RLS/no policies; `realtime.messages` retains client SELECT/INSERT/UPDATE grants; default ACLs remain broad for postgres/public+storage and supabase_admin/public+graphql+graphql_public.
 - The isolated project cleanup check after run `42150807002` returned zero test fixtures. The new run `42153971733` is currently using the isolated project; do not overlap another fixture-mutating suite.
 - No production write, migration, deploy, release, flag/secret/role change, userscript publication, merge, or destructive action occurred.
+
+
+## Continuity validation follow-up — 2026-11-06
+
+- PR #80 is now at `41dd77d69b1866ea0f2bae97f2634fcad43415d1`, 81 ahead / 0 behind `develop`. Exact-head Validate [42154265009](https://github.com/Reekyi/UpStatus/actions/runs/42154265009) completed and reproduced the inherited `client signed upload helper missing` assertion after building `3.0.40 / TEST 3.0.40-beta.22`; no validator was weakened.
+- Team Lite #76 remains at `3627557f244c98a9c7e1cc986c7cea43124863a9`; Candidate Checks [42153971733](https://github.com/Reekyi/UpStatus/actions/runs/42153971733) is still running in authenticated integration/browser tests. No PASS is claimed yet.
