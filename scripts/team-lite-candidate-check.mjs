@@ -652,9 +652,9 @@ console.log("Team Lite offline local-only voice teardown tests passed.");
 // The realtime teardown used for a network outage must retain the server-owned room ID.
 // It clears transient transport state but deliberately keeps enough context for a retry.
 const stopRealtimeStart = script.indexOf("function stopRealtime(options){");
-const stopRealtimeEnd = script.indexOf("\\n  // Recover local media state", stopRealtimeStart);
+const stopRealtimeEnd = script.indexOf("\n  // Recover local media state", stopRealtimeStart);
 assert.ok(stopRealtimeStart >= 0 && stopRealtimeEnd > stopRealtimeStart, "stopRealtime boundaries not found");
-const stopRealtimeSource = script.slice(stopRealtimeStart, stopRealtimeEnd) + "\\nthis.__candidateStopRealtime=stopRealtime;";
+const stopRealtimeSource = script.slice(stopRealtimeStart, stopRealtimeEnd) + "\nthis.__candidateStopRealtime=stopRealtime;";
 const stopEvents = [];
 const stopContext = {
   signalInvitationTimer: null,
@@ -684,10 +684,10 @@ stopContext.signalVoiceRoomPrepared = true;
 stopContext.__candidateStopRealtime();
 assert.equal(stopContext.signalVoiceRoomRoomId, "", "ordinary session teardown must clear the retained room binding");
 const networkHandlersStart = script.indexOf("window.addEventListener('offline'");
-const networkHandlersEnd = script.indexOf("\\n  function updateLuccaPresence", networkHandlersStart);
+const networkHandlersEnd = script.indexOf("\n  function updateLuccaPresence", networkHandlersStart);
 assert.ok(networkHandlersStart >= 0 && networkHandlersEnd > networkHandlersStart, "offline/online handlers not found");
 const networkHandlers = script.slice(networkHandlersStart, networkHandlersEnd);
-assert.equal((networkHandlers.match(/stopRealtime\\(\\{preserveVoiceRoomContext:true\\}\\)/g) || []).length, 2,
+assert.equal((networkHandlers.match(/stopRealtime\(\{preserveVoiceRoomContext:true\}\)/g) || []).length, 2,
   "offline and online handlers must preserve the room ID across both transport restarts");
 console.log("Team Lite offline/online room-context preservation tests passed.");
 
