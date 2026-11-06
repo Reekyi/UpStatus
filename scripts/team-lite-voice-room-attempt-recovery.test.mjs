@@ -145,17 +145,17 @@ for (const corruption of ownMemberCorruptions) {
     "own-member " + corruption.label + " must block new voice-room attempts");
 }
 
-const writeFailureStorage = new Map();
-const writeFailureEnvelope = { version: 1, entries: [validStoredRecord, crossMemberRecord] };
-writeFailureStorage.set(recoveryStorageKey, writeFailureEnvelope);
-const writeFailure = makeContext({ storage: writeFailureStorage, writeThrows: true });
-assert.equal(writeFailure.__candidateRestore(), 0,
+const restoreWriteFailureStorage = new Map();
+const restoreWriteFailureEnvelope = { version: 1, entries: [validStoredRecord, crossMemberRecord] };
+restoreWriteFailureStorage.set(recoveryStorageKey, restoreWriteFailureEnvelope);
+const restoreWriteFailure = makeContext({ storage: restoreWriteFailureStorage, writeThrows: true });
+assert.equal(restoreWriteFailure.__candidateRestore(), 0,
   "failure to persist a filtered recovery envelope must fail closed");
-assert.equal(writeFailure.signalPendingVoiceRoomStorageHealthy, false);
-assert.deepEqual(writeFailureStorage.get(recoveryStorageKey), writeFailureEnvelope,
+assert.equal(restoreWriteFailure.signalPendingVoiceRoomStorageHealthy, false);
+assert.deepEqual(restoreWriteFailureStorage.get(recoveryStorageKey), restoreWriteFailureEnvelope,
   "a failed storage rewrite must leave the original envelope intact");
-assert.equal(Object.keys(writeFailure.signalPendingVoiceRoomAttempts).length, 0);
-assert.equal(await writeFailure.__candidateRetry(), false);
+assert.equal(Object.keys(restoreWriteFailure.signalPendingVoiceRoomAttempts).length, 0);
+assert.equal(await restoreWriteFailure.__candidateRetry(), false);
 
 
 const oversizedStorage = new Map();
