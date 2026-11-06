@@ -117,6 +117,8 @@ const readFailure = makeContext({ readThrows: true });
 assert.equal(readFailure.__candidateRestore(), 0);
 assert.equal(readFailure.signalPendingVoiceRoomStorageHealthy, false,
   "a storage read failure must prevent overwriting unknown pending attempts");
+assert.equal(await readFailure.__candidateRetry(), false,
+  "a storage read failure must also block logout/recovery claims until the stored state can be read");
 assert.equal(readFailure.__candidateTrack("upstatus-team-room-v1", "Normal_Tester-voice-new"), false);
 
 const writeFailure = makeContext({ writeThrows: true });
