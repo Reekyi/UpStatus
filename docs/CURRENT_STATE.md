@@ -459,3 +459,11 @@ Both pagehide handlers call voiceRoomLeave(), but do not await the returned prom
 - Durable voice-room marker/resolve/leave recovery is not implemented; existing open/resolve contract appears sufficient. Physical no-F5 tests remain pending. Product endpoint rate-limit integration and `Retry-After` remain pending.
 
 No production writes, migrations, deployment, merge, release, secret/role/flag changes, userscript publication, or destructive operations.
+
+## 2026-11-06 08:55 BRT — current engineering checkpoint
+
+- PR #74 Normal: `8a4bfd930b1d4169f6f5ae8360beb30f1bb204e4`; Validate passed, Signaling Smoke authenticated/browser tests still running.
+- PR #76 Team Lite: `5cc5df4865250a0d67935937ea43e206217730d5`; Candidate Checks [42194948317](https://github.com/Reekyi/UpStatus/actions/runs/42194948317) passed. It does not yet contain cancellable voice-room attempt IDs.
+- PR #80 Validate [42207746918](https://github.com/Reekyi/UpStatus/actions/runs/42207746918) remains blocked by `client signed upload helper missing`; PR #82 Validate [42211720970](https://github.com/Reekyi/UpStatus/actions/runs/42211720970) remains blocked by `production updateURL mismatch`. These validators were not weakened.
+- A server-side voice-room attempt/tombstone candidate is in #74, with isolated migration and test endpoint v31. Client adapter/userscript integration and Team Lite parity remain pending.
+- Production remains at 7 migrations and 38 Edge Functions; no `upstatus-signal` function. Security findings remain 3 anon SECURITY DEFINER, 3 authenticated SECURITY DEFINER, and 10 RLS-without-policy INFO. No production writes or deployments.
