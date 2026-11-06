@@ -21,7 +21,7 @@ const extracted = source.slice(start, end) + [
   "this.__screenShareReceive=screenShareReceive;",
 ].join("\n");
 
-function makeContext({ active = true } = {}) {
+function makeContext({ active = true, member = "Alice" } = {}) {
   const sent = [];
   const timers = new Map();
   const peers = [];
@@ -43,6 +43,7 @@ function makeContext({ active = true } = {}) {
       this.remoteDescription = null;
       this.createOfferCalls = 0;
       this.createAnswerCalls = 0;
+      this.rollbackCalls = 0;
       this.closed = false;
       this.ontrack = null;
       this.onicecandidate = null;
@@ -58,6 +59,12 @@ function makeContext({ active = true } = {}) {
       return { type: "answer", sdp: "local-answer-" + this.createAnswerCalls };
     }
     async setLocalDescription(description) {
+      if (description.type === "rollback") {
+        this.rollbackCalls++;
+        this.localDescription = null;
+        this.signalingState = this.remoteDescription ? "have-remote-offer" : "stable";
+        return;
+      }
       this.localDescription = { type: description.type, sdp: description.sdp };
       this.signalingState = description.type === "offer" ? "have-local-offer" : "stable";
     }
@@ -94,7 +101,7 @@ function makeContext({ active = true } = {}) {
       remoteVideos: Object.create(null),
     },
     voiceRoom: { id: "screen-room-1" },
-    member: "Alice",
+    member,
     MediaStream: FakeMediaStream,
     RTCPeerConnection: FakePeerConnection,
     RTCSessionDescription: FakeSessionDescription,
@@ -155,6 +162,80 @@ function makeContext({ active = true } = {}) {
   assert.equal(offers[1].data.sdp.sdp, originalSdp, "presence retry must reuse the exact pending SDP");
   assert.equal(test.timers.size, 1, "retransmission must keep one bounded recovery timer");
 }
+
+// Concurrent local presence retries are serialized and reuse one pending offer.
+{
+  const test = makeContext();
+  await Promise.all([
+    test.context.__screenShareOffer("Bob"),
+    test.context.__screenShareOffer("Bob"),
+  ]);
+  const peer = test.context.screenShare.peers.Bob;
+  const offers = test.sent.filter(item => item.type === "offer");
+  assert.equal(peer.pc.createOfferCalls, 1, "concurrent local offers must create one SDP offer");
+  assert.equal(offers.length, 2, "the queued retry may retransmit the same pending offer");
+  assert.equal(offers[0].data.sdp.sdp, offers[1].data.sdp.sdp);
+  assert.equal(test.timers.size, 1);
+  assert.equal(peer.negotiationPromise, null, "the per-peer negotiation queue must drain");
+}
+
+// When both peers create an offer, the deterministic polite peer rolls back and answers the winner.
+{
+  const test = makeContext({ member: "Zoe" });
+  const local = test.context.__screenShareOffer("Alice");
+  const remote = test.context.__screenShareReceive({
+    roomId: "screen-room-1", from: "Alice", to: "Zoe", type: "offer",
+    sdp: { type: "offer", sdp: "remote-offer-1" },
+  });
+  await Promise.all([local, remote]);
+  const peer = test.context.screenShare.peers.Alice;
+  assert.equal(peer.pc.createOfferCalls, 1);
+  assert.equal(peer.pc.rollbackCalls, 1, "the polite peer must roll back its colliding local offer");
+  assert.equal(peer.pc.remoteDescription.sdp, "remote-offer-1");
+  assert.equal(peer.pc.localDescription.type, "answer");
+  assert.equal(test.sent.filter(item => item.type === "answer").length, 1);
+  assert.equal(test.timers.size, 0, "the rolled-back offer recovery timer must be cleared");
+}
+
+// The deterministic impolite peer ignores a colliding remote offer and completes its own exchange.
+{
+  const test = makeContext({ member: "Alice" });
+  const local = test.context.__screenShareOffer("Zoe");
+  const remote = test.context.__screenShareReceive({
+    roomId: "screen-room-1", from: "Zoe", to: "Alice", type: "offer",
+    sdp: { type: "offer", sdp: "remote-offer-1" },
+  });
+  await Promise.all([local, remote]);
+  const peer = test.context.screenShare.peers.Zoe;
+  assert.equal(peer.pc.rollbackCalls, 0);
+  assert.equal(peer.pc.remoteDescription, null, "the impolite peer must ignore the colliding offer");
+  assert.equal(peer.pc.localDescription.type, "offer");
+  assert.equal(test.sent.filter(item => item.type === "answer").length, 0);
+  await test.context.__screenShareReceive({
+    roomId: "screen-room-1", from: "Zoe", to: "Alice", type: "answer",
+    sdp: { type: "answer", sdp: "remote-answer-1" },
+  });
+  assert.equal(peer.pc.remoteDescription.sdp, "remote-answer-1");
+  assert.equal(test.timers.size, 0);
+}
+
+// A peer dropped while createOffer is pending cannot publish a stale offer after teardown.
+{
+  const test = makeContext();
+  const pending = test.context.__screenShareOffer("Bob");
+  const peer = test.context.screenShare.peers.Bob;
+  let resolveOffer;
+  peer.pc.createOffer = () => new Promise(resolve => { resolveOffer = resolve; });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(typeof resolveOffer, "function", "the local offer operation must be in flight");
+  test.context.__screenShareDrop("Bob");
+  resolveOffer({ type: "offer", sdp: "stale-local-offer" });
+  await pending;
+  assert.equal(test.sent.filter(item => item.type === "offer").length, 0);
+  assert.equal(test.timers.size, 0);
+}
+
 
 // The recovery timer retries a pending offer at most three times.
 {
