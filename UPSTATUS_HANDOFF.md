@@ -1215,3 +1215,25 @@ This note supersedes the earlier `872d567` Normal head reference above.
 - Smoke [42160740799](https://github.com/Reekyi/UpStatus/actions/runs/42160740799) on `872d567` failed before endpoint/integration tests because one static assertion still required the old direct `signalTransport.leave(failedRoom)` call. The microphone/setup failure path now uses `await voiceRoomLeave()` so the shared helper can preserve room ID on failed server release. The assertion was corrected in `562d60e`; this was a stale test contract, not a runtime test failure.
 - Smoke [42160472429](https://github.com/Reekyi/UpStatus/actions/runs/42160472429) passed on prior head `8942324`, before the later microphone/setup failure cleanup change; it is not exact-head evidence for `562d60e`.
 - Continuity PR #80 HEAD is `ba677c885ec2c61d6a72f5908c92f6d0fa322606`; Validate [42161109206](https://github.com/Reekyi/UpStatus/actions/runs/42161109206) reproduced the inherited `client signed upload helper missing` assertion after building `3.0.40 / TEST 3.0.40-beta.22`. No validator was weakened.
+
+
+## 2026-11-06 — authenticated call-room cleanup retry
+
+### Candidate changes
+- Normal candidate branch `normal/call-room-leave-retry-20261106`: HEAD `c6d21ae5452378d02d313b4931cc48c4af1df484`, now fast-forwarded to PR #74.
+- Team Lite candidate branch `team-lite/call-room-leave-retry-20261106`: HEAD `db7558520d8202673d822cda010964e57fac7b43`, now fast-forwarded to PR #76.
+- Both clients now retain a separate in-memory `signalPendingCallLeaves` handle when call-room leave is not confirmed. The attempt captures its transport; a replacement transport is used only by a later explicit retry/reconnect pass. Confirmed leave clears the pending handle and related maps.
+- Normal logout and Team Lite session end now await call-room release before voice-room release, server logout, Realtime teardown or credential clearing. Failed leave keeps the session active and retryable.
+- Candidate regression coverage includes fail-then-success, no transport/offline, transport replacement during pending signal, persistent failure, member isolation and logout gating. Both full userscript sources passed syntax compilation in an isolated JavaScript harness; the appended dynamic regression blocks were executed against the exact candidate source and passed. This is not a substitute for the repository's full CI.
+
+### Exact-head CI
+- #74 `c6d21ae`: Validate [42166495867](https://github.com/Reekyi/UpStatus/actions/runs/42166495867) passed. Signaling Smoke [42166495874](https://github.com/Reekyi/UpStatus/actions/runs/42166495874) is pending behind the shared isolated test group.
+- #76 `db75585`: Candidate Checks [42166395958](https://github.com/Reekyi/UpStatus/actions/runs/42166395958) was cancelled before jobs started. The earlier run [42166267489](https://github.com/Reekyi/UpStatus/actions/runs/42166267489), on parent head `c133569`, remains in authenticated integration/browser tests. No exact-head CI approval exists for `db75585`.
+- The isolated project `bfpjtfqlnypisxljoxkb` is occupied by that older Team Lite run. Last read-only count: 4 users, 4 sessions, 11 rooms, 13 memberships, 1 event, 1 room binding, 6 rate-limit buckets, 0 chat_reads. Do not start another fixture-mutating suite until the run completes and cleanup is verified.
+
+### Remaining limitations
+- The pending call-room handle is in page memory only. A full browser close/reload while offline can still lose it; server membership may remain until the two-hour TTL. Durable recovery across process termination is not solved.
+- Physical no-F5 recovery, pagehide/reload offline, real microphone/display-capture, installed Normal ↔ Team Lite interoperability, public Realtime cutover, production migrations, rate-limit integration, default ACL/admin `supabase_admin` path, ancestry review and human reviews remain release gates.
+- Production `dlfvkawaiqduhlazsszm` was inspected read-only: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, 38 active Edge Functions. The three broadcast functions remain SECURITY DEFINER/client-executable; nine backend-owned tables retain client grants with RLS and no policies; default ACLs remain broad. Security Advisor: 3 WARN for anon, 3 WARN for authenticated, 10 INFO RLS/no-policy; performance and health have no findings.
+
+No production write, migration, role/secret/feature-flag change, deploy, release, userscript publication, merge or destructive operation occurred.
