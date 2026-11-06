@@ -580,6 +580,7 @@ const logoutReleaseContext = {
   signalVoiceRoomRoomId: "normal-pending-logout-room",
   signalVoiceRoomAttemptId: "",
   signalPendingVoiceRoomAttempts: Object.create(null),
+  signalPendingVoiceRoomStorageHealthy: true,
   signalRetryPendingVoiceRoomAttempts: async () => true,
   upNetworkOffline: false,
   member: "Normal Tester",
