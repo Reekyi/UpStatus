@@ -1668,3 +1668,31 @@ No merge, deployment, release, production migration/SQL write, secret/role/flag 
 - The latest #80 Validate [42228131771](https://github.com/Reekyi/UpStatus/actions/runs/42228131771) still fails only at the known `client signed upload helper missing` check. The independent #82 branch remains unchanged and its known `production updateURL mismatch` failure persists.
 
 No merge, deployment, release, production write/migration, secret/role/flag change, userscript publication, or destructive operation occurred.
+
+
+## Engineering checkpoint — 2026-11-06 10:58 BRT
+
+### Exact current PR heads and CI
+
+- Normal #74 remains Draft at `94513c106d42cb8d77ab9a1c11ff7c9bfa610ba6`, 735 ahead / 0 behind `master`. Validate [42220452780](https://github.com/Reekyi/UpStatus/actions/runs/42220452780) and exact-head Signaling Smoke [42220452949](https://github.com/Reekyi/UpStatus/actions/runs/42220452949) both completed successfully.
+- Team Lite #76 advanced to `83216ccf5818274da3241273ea18ebd97fa3928b`, 227 ahead / 0 behind `team-lite-official`, 168 ahead / 0 behind #75. The previous exact-head Candidate Checks [42228414423](https://github.com/Reekyi/UpStatus/actions/runs/42228414423) passed isolation, adapter, voice-attempt, endpoint-auth, 103/103 authenticated integration, browser call/voice/screen WebRTC, three-member mesh, rate-limit concurrency, read-receipt concurrency, migration layout, and workflow fixture cleanup. It failed only in the final local candidate checker: the test expected `signalReleaseVoiceRoom()` to return the raw `{ok:true}` server object, while the implementation intentionally normalizes a confirmed leave to boolean `true` (and false on failure). The implementation preserves the room/owner context on failure and clears it only after a successful leave.
+- Corrected only `scripts/team-lite-candidate-check.mjs`: expect boolean `true` and assert exactly two leave attempts (initial transient failure plus one successful retry). Commit [83216cc](https://github.com/Reekyi/UpStatus/commit/83216ccf5818274da3241273ea18ebd97fa3928b). No runtime source changed. Exact-head Candidate Checks [42229990514](https://github.com/Reekyi/UpStatus/actions/runs/42229990514) is running; steps 1–6 passed and authenticated/browser integration is in progress. Do not call #76 green until all remaining steps and cleanup complete.
+- Baseline #75 remains `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 ahead / 0 behind `team-lite-official`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed.
+- Continuity #80 remains Draft at `f6d5debead9524b43dbd9aacb3bb3ecb09efd8a1`, 120 ahead / 0 behind `develop`. Validate [42228645087](https://github.com/Reekyi/UpStatus/actions/runs/42228645087) reproduces the inherited `client signed upload helper missing` assertion on the develop baseline.
+- Independent QA #82 remains Draft at `2937f1c50b2d22e338f1d9bd83ae7deeb7b84983`, 63 ahead / 0 behind `master`. Validate [42227785333](https://github.com/Reekyi/UpStatus/actions/runs/42227785333) reproduces the inherited `production updateURL mismatch`. QA branch and `docs/RELEASE_READINESS.md` were not modified.
+
+### Rate-limit / Retry-After candidate review
+
+- Separate branch `normal/rate-limit-retry-after-20261106` is 10 commits ahead / 0 behind the validated Normal head `94513c1`; it is not integrated into #74 and has no CI result.
+- It adds `20261106133500_distributed_signaling_rate_limit.sql` plus a privilege regression and updates only the isolated `supabase/functions/upstatus-signal-test/index.ts` for Postgres-backed quotas and HTTP 429 `Retry-After: 60` with CORS exposure.
+- Inspection confirms neither product server template (`src/server/index.template.ts` nor `src/server/team-lite-index.template.ts`) contains the rate-limit RPC or Retry-After handling. Production has no dedicated `upstatus-signal` function. Therefore this candidate is migration + test-endpoint preparation, **not product-endpoint integration** and not release-ready. The migration remains unapplied.
+- Review before applying: the RPC opportunistically deletes stale buckets inside the request path on 1/64 calls; assess worst-case cleanup duration/locking and consider bounded or scheduled cleanup.
+
+### Supabase and security — read-only
+
+- Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, 38 ACTIVE Edge Functions. Relevant versions: `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15, screen-share beta10 v6. No dedicated `upstatus-signal`, rate-limit table/RPC, or voice-room-attempt table/RPC exists in production.
+- Security Advisor: 3 SECURITY DEFINER WARN for anon, 3 for authenticated, 10 RLS-without-policy INFO; performance and health have no findings.
+- Read-only catalog confirms the three public broadcast functions remain SECURITY DEFINER and executable by anon/authenticated. Eight backend-owned public tables still grant client SELECT/INSERT (the visual-config table does not); all ten inspected public tables have RLS and zero policies. `realtime.messages` still grants client SELECT/INSERT. Default ACLs remain broad for postgres in public/storage and supabase_admin in public/graphql/graphql_public.
+- Isolated project `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 27 migrations, `upstatus-signal-test` v31 and e2e-once v3. A read-only table snapshot showed zero rows in all inspected public tables, but the new Candidate Checks run is in progress; final cleanup must be rechecked after it completes.
+
+No production writes, migrations, deployments, secret/role/flag changes, merges, releases, userscript publication, or destructive operations occurred.
