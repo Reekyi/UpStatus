@@ -361,6 +361,7 @@ const pendingLogoutVoiceLeave = new Promise(resolve => {
   finishLogoutVoiceLeave = () => { logoutEvents.push("voice-leave-complete"); resolve(true); };
 });
 const logoutGateContext = {
+  teamLiteNetworkOffline: false,
   voiceRoomLeavePromise: pendingLogoutVoiceLeave,
   voiceRoom: { active: false, joining: false },
   signalVoiceRoomRoomId: "",
@@ -378,11 +379,14 @@ assert.equal(logoutGateSettled, true, "logout voice-release gate must settle aft
 
 const endSessionStart = script.indexOf("async function teamLiteEndSession(){");
 const endSessionEnd = script.indexOf("\n  function teamLiteStartIdleTimer", endSessionStart);
-const endSessionSource = script.slice(endSessionStart, endSessionEnd);
+const endSessionSource = script.slice(endSessionStart, endSessionEnd) + "\nthis.__candidateEndSession=teamLiteEndSession;";
 assert.ok(
   endSessionSource.includes("await teamLiteReleaseVoiceRoomBeforeLogout()") &&
-  endSessionSource.indexOf("await teamLiteReleaseVoiceRoomBeforeLogout()") < endSessionSource.indexOf("await api('POST','/api/logout',{})"),
-  "Team Lite logout must await voice membership release before invalidating the session"
+  endSessionSource.indexOf("await teamLiteReleaseVoiceRoomBeforeLogout()") < endSessionSource.indexOf("if(!voiceReleased)") &&
+  endSessionSource.indexOf("if(!voiceReleased)") < endSessionSource.indexOf("authenticated=false") &&
+  endSessionSource.indexOf("if(!voiceReleased)") < endSessionSource.indexOf("await api('POST','/api/logout',{})") &&
+  endSessionSource.indexOf("if(!voiceReleased)") < endSessionSource.indexOf("token='';"),
+  "Team Lite logout must abort before invalidating the session when voice membership release is unconfirmed"
 );
 assert.ok(
   script.includes("logout.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();menuPanel.classList.add('hidden');menuToggle.setAttribute('aria-expanded','false');broadcastChatPresence(false);teamLiteEndSession();});") &&
@@ -635,10 +639,134 @@ const offlineLeaveContext = {
   Promise
 };
 vm.runInNewContext(voiceLeaveSource, offlineLeaveContext, { timeout: 1000 });
-await offlineLeaveContext.__candidateVoiceRoomLeave({ skipServerLeave: true });
+const offlineLeaveResult = await offlineLeaveContext.__candidateVoiceRoomLeave({ skipServerLeave: true });
+assert.equal(offlineLeaveResult, false, "offline local-only teardown must report unconfirmed server membership when a room ID is retained");
 assert.ok(offlineLeaveEvents.includes("screen-stop:false"), "offline cleanup must stop screen capture without sending a network signal");
 assert.equal(offlineLeaveEvents.some(event => event.startsWith("network-")), false, "offline cleanup must not wait on an unreachable signaling endpoint");
 assert.equal(offlineLeaveContext.voiceRoom.active, false, "offline cleanup must clear local voice state");
 assert.equal(offlineLeaveContext.signalVoiceRoomRoomId, "team-lite-offline-room", "local leave cleanup must leave transport-owned room clearing to stopRealtime");
 console.log("Team Lite offline local-only voice teardown tests passed.");
 
+
+
+// The realtime teardown used for a network outage must retain the server-owned room ID.
+// It clears transient transport state but deliberately keeps enough context for a retry.
+const stopRealtimeStart = script.indexOf("function stopRealtime(options){");
+const stopRealtimeEnd = script.indexOf("\\n  // Recover local media state", stopRealtimeStart);
+assert.ok(stopRealtimeStart >= 0 && stopRealtimeEnd > stopRealtimeStart, "stopRealtime boundaries not found");
+const stopRealtimeSource = script.slice(stopRealtimeStart, stopRealtimeEnd) + "\\nthis.__candidateStopRealtime=stopRealtime;";
+const stopEvents = [];
+const stopContext = {
+  signalInvitationTimer: null,
+  signalTransport: { stopAll: () => stopEvents.push("transport-stop") },
+  signalPollStops: {},
+  signalStopCallPolling: () => {},
+  signalRoomByCallId: {},
+  signalCallIdByRoom: {},
+  signalCreatorCallIds: {},
+  signalVoiceRoomRoomId: "team-lite-offline-room",
+  signalVoiceRoomPrepared: true,
+  signalVoiceRoomCreator: true,
+  realtimeActive: true,
+  remotePollHintTimer: null,
+  realtimeStatusRefreshTimer: null,
+  realtimeRetryTimer: null,
+  realtimeChannel: { unsubscribe: () => stopEvents.push("unsubscribe") },
+  realtimeClient: { removeAllChannels: () => stopEvents.push("remove-channels") },
+  clearInterval: () => {}
+};
+vm.runInNewContext(stopRealtimeSource, stopContext, { timeout: 1000 });
+stopContext.__candidateStopRealtime({ preserveVoiceRoomContext: true });
+assert.equal(stopContext.signalVoiceRoomRoomId, "team-lite-offline-room", "offline Realtime teardown must retain the authenticated room binding");
+assert.equal(stopContext.signalVoiceRoomPrepared, false, "reconnect must reopen the logical voice room before sending");
+assert.equal(stopContext.signalVoiceRoomCreator, false, "reconnect must refresh server-owned room ownership");
+stopContext.signalVoiceRoomPrepared = true;
+stopContext.__candidateStopRealtime();
+assert.equal(stopContext.signalVoiceRoomRoomId, "", "ordinary session teardown must clear the retained room binding");
+const networkHandlersStart = script.indexOf("window.addEventListener('offline'");
+const networkHandlersEnd = script.indexOf("\\n  function updateLuccaPresence", networkHandlersStart);
+assert.ok(networkHandlersStart >= 0 && networkHandlersEnd > networkHandlersStart, "offline/online handlers not found");
+const networkHandlers = script.slice(networkHandlersStart, networkHandlersEnd);
+assert.equal((networkHandlers.match(/stopRealtime\\(\\{preserveVoiceRoomContext:true\\}\\)/g) || []).length, 2,
+  "offline and online handlers must preserve the room ID across both transport restarts");
+console.log("Team Lite offline/online room-context preservation tests passed.");
+
+// A failed final signal or failed membership RPC must be visible to the caller.
+const failedVoiceSendContext = {
+  voiceRoom: { id: "upstatus-team-lite-room-v1", active: true, muted: false, speakersMuted: false, sessionId: "session-test", sessionStartedAt: 0 },
+  signalTransportFlag: true,
+  signalTransport: {
+    sendToRoom: () => Promise.resolve({ ok: true }),
+    leave: () => Promise.resolve({ ok: false, error: "membership still active" })
+  },
+  signalVoiceRoomRoomId: "team-lite-room-unconfirmed",
+  signalVoiceRoomPrepared: true,
+  signalVoiceRoomCreator: true,
+  signalStopCallPolling: () => {},
+  voiceRoomMessage: () => {},
+  CURRENT_VERSION: "3.4.31",
+  member: "Team Lite Tester"
+};
+vm.runInNewContext(voiceSendRuntimeSource, failedVoiceSendContext, { timeout: 1000 });
+const failedVoiceSendResult = await failedVoiceSendContext.__candidateVoiceRoomSend("leave", "", { active: false });
+assert.equal(failedVoiceSendResult, false, "voiceRoomSend must reject an HTTP-success response that explicitly denies membership release");
+assert.equal(failedVoiceSendContext.signalVoiceRoomRoomId, "team-lite-room-unconfirmed", "unconfirmed leave response must retain the room ID");
+assert.equal(failedVoiceSendContext.signalVoiceRoomPrepared, true, "unconfirmed leave response must retain prepared context");
+console.log("Team Lite voice send unconfirmed-response test passed.");
+
+// The logout gate must keep the session when an authenticated membership cannot be released.
+const logoutGateFailureContext = {
+  teamLiteNetworkOffline: true,
+  voiceRoomLeavePromise: null,
+  voiceRoom: { active: false, joining: false },
+  signalVoiceRoomRoomId: "team-lite-pending-logout",
+  voiceRoomLeaveCalls: 0,
+  voiceRoomLeave: function () { this.voiceRoomLeaveCalls++; return Promise.resolve(false); }
+};
+vm.runInNewContext(releaseGateSource, logoutGateFailureContext, { timeout: 1000 });
+assert.equal(await logoutGateFailureContext.__candidateReleaseVoiceBeforeLogout(), false,
+  "logout must be blocked while offline when a server-owned room membership remains");
+assert.equal(logoutGateFailureContext.voiceRoomLeaveCalls, 0, "offline logout gate must not send an impossible leave request");
+logoutGateFailureContext.teamLiteNetworkOffline = false;
+assert.equal(await logoutGateFailureContext.__candidateReleaseVoiceBeforeLogout(), false,
+  "logout must remain blocked after an unconfirmed server leave");
+assert.equal(logoutGateFailureContext.signalVoiceRoomRoomId, "team-lite-pending-logout",
+  "failed logout gate must retain the server room ID for another retry");
+logoutGateFailureContext.voiceRoomLeave = async function () { this.signalVoiceRoomRoomId = ""; return true; };
+assert.equal(await logoutGateFailureContext.__candidateReleaseVoiceBeforeLogout(), true,
+  "logout may proceed after a retry confirms server membership release");
+console.log("Team Lite logout membership confirmation gate tests passed.");
+
+// Exercise the actual session teardown's failure branch: no API logout, token clearing,
+// auth-generation change or storage mutation is allowed when the voice leave is unconfirmed.
+const logoutFailureEvents = [];
+const logoutFailureContext = {
+  teamLiteSessionEnded: false,
+  token: "still-valid-session-token",
+  teamLiteClearIdleTimer: () => logoutFailureEvents.push("clear-idle"),
+  upCall: null,
+  callCleanup: () => {},
+  teamLiteReleaseVoiceRoomBeforeLogout: async () => false,
+  chat: { classList: { contains: () => true } },
+  authenticated: true,
+  authGeneration: 17,
+  voiceRoomMessage: message => logoutFailureEvents.push("message:" + message),
+  card: { classList: { remove: value => logoutFailureEvents.push("show-card:" + value) } },
+  voiceRoomRender: () => logoutFailureEvents.push("render"),
+  api: async () => { logoutFailureEvents.push("api-logout"); },
+  stopRealtime: () => logoutFailureEvents.push("stop-realtime"),
+  GM_setValue: () => logoutFailureEvents.push("storage-clear"),
+  login: () => logoutFailureEvents.push("login")
+};
+vm.runInNewContext(endSessionSource, logoutFailureContext, { timeout: 1000 });
+const logoutFailureResult = await logoutFailureContext.__candidateEndSession();
+assert.equal(logoutFailureResult, false, "session teardown must report an unconfirmed voice leave");
+assert.equal(logoutFailureContext.teamLiteSessionEnded, false, "failed logout must allow a later retry");
+assert.equal(logoutFailureContext.authenticated, true, "failed logout must preserve authenticated state");
+assert.equal(logoutFailureContext.authGeneration, 17, "failed logout must not invalidate in-flight session generation");
+assert.equal(logoutFailureContext.token, "still-valid-session-token", "failed logout must retain the session token");
+assert.equal(logoutFailureEvents.some(event => event === "api-logout" || event === "stop-realtime" || event === "storage-clear" || event === "login"), false,
+  "failed logout must not call server logout, stop Realtime, clear storage or return to login");
+assert.ok(logoutFailureEvents.some(event => event.startsWith("message:")) && logoutFailureEvents.includes("show-card:hidden"),
+  "failed logout must show the user why the session remains active");
+console.log("Team Lite logout failure preserves session and retry state test passed.");
