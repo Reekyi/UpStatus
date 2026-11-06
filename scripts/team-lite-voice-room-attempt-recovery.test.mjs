@@ -520,10 +520,11 @@ const recoveredPeer = {
   pc: { connectionState: "disconnected", iceConnectionState: "disconnected" },
 };
 const recoveredDrops = [];
+const recoveredPeerMap = { Zulu: recoveredPeer };
 const recoveredContext = {
   voiceRoom: {
     active: true,
-    peers: { Zulu: recoveredPeer },
+    peers: recoveredPeerMap,
     recoveryTimers: {},
     recoveryAttempts: {},
   },
@@ -532,7 +533,7 @@ const recoveredContext = {
   clearTimeout() {},
   voiceRoomDrop(name) {
     recoveredDrops.push(name);
-    delete this.voiceRoom.peers[name];
+    delete recoveredPeerMap[name];
   },
   voiceRoomOffer: async () => {},
   voiceRoomSend: () => true,
@@ -557,10 +558,11 @@ let failedTimer = null;
 const failedPeer = { pc: { connectionState: "disconnected", iceConnectionState: "disconnected" } };
 const failedDrops = [];
 let failedRecoveryOffers = 0;
+const failedPeerMap = { Zulu: failedPeer };
 const failedContext = {
   voiceRoom: {
     active: true,
-    peers: { Zulu: failedPeer },
+    peers: failedPeerMap,
     recoveryTimers: {},
     recoveryAttempts: {},
   },
@@ -569,7 +571,7 @@ const failedContext = {
   clearTimeout() {},
   voiceRoomDrop(name) {
     failedDrops.push(name);
-    delete this.voiceRoom.peers[name];
+    delete failedPeerMap[name];
   },
   voiceRoomOffer: async () => { failedRecoveryOffers++; },
   voiceRoomSend: () => true,
