@@ -366,7 +366,7 @@ assert.ok(userTemplate.includes("voiceRoomLeave({skipServerLeave:true})") &&
   userTemplate.includes("async function waitForRealtimeReady(") &&
   userTemplate.includes("await waitForRealtimeReady(10000)"),
   "Normal offline recovery must tear down locally without network leave and wait for Realtime readiness before legacy voice rejoin");
-assert.ok(userTemplate.includes("var leavingTransport=signalTransport") &&
+assert.ok(userTemplate.includes("leavingTransport=signalTransport") &&
   userTemplate.includes("if(signalTransport!==leavingTransport||signalVoiceRoomRoomId!==leavingRoomId)return false") &&
   userTemplate.includes("signalVoiceRoomPrepared=false;return false"),
   "Normal leave retry must retain room context on failure and must not issue a stale leave through a replacement transport");
