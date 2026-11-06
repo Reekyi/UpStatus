@@ -562,3 +562,17 @@ No production writes, migrations, deployments, secret/role/flag changes, merges,
 - Manual gates remain: Tampermonkey close/reload offline without F5, microphone/display permissions, installed Normal ↔ Team Lite interoperability, RT-01, ACL-02, official TEST migration/rollback and human reviews.
 
 No merge, deploy, release, production write/migration, secret/role/flag change, userscript publication or destructive operation.
+
+
+## 2026-11-06 12:47 BRT - current engineering snapshot
+
+- Normal #74 is at `aa33645cb242c913cb4bc5e71a22f3de70d4034c`, 742 ahead / 0 behind master. Prior HEAD `9ed9fcb` passed Validate and Smoke; the new exact-head Smoke [42246115760](https://github.com/Reekyi/UpStatus/actions/runs/42246115760) is queued after the voice-signaling retry fix.
+- Team Lite #76 is at `86e71f5e549cc2b2e16629c5fcc06f047470f52f`, 240 ahead / 0 behind team-lite-official. Candidate Checks [42245339846](https://github.com/Reekyi/UpStatus/actions/runs/42245339846) passed in full, including 103/103 authenticated checks and new voice offer/answer retransmission regressions; post-run fixture counts are zero.
+- Normal's equivalent retry fix is integrated into #74 via the isolated two-commit candidate. The Normal and Team Lite voice offer, receive and recovery functions are byte-identical. Exact-head Normal CI is pending.
+- New code-inspection risk: lost voice offer/answer messages after network outage were not retransmitted on subsequent presence; a delayed recovery timer could drop a peer after recovery. Team Lite full CI passed; physical no-F5 acceptance remains pending.
+- Rate-limit/Retry-After candidate is diverged from current Normal (10 ahead / 5 behind) and contains unbounded stale-bucket deletion in its request-path RPC. Do not integrate until refreshed and cleanup is bounded.
+- #80 continuity is at the current documentation branch tip, 131 ahead / 0 behind develop, with inherited `client signed upload helper missing` Validate failure. #82 QA remains 65 ahead / 0 behind master with inherited `production updateURL mismatch`.
+- Production remains read-only: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, 38 active functions; no dedicated signaling endpoint or candidate signaling/rate-limit/read-receipt schema is deployed. Security findings remain 3 anon SECURITY DEFINER WARN, 3 authenticated WARN and 10 RLS/no-policy INFO.
+- Manual gates remain: Tampermonkey close/reload offline without F5, microphone/display permissions, installed Normal ↔ Team Lite interoperability, RT-01, ACL-02, official TEST migration/rollback and human reviews.
+
+No merge, deploy, release, production write/migration, secret/role/flag change, userscript publication or destructive operation.
