@@ -1843,3 +1843,14 @@ Security Advisor observed 2026-11-06 15:43:22Z: 3 SECURITY DEFINER WARN for anon
 The isolated project `bfpjtfqlnypisxljoxkb` is occupied by Normal Smoke [42246115760](https://github.com/Reekyi/UpStatus/actions/runs/42246115760). Do not run another fixture-mutating suite or claim final cleanup until it completes.
 
 No production SQL write, migration, deploy, secret/role/flag change, merge, release, userscript publication, destructive operation or manual fixture cleanup occurred.
+
+
+## Delta checkpoint - 2026-11-06 12:50 BRT
+
+- #74 current HEAD `aa33645cb242c913cb4bc5e71a22f3de70d4034c`: new Validate [42246115559](https://github.com/Reekyi/UpStatus/actions/runs/42246115559) SUCCESS. New Smoke [42246115760](https://github.com/Reekyi/UpStatus/actions/runs/42246115760) remains in authenticated integration/browser; do not mark this SHA fully green yet.
+- #76 current HEAD `86e71f5e549cc2b2e16629c5fcc06f047470f52f`: Candidate Checks [42245339846](https://github.com/Reekyi/UpStatus/actions/runs/42245339846) SUCCESS on exact SHA, including new voice offer/answer retransmission regressions and cleanup. Post-run SELECT counts were zero.
+- #82 QA branch independently advanced to `f6a9eaed2b127b4d2d4a4de9a413470666ecff06`, 66 ahead / 0 behind master. QA's current Validate [42244487940](https://github.com/Reekyi/UpStatus/actions/runs/42244487940) still fails with inherited `production updateURL mismatch`. Engineering did not modify the QA branch or `docs/RELEASE_READINESS.md`.
+- #80 continuity branch is `2a48773d921c44d188031c7655ec45da87f95820`, 133 ahead / 0 behind develop; its known Validate failure remains `client signed upload helper missing`.
+- The isolated project is occupied by #74 Smoke [42246115760](https://github.com/Reekyi/UpStatus/actions/runs/42246115760). No concurrent fixture-mutating test or manual cleanup is permitted until it completes.
+
+No production writes, migrations, deploys, secret/role/flag changes, merges, releases, userscript publication or destructive operations occurred.
