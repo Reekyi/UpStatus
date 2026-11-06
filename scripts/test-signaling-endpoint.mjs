@@ -146,5 +146,16 @@ for (const test of cases) {
     console.log(`FAIL ${test.name} (${String(error)})`);
   }
 }
-console.log(`\n${cases.length - failed}/${cases.length} unauthenticated checks passed.`);
+try {
+  const preflight = await fetch(base + "/health", { method: "OPTIONS" });
+  const exposed = (preflight.headers.get("access-control-expose-headers") || "")
+    .split(",").map(value => value.trim().toLowerCase()).filter(Boolean);
+  const ok = preflight.status === 200 && exposed.includes("retry-after");
+  console.log(`${ok ? "PASS" : "FAIL"} CORS exposes Retry-After to browser clients (HTTP ${preflight.status}).`);
+  if (!ok) failed++;
+} catch (error) {
+  failed++;
+  console.log(`FAIL CORS exposes Retry-After to browser clients (${String(error)}).`);
+}
+console.log(`\n${cases.length + 1 - failed}/${cases.length + 1} unauthenticated checks passed.`);
 if (failed) process.exit(1);
