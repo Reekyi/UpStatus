@@ -1723,3 +1723,41 @@ The current Normal and Team Lite `signalRestorePendingVoiceRoomAttempts()` imple
 - Rate-limit/Retry-After remains isolated-endpoint preparation only: actual Normal/Team Lite product server templates do not integrate the RPC, production has no dedicated signaling function, and product integration/Retry-After remain pending. The candidate RPC's opportunistic stale-bucket deletion in the request path still needs bounded-work/locking review.
 
 No production writes, migrations, deployments, secret/role/flag changes, merges, releases, userscript publication, destructive operations or manual fixture cleanup occurred.
+
+
+## Engineering checkpoint - 2026-11-06 12:38 BRT
+
+### Exact refs and CI
+
+- **#74 Normal** remains at `9ed9fcb77958455f90c31d14c2b66a463ad9d191`, 740 ahead / 0 behind `master`. Validate [42242569542](https://github.com/Reekyi/UpStatus/actions/runs/42242569542) is SUCCESS. Signaling Smoke [42242569548](https://github.com/Reekyi/UpStatus/actions/runs/42242569548) is still in authenticated integration/browser; syntax and unauthenticated endpoint checks passed. Do not mark this exact SHA green until authenticated integration, rate-limit concurrency, read-receipt concurrency and cleanup complete.
+- **#75 baseline** remains at `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 ahead / 0 behind `team-lite-official`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed.
+- **#76 Team Lite** advanced from the previously green `1a6de09805353145e78083f5c03f6c91f0118449` to `4521c056ff9ee41e369f13f167be6a2b74567a08`, 239 ahead / 0 behind `team-lite-official`, 180 ahead / 0 behind #75. The previous exact-head Candidate Checks [42241688374](https://github.com/Reekyi/UpStatus/actions/runs/42241688374) passed all jobs, including 103/103 authenticated checks and cleanup. New Candidate Checks [42244975674](https://github.com/Reekyi/UpStatus/actions/runs/42244975674) is pending behind the shared isolated-project concurrency group. The new voice-signaling retry tests have not run yet.
+- **#80 continuity** remains at `4e9cf4e0821a8a9cfb9565ed221f7ce8dd853737`, 128 ahead / 0 behind `develop`. Validate [42242450081](https://github.com/Reekyi/UpStatus/actions/runs/42242450081) failed with inherited `client signed upload helper missing`.
+- **#82 independent QA** remains at `a3596fd586872c332822a30d697be24788352890`, 65 ahead / 0 behind `master`. Validate [42235896025](https://github.com/Reekyi/UpStatus/actions/runs/42235896025) reproduces inherited `production updateURL mismatch`.
+- All five PRs remain open and Draft. Review queries returned zero submitted human reviews on #74/#75/#76/#80/#82. No merge was performed.
+
+### New voice-room signaling recovery finding
+
+Code inspection found a plausible cause for the reported no-F5 recovery failure. In both clients, `voiceRoomOffer()` returned early whenever `localDescription` existed. If an offer was created while the other participant was offline and its signaling delivery was lost, a later presence signal did not resend that cached offer. The receiving side also ignored a duplicate offer when its remote description already matched, without retransmitting its cached answer. A lost offer/answer could therefore leave a peer stuck until a full page reload reset both peer connections. This is a code-inspection finding, not yet physically reproduced.
+
+Team Lite candidate commits:
+- [45da3b5](https://github.com/Reekyi/UpStatus/commit/45da3b5fe9ebb27ee38602531f96ea7b32e94645): replace failed/disconnected peers before a fresh offer, resend an outstanding local offer on subsequent presence, resend the cached answer for a duplicate offer, and re-check peer state before a delayed recovery timer drops it.
+- [e3a2800](https://github.com/Reekyi/UpStatus/commit/e3a2800ca4c37fbc17875c86d0c53dbe5f81aed1): add VM regressions for lost offer retry, stale peer replacement, duplicate answer retry and recovery timer state.
+- [4521c05](https://github.com/Reekyi/UpStatus/commit/4521c056ff9ee41e369f13f167be6a2b74567a08): correct VM source separators in the new test harness.
+
+The same fix must be ported to Normal only after the Team Lite candidate checks pass. Manual Tampermonkey offline/reload/no-F5 testing remains mandatory; CI does not prove browser behavior.
+
+### Rate-limit candidate is stale and diverged
+
+A fresh comparison shows `normal/rate-limit-retry-after-20261106` is **10 commits ahead and 5 behind** the current Normal branch, not a clean fast-forward candidate. Do not integrate it as-is. It remains isolated, and its migration is unapplied. The candidate still changes the isolated `upstatus-signal-test` endpoint only; neither product server template integrates the distributed RPC or Retry-After, and production has no dedicated `upstatus-signal`. Review bounded cleanup/locking before refreshing this candidate from the current Normal head.
+
+### Supabase and safety
+
+- Production `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, and 38 ACTIVE Edge Functions. Current versions remain `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15 and screen-share beta10 v6.
+- Production has no dedicated `upstatus-signal`, call/voice-attempt tables or RPCs, distributed rate-limit table/RPC, or atomic read-receipt RPC. Read-only catalog queries confirmed the inspected signaling table names are absent.
+- Security findings remain 3 SECURITY DEFINER WARN for anon, 3 for authenticated, and 10 RLS-enabled/no-policy INFO. RT-01 full-row public message broadcast, client grants on backend-owned tables and `realtime.messages`, and broad default ACLs remain unresolved.
+- The isolated project `bfpjtfqlnypisxljoxkb` is currently occupied by Normal Smoke [42242569548](https://github.com/Reekyi/UpStatus/actions/runs/42242569548); Team Lite Candidate Checks [42244975674](https://github.com/Reekyi/UpStatus/actions/runs/42244975674) is queued. Do not run another fixture-mutating suite or claim final cleanup until both finish. No manual cleanup was performed.
+
+Issue #78 remains open with 0/8 physical acceptance criteria complete. Real Tampermonkey close/reload-offline/no-F5, microphone/display permissions, and installed Normal ↔ Team Lite interoperability remain MANUAL PENDING.
+
+No production SQL write, migration, deploy, secret/role/flag change, merge, release, userscript publication, destructive operation or manual fixture cleanup occurred.
