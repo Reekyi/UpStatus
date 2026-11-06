@@ -252,3 +252,8 @@ After the two documentation commits above, PR #80 is now at HEAD `af7bdf81ea4f9e
 - Production Supabase is ACTIVE_HEALTHY, PG 17.11.0.002, seven migrations through `20261027155438`. Open-voice join/leave RPCs, atomic read-receipt RPC, distributed rate-limit RPC/table are absent. 38 Edge Functions active; core versions upstatus v480, upstatus-test v281, Team Lite v15, legacy screen-share v6. No dedicated upstatus-signal.
 - Three public broadcast functions remain SECURITY DEFINER and executable by anon/authenticated; messages still broadcast full OLD/NEW rows on a public topic. Advisor: 3 anon WARN, 3 authenticated WARN, 10 RLS/no-policy INFO. Performance and health advisors empty.
 - Issue #78 remains open for physical offline/online recovery without F5, pagehide, real devices, and installed cross-client acceptance. Production writes/deployments/migrations/secrets/flags/roles remain prohibited absent explicit approval.
+
+
+### Cross-product leave follow-up (2026-11-05)
+
+Static review found Normal #74 also clears the authenticated voice-room ID/owner state before the leave RPC is confirmed and suppresses RPC failure. This is not yet changed or runtime-tested. Defer its patch until Team Lite Candidate Checks `42134550466` completes and the shared isolated fixture project is confirmed clean; then add a Normal fail-then-success retry regression.
