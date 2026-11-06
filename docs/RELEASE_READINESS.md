@@ -3999,3 +3999,87 @@ Master deploy workflow blob `8252c6c6e7005c98625603b5b02b14cb1e50a519` still use
 ### Safety record
 
 All Supabase SQL in this checkpoint was SELECT-only/catalog inspection. No production write, migration, Edge Function deployment, secret/flag/role change, userscript publication, PR merge, release, destructive operation, test-script execution or fixture mutation was performed by this audit. Exact-head CI workflows were initiated by engineering/GitHub and inspected read-only; this audit did not start or rerun them. The only write is this append to `docs/RELEASE_READINESS.md` on the dedicated QA branch. No completion percentage is reported.
+
+
+## Independent audit checkpoint — 2026-11-06 (logical call-attempt recovery)
+
+This checkpoint was prepared after re-reading the QA document and branch ref. Pre-write QA branch HEAD was `e79dd6238996171c075ea79fd96da6932dca1312`; document blob was `73f0bf1dad7955f944741295e86e0b762c70dfd5`. The update is limited to this document on `qa/release-readiness-2026-11-04-master`. Engineering branches and production remain untouched.
+
+### Fresh GitHub refs and exact-head CI
+
+All tracked PRs remain open, Draft, unmerged and mergeable. GitHub review-submission and inline-thread queries returned zero reviews and zero threads for #74, #75, #76 and #82.
+
+- **Normal #74** — `chore/continuity-foundation`, HEAD `0ff4ef9a50c79717250d9eed7e60ed85fa9c8a41`, 692 ahead / 0 behind `master`. Exact-head Validate [42188549612](https://github.com/Reekyi/UpStatus/actions/runs/42188549612) completed SUCCESS. Exact-head Signaling Smoke [42188549610](https://github.com/Reekyi/UpStatus/actions/runs/42188549610) is **IN PROGRESS**, not a pass: syntax/static harnesses and unauthenticated endpoint checks passed; authenticated isolated integration/browser tests are running; distributed rate-limit and atomic receipt concurrency steps are still pending. Do not reuse the prior #74 pass on `2db440814d374ad1e06b48645920573eaa8db978` as evidence for this new head.
+- **Team Lite #76** — `team-lite/signaling-transport-candidate`, HEAD `28e8d948f82d4d86fa853ba20d1ac6cadcd1574a`, 203 ahead / 0 behind `team-lite-official`, 144 ahead / 0 behind #75. Exact-head Candidate Checks [42178075022](https://github.com/Reekyi/UpStatus/actions/runs/42178075022) completed SUCCESS on this head. This run validates the earlier durable pagehide/reload implementation, not the new logical call-attempt protocol introduced only in #74.
+- **Team Lite baseline #75** — HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 ahead / 0 behind `team-lite-official`; [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) remains historical baseline evidence, superseded for current signaling by #76.
+- **QA #82** — HEAD `e79dd6238996171c075ea79fd96da6932dca1312`, 55 ahead / 0 behind `master`, one changed file. Latest known Validate [42183661932](https://github.com/Reekyi/UpStatus/actions/runs/42183661932) failed on the inherited `production updateURL mismatch` assertion. This is the prior QA head; a new automatic PR validation may run after this documentation commit. Do not weaken the validator.
+
+### Normal logical call-attempt recovery — CODE INSPECTION; exact-head integration pending
+
+PR #74 adds production-candidate migration `supabase/migrations/20261106080200_call_room_attempt_recovery.sql` (blob `75e994ac4f928753d4d4b1d4e5bbf6785fae23b7`) and isolated test migration `supabase/test-migrations/20261106080200_call_room_attempt_recovery_test.sql` (blob `aca0c31b61af6819a748d74e0d564160efc7ebb9`).
+
+The migration introduces `public.upstatus_signal_call_attempts` and two SECURITY INVOKER RPCs:
+- `prepare_upstatus_signal_call_room(text,text,text)`
+- `cancel_upstatus_signal_call_room(text,text)`
+
+Both RPCs use an empty `search_path`, serialize prepare/cancel through the same transaction-scoped advisory lock keyed by logical call ID, and grant EXECUTE only to `service_role` among the checked client/service roles. The attempt table has RLS enabled, no policies, no anon/authenticated table privileges, and service_role access. The prepare RPC creates the room, pending membership, binding and attempt record in one transaction. The cancel RPC can close by logical call ID without the client knowing a room ID; cancel-before-prepare writes a tombstone so a delayed prepare cannot create an orphan room. Repeated prepare/cancel is idempotent, and the migration retains a compatibility path for older create+bind clients.
+
+The Normal userscript now persists a per-member logical call ID before sending the first prepare request. If this initial GM-storage write fails, `signalTrackPendingCallAttempt()` returns false and the outgoing call is not started. Cleanup/pagehide can cancel by logical ID even if the prepare response containing the room ID was lost. The shared adapter uses `/room/prepare-call` and `/room/cancel-call`; the isolated Edge Function routes those operations to the two RPCs. This is a materially stronger recovery design than persisting only a room ID after `prepareCallRoom()` returns.
+
+The authenticated integration harness now contains checks for atomic room creation/binding, same-ID idempotent prepare, recipient mismatch, creator-only cancellation, idempotent cancellation, cancel-before-prepare tombstones, eight concurrent prepare requests racing with cancellation, at-most-one room, and rejection of a late prepare. Static assertions also require the migration, endpoint routes, client adapter methods and cleanup coverage.
+
+**Execution status matters:** the exact #74 Smoke run [42188549610](https://github.com/Reekyi/UpStatus/actions/runs/42188549610) had not completed at this checkpoint. Its authenticated integration/browser stage was still running; rate-limit and receipt concurrency were pending. Therefore the new call-attempt race suite is present in the exact-head test code and the schema/function are installed in the isolated project, but there is not yet an exact-head automated PASS for those tests. The exact-head Validate run passed; that is not a substitute for the Smoke run.
+
+### Isolated Supabase confirmation for call-attempt recovery
+
+The isolated project `bfpjtfqlnypisxljoxkb` is ACTIVE_HEALTHY in `sa-east-1`, PostgreSQL `17.11.0.003`. Its migration history now includes:
+- `20261106082526` — `call_room_attempt_recovery`
+- `20261106082546` — `call_room_attempt_recovery_test`
+
+The isolated `upstatus-signal-test` Edge Function is ACTIVE v29, SHA `0593e8a5245358ece4473cd7504b699adff20372311e43923cde60b19c6808b1`. Its current source calls the new prepare/cancel RPCs and deletes expired call-attempt rows in bounded cleanup batches. It also calls the distributed rate-limit RPC for authenticated reads/writes.
+
+Fresh SELECT-only catalog queries confirmed:
+- `upstatus_signal_call_attempts`: RLS enabled, zero policies, anon/authenticated SELECT and INSERT false, service_role SELECT/INSERT true, zero rows.
+- Both call-attempt RPCs: SECURITY INVOKER, `search_path=""`, anon/authenticated EXECUTE false, service_role EXECUTE true.
+- Post-run fixture counts: rooms 0, members 0, bindings 0, events 0, call attempts 0, rate-limit buckets 0.
+
+This is isolated candidate evidence only. No production migration or function was changed.
+
+### Newly clarified parity and storage residuals
+
+**Team Lite parity is incomplete again for the new protocol.** The current #76 userscript has no `signalPendingCallAttempts` / `signalTrackPendingCallAttempt` implementation. Its adapter still prepares calls using the older `/room/create` + `/room/bind` flow and closes by room ID; it does not expose `cancelCallRoom(logicalId)`. The earlier pagehide room-ID persistence remains present and its previous exact-head CI is green, but it does not cover the new lost-prepare-response/tombstone protocol. Port the migration, server route, adapter, userscript, tests and bundle parity to Team Lite before claiming Normal/Team Lite parity.
+
+**GM storage failure is now split by participant role.** For the Normal call creator, failure of the initial pending-call-attempt write blocks call creation. That closes the earlier creator-side “start call without a recovery handle” gap. However, non-creator participants still rely on the room-ID-based `signalPendingCallLeaves` record. `signalPersistPendingCallLeaves()` catches `GM_setValue` failure and returns false, while the cleanup path does not enforce that result before teardown. If a non-creator page closes while offline and the GM write fails, durable leave recovery is not guaranteed; the server-side membership remains bounded by room TTL/cleanup. Add a throwing-storage test and an explicit degraded path for this participant case. The same concern should be checked for voice-room membership cleanup separately.
+
+### Production Supabase — fresh read-only revalidation
+
+Production project `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY in `us-west-2`, PostgreSQL `17.11.0.002`, with seven migrations through `20261027155438`. The following remain absent from production: `upstatus_signal_call_attempts`, both call-attempt RPCs, the rate-limit table/RPC, `merge_chat_read_receipts`, open/leave voice-room RPCs, and the dedicated `upstatus-signal` Edge Function.
+
+Read-only catalog queries reconfirmed:
+- Nine backend-owned public tables (`chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing`, `users`) have RLS enabled, zero policies, and all eight privileges effective for anon and authenticated: SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER and MAINTAIN. This is an excessive privilege surface, not proof of row access while RLS is enabled with no policies.
+- `public.upstatus_visual_config` has RLS and no anon/authenticated table privileges.
+- `realtime.messages` is partitioned, RLS enabled, zero policies; anon/authenticated retain SELECT/INSERT/UPDATE.
+- The enabled `upstatus_messages_broadcast` trigger fires after INSERT/UPDATE/DELETE on `public.messages`. The current SECURITY DEFINER function has `search_path=public`, serializes the full row via `to_jsonb`, and calls `realtime.send(jsonb_build_object('op', TG_OP, 'record', rec), 'db_change', <topic>, false)`. The final `false` keeps the broadcast public. Full message content and attachment metadata remain exposed through this path. RT-01 remains the critical release blocker.
+- The three broadcast SECURITY DEFINER functions remain executable by anon/authenticated. Security Advisor at `2026-11-06T08:40:08.893Z` returned 3 WARN for anon EXECUTE, 3 WARN for authenticated EXECUTE, and 10 INFO for RLS-enabled tables without policies; Performance Advisor returned no findings.
+- Default ACLs remain broad for postgres in public/storage and supabase_admin in public/graphql/graphql_public. Current SQL role is postgres, not superuser and not a member of supabase_admin; ACL-02 remains blocked pending an authorized administrative path.
+
+Production Edge Functions remain 38/38 ACTIVE. The primary deployed Normal `upstatus` is v480, SHA `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`; Team Lite `upstatus-team-lite` is v15, SHA `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`; legacy Screen Share beta10 is v6, SHA `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29`. Re-inspected deployed Normal and Team Lite source/bundles contain none of the new call-attempt markers, prepare/cancel routes, rate-limit RPC, or Retry-After. All report `verify_jwt=false`; the core functions still perform application-level custom UpStatus token/session validation, so this flag alone is not proof of anonymous application access.
+
+### Rate-limit and remaining release gates
+
+The isolated v29 endpoint uses the distributed rate-limit RPC, but its response helper does not set `Retry-After`. The actual product-facing Normal/Team Lite server templates still do not call `consume_upstatus_signal_rate_limit`; production has no corresponding table/RPC. Rate limiting is therefore isolated-endpoint evidence, not production or coordinated product integration.
+
+Next gates:
+1. Wait for and inspect exact-head Normal Smoke [42188549610](https://github.com/Reekyi/UpStatus/actions/runs/42188549610); do not count it as passed while authenticated integration/browser, rate-limit and receipt steps remain incomplete.
+2. Port logical call-attempt persistence, prepare/cancel routes, SQL/test migration, adapter and regression tests to Team Lite; retain exact bundle parity checks.
+3. Add throwing-GM-storage tests and explicit fallback for non-creator call participants and voice-room leave.
+4. Complete physical Tampermonkey close/reload-offline and no-F5 recovery in both products; keep #78 open until the eight acceptance criteria are actually signed off.
+5. Integrate rate limiting into both real product endpoints and add/test `Retry-After`.
+6. Resolve RT-01 with a coordinated authenticated/private Realtime or server-mediated replacement compatible with the custom UpStatus session model.
+7. Resolve ACL-02 through a supported administrative path; rehearse least-privilege/security migrations in official TEST with rollback.
+8. Audit remaining legacy Edge Function routes/consumers/rollback paths, refresh #79's main body, and obtain human reviews.
+9. Keep #74/#76 Draft. No release until production security, exact-head CI, official TEST rehearsal, physical acceptance and coordinated Normal/Team Lite rollout are approved.
+
+### Safety record
+
+All production SQL in this checkpoint was SELECT-only/catalog inspection. No production write, migration, Edge Function deployment/invocation, secret/flag/role change, userscript publication, merge, release, destructive operation, workflow rerun, test-script execution or fixture mutation was performed by this audit. The exact-head CI workflows were initiated by engineering/GitHub and inspected read-only; the current #74 Smoke was still running. The only write from this audit is this append to `docs/RELEASE_READINESS.md` on the dedicated QA branch. No completion percentage is reported.
