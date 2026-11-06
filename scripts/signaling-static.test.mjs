@@ -4,6 +4,7 @@
  * These assertions do not require credentials or mutate any Supabase project.
  */
 import assert from "node:assert/strict";
+import vm from "node:vm";
 import { readFileSync } from "node:fs";
 
 const functionSource = readFileSync("supabase/functions/upstatus-signal-test/index.ts", "utf8");
@@ -360,4 +361,83 @@ assert.ok(
   productionReleasePosition < productionCliPosition && productionCliPosition < productionDeployPosition,
   "production deploy must be master-only, exact-SHA checked, project-ID guarded, credential-checked, release-locked, and use a pinned Supabase CLI before deploy");
 console.log("PASS production deploy ref, project, credential, release, and CLI-version guards");
+
+const voiceLeaveStart = userTemplate.indexOf("function voiceRoomLeave(options){");
+const voiceLeaveEnd = userTemplate.indexOf("window.addEventListener('pagehide'", voiceLeaveStart);
+const realtimeReadyStart = userTemplate.indexOf("async function waitForVoiceRealtimeReady(");
+const realtimeReadyEnd = userTemplate.indexOf("\\nasync function voiceRoomJoin", realtimeReadyStart);
+assert.ok(voiceLeaveStart >= 0 && voiceLeaveEnd > voiceLeaveStart, "Normal voice leave source boundaries not found");
+assert.ok(realtimeReadyStart >= 0 && realtimeReadyEnd > realtimeReadyStart, "Normal Realtime readiness source boundaries not found");
+const voiceLeaveSource = userTemplate.slice(voiceLeaveStart, voiceLeaveEnd) + "\\nthis.__candidateVoiceRoomLeave=voiceRoomLeave;";
+const realtimeReadySource = userTemplate.slice(realtimeReadyStart, realtimeReadyEnd) + "\\nthis.__candidateWaitForVoiceRealtimeReady=waitForVoiceRealtimeReady;";
+const readyContext = {
+  navigator: { onLine: true }, token: "session-token", realtimeActive: false, realtimeChannel: null,
+  realtimeClient: null, realtimeRetryTimer: null, Date, Promise, setTimeout,
+  startRealtime: () => { readyContext.realtimeClient = {}; readyContext.realtimeChannel = {}; readyContext.realtimeActive = true; }
+};
+vm.runInNewContext(realtimeReadySource, readyContext, { timeout: 1000 });
+assert.equal(await readyContext.__candidateWaitForVoiceRealtimeReady(1000), true, "Normal voice join must wait until Realtime is subscribed");
+const offlineReadyContext = {
+  navigator: { onLine: false }, token: "session-token", realtimeActive: false, realtimeChannel: null,
+  realtimeClient: null, realtimeRetryTimer: null, Date, Promise, setTimeout,
+  startRealtime: () => { throw new Error("Normal must not start Realtime while offline"); }
+};
+vm.runInNewContext(realtimeReadySource, offlineReadyContext, { timeout: 1000 });
+assert.equal(await offlineReadyContext.__candidateWaitForVoiceRealtimeReady(1000), false, "Normal voice join readiness must stop while offline");
+
+function makeVoiceLeaveContext({ transport, roomId = "normal-offline-room", screenShareStop } = {}) {
+  const events = [];
+  const context = {
+    voiceRoom: {
+      joinGeneration: 0, active: true, joining: false, recoveryTimers: {}, recoveryAttempts: {},
+      timer: null, levelTimer: null, pingTimer: null, pingMs: null, peers: {}, stream: null,
+      muted: false, participants: {}
+    },
+    signalVoiceRoomRoomId: roomId, signalVoiceRoomCreator: true, signalVoiceRoomPrepared: true,
+    signalTransport: transport || { leave: async () => ({ ok: true }) },
+    signalRosterCache: { [roomId]: {} }, member: "Normal Tester", Promise,
+    screenShareStop: send => { events.push("screen-stop:" + send); return screenShareStop ? screenShareStop() : Promise.resolve(); },
+    voiceRoomPlayCue: () => events.push("leave-cue"),
+    voiceRoomSend: () => { events.push("network-leave-signal"); return Promise.resolve(true); },
+    signalStopCallPolling: id => events.push("poll-stop:" + id),
+    voiceRoomDrop: () => {}, voiceRoomRender: () => {}, voiceRoomMessage: () => {},
+    clearTimeout: () => {}, clearInterval: () => {}
+  };
+  vm.runInNewContext(voiceLeaveSource, context, { timeout: 1000 });
+  return { context, events };
+}
+
+const offlineLeave = makeVoiceLeaveContext();
+await offlineLeave.context.__candidateVoiceRoomLeave({ skipServerLeave: true });
+assert.ok(offlineLeave.events.includes("screen-stop:false"), "offline teardown must stop screen capture without sending a signal");
+assert.equal(offlineLeave.events.some(event => event.startsWith("network-")), false, "offline teardown must not call signaling or membership RPCs");
+assert.equal(offlineLeave.context.signalVoiceRoomRoomId, "", "offline teardown must clear stale local room context");
+assert.equal(offlineLeave.context.signalVoiceRoomPrepared, false, "offline teardown must require a fresh open-room handshake");
+
+let leaveAttempts = 0;
+const retryTransport = { leave: async () => { leaveAttempts++; if (leaveAttempts === 1) throw new Error("transient network failure"); return { ok: true }; } };
+const retryLeave = makeVoiceLeaveContext({ transport: retryTransport });
+await retryLeave.context.__candidateVoiceRoomLeave();
+assert.equal(leaveAttempts, 1, "first Normal leave attempt must reach the captured transport");
+assert.equal(retryLeave.context.signalVoiceRoomRoomId, "normal-offline-room", "failed Normal leave must retain the room ID for retry");
+assert.equal(retryLeave.context.signalVoiceRoomPrepared, false, "failed Normal leave must force an idempotent open-room refresh before rejoin");
+await retryLeave.context.__candidateVoiceRoomLeave();
+assert.equal(leaveAttempts, 2, "a second Normal leave must retry the same membership");
+assert.equal(retryLeave.context.signalVoiceRoomRoomId, "", "successful retry must clear the room ID");
+assert.equal(retryLeave.context.signalVoiceRoomPrepared, false, "successful leave must clear prepared state");
+
+let releaseScreen;
+const pendingScreen = new Promise(resolve => { releaseScreen = resolve; });
+let oldTransportLeaves = 0, newTransportLeaves = 0;
+const oldTransport = { leave: async () => { oldTransportLeaves++; return { ok: true }; } };
+const staleTransportLeave = makeVoiceLeaveContext({ transport: oldTransport, screenShareStop: () => pendingScreen });
+const replacementTransport = { leave: async () => { newTransportLeaves++; return { ok: true }; } };
+const staleLeavePromise = staleTransportLeave.context.__candidateVoiceRoomLeave();
+staleTransportLeave.context.signalTransport = replacementTransport;
+releaseScreen();
+await staleLeavePromise;
+assert.equal(oldTransportLeaves, 0, "leave must not use a transport instance that was stopped during reconnect");
+assert.equal(newTransportLeaves, 0, "an old leave promise must never release membership through the replacement transport");
+console.log("Normal offline voice recovery, Realtime readiness, leave retry, and stale-transport tests passed.");
+
 console.log("16/16 signaling static regression groups passed.");
