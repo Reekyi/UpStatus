@@ -292,7 +292,7 @@ assert.ok(
 assert.ok(
   functionSource.includes('const RATE_LIMIT_RETRY_AFTER_SECONDS = 60') &&
   functionSource.includes('"Access-Control-Expose-Headers": "Retry-After"') &&
-  authenticatedHarness.includes('headers.get("retry-after")') &&
+  authenticatedRunner.includes('headers.get("retry-after")') &&
   readFileSync("scripts/test-signaling-endpoint.mjs","utf8").includes("access-control-expose-headers"),
   "Retry-After must be conservative, visible to browser JavaScript, and asserted by endpoint tests");
 assert.ok(
