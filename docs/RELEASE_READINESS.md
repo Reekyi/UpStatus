@@ -3915,3 +3915,87 @@ Master deploy workflow blob `8252c6c6e7005c98625603b5b02b14cb1e50a519` still use
 ### Safety record
 
 All Supabase SQL in this checkpoint was SELECT-only/catalog inspection. No production write, migration, Edge Function deploy, secret/flag/role change, userscript publication, merge, release, destructive operation, test-script execution or fixture mutation was performed by this audit. The CI workflows linked above were initiated by engineering/GitHub and inspected read-only; their fixture mutations were guarded and confined to the isolated project. The only write from this audit is this append to `docs/RELEASE_READINESS.md` on the dedicated QA branch. No completion percentage is reported.
+
+
+## Independent audit checkpoint — 2026-11-06 (post-pagehide parity revalidation)
+
+This checkpoint supersedes the preceding snapshot where PR #82 was at `4e8c6634d7d32b072fbd524530ccd76f54cbbcef`. Immediately before this update, PR #82 and the QA branch were re-read; the branch head was `2a43527a256a5b06f52da00b48acd723fb744591` and the current document blob was `a7f7ffd0d127a8a5e4edf0ed94d433db299de1d3`. The update uses that freshly fetched blob SHA as the contents-API precondition. No engineering branch was changed.
+
+### Exact PR heads, ancestry and workflow evidence
+
+All four tracked PRs are currently open, Draft, unmerged and mergeable. GitHub review-submission and inline-thread queries returned zero reviews and zero threads for #74, #75, #76 and #82.
+
+- **Normal #74** — branch `chore/continuity-foundation`, HEAD `2db440814d374ad1e06b48645920573eaa8db978`; 674 ahead / 0 behind `master`. Exact-head Validate [42172723990](https://github.com/Reekyi/UpStatus/actions/runs/42172723990) and Signaling Smoke [42172723820](https://github.com/Reekyi/UpStatus/actions/runs/42172723820) completed SUCCESS. Smoke job [127745903430](https://github.com/Reekyi/UpStatus/actions/runs/42172723820) reports 15/15 unauthenticated checks, 103/103 authenticated integration checks, 21/21 static regression groups, open-room/late-join/owner-handoff/race/capacity cases, call/voice/screen WebRTC with remote tracks, three-member mesh, 90 accepted + 1 HTTP 429, distributed limiter concurrency, atomic receipt concurrency, and fixture cleanup.
+- **Team Lite #76** — branch `team-lite/signaling-transport-candidate`, HEAD `28e8d948f82d4d86fa853ba20d1ac6cadcd1574a`; 203 ahead / 0 behind `team-lite-official`, 144 ahead / 0 behind #75. Exact-head Candidate Checks [42178075022](https://github.com/Reekyi/UpStatus/actions/runs/42178075022) completed SUCCESS. Job [127761066800](https://github.com/Reekyi/UpStatus/actions/runs/42178075022) reports 15/15 unauthenticated, 103/103 authenticated, browser call/voice/screen WebRTC with remote audio/video tracks, three-member mesh teardown, distributed limiter and receipt concurrency, migration-layout guard, version 3.4.31/portal/updater checks, voice leave/retry/logout gates, durable pagehide/reload helper tests, and final cleanup.
+- **Team Lite baseline #75** — HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; 59 ahead / 0 behind `team-lite-official`. Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) remains historical baseline evidence; #76 is the current signaling candidate.
+- **QA #82** — HEAD `2a43527a256a5b06f52da00b48acd723fb744591`; 54 ahead / 0 behind `master`; one changed path, this Markdown file. Exact-head Validate [42182631099](https://github.com/Reekyi/UpStatus/actions/runs/42182631099) failed in the build-validation step after building Normal 3.4.7 / TEST 3.4.7. The failure is the existing `production updateURL mismatch` assertion at `scripts/validate.mjs:26`, inherited from the master build/metadata baseline; it is not a Markdown parsing failure. The validator was not changed or weakened.
+
+### Durable pagehide/reload recovery — parity now present
+
+Current candidate source blobs:
+- Normal `src/userscript/upstatus.user.template.js`: `a1a67a4a938383b5b2fe39b1848e9338b1783cf2`.
+- Team Lite `team-lite/upstatus-team-lite.user.js`: `1931e0a255d797cf5c97674d1e9c8b0316d39466`.
+- Normal regression harness `scripts/signaling-static.test.mjs`: `42891c84047a2ef6b074e4209e9db85a8878fe19`.
+- Team Lite candidate checker `scripts/team-lite-candidate-check.mjs`: `0ce678c9c545c17c3b2dfff62bca0cbecc17d244`.
+
+Both clients now invoke `callCleanup(false,'pagehide')` before the separate voice-room leave attempt. Both persist a versioned per-member GM-storage envelope containing only `roomId`, `member`, `callId` and `createdAt`; the session token and transport object are not persisted. The envelope is capped at 20 records, records older than seven days are rejected, room/call IDs are validated, and restore is restricted to the same authenticated member before retrying on the newly initialized transport. The exact-head CI logs explicitly report durable pagehide/reload recovery tests passing in both candidates.
+
+**Evidence classification:** these are automated VM/helper-contract tests. The harnesses inject a Map-backed `GM_setValue`/`GM_getValue` implementation. They verify schema, member isolation, validation, persistence and retry behavior, but do not prove actual Tampermonkey storage durability or browser process termination. Real browser close/reload while offline, same-member recovery without F5, physical microphone/display capture and installed Normal ↔ Team Lite interoperability remain **MANUAL PENDING**.
+
+### Two residual cleanup risks remain in both candidates
+
+1. **GM storage write failure — CODE INSPECTION; regression absent.** In both clients, `signalPersistPendingCallLeaves()` catches a `GM_setValue` exception and returns `false`. `callCleanup()` invokes it but does not check that return value before clearing the in-memory call maps and continuing teardown. The current harness uses `storage.set()` on a normal Map and has no injected throwing-storage case. If Tampermonkey storage rejects the write during pagehide, no durable retry record is guaranteed. Add a throwing `GM_setValue` test and define an explicit degraded behavior; do not report persistence as guaranteed when storage fails.
+2. **In-flight `prepareCallRoom` race — CODE INSPECTION; NOT REPRODUCED.** The adapter performs `createRoom()`, then `bindRoom({bindingType:"call", logicalId})`, then waits for recipient acceptance, and returns `roomId` only after those steps. The caller writes `signalRoomByCallId[callId] = room.roomId` only after awaiting the entire `prepareCallRoom()` promise. If the page/process terminates after the server has created/bound a room but before that promise returns, the pagehide cleanup may not know a room ID to persist. The adapter closes the room if its catch path continues running, and the caller closes it if the promise resolves after the call was locally cancelled; neither path guarantees cleanup after process termination. This is a bounded, unverified race, not a reproduced incident. Add server-side idempotent lookup/close by logical call ID or an earlier recovery handle, and test termination during create, bind and acceptance-wait phases.
+
+### Issues and manual acceptance
+
+- [#78](https://github.com/Reekyi/UpStatus/issues/78) remains open with 21 comments; all eight acceptance checkboxes remain unchecked. The latest engineering checkpoint [6677503321](https://github.com/Reekyi/UpStatus/issues/78#issuecomment-6677503321) confirms both exact-head CI passes. Physical approximately 10-second network loss/recovery without F5, real browser close/reload offline, real devices and installed cross-client acceptance remain pending.
+- [#79](https://github.com/Reekyi/UpStatus/issues/79) remains open with 74 comments. Its main issue body still carries the 2026-11-03 snapshot; the newer engineering checkpoint [6677465427](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6677465427) contains later heads and CI. The body should be refreshed by its owner before it is treated as the release source of truth.
+
+### Production Supabase — fresh read-only catalog/advisor check
+
+Production project `dlfvkawaiqduhlazsszm` is `ACTIVE_HEALTHY`, region `us-west-2`, PostgreSQL `17.11.0.002`, with seven migrations through `20261027155438`. Candidate signaling/read-receipt/rate-limit tables and RPCs remain absent, as does the dedicated `upstatus-signal` Edge Function.
+
+Read-only catalog checks reconfirmed:
+- Nine backend-owned public tables (`chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing`, `users`) have RLS enabled, zero policies, and all eight table privileges effective for anon and authenticated: SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER and MAINTAIN. This is an excessive privilege surface; it does not by itself prove row access because RLS is enabled with no policies.
+- `public.upstatus_visual_config` has RLS enabled, zero policies and no anon/authenticated table grants. `realtime.messages` has RLS enabled, zero policies and anon/authenticated SELECT/INSERT/UPDATE grants.
+- `upstatus_broadcast_messages()`, `upstatus_broadcast_remote_state()` and `upstatus_broadcast_users()` remain SECURITY DEFINER, `search_path=public`, and executable by anon/authenticated/service_role. All three attached triggers are enabled.
+- The messages trigger fires after INSERT/UPDATE/DELETE. `upstatus_broadcast_messages()` serializes the complete OLD/NEW row with `to_jsonb` and calls `realtime.send(...,'db_change',...,false)`. This remains the confirmed public full-row chat disclosure path and the highest-priority RT-01 release blocker.
+- `acldefault('f', postgres)` and `acldefault('f', supabase_admin)` both include PUBLIC EXECUTE for newly created functions. Schema-specific default ACL overrides also grant anon/authenticated privileges in public/storage/graphql/graphql_public scopes. The SQL session is postgres, not superuser and not a member of supabase_admin; ACL-02 remains blocked pending a supported administrative path for the supabase_admin-owned defaults.
+
+The latest Security Advisor query returned three WARN findings for anon-executable SECURITY DEFINER functions, three WARN for authenticated-executable SECURITY DEFINER functions, and ten INFO findings for RLS-enabled tables without policies. Performance and health advisors returned no findings. Remediation references: [anon SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable), [authenticated SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable), and [RLS without policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
+
+### Isolated Supabase candidate — not production evidence
+
+Project `bfpjtfqlnypisxljoxkb` is `ACTIVE_HEALTHY`, region `sa-east-1`, PostgreSQL `17.11.0.003`, with 21 migrations through `20261105220323`. The isolated `upstatus-signal-test` Edge Function is ACTIVE v28 and `upstatus-signal-e2e-once` is ACTIVE v3.
+
+The four candidate RPCs exist, are SECURITY INVOKER, use an empty `search_path`, and restrict EXECUTE to service_role among the checked roles. Five signaling tables have RLS enabled, zero policies and no anon/authenticated SELECT/INSERT grants. Read-only post-run fixture counts were zero for rooms, members, bindings, events and rate-limit buckets.
+
+The isolated endpoint passed the 90-accepted + 1-HTTP-429 check and distributed concurrency in CI, but it does not return `Retry-After`. Both product server templates call `merge_chat_read_receipts` but do not call `consume_upstatus_signal_rate_limit`; product-facing distributed rate-limit integration remains pending. Isolated success is not production evidence.
+
+### Edge Functions and deployment parity
+
+Production lists 38/38 Edge Functions ACTIVE. The inventory has 12 backup-labelled, 12 test-labelled and 13 screen-share-labelled functions; labels overlap and are not additive. All report `verify_jwt=false`, which does not by itself establish unauthenticated access. Source inspection of the three primary runtimes found custom `x-upstatus-token` validation and `timingSafeEqual`, but the remaining legacy/test routes still need per-function auth/consumer/rollback mapping.
+
+- `upstatus`: ACTIVE v480, SHA `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`.
+- `upstatus-team-lite`: ACTIVE v15, SHA `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`.
+- `upstatus-screen-share-3-1-1-beta10`: ACTIVE v6, SHA `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29`.
+
+The deployed primary sources contain `x-upstatus-token` and `timingSafeEqual`, but none of the candidate markers `signalPendingCallLeaves`, `signalPersistPendingCallLeaves`, `openVoiceRoom`, `consume_upstatus_signal_rate_limit`, `merge_chat_read_receipts` or `Retry-After`. The zero-byte `upstatus-backup-327-pre328` remains ACTIVE v1 (SHA `3d6c4f8e5f777830ea720ab2938cb023b5a4e4c7d26f3fc02b926ce0e4d0dd90`). No legacy function was invoked or disabled.
+
+Master deploy workflow blob `8252c6c6e7005c98625603b5b02b14cb1e50a519` still uses Supabase CLI `latest` and lacks explicit branch/SHA/project guards. Candidate #74 workflow blob `f3493d19cb59bb4d9f41eb4ab05d542befa2b8ce` checks out `github.sha`, requires `refs/heads/master`, verifies HEAD/GITHUB_SHA, fixes the production project ID and pins CLI `2.122.1`; it still deploys only Normal and is not active in master while #74 remains Draft. No deploy occurred.
+
+### Next gates
+
+1. Add injected GM-storage write-failure tests to both clients and check/surface the persistence result rather than silently treating a failed write as durable.
+2. Close the in-flight `prepareCallRoom` race with server-side idempotent lookup/close by logical call ID or an earlier recovery handle; test page termination during create, bind and acceptance wait.
+3. Complete real Tampermonkey/browser close/reload-offline and no-F5 recovery acceptance in both products; keep #78 open until signed off.
+4. Integrate the distributed limiter into both product endpoints and add/test `Retry-After`.
+5. Resolve RT-01 with a coordinated authenticated/private Realtime or server-mediated replacement compatible with the custom UpStatus session model.
+6. Resolve ACL-02 through a supported administrative path; validate least-privilege grants, SECURITY DEFINER revocations and default-ACL migrations in official TEST with rollback.
+7. Complete legacy Edge Function route/auth/consumer/rollback mapping, refresh #79's main body, and obtain human reviews.
+8. Keep #74/#76 Draft. No release until production security, official TEST migration rehearsal, physical acceptance and coordinated Normal/Team Lite cutover are approved.
+
+### Safety record
+
+All Supabase SQL in this checkpoint was SELECT-only/catalog inspection. No production write, migration, Edge Function deployment, secret/flag/role change, userscript publication, PR merge, release, destructive operation, test-script execution or fixture mutation was performed by this audit. Exact-head CI workflows were initiated by engineering/GitHub and inspected read-only; this audit did not start or rerun them. The only write is this append to `docs/RELEASE_READINESS.md` on the dedicated QA branch. No completion percentage is reported.
