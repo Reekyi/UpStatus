@@ -1112,3 +1112,36 @@ Production `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002
 - Physical no-F5 recovery, real Tampermonkey GM bridge, microphone/display capture, and installed Normal ↔ Team Lite interoperability remain MANUAL PENDING under #78. The authenticated transport remains default-off. Production remains read-only.
 
 No merge, deploy, release, production SQL write/migration, secret/flag/role change, userscript publication, or destructive action occurred in this checkpoint.
+
+
+## Engineering checkpoint — 2026-11-06
+
+### Exact GitHub state
+
+All five tracked PRs remain open, Draft, and unmerged. Exact refs were re-fetched from GitHub:
+
+- **#74 Normal:** `chore/continuity-foundation`, HEAD `b0c0e03fbe820e02404d4ae7d9f83e2a18642e50`, 639 ahead / 0 behind `master`. Validate [42122609464](https://github.com/Reekyi/UpStatus/actions/runs/42122609464) and Signaling Smoke [42122609431](https://github.com/Reekyi/UpStatus/actions/runs/42122609431) passed on this exact head.
+- **#75 Team Lite baseline:** `team-lite/3.4.31-guest-fixes`, HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 ahead / 0 behind `team-lite-official`. Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed historically.
+- **#76 Team Lite signaling:** `team-lite/signaling-transport-candidate`, HEAD `3627557f244c98a9c7e1cc986c7cea43124863a9`, 138 ahead / 0 behind #75. Candidate Checks [42153971733](https://github.com/Reekyi/UpStatus/actions/runs/42153971733) is running on this exact head; the authenticated integration/browser step is still in progress. Do not claim a pass until all steps and cleanup complete.
+- **#80 continuity:** `docs/continuity-handoff-2026-11-04`, HEAD `222edcecf892edbb62f7b649f44adce23d123b25`, 79 ahead / 0 behind `develop`. Validate [42150956107](https://github.com/Reekyi/UpStatus/actions/runs/42150956107) fails at the inherited `client signed upload helper missing` assertion.
+- **#82 independent QA:** `qa/release-readiness-2026-11-04-master`, HEAD `151f63793a71949f5d4ba2c600f24c8401ce753b`, 48 ahead / 0 behind `master`. Validate [42151484883](https://github.com/Reekyi/UpStatus/actions/runs/42151484883) fails at the inherited `production updateURL mismatch` assertion. QA branch remains untouched.
+
+The separate Normal recovery candidate `normal/reconnect-recovery-candidate` is at `1ca2de6e3abbb383be1ccb4afff09d8b3c13dc12`, 20 commits ahead / 0 behind #74. It contains the offline/online recovery and leave-retry work plus terminal leave-state normalization. No workflow run is associated with this exact candidate head; do not fast-forward it into #74 until its exact-head checks pass.
+
+### Team Lite bundle mismatch fixed; validation pending
+
+The prior exact-head run [42150807002](https://github.com/Reekyi/UpStatus/actions/runs/42150807002) on `88a0865efee9194c868dc685f3de946b128d83bd` passed the mutation guard, adapter regressions, 15/15 unauthenticated checks, 103/103 authenticated integration checks, Chromium call/voice/screen WebRTC with remote tracks, the three-member room race, rate-limit 90+1, rate-limit concurrency, atomic read-receipt concurrency, migration-layout guard, candidate metadata, and fixture cleanup. It failed only at the final candidate assertion because `team-lite/upstatus-team-lite.user.js` still contained the old bundled `leave()` implementation while `src/userscript/signaling-transport.mjs` contained the new terminal-state normalization.
+
+Commit [3627557](https://github.com/Reekyi/UpStatus/commit/3627557f244c98a9c7e1cc986c7cea43124863a9) updates only the Team Lite userscript bundle. Before writing, the branch head, previous bundle blob, shared adapter blob, and exact commit diff were inspected. The stale leave block was replaced from the shared source; a local content comparison confirmed the normalized shared adapter is now an exact substring of the bundle. The existing checker was not weakened. Exact-head Candidate Checks [42153971733](https://github.com/Reekyi/UpStatus/actions/runs/42153971733) is still in progress. A read-only query after the prior run found zero test users, sessions, rooms, memberships, events, bindings, rate-limit buckets, and chat-read rows in isolated project `bfpjtfqlnypisxljoxkb`. The current run is using that shared fixture project; do not start another mutating suite until it completes and cleanup is verified again.
+
+### Production Supabase — SELECT-only revalidation
+
+Project `dlfvkawaiqduhlazsszm` remains `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, with seven migrations through `20261027155438` and 38 ACTIVE Edge Functions. Core deployed versions remain `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15, and legacy screen-share beta10 v6. No dedicated production `upstatus-signal` exists.
+
+Production still lacks the open/leave voice-room RPCs, `merge_chat_read_receipts`, `consume_upstatus_signal_rate_limit`, and the rate-limit table. The three broadcast functions remain SECURITY DEFINER with `search_path=public` and EXECUTE available to `anon` and `authenticated`; `upstatus_broadcast_messages()` still sends OLD/NEW row JSON to public `db_change`. Nine backend-owned tables retain all eight table privileges for both client roles while RLS is enabled with zero policies. `realtime.messages` also has RLS enabled with zero policies and retains anon/authenticated SELECT, INSERT, and UPDATE grants. Default ACLs remain broad for `postgres` in `public` and `storage`, and for `supabase_admin` in `public`, `graphql`, and `graphql_public`; the available SQL connection remains `postgres` and cannot administer the `supabase_admin` defaults.
+
+Security Advisor still reports 3 WARN for anon-executable SECURITY DEFINER functions, 3 WARN for authenticated-executable functions, and 10 INFO for RLS without policies. Performance and health advisors return no findings.
+
+Issue #78 remains open: physical no-F5 network recovery, full Tampermonkey GM-bridge/device validation, Normal ↔ Team Lite installed interoperability, and the full-reload/offline room-ID persistence edge remain unverified. Voice-room IDs are retained in page memory; a browser closed while offline can still leave a server membership until its two-hour room TTL.
+
+No production SQL write, migration, Edge Function update, secret/flag/role change, deploy, release, userscript publication, merge, or destructive action occurred.
