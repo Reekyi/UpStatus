@@ -232,6 +232,11 @@ assert.ok(script.includes("signalTransport.startPolling(roomId") && script.inclu
 assert.ok(script.includes("signalTransport.leave(room)") && script.includes("signalTransport.stopAll()"), "authenticated room membership and pollers must be cleaned up");
 assert.ok(script.includes("if(signalTransportFlag){if(!signalTransport){message(") && script.includes("startOutgoingCallWithTransport(target);return;}"), "one-to-one calls must fail closed and use authenticated transport when explicitly enabled");
 assert.ok(script.includes("signalTransport.prepareCallRoom(upCall.callId,target"), "outgoing calls must wait for server-authorized room preparation");
+assert.ok(script.includes("signalTrackPendingCallAttempt(transportCallId)") && script.includes("signalRestorePendingCallAttempts()") && script.includes("signalRetryPendingCallAttempts()") && script.includes("signalAttemptPendingCallAttempt(callId,leavingTransport,true)"), "Team Lite must persist and cancel outgoing calls by logical ID before a room ID exists");
+const litePrepareAdapterStart=signalingAdapterSource.indexOf("async function prepareCallRoom(");
+const litePrepareAdapterEnd=signalingAdapterSource.indexOf("async function leave(",litePrepareAdapterStart);
+const litePrepareAdapterSource=signalingAdapterSource.slice(litePrepareAdapterStart,litePrepareAdapterEnd);
+assert.ok(litePrepareAdapterStart>=0 && litePrepareAdapterEnd>litePrepareAdapterStart && litePrepareAdapterSource.includes('post("/room/prepare-call"') && !litePrepareAdapterSource.includes("createRoom([recipient])") && !litePrepareAdapterSource.includes('bindRoom({ roomId, bindingType: "call", logicalId })'), "Team Lite must use atomic server-side logical call preparation rather than create-then-bind");
 assert.ok(script.includes("signalTransport.waitForAcceptance"), "call invites must require explicit recipient acceptance");
 assert.ok(script.includes("eventType:'call_signal'") && script.includes("signalTransport.sendSignal"), "call media signaling must use authenticated recipient-scoped events when enabled");
 assert.ok(script.includes("discoveryOnly:true"), "public call broadcasts must be limited to non-authoritative discovery hints");
@@ -266,6 +271,7 @@ const liteInitEnd=script.indexOf("function signalSafeCallId(",liteInitStart);
 const liteInitSource=script.slice(liteInitStart,liteInitEnd);
 assert.ok(liteInitStart>=0&&liteInitEnd>liteInitStart&&liteInitSource.includes("signalRetryPendingCallLeaves();"),
   "Team Lite signaling transport initialization must retry pending call-room leaves after reconnect");
+assert.ok(liteInitSource.indexOf("signalRestorePendingCallAttempts()")>=0 && liteInitSource.indexOf("signalRestorePendingCallAttempts()")<liteInitSource.indexOf("signalRetryPendingCallAttempts()"), "Team Lite must restore durable logical call attempts before retrying them on reconnect");
 const browserHarness = read("scripts/test-signaling-browser.mjs");
 assert.ok(browserHarness.includes('"/room/open"') && browserHarness.includes('"upstatus-team-lite-room-v1"') && browserHarness.includes("late Team Lite member must join without invitation") && browserHarness.includes('roomId: voiceRoomId, bindingType: "screen"'), "browser E2E must cover open late join, cross-client aliases, and shared voice/screen room");
 assert.ok(browserHarness.includes("async function runGroupMesh()") && browserHarness.includes("async function negotiateMeshPair("), "authenticated browser E2E must include a three-member group mesh");
@@ -789,7 +795,7 @@ assert.ok(liteCallLeaveHelperStart >= 0 && liteCallLeaveHelperEnd > liteCallLeav
   "Team Lite call-membership cleanup source boundaries not found");
 const liteCallRuntimeSource = script.slice(liteCallLeaveHelperStart, liteCallLeaveHelperEnd) +
   script.slice(liteCallCleanupStart, liteCallCleanupEnd) +
-  "\nthis.__candidateCallCleanup=callCleanup;this.__candidateRetryPendingCallLeaves=signalRetryPendingCallLeaves;this.__candidatePersistPendingCallLeaves=signalPersistPendingCallLeaves;this.__candidateRestorePendingCallLeaves=signalRestorePendingCallLeaves;this.__candidateStorageKey=signalPendingCallLeavesStorageKey;";
+  "\nthis.__candidateCallCleanup=callCleanup;this.__candidateRetryPendingCallLeaves=signalRetryPendingCallLeaves;this.__candidatePersistPendingCallLeaves=signalPersistPendingCallLeaves;this.__candidateRestorePendingCallLeaves=signalRestorePendingCallLeaves;this.__candidateStorageKey=signalPendingCallLeavesStorageKey;this.__candidateTrackPendingCallAttempt=signalTrackPendingCallAttempt;this.__candidateRetryPendingCallAttempts=signalRetryPendingCallAttempts;this.__candidatePersistPendingCallAttempts=signalPersistPendingCallAttempts;this.__candidateRestorePendingCallAttempts=signalRestorePendingCallAttempts;this.__candidateAttemptsStorageKey=signalPendingCallAttemptsStorageKey;";
 function makeLiteCallCleanupContext({ transport, callSendAll, storage = new Map(), member = "Team Lite Tester" } = {}) {
   const roomId = "team-lite-call-room";
   const callId = "team-lite-call-1";
@@ -806,6 +812,7 @@ function makeLiteCallCleanupContext({ transport, callSendAll, storage = new Map(
     signalCreatorCallIds: { [callId]: false },
     signalRosterCache: { [roomId]: { members: [] } },
     signalPendingCallLeaves: Object.create(null),
+    signalPendingCallAttempts: Object.create(null),
     signalPollStops: {},
     signalTransport: transport || null,
     signalTransportFlag: true,
@@ -983,3 +990,147 @@ assert.equal(liteValidationContext.__candidateRestorePendingCallLeaves(),1,
 assert.deepEqual(Object.keys(liteValidationContext.signalPendingCallLeaves),["team-lite-call-room"],
   "Team Lite restore must retain only the validated pending room");
 console.log("Team Lite durable pagehide/reload call-room leave recovery tests passed.");
+
+// Durable logical call-attempt recovery mirrors Normal and closes the pre-room-ID pagehide race.
+const liteAttemptStorage = new Map();
+const liteAttemptContext = makeLiteCallCleanupContext({ transport: null, storage: liteAttemptStorage });
+const liteAttemptId = "Team_Lite_Tester-call-attempt-1";
+assert.equal(liteAttemptContext.__candidateTrackPendingCallAttempt(liteAttemptId), true,
+  "Team Lite must persist a member-bound logical call ID before creating a server room");
+const liteAttemptStorageKey = liteAttemptContext.__candidateAttemptsStorageKey("Team Lite Tester");
+const liteAttemptEnvelope = liteAttemptStorage.get(liteAttemptStorageKey);
+assert.equal(liteAttemptEnvelope.version, 1, "Team Lite call-attempt storage must be versioned");
+assert.equal(liteAttemptEnvelope.entries.length, 1, "Team Lite must persist one pending logical call attempt");
+assert.deepEqual(Object.keys(liteAttemptEnvelope.entries[0]).sort(), ["callId", "createdAt", "member"],
+  "Team Lite call-attempt storage may contain only call ID, member and timestamp");
+assert.equal(Object.prototype.hasOwnProperty.call(liteAttemptEnvelope.entries[0], "token"), false,
+  "Team Lite call-attempt storage must never persist a session token");
+
+const liteAttemptReload = makeLiteCallCleanupContext({
+  transport: { cancelCallRoom: async callId => { assert.equal(callId, liteAttemptId); return { ok: true, cancelled: true }; } },
+  storage: liteAttemptStorage
+});
+assert.equal(liteAttemptReload.__candidateRestorePendingCallAttempts(), 1,
+  "same-member reload must restore the pending logical call attempt");
+assert.equal(await liteAttemptReload.__candidateRetryPendingCallAttempts(), true,
+  "same-member reconnect must cancel the unknown room by logical call ID");
+assert.equal(liteAttemptStorage.get(liteAttemptStorageKey).entries.length, 0,
+  "confirmed logical call cancellation must clear the persisted attempt");
+
+const liteAttemptValidationStorage = new Map();
+liteAttemptValidationStorage.set(liteAttemptStorageKey, {
+  version: 1,
+  entries: [
+    { callId: "Team_Lite_Tester-valid-1", member: "Team Lite Tester", createdAt: Date.now() },
+    { callId: "Other_Member-call-1", member: "Other Member", createdAt: Date.now() },
+    { callId: "bad room", member: "Team Lite Tester", createdAt: Date.now() },
+    { callId: "Team_Lite_Tester-stale", member: "Team Lite Tester", createdAt: Date.now() - 8 * 24 * 60 * 60 * 1000 },
+    { callId: "Team_Lite_Tester-future", member: "Team Lite Tester", createdAt: Date.now() + 120000 }
+  ]
+});
+const liteAttemptValidation = makeLiteCallCleanupContext({ transport: null, storage: liteAttemptValidationStorage });
+assert.equal(liteAttemptValidation.__candidateRestorePendingCallAttempts(), 1,
+  "Team Lite restore must reject cross-member, malformed, stale and future-dated call attempts");
+assert.deepEqual(Object.keys(liteAttemptValidation.signalPendingCallAttempts), ["Team_Lite_Tester-valid-1"],
+  "Team Lite restore must retain only the validated logical call ID");
+
+const liteAttemptStorageFailure = makeLiteCallCleanupContext({
+  transport: null,
+  storage: { has: () => false, get: () => null, set: () => { throw new Error("userscript storage unavailable"); } }
+});
+assert.equal(liteAttemptStorageFailure.__candidateTrackPendingCallAttempt("Team_Lite_Tester-storage-failure"), false,
+  "Team Lite must fail closed when durable call-attempt storage is unavailable");
+assert.equal(Object.keys(liteAttemptStorageFailure.signalPendingCallAttempts).length, 0,
+  "failed call-attempt persistence must not leave a false in-memory durable handle");
+
+const liteOutgoingStartStart = script.indexOf("  async function startOutgoingCallWithTransport(target){");
+const liteOutgoingStartEnd = script.indexOf("  function callNewId(){", liteOutgoingStartStart);
+assert.ok(liteOutgoingStartStart >= 0 && liteOutgoingStartEnd > liteOutgoingStartStart,
+  "Team Lite outgoing-call start source boundaries not found");
+const liteOutgoingStartSource = script.slice(liteOutgoingStartStart, liteOutgoingStartEnd) +
+  "\nthis.__candidateStartOutgoingCall=startOutgoingCallWithTransport;";
+const liteOutgoingStartMessages = [];
+let liteOutgoingPrepareCalls = 0;
+const liteOutgoingStartContext = {
+  member: "Team Lite Tester",
+  upCall: { active: false },
+  callNewId: () => "Team_Lite_Tester-storage-failure",
+  signalSafeCallId: value => value,
+  signalTrackPendingCallAttempt: () => false,
+  message: value => liteOutgoingStartMessages.push(String(value)),
+  signalTransport: { prepareCallRoom: async () => { liteOutgoingPrepareCalls++; return { roomId: "must-not-exist" }; } },
+  Promise, Object, Error
+};
+vm.runInNewContext(liteOutgoingStartSource, liteOutgoingStartContext, { timeout: 1000 });
+await liteOutgoingStartContext.__candidateStartOutgoingCall("Peer");
+assert.equal(liteOutgoingPrepareCalls, 0,
+  "Team Lite must not create a server room when the durable call-attempt handle cannot be stored");
+assert.ok(liteOutgoingStartMessages.some(value => value.includes("armazenamento do userscript")),
+  "Team Lite must explain why call creation was blocked after storage failure");
+
+let liteUnknownRoomCancels = 0;
+const liteUnknownRoomId = "Team_Lite_Tester-preparing-1";
+const liteUnknownRoom = makeLiteCallCleanupContext({
+  transport: { cancelCallRoom: async callId => {
+    liteUnknownRoomCancels++;
+    assert.equal(callId, liteUnknownRoomId);
+    return { ok: true, cancelled: true };
+  } },
+  storage: new Map()
+});
+liteUnknownRoom.upCall.callId = liteUnknownRoomId;
+liteUnknownRoom.signalRoomByCallId = Object.create(null);
+liteUnknownRoom.signalCallIdByRoom = Object.create(null);
+liteUnknownRoom.signalCreatorCallIds[liteUnknownRoomId] = true;
+liteUnknownRoom.signalPendingCallAttempts[liteUnknownRoomId] = {
+  callId: liteUnknownRoomId, member: "Team Lite Tester", createdAt: Date.now(), roomId: "", transport: null, promise: null
+};
+assert.equal(await liteUnknownRoom.__candidateCallCleanup(false, "pagehide"), true,
+  "Team Lite pagehide before prepareCallRoom returns must cancel by logical ID without a room ID");
+assert.equal(liteUnknownRoomCancels, 1, "Team Lite unknown-room pagehide must issue exactly one logical-ID cancellation");
+assert.equal(Object.keys(liteUnknownRoom.signalPendingCallAttempts).length, 0,
+  "confirmed unknown-room cancellation must clear the pending call attempt");
+
+let liteOfflineUnknownRoomCancels = 0;
+const liteOfflineUnknownRoomId = "Team_Lite_Tester-preparing-offline";
+const liteOfflineUnknownRoom = makeLiteCallCleanupContext({ transport: null, storage: new Map() });
+liteOfflineUnknownRoom.upCall.callId = liteOfflineUnknownRoomId;
+liteOfflineUnknownRoom.signalRoomByCallId = Object.create(null);
+liteOfflineUnknownRoom.signalCallIdByRoom = Object.create(null);
+liteOfflineUnknownRoom.signalCreatorCallIds[liteOfflineUnknownRoomId] = true;
+liteOfflineUnknownRoom.signalPendingCallAttempts[liteOfflineUnknownRoomId] = {
+  callId: liteOfflineUnknownRoomId, member: "Team Lite Tester", createdAt: Date.now(), roomId: "", transport: null, promise: null
+};
+assert.equal(await liteOfflineUnknownRoom.__candidateCallCleanup(false, "pagehide"), false,
+  "offline pagehide before room creation must retain a retryable logical call ID");
+liteOfflineUnknownRoom.signalTransport = { cancelCallRoom: async callId => {
+  liteOfflineUnknownRoomCancels++;
+  assert.equal(callId, liteOfflineUnknownRoomId);
+  return { ok: true, cancelled: true };
+} };
+assert.equal(await liteOfflineUnknownRoom.__candidateRetryPendingCallAttempts(), true,
+  "reconnect must cancel the pending logical call attempt after transport recovery");
+assert.equal(liteOfflineUnknownRoomCancels, 1, "reconnected logical call cancellation must execute exactly once");
+assert.equal(Object.keys(liteOfflineUnknownRoom.signalPendingCallAttempts).length, 0,
+  "confirmed reconnect cancellation must clear the pending logical call ID");
+
+let liteActiveCallCancels = 0;
+const liteActiveCallId = "Team_Lite_Tester-active-call";
+const liteActiveCall = makeLiteCallCleanupContext({
+  transport: { cancelCallRoom: async () => { liteActiveCallCancels++; return { ok: true, cancelled: true }; } },
+  storage: new Map()
+});
+liteActiveCall.upCall.active = true;
+liteActiveCall.upCall.callId = liteActiveCallId;
+liteActiveCall.signalPendingCallAttempts[liteActiveCallId] = {
+  callId: liteActiveCallId, member: "Team Lite Tester", createdAt: Date.now(), roomId: "", transport: null, promise: null
+};
+assert.equal(await liteActiveCall.__candidateRetryPendingCallAttempts(), true,
+  "reconnect must not cancel a call that is still active in the current page");
+assert.equal(liteActiveCallCancels, 0, "active call attempts must be preserved during reconnect");
+liteActiveCall.upCall.active = false;
+liteActiveCall.upCall.callId = "";
+assert.equal(await liteActiveCall.__candidateRetryPendingCallAttempts(), true,
+  "an abandoned call attempt must be cancelled after the call is no longer active");
+assert.equal(liteActiveCallCancels, 1, "abandoned logical call attempt must be cancelled exactly once");
+console.log("Team Lite pre-prepare call-ID persistence, storage-failure gate, active-call reconnect guard and unknown-room recovery tests passed.");
