@@ -64,6 +64,14 @@ async function cleanupExpired(now = new Date()) {
       await db.from("upstatus_signal_rooms").delete()
         .in("room_id", expiredRooms.map(room => room.room_id));
     }
+
+    const { data: expiredAttempts, error: attemptsError } = await db.from("upstatus_signal_call_attempts")
+      .select("call_id").lte("expires_at", timestamp)
+      .order("expires_at", { ascending: true }).limit(100);
+    if (!attemptsError && expiredAttempts?.length) {
+      await db.from("upstatus_signal_call_attempts").delete()
+        .in("call_id", expiredAttempts.map(attempt => attempt.call_id));
+    }
   } catch {
     // Cleanup is best-effort and must never block signaling requests.
   }
@@ -170,6 +178,49 @@ Deno.serve(async (req: Request) => {
       return response({
         ok: true, roomId, participants, invited: participants.filter(name => name !== sender), expiresAt
       }, 201);
+    }
+
+    if (path.endsWith("/room/prepare-call")) {
+      const logicalId = String(p.logicalId || "");
+      const recipient = String(p.recipient || "");
+      if (!/^[A-Za-z0-9._:-]{1,128}$/.test(logicalId) ||
+          !recipient || recipient.length > 80 || recipient === sender)
+        return response({ error: "Invalid call preparation" }, 400);
+      const { data, error } = await db.rpc("prepare_upstatus_signal_call_room", {
+        p_call_id: logicalId, p_user_name: sender, p_recipient: recipient
+      });
+      if (error) throw error;
+      const result = data as Record<string, unknown> | null;
+      if (!result || typeof result !== "object") return response({ error: "Call preparation failed" }, 500);
+      if (result.error) {
+        const code = String(result.error);
+        const status = code === "INVALID_ARGUMENT" || code === "INVALID_CALL_ID" ? 400 :
+          code === "UNKNOWN_USER" ? 404 :
+          code === "CALL_ID_CONFLICT" || code === "CALL_RECIPIENT_MISMATCH" ? 409 :
+          code === "CALL_CANCELLED" || code === "CALL_EXPIRED" || code === "CALL_MEMBERSHIP_ENDED" ? 410 : 409;
+        return response({ error: code }, status);
+      }
+      return response(result, result.created === true ? 201 : 200);
+    }
+
+    if (path.endsWith("/room/cancel-call")) {
+      const logicalId = String(p.logicalId || "");
+      if (!/^[A-Za-z0-9._:-]{1,128}$/.test(logicalId))
+        return response({ error: "Invalid call reference" }, 400);
+      const { data, error } = await db.rpc("cancel_upstatus_signal_call_room", {
+        p_call_id: logicalId, p_user_name: sender
+      });
+      if (error) throw error;
+      const result = data as Record<string, unknown> | null;
+      if (!result || typeof result !== "object") return response({ error: "Call cancellation failed" }, 500);
+      if (result.error) {
+        const code = String(result.error);
+        const status = code === "INVALID_ARGUMENT" || code === "INVALID_CALL_ID" ? 400 :
+          code === "UNKNOWN_USER" ? 404 :
+          code === "CALL_ID_FORBIDDEN" ? 403 : 409;
+        return response({ error: code }, status);
+      }
+      return response(result);
     }
 
     if (path.endsWith("/room/open")) {
