@@ -976,7 +976,7 @@ The branch advanced with documentation follow-ups after the earlier 52-ahead sna
 | #74 Normal | `b0c0e03fbe820e02404d4ae7d9f83e2a18642e50` | Validate 42122609464 and Signaling Smoke 42122609431 passed on this exact HEAD |
 | #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Candidate Checks 41674353127 passed historically on this exact baseline |
 | #76 Team Lite | `7538296fd7e0d5208fe96da6baed0c9263f12e33` | Candidate Checks 42142527307 running; prior intermediate 6ba88b failed only in a new VM-test source-boundary escape |
-| #80 Continuity | `6a516cb09249f18cf814e5be9fa03cdf1bb79233` | Validate 42135175714 failed at `client signed upload helper missing` |
+| #80 Continuity | `5ea7773af33e5884828202e72efa639d0da1881c` | Validate 42142746252 failed at `client signed upload helper missing` |
 | #82 QA | `3cb3539ba10c0061d104d5936c2c04ee5bb81b79` | Validate 42137572524 failed at `production updateURL mismatch` |
 
 All five PRs remain open and Draft. #76 remains a descendant of #75; do not treat them as independent merges. Current ancestry comparisons: #74 is 639 commits ahead of master; #76 is 178 ahead of `team-lite-official` and 119 ahead of #75; #80 is 60 ahead of develop; #82 is 45 ahead of master. The large #74 ancestry remains a separate integration-review gate.
