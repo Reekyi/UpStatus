@@ -1761,3 +1761,44 @@ A fresh comparison shows `normal/rate-limit-retry-after-20261106` is **10 commit
 Issue #78 remains open with 0/8 physical acceptance criteria complete. Real Tampermonkey close/reload-offline/no-F5, microphone/display permissions, and installed Normal ↔ Team Lite interoperability remain MANUAL PENDING.
 
 No production SQL write, migration, deploy, secret/role/flag change, merge, release, userscript publication, destructive operation or manual fixture cleanup occurred.
+
+
+## Engineering checkpoint - 2026-11-06 12:44 BRT
+
+### Exact-head results
+
+- **#74 Normal** `9ed9fcb77958455f90c31d14c2b66a463ad9d191`, 740 ahead / 0 behind `master`: Validate [42242569542](https://github.com/Reekyi/UpStatus/actions/runs/42242569542) SUCCESS and Signaling Smoke [42242569548](https://github.com/Reekyi/UpStatus/actions/runs/42242569548) SUCCESS. Smoke logs confirm 129/129 authenticated integration checks, browser call/voice/screen WebRTC with remote media, three-member mesh, rate limit 90+1, rate-limit concurrency, atomic read receipts and cleanup.
+- **#75 baseline** remains `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 ahead / 0 behind `team-lite-official`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed.
+- **#76 Team Lite** is now `86e71f5e549cc2b2e16629c5fcc06f047470f52f`, 240 ahead / 0 behind `team-lite-official`, 181 ahead / 0 behind #75. Candidate Checks [42245339846](https://github.com/Reekyi/UpStatus/actions/runs/42245339846) passed the isolation guard, adapter, durable voice-attempt/retransmission regressions and endpoint authentication. Authenticated integration/browser is still running; rate-limit/read-receipt concurrency, migration layout, metadata and cleanup remain pending. The preceding run [42244975674](https://github.com/Reekyi/UpStatus/actions/runs/42244975674) failed only in the new test harness because its VM stub used an unbound `this`; the closure was corrected in `86e71f5`.
+- **Normal voice-retry candidate** is isolated at `normal/voice-signaling-retry-20261106`, HEAD `aa33645cb242c913cb4bc5e71a22f3de70d4034c`, 742 ahead / 0 behind `master`, exactly 2 commits ahead of #74. Its `voiceRoomOffer`, incoming-offer branch and recovery timer are byte-identical to the Team Lite candidate. It is not integrated into #74 and has no CI result yet.
+- **#80 continuity** is `566268d18aa63a64de783898647ce5815bdee3f5`, 129 ahead / 0 behind `develop`; the latest observed Validate [42242450081](https://github.com/Reekyi/UpStatus/actions/runs/42242450081) failed with inherited `client signed upload helper missing`. No source or validator changes were made.
+- **#82 independent QA** remains `a3596fd586872c332822a30d697be24788352890`, 65 ahead / 0 behind `master`; Validate [42235896025](https://github.com/Reekyi/UpStatus/actions/runs/42235896025) reproduces inherited `production updateURL mismatch`. QA branch and `docs/RELEASE_READINESS.md` remain untouched.
+- All five PRs remain open and Draft. Review queries returned zero submitted human reviews. No merge was performed.
+
+### Voice-room signaling retry candidate
+
+The code-inspection risk remains: an offer created while the other member is offline could stay in `have-local-offer` without retransmission on later presence; a receiver could ignore a duplicate offer without retransmitting its cached answer; and a delayed recovery timer could drop a peer that recovered before the timer fired.
+
+Team Lite candidate `86e71f5` now includes:
+- replacement of failed/disconnected peers before a new offer;
+- retransmission of a cached local offer when a later presence arrives and no remote description exists;
+- retransmission of the cached answer for a duplicate remote offer;
+- a state check before a delayed recovery timer drops the peer;
+- VM regressions for all four cases.
+
+The durable-recovery unit step passed on [42245339846](https://github.com/Reekyi/UpStatus/actions/runs/42245339846), but the full Candidate Checks run is not complete. This remains code-inspection evidence, not a physical reproduction. Normal has an equivalent isolated candidate `aa33645`; integrate it only after Team Lite full CI passes. Physical Tampermonkey offline/reload/no-F5 testing remains mandatory.
+
+### Rate-limit candidate review
+
+A fresh compare still shows `normal/rate-limit-retry-after-20261106` is 10 commits ahead and 5 behind current Normal. Do not integrate as-is. Its RPC performs an unbounded stale-bucket DELETE inside the request path on 1/64 calls. The Edge Function's best-effort cleanup is bounded to 500 events and 100 rooms per run, but it does not bound rate-limit bucket deletion. Replace this with a separately bounded cleanup RPC or scheduled cleanup before refreshing the candidate. Product endpoint integration remains absent.
+
+### Supabase
+
+- Production `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, 38 ACTIVE Edge Functions. Versions: `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15, screen-share beta10 v6.
+- No dedicated `upstatus-signal`, call/voice-attempt tables or RPCs, distributed rate-limit table/RPC, or atomic read-receipt RPC exists in production.
+- Security Advisor observed 2026-11-06 15:43:22Z: 3 SECURITY DEFINER WARN for anon, 3 for authenticated, 10 RLS-enabled/no-policy INFO; performance and health findings are empty. RT-01 public full-row broadcast, backend-owned table grants, `realtime.messages` client grants and broad default ACLs remain unresolved.
+- The isolated project `bfpjtfqlnypisxljoxkb` is occupied by Team Lite Candidate Checks [42245339846](https://github.com/Reekyi/UpStatus/actions/runs/42245339846). Do not run another fixture-mutating suite or claim final cleanup until it finishes.
+
+Issue #78 remains open with physical Tampermonkey close/reload-offline/no-F5, real microphone/display permissions and installed Normal ↔ Team Lite interoperability pending.
+
+No production SQL write, migration, deploy, secret/role/flag change, merge, release, userscript publication, destructive operation or manual fixture cleanup occurred.
