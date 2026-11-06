@@ -479,3 +479,14 @@ No production writes, migrations, deployment, merge, release, secret/role/flag c
 - Production `dlfvkawaiqduhlazsszm` remains read-only: 7 migrations, 38 ACTIVE Edge Functions, no dedicated `upstatus-signal`. Security findings remain 3 SECURITY DEFINER WARN for anon, 3 for authenticated, and 10 RLS-without-policy INFO. RT-01 and ACL-02 remain open.
 
 All PRs remain Draft. No merge, deploy, release, production write/migration, secret/role/flag change, userscript publication, or destructive operation occurred.
+
+
+## Follow-up checkpoint — 2026-11-06 09:49 BRT
+
+- Normal #74 HEAD `94513c106d42cb8d77ab9a1c11ff7c9bfa610ba6` (735/0 vs master, Draft): Validate [42220452780](https://github.com/Reekyi/UpStatus/actions/runs/42220452780) passed; exact-head Smoke [42220452949](https://github.com/Reekyi/UpStatus/actions/runs/42220452949) is running authenticated/browser integration and cleanup.
+- Previous HEAD `b7a6b3c` passed full Smoke [42219641534](https://github.com/Reekyi/UpStatus/actions/runs/42219641534), including 129/129 authenticated checks, WebRTC call/voice/screen, group mesh, voice attempt race/cancellation, rate-limit and receipt concurrency, and workflow cleanup for temporary users/sessions/rooms/memberships/events.
+- Latest candidate adds runtime pagehide cancellation before room ID, offline/unconfirmed retention, oversized-envelope fail-closed, Unicode member-prefix normalization, and storage-read logout gating. These changes are awaiting exact-head Smoke.
+- Team Lite #76 remains `5cc5df4` with previous Candidate Checks passing, but voice-attempt client/adapter/server-template parity is still absent. Issue #78 remains open.
+- #80 Validate [42219924635](https://github.com/Reekyi/UpStatus/actions/runs/42219924635) still fails `client signed upload helper missing`; #82 Validate [42218972117](https://github.com/Reekyi/UpStatus/actions/runs/42218972117) still fails `production updateURL mismatch`.
+
+No production writes or release actions occurred.
