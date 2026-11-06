@@ -25,7 +25,8 @@ const misplaced = listFiles(migrationsRoot)
 
 assert.deepEqual(misplaced, [], "test-only SQL must stay outside supabase/migrations (the Supabase CLI discovery path)");
 
-for (const name of ["20261104152847_atomic_chat_read_receipts_and_visual_config_grants_test.sql","20261104154623_distributed_signaling_rate_limit_test.sql"]) {
+for (const name of ["20261104152847_atomic_chat_read_receipts_and_visual_config_grants_test.sql","20261104154623_distributed_signaling_rate_limit_test.sql",
+  "20261106191000_bounded_rate_limit_cleanup_test.sql"]) {
   const testPath = path.join(testMigrationsRoot, name);
   const migrationPath = path.join(migrationsRoot, name);
   assert.equal(existsSync(testPath), true, "isolated test migration missing: " + name);
@@ -38,5 +39,15 @@ assert.equal(existsSync(readmePath), true, "isolated test migration safety READM
 const readmeText = readFileSync(readmePath, "utf8");
 assert.ok(readmeText.includes("bfpjtfqlnypisxljoxkb"), "test migration allowlist project ref missing");
 assert.ok(readmeText.includes("Never apply these files"), "test migration production exclusion warning missing");
+
+const boundedRateLimitCleanupTest = readFileSync(
+  path.join(testMigrationsRoot, "20261106191000_bounded_rate_limit_cleanup_test.sql"), "utf8"
+);
+assert.match(boundedRateLimitCleanupTest, /LIMIT\\s+100/i,
+  "rate-limit cleanup must delete at most 100 stale buckets per request");
+assert.match(boundedRateLimitCleanupTest, /FOR UPDATE SKIP LOCKED/i,
+  "bounded cleanup must skip rows already locked by concurrent cleanup");
+assert.match(boundedRateLimitCleanupTest, /v_remaining <> 50/i,
+  "isolated SQL regression must prove that 150 stale buckets leave exactly 50 after cleanup");
 
 console.log("Test migration layout guard passed.");
