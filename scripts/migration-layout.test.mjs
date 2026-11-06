@@ -68,7 +68,7 @@ assert.ok(callAttemptIndexTest.includes("indisvalid") && callAttemptIndexTest.in
 const boundedRateLimitCleanupTest = readFileSync(
   path.join(testMigrationsRoot, "20261106191000_bounded_rate_limit_cleanup_test.sql"), "utf8"
 );
-assert.match(boundedRateLimitCleanupTest, /LIMIT\\s+100/i,
+assert.ok(boundedRateLimitCleanupTest.includes("LIMIT 100"),
   "rate-limit cleanup must delete at most 100 stale buckets per request");
 assert.match(boundedRateLimitCleanupTest, /FOR UPDATE SKIP LOCKED/i,
   "bounded cleanup must skip rows already locked by concurrent cleanup");
