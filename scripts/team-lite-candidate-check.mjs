@@ -581,6 +581,7 @@ const readyContext = {
   realtimeActive: false,
   realtimeChannel: null,
   realtimeClient: null,
+  realtimeRetryTimer: null,
   startRealtime: () => {
     realtimeStartCalls++;
     readyContext.realtimeClient = {};
