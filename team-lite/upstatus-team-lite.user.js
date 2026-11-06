@@ -689,12 +689,20 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave().catch(functio
   }
   function signalReleaseVoiceRoom(){
     var room=signalVoiceRoomRoomId;
-    if(!signalTransport||!room)return Promise.resolve();
+    if(!room)return Promise.resolve(true);
+    if(!signalTransport)return Promise.resolve(false);
     signalStopCallPolling(room);
-    signalVoiceRoomRoomId='';
-    signalVoiceRoomPrepared=false;
-    signalVoiceRoomCreator=false;
-    return signalTransport.leave(room).catch(function(){});
+    return Promise.resolve().then(function(){return signalTransport.leave(room);}).then(function(result){
+      if(signalVoiceRoomRoomId===room){
+        signalVoiceRoomRoomId='';
+        signalVoiceRoomPrepared=false;
+        signalVoiceRoomCreator=false;
+      }
+      return result;
+    }).catch(function(e){
+      voiceRoomMessage(e&&e.message?e.message:'Não foi possível confirmar a saída da sala. Tente novamente.');
+      return false;
+    });
   }
 
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
