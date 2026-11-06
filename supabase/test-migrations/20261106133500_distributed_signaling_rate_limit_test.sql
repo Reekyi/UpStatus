@@ -56,7 +56,7 @@ BEGIN
   IF v_security_definer THEN
     RAISE EXCEPTION 'rate-limit RPC must remain SECURITY INVOKER';
   END IF;
-  IF NOT ('search_path=' = ANY(COALESCE(v_config, ARRAY[]::text[]))) THEN
+  IF NOT ('search_path=""' = ANY(COALESCE(v_config, ARRAY[]::text[]))) THEN
     RAISE EXCEPTION 'rate-limit RPC must use an empty search_path';
   END IF;
   IF pg_catalog.has_function_privilege('anon', v_function, 'EXECUTE')
