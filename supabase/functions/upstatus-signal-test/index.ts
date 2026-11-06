@@ -237,11 +237,13 @@ Deno.serve(async (req: Request) => {
         return response({ error: "Invalid open voice room logical ID" }, 400);
       if (attemptId && !/^[A-Za-z0-9._:-]{1,128}$/.test(attemptId))
         return response({ error: "Invalid voice room attempt ID" }, 400);
-      const rpcName = attemptId ? "open_upstatus_signal_voice_room_attempt" : "open_upstatus_signal_voice_room";
-      const rpcArgs = attemptId
-        ? { p_attempt_id: attemptId, p_logical_id: logicalId, p_user_name: sender, p_max_members: 32 }
-        : { p_logical_id: logicalId, p_user_name: sender, p_max_members: 32 };
-      const { data, error } = await db.rpc(rpcName, rpcArgs);
+      const { data, error } = attemptId
+        ? await db.rpc("open_upstatus_signal_voice_room_attempt", {
+            p_attempt_id: attemptId, p_logical_id: logicalId, p_user_name: sender, p_max_members: 32
+          })
+        : await db.rpc("open_upstatus_signal_voice_room", {
+            p_logical_id: logicalId, p_user_name: sender, p_max_members: 32
+          });
       if (error) {
         const message = String(error.message || "");
         if (message.includes("VOICE_ROOM_BINDING_CONFLICT")) return response({ error: "Voice room binding conflict" }, 409);
