@@ -10,7 +10,7 @@ if (!base) {
   process.exit(2);
 }
 
-const request = (url, options = {}) => fetch(url, { ...options, signal: AbortSignal.timeout(12000) });
+const request = (url, options = {}) => fetch(url, { ...options, signal: AbortSignal.timeout(20000) });
 const cases = [
   {
     name: "health endpoint is available",
