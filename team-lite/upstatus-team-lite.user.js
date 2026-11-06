@@ -251,7 +251,21 @@ function createSignalingTransport({
 
   async function leave(roomId) {
     if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
-    return post("/room/leave", { roomId });
+    const terminalCodes = new Set(["ROOM_UNAVAILABLE", "ROOM_MEMBERSHIP_ENDED"]);
+    const alreadyGone = value => {
+      const code = value && (typeof value.code === "string" ? value.code :
+        typeof value.error === "string" ? value.error : "");
+      return terminalCodes.has(code) ? code : "";
+    };
+    try {
+      const result = await post("/room/leave", { roomId });
+      const code = alreadyGone(result);
+      return code ? { ok: true, alreadyGone: true, code } : result;
+    } catch (error) {
+      const code = alreadyGone(error);
+      if (code) return { ok: true, alreadyGone: true, code };
+      throw error;
+    }
   }
 
   async function close(roomId) {
