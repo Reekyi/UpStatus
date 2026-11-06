@@ -649,3 +649,41 @@ The current recovery candidate does not yet serialize simultaneous local offer c
 - The final heads add the concurrent duplicate-remote-offer regression on top of the already-tested per-peer queue/glare implementation. Do not call final-head CI complete until both queued workflows finish.
 - The isolated project remains in use by the final Normal Smoke; no manual fixture cleanup or overlapping mutating suite was started. Verify zero fixtures only after the queue drains.
 - The rate-limit candidate branch `normal/rate-limit-retry-after-20261106` is now 10 commits ahead / 18 behind current #74 and remains divergent. Its migration still performs an unbounded stale-bucket DELETE on 1-in-64 requests; do not integrate it as a unit.
+
+
+## 2026-11-06 14:56 BRT — exact-head CI completion and isolated cleanup
+
+Live refs were re-fetched before this checkpoint. All five PRs remain open, Draft, and unmerged; no human approval/review submission was observed.
+
+### Exact PR heads and CI
+
+- **Normal #74** — `05c9b4d59b74202e718bec77746746b7aa19632f`. Validate [42260571956](https://github.com/Reekyi/UpStatus/actions/runs/42260571956) and Signaling Smoke [42260571690](https://github.com/Reekyi/UpStatus/actions/runs/42260571690) both completed successfully on the exact head. Smoke job [128040810495](https://github.com/Reekyi/UpStatus/actions/runs/42260571690) passed 129/129 authenticated integration checks, browser call/voice/screen WebRTC with remote media, three-member mesh, voice-attempt open/cancel races, rate limit (90 accepted + 1 HTTP 429), rate-limit concurrency, atomic read-receipt concurrency, and fixture cleanup.
+- **Team Lite #76** — `b784daa63447cda1675dd45f6daccdaf5c2c8973`. Candidate Checks [42260582180](https://github.com/Reekyi/UpStatus/actions/runs/42260582180) completed successfully on the exact head. Job [128050692503](https://github.com/Reekyi/UpStatus/actions/runs/42260582180) passed 103/103 authenticated checks, browser call/voice/screen WebRTC, three-member mesh, open voice-room membership/owner handoff/races/capacity, voice-attempt recovery, rate limit, read receipts, migration-layout guard, version/portal/session/updater checks, and cleanup.
+- **Team Lite baseline #75** — unchanged `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed. #76 is 190 commits ahead and zero behind this baseline.
+- **Continuity #80** — `99ad0b501e0b132ecdf71823fa394383733b4cbc`. Validate [42261621831](https://github.com/Reekyi/UpStatus/actions/runs/42261621831) failed at the inherited `client signed upload helper missing` assertion after building 3.0.40 / TEST 3.0.40-beta.22. No runtime code changed in this docs PR.
+- **Independent QA #82** — `59cbe760bb8247ebade999de40abf97553447f29`. Validate [42263304314](https://github.com/Reekyi/UpStatus/actions/runs/42263304314) failed at the inherited `production updateURL mismatch` assertion after building 3.4.7 / TEST 3.4.7. The QA branch and `docs/RELEASE_READINESS.md` were not modified.
+
+### Isolated Supabase cleanup — read-only verification
+
+Project `bfpjtfqlnypisxljoxkb` is ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, with 27 recorded migrations through `20261106120851`. After both exact-head workflows completed, sequential SELECT-only counts returned **zero** reserved-prefix fixtures in users, sessions, rooms, memberships, bindings, signaling events, call attempts, voice-room attempts, rate-limit buckets, chat reads, and messages. No manual cleanup was performed.
+
+### Production Supabase — read-only recheck
+
+Project `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY on PostgreSQL 17.11.0.002, with seven migrations through `20261027155438` and 38 ACTIVE Edge Functions. Core deployed functions remain Normal `upstatus` v480 (3.4.7), Team Lite `upstatus-team-lite` v15 (3.4.30), and legacy Normal `upstatus-screen-share-3-1-1-beta10` v6.
+
+Production still lacks the dedicated `upstatus-signal` endpoint, distributed rate-limit table/RPC, call/voice-attempt tables/RPCs, and `merge_chat_read_receipts`. Security Advisor still reports three SECURITY DEFINER functions executable by anon and the same three by authenticated (3 + 3 WARN), plus ten RLS/no-policy INFO findings; performance and health advisors have no findings. Direct read-only catalog checks reconfirmed the three broadcast functions are SECURITY DEFINER with `search_path=public` and EXECUTE for anon/authenticated. Nine backend-owned public tables retain RLS with zero policies and client CRUD grants; `upstatus_visual_config` is the exception with no client table grants.
+
+### Public Realtime chat path: candidate vs deployed behavior
+
+The current Normal and Team Lite candidate userscripts both send `chat_fast` without a message payload at the two message/attachment send sites. The Normal candidate also contains `20261103160000_minimize_public_chat_broadcast.sql`, which changes the database trigger broadcast to an operation-only hint. This is candidate source/migration evidence, not production deployment.
+
+The deployed Normal v480 and Team Lite v15 bundles still send `chat_fast` with `{message: created}` and `{message: r.message}` on the public topic. The production database trigger also remains the full-row public broadcast. RT-01 therefore remains BLOCKED until the candidate client and reviewed migration are coordinated through an approved release/cutover; the public topic itself and its metadata/frequency exposure also remain to be addressed. Do not treat candidate payload minimization as a production fix.
+
+### Remaining engineering/release gates
+
+- Distributed rate limiting is tested only in the isolated signaling endpoint. Neither product server template nor production core function calls `consume_upstatus_signal_rate_limit`; `Retry-After` is not in the product contract. The separate `normal/rate-limit-retry-after-20261106` branch remains divergent and its candidate RPC performs an unbounded stale-bucket DELETE on 1-in-64 requests. Do not promote it as a unit.
+- Issue #78 remains open with 0/8 physical acceptance criteria: real Tampermonkey offline/online recovery without F5, device permissions, and installed Normal ↔ Team Lite interoperability remain MANUAL PENDING.
+- Issue #79 body remains 16/35 checked (19 unchecked); do not convert that checklist count into an overall completion percentage.
+- Candidate release versions, endpoint cutover, migration packaging/rollback in official TEST, Realtime authorization/private transport, 38-function auth/ownership inventory, human reviews, and explicit release approval remain open.
+
+This checkpoint used GitHub metadata/workflow logs and read-only Supabase metadata, advisors, catalog SQL, and isolated-project fixture counts. No production SQL write, migration, deployment, flag/secret/role change, userscript publication, merge, destructive operation, or manual test-fixture mutation was performed.
