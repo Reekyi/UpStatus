@@ -277,6 +277,12 @@ voiceRoomRender();
 return voiceRoomLeavePromise;
 }
 async function normalReleaseVoiceRoomBeforeLogout(){
+  if(!signalPendingVoiceRoomStorageHealthy){
+    voiceRoomMessage('Não foi possível verificar as saídas pendentes da sala de voz. Sua sessão foi mantida. Recarregue e tente novamente.');
+    card.classList.remove('hidden');
+    voiceRoomRender();
+    return false;
+  }
   var hasPendingForMember=Object.keys(signalPendingVoiceRoomAttempts).some(function(id){
     var entry=signalPendingVoiceRoomAttempts[id];return !!entry&&entry.member===member;
   });
@@ -681,6 +687,7 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
     return entry.promise;
   }
   function signalRetryPendingVoiceRoomAttempts(force){
+    if(!signalPendingVoiceRoomStorageHealthy)return Promise.resolve(false);
     var attempts=Object.keys(signalPendingVoiceRoomAttempts).filter(function(attemptId){
       var entry=signalPendingVoiceRoomAttempts[attemptId];
       return !!entry&&entry.member===member;
