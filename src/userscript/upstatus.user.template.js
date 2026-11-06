@@ -328,6 +328,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var signalVoiceRoomRoomId="",signalVoiceRoomCreator=false,signalVoiceRoomPrepared=false;
   var signalRoomByCallId=Object.create(null),signalCallIdByRoom=Object.create(null);
   var signalPollStops=Object.create(null),signalCreatorCallIds=Object.create(null),signalRosterCache=Object.create(null);
+  var signalPendingCallLeaves=Object.create(null);
   function signalTransportRequest(route,payload,options){
     return new Promise(function(resolve,reject){
       var signal=options&&options.signal,handle=null,settled=false,abortHandler=null;
@@ -355,13 +356,56 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
       }catch(e){finish(reject,e);}
     });
   }
+  function signalAttemptPendingCallLeave(roomId,expectedTransport,requireExpectedTransport){
+    var entry=signalPendingCallLeaves[roomId];
+    if(!entry)return Promise.resolve(true);
+    if(entry.member!==member)return Promise.resolve(true);
+    var currentTransport=signalTransport;
+    if(entry.promise){
+      if(requireExpectedTransport&&entry.transport!==expectedTransport)return entry.promise;
+      if(!requireExpectedTransport&&currentTransport&&entry.transport!==currentTransport){
+        return entry.promise.then(function(){return signalAttemptPendingCallLeave(roomId,null,false);});
+      }
+      return entry.promise;
+    }
+    var transportForAttempt=requireExpectedTransport?expectedTransport:currentTransport;
+    if(!transportForAttempt||currentTransport!==transportForAttempt)return Promise.resolve(false);
+    entry.transport=transportForAttempt;
+    var attempt=Promise.resolve().then(function(){return transportForAttempt.leave(roomId);}).then(function(result){
+      if(result===false||(result&&typeof result==='object'&&(result.ok===false||result.error)))throw new Error(result&&result.error?String(result.error):'O servidor não confirmou a saída da chamada.');
+      if(signalPendingCallLeaves[roomId]===entry)delete signalPendingCallLeaves[roomId];
+      if(entry.callId){
+        if(signalRoomByCallId[entry.callId]===roomId)delete signalRoomByCallId[entry.callId];
+        delete signalCreatorCallIds[entry.callId];
+      }
+      if(signalCallIdByRoom[roomId]===entry.callId)delete signalCallIdByRoom[roomId];
+      delete signalRosterCache[roomId];
+      return true;
+    }).catch(function(){return false;});
+    entry.promise=attempt.then(function(ok){
+      entry.promise=null;
+      if(!ok&&!requireExpectedTransport&&signalTransport&&signalTransport!==transportForAttempt)return signalAttemptPendingCallLeave(roomId,null,false);
+      return ok;
+    });
+    return entry.promise;
+  }
+  function signalRetryPendingCallLeaves(){
+    var rooms=Object.keys(signalPendingCallLeaves).filter(function(roomId){
+      var entry=signalPendingCallLeaves[roomId];
+      return !!entry&&entry.member===member;
+    });
+    if(!rooms.length)return Promise.resolve(true);
+    return Promise.all(rooms.map(function(roomId){return signalAttemptPendingCallLeave(roomId,null,false);})).then(function(results){
+      return results.every(function(ok){return ok===true;});
+    });
+  }
   function initSignalingTransport(){
     if(!signalTransportFlag||signalTransport||!token||!signalTransportEndpoint||typeof createSignalingTransport!=='function')return;
     try{
       var endpoint=new URL(signalTransportEndpoint),sessionServer=new URL(server);
       if(endpoint.protocol!=='https:'||endpoint.origin!==sessionServer.origin||endpoint.search||endpoint.hash||
         !/\/functions\/v1\/upstatus-signal(?:-test)?$/.test(endpoint.pathname))return;
-      signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});signalStartInvitationPolling();
+      signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});signalStartInvitationPolling();signalRetryPendingCallLeaves();
     }catch(e){signalTransport=null;}
   }
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
@@ -2059,9 +2103,9 @@ function renderChatText(text){
     if(!upCall.connected&&upCall.startedAt){upCall.startedAt=0;if(upCall.counterTimer){clearInterval(upCall.counterTimer);upCall.counterTimer=null;}}
   }
   function callCleanup(sendSignal,signalType){
-    var cleanupPromise=Promise.resolve();
+    var cleanupPromise=Promise.resolve(true);
     upCall.startAttempt=(upCall.startAttempt||0)+1;upCall.starting=false;
-    var callId=upCall.callId,signalRoomId=signalRoomByCallId[callId],signalRoomCreator=signalCreatorCallIds[callId]===true,pendingSignals=[];
+    var callId=upCall.callId,signalRoomId=signalRoomByCallId[callId],signalRoomCreator=signalCreatorCallIds[callId]===true,pendingSignals=[],leavingTransport=signalTransport,leavingMember=member;
     if(callId&&upCall.active){
       if(signalTransportFlag){
         if(signalTransport&&signalRoomId&&!upCall.pendingInvite)pendingSignals.push(callSendAll('ended',{updatedAt:Date.now()}));
@@ -2086,14 +2130,21 @@ function renderChatText(text){
     upCall.signalAbortController=null;
     if(signalRoomId){
       signalStopCallPolling(signalRoomId);
-      delete signalRoomByCallId[callId];delete signalCallIdByRoom[signalRoomId];delete signalRosterCache[signalRoomId];
-      if(signalTransport){
-        cleanupPromise=Promise.allSettled(pendingSignals.map(function(p){return Promise.resolve(p);})).then(function(){return signalTransport.leave(signalRoomId);}).catch(function(){});
+      if(!signalPendingCallLeaves[signalRoomId]){
+        signalPendingCallLeaves[signalRoomId]={roomId:signalRoomId,callId:callId,member:leavingMember,transport:leavingTransport,promise:null};
       }
+      delete signalRoomByCallId[callId];delete signalCallIdByRoom[signalRoomId];delete signalRosterCache[signalRoomId];
     }
     delete signalCreatorCallIds[callId];
     upCall.callId='';upCall.peer='';upCall.role='';upCall.initiator='';upCall.participants=[];upCall.pendingInvites={};upCall.pendingOffers={};upCall.pendingInvite=null;upCall.peers={};upCall.localStream=null;upCall.remoteStream=null;upCall.audio=null;upCall.active=false;upCall.connected=false;upCall.muted=false;upCall.startedAt=0;upCall.waitingForConnection=false;upCall.notice='';
     callHideOverlay();
+    cleanupPromise=Promise.allSettled(pendingSignals.map(function(p){return Promise.resolve(p);})).then(function(){
+      if(!signalRoomId)return signalRetryPendingCallLeaves();
+      return signalAttemptPendingCallLeave(signalRoomId,leavingTransport,true).then(function(ok){
+        if(ok||!signalPendingCallLeaves[signalRoomId])return signalRetryPendingCallLeaves();
+        return false;
+      });
+    });
     return cleanupPromise;
   }
   function callFail(msg){
@@ -3531,7 +3582,18 @@ function chatAvatarPresence(name){
     card.querySelector('.up-screen-share-toggle').onclick=function(e){e.preventDefault();e.stopPropagation();if(screenShare.active)screenShareStop(true);else screenShareStart();};
     voiceRoomRender();
     document.addEventListener('click',function(e){if(box&&!box.contains(e.target))menu.classList.add('hidden')});
-    card.querySelector('.up-logout').onclick=async function(){try{if(upCall&&upCall.active)await callCleanup(true,'hangup');}catch(e){}try{if(!await normalReleaseVoiceRoomBeforeLogout())return;}catch(e){return;}broadcastChatPresence(false);try{await api('POST','/api/logout',{});}catch(e){}stopRealtime();token='';member='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');history.classList.add('hidden');health.classList.add('hidden');img.src=profileFallback();login()};
+    card.querySelector('.up-logout').onclick=async function(){
+      var callsReleased=false;
+      try{
+        callsReleased=upCall&&upCall.active?await callCleanup(true,'hangup'):await signalRetryPendingCallLeaves();
+        if(callsReleased)callsReleased=await signalRetryPendingCallLeaves();
+      }catch(e){callsReleased=false;}
+      if(!callsReleased){voiceRoomMessage('Não foi possível confirmar a saída da chamada. Sua sessão foi mantida. Reconecte e tente sair novamente.');voiceRoomRender();return;}
+      try{if(!await normalReleaseVoiceRoomBeforeLogout())return;}catch(e){return;}
+      broadcastChatPresence(false);
+      try{await api('POST','/api/logout',{});}catch(e){}
+      stopRealtime();token='';member='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');history.classList.add('hidden');health.classList.add('hidden');img.src=profileFallback();login()
+    };
     history.querySelector('.up-close').onclick=function(){history.classList.add('hidden')};
     history.querySelector('.up-export').onclick=function(){exportHistoryTxt()};
     if(settingsBtn)settingsBtn.onclick=function(e){e.stopPropagation();settingsMenu.classList.toggle('hidden');};
