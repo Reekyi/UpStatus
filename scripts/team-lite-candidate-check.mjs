@@ -513,6 +513,7 @@ const fallbackLeaveContext = {
   signalPendingVoiceRoomStorageHealthy: true,
   signalRosterCache: Object.create(null),
   signalTransport: null,
+  initSignalingTransport: () => fallbackEvents.push("transport-init"),
   signalVoiceRoomPrepared: false,
   signalVoiceRoomCreator: false,
   signalAttemptPendingVoiceRoomCancel: async () => true,
@@ -535,6 +536,8 @@ fallbackPromise.then(() => { fallbackSettled = true; });
 // The extracted async function runs in a separate VM context; yield one event-loop turn
 // so its cross-context Promise continuation reaches the fallback before asserting.
 await new Promise(resolve => setTimeout(resolve, 0));
+assert.ok(fallbackEvents.includes("transport-init"), "voice leave must reinitialize the authenticated transport when its room binding outlives the transport");
+assert.ok(fallbackEvents.indexOf("transport-init") < fallbackEvents.indexOf("fallback-start"), "transport recovery must precede the durable room-release retry");
 assert.ok(fallbackEvents.includes("fallback-start"), "failed active leave must retry through signalReleaseVoiceRoom while the room binding remains");
 assert.equal(fallbackSettled, false, "voice leave must await the fallback membership release");
 finishFallbackLeave();
