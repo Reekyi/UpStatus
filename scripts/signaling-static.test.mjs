@@ -355,6 +355,11 @@ await firstOutgoingAttempt;
 assert.equal(outgoingContext.upCall.active,false,"a call attempt invalidated by cleanup must not start after reconnect");
 assert.equal(callIdsCreated,0,"a stale outgoing call must not allocate a call ID after cleanup");
 
+assert.ok(userTemplate.includes("var voiceRoomLeavePromise=null;") &&
+  userTemplate.includes("if(voiceRoomLeavePromise)return voiceRoomLeavePromise;") &&
+  userTemplate.includes("voiceRoomLeavePromise=leavePromise.finally") &&
+  userTemplate.includes("while(voiceRoomLeavePromise){try{await voiceRoomLeavePromise;}catch(e){}}"),
+  "Normal voice rejoin must serialize behind the prior leave promise");
 assert.ok(userTemplate.includes("voiceRoomLeave({skipServerLeave:true})") &&
   userTemplate.includes("screenShareStop(!skipServerLeave)") &&
   userTemplate.includes("signalVoiceRoomPrepared=false") &&
@@ -399,7 +404,7 @@ const realtimeReadyStart = userTemplate.indexOf("async function waitForRealtimeR
 const realtimeReadyEnd = userTemplate.indexOf("\nasync function voiceRoomJoin", realtimeReadyStart);
 assert.ok(voiceLeaveStart >= 0 && voiceLeaveEnd > voiceLeaveStart, "Normal voice leave source boundaries not found");
 assert.ok(realtimeReadyStart >= 0 && realtimeReadyEnd > realtimeReadyStart, "Normal Realtime readiness source boundaries not found");
-const voiceLeaveSource = userTemplate.slice(voiceLeaveStart, voiceLeaveEnd) + "\nthis.__candidateVoiceRoomLeave=voiceRoomLeave;";
+const voiceLeaveSource = "var voiceRoomLeavePromise=null;\n" + userTemplate.slice(voiceLeaveStart, voiceLeaveEnd) + "\nthis.__candidateVoiceRoomLeave=voiceRoomLeave;";
 const realtimeReadySource = userTemplate.slice(realtimeReadyStart, realtimeReadyEnd) + "\nthis.__candidateWaitForVoiceRealtimeReady=waitForRealtimeReady;";
 const readyContext = {
   navigator: { onLine: true }, token: "session-token", realtimeActive: false, realtimeChannel: null,
@@ -438,6 +443,15 @@ function makeVoiceLeaveContext({ transport, roomId = "normal-offline-room", scre
   return { context, events };
 }
 
+let releaseCoalescedLeave;
+const coalescedScreenLeave = new Promise(resolve => { releaseCoalescedLeave = resolve; });
+const coalescedLeave = makeVoiceLeaveContext({ screenShareStop: () => coalescedScreenLeave });
+const firstCoalescedLeave = coalescedLeave.context.__candidateVoiceRoomLeave();
+const secondCoalescedLeave = coalescedLeave.context.__candidateVoiceRoomLeave();
+assert.equal(firstCoalescedLeave, secondCoalescedLeave, "duplicate Normal leave calls must share one in-flight promise");
+assert.equal(coalescedLeave.events.filter(event => event === "screen-stop:true").length, 1, "duplicate Normal leave calls must not repeat screen teardown");
+releaseCoalescedLeave();
+await firstCoalescedLeave;
 const offlineLeave = makeVoiceLeaveContext();
 await offlineLeave.context.__candidateVoiceRoomLeave({ skipServerLeave: true });
 assert.ok(offlineLeave.events.includes("screen-stop:false"), "offline teardown must stop screen capture without sending a signal");
@@ -471,4 +485,4 @@ assert.equal(oldTransportLeaves, 0, "leave must not use a transport instance tha
 assert.equal(newTransportLeaves, 0, "an old leave promise must never release membership through the replacement transport");
 console.log("Normal offline voice recovery, Realtime readiness, leave retry, and stale-transport tests passed.");
 
-console.log("17/17 signaling static regression groups passed.");
+console.log("18/18 signaling static regression groups passed.");
