@@ -583,7 +583,7 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
       if(record)records.push(record);
     });
     try{GM_setValue(signalPendingVoiceRoomAttemptsStorageKey(member),{version:1,entries:records});return true;}
-    catch(e){signalPendingVoiceRoomStorageHealthy=false;return false;}
+    catch(e){return false;}
   }
   function signalTrackPendingVoiceRoomAttempt(logicalId,attemptId){
     if(!signalPendingVoiceRoomStorageHealthy)return false;
