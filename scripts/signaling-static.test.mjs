@@ -445,4 +445,4 @@ assert.equal(oldTransportLeaves, 0, "leave must not use a transport instance tha
 assert.equal(newTransportLeaves, 0, "an old leave promise must never release membership through the replacement transport");
 console.log("Normal offline voice recovery, Realtime readiness, leave retry, and stale-transport tests passed.");
 
-console.log("16/16 signaling static regression groups passed.");
+console.log("17/17 signaling static regression groups passed.");
