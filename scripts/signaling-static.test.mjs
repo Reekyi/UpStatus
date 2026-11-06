@@ -492,18 +492,31 @@ const offlineReadyContext = {
 vm.runInNewContext(realtimeReadySource, offlineReadyContext, { timeout: 1000 });
 assert.equal(await offlineReadyContext.__candidateWaitForVoiceRealtimeReady(1000), false, "Normal voice join readiness must stop while offline");
 
-function makeVoiceLeaveContext({ transport, roomId = "normal-offline-room", screenShareStop } = {}) {
+function makeVoiceLeaveContext({ transport, roomId = "normal-offline-room", screenShareStop, attemptId = "", active = true, joining = false, cancelAttempt } = {}) {
   const events = [];
-  const context = {
+  const pendingAttempts = Object.create(null);
+  if (attemptId) pendingAttempts[attemptId] = { attemptId, member: "Normal Tester", logicalId: "upstatus-team-room-v1" };
+  let context;
+  context = {
     voiceRoom: {
-      joinGeneration: 0, active: true, joining: false, recoveryTimers: {}, recoveryAttempts: {},
+      joinGeneration: 0, active, joining, recoveryTimers: {}, recoveryAttempts: {},
       timer: null, levelTimer: null, pingTimer: null, pingMs: null, peers: {}, stream: null,
       muted: false, participants: {}
     },
-    signalVoiceRoomRoomId: roomId, signalVoiceRoomCreator: true, signalVoiceRoomPrepared: true, signalVoiceRoomAttemptId: "",
-    signalPendingVoiceRoomAttempts: Object.create(null),
-    signalTransport: transport || { leave: async () => ({ ok: true }) },
-    signalRosterCache: { [roomId]: {} }, member: "Normal Tester", Promise,
+    signalVoiceRoomRoomId: roomId, signalVoiceRoomCreator: true, signalVoiceRoomPrepared: true, signalVoiceRoomAttemptId: attemptId,
+    signalPendingVoiceRoomAttempts: pendingAttempts,
+    signalAttemptPendingVoiceRoomCancel: async id => {
+      events.push("cancel-attempt:" + id);
+      const ok = cancelAttempt ? await cancelAttempt(id) : true;
+      if (ok) {
+        delete pendingAttempts[id];
+        context.signalVoiceRoomAttemptId = "";
+        context.signalVoiceRoomRoomId = "";
+      }
+      return ok;
+    },
+    signalTransport: transport || { leave: async () => ({ ok: true }), cancelVoiceRoomOpen: async () => ({ ok: true, cancelled: true }) },
+    signalRosterCache: roomId ? { [roomId]: {} } : {}, member: "Normal Tester", Promise,
     screenShareStop: send => { events.push("screen-stop:" + send); return screenShareStop ? screenShareStop() : Promise.resolve(); },
     voiceRoomPlayCue: () => events.push("leave-cue"),
     voiceRoomSend: () => { events.push("network-leave-signal"); return Promise.resolve(true); },
@@ -532,6 +545,41 @@ assert.equal(offlineLeave.events.some(event => event.startsWith("network-")), fa
 assert.equal(offlineLeave.context.signalVoiceRoomRoomId, "normal-offline-room", "offline teardown must retain server room context for logout retry");
 assert.equal(offlineLeave.context.signalVoiceRoomCreator, false, "offline teardown must clear stale local ownership");
 assert.equal(offlineLeave.context.signalVoiceRoomPrepared, false, "offline teardown must require a fresh open-room handshake");
+
+const pendingAttemptLeave = makeVoiceLeaveContext({
+  roomId: "",
+  attemptId: "Normal_Tester-voice-pending",
+  active: false,
+  joining: true,
+});
+assert.equal(await pendingAttemptLeave.context.__candidateVoiceRoomLeave(), true,
+  "pagehide during /room/open must cancel by attempt ID even before a room ID arrives");
+assert.ok(pendingAttemptLeave.events.includes("cancel-attempt:Normal_Tester-voice-pending"));
+assert.equal(pendingAttemptLeave.context.signalVoiceRoomAttemptId, "");
+assert.equal(pendingAttemptLeave.context.signalPendingVoiceRoomAttempts["Normal_Tester-voice-pending"], undefined);
+
+const pendingAttemptOffline = makeVoiceLeaveContext({
+  roomId: "",
+  attemptId: "Normal_Tester-voice-offline",
+  active: false,
+  joining: true,
+});
+assert.equal(await pendingAttemptOffline.context.__candidateVoiceRoomLeave({ skipServerLeave: true }), false,
+  "offline teardown must retain a pending voice attempt for authenticated retry");
+assert.equal(pendingAttemptOffline.context.signalVoiceRoomAttemptId, "Normal_Tester-voice-offline");
+assert.ok(pendingAttemptOffline.context.signalPendingVoiceRoomAttempts["Normal_Tester-voice-offline"]);
+
+const pendingAttemptFailure = makeVoiceLeaveContext({
+  roomId: "",
+  attemptId: "Normal_Tester-voice-failed",
+  active: false,
+  joining: true,
+  cancelAttempt: async () => false,
+});
+assert.equal(await pendingAttemptFailure.context.__candidateVoiceRoomLeave(), false,
+  "an unconfirmed attempt cancellation must keep the membership reference");
+assert.equal(pendingAttemptFailure.context.signalVoiceRoomAttemptId, "Normal_Tester-voice-failed");
+assert.ok(pendingAttemptFailure.context.signalPendingVoiceRoomAttempts["Normal_Tester-voice-failed"]);
 
 let leaveAttempts = 0;
 const retryTransport = { leave: async () => { leaveAttempts++; if (leaveAttempts === 1) throw new Error("transient network failure"); return { ok: true }; } };
