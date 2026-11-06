@@ -730,3 +730,39 @@ The QA failure is reproducible on the #82 branch's `master` base. The current #7
 5. Official TEST migration/rollback rehearsal, complete 38-function auth/ownership inventory, human reviews, scope decisions, and explicit release approval remain open.
 
 The #74/#76 chat_fast changes in these heads are regression-test-only; they do not change runtime behavior or production. CI approval is not physical browser acceptance or production deployment.
+
+
+## 2026-11-06 — deterministic bounded-cleanup regression and current release gates
+
+### Candidate heads and exact-head CI
+
+- **Normal #74**: HEAD `b1c3addd918edc5a5b55ceefa739d64338ef2389`. Validate [42285181092](https://github.com/Reekyi/UpStatus/actions/runs/42285181092) passed. Signaling Smoke [42285181079](https://github.com/Reekyi/UpStatus/actions/runs/42285181079) is queued/pending; no job has started in the latest inspection.
+- **Team Lite #76**: HEAD `dfc9ddf4ce08bac6bf67451e4c3cad99d58e1564`. Candidate Checks [42285187342](https://github.com/Reekyi/UpStatus/actions/runs/42285187342) is queued/pending; no job has started in the latest inspection.
+- **Baseline #75** remains `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, historical CI pass only.
+- **Continuity #80** remains `39f6e94607677a620cb26710ec724b12853ff0d3`; Validate [42276650240](https://github.com/Reekyi/UpStatus/actions/runs/42276650240) fails on the inherited develop baseline assertion `client signed upload helper missing`.
+- **QA #82** remains on its separate branch at `4f1c852701eb41f8afe6d63f718d7f78ace1ba87`; Validate [42280801629](https://github.com/Reekyi/UpStatus/actions/runs/42280801629) fails on the inherited master baseline assertion `production updateURL mismatch`. Do not edit the QA branch.
+- Fresh comparisons: #74 is 760 commits ahead / 0 behind master; #76 is 256 ahead / 0 behind `team-lite-official` and 197 ahead / 0 behind #75. #80 is 159 ahead / 0 behind develop; #82 is 72 ahead / 0 behind master. All tracked PRs remain open and Draft.
+
+### Bounded rate-limit cleanup regression
+
+The test-only SQL file remains under `supabase/test-migrations/`, not the Supabase CLI production migration directory. Both Normal and Team Lite now have the same SQL blob `2a76b07d84fefe709fb27ea1bbd66b57c0aedc3c`.
+
+The regression now checks for zero pre-existing stale rate-limit buckets before inserting its 150 stale test rows, preventing older unrelated rows from consuming part of the global 100-row cleanup batch and invalidating the exact 150-to-50 assertion. The migration-layout guards also assert that precondition. Guard blobs: Normal `d1b5dd0ad32e4e465894f41e3fc0c4ca8ebfb7db`; Team Lite `7d7935382d80181b909eccdb5c701a54f717f91b`.
+
+Commits:
+- Normal: SQL `1124b4ef`, guard `66e1c1a`, current HEAD `b1c3add`.
+- Team Lite: SQL `4259452`, guard `5cc5525`, current HEAD `dfc9ddf`.
+
+The latest Validate on Normal passed. The new Smoke and Team Lite Candidate Checks are still queued. The SQL migration has **not** been applied to the isolated project yet. A SELECT-only check observed six recently updated rate-limit buckets and zero stale buckets in `bfpjtfqlnypisxljoxkb`; the shared test project appears active, so do not alter its schema until the mutating workflow activity has drained and the table is back to a verified clean baseline.
+
+### New independent QA release blocker
+
+The latest QA audit found that `signaling_transport_enabled` defaults to `false` in both candidate userscripts. With that default, call, voice-room and screen-share signaling still fall back to public Realtime broadcasts; the authenticated transport is opt-in only. Production still has no dedicated `upstatus-signal` Edge Function. Do not flip the flag or change production configuration: the endpoint, migrations, authentication model, and coordinated rollback/cutover are not ready. Treat this as a release blocker even though candidate CI is green.
+
+### Production snapshot — read-only
+
+Production `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations through `20261027155438`, and 38 ACTIVE Edge Functions. The catalog still lacks the distributed rate-limit table/RPC, atomic read-receipt RPC, and dedicated `upstatus-signal` endpoint. The public message trigger still sends full OLD/NEW rows to `db_change` with `private=false`; the three broadcast SECURITY DEFINER functions remain executable by client roles. Security Advisor remains at 3 WARN for anon, 3 WARN for authenticated, and 10 INFO for RLS without policies.
+
+Issue #78 remains open with 0/8 physical acceptance criteria; Issue #79 remains open with 16/35 checklist items checked. No physical Tampermonkey/no-F5, microphone, display-capture, or installed Normal-to-Team-Lite acceptance has been recorded.
+
+No production SQL write, migration, Edge Function deployment, merge, release, secret/role/feature-flag change, userscript publication, or destructive operation occurred. All production database inspection was SELECT-only.
