@@ -47,6 +47,12 @@ const voiceAttemptTest = readFileSync("supabase/test-migrations/20261106120500_v
 const rateLimitMigration = readFileSync(
   "supabase/test-migrations/20261104154623_distributed_signaling_rate_limit_test.sql", "utf8",
 );
+const productionRateLimitMigration = readFileSync(
+  "supabase/migrations/20261106133500_distributed_signaling_rate_limit.sql", "utf8",
+);
+const rateLimitMigrationTest = readFileSync(
+  "supabase/test-migrations/20261106133500_distributed_signaling_rate_limit_test.sql", "utf8",
+);
 const authenticatedHarness = readFileSync("scripts/test-signaling-authenticated.mjs", "utf8");
 const authenticatedRunner = readFileSync("scripts/run-signaling-authenticated.mjs", "utf8");
 const signalingWorkflow = readFileSync(".github/workflows/signaling-smoke.yml", "utf8");
@@ -286,7 +292,8 @@ assert.ok(
   "rate limits must use the atomic database RPC and fail closed when the RPC errors");
 assert.ok(
   functionSource.includes('const bucket = sender + (readRoute ? ":read" : ":write")') &&
-  functionSource.includes('return response({ error: "Rate limit exceeded" }, 429)'),
+  functionSource.includes('return response({ error: "Rate limit exceeded" }, 429, { "Retry-After": "60" })') &&
+  functionSource.includes('"Access-Control-Expose-Headers": "Retry-After"'),
   "per-user read/write quotas must reject exhausted buckets with HTTP 429");
 assert.ok(
   rateLimitMigration.includes("on conflict(bucket_key) do update set") &&
@@ -296,7 +303,40 @@ assert.ok(
   rateLimitMigration.includes("grant execute on function public.consume_upstatus_signal_rate_limit") &&
   rateLimitMigration.includes("to service_role"),
   "distributed rate-limit RPC must atomically count requests and remain service-role-only");
-assert.match(functionSource, /try \{[\s\S]*JSON\.stringify\(p\)\.length[\s\S]*catch \{\s*return null;/,
+
+const corsStart = functionSource.indexOf("const CORS = {");
+const corsEnd = functionSource.indexOf("\\n};", corsStart) + 3;
+const responseStart = functionSource.indexOf("function response(");
+const responseEnd = functionSource.indexOf("\\nfunction hash", responseStart);
+assert.ok(corsStart >= 0 && corsEnd > corsStart && responseStart >= 0 && responseEnd > responseStart,
+  "rate-limit response helper boundaries must exist");
+const responseHarness = functionSource.slice(corsStart, corsEnd) + "\\n" +
+  functionSource.slice(responseStart, responseEnd)
+    .replace("body: unknown", "body")
+    .replace("extraHeaders: Record<string,string> = {}", "extraHeaders = {}") +
+  "\\nthis.__candidateResponse = response;";
+const responseContext = { Response };
+vm.runInNewContext(responseHarness, responseContext, { timeout: 1000 });
+const candidate429 = responseContext.__candidateResponse({ error: "Rate limit exceeded" }, 429, { "Retry-After": "60" });
+assert.equal(candidate429.status, 429);
+assert.equal(candidate429.headers.get("retry-after"), "60");
+assert.ok((candidate429.headers.get("access-control-expose-headers") || "").toLowerCase().includes("retry-after"),
+  "Retry-After must be visible to cross-origin userscript clients");
+assert.ok(
+  productionRateLimitMigration.includes("CREATE TABLE IF NOT EXISTS public.upstatus_signal_rate_limits") &&
+  productionRateLimitMigration.includes("SECURITY INVOKER") &&
+  productionRateLimitMigration.includes("SET search_path = ''") &&
+  productionRateLimitMigration.includes("REVOKE ALL ON FUNCTION public.consume_upstatus_signal_rate_limit") &&
+  productionRateLimitMigration.includes("GRANT EXECUTE ON FUNCTION public.consume_upstatus_signal_rate_limit") &&
+  productionRateLimitMigration.includes("TO service_role"),
+  "production rate-limit migration must remain additive, invoker-scoped, empty-search-path and service-role-only"
+);
+assert.ok(
+  rateLimitMigrationTest.includes("search_path=\\\"\\\"") &&
+  rateLimitMigrationTest.includes("PUBLIC/anon/authenticated must not execute the rate-limit RPC"),
+  "rate-limit SQL regression must assert the actual empty search_path catalog value and client denial"
+);
+assert.match(functionSource, /try \\[\\s\\S]*JSON\\.stringify\\(p\\)\\.length[\\s\\S]*catch \\{\\s*return null;/,
   "payload serialization failures must be rejected as invalid payloads");
 
 assert(readFileSync("scripts/build.mjs","utf8").includes("signalingTransportTemplate") &&
