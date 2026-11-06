@@ -277,3 +277,230 @@ assert.ok(template.includes("voiceRoomLeave({skipServerLeave:true})"),
   "offline teardown must preserve the durable attempt instead of clearing it locally");
 
 console.log("Normal durable voice-room attempt persistence, cancel-before-open, reload retry, storage fail-closed and logout-gate tests passed.");
+
+
+const voiceOfferStart = template.indexOf("async function voiceRoomOffer(n){");
+const voiceReceiveStart = template.indexOf("async function voiceRoomReceive(p){", voiceOfferStart);
+assert.ok(voiceOfferStart >= 0 && voiceReceiveStart > voiceOfferStart,
+  "voice-room offer helper boundaries must exist");
+const voiceOfferSource = template.slice(voiceOfferStart, voiceReceiveStart);
+
+const pendingOfferPeer = {
+  pc: {
+    signalingState: "have-local-offer",
+    connectionState: "connecting",
+    iceConnectionState: "checking",
+    localDescription: { type: "offer", sdp: "cached-offer-sdp" },
+    remoteDescription: null,
+  },
+};
+const pendingOfferSends = [];
+let pendingOfferCreateCalls = 0;
+const pendingOfferContext = {
+  voiceRoom: { active: true, peers: { Zulu: pendingOfferPeer } },
+  member: "Alpha",
+  voiceRoomMakePeer: async () => pendingOfferPeer,
+  voiceRoomDrop: () => { throw new Error("a pending healthy offer must be retransmitted, not dropped"); },
+  voiceRoomSend: (type, to, data) => {
+    pendingOfferSends.push({ type, to, data });
+    return false;
+  },
+};
+pendingOfferPeer.pc.createOffer = async () => {
+  pendingOfferCreateCalls++;
+  return { type: "offer", sdp: "unexpected-new-offer" };
+};
+vm.runInNewContext(
+  voiceOfferSource + "\nthis.__candidateVoiceRoomOffer = voiceRoomOffer;",
+  pendingOfferContext,
+  { timeout: 1000 },
+);
+await pendingOfferContext.__candidateVoiceRoomOffer("Zulu");
+await pendingOfferContext.__candidateVoiceRoomOffer("Zulu");
+assert.equal(pendingOfferCreateCalls, 0,
+  "a local offer without an answer must be retransmitted rather than creating a second offer");
+assert.equal(pendingOfferSends.length, 2,
+  "a later peer-presence signal must retry an offer whose first delivery was not confirmed");
+assert.deepEqual(pendingOfferSends.map(x => x.data.sdp.sdp), ["cached-offer-sdp", "cached-offer-sdp"]);
+
+const staleVoicePeer = {
+  pc: {
+    signalingState: "have-local-offer",
+    connectionState: "disconnected",
+    iceConnectionState: "disconnected",
+    localDescription: { type: "offer", sdp: "stale-offer" },
+    remoteDescription: null,
+  },
+};
+const freshVoicePeer = {
+  pc: {
+    signalingState: "stable",
+    connectionState: "new",
+    iceConnectionState: "new",
+    localDescription: null,
+    remoteDescription: null,
+    createOffer: async () => ({ type: "offer", sdp: "fresh-offer" }),
+    setLocalDescription: async function (offer) {
+      this.localDescription = offer;
+      this.signalingState = "have-local-offer";
+    },
+  },
+};
+const stalePeerMap = { Zulu: staleVoicePeer };
+const stalePeerDrops = [];
+const freshOfferSends = [];
+const stalePeerContext = {
+  voiceRoom: { active: true, peers: stalePeerMap },
+  member: "Alpha",
+  voiceRoomDrop(name) {
+    stalePeerDrops.push(name);
+    delete stalePeerMap[name];
+  },
+  voiceRoomMakePeer: async name => {
+    stalePeerMap[name] = freshVoicePeer;
+    return freshVoicePeer;
+  },
+  voiceRoomSend: (type, to, data) => {
+    freshOfferSends.push({ type, to, data });
+    return true;
+  },
+};
+vm.runInNewContext(
+  voiceOfferSource + "\nthis.__candidateVoiceRoomOffer = voiceRoomOffer;",
+  stalePeerContext,
+  { timeout: 1000 },
+);
+await stalePeerContext.__candidateVoiceRoomOffer("Zulu");
+assert.deepEqual(stalePeerDrops, ["Zulu"],
+  "a disconnected peer must be discarded before a fresh offer is created");
+assert.equal(freshOfferSends[0].data.sdp.sdp, "fresh-offer");
+
+const receiveOfferStart = template.indexOf("async function voiceRoomReceive(p){");
+const receiveOfferBranchStart = template.indexOf(
+  "if(p.type==='offer'&&p.sdp&&String(member).localeCompare(String(p.from),'pt-BR')>0){",
+  receiveOfferStart,
+);
+const receiveAnswerBranchStart = template.indexOf("if(p.type==='answer'&&p.sdp){", receiveOfferBranchStart);
+assert.ok(receiveOfferStart >= 0 && receiveOfferBranchStart > receiveOfferStart &&
+  receiveAnswerBranchStart > receiveOfferBranchStart,
+  "voice-room incoming-offer branch boundaries must exist");
+const receiveOfferBranch = template.slice(receiveOfferBranchStart, receiveAnswerBranchStart);
+const cachedAnswerPeer = {
+  pc: {
+    connectionState: "connected",
+    iceConnectionState: "connected",
+    signalingState: "stable",
+    remoteDescription: { type: "offer", sdp: "same-remote-offer" },
+    localDescription: { type: "answer", sdp: "cached-local-answer" },
+  },
+};
+const duplicateAnswerSends = [];
+const duplicateOfferContext = {
+  voiceRoom: { active: true, peers: { Alpha: cachedAnswerPeer } },
+  member: "Zulu",
+  voiceRoomDrop: () => { throw new Error("a healthy peer with the same remote offer must be retained"); },
+  voiceRoomMakePeer: async () => cachedAnswerPeer,
+  voiceRoomFlushCandidates: async () => {},
+  RTCSessionDescription: value => value,
+  voiceRoomSend: async (type, to, data) => {
+    duplicateAnswerSends.push({ type, to, data });
+    return true;
+  },
+  voiceRoomMessage: () => {},
+};
+vm.runInNewContext(
+  "async function __candidateReceiveOffer(p) {" + receiveOfferBranch +
+    "}\nthis.__candidateReceiveOffer = __candidateReceiveOffer;",
+  duplicateOfferContext,
+  { timeout: 1000 },
+);
+await duplicateOfferContext.__candidateReceiveOffer({
+  type: "offer",
+  from: "Alpha",
+  to: "Zulu",
+  sdp: { type: "offer", sdp: "same-remote-offer" },
+});
+assert.equal(duplicateAnswerSends.length, 1,
+  "a duplicate offer must retransmit the cached answer when the original answer may have been lost");
+assert.equal(duplicateAnswerSends[0].type, "answer");
+assert.equal(duplicateAnswerSends[0].data.sdp.sdp, "cached-local-answer");
+
+const recoveryStart = template.indexOf("function voiceRoomScheduleRecovery(n,peer,state){");
+const makePeerStart = template.indexOf("async function voiceRoomMakePeer(n)", recoveryStart);
+assert.ok(recoveryStart >= 0 && makePeerStart > recoveryStart,
+  "voice-room recovery timer helper boundaries must exist");
+const recoverySource = template.slice(recoveryStart, makePeerStart);
+let recoveredTimer = null;
+const recoveredPeer = {
+  pc: { connectionState: "disconnected", iceConnectionState: "disconnected" },
+};
+const recoveredDrops = [];
+const recoveredPeerMap = { Zulu: recoveredPeer };
+const recoveredContext = {
+  voiceRoom: {
+    active: true,
+    peers: recoveredPeerMap,
+    recoveryTimers: {},
+    recoveryAttempts: {},
+  },
+  member: "Alpha",
+  setTimeout(callback) { recoveredTimer = callback; return 1; },
+  clearTimeout() {},
+  voiceRoomDrop(name) {
+    recoveredDrops.push(name);
+    delete recoveredPeerMap[name];
+  },
+  voiceRoomOffer: async () => {},
+  voiceRoomSend: () => true,
+  voiceRoomMessage: () => {},
+};
+vm.runInNewContext(
+  recoverySource + "\nthis.__candidateScheduleRecovery = voiceRoomScheduleRecovery;",
+  recoveredContext,
+  { timeout: 1000 },
+);
+recoveredContext.__candidateScheduleRecovery("Zulu", recoveredPeer, "disconnected");
+assert.equal(typeof recoveredTimer, "function");
+recoveredPeer.pc.connectionState = "connected";
+recoveredPeer.pc.iceConnectionState = "connected";
+recoveredTimer();
+assert.deepEqual(recoveredDrops, [],
+  "a peer that recovered before the backoff expires must not be dropped");
+assert.equal(recoveredContext.voiceRoom.recoveryAttempts.Zulu, 0,
+  "successful recovery must reset the retry counter");
+
+let failedTimer = null;
+const failedPeer = { pc: { connectionState: "disconnected", iceConnectionState: "disconnected" } };
+const failedDrops = [];
+let failedRecoveryOffers = 0;
+const failedPeerMap = { Zulu: failedPeer };
+const failedContext = {
+  voiceRoom: {
+    active: true,
+    peers: failedPeerMap,
+    recoveryTimers: {},
+    recoveryAttempts: {},
+  },
+  member: "Alpha",
+  setTimeout(callback) { failedTimer = callback; return 1; },
+  clearTimeout() {},
+  voiceRoomDrop(name) {
+    failedDrops.push(name);
+    delete failedPeerMap[name];
+  },
+  voiceRoomOffer: async () => { failedRecoveryOffers++; },
+  voiceRoomSend: () => true,
+  voiceRoomMessage: () => {},
+};
+vm.runInNewContext(
+  recoverySource + "\nthis.__candidateScheduleRecovery = voiceRoomScheduleRecovery;",
+  failedContext,
+  { timeout: 1000 },
+);
+failedContext.__candidateScheduleRecovery("Zulu", failedPeer, "disconnected");
+failedTimer();
+assert.deepEqual(failedDrops, ["Zulu"]);
+assert.equal(failedRecoveryOffers, 1,
+  "a peer that remains disconnected must still enter the bounded recovery path");
+
+console.log("Normal voice signaling retransmission and recovery-timer tests passed.");
