@@ -1203,3 +1203,15 @@ This section supersedes older PR/CI snapshots above where exact refs differ. Rec
 - Smoke [42160472429](https://github.com/Reekyi/UpStatus/actions/runs/42160472429) completed successfully on prior head `8942324`; this is useful baseline evidence but not exact-head evidence for the microphone-failure fix.
 - Smoke [42160740799](https://github.com/Reekyi/UpStatus/actions/runs/42160740799) failed on `872d567` only at a stale static assertion expecting the old direct `failedRoom` call. The candidate now tests the confirmed shared leave path and preserves the room ID on failure.
 - The latest continuity-doc Validate [42160896890](https://github.com/Reekyi/UpStatus/actions/runs/42160896890) on PR #80 HEAD `33ea888` reproduced the inherited `client signed upload helper missing` assertion. No validator was weakened.
+
+
+## 2026-11-06 Normal Smoke assertion follow-up
+
+This note supersedes the earlier `872d567` Normal head reference above.
+
+- Current Normal PR #74 HEAD: `562d60e73e5827a8d87d6959c06e87af4c356588`.
+- Exact-head Validate [42161030346](https://github.com/Reekyi/UpStatus/actions/runs/42161030346) passed.
+- Exact-head Smoke [42161030275](https://github.com/Reekyi/UpStatus/actions/runs/42161030275) is still running. Its syntax/static harness step and unauthenticated endpoint checks passed; authenticated isolated integration/browser checks are in progress. Do not mark exact-head Smoke complete yet.
+- Smoke [42160740799](https://github.com/Reekyi/UpStatus/actions/runs/42160740799) on `872d567` failed before endpoint/integration tests because one static assertion still required the old direct `signalTransport.leave(failedRoom)` call. The microphone/setup failure path now uses `await voiceRoomLeave()` so the shared helper can preserve room ID on failed server release. The assertion was corrected in `562d60e`; this was a stale test contract, not a runtime test failure.
+- Smoke [42160472429](https://github.com/Reekyi/UpStatus/actions/runs/42160472429) passed on prior head `8942324`, before the later microphone/setup failure cleanup change; it is not exact-head evidence for `562d60e`.
+- Continuity PR #80 HEAD is `ba677c885ec2c61d6a72f5908c92f6d0fa322606`; Validate [42161109206](https://github.com/Reekyi/UpStatus/actions/runs/42161109206) reproduced the inherited `client signed upload helper missing` assertion after building `3.0.40 / TEST 3.0.40-beta.22`. No validator was weakened.
