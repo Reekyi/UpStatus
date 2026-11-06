@@ -438,6 +438,7 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
   function signalAttemptPendingCallAttempt(callId,expectedTransport,requireExpectedTransport){
     var entry=signalPendingCallAttempts[callId];
     if(!entry)return Promise.resolve(true);
+    if(typeof upCall!=='undefined'&&upCall&&upCall.active&&upCall.callId===callId)return Promise.resolve(true);
     if(entry.member!==member)return Promise.resolve(false);
     var currentTransport=signalTransport;
     if(entry.promise){
