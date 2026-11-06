@@ -989,7 +989,7 @@ Code inspection found that offline handlers start voice leave while offline and 
 
 Isolated candidate branches now contain the proposed recovery:
 - Team Lite `team-lite/reconnect-recovery-candidate`, head `7538296fd7e0d5208fe96da6baed0c9263f12e33`: local-only voice teardown on offline; Realtime readiness wait before legacy voice/call actions; tests for offline teardown, readiness, leave retry and stale transport.
-- Normal `normal/reconnect-recovery-candidate`, head `4c8e1b63fb6d3d784a9865c860bef400097d3825`: equivalent local-only teardown, readiness gates, captured-transport leave retry and VM regressions.
+- Normal `normal/reconnect-recovery-candidate`, head `b83dc98703eeaa5df78a22ce124187341cc03287`: equivalent local-only teardown, readiness gates, captured-transport leave retry and VM regressions.
 
 The Team Lite branch has been fast-forwarded into Draft PR #76. Normal remains isolated until the shared Supabase test group is free. Neither candidate is declared approved until its exact-head CI passes. The physical 10-second outage test must be repeated after CI, including voice re-entry, outgoing/incoming calls, and duplicate-peer/polling cleanup.
 
