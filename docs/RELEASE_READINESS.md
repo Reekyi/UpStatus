@@ -3553,7 +3553,7 @@ Produção lista 38/38 Edge Functions ACTIVE; todas reportam `verify_jwt=false`.
 
 A função dedicada `upstatus-signal` continua ausente em produção. As demais 31 funções não incluídas nessa amostra ainda precisam de inventário individual de rota, consumidor e autenticação.
 
-Backups ainda ACTIVE:
+Backups ativos amostrados nesta rodada (não é inventário completo):
 - `upstatus-backup-327-pre328`: v1, entrypoint vazio, SHA `3d6c4f8e5f777830ea720ab2938cb023b5a4e4c7d26f3fc02b926ce0e4d0dd90`.
 - `upstatus-backup-328-pre329`: v1, versão interna 3.2.8, SHA `1d08d9f0fc475a99afdc73bee4d96810b9cf5ed1b4ebe99536bee823be76411a`.
 - `upstatus-backup-329-pre330`: v1, versão interna 3.2.9, SHA `61349cabf45da6e7a6f6162693709e91235bc281ea01c34dcb0dff086ae9071b`.
