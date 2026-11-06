@@ -218,10 +218,10 @@ export function createSignalingTransport({
     validId(logicalId, "logical call ID");
     if (typeof recipient !== "string" || !recipient || recipient.length > 80)
       throw new TypeError("Invalid recipient");
-    const created = await post("/room/prepare-call", { logicalId, recipient }, options);
-    const roomId = created.roomId;
-    if (typeof roomId !== "string" || !roomId) throw new Error("Call preparation returned no room ID");
     try {
+      const created = await post("/room/prepare-call", { logicalId, recipient }, options);
+      const roomId = created.roomId;
+      if (typeof roomId !== "string" || !roomId) throw new Error("Call preparation returned no room ID");
       await waitForAcceptance(roomId, recipient, options);
       return { roomId, logicalId, recipient };
     } catch (error) {
