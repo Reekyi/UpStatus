@@ -1,6 +1,6 @@
 # Isolated UpStatus test migrations
 
-These SQL files create or modify database objects used by the isolated default-privilege, signaling, rate-limit, and chat-read-receipt test suite. They are executable DDL, not inert fixtures.
+These SQL files create or modify database objects used by the isolated default-privilege, signaling (including cancellable voice-room attempts), rate-limit, and chat-read-receipt test suite. They are executable DDL, not inert fixtures.
 
 They are deliberately stored outside `supabase/migrations/`, which is the Supabase CLI migration-discovery directory. Keeping them here prevents a normal `supabase db push` from treating test-only DDL as production migration history.
 
