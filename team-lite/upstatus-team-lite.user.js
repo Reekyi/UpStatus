@@ -31,8 +31,41 @@ function createSignalingTransport({
   pollIntervalMs = 900,
   maxBackoffMs = 8000,
   now = () => Date.now(),
+  setTimeoutFn = setTimeout,
+  clearTimeoutFn = clearTimeout,
 } = {}) {
   if (typeof request !== "function") throw new TypeError("request must be a function");
+
+  function readResponseHeader(headers, name) {
+    const target = String(name).toLowerCase();
+    if (typeof headers === "string") {
+      const line = headers.split(/\r?\n/).find(entry => {
+        const separator = entry.indexOf(":");
+        return separator > 0 && entry.slice(0, separator).trim().toLowerCase() === target;
+      });
+      return line ? line.slice(line.indexOf(":") + 1).trim() : "";
+    }
+    if (headers && typeof headers === "object") {
+      const key = Object.keys(headers).find(entry => entry.toLowerCase() === target);
+      if (!key) return "";
+      const value = headers[key];
+      return Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "");
+    }
+    return "";
+  }
+
+  function parseRetryAfter(headers, currentTime) {
+    const value = readResponseHeader(headers, "retry-after");
+    if (!value) return null;
+    const maxDelayMs = 2_147_483_647;
+    if (/^\d+(?:\.\d+)?$/.test(value)) {
+      const delay = Number(value) * 1000;
+      return Number.isFinite(delay) ? Math.min(delay, maxDelayMs) : null;
+    }
+    const timestamp = Date.parse(value);
+    if (!Number.isFinite(timestamp)) return null;
+    return Math.min(Math.max(0, timestamp - currentTime), maxDelayMs);
+  }
 
   let stopped = false;
   const activePolls = new Map();
@@ -57,10 +90,16 @@ function createSignalingTransport({
     if (!result || typeof result !== "object") throw new Error("Invalid signaling response");
     const status = Number(result.status ?? 200);
     const body = result.body ?? result.data ?? {};
+    const headers = result.headers ?? result.responseHeaders ?? null;
     if (status < 200 || status >= 300) {
       const error = new Error(typeof body.error === "string" ? body.error : `Signaling request failed (${status})`);
       error.status = status;
       error.code = body.error || "SIGNALING_REQUEST_FAILED";
+      const retryAfterMs = parseRetryAfter(headers, now());
+      if (retryAfterMs !== null) {
+        error.retryAfterMs = retryAfterMs;
+        error.retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
+      }
       throw error;
     }
     return body;
@@ -296,7 +335,7 @@ function createSignalingTransport({
     const poller = activePolls.get(roomId);
     if (!poller) return;
     poller.cancelled = true;
-    if (poller.timer) clearTimeout(poller.timer);
+    if (poller.timer) clearTimeoutFn(poller.timer);
     if (poller.controller) poller.controller.abort();
     activePolls.delete(roomId);
   }
@@ -318,7 +357,7 @@ function createSignalingTransport({
 
     const finish = () => {
       state.cancelled = true;
-      if (state.timer) clearTimeout(state.timer);
+      if (state.timer) clearTimeoutFn(state.timer);
       if (state.controller) state.controller.abort();
       if (signal && state.externalAbortHandler) signal.removeEventListener("abort", state.externalAbortHandler);
       if (activePolls.get(roomId) === state) activePolls.delete(roomId);
@@ -331,7 +370,7 @@ function createSignalingTransport({
 
     const schedule = delay => {
       if (!state.cancelled && activePolls.get(roomId) === state) {
-        state.timer = setTimeout(run, Math.max(0, delay));
+        state.timer = setTimeoutFn(run, Math.max(0, delay));
       }
     };
 
@@ -373,7 +412,11 @@ function createSignalingTransport({
           finish();
           return;
         }
-        state.backoff = Math.min(maxBackoffMs, Math.max(intervalMs, state.backoff * 2));
+        const exponentialBackoff = Math.min(maxBackoffMs, Math.max(intervalMs, state.backoff * 2));
+        const retryAfterMs = Number(error && error.retryAfterMs);
+        state.backoff = Number.isFinite(retryAfterMs) && retryAfterMs > 0
+          ? Math.max(exponentialBackoff, retryAfterMs)
+          : exponentialBackoff;
         schedule(state.backoff);
       } finally {
         state.controller = null;
@@ -392,29 +435,6 @@ function createSignalingTransport({
   });
 }
 
-
-(function(){function install(){if(document.getElementById('upstatus-3-1-5-voice-visual-fixes'))return;var style=document.createElement('style');style.id='upstatus-3-1-5-voice-visual-fixes';style.textContent="#upstatus-team-lite-root .up-voice-person{position:relative!important;display:inline-flex!important;align-items:center!important;justify-content:flex-start!important;gap:7px!important;width:auto!important;height:auto!important;min-width:0!important;min-height:34px!important;max-width:100%!important;box-sizing:border-box!important;padding:4px 10px 4px 5px!important;border:1px solid #34445a!important;border-radius:999px!important;background:#1b2738!important;color:#e4edf8!important;overflow:visible!important;white-space:nowrap!important;flex:0 1 auto!important;font-size:10px!important;line-height:1.2!important;cursor:default!important;transition:border-color .18s,box-shadow .18s,background .18s!important}#upstatus-team-lite-root .up-voice-avatar{display:block!important;flex:0 0 30px!important;width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;border-radius:50%!important;object-fit:cover!important;border:1px solid #526783!important;box-sizing:border-box!important}#upstatus-team-lite-root .up-voice-person b{display:block!important;max-width:180px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:11px!important;font-weight:750!important;line-height:1.2!important}#upstatus-team-lite-root .up-voice-person.is-speaking{background:#183a65!important;border-color:#4f9bff!important;box-shadow:0 0 0 2px rgba(79,155,255,.16)!important;animation:upStatusVoiceChipSpeaking .8s ease-in-out infinite!important}#upstatus-team-lite-root .up-voice-person.is-muted{border-color:#ff596d!important;background:rgba(120,20,40,.12)!important;box-shadow:0 0 0 2px rgba(255,89,109,.2)!important}#upstatus-team-lite-root .up-voice-person .up-voice-status-muted{position:absolute!important;left:24px!important;top:-5px!important;transform:none!important;display:flex!important;align-items:center!important;justify-content:center!important;width:19px!important;height:19px!important;min-width:19px!important;min-height:19px!important;border:1px solid #ff9aa7!important;border-radius:50%!important;background:rgba(170,28,52,.98)!important;color:#fff!important;z-index:7!important;box-shadow:0 2px 8px #0008!important;pointer-events:none!important}#upstatus-team-lite-root .up-voice-person .up-voice-status-muted svg{width:12px!important;height:12px!important}@keyframes upStatusVoiceChipSpeaking{0%,100%{box-shadow:0 0 0 2px rgba(79,155,255,.13)}50%{box-shadow:0 0 0 3px rgba(79,155,255,.28),0 0 9px rgba(79,155,255,.24)}}#upstatus-team-lite-root.up-theme-light .up-voice-room{background:linear-gradient(135deg,#f7faff,#eaf2fc)!important;border-color:#c5d6ed!important;box-shadow:0 5px 15px rgba(38,68,112,.10)!important;color:#172033!important}#upstatus-team-lite-root.up-theme-light .up-voice-title{color:#172033!important}#upstatus-team-lite-root.up-theme-light .up-voice-title .up-icon{color:#334155!important}#upstatus-team-lite-root.up-theme-light .up-voice-state,#upstatus-team-lite-root.up-theme-light .up-voice-connection,#upstatus-team-lite-root.up-theme-light .up-voice-duration,#upstatus-team-lite-root.up-theme-light .up-voice-message,#upstatus-team-lite-root.up-theme-light .up-voice-empty{color:#52647c!important}#upstatus-team-lite-root.up-theme-light .up-voice-connection.is-connected{color:#07875a!important}#upstatus-team-lite-root.up-theme-light .up-voice-connection.is-connecting{color:#ad6700!important}#upstatus-team-lite-root.up-theme-light .up-voice-participants{color:#233047!important}#upstatus-team-lite-root.up-theme-light .up-voice-person{background:#fff!important;border-color:#c5d4e6!important;color:#233047!important;box-shadow:0 1px 2px rgba(20,40,70,.06)!important}#upstatus-team-lite-root.up-theme-light .up-voice-person.is-speaking{background:#e4f1ff!important;border-color:#3b82f6!important;box-shadow:0 0 0 2px rgba(59,130,246,.14)!important}#upstatus-team-lite-root.up-theme-light .up-voice-person.is-muted{background:#fff0f2!important;border-color:#e34b62!important}#upstatus-team-lite-root.up-theme-light .up-voice-avatar{border-color:#b8cce4!important}#upstatus-team-lite-root.up-theme-light .up-voice-actions button{background:#dbe6f4!important;border:1px solid #c5d4e6!important;color:#233047!important}#upstatus-team-lite-root.up-theme-light .up-voice-actions .up-voice-join{background:#18794e!important;border-color:#18794e!important;color:#fff!important}#upstatus-team-lite-root.up-theme-light .up-voice-actions .up-voice-mute.is-muted,#upstatus-team-lite-root.up-theme-light .up-voice-actions .up-voice-leave,#upstatus-team-lite-root.up-theme-light .up-voice-actions .up-screen-share-toggle.is-sharing{background:#b4233d!important;border-color:#e34b62!important;color:#fff!important}#upstatus-team-lite-root.up-theme-light .up-voice-actions button:hover{filter:brightness(.97)}#upstatus-team-lite-root.up-theme-light .up-screen-share-panel{background:rgba(255,255,255,.72)!important;border-color:#c5d6ed!important;border-radius:12px!important}#upstatus-team-lite-root.up-theme-light .up-screen-share-heading{color:#172033!important}#upstatus-team-lite-root.up-theme-light .up-screen-share-status,#upstatus-team-lite-root.up-theme-light .up-screen-share-message{color:#52647c!important}#upstatus-team-lite-root.up-theme-light .up-screen-share-grid{color:#233047!important}#upstatus-team-lite-root.up-theme-light .up-screen-share-tile{background:#fff!important;border-color:#c5d6ed!important;color:#233047!important;box-shadow:0 2px 8px rgba(20,40,70,.06)!important}#upstatus-team-lite-root.up-theme-light .up-screen-share-tile *{color:inherit}#upstatus-team-lite-root.up-theme-light .up-screen-share-tile video{background:#e2e8f0!important}#upstatus-team-lite-root.up-theme-light .up-voice-control-bubble{background:rgba(246,249,253,.97)!important;border-color:#c7d5e5!important;box-shadow:0 7px 20px rgba(25,40,60,.18)!important}#upstatus-team-lite-root.up-theme-light .up-voice-control-bubble>button:not(.up-voice-control-leave):not(.is-muted){background:#dbe6f4!important;color:#233047!important;border:1px solid #c5d4e6!important}#upstatus-team-lite-root.up-theme-light .up-voice-control-bubble>button.is-muted,#upstatus-team-lite-root.up-theme-light .up-voice-control-bubble>.up-voice-control-leave{background:#b4233d!important;border-color:#e34b62!important;color:#fff!important}";(document.head||document.documentElement).appendChild(style)}if(document.documentElement)install();else document.addEventListener('DOMContentLoaded',install,{once:true})})();
-(function(){function install(){if(document.getElementById('upstatus-beta9-3-visual-fixes'))return;var style=document.createElement('style');style.id='upstatus-beta9-3-visual-fixes';style.textContent='#upstatus-team-lite-root .up-voice-person{position:relative!important;border:2px solid #526783!important;border-radius:50%!important;box-shadow:0 0 0 2px rgba(82,103,131,.16)!important;overflow:visible!important;transition:border-color .18s,box-shadow .18s!important}#upstatus-team-lite-root .up-voice-person.is-speaking{border-color:#4ade80!important;box-shadow:0 0 0 3px rgba(74,222,128,.24),0 0 14px rgba(74,222,128,.55)!important;animation:upBeta92Speaking .85s ease-in-out infinite!important}#upstatus-root .up-voice-mic-muted{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;display:flex!important;align-items:center!important;justify-content:center!important;width:20px!important;height:20px!important;border:1px solid #ff9aa7!important;border-radius:50%!important;background:rgba(120,20,40,.96)!important;color:#fff!important;z-index:5!important;box-shadow:0 2px 8px #0008!important}#upstatus-root .up-voice-mic-muted svg{width:13px!important;height:13px!important}@keyframes upBeta92Speaking{0%,100%{box-shadow:0 0 0 2px rgba(74,222,128,.18),0 0 7px rgba(74,222,128,.25)}50%{box-shadow:0 0 0 4px rgba(74,222,128,.34),0 0 17px rgba(74,222,128,.6)}}';style.textContent+='#upstatus-team-lite-root .up-voice-person.is-muted{border-color:#ff596d!important;background:rgba(120,20,40,.12)!important;box-shadow:0 0 0 2px rgba(255,89,109,.2)!important}#upstatus-team-lite-root .up-voice-person .up-voice-status-muted{position:absolute!important;left:24px!important;top:-5px!important;transform:none!important;display:flex!important;align-items:center!important;justify-content:center!important;width:19px!important;height:19px!important;border:1px solid #ff9aa7!important;border-radius:50%!important;background:rgba(170,28,52,.98)!important;color:#fff!important;z-index:7!important;box-shadow:0 2px 8px #0008!important;pointer-events:none!important}#upstatus-team-lite-root .up-voice-person .up-voice-status-muted svg{width:12px!important;height:12px!important}#upstatus-team-lite-root .up-voice-actions .up-voice-speakers.is-muted{background:#a9243b!important;border-color:#e34b62!important;color:#fff!important}';style.textContent+='.up-voice-control-bubble{position:fixed!important;right:24px!important;bottom:24px!important;left:auto!important;top:auto!important;padding:5px 7px!important;display:flex!important;align-items:center!important;gap:6px!important}.up-voice-control-bubble>button:not(.up-voice-control-restore){position:relative;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 38px;border:1px solid #405673;border-radius:11px;background:#2b3d54;color:#e5edf8;cursor:pointer;transition:background .18s,border-color .18s}.up-voice-control-bubble>button.is-muted{background:#a9243b!important;border:1px solid #e34b62!important;color:#fff!important}.up-voice-control-bubble .up-voice-control-leave{background:#a9243b!important;border-color:#e34b62!important;color:#fff!important}.up-voice-control-bubble .up-voice-control-restore{position:absolute!important;left:-8px!important;top:-10px!important;width:25px!important;height:25px!important;min-width:25px!important;flex:0 0 25px!important;border-radius:50%!important;background:#17865b!important;border:2px solid #83e6ba!important;color:#fff!important;z-index:12!important;box-shadow:0 2px 8px #0009!important}.up-voice-control-bubble .up-voice-control-restore.hidden{display:none!important}.up-voice-control-bubble .up-voice-control-restore svg{width:13px!important;height:13px!important}#upstatus-team-lite-root.up-theme-light .up-voice-control-bubble>button:not(.up-voice-control-leave):not(.up-voice-control-restore):not(.is-muted){background:#dbe6f4;color:#233047}#upstatus-team-lite-root.up-theme-light .up-voice-control-bubble>button.is-muted{background:#a9243b!important;border-color:#e34b62!important;color:#fff!important}#upstatus-team-lite-root .up-quick-chat-bubble{z-index:2147483647!important}#upstatus-team-lite-root .up-voice-control-bubble{z-index:8!important}';(document.head||document.documentElement).appendChild(style)}if(document.documentElement)install();else document.addEventListener('DOMContentLoaded',install,{once:true})})();
-
-  // Team Lite não usa o launcher de recuperação herdado do UpStatus oficial.
-
-
-  var key='upstatus_team_lite_';
-  var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
-  var CLOUD_SERVER='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-team-lite';
-  var server=CLOUD_SERVER;
-  var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';
-  var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
-  var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';
-  var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
-  // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
-  // Mantido isolado do chat, status e demais recursos do UpStatus.
-  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,overlay:null,callId:'',peer:'',role:'',initiator:'',participants:[],pendingInvites:{},pendingOffers:{},pendingInvite:null,peers:{},active:false,starting:false,startAttempt:0,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0,waitingForConnection:false,notice:'',ringtoneTimer:null,ringtoneCtx:null,ringtoneAllowed:false,ringtoneLoadId:0,ringtoneSource:null,ringtoneGain:null,presenceTimer:null};
-  
-var upCallDirectory={};
-var voiceControlBubble=null,voiceControlAvatar=null,voiceControlWave=null,voiceControlSpeakerName=''; var voiceRoom={id:'upstatus-team-room-v1',seenSignals:{},sessionId:'vr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10),active:false,muted:false,speakersMuted:false,stream:null,peers:{},participants:{},timer:null,joining:false,audioContext:null,levelTimer:null,sessionStartedAt:0,sessionTimer:null,pingTimer:null,pingMs:null,lastSpeaker:'',currentSpeaker:'',recoveryAttempts:{},recoveryTimers:{}};
-var VOICE_ROOM_EVENT='voice_room_signal';
-  // Dedicated video mesh for screen sharing. Do not reuse voiceRoom.stream or audio peers.
   var SCREEN_ROOM_EVENT='upstatus_screen_signal_3_1_1_beta8';
   var screenShare={stream:null,peers:{},active:false,starting:false,sessionId:'ss-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10),remoteVideos:{}};
   function screenShareSend(type,to,data){var payload=Object.assign({roomId:voiceRoom.id,type:type,from:member,to:to||'',active:screenShare.active,sessionId:screenShare.sessionId,at:Date.now()},data||{});if(signalTransportFlag){if(!signalTransport||!signalVoiceRoomRoomId){screenShareMessage('Sinalização autenticada indisponível.');return false;}return (to?signalTransport.sendSignal({roomId:signalVoiceRoomRoomId,recipient:to,eventType:'screen_signal',payload:payload}):signalTransport.sendToRoom({roomId:signalVoiceRoomRoomId,eventType:'screen_signal',payload:payload,senderName:member})).catch(function(e){screenShareMessage(e.message||'Falha na sinalização autenticada.');return false;});}if(!realtimeActive||!realtimeChannel||!member)return false;try{realtimeChannel.send({type:'broadcast',event:SCREEN_ROOM_EVENT,payload:payload});return true;}catch(e){return false;}}
