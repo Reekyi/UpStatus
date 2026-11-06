@@ -459,7 +459,7 @@ async function waitForVoiceRealtimeReady(timeoutMs){
     if(typeof navigator!=='undefined'&&navigator.onLine===false)return false;
     if(!isAuthenticated())return false;
     if(realtimeActive&&realtimeChannel)return true;
-    if(!realtimeClient)startRealtime();
+    if(!realtimeClient&&!realtimeRetryTimer)startRealtime();
     await new Promise(function(resolve){setTimeout(resolve,150);});
   }
   return !!(isAuthenticated()&&realtimeActive&&realtimeChannel);
