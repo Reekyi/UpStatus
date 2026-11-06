@@ -1802,3 +1802,44 @@ A fresh compare still shows `normal/rate-limit-retry-after-20261106` is 10 commi
 Issue #78 remains open with physical Tampermonkey close/reload-offline/no-F5, real microphone/display permissions and installed Normal ↔ Team Lite interoperability pending.
 
 No production SQL write, migration, deploy, secret/role/flag change, merge, release, userscript publication, destructive operation or manual fixture cleanup occurred.
+
+
+## Engineering checkpoint - 2026-11-06 12:47 BRT
+
+### Exact-head status
+
+- **#74 Normal** is now `aa33645cb242c913cb4bc5e71a22f3de70d4034c`, 742 ahead / 0 behind `master`. Previous HEAD `9ed9fcb` passed Validate [42242569542](https://github.com/Reekyi/UpStatus/actions/runs/42242569542) and Smoke [42242569548](https://github.com/Reekyi/UpStatus/actions/runs/42242569548), including 129/129 authenticated checks and cleanup. New Signaling Smoke [42246115760](https://github.com/Reekyi/UpStatus/actions/runs/42246115760) is queued on `aa33645`; no new Validate result has been observed yet.
+- **#75 baseline** remains `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 ahead / 0 behind `team-lite-official`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed.
+- **#76 Team Lite** is `86e71f5e549cc2b2e16629c5fcc06f047470f52f`, 240 ahead / 0 behind `team-lite-official`, 181 ahead / 0 behind #75. Candidate Checks [42245339846](https://github.com/Reekyi/UpStatus/actions/runs/42245339846) SUCCESS on the exact SHA. It passed 103/103 authenticated checks, WebRTC call/voice/screen and three-member mesh, durable voice attempts, new offer/answer retransmission regressions, rate-limit 90+1/concurrency, atomic read receipts, migration layout, metadata and cleanup. Post-run read-only counts are zero for rooms, memberships, bindings, events, call attempts, voice attempts, rate-limit buckets and chat reads.
+- **#80 continuity** is `174292a600f147e5ea8c144dfe991e5699547136`, 131 ahead / 0 behind `develop`; latest observed Validate [42242450081](https://github.com/Reekyi/UpStatus/actions/runs/42242450081) failed with inherited `client signed upload helper missing`. Changes in this checkpoint are Markdown-only.
+- **#82 independent QA** remains `a3596fd586872c332822a30d697be24788352890`, 65 ahead / 0 behind `master`; Validate [42235896025](https://github.com/Reekyi/UpStatus/actions/runs/42235896025) reproduces inherited `production updateURL mismatch`. QA branch and release-readiness document remain untouched.
+- All five PRs remain open and Draft. No submitted human reviews were found.
+
+### Voice-room reconnect fix
+
+The code-inspection gap was that a local offer could remain in `have-local-offer` without retransmission after later presence, a duplicate remote offer could be ignored without resending its cached answer, and a delayed recovery timer could drop a peer that had already recovered.
+
+Team Lite #76 at `86e71f5` now contains:
+- failed/disconnected peer replacement before a fresh offer;
+- retransmission of cached local offers when later presence arrives and no remote description exists;
+- retransmission of cached answers for duplicate remote offers;
+- a connection/ICE state re-check before a delayed recovery timer drops the peer;
+- VM regressions for lost offer, duplicate answer, stale peer and recovery timer behavior.
+
+The exact-head Candidate Checks run passed. The equivalent Normal change was fast-forwarded from isolated branch `normal/voice-signaling-retry-20261106` into #74 as two commits, ending at `aa33645`. Normal's new exact-head Smoke is queued; do not call the fix green on both versions until it passes. This remains code-inspection evidence, not physical reproduction.
+
+Physical Tampermonkey close/reload-offline/no-F5, real microphone/display capture and installed Normal ↔ Team Lite interoperability remain mandatory manual gates.
+
+### Rate-limit candidate
+
+The branch `normal/rate-limit-retry-after-20261106` is 10 commits ahead and 5 behind current Normal. It is diverged and must not be integrated as-is. Its RPC performs an unbounded stale-bucket DELETE inside the request path on 1/64 calls. The Edge Function cleanup is bounded for events/rooms but does not bound rate-limit bucket deletion. Use a separately bounded cleanup RPC or scheduled cleanup before refreshing this candidate. Product endpoint integration remains absent.
+
+### Supabase and safety
+
+Production `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, and 38 ACTIVE Edge Functions. Versions: `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15 and screen-share beta10 v6. No dedicated signaling endpoint, call/voice-attempt schema/RPC, distributed rate-limit schema/RPC or atomic read-receipt RPC is deployed.
+
+Security Advisor observed 2026-11-06 15:43:22Z: 3 SECURITY DEFINER WARN for anon, 3 for authenticated, 10 RLS-enabled/no-policy INFO; performance and health findings are empty. RT-01 public full-row broadcast, backend-owned table grants, `realtime.messages` client grants and broad default ACLs remain unresolved.
+
+The isolated project `bfpjtfqlnypisxljoxkb` is occupied by Normal Smoke [42246115760](https://github.com/Reekyi/UpStatus/actions/runs/42246115760). Do not run another fixture-mutating suite or claim final cleanup until it completes.
+
+No production SQL write, migration, deploy, secret/role/flag change, merge, release, userscript publication, destructive operation or manual fixture cleanup occurred.
