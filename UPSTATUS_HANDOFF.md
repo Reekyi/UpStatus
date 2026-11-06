@@ -1854,3 +1854,44 @@ No production SQL write, migration, deploy, secret/role/flag change, merge, rele
 - The isolated project is occupied by #74 Smoke [42246115760](https://github.com/Reekyi/UpStatus/actions/runs/42246115760). No concurrent fixture-mutating test or manual cleanup is permitted until it completes.
 
 No production writes, migrations, deploys, secret/role/flag changes, merges, releases, userscript publication or destructive operations occurred.
+
+
+## Final checkpoint - 2026-11-06 12:54 BRT
+
+### Both candidate clients fully green in CI
+
+- **Normal #74** exact HEAD `aa33645cb242c913cb4bc5e71a22f3de70d4034c`, 742 ahead / 0 behind `master`. Validate [42246115559](https://github.com/Reekyi/UpStatus/actions/runs/42246115559) and Signaling Smoke [42246115760](https://github.com/Reekyi/UpStatus/actions/runs/42246115760) both SUCCESS. Smoke confirms:
+  - 129/129 authenticated integration checks;
+  - authenticated browser call and voice WebRTC with remote audio;
+  - screen WebRTC with remote video;
+  - three-member mesh and teardown;
+  - call/voice logical attempt cancellation and tombstones;
+  - rate limit 90 accepted + 1 HTTP 429 and distributed concurrency;
+  - atomic read-receipt concurrency;
+  - new voice offer/answer retransmission and recovery-timer VM regressions;
+  - cleanup.
+- **Team Lite #76** exact HEAD `86e71f5e549cc2b2e16629c5fcc06f047470f52f`, 240 ahead / 0 behind `team-lite-official`, 181 ahead / 0 behind #75. Candidate Checks [42245339846](https://github.com/Reekyi/UpStatus/actions/runs/42245339846) SUCCESS. It confirms 103/103 authenticated checks, WebRTC call/voice/screen, three-member mesh, durable call/voice recovery, the same offer/answer retransmission regressions, rate-limit concurrency, atomic read receipts, migration layout, metadata and cleanup.
+- After both runs completed, a read-only query against the isolated project returned zero rows for rooms, memberships, bindings, events, call attempts, voice attempts, rate-limit buckets and chat reads.
+
+### Voice-room reconnect fix
+
+Both candidates now replace failed/disconnected peers before a new offer, retransmit cached local offers on later presence when no remote description exists, resend cached answers for duplicate offers, and re-check connection/ICE state before delayed recovery drops a peer. The VM regressions and full CI passed on both exact heads.
+
+This is a code-inspection fix, not proof of physical browser recovery. Issue #78 remains open with 0/8 physical acceptance criteria complete. Tampermonkey close/reload while offline without F5, real microphone/display capture and installed Normal ↔ Team Lite interoperability remain manual gates.
+
+### Follow-up: screen-share negotiation
+
+Read-only review found a similar one-shot offer/answer pattern in the screen-share negotiation path, without the same bounded recovery timer. It was not changed in this round. Track it as a separate follow-up after voice-room physical acceptance; do not claim screen-share reconnect is fixed by the voice change.
+
+### Other release gates
+
+- #75 baseline remains `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 ahead / 0 behind `team-lite-official`.
+- #80 continuity is `0c28f38d71064757af87f508a9ed623c16725fe7`, 135 ahead / 0 behind `develop`; latest observed Validate [42242450081](https://github.com/Reekyi/UpStatus/actions/runs/42242450081) retains inherited `client signed upload helper missing`.
+- #82 independent QA is `f6a9eaed2b127b4d2d4a4de9a413470666ecff06`, 66 ahead / 0 behind `master`; Validate [42244487940](https://github.com/Reekyi/UpStatus/actions/runs/42244487940) retains inherited `production updateURL mismatch`. QA branch and `docs/RELEASE_READINESS.md` were not modified by engineering.
+- All five PRs remain open and Draft. No submitted human reviews were found.
+
+The rate-limit candidate branch remains diverged (10 ahead / 5 behind current Normal) and contains an unbounded stale-bucket DELETE inside its request-path RPC. It must be refreshed and cleanup bounded before integration. Product endpoint integration and Retry-After remain incomplete.
+
+Production `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY and was queried read-only. No dedicated signaling function, call/voice-attempt schema/RPC, distributed rate-limit schema/RPC or atomic read-receipt RPC is deployed. Security findings remain 3 SECURITY DEFINER WARN for anon, 3 for authenticated, and 10 RLS-enabled/no-policy INFO; RT-01 and ACL-02 remain unresolved.
+
+No production write, migration, deploy, secret/role/flag change, merge, release, userscript publication, destructive operation or manual fixture cleanup occurred.
