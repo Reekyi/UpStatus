@@ -231,7 +231,7 @@ console.log("Team Lite durable voice-room attempt persistence, cancel-before-ope
 
 
 const prepareStorageFailureEvents=[];
-const prepareStorageFailureSource=template.slice(prepareStart,prepareEnd)+"\\nthis.__candidatePrepareVoiceRoom=signalPrepareVoiceRoom;";
+const prepareStorageFailureSource=template.slice(prepareStart,prepareEnd)+ "\nthis.__candidatePrepareVoiceRoom=signalPrepareVoiceRoom;";
 const prepareStorageFailureContext={
   signalTransport:{openVoiceRoom:async()=>{prepareStorageFailureEvents.push("open");return {roomId:"sig_should_not_open"};}},
   signalTransportFlag:true,
@@ -261,3 +261,53 @@ const endSessionSource=template.slice(endSessionStart,idleTimerStart);
 assert.ok(endSessionSource.indexOf("await teamLiteReleaseVoiceRoomBeforeLogout()")<endSessionSource.indexOf("authenticated=false;authGeneration++"),
   "Team Lite must confirm durable voice membership cleanup before invalidating authentication");
 console.log("Team Lite voice attempt recovery is ordered before session invalidation.");
+
+
+const leaveCalls=[];
+const pagehideAttemptId="Team_Lite_Tester-voice-pagehide";
+let pagehideContext;
+const pagehideLeaveSource=template.slice(leaveStart,leaveEnd)+"\nthis.__candidateVoiceRoomLeave=voiceRoomLeave;";
+pagehideContext={
+  signalVoiceRoomAttemptId:pagehideAttemptId,
+  signalVoiceRoomRoomId:"",
+  signalVoiceRoomCreator:false,
+  signalVoiceRoomPrepared:true,
+  signalTransport:{},
+  signalPendingVoiceRoomAttempts:{[pagehideAttemptId]:{attemptId:pagehideAttemptId,member:"Team Lite Tester",logicalId:"upstatus-team-lite-room-v1"}},
+  signalRosterCache:Object.create(null),
+  member:"Team Lite Tester",
+  voiceRoom:{
+    joinGeneration:0,active:false,joining:true,recoveryTimers:{},recoveryAttempts:{},
+    timer:null,levelTimer:null,pingTimer:null,pingMs:null,peers:{},stream:null,muted:false,participants:{}
+  },
+  screenShareStop:()=>Promise.resolve(true),
+  signalStopCallPolling:()=>{},
+  signalAttemptPendingVoiceRoomCancel:async id=>{
+    leaveCalls.push(id);
+    pagehideContext.signalVoiceRoomAttemptId="";
+    delete pagehideContext.signalPendingVoiceRoomAttempts[id];
+    return true;
+  },
+  voiceRoomRender:()=>{},
+  voiceRoomMessage:()=>{},
+  voiceRoomDrop:()=>{},
+  voiceRoomPlayCue:()=>{},
+  voiceRoomSend:()=>Promise.resolve(true),
+  clearTimeout:()=>{},
+  clearInterval:()=>{},
+  Promise,Object,Error
+};
+vm.runInNewContext(pagehideLeaveSource,pagehideContext,{timeout:1000});
+assert.equal(await pagehideContext.__candidateVoiceRoomLeave(),true,
+  "Team Lite must cancel a pending voice attempt even before a room ID is received");
+assert.deepEqual(leaveCalls,[pagehideAttemptId]);
+assert.equal(pagehideContext.signalVoiceRoomAttemptId,"");
+assert.equal(Object.keys(pagehideContext.signalPendingVoiceRoomAttempts).length,0);
+
+pagehideContext.signalVoiceRoomAttemptId=pagehideAttemptId;
+pagehideContext.signalPendingVoiceRoomAttempts[pagehideAttemptId]={attemptId:pagehideAttemptId,member:"Team Lite Tester",logicalId:"upstatus-team-lite-room-v1"};
+assert.equal(await pagehideContext.__candidateVoiceRoomLeave({skipServerLeave:true}),false,
+  "offline leave must preserve an unconfirmed voice attempt");
+assert.equal(pagehideContext.signalVoiceRoomAttemptId,pagehideAttemptId);
+assert.equal(Object.keys(pagehideContext.signalPendingVoiceRoomAttempts).length,1);
+console.log("Team Lite pagehide cancels a known attempt and preserves it when offline.");
