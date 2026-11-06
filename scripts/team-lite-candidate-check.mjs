@@ -81,7 +81,7 @@ assert.ok(script.includes(".on('broadcast',{event:'remote_command'},function(){"
 assert.ok(script.includes("if(remotePollHintTimer||!isAuthenticated())return;") && script.includes("if(isAuthenticated()&&expectedGeneration===authGeneration&&expectedMember===member)pollRemoteStatus();"), "Team Lite remote command hint timers must coalesce and remain session-bound");
 assert.ok(script.includes("sendRealtimeEvent('remote_command',{op:'hint'})"), "Team Lite client remote command broadcasts must contain only a generic hint");
 assert.ok(!script.includes("sendRealtimeEvent('remote_result'"), "Team Lite must not broadcast remote result metadata publicly");
-assert.ok(script.includes("if(upCall&&upCall.active)callCleanup(true,'hangup');"), "Team Lite logout and idle session end must clean up active call media");
+assert.ok(script.includes("callsReleased=upCall&&upCall.active?await callCleanup(true,'hangup'):await signalRetryPendingCallLeaves();") && script.includes("if(!callsReleased){") && script.includes("await signalRetryPendingCallLeaves();"), "Team Lite logout and idle session end must await confirmed call-room membership cleanup");
 assert.ok(script.includes("teamLiteSessionEnded=true;teamLiteClearIdleTimer();") && script.includes("authenticated=false;authGeneration++;"), "Team Lite session cleanup must run before auth generation invalidation");
 assert.ok(!script.includes("if(c&&c.target===member)executeRemoteCommand(c);"), "client must not execute untrusted remote command broadcast payloads");
 assert.ok(build.includes('writeFunction("upstatus-team-lite",renderTeamLiteFunction())'), "build must generate the Team Lite Edge Function");
@@ -746,6 +746,7 @@ const logoutFailureContext = {
   teamLiteClearIdleTimer: () => logoutFailureEvents.push("clear-idle"),
   upCall: null,
   callCleanup: () => {},
+  signalRetryPendingCallLeaves: async () => true,
   teamLiteReleaseVoiceRoomBeforeLogout: async () => false,
   chat: { classList: { contains: () => true } },
   authenticated: true,
@@ -770,3 +771,130 @@ assert.equal(logoutFailureEvents.some(event => event === "api-logout" || event =
 assert.ok(logoutFailureEvents.some(event => event.startsWith("message:")) && logoutFailureEvents.includes("show-card:hidden"),
   "failed logout must show the user why the session remains active");
 console.log("Team Lite logout failure preserves session and retry state test passed.");
+
+const liteCallLeaveHelperStart = script.indexOf("function signalAttemptPendingCallLeave(");
+const liteCallLeaveHelperEnd = script.indexOf("function initSignalingTransport(", liteCallLeaveHelperStart);
+const liteCallCleanupStart = script.indexOf("function callCleanup(sendSignal,signalType){");
+const liteCallCleanupEnd = script.indexOf("  function callFail(", liteCallCleanupStart);
+assert.ok(liteCallLeaveHelperStart >= 0 && liteCallLeaveHelperEnd > liteCallLeaveHelperStart &&
+  liteCallCleanupStart >= 0 && liteCallCleanupEnd > liteCallCleanupStart,
+  "Team Lite call-membership cleanup source boundaries not found");
+const liteCallRuntimeSource = script.slice(liteCallLeaveHelperStart, liteCallLeaveHelperEnd) +
+  script.slice(liteCallCleanupStart, liteCallCleanupEnd) +
+  "\nthis.__candidateCallCleanup=callCleanup;this.__candidateRetryPendingCallLeaves=signalRetryPendingCallLeaves;";
+function makeLiteCallCleanupContext({ transport, callSendAll } = {}) {
+  const roomId = "team-lite-call-room";
+  const callId = "team-lite-call-1";
+  const context = {
+    upCall: {
+      startAttempt: 0, starting: false, callId, active: true, peer: "", role: "", initiator: "",
+      participants: ["Team Lite Tester", "Peer"], pendingInvites: {}, pendingOffers: {}, pendingInvite: null,
+      peers: {}, localStream: null, remoteStream: null, audio: null, connected: true, muted: false,
+      startedAt: 0, waitingForConnection: false, notice: "", presenceTimer: null, timer: null,
+      counterTimer: null, signalAbortController: null
+    },
+    signalRoomByCallId: { [callId]: roomId },
+    signalCallIdByRoom: { [roomId]: callId },
+    signalCreatorCallIds: { [callId]: false },
+    signalRosterCache: { [roomId]: { members: [] } },
+    signalPendingCallLeaves: Object.create(null),
+    signalPollStops: {},
+    signalTransport: transport || null,
+    signalTransportFlag: true,
+    member: "Team Lite Tester",
+    token: "team-lite-session-token",
+    signalStopCallPolling: () => {},
+    callSendAll: callSendAll || (() => Promise.resolve(true)),
+    callSend: () => Promise.resolve(true),
+    sendRealtimeEvent: () => {},
+    callStopRingtone: () => {},
+    callRemovePeer: () => {},
+    callStopStream: () => {},
+    callHideOverlay: () => {},
+    clearInterval: () => {},
+    clearTimeout: () => {},
+    Promise, Object, Error
+  };
+  vm.runInNewContext(liteCallRuntimeSource, context, { timeout: 1000 });
+  return context;
+}
+let liteLeaveAttempts = 0;
+const liteRetryContext = makeLiteCallCleanupContext({
+  transport: { leave: async () => { liteLeaveAttempts++; if (liteLeaveAttempts === 1) throw new Error("temporary network failure"); return { ok: true }; } }
+});
+assert.equal(await liteRetryContext.__candidateCallCleanup(false), false, "Team Lite call cleanup must report an unconfirmed server leave");
+assert.ok(liteRetryContext.signalPendingCallLeaves["team-lite-call-room"], "Team Lite call cleanup must preserve a retry handle after leave failure");
+assert.equal(await liteRetryContext.__candidateRetryPendingCallLeaves(), true, "Team Lite reconnect retry must confirm the pending call-room leave");
+assert.equal(liteLeaveAttempts, 2, "Team Lite retry must repeat the same idempotent room leave");
+assert.equal(liteRetryContext.signalPendingCallLeaves["team-lite-call-room"], undefined, "Team Lite confirmed retry must clear the pending handle");
+
+let liteOldTransportLeaves = 0, liteNewTransportLeaves = 0, finishLiteSignal;
+const pendingLiteSignal = new Promise(resolve => { finishLiteSignal = resolve; });
+const liteOldTransport = { leave: async () => { liteOldTransportLeaves++; return { ok: true }; } };
+const liteNewTransport = { leave: async () => { liteNewTransportLeaves++; return { ok: true }; } };
+const liteTransportSwapContext = makeLiteCallCleanupContext({
+  transport: liteOldTransport,
+  callSendAll: () => pendingLiteSignal
+});
+const liteSwapCleanup = liteTransportSwapContext.__candidateCallCleanup(false);
+liteTransportSwapContext.signalTransport = liteNewTransport;
+finishLiteSignal(true);
+assert.equal(await liteSwapCleanup, false, "Team Lite in-flight cleanup must not silently switch to a replacement transport");
+assert.equal(liteOldTransportLeaves, 0, "Team Lite cleanup must not use a stopped transport");
+assert.equal(liteNewTransportLeaves, 0, "Team Lite cleanup must not use a replacement transport before explicit retry");
+assert.ok(liteTransportSwapContext.signalPendingCallLeaves["team-lite-call-room"], "Team Lite transport replacement must retain the room retry handle");
+assert.equal(await liteTransportSwapContext.__candidateRetryPendingCallLeaves(), true, "Team Lite explicit retry must use the current authenticated transport");
+assert.equal(liteNewTransportLeaves, 1, "Team Lite retry must use the replacement transport exactly once");
+
+const liteNoTransportContext = makeLiteCallCleanupContext({ transport: null });
+assert.equal(await liteNoTransportContext.__candidateCallCleanup(false), false, "Team Lite offline call cleanup must report pending server membership");
+assert.ok(liteNoTransportContext.signalPendingCallLeaves["team-lite-call-room"], "Team Lite offline call cleanup must retain the room ID");
+let liteRecoveredLeaveCalls = 0;
+liteNoTransportContext.signalTransport = { leave: async () => { liteRecoveredLeaveCalls++; return { ok: true }; } };
+assert.equal(await liteNoTransportContext.__candidateRetryPendingCallLeaves(), true, "Team Lite reconnect must retry a leave after transport recreation");
+assert.equal(liteRecoveredLeaveCalls, 1, "Team Lite reconnect must release the retained call room once");
+
+let litePersistentAttempts = 0;
+const litePersistentContext = makeLiteCallCleanupContext({
+  transport: { leave: async () => { litePersistentAttempts++; return { ok: false, error: "server unavailable" }; } }
+});
+assert.equal(await litePersistentContext.__candidateCallCleanup(false), false, "Team Lite persistent leave failure must remain unconfirmed");
+assert.equal(await litePersistentContext.__candidateRetryPendingCallLeaves(), false, "Team Lite persistent leave failure must remain retryable");
+assert.ok(litePersistentContext.signalPendingCallLeaves["team-lite-call-room"], "Team Lite persistent failure must not discard the retry handle");
+const liteAttemptsBeforeOtherMember = litePersistentAttempts;
+litePersistentContext.member = "Different User";
+assert.equal(await litePersistentContext.__candidateRetryPendingCallLeaves(), true, "A different member must not be blocked by another member's pending call cleanup");
+assert.equal(litePersistentAttempts, liteAttemptsBeforeOtherMember, "Team Lite must never release a pending call room under another member identity");
+
+const callLogoutEvents = [];
+const callLogoutContext = {
+  teamLiteSessionEnded: false,
+  token: "still-valid-call-session-token",
+  teamLiteClearIdleTimer: () => callLogoutEvents.push("clear-idle"),
+  upCall: { active: true },
+  callCleanup: async () => false,
+  signalRetryPendingCallLeaves: async () => true,
+  teamLiteReleaseVoiceRoomBeforeLogout: async () => { callLogoutEvents.push("voice-release"); return true; },
+  chat: { classList: { contains: () => true } },
+  authenticated: true,
+  authGeneration: 17,
+  voiceRoomMessage: message => callLogoutEvents.push("message:" + message),
+  card: { classList: { remove: value => callLogoutEvents.push("show-card:" + value) } },
+  voiceRoomRender: () => callLogoutEvents.push("render"),
+  api: async () => { callLogoutEvents.push("api-logout"); },
+  stopRealtime: () => callLogoutEvents.push("stop-realtime"),
+  GM_setValue: () => callLogoutEvents.push("storage-clear"),
+  login: () => callLogoutEvents.push("login")
+};
+vm.runInNewContext(endSessionSource, callLogoutContext, { timeout: 1000 });
+const callLogoutResult = await callLogoutContext.__candidateEndSession();
+assert.equal(callLogoutResult, false, "Team Lite session teardown must abort when call-room leave is unconfirmed");
+assert.equal(callLogoutContext.teamLiteSessionEnded, false, "Team Lite call-leave failure must allow a later logout retry");
+assert.equal(callLogoutContext.authenticated, true, "Team Lite call-leave failure must preserve authenticated state");
+assert.equal(callLogoutContext.authGeneration, 17, "Team Lite call-leave failure must not invalidate the session generation");
+assert.equal(callLogoutContext.token, "still-valid-call-session-token", "Team Lite call-leave failure must retain the token");
+assert.equal(callLogoutEvents.includes("voice-release"), false, "Team Lite must not proceed to voice leave before call membership is released");
+assert.equal(callLogoutEvents.some(event => event === "api-logout" || event === "stop-realtime" || event === "storage-clear" || event === "login"), false,
+  "Team Lite must not logout, stop Realtime or clear credentials while call membership remains");
+console.log("Team Lite authenticated call-room cleanup retry and logout-gate tests passed.");
+
