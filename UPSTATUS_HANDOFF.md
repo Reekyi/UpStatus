@@ -1954,3 +1954,46 @@ No production or official TEST writes, migrations, deployments, secret/role/flag
 ### Screen-share follow-up risk
 
 The current recovery candidate covers lost pending offers/answers and disconnected-peer replacement, but it does not yet serialize simultaneous local offer creation or concurrent duplicate remote-offer handling while setRemoteDescription is in flight. Presence/join paths can invoke screenShareOffer more than once for the same peer. Before marking this path complete, add a per-peer in-flight negotiation lock and regression for concurrent local offers and duplicate remote offers. This race has not been reproduced; it remains a review/test gap.
+
+
+## 2026-11-06 14:20 BRT — screen-share peer negotiation serialization
+
+### Finding and implementation
+
+The prior review gap is now addressed in both candidates. `screenShareOffer()` and `screenShareReceive()` could mutate the same RTCPeerConnection concurrently when repeated presence/join events or duplicate remote offers arrived. Simultaneous local/remote offers could also collide at `setRemoteDescription()`.
+
+- Added a per-peer Promise queue covering local offer creation, remote offer/answer application, and ICE application.
+- Added peer-identity checks after asynchronous WebRTC operations so a dropped/replaced peer cannot publish a stale offer or answer.
+- Added deterministic offer-glare handling: the lexicographically greater member is polite and rolls back its colliding local offer; the impolite peer ignores the colliding offer and completes its own exchange. The polite side clears the abandoned offer's retry timer before answering.
+- Kept the existing bounded offer retransmission and cached-answer behavior.
+- Normal and Team Lite runtime blocks are byte-identical for this screen-share negotiation path. The shared test file is also identical in both branches.
+
+### Exact candidate refs and CI
+
+- **Normal PR #74:** final HEAD `05c9b4d59b74202e718bec77746746b7aa19632f`, 753 ahead / 0 behind `master`. Validate [42260571956](https://github.com/Reekyi/UpStatus/actions/runs/42260571956) passed. Final-head Smoke [42260571690](https://github.com/Reekyi/UpStatus/actions/runs/42260571690) is queued behind the shared isolated-test workflow group. The immediately preceding HEAD `623c714` passed Smoke [42259504101](https://github.com/Reekyi/UpStatus/actions/runs/42259504101): 129/129 authenticated checks, browser call/voice/screen WebRTC with remote audio/video, three-member mesh, 90 accepted + 1 rejected (429), distributed rate-limit concurrency, atomic read-receipt concurrency, and fixture cleanup. Its screen-share VM test passed; final HEAD adds the concurrent duplicate-remote-offer regression.
+- **Team Lite PR #76:** final HEAD `b784daa63447cda1675dd45f6daccdaf5c2c8973`, 249 ahead / 0 behind `team-lite-official`, and 190 ahead of #75. The immediately preceding HEAD `cee32e3` Candidate Checks [42259513821](https://github.com/Reekyi/UpStatus/actions/runs/42259513821) passed isolation, adapter, voice-attempt recovery, screen-share VM, and endpoint-auth stages; authenticated/browser integration is still running. The final-head Candidate Checks is queued after the current shared-project run.
+- The first regression attempt [42259326293](https://github.com/Reekyi/UpStatus/actions/runs/42259326293) failed only because the stale-peer test assumed two microtask turns were enough for `createOffer()` to start. The test now waits on an explicit start signal; the subsequent Normal Smoke passed. This was a harness scheduling issue, not a runtime regression.
+- **#75 baseline:** unchanged at `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed.
+- **#80 continuity:** HEAD `d2dc5407a3911bb126d59fc9ee1ffab6d78ffde8`, 151 ahead / 0 behind `develop`; Validate [42251574934](https://github.com/Reekyi/UpStatus/actions/runs/42251574934) still fails the inherited `client signed upload helper missing` assertion.
+- **#82 independent QA:** HEAD `cd85c53157161ca12d70e65c8843183ae8006140`, 67 ahead / 0 behind `master`; Validate [42253902143](https://github.com/Reekyi/UpStatus/actions/runs/42253902143) still fails the inherited `production updateURL mismatch` assertion. QA branch and `docs/RELEASE_READINESS.md` remain untouched.
+- All five PRs remain open/Draft; no submitted human reviews are recorded.
+
+### Production snapshot — read-only
+
+Project `dlfvkawaiqduhlazsszm` remains `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, with seven migrations through `20261027155438` and 38 ACTIVE Edge Functions. Normal is v480, TEST v281, Team Lite v15. No dedicated production `upstatus-signal` function exists.
+
+Direct SELECT/catalog checks reconfirmed that production lacks `upstatus_signal_rate_limits`, `consume_upstatus_signal_rate_limit`, call-attempt and voice-attempt tables, and `merge_chat_read_receipts`. The product server templates still do not call the distributed limiter or emit `Retry-After`; the isolated test endpoint is not product integration. Deploying server templates that call the absent read-receipt RPC before its separately reviewed migration would break the read route.
+
+Security Advisor remains at 3 WARN for anon-executable SECURITY DEFINER functions, 3 WARN for authenticated-executable SECURITY DEFINER functions, and 10 INFO for RLS-enabled tables without policies; performance and health have no findings. Catalog checks confirm nine backend-owned public tables still grant all table privileges to anon/authenticated, `realtime.messages` still grants SELECT/INSERT/UPDATE to both roles, the three broadcast SECURITY DEFINER functions remain client-executable, and broad default ACLs remain for postgres (public/storage) and supabase_admin (public/graphql/graphql_public).
+
+No production SQL write, migration, Edge Function deployment, secret/role/flag change, userscript publication, merge, or destructive action occurred. The isolated project is the only target used by mutating CI workflows; no manual fixture cleanup was attempted.
+
+### Remaining release gates
+
+1. Finish the current Team Lite run and the final-head Normal/Team Lite workflows; verify zero fixtures only after the queue drains.
+2. Complete real Tampermonkey acceptance: ~10-second network loss, re-entry without F5, repeated drops, new calls after reconnect, bidirectional audio, no duplicate peers/pollers, and Normal ↔ Team Lite cross-client call/voice/screen tests.
+3. Integrate distributed rate limiting into both product server templates, define client retry behavior/Retry-After, and replace request-path unbounded stale-bucket deletion with bounded or scheduled cleanup.
+4. Design and test private/server-mediated Realtime cutover; do not revoke client grants or flip channels before the custom-token/Supabase Auth trust boundary is resolved.
+5. Validate read-receipt and security/default-ACL migrations, dependencies, rollback, and route behavior in the approved official TEST environment. supabase_admin-owned defaults require the separately authorized admin path.
+6. Obtain human reviews and close the remaining scope/acceptance issues before any release decision.
+
