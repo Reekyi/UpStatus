@@ -3150,3 +3150,111 @@ A decodificação read-only dos três bundles confirma em cada um dois emissores
 ### Segurança e execução desta rodada
 
 Todas as consultas SQL desta rodada foram SELECT-only. O Candidate Checks [42143206998](https://github.com/Reekyi/UpStatus/actions/runs/42143206998) foi iniciado pela engenharia e permanecia em execução; as fixtures observadas pertencem a essa execução. Nenhum workflow foi disparado manualmente pela auditoria, nenhuma fixture foi alterada ou limpa pela QA, e nenhuma escrita em produção, migration, deploy, alteração de secret/flag/role, publicação de userscript, merge ou operação destrutiva foi realizada. A única escrita desta rodada é este registro documental na branch QA dedicada.
+
+
+## Revalidação independente — 2026-11-05 BRT / 2026-11-06 UTC (rodada 11)
+
+Esta seção acrescenta evidências obtidas diretamente no GitHub e nos dois projetos Supabase. O corte de CI do Team Lite foi feito enquanto a nova execução ainda estava ativa; o estado é explicitamente separado do resultado do head anterior.
+
+### Heads e relações verificadas
+
+- PR #74 Normal: HEAD **b0c0e03fbe820e02404d4ae7d9f83e2a18642e50**, aberta/Draft, 639 commits à frente e zero atrás de master.
+- PR #75 Team Lite baseline: HEAD **7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309**, aberta/Draft, 59 commits à frente e zero atrás de team-lite-official.
+- PR #76 Team Lite signaling: HEAD **88a0865efee9194c868dc685f3de946b128d83bd**, aberta/Draft, 196 commits à frente de team-lite-official; comparação direta com #75: 137 à frente, zero atrás.
+- PR #82 QA: HEAD **b916551b925da245d7bc1583f3c7ee1b9e641ba8**, aberta/Draft, 46 commits à frente e zero atrás de master.
+- Branch isolada Normal **normal/reconnect-recovery-candidate**: HEAD **1ca2de6e3abbb383be1ccb4afff09d8b3c13dc12**, 20 commits à frente e zero atrás do HEAD do #74. Não integra o #74 e não possui workflow concluído.
+
+Nenhum review humano ou thread de revisão foi encontrado nos PRs #74, #75, #76 e #82.
+
+### CI e workflows
+
+- #74: Validate **42122609464** e Signaling Smoke **42122609431** concluídos com SUCCESS no HEAD b0c0e03. O Smoke registrou 15/15 verificações não autenticadas e 103/103 autenticadas, incluindo open voice join, late join, aliases Normal/Team Lite, idempotência, capacidade, owner handoff, corrida leave/join, WebRTC de chamada/voz/tela, mesh de três membros, rate limit (90 aceitas e 1 HTTP 429), concorrência de recibos e cleanup.
+- #75: Candidate Checks **41674353127** é aprovação histórica do baseline, não substitui o head atual do #76.
+- #76: o head anterior **8678b4b056314482630e00762055927e79a6e94b** passou em **42149391376**. O log confirma 103/103 verificações autenticadas, WebRTC call/voice/screen, mesh de três membros, open join/late join/owner handoff/capacity, rate limit 90+1, concorrência de recibos, migration guard, logout gate e cleanup.
+- #76 atual: o commit **88a0865** iniciou **42150807002**. Na última consulta, o job candidate-checks estava IN_PROGRESS no passo de integração autenticada/browser; os passos de rate limit, recibos, migration guard, metadata e cleanup ainda estavam pendentes. Portanto, não atribuir aprovação ao HEAD 88a0865 até o workflow terminar.
+- #82: Validate **42144878286** falhou em scripts/validate.mjs:26 com **production updateURL mismatch**. O PR altera somente docs/RELEASE_READINESS.md; não houve alteração no validador.
+
+Links:
+- #74 Validate: https://github.com/Reekyi/UpStatus/actions/runs/42122609464
+- #74 Smoke: https://github.com/Reekyi/UpStatus/actions/runs/42122609431
+- #76 head anterior aprovado: https://github.com/Reekyi/UpStatus/actions/runs/42149391376
+- #76 head atual em execução no corte: https://github.com/Reekyi/UpStatus/actions/runs/42150807002
+- #82 Validate: https://github.com/Reekyi/UpStatus/actions/runs/42144878286
+
+### Ciclo de saída, logout e estados terminais
+
+O bloqueio anterior de logout Team Lite foi corrigido no código candidato e passou no teste de regressão do head 8678b4b: quando o leave não é confirmado, teamLiteEndSession aborta antes de /api/logout, invalidação de authGeneration, parada de Realtime e limpeza do token/storage. A sessão e o room ID são preservados para retry.
+
+A revisão seguinte identificou dois resultados terminais legítimos da RPC de saída:
+- ROOM_UNAVAILABLE: sala fechada, expirada ou inexistente (endpoint retorna HTTP 404).
+- ROOM_MEMBERSHIP_ENDED: a associação já não existe (endpoint retorna HTTP 409).
+
+O adapter do Team Lite no commit 88a0865 agora normaliza somente esses dois códigos como saída idempotentemente concluída, tanto quando chegam em body 2xx quanto em erro não-2xx. Foram adicionadas cinco asserções cobrindo os dois códigos nos dois formatos e preservando ROOM_MEMBERSHIP_REQUIRED/403 como falha real. O mesmo código e testes existem na branch Normal 1ca2de6. O CI do Team Lite para 88a0865 ainda estava em execução no corte; o candidato Normal não tem CI. Classificação: implementação por inspeção; validação automatizada pendente para os heads atuais.
+
+O código de leave mantém o room ID até confirmação e o logout bloqueia se a associação ainda estiver ativa. Ainda falta validar a persistência do room ID através de reload completo enquanto offline. Hoje o identificador permanece em memória de página; fechar/recarregar o navegador sem rede pode perder o contexto local enquanto a membership fica no servidor até expiração.
+
+A migration candidata define TTL de sala de duas horas e o endpoint faz limpeza periódica de salas expiradas. A tabela de memberships contém room_id, user_name, joined_at e status, sem heartbeat/last_seen por participante. Isso limita a duração de memberships abandonadas, mas permite que participantes offline ocupem vagas até a expiração. Tratar como risco de desenho a avaliar, não como vazamento permanente comprovado.
+
+### Supabase isolado — bfpjtfqlnypisxljoxkb
+
+Projeto ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, região sa-east-1, 21 migrations até **20261105220323**. Edge Function upstatus-signal-test ACTIVE v28, SHA **e26011f026c74821a1e05bf314340604d715820ab864b63d66fd481d93d00d4f**.
+
+As funções candidatas existem com assinaturas:
+- open_upstatus_signal_voice_room(text,text,integer)
+- leave_upstatus_signal_room(text,text)
+- consume_upstatus_signal_rate_limit(text,integer,integer)
+- merge_chat_read_receipts(text,jsonb,timestamp with time zone)
+
+As quatro são SECURITY INVOKER, possuem search_path vazio e EXECUTE negado a anon/authenticated, permitido a service_role. As tabelas de sinalização e rate limit examinadas têm RLS habilitado, sem grants de SELECT/INSERT para anon/authenticated; service_role conserva os privilégios necessários.
+
+O default ACL isolado de postgres contém uma entrada global de funções que remove PUBLIC EXECUTE; os defaults de public limitam funções, tabelas e sequences a postgres/service_role. O schema storage ainda possui defaults de cliente amplos, portanto o hardening isolado não deve ser descrito como abrangendo todos os schemas gerenciados.
+
+Durante a execução **42150807002**, consultas SELECT-only observaram 10 rooms, 11 memberships, 0 bindings, 1 event, 6 buckets de rate limit, 4 usuários e 4 sessões de teste; chat_reads de teste estava em zero. Como o workflow compartilhado ainda estava IN_PROGRESS, esses registros são compatíveis com fixtures ativas. Nenhuma limpeza foi executada pela auditoria.
+
+### Supabase de produção — dlfvkawaiqduhlazsszm
+
+Projeto ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, região us-west-2, sete migrations até **20261027155438**.
+
+Continuam ausentes a tabela upstatus_signal_rate_limits e as RPCs de rate limit, recibos, open voice e leave. Nenhuma migration candidata foi aplicada em produção.
+
+RLS/grants confirmados por catálogo:
+- Nove tabelas backend-owned em public têm RLS ativo, zero policies e privilégios efetivos excessivos para anon/authenticated, incluindo SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER e MAINTAIN.
+- upstatus_visual_config tem RLS e nenhum grant de cliente.
+- realtime.messages tem RLS, zero policies e SELECT/INSERT/UPDATE para anon/authenticated.
+- A consulta de pg_policies não encontrou policies nas dez tabelas public sinalizadas nem em realtime.messages.
+
+As três funções upstatus_broadcast_messages(), upstatus_broadcast_remote_state() e upstatus_broadcast_users() continuam SECURITY DEFINER, com search_path=public e EXECUTE para anon/authenticated/service_role. A definição atual de upstatus_broadcast_messages() serializa OLD/NEW com to_jsonb e chama realtime.send no tópico db_change com private=false; o trigger continua habilitado para INSERT/UPDATE/DELETE em public.messages. RT-01 permanece bloqueador.
+
+Default ACL de produção:
+- postgres: public e storage mantêm defaults amplos para anon/authenticated/service_role em sequences, funções e tabelas; o default de funções de postgres continua com PUBLIC EXECUTE e não há override global equivalente ao isolado.
+- supabase_admin: public, graphql e graphql_public mantêm defaults amplos. O executor é postgres, não superuser e sem membership em supabase_admin; não foi tentada troca de role.
+- O Security Advisor observou 10 findings INFO de RLS sem policies, 3 WARN de SECURITY DEFINER executável por anon e 3 WARN para authenticated. Performance e Health Advisors retornaram zero findings.
+
+### Edge Functions de produção
+
+Inventário: 38/38 ACTIVE; todas reportam verify_jwt=false, o que não prova ausência de autenticação própria. As três funções principais mantêm os bundles antigos:
+- upstatus v480, SHA bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd, userscript embutido 3.4.7.
+- upstatus-team-lite v15, SHA 2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb, userscript embutido 3.4.30.
+- upstatus-screen-share-3-1-1-beta10 v6, SHA f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29, userscript embutido 3.1.1-beta8.
+
+Nenhuma função upstatus-signal autenticada aparece no inventário de produção. Os bundles principais não contêm open voice join, RPC de recibos ou RPC de rate limit. A função upstatus-backup-327-pre328 continua ACTIVE v1 com index.ts de zero bytes, SHA 3d6c4f8e5f777830ea720ab2938cb023b5a4e4c7d26f3fc02b926ce0e4d0dd90; consumidores e rollback seguem não verificados.
+
+### Deploy de produção
+
+Há diferença entre master e o candidato do PR #74:
+- master, blob do workflow **8252c6c6e7005c98625603b5b02b14cb1e50a519**: workflow_dispatch, checkout fixado e persist-credentials=false, mas usa Supabase CLI latest, não fixa o project ID esperado nem valida GITHUB_REF/HEAD contra GITHUB_SHA; implanta somente upstatus.
+- branch do #74, blob **f3493d19cb59bb4d9f41eb4ab05d542befa2b8ce**: adiciona exigência de refs/heads/master, igualdade HEAD/GITHUB_SHA, project ID esperado dlfvkawaiqduhlazsszm, token obrigatório e CLI 2.122.1. Ainda implanta somente upstatus, sem deploy coordenado de Team Lite nem allowlist independente de SHA de release.
+
+Como #74 permanece aberto/Draft, as proteções candidatas ainda não estão no workflow de master. Nenhum deploy foi executado.
+
+### Issues e aceitação manual
+
+- #78 continua aberta; a última atualização de engenharia é o comentário 6675276330, que registra a normalização de estados terminais. A reprodução manual anterior de perda de rede por cerca de dez segundos falhou nos dois candidatos; não há novo teste instalado aprovado após os commits recentes.
+- #79 continua aberta, com 70 comentários; o corpo/checklist principal segue desatualizado em relação às últimas execuções.
+- Permanecem pendentes: teste físico de queda/retorno sem F5, entrada/saída após reconexão, incoming/outgoing calls, áudio bidirecional com microfone real, compartilhamento físico de tela, perfis Tampermonkey separados, compatibilidade instalada Normal ↔ Team Lite e persistência do room ID após reload offline.
+
+### Veredito e gates
+
+Não recomendar release. O logout Team Lite foi corrigido no código e passou no head anterior, mas o head atual 88a0865 ainda aguarda CI. O Normal possui a normalização terminal e a proteção de logout apenas em branch isolada, sem CI e fora do PR #74. Produção continua bloqueada por RT-01, ACL-02, migrations ausentes, bundles legados e testes físicos pendentes. Também faltam reviews humanos.
+
+Nenhuma operação de produção, migration, deploy, merge, publicação de userscript, alteração de secret/flag/role ou limpeza de fixtures foi realizada nesta rodada. As consultas Supabase foram SELECT-only. O único trabalho de escrita é este registro documental na branch QA dedicada.
