@@ -5367,3 +5367,121 @@ Não declarar percentual. Automated CI PASS, inspeção de código, SQL runtime 
 #### Registro de segurança desta rodada
 
 Nenhuma escrita SQL em produção ou isolado, migration, deploy, merge, release, publicação de userscript, alteração de secret/flag/role ou operação destrutiva foi realizada pela auditoria. Todas as consultas SQL foram SELECT-only. Os workflows #74/#76 foram iniciados pela engenharia/GitHub e apenas inspecionados; não foram iniciados pela auditoria. A migration test-only de cleanup limitado não foi aplicada. Fixtures e buckets foram contados por SELECT após os workflows. A única escrita desta auditoria é este append documental na branch QA, usando o blob SHA atual como precondição.
+
+
+## Revalidation 2026-11-06 17:28 BRT — exact heads, current catalogs, and residual public payloads
+
+This addendum was prepared after re-reading the current QA document and verifying the PR #82 head/blob preconditions. It supersedes earlier snapshots only where the exact head or observation time differs.
+
+### Exact GitHub refs and CI
+
+- Repository default branch `master`: `a9288ccfcb0f308d3a587bfca624418a395be07b`.
+- **Normal #74:** branch `chore/continuity-foundation`, HEAD `b1c3addd918edc5a5b55ceefa739d64338ef2389`, 760 commits ahead of master, 0 behind.
+  - Validate [42285181092](https://github.com/Reekyi/UpStatus/actions/runs/42285181092): **AUTOMATED PASS**.
+  - Signaling Smoke [42285181079](https://github.com/Reekyi/UpStatus/actions/runs/42285181079): **AUTOMATED PASS**.
+  - Exact job log: 18/18 unauthenticated and 129/129 authenticated checks; browser call/voice/screen media, three-member mesh, voice-attempt recovery, serialized screen-share negotiation, 90 accepted + 1 HTTP 429, distributed rate-limit concurrency, atomic read-receipt concurrency, and workflow cleanup all passed.
+- **Team Lite #76:** branch `team-lite/signaling-transport-candidate`, HEAD `dfc9ddf4ce08bac6bf67451e4c3cad99d58e1564`, 256 commits ahead of `team-lite-official` (`9065bc1536fde64f437f6f12b7abb9b072cb8281)), 0 behind; 197 commits ahead of baseline #75.
+  - Candidate Checks [42285187342](https://github.com/Reekyi/UpStatus/actions/runs/42285187342): **AUTOMATED PASS**.
+  - Exact job log: 15/15 unauthenticated and 103/103 authenticated checks; browser call/voice/screen media, three-member mesh, voice-room recovery, serialized screen-share negotiation, limiter/receipt concurrency, migration-layout guard, updater/portal/session checks, and workflow cleanup passed.
+- **Team Lite baseline #75:** HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed. It is the ancestor/baseline of #76, not an independent current product approval.
+- **QA #82:** branch `qa/release-readiness-2026-11-04-master`, HEAD `4f1c852701eb41f8afe6d63f718d7f78ace1ba87`, 72 commits ahead of master, 0 behind. Validate [42280801629](https://github.com/Reekyi/UpStatus/actions/runs/42280801629): **FAIL** at `production updateURL mismatch`.
+- PRs #74, #75, #76, and #82 remain open/Draft and unmerged. Review submissions are empty on all four; no inline review threads were returned for #74/#76.
+
+**Screen-share concurrency gap:** closed at code/test level on both current candidates. The current Normal and Team Lite source blobs contain per-peer negotiation serialization and the exact-head CI logs confirm simultaneous local/remote offer, glare, duplicate remote offer, stale-peer, bounded retry, and teardown tests. This remains **AUTOMATED PASS + CODE INSPECTION**, not physical Tampermonkey/device acceptance.
+
+### New residual candidate disclosure: one remote-command sender still publishes the command object
+
+The current Normal userscript blob `f1180be64dfd2819ad9f91cfdf043e6e4c08b1ca` and Team Lite blob `9960a7eb8de634af939bbab3f5f3940c1b7ea75c` both contain two remote-command send paths:
+- The primary dialog path publishes only `{op:'hint'}`.
+- The alternate status-bubble `sendRemoteStatus(...)` path still publishes `{command:r.command}` on `remote_command`.
+
+The candidate receiver treats `remote_command` as a hint and polls the authenticated endpoint rather than executing the broadcast payload. That is a useful integrity improvement, but it does **not** prevent public disclosure of the command object. The alternate sender must be changed to the same payload-free hint (or omit the broadcast) and covered by a regression asserting every sender path is payload-free.
+
+The candidate chat paths are better: both clients send `chat_fast` without a message body and their `db_change/chat_fast` handlers refresh from the authenticated API rather than consuming broadcast-supplied rows. The database candidate migrations also reduce message/status/remote-state broadcasts to `{op}`. Those migrations are not applied in production.
+
+### Authenticated signaling is still opt-in and public fallback remains the default
+
+The exact current Normal and Team Lite clients initialize:
+```javascript
+GM_getValue(key + 'signaling_transport_enabled', false) === true
+```
+
+With the flag false:
+- `callSendTo` falls back to public `call_signal` broadcasts;
+- `voiceRoomSend` falls back to public `voice_room_signal`;
+- `screenShareSend` falls back to public screen-signal broadcasts.
+
+These messages include WebRTC control/media-negotiation data such as SDP offers/answers and ICE candidates. With the flag true, the candidate adapter routes call/voice/screen signaling through the authenticated room transport and leaves only discovery/presence hints on public Realtime. The default remains false, and production still has no dedicated `upstatus-signal` Edge Function. The isolated `upstatus-signal-test` is not a production endpoint.
+
+Therefore the current candidates' default configuration still uses the legacy public signaling path. CI PASS does not mean the default installation has migrated. Do not enable the flag until the matching endpoint/schema, authorization, compatibility, and rollback are available in the approved environment.
+
+### Production Supabase — fresh read-only catalog and advisor snapshot
+
+Project `dlfvkawaiqduhlazsszm`:
+- `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, `us-west-2`.
+- Seven migrations; latest `20261027155438`.
+- 38/38 Edge Functions report ACTIVE; no `upstatus-signal` function exists.
+- Core functions: Normal `upstatus` v480, SHA `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`; Team Lite v15, SHA `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`; legacy Screen Share v6, SHA `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29`.
+- `upstatus-backup-327-pre328` remains ACTIVE v1 with an empty `index.ts` (SHA `3d6c4f8e5f777830ea720ab2938cb023b5a4e4c7d26f3fc02b926ce0e4d0dd90`). Do not disable it without mapping consumers and rollback dependencies.
+- All 38 functions report `verify_jwt=false`. This is not by itself proof of unauthenticated application access. The two core functions read `x-upstatus-token`, SHA-256 hash it, look up the hash in `upstatus_sessions`, enforce expiry, and cache successful session resolution for up to 30 seconds. **Correction to earlier wording:** `timingSafeEqual` in the inspected core source is used by password-hash verification; the session-token path uses SHA-256 lookup and does not call `timingSafeEqual`. Route-by-route authorization review of all 38 functions remains pending.
+- Production still lacks `upstatus_signal_rate_limits`, `consume_upstatus_signal_rate_limit`, `merge_chat_read_receipts`, call/voice attempt tables/RPCs, and the dedicated signaling endpoint.
+
+**Realtime triggers and privileges (fresh catalog):**
+- Triggers for `messages`, `upstatus_state`, and `users` are enabled.
+- `upstatus_broadcast_messages()` is SECURITY DEFINER, `search_path=public`, EXECUTE effective for anon/authenticated, and broadcasts OLD/NEW serialized with `to_jsonb` to `db_change` using `private=false`. The message table includes `message`, `image_url`, `mentions`, `reply_to`, `reactions`, and `file_name`.
+- `upstatus_broadcast_remote_state()` is also SECURITY DEFINER with `search_path=public` and client EXECUTE. It broadcasts sender/target/status/reason/timestamps for remote commands and commandId/sender/target/status/reason/ok/error for results, also with `private=false`.
+- `upstatus_broadcast_users()` is SECURITY DEFINER with `search_path=public` and client EXECUTE; it broadcasts user name/status/reason/update/sync metadata.
+- The deployed Normal v480 and Team Lite v15 bundles still embed old userscripts: both send `chat_fast` with `{message: created}` and `{message: r.message}`; their handlers consume `payload.record` / `payload.message`. They also send/consume remote-command/result objects. This is an independent client-side disclosure path in addition to the database trigger.
+- Nine backend-owned public tables (`chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing`, `users`) have RLS enabled, zero policies, and effective anon/authenticated SELECT/INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER privileges. `upstatus_visual_config` has no such client privileges.
+- `realtime.messages` has RLS enabled, zero policies, and effective anon/authenticated SELECT/INSERT/UPDATE privileges.
+- Current SQL role is `postgres`, not superuser and not a member of `supabase_admin`; `supabase_admin` is superuser. Default ACLs remain broad for postgres in `public`/`storage` and supabase_admin in `public`/`graphql`/`graphql_public`. ACL-02 requires an authorized administrative path for the supabase_admin-owned defaults.
+
+Security Advisor observed at 2026-11-06 20:28 UTC:
+- 3 WARN: SECURITY DEFINER executable by anon.
+- 3 WARN: the same functions executable by authenticated.
+- 10 INFO: RLS enabled without policies.
+- Performance and Health advisors: no findings.
+
+### Isolated Supabase — current candidate state
+
+Project `bfpjtfqlnypisxljoxkb`:
+- `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003, `sa-east-1`.
+- 27 migrations through `20261106120851`.
+- `upstatus-signal-test` v31, SHA `c69cd21dc606f552aa93c1f423d1151db1cdead26c39c0167b92554e8b9e3310`; `upstatus-signal-e2e-once` v3.
+- The isolated signaling endpoint authenticates the custom `x-upstatus-token` by hashing it and resolving an unexpired session, exposes `/room/open` and `/room/cancel-open`, and calls `consume_upstatus_signal_rate_limit`. Its current response path does not emit `Retry-After`.
+- Signaling tables have RLS, zero policies, and no direct anon/authenticated SELECT/INSERT grants. Voice-attempt and read-receipt RPCs are SECURITY INVOKER with empty search_path and EXECUTE only for service_role.
+- The three isolated broadcast functions publish only `{op}`, use `search_path=pg_catalog, public`, and deny EXECUTE to anon/authenticated. They still use `private=false`: payload minimization is not private-channel authorization.
+- The currently installed `consume_upstatus_signal_rate_limit` RPC still contains the unbounded opportunistic DELETE of all rows older than one day on 1/64 bucket hashes. The bounded replacement exists only in `supabase/test-migrations/20261106191000_bounded_rate_limit_cleanup_test.sql`, blob `2a76b07d84fefe709fb27ea1bbd66b57c0aedc3c`, with `LIMIT 100` and `FOR UPDATE SKIP LOCKED`.
+- The exact-head workflows passed the migration-layout guard, which verifies test migrations stay outside CLI production discovery. **They did not execute the bounded-cleanup SQL migration.** The migration history still ends at `20261106120851`; there is no `20261106191000` record. The active RPC remains unbounded, and the SQL runtime regression remains **PENDING**. The test requires zero pre-existing expired buckets, then inserts 150 probe rows and expects 50 to remain.
+- The isolated rate-limit table currently contains zero rows and zero expired rows.
+- Security Advisor: 17 INFO RLS-without-policy findings, zero SECURITY DEFINER WARN. Performance Advisor: four unused-index INFO. Health: no findings.
+
+### Issues and manual acceptance
+
+- [#78](https://github.com/Reekyi/UpStatus/issues/78) remains open with 0/8 acceptance boxes checked. No physical no-F5 reconnect test, installed Tampermonkey test, real microphone/audio test, or physical display-capture test was performed by this audit.
+- [#79](https://github.com/Reekyi/UpStatus/issues/79) remains open with 81 comments; its body still shows 16/35 checked. The latest engineering checkpoint [6693203287](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6693203287) records the bounded cleanup as test-only and its SQL runtime test as not executed. The issue body/checklist still needs a deliberate engineering update after exact-head evidence is reconciled.
+
+### Validate failure on QA PR #82
+
+The failure is confirmed as a base-branch mismatch, not a Markdown defect:
+- master `scripts/build.mjs`, blob `51fd9983c53ad88cd269b251423bfc3439131139`, still derives production `@updateURL` from the legacy `CLOUD_SERVER` and appends `/upstatus.user.js`.
+- Normal candidate `scripts/build.mjs`, blob `e68bc2ad3c1ada638a384f0c07f9a8c48bc87192`, uses `release.json.scriptUrl` for `@updateURL/@downloadURL` while keeping `CLOUD_SERVER` on the legacy API endpoint until cutover.
+- `release.json` blob `93caf1701ea508575c90d002c0b8c3037b34d82a` points to `/functions/v1/upstatus/upstatus.user.js`.
+- QA Validate [42280801629](https://github.com/Reekyi/UpStatus/actions/runs/42280801629) fails because PR #82 is based on master, which still has the old builder. Normal #74 Validate passes with the candidate builder. Do not weaken the validator or copy runtime changes into the QA branch just to make this documentation-only PR green.
+
+### Next gates
+
+1. Remove the remaining candidate `remote_command` sender that publishes `{command:r.command}`; assert every sender path emits only a hint.
+2. Keep call/voice/screen signaling blocked for release until authenticated transport is the approved default or a coordinated cutover is complete. The current default false still uses public Realtime with SDP/ICE.
+3. Remove production full-row chat and remote-state broadcasts from both deployed bundles and database triggers; validate authenticated refresh and rollback.
+4. Design actual private Realtime authorization (trusted JWT or server-mediated alternative) before changing `private=false`; custom UpStatus tokens are not Supabase Auth JWTs.
+5. Apply/execute bounded cleanup only in the isolated project after explicit authorization and no concurrent workflow; validate 150-to-50 behavior, then integrate the limiter and `Retry-After` in the real product endpoints.
+6. Reconcile migrations and run official TEST migration/rollback rehearsal; production remains untouched.
+7. Resolve ACL-02 with authorized role ownership; review all grants including `realtime.messages`.
+8. Complete #78 physical acceptance, update #79 with current exact heads, audit authorization route-by-route for all 38 functions, and obtain human reviews.
+
+No completion percentage is reported. CI, code inspection, SQL runtime migration test, isolated browser harness, physical acceptance, and production deployment remain separate evidence classes.
+
+### Safety record for this addendum
+
+No production or isolated SQL writes, migrations, Edge Function deployments, secret/flag/role changes, userscript publication, merge, release, or destructive operations were performed. All SQL executed by this audit was SELECT-only. Existing GitHub workflows were inspected, not started or rerun by the auditor. The only write is this documentation append on the dedicated QA branch, guarded by the fetched blob SHA; PR #80 and all engineering branches remain untouched.
