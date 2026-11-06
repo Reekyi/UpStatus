@@ -1997,3 +1997,12 @@ No production SQL write, migration, Edge Function deployment, secret/role/flag c
 5. Validate read-receipt and security/default-ACL migrations, dependencies, rollback, and route behavior in the approved official TEST environment. supabase_admin-owned defaults require the separately authorized admin path.
 6. Obtain human reviews and close the remaining scope/acceptance issues before any release decision.
 
+
+
+## 2026-11-06 14:28 BRT — final-head queue progression
+
+- Normal #74 final HEAD `05c9b4d59b74202e718bec77746746b7aa19632f`: Validate [42260571956](https://github.com/Reekyi/UpStatus/actions/runs/42260571956) passed. Final-head Smoke [42260571690](https://github.com/Reekyi/UpStatus/actions/runs/42260571690) is now in progress; syntax and unauthenticated checks passed, and the authenticated/browser integration step is running. The preceding HEAD `623c714` completed full Smoke [42259504101](https://github.com/Reekyi/UpStatus/actions/runs/42259504101) successfully.
+- Team Lite #76 preceding HEAD `cee32e3` completed Candidate Checks [42259513821](https://github.com/Reekyi/UpStatus/actions/runs/42259513821) successfully: 103/103 authenticated checks, browser call/voice/screen WebRTC with remote media, three-member mesh, rate limit 90+1 and concurrency, atomic receipts, migration-layout guard, candidate metadata, and cleanup. Final HEAD `b784daa63447cda1675dd45f6daccdaf5c2c8973` Candidate Checks [42260582180](https://github.com/Reekyi/UpStatus/actions/runs/42260582180) is pending behind the shared isolated-project workflow group.
+- The final heads add the concurrent duplicate-remote-offer regression on top of the already-tested per-peer queue/glare implementation. Do not call final-head CI complete until both queued workflows finish.
+- The isolated project remains in use by the final Normal Smoke; no manual fixture cleanup or overlapping mutating suite was started. Verify zero fixtures only after the queue drains.
+- The rate-limit candidate branch `normal/rate-limit-retry-after-20261106` is now 10 commits ahead / 18 behind current #74 and remains divergent. Its migration still performs an unbounded stale-bucket DELETE on 1-in-64 requests; do not integrate it as a unit.
