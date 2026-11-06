@@ -922,3 +922,65 @@ assert.equal(normalUnknownRoomRetries,1,"call-ID recovery must retry exactly onc
 assert.equal(Object.keys(normalOfflineAttemptContext.signalPendingCallAttempts).length,0,
   "confirmed retry must clear the durable call-attempt handle");
 console.log("Normal pre-prepare call-ID persistence, storage-failure gate, active-call reconnect guard and unknown-room recovery tests passed.");
+
+
+// A non-creator must persist its room-ID leave handle before accepting an authenticated invitation.
+const normalAcceptStart=userTemplate.indexOf("async function callAcceptGroupInvite(){");
+const normalAcceptEnd=userTemplate.indexOf("async function callAcceptIncomingCall(){",normalAcceptStart);
+assert.ok(normalAcceptStart>=0&&normalAcceptEnd>normalAcceptStart,"Normal authenticated recipient-accept source boundaries not found");
+const normalAcceptBlock=userTemplate.slice(normalAcceptStart,normalAcceptEnd);
+assert.ok(normalAcceptBlock.includes("signalTransportFlag") &&
+  normalAcceptBlock.indexOf("signalTrackPendingCallLeave(signalRoomId,upCall.callId,signalTransport)")>=0 &&
+  normalAcceptBlock.indexOf("signalTrackPendingCallLeave(signalRoomId,upCall.callId,signalTransport)")<normalAcceptBlock.indexOf("signalTransport.accept(signalRoomId)"),
+  "Normal must persist the recipient leave handle before accepting an authenticated call");
+const normalAcceptSource=normalAcceptBlock+"\\nthis.__candidateAcceptGroupInvite=callAcceptGroupInvite;";
+function makeNormalRecipientAcceptContext(storage,events){
+  const context=makeCallCleanupContext({transport:null,storage});
+  context.upCall.pendingInvite={from:"Peer",participants:["Peer"]};
+  context.upCall.active=true;
+  context.upCall.callId="normal-call-1";
+  context.signalRoomByCallId={"normal-call-1":"normal-call-room"};
+  context.signalTransportFlag=true;
+  context.signalTransport={accept:async roomId=>{events.push("accept:"+roomId);return {ok:true};}};
+  context.signalTrackPendingCallLeave=(roomId,callId,transport)=>{
+    events.push("persist");
+    return context.__candidateTrackPendingCallLeave(roomId,callId,transport);
+  };
+  context.message=value=>events.push("message:"+String(value));
+  context.callCleanup=async()=>{events.push("cleanup");return true;};
+  context.callMergeParticipants=()=>events.push("merge");
+  context.signalStartCallPolling=()=>events.push("poll");
+  context.callStartPresence=()=>events.push("presence");
+  context.callRender=()=>events.push("render");
+  context.callNames=()=> "Peer";
+  context.toggleCallMute=()=>{};
+  return context;
+}
+const recipientFailureEvents=[];
+const recipientFailureStorage={has:()=>false,get:()=>null,set:()=>{throw new Error("userscript storage unavailable");}};
+const normalRecipientStorageFailure=makeNormalRecipientAcceptContext(recipientFailureStorage,recipientFailureEvents);
+vm.runInNewContext(normalAcceptSource,normalRecipientStorageFailure,{timeout:1000});
+await normalRecipientStorageFailure.__candidateAcceptGroupInvite();
+assert.deepEqual(recipientFailureEvents.filter(event=>event==="persist"||event.startsWith("accept:")||event==="cleanup"),["persist"],
+  "Normal must not accept or tear down into a pending membership when recipient leave persistence fails");
+assert.ok(recipientFailureEvents.some(event=>event.includes("armazenamento do userscript")),
+  "Normal must explain that recipient acceptance was blocked by storage failure");
+assert.equal(normalRecipientStorageFailure.upCall.pendingInvite.from,"Peer",
+  "failed durable recipient persistence must leave the invitation pending for a safe retry");
+assert.equal(Object.keys(normalRecipientStorageFailure.signalPendingCallLeaves).length,0,
+  "failed recipient persistence must not leave a false in-memory durable handle");
+
+const recipientSuccessEvents=[];
+const recipientSuccessStorage=new Map();
+const normalRecipientStorageSuccess=makeNormalRecipientAcceptContext(recipientSuccessStorage,recipientSuccessEvents);
+vm.runInNewContext(normalAcceptSource,normalRecipientStorageSuccess,{timeout:1000});
+await normalRecipientStorageSuccess.__candidateAcceptGroupInvite();
+assert.ok(recipientSuccessEvents.indexOf("persist")>=0&&recipientSuccessEvents.indexOf("persist")<recipientSuccessEvents.indexOf("accept:normal-call-room"),
+  "Normal must persist the recipient leave handle before the server accepts membership");
+const recipientEnvelope=recipientSuccessStorage.get(normalRecipientStorageSuccess.__candidateStorageKey("Normal Tester"));
+assert.equal(recipientEnvelope.version,1,"recipient leave persistence must use a versioned envelope");
+assert.deepEqual(Object.keys(recipientEnvelope.entries[0]).sort(),["callId","createdAt","member","roomId"],
+  "recipient leave persistence must contain only room ID, call ID, member and timestamp");
+assert.equal(JSON.stringify(recipientEnvelope).includes("normal-session-token"),false,
+  "recipient leave persistence must never store the session token");
+console.log("Normal recipient call acceptance fails closed without durable leave storage and persists before accept.");
