@@ -1895,3 +1895,41 @@ The rate-limit candidate branch remains diverged (10 ahead / 5 behind current No
 Production `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY and was queried read-only. No dedicated signaling function, call/voice-attempt schema/RPC, distributed rate-limit schema/RPC or atomic read-receipt RPC is deployed. Security findings remain 3 SECURITY DEFINER WARN for anon, 3 for authenticated, and 10 RLS-enabled/no-policy INFO; RT-01 and ACL-02 remain unresolved.
 
 No production write, migration, deploy, secret/role/flag change, merge, release, userscript publication, destructive operation or manual fixture cleanup occurred.
+
+
+## Engineering checkpoint — 2026-11-06 13:10 BRT
+
+### Current candidate work
+
+- **Normal #74 runtime head:** `f56acb9a59f56d0dfcef4bf3192550fc82f59c0d`. The PR branch then received documentation-only commits; the latest docs head is `61f2116cfc796a1097cb3ba44d3ef8557baa73ab`. Validate [42249084532](https://github.com/Reekyi/UpStatus/actions/runs/42249084532) passed on the runtime head. Signaling Smoke [42249084515](https://github.com/Reekyi/UpStatus/actions/runs/42249084515) passed the syntax/static and unauthenticated endpoint stages; authenticated integration/browser, rate-limit concurrency, read-receipt concurrency, and cleanup were still running at this checkpoint.
+- **Team Lite #76 head:** `ac18ada46755276691e08a127b52e9b3e8955d16`. Candidate Checks [42249119327](https://github.com/Reekyi/UpStatus/actions/runs/42249119327) is queued behind the shared Normal/Team Lite isolated-test concurrency group.
+- **Screen-share recovery:** both candidates now cache local offers/answers, retransmit the same pending offer on presence and on a bounded 3-second timer (maximum three retries), resend the cached answer for a duplicate offer, replace failed/disconnected peers before a fresh offer, and clear timers on answer/peer teardown. The Normal VM regression ran successfully in Smoke's syntax/static step. The Team Lite workflow runs the same test against its own userscript bundle.
+- The Normal and Team Lite screen-share function blocks were compared byte-for-byte equal (6,211 characters); both candidate workflows use the same regression test blob. This is source/VM evidence, not physical browser recovery evidence.
+
+### PR inventory and release gates
+
+- #74 remains Draft; no merge. The runtime Smoke result is not final until the authenticated/browser and cleanup stages complete.
+- #75 baseline remains at `7bbf9b9`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed.
+- #76 remains Draft; exact-head Candidate Checks are queued, not yet approved.
+- #80 continuity remains a docs-only PR. Validate [42247097010](https://github.com/Reekyi/UpStatus/actions/runs/42247097010) reproduced the inherited `client signed upload helper missing` assertion from the develop baseline. Do not weaken the validator or add unrelated upload code to hide it.
+- #82 independent QA remains untouched. Validate [42244487940](https://github.com/Reekyi/UpStatus/actions/runs/42244487940) reproduced the inherited `production updateURL mismatch` assertion. Preserve the QA branch and `docs/RELEASE_READINESS.md`.
+
+### Production read-only snapshot
+
+Project `dlfvkawaiqduhlazsszm` is ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations through `20261027155438`, and 38 ACTIVE Edge Functions. No dedicated `upstatus-signal`, distributed rate-limit table/RPC, call-attempt table/RPC, voice-attempt table/RPC, or atomic read-receipt RPC exists in production.
+
+Read-only catalog checks still show:
+- Three trigger-only broadcast functions are SECURITY DEFINER, pin `search_path=public`, and remain executable by anon/authenticated.
+- `upstatus_broadcast_messages()` still broadcasts the complete OLD/NEW row to the public `db_change` topic.
+- Nine backend-owned public tables retain client SELECT/INSERT/UPDATE grants while RLS is enabled with zero policies; `upstatus_visual_config` has no client grants.
+- `realtime.messages` retains anon/authenticated SELECT/INSERT/UPDATE grants with RLS enabled and zero policies.
+- Default ACLs remain broad for postgres in public/storage and supabase_admin in public/graphql/graphql_public.
+- Security Advisor: 3 WARN for anon SECURITY DEFINER execution, 3 WARN for authenticated execution, 10 INFO RLS/no-policy; performance and health advisors returned no findings.
+
+No production or official TEST writes, migrations, deployments, secret/role/flag changes, release, merge, or userscript publication were performed.
+
+### Remaining acceptance
+
+- Complete exact-head Normal Smoke and Team Lite Candidate Checks, then verify isolated fixture counts are zero.
+- Physical Tampermonkey close/reload while offline, real microphone/display-capture permissions, and installed Normal ↔ Team Lite cross-client testing remain pending.
+- Product-facing rate-limit integration and Retry-After, public Realtime retirement, production ACL/function-grant hardening, official TEST cutover/rollback rehearsal, and human PR reviews remain release gates.
