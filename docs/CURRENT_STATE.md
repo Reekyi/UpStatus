@@ -289,3 +289,9 @@ The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fe
 - Exact-head Team Lite run [42148155469](https://github.com/Reekyi/UpStatus/actions/runs/42148155469) on `f573981` passed 103/103 authenticated integration, browser WebRTC call/voice/screen, three-member mesh, 90/1 rate limit, rate/read-receipt concurrency, migration guard, candidate metadata, and fixture cleanup. It failed only in the final VM logout test because the stub relied on `this` in a strict VM global call. Commit `8678b4b` fixes the harness with closure state and arrow functions.
 - Read-only cleanup check on isolated `upstatus-security-test` found zero test-prefixed users, sessions, rooms, memberships, events, rate-limit rows, and chat-read rows.
 - Latest exact-head Candidate Checks [42149391376](https://github.com/Reekyi/UpStatus/actions/runs/42149391376) on `8678b4b` is in progress. No approval yet.
+
+
+## 2026-11-05 23:24 BRT — expired room leave semantics
+
+- Candidate voice rooms expire after 2 hours. The leave RPC returns `ROOM_UNAVAILABLE` for closed/expired rooms and `ROOM_MEMBERSHIP_ENDED` when membership is already absent. The shared adapter exposes these as `error.code` on non-2xx responses or JSON `error` bodies on 2xx responses. Current Normal/Team Lite client code treats both as failure and can block logout even though no active membership remains. Next fix: normalize only these two terminal codes to idempotent success in the shared adapter, with tests for 2xx and non-2xx; retain failures for all other codes. Not yet implemented.
+- Team Lite Candidate Checks [42149391376](https://github.com/Reekyi/UpStatus/actions/runs/42149391376) on `8678b4b` remains in progress. Normal candidate `bbf1f2b` remains isolated and unvalidated.
