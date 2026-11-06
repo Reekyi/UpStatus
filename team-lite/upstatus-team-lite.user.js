@@ -986,7 +986,7 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
     teamLiteSessionEnded=true;teamLiteClearIdleTimer();
     var callsReleased=false;
     try{
-      callsReleased=upCall&&upCall.active?await callCleanup(true,'hangup'):await signalRetryPendingCallLeaves();
+      callsReleased=upCall&&upCall.active?await callCleanup(true,'hangup'):await signalRetryPendingCallAttempts();
       if(callsReleased)callsReleased=await signalRetryPendingCallLeaves();
     }catch(e){callsReleased=false;}
     if(!callsReleased){

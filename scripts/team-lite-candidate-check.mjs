@@ -81,7 +81,7 @@ assert.ok(script.includes(".on('broadcast',{event:'remote_command'},function(){"
 assert.ok(script.includes("if(remotePollHintTimer||!isAuthenticated())return;") && script.includes("if(isAuthenticated()&&expectedGeneration===authGeneration&&expectedMember===member)pollRemoteStatus();"), "Team Lite remote command hint timers must coalesce and remain session-bound");
 assert.ok(script.includes("sendRealtimeEvent('remote_command',{op:'hint'})"), "Team Lite client remote command broadcasts must contain only a generic hint");
 assert.ok(!script.includes("sendRealtimeEvent('remote_result'"), "Team Lite must not broadcast remote result metadata publicly");
-assert.ok(script.includes("callsReleased=upCall&&upCall.active?await callCleanup(true,'hangup'):await signalRetryPendingCallLeaves();") && script.includes("if(!callsReleased){") && script.includes("await signalRetryPendingCallLeaves();"), "Team Lite logout and idle session end must await confirmed call-room membership cleanup");
+assert.ok(script.includes("callsReleased=upCall&&upCall.active?await callCleanup(true,'hangup'):await signalRetryPendingCallAttempts();") && script.includes("if(!callsReleased){") && script.includes("await signalRetryPendingCallLeaves();"), "Team Lite logout and idle session end must await confirmed call-room membership cleanup");
 assert.ok(script.includes("teamLiteSessionEnded=true;teamLiteClearIdleTimer();") && script.includes("authenticated=false;authGeneration++;"), "Team Lite session cleanup must run before auth generation invalidation");
 assert.ok(!script.includes("if(c&&c.target===member)executeRemoteCommand(c);"), "client must not execute untrusted remote command broadcast payloads");
 assert.ok(build.includes('writeFunction("upstatus-team-lite",renderTeamLiteFunction())'), "build must generate the Team Lite Edge Function");
@@ -394,6 +394,7 @@ assert.equal(logoutGateSettled, true, "logout voice-release gate must settle aft
 const endSessionStart = script.indexOf("async function teamLiteEndSession(){");
 const endSessionEnd = script.indexOf("\n  function teamLiteStartIdleTimer", endSessionStart);
 const endSessionSource = script.slice(endSessionStart, endSessionEnd) + "\nthis.__candidateEndSession=teamLiteEndSession;";
+assert.ok(endSessionSource.indexOf("await signalRetryPendingCallAttempts()")>=0 && endSessionSource.indexOf("await signalRetryPendingCallAttempts()")<endSessionSource.indexOf("await signalRetryPendingCallLeaves()"), "Team Lite idle logout must cancel pending logical call attempts before retrying room leaves");
 assert.ok(
   endSessionSource.includes("await teamLiteReleaseVoiceRoomBeforeLogout()") &&
   endSessionSource.indexOf("await teamLiteReleaseVoiceRoomBeforeLogout()") < endSessionSource.indexOf("if(!voiceReleased)") &&
@@ -761,6 +762,7 @@ const logoutFailureContext = {
   upCall: null,
   callCleanup: () => {},
   signalRetryPendingCallLeaves: async () => true,
+  signalRetryPendingCallAttempts: async () => true,
   teamLiteReleaseVoiceRoomBeforeLogout: async () => false,
   chat: { classList: { contains: () => true } },
   authenticated: true,
@@ -1134,3 +1136,34 @@ assert.equal(await liteActiveCall.__candidateRetryPendingCallAttempts(), true,
   "an abandoned call attempt must be cancelled after the call is no longer active");
 assert.equal(liteActiveCallCancels, 1, "abandoned logical call attempt must be cancelled exactly once");
 console.log("Team Lite pre-prepare call-ID persistence, storage-failure gate, active-call reconnect guard and unknown-room recovery tests passed.");
+
+const pendingAttemptLogoutEvents = [];
+const pendingAttemptLogoutContext = {
+  teamLiteSessionEnded: false,
+  token: "still-valid-session-token",
+  teamLiteClearIdleTimer: () => pendingAttemptLogoutEvents.push("clear-idle"),
+  upCall: { active: false },
+  callCleanup: async () => { pendingAttemptLogoutEvents.push("call-cleanup"); return true; },
+  signalRetryPendingCallAttempts: async () => { pendingAttemptLogoutEvents.push("retry-attempts"); return false; },
+  signalRetryPendingCallLeaves: async () => { pendingAttemptLogoutEvents.push("retry-leaves"); return true; },
+  teamLiteReleaseVoiceRoomBeforeLogout: async () => { pendingAttemptLogoutEvents.push("voice-release"); return true; },
+  chat: { classList: { contains: () => true } },
+  authenticated: true,
+  authGeneration: 17,
+  voiceRoomMessage: message => pendingAttemptLogoutEvents.push("message:" + message),
+  card: { classList: { remove: value => pendingAttemptLogoutEvents.push("show-card:" + value) } },
+  voiceRoomRender: () => pendingAttemptLogoutEvents.push("render"),
+  api: async () => { pendingAttemptLogoutEvents.push("api-logout"); },
+  stopRealtime: () => pendingAttemptLogoutEvents.push("stop-realtime"),
+  GM_setValue: () => pendingAttemptLogoutEvents.push("storage-clear"),
+  login: () => pendingAttemptLogoutEvents.push("login")
+};
+vm.runInNewContext(endSessionSource, pendingAttemptLogoutContext, { timeout: 1000 });
+const pendingAttemptLogoutResult = await pendingAttemptLogoutContext.__candidateEndSession();
+assert.equal(pendingAttemptLogoutResult, false, "Team Lite logout must abort when a restored logical call attempt cannot be cancelled");
+assert.equal(pendingAttemptLogoutContext.token, "still-valid-session-token", "failed logical call cancellation must preserve the Team Lite session token");
+assert.ok(pendingAttemptLogoutEvents.includes("retry-attempts"), "Team Lite idle logout must retry restored logical call attempts");
+assert.equal(pendingAttemptLogoutEvents.includes("retry-leaves"), false, "Team Lite must not proceed to room leaves while logical call cancellation is unconfirmed");
+assert.equal(pendingAttemptLogoutEvents.some(event => event === "voice-release" || event === "api-logout" || event === "stop-realtime" || event === "storage-clear" || event === "login"), false,
+  "Team Lite must not leave voice, logout, stop Realtime or clear credentials while a logical call attempt remains");
+console.log("Team Lite idle logout blocks on unconfirmed logical call-attempt cancellation.");
