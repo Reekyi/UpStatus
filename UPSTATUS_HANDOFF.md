@@ -1622,3 +1622,37 @@ No merge, deploy, release, production migration/SQL write, secret/role/flag chan
 - Team Lite #76 still has no voice-attempt client/adapter/server-template parity. Keep #78 open.
 
 Production remains read-only. Do not treat the exact-head Smoke as green until [42220452949](https://github.com/Reekyi/UpStatus/actions/runs/42220452949) completes.
+
+
+## Engineering checkpoint — 2026-11-06: Team Lite voice-attempt parity and rate-limit contract
+
+### Normal #74 exact-head result
+
+- PR #74 remains at `94513c106d42cb8d77ab9a1c11ff7c9bfa610ba6`, 735 ahead / 0 behind `master`, open and Draft.
+- Validate [42220452780](https://github.com/Reekyi/UpStatus/actions/runs/42220452780) and exact-head Signaling Smoke [42220452949](https://github.com/Reekyi/UpStatus/actions/runs/42220452949) both completed SUCCESS.
+- Smoke log confirms **129/129 authenticated integration checks**, voice-attempt cancel-before-open tombstones and late-open HTTP 410, authenticated browser call/voice/screen WebRTC with remote tracks, 90 accepted + 1 HTTP 429, rate-limit concurrency, atomic read-receipt concurrency, and temporary user/session/room/membership/event cleanup.
+- This is automated candidate evidence only; physical Tampermonkey and cross-client acceptance remain open.
+
+### Team Lite #76 — voice-attempt client parity
+
+- Current PR #76 head: `65e0176212091d4aa07a483aa978d2980f498479`, 225 ahead / 0 behind `team-lite-official`, 166 ahead / 0 behind #75. PR remains open and Draft.
+- The Team Lite candidate now contains the durable voice-room attempt ID flow, cancel-before-open tombstone handling, pagehide/offline retention, reload retry, storage-failure fail-closed behavior, and logout gating. This supersedes the earlier checkpoint that said Team Lite lacked the protocol.
+- Candidate Checks [42227413397](https://github.com/Reekyi/UpStatus/actions/runs/42227413397) is currently running the authenticated integration/browser step. Steps 1–6 passed: isolation guard, adapter tests, durable voice-attempt tests, and unauthenticated endpoint checks.
+- Previous run [42226284760](https://github.com/Reekyi/UpStatus/actions/runs/42226284760) passed 103/103 authenticated checks, browser call/voice/screen WebRTC, rate-limit concurrency, read-receipt concurrency, and cleanup, then failed only in the final VM candidate checker because the logout context lacked `signalPendingVoiceRoomStorageHealthy`. The harness context was corrected.
+- Run [42227054099](https://github.com/Reekyi/UpStatus/actions/runs/42227054099) then passed the voice-attempt unit tests but one unauthenticated `/signal` request exceeded the previous 12-second cold-start timeout. The endpoint smoke timeout is now 20 seconds; current run 42227413397 passed that step. Do not call #76 green until this exact run completes all jobs and cleanup.
+
+### Separate Normal rate-limit candidate
+
+- Isolated branch `normal/rate-limit-retry-after-20261106` is at `ed36fb2764619ab7787672803159edbcf507321c`, 9 commits ahead / 0 behind the validated Normal head `94513c1`. It is not yet integrated into #74 and has no CI result.
+- Candidate adds production migration `20261106133500_distributed_signaling_rate_limit.sql`, a SQL privilege regression, HTTP 429 `Retry-After: 60`, CORS exposure of that header, a VM test of the actual response helper, and bounded 20-second unauthenticated endpoint checks.
+- Runtime Retry-After assertion is opt-in until the isolated endpoint source can be updated. No Edge Function deployment was performed. The test SQL was corrected to match PostgreSQL's observed `pg_proc.proconfig` value `search_path=""`.
+- This remains a source candidate, not a deployed or runtime-approved endpoint. The isolated project currently serves `upstatus-signal-test` v31.
+
+### Supabase and release gates
+
+- Production `dlfvkawaiqduhlazsszm` is ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, 38 ACTIVE Edge Functions. It has no dedicated `upstatus-signal`, rate-limit table/RPC, or voice-room-attempt table/RPC; catalog checks returned NULL for these objects.
+- Read-only catalog inspection reconfirmed three public-executable SECURITY DEFINER broadcast functions, nine backend-owned public tables with client grants despite RLS/no policies, client grants on `realtime.messages`, and broad default ACLs owned by `postgres` and `supabase_admin`. Security Advisor remains 3 WARN for anon, 3 WARN for authenticated, and 10 INFO for RLS without policies.
+- Isolated project `bfpjtfqlnypisxljoxkb` is ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 27 migrations, `upstatus-signal-test` v31. It is currently occupied by run 42227413397; do not apply the new rate-limit migration or start another fixture suite until that run finishes and cleanup is verified.
+- RT-01 public full-row broadcasts, ACL-02 default ACL ownership, production endpoint/migration cutover, runtime Retry-After, official TEST rollback rehearsal, physical no-F5/Tampermonkey/device checks, live Normal ↔ Team Lite interoperability, and human reviews remain release gates.
+
+No merge, deployment, release, production migration/SQL write, secret/role/flag change, userscript publication, or destructive operation occurred.
