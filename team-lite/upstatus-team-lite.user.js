@@ -541,7 +541,7 @@ function voiceRoomLeave(options){
   voiceRoomRender();
   return voiceRoomLeavePromise;
 }
-window.addEventListener('pagehide',function(){try{voiceRoomLeave().catch(function(){});}catch(e){}});
+window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').catch(function(){});}catch(e){}try{voiceRoomLeave().catch(function(){});}catch(e){}});
 
   // Controle global do ringtone: evita áudio órfão quando há mais de uma instância do userscript na página.
   var upRingtoneGlobal=window.__upstatusRingtoneGlobal||(window.__upstatusRingtoneGlobal={generation:0,sources:[],gains:[]});
@@ -616,6 +616,52 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave().catch(functio
   var signalInvitationTimer=null,signalInvitationPollBusy=false;
   var signalRoomByCallId=Object.create(null),signalCallIdByRoom=Object.create(null),signalCreatorCallIds=Object.create(null);
   var signalPendingCallLeaves=Object.create(null);
+  function signalPendingCallLeavesStorageKey(memberName){
+    return key+'signal_pending_call_leaves_v1_'+encodeURIComponent(String(memberName||''));
+  }
+  function signalHasControlChars(value){
+    for(var i=0;i<value.length;i++){var code=value.charCodeAt(i);if(code<32||code===127)return true;}
+    return false;
+  }
+  function signalNormalizePendingCallLeaveRecord(record,expectedMember,now){
+    if(!record||typeof record!=='object'||Array.isArray(record))return null;
+    var roomId=String(record.roomId||'').trim(),recordMember=String(record.member||''),callId=String(record.callId||'').trim(),createdAt=Number(record.createdAt);
+    if(!expectedMember||recordMember!==expectedMember)return null;
+    if(!/^[A-Za-z0-9._:-]{1,128}$/.test(roomId))return null;
+    if(!callId||callId.length>160||signalHasControlChars(callId))return null;
+    if(!Number.isFinite(createdAt)||createdAt<=0||createdAt>now+60000||now-createdAt>7*24*60*60*1000)return null;
+    return {roomId:roomId,member:recordMember,callId:callId,createdAt:createdAt};
+  }
+  function signalPersistPendingCallLeaves(){
+    if(!member)return false;
+    var records=[],now=Date.now();
+    Object.keys(signalPendingCallLeaves).forEach(function(roomId){
+      if(records.length>=20)return;
+      var entry=signalPendingCallLeaves[roomId];
+      if(!entry||entry.member!==member)return;
+      var record=signalNormalizePendingCallLeaveRecord({roomId:roomId,member:entry.member,callId:entry.callId,createdAt:entry.createdAt||now},member,now);
+      if(record)records.push(record);
+    });
+    try{GM_setValue(signalPendingCallLeavesStorageKey(member),{version:1,entries:records});return true;}catch(e){return false;}
+  }
+  function signalRestorePendingCallLeaves(){
+    if(!token||!member)return 0;
+    var stored=null;
+    try{stored=GM_getValue(signalPendingCallLeavesStorageKey(member),null);}catch(e){return 0;}
+    if(!stored||stored.version!==1||!Array.isArray(stored.entries))return 0;
+    var now=Date.now(),restored=0,seen=Object.create(null);
+    stored.entries.slice(0,20).forEach(function(raw){
+      var record=signalNormalizePendingCallLeaveRecord(raw,member,now);
+      if(!record||seen[record.roomId])return;
+      seen[record.roomId]=true;
+      if(!signalPendingCallLeaves[record.roomId]){
+        signalPendingCallLeaves[record.roomId]={roomId:record.roomId,callId:record.callId,member:record.member,transport:null,promise:null,createdAt:record.createdAt};
+      }
+      restored++;
+    });
+    signalPersistPendingCallLeaves();
+    return restored;
+  }
   function signalTransportRequest(route,payload,options){
     return new Promise(function(resolve,reject){
       var signal=options&&options.signal,handle=null,settled=false,abortHandler=null;
@@ -657,6 +703,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave().catch(functio
       }
       if(signalCallIdByRoom[roomId]===entry.callId)delete signalCallIdByRoom[roomId];
       delete signalRosterCache[roomId];
+      signalPersistPendingCallLeaves();
       return true;
     }).catch(function(){return false;});
     entry.promise=attempt.then(function(ok){
@@ -680,7 +727,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave().catch(functio
     if(!signalTransportFlag||signalTransport||!token||!signalTransportEndpoint)return;
     try{var endpoint=new URL(signalTransportEndpoint),sessionServer=new URL(server);
       if(endpoint.protocol!=='https:'||endpoint.origin!==sessionServer.origin||endpoint.search||endpoint.hash||!(endpoint.pathname.endsWith('/functions/v1/upstatus-signal')||endpoint.pathname.endsWith('/functions/v1/upstatus-signal-test')))return;
-      signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});signalStartInvitationPolling();signalRetryPendingCallLeaves();
+      signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});signalRestorePendingCallLeaves();signalStartInvitationPolling();signalRetryPendingCallLeaves();
     }catch(e){signalTransport=null;}
   }
   function signalSafeCallId(id){return String(id||'call').replace(/[^A-Za-z0-9._:-]/g,'_').slice(0,128)||('call-'+Date.now().toString(36));}
@@ -2645,7 +2692,7 @@ function renderChatText(text){
     var cleanupPromise=Promise.resolve(true);
     upCall.startAttempt=(upCall.startAttempt||0)+1;upCall.starting=false;
     var callId=upCall.callId,signalRoomId=signalRoomByCallId[callId],signalRoomCreator=signalCreatorCallIds[callId]===true,pendingSignals=[],leavingTransport=signalTransport,leavingMember=member;
-    if(callId&&upCall.active){
+    if(callId&&upCall.active&&!(signalTransportFlag&&signalType==='pagehide')){
       if(signalTransportFlag){
         if(signalTransport&&signalRoomId&&!upCall.pendingInvite)pendingSignals.push(callSendAll('ended',{updatedAt:Date.now()}));
         if(signalRoomCreator)sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now(),discoveryOnly:true});
@@ -2670,8 +2717,9 @@ function renderChatText(text){
     if(signalRoomId){
       signalStopCallPolling(signalRoomId);
       if(!signalPendingCallLeaves[signalRoomId]){
-        signalPendingCallLeaves[signalRoomId]={roomId:signalRoomId,callId:callId,member:leavingMember,transport:leavingTransport,promise:null};
+        signalPendingCallLeaves[signalRoomId]={roomId:signalRoomId,callId:callId,member:leavingMember,transport:leavingTransport,promise:null,createdAt:Date.now()};
       }
+      signalPersistPendingCallLeaves();
       delete signalRoomByCallId[callId];delete signalCallIdByRoom[signalRoomId];delete signalRosterCache[signalRoomId];
     }
     delete signalCreatorCallIds[callId];
