@@ -92,22 +92,70 @@ assert.equal(await restored.__candidateRetry(), true,
 assert.equal(cancelCalls, 1);
 assert.equal(storage.get(storageKey).entries.length, 0);
 
-const malformedStorage = new Map();
-malformedStorage.set("upstatus_team_lite_signal_pending_voice_room_attempts_v1_Team%20Lite%20Tester", {
-  version: 1,
-  entries: [
-    { attemptId: "Team_Lite_Tester-voice-valid", logicalId: "upstatus-team-room-v1", member: "Team Lite Tester", createdAt: Date.now() },
-    { attemptId: "Other_Member-voice-cross", logicalId: "upstatus-team-room-v1", member: "Other Member", createdAt: Date.now() },
-    { attemptId: "Team_Lite_Tester-voice-bad room", logicalId: "upstatus-team-room-v1", member: "Team Lite Tester", createdAt: Date.now() },
-    { attemptId: "Team_Lite_Tester-voice-stale", logicalId: "upstatus-team-room-v1", member: "Team Lite Tester", createdAt: Date.now() - 8 * 24 * 60 * 60 * 1000 },
-    { attemptId: "Team_Lite_Tester-voice-future", logicalId: "upstatus-team-room-v1", member: "Team Lite Tester", createdAt: Date.now() + 8 * 24 * 60 * 60 * 1000 },
-    { attemptId: "Team_Lite_Tester-voice-wrong-logical", logicalId: "call:wrong", member: "Team Lite Tester", createdAt: Date.now() },
-  ],
-});
-const validation = makeContext({ storage: malformedStorage });
-assert.equal(validation.__candidateRestore(), 1,
-  "restore must reject cross-member, malformed, stale, future and unsupported logical IDs");
-assert.deepEqual(Object.keys(validation.signalPendingVoiceRoomAttempts), ["Team_Lite_Tester-voice-valid"]);
+const crossMemberStorage = new Map();
+const recoveryStorageKey = "upstatus_team_lite_signal_pending_voice_room_attempts_v1_Team%20Lite%20Tester";
+const validStoredRecord = {
+  attemptId: "Team_Lite_Tester-voice-valid",
+  logicalId: "upstatus-team-room-v1",
+  member: "Team Lite Tester",
+  createdAt: Date.now(),
+};
+const crossMemberRecord = {
+  attemptId: "Other_Member-voice-cross",
+  logicalId: "upstatus-team-room-v1",
+  member: "Other Member",
+  createdAt: Date.now(),
+};
+crossMemberStorage.set(recoveryStorageKey, { version: 1, entries: [validStoredRecord, crossMemberRecord] });
+const crossMemberValidation = makeContext({ storage: crossMemberStorage });
+assert.equal(crossMemberValidation.__candidateRestore(), 1,
+  "restore must ignore explicit cross-member records without crossing identities");
+assert.equal(crossMemberValidation.signalPendingVoiceRoomStorageHealthy, true);
+assert.deepEqual(Object.keys(crossMemberValidation.signalPendingVoiceRoomAttempts), ["Team_Lite_Tester-voice-valid"]);
+assert.deepEqual(crossMemberStorage.get(recoveryStorageKey).entries, [validStoredRecord],
+  "successful restore may remove explicit cross-member records from this member-scoped envelope");
+
+const ownMemberCorruptions = [
+  { label: "malformed attempt ID", record: { attemptId: "Team_Lite_Tester-voice-bad room", logicalId: "upstatus-team-room-v1", member: "Team Lite Tester", createdAt: Date.now() } },
+  { label: "stale timestamp", record: { attemptId: "Team_Lite_Tester-voice-stale", logicalId: "upstatus-team-room-v1", member: "Team Lite Tester", createdAt: Date.now() - 8 * 24 * 60 * 60 * 1000 } },
+  { label: "future timestamp", record: { attemptId: "Team_Lite_Tester-voice-future", logicalId: "upstatus-team-room-v1", member: "Team Lite Tester", createdAt: Date.now() + 8 * 24 * 60 * 60 * 1000 } },
+  { label: "unsupported logical ID", record: { attemptId: "Team_Lite_Tester-voice-wrong-logical", logicalId: "call:wrong", member: "Team Lite Tester", createdAt: Date.now() } },
+  { label: "missing member", record: { attemptId: "Team_Lite_Tester-voice-missing-member", logicalId: "upstatus-team-room-v1", createdAt: Date.now() } },
+  { label: "unexpected session field", record: { attemptId: "Team_Lite_Tester-voice-unexpected-field", logicalId: "upstatus-team-room-v1", member: "Team Lite Tester", createdAt: Date.now(), token: "must-not-be-discarded-silently" } },
+  { label: "duplicate attempt ID", record: { ...validStoredRecord } },
+  { label: "non-object entry", record: null },
+];
+for (const corruption of ownMemberCorruptions) {
+  const ownMemberStorage = new Map();
+  const originalEnvelope = { version: 1, entries: [validStoredRecord, corruption.record] };
+  ownMemberStorage.set(recoveryStorageKey, originalEnvelope);
+  const ownMemberValidation = makeContext({ storage: ownMemberStorage });
+  assert.equal(ownMemberValidation.__candidateRestore(), 0,
+    "own-member " + corruption.label + " must fail closed rather than lose a possible server attempt");
+  assert.equal(ownMemberValidation.signalPendingVoiceRoomStorageHealthy, false,
+    "own-member " + corruption.label + " must mark recovery storage unhealthy");
+  assert.deepEqual(ownMemberStorage.get(recoveryStorageKey), originalEnvelope,
+    "own-member " + corruption.label + " must preserve the original envelope byte-for-byte at the data level");
+  assert.equal(Object.keys(ownMemberValidation.signalPendingVoiceRoomAttempts).length, 0,
+    "own-member " + corruption.label + " must not partially restore a sanitized subset");
+  assert.equal(await ownMemberValidation.__candidateRetry(), false,
+    "own-member " + corruption.label + " must block recovery/logout claims");
+  assert.equal(ownMemberValidation.__candidateTrack("upstatus-team-room-v1", "Team_Lite_Tester-voice-new"), false,
+    "own-member " + corruption.label + " must block new voice-room attempts");
+}
+
+const writeFailureStorage = new Map();
+const writeFailureEnvelope = { version: 1, entries: [validStoredRecord, crossMemberRecord] };
+writeFailureStorage.set(recoveryStorageKey, writeFailureEnvelope);
+const writeFailure = makeContext({ storage: writeFailureStorage, writeThrows: true });
+assert.equal(writeFailure.__candidateRestore(), 0,
+  "failure to persist a filtered recovery envelope must fail closed");
+assert.equal(writeFailure.signalPendingVoiceRoomStorageHealthy, false);
+assert.deepEqual(writeFailureStorage.get(recoveryStorageKey), writeFailureEnvelope,
+  "a failed storage rewrite must leave the original envelope intact");
+assert.equal(Object.keys(writeFailure.signalPendingVoiceRoomAttempts).length, 0);
+assert.equal(await writeFailure.__candidateRetry(), false);
+
 
 const oversizedStorage = new Map();
 const oversizedKey = "upstatus_team_lite_signal_pending_voice_room_attempts_v1_Team%20Lite%20Tester";
