@@ -153,6 +153,7 @@ try {
       const cleanupTasks = [
         () => rest("/upstatus_signal_rooms?created_by=" + identity, { method: "DELETE" }),
         () => rest("/upstatus_signal_call_attempts?created_by=" + identity, { method: "DELETE" }),
+        () => rest("/upstatus_signal_voice_room_attempts?created_by=" + identity, { method: "DELETE" }),
         () => rest("/upstatus_signal_rate_limits?bucket_key=eq." + encodeURIComponent(user.name + ":read"), { method: "DELETE" }),
         () => rest("/upstatus_signal_rate_limits?bucket_key=eq." + encodeURIComponent(user.name + ":write"), { method: "DELETE" }),
         () => rest("/upstatus_sessions?user_name=" + identity, { method: "DELETE" }),
@@ -169,6 +170,7 @@ try {
       for (const path of [
         "/upstatus_signal_rooms?select=room_id&created_by=" + identity,
         "/upstatus_signal_call_attempts?select=call_id&created_by=" + identity,
+        "/upstatus_signal_voice_room_attempts?select=attempt_id&created_by=" + identity,
         "/upstatus_sessions?select=token_hash&user_name=" + identity,
         "/users?select=name&name=" + identity,
         "/upstatus_signal_room_members?select=room_id&user_name=" + identity,
