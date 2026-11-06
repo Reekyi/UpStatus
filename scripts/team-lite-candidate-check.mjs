@@ -268,6 +268,7 @@ const teamLiteRealtimeStart=script.match(/function startRealtime\(\)\s*\{([\s\S]
 const teamLiteOnlineHandler=script.match(/window.addEventListener\('online',function\(\)\{([\s\S]*?)\n  \}\);/);
 assert.ok(teamLiteRealtimeStart && teamLiteRealtimeStart[1].includes("initSignalingTransport();") && teamLiteOnlineHandler && teamLiteOnlineHandler[1].includes("startRealtime();"), "Team Lite reconnect must recreate authenticated signaling transport when Realtime restarts");
 assert.ok(script.includes("voiceRoom.joinGeneration!==joinGeneration") && script.includes("navigator.onLine===false"), "Team Lite voice-room join must reject offline entry and stale getUserMedia completion");
+assert.ok(script.includes("voiceRoomLeave({skipServerLeave:true})") && script.includes("async function waitForVoiceRealtimeReady(") && script.includes("await waitForVoiceRealtimeReady(10000)"), "offline recovery must tear down locally without waiting for network leave and wait for Realtime readiness before legacy voice rejoin");
 console.log("Candidate updater runtime scenarios passed: newer/current/mismatch/downgrade/manifest-offline/script-offline/invalid-manifest.");
 
 
@@ -538,3 +539,74 @@ finishJoinWait();
 await joinAfterLeave;
 assert.ok(joinEvents.some(x => x.startsWith("message:Sem conexão")), "voice join must continue only after leave settles");
 console.log("Team Lite rejoin serialization test passed.");
+const realtimeReadyStart = script.indexOf("async function waitForVoiceRealtimeReady(");
+const realtimeReadyEnd = script.indexOf("\\nasync function voiceRoomJoin", realtimeReadyStart);
+assert.ok(realtimeReadyStart >= 0 && realtimeReadyEnd > realtimeReadyStart, "voice Realtime readiness helper boundaries not found");
+const realtimeReadySource = script.slice(realtimeReadyStart, realtimeReadyEnd) + "\\nthis.__candidateWaitForVoiceRealtimeReady=waitForVoiceRealtimeReady;";
+let realtimeStartCalls = 0;
+const readyContext = {
+  navigator: { onLine: true },
+  isAuthenticated: () => true,
+  realtimeActive: false,
+  realtimeChannel: null,
+  realtimeClient: null,
+  startRealtime: () => {
+    realtimeStartCalls++;
+    readyContext.realtimeClient = {};
+    readyContext.realtimeChannel = {};
+    readyContext.realtimeActive = true;
+  },
+  Date,
+  Promise,
+  setTimeout
+};
+vm.runInNewContext(realtimeReadySource, readyContext, { timeout: 1000 });
+assert.equal(await readyContext.__candidateWaitForVoiceRealtimeReady(1000), true, "voice join must wait until the Realtime subscription is ready");
+assert.equal(realtimeStartCalls, 1, "voice join must restart Realtime when no client exists");
+const offlineReadyContext = {
+  navigator: { onLine: false },
+  isAuthenticated: () => true,
+  realtimeActive: false,
+  realtimeChannel: null,
+  realtimeClient: null,
+  startRealtime: () => { throw new Error("must not start Realtime while offline"); },
+  Date,
+  Promise,
+  setTimeout
+};
+vm.runInNewContext(realtimeReadySource, offlineReadyContext, { timeout: 1000 });
+assert.equal(await offlineReadyContext.__candidateWaitForVoiceRealtimeReady(1000), false, "voice join readiness wait must stop immediately while offline");
+console.log("Team Lite Realtime recovery readiness tests passed.");
+
+const offlineLeaveEvents = [];
+const offlineLeaveContext = {
+  voiceRoom: {
+    joinGeneration: 0, active: true, joining: false, recoveryTimers: {}, recoveryAttempts: {},
+    timer: null, levelTimer: null, pingTimer: null, pingMs: null, peers: {}, stream: null,
+    muted: false, participants: {}
+  },
+  voiceRoomLeavePromise: null,
+  signalVoiceRoomRoomId: "team-lite-offline-room",
+  signalVoiceRoomPrepared: true,
+  signalVoiceRoomCreator: true,
+  screenShareStop: send => offlineLeaveEvents.push("screen-stop:" + send),
+  signalStopCallPolling: room => offlineLeaveEvents.push("poll-stop:" + room),
+  voiceRoomPlayCue: () => offlineLeaveEvents.push("leave-cue"),
+  voiceRoomSend: () => { offlineLeaveEvents.push("network-leave-signal"); return Promise.resolve(true); },
+  signalReleaseVoiceRoom: () => { offlineLeaveEvents.push("network-leave-rpc"); return Promise.resolve(true); },
+  clearTimeout: () => {},
+  clearInterval: () => {},
+  voiceRoomDrop: () => {},
+  voiceRoomRender: () => {},
+  voiceRoomMessage: () => {},
+  member: "Team Lite Tester",
+  Promise
+};
+vm.runInNewContext(voiceLeaveSource, offlineLeaveContext, { timeout: 1000 });
+await offlineLeaveContext.__candidateVoiceRoomLeave({ skipServerLeave: true });
+assert.ok(offlineLeaveEvents.includes("screen-stop:false"), "offline cleanup must stop screen capture without sending a network signal");
+assert.equal(offlineLeaveEvents.some(event => event.startsWith("network-")), false, "offline cleanup must not wait on an unreachable signaling endpoint");
+assert.equal(offlineLeaveContext.voiceRoom.active, false, "offline cleanup must clear local voice state");
+assert.equal(offlineLeaveContext.signalVoiceRoomRoomId, "team-lite-offline-room", "local leave cleanup must leave transport-owned room clearing to stopRealtime");
+console.log("Team Lite offline local-only voice teardown tests passed.");
+
