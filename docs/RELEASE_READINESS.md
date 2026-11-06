@@ -4640,3 +4640,35 @@ O workflow #76 usa o endpoint isolado upstatus-signal-test; a função compartil
 11. Atualizar #78/#79, obter reviews humanas e ensaiar rollback antes de qualquer release.
 
 Nenhuma branch de engenharia foi escrita pela auditoria. Nenhum workflow ou teste mutável foi iniciado pela auditoria. As consultas SQL desta rodada foram SELECT-only; nenhuma migration, deploy, merge, release, publicação, secret/flag/role change ou operação destrutiva foi realizada. A única escrita é este append na branch QA, usando o blob SHA atual como precondição.
+
+
+## Correção de fotografia - Team Lite avançou para novo HEAD durante a auditoria (2026-11-06)
+
+A engenharia atualizou #76 depois do append anterior. A fotografia mais recente do ref é:
+
+- Branch team-lite/signaling-transport-candidate.
+- HEAD atual: 65e0176212091d4aa07a483aa978d2980f498479.
+- 225 commits à frente / 0 atrás de team-lite-official; 166 à frente / 0 atrás do baseline #75.
+- Commit [65e0176](https://github.com/Reekyi/UpStatus/commit/65e0176212091d4aa07a483aa978d2980f498479) altera somente o timeout do black-box endpoint test de 12 para 20 segundos.
+
+A causa provável do run anterior ficou mais clara:
+
+- [42227054099](https://github.com/Reekyi/UpStatus/actions/runs/42227054099) falhou em 14/15 checks não autenticados porque POST /signal expirou em 12 segundos.
+- A consulta read-only aos Edge logs no intervalo não encontrou invocação correspondente para esse POST. GET /health retornou 200; os POSTs adjacentes sem token retornaram 401 rapidamente; PUT /signal retornou 405.
+- O health probe isolado retornou 200. A evidência é compatível com cold start/latência ou falha de transporte antes da invocação, não com rejeição de autenticação comprovada.
+- O commit 65e0176 aumentou o timeout para 20 segundos. Isso é uma mitigação de flakiness, não uma correção funcional do produto.
+
+Novo workflow exato [42227413397](https://github.com/Reekyi/UpStatus/actions/runs/42227413397):
+
+- Mutation guard: PASS.
+- Adapter tests: PASS.
+- Durable voice-room attempt recovery tests: PASS.
+- Isolated endpoint unauthenticated checks: PASS.
+- Integração autenticada/browser: IN PROGRESS na última consulta.
+- Rate-limit concurrency, read-receipt concurrency, migration guard, candidate-check e cleanup: ainda pendentes.
+
+Classificação atual de #76: implementação por inspeção e testes estáticos PASS; endpoint checks PASS no novo run; integração autenticada/browser ainda em execução. Não declarar Candidate Checks completo até o run 42227413397 terminar com SUCCESS e cleanup final ser confirmado. O laboratório está ocupado por esse workflow; não foi feita nova contagem de fixtures durante a execução.
+
+O HEAD Normal #74 permanece 94513c106d42cb8d77ab9a1c11ff7c9bfa610ba6, com Validate + Signaling Smoke completos em SUCCESS. O QA #82 permanece em 3d9bcb3, com o Validate anterior falhando no updateURL mismatch herdado de master.
+
+Este append usa o conteúdo e blob SHA reconsultados imediatamente antes da escrita. Nenhuma branch de engenharia foi alterada pela auditoria; nenhuma operação de produção ou teste mutável foi iniciada pela auditoria.
