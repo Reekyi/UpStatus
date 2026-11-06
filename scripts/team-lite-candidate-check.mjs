@@ -492,35 +492,52 @@ assert.equal(releaseContext.signalVoiceRoomPrepared, false, "successful retry mu
 assert.equal(releaseContext.signalVoiceRoomCreator, false, "successful retry must clear owner context");
 console.log("Team Lite voice-room release retry-context tests passed.");
 
-const fallbackEvents = [];
-let finishFallbackLeave;
-const pendingFallbackLeave = new Promise(resolve => {
-  finishFallbackLeave = () => {
-    fallbackEvents.push("fallback-complete");
-    fallbackLeaveContext.signalVoiceRoomRoomId = "";
+const attemptLeaveEvents = [];
+let finishFirstAttemptCancel;
+let finishSecondAttemptCancel;
+const firstAttemptCancel = new Promise(resolve => { finishFirstAttemptCancel = () => resolve(false); });
+const secondAttemptCancel = new Promise(resolve => {
+  finishSecondAttemptCancel = () => {
+    attemptLeaveEvents.push("cancel-confirmed");
+    delete attemptLeaveContext.signalPendingVoiceRoomAttempts["team-lite-voice-attempt"];
+    attemptLeaveContext.signalVoiceRoomAttemptId = "";
+    attemptLeaveContext.signalVoiceRoomRoomId = "";
+    attemptLeaveContext.signalVoiceRoomPrepared = false;
+    attemptLeaveContext.signalVoiceRoomCreator = false;
     resolve(true);
   };
 });
-const fallbackLeaveContext = {
+const attemptLeaveTransport = {};
+let attemptCancelCount = 0;
+const attemptLeaveContext = {
   voiceRoom: {
     joinGeneration: 0, active: true, joining: false, recoveryTimers: {}, recoveryAttempts: {},
     timer: null, levelTimer: null, pingTimer: null, pingMs: null, peers: {}, stream: null,
     muted: false, participants: {}
   },
-  signalVoiceRoomRoomId: "team-lite-voice-room-fallback",
-  signalVoiceRoomAttemptId: "",
-  signalPendingVoiceRoomAttempts: Object.create(null),
+  signalVoiceRoomRoomId: "team-lite-voice-room-attempt",
+  signalVoiceRoomAttemptId: "team-lite-voice-attempt",
+  signalPendingVoiceRoomAttempts: {
+    "team-lite-voice-attempt": { attemptId: "team-lite-voice-attempt", member: "Team Lite Tester" }
+  },
   signalPendingVoiceRoomStorageHealthy: true,
   signalRosterCache: Object.create(null),
-  signalTransport: null,
-  signalVoiceRoomPrepared: false,
-  signalVoiceRoomCreator: false,
-  signalAttemptPendingVoiceRoomCancel: async () => true,
+  signalTransport: attemptLeaveTransport,
+  signalVoiceRoomPrepared: true,
+  signalVoiceRoomCreator: true,
+  signalAttemptPendingVoiceRoomCancel: (attemptId, expectedTransport, requireExpectedTransport) => {
+    attemptCancelCount++;
+    attemptLeaveEvents.push("cancel-start:" + attemptId);
+    assert.equal(attemptId, "team-lite-voice-attempt", "voice leave must cancel the persisted logical attempt");
+    assert.equal(expectedTransport, attemptLeaveTransport, "voice leave must use the transport captured for the attempt");
+    assert.equal(requireExpectedTransport, true, "voice leave must not silently swap an in-flight transport");
+    return attemptCancelCount === 1 ? firstAttemptCancel : secondAttemptCancel;
+  },
   screenShareStop: () => {},
-  signalStopCallPolling: () => {},
+  signalStopCallPolling: room => attemptLeaveEvents.push("poll-stop:" + room),
   voiceRoomPlayCue: () => {},
-  voiceRoomSend: () => { fallbackEvents.push("first-leave-failed"); return Promise.resolve(false); },
-  signalReleaseVoiceRoom: () => { fallbackEvents.push("fallback-start"); return pendingFallbackLeave; },
+  voiceRoomSend: () => { attemptLeaveEvents.push("leave-signal-failed"); return Promise.resolve(false); },
+  signalReleaseVoiceRoom: () => { attemptLeaveEvents.push("legacy-release-unexpected"); return Promise.resolve(false); },
   clearTimeout: () => {},
   clearInterval: () => {},
   voiceRoomDrop: () => {},
@@ -528,19 +545,34 @@ const fallbackLeaveContext = {
   voiceRoomMessage: () => {},
   member: "Team Lite Tester"
 };
-vm.runInNewContext(voiceLeaveSource, fallbackLeaveContext, { timeout: 1000 });
-const fallbackPromise = fallbackLeaveContext.__candidateVoiceRoomLeave();
-let fallbackSettled = false;
-fallbackPromise.then(() => { fallbackSettled = true; });
-// The extracted async function runs in a separate VM context; yield one event-loop turn
-// so its cross-context Promise continuation reaches the fallback before asserting.
+vm.runInNewContext(voiceLeaveSource, attemptLeaveContext, { timeout: 1000 });
+const firstAttemptLeave = attemptLeaveContext.__candidateVoiceRoomLeave();
+let firstAttemptLeaveSettled = false;
+firstAttemptLeave.then(() => { firstAttemptLeaveSettled = true; });
 await new Promise(resolve => setTimeout(resolve, 0));
-assert.ok(fallbackEvents.includes("fallback-start"), "failed active leave must retry through signalReleaseVoiceRoom while the room binding remains");
-assert.equal(fallbackSettled, false, "voice leave must await the fallback membership release");
-finishFallbackLeave();
-await fallbackPromise;
-assert.equal(fallbackSettled, true, "voice leave must settle after fallback membership release");
-console.log("Team Lite voice leave fallback retry test passed.");
+assert.ok(attemptLeaveEvents.includes("cancel-start:team-lite-voice-attempt"), "active leave must use the authoritative cancel-open attempt RPC");
+assert.equal(firstAttemptLeaveSettled, false, "voice leave must await confirmed cancellation");
+assert.equal(attemptLeaveContext.signalVoiceRoomAttemptId, "team-lite-voice-attempt", "unconfirmed cancellation must retain the attempt ID");
+assert.equal(attemptLeaveContext.signalVoiceRoomRoomId, "team-lite-voice-room-attempt", "unconfirmed cancellation must retain the room ID");
+assert.ok(attemptLeaveContext.signalPendingVoiceRoomAttempts["team-lite-voice-attempt"], "unconfirmed cancellation must retain the durable marker");
+finishFirstAttemptCancel();
+assert.equal(await firstAttemptLeave, false, "transient cancel-open failure must keep voice leave unconfirmed");
+assert.equal(attemptLeaveContext.signalVoiceRoomAttemptId, "team-lite-voice-attempt", "failed cancellation must preserve the attempt for retry");
+assert.equal(attemptLeaveContext.signalVoiceRoomRoomId, "team-lite-voice-room-attempt", "failed cancellation must preserve the room binding for retry");
+assert.ok(attemptLeaveContext.signalPendingVoiceRoomAttempts["team-lite-voice-attempt"], "failed cancellation must preserve the durable marker");
+assert.equal(attemptLeaveContext.signalVoiceRoomCreator, true, "failed cancellation must preserve owner context");
+const secondAttemptLeave = attemptLeaveContext.__candidateVoiceRoomLeave();
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(attemptCancelCount, 2, "a later leave must retry the same logical attempt exactly once");
+finishSecondAttemptCancel();
+assert.equal(await secondAttemptLeave, true, "voice leave must succeed after the server confirms retry cancellation");
+assert.equal(attemptLeaveContext.signalVoiceRoomAttemptId, "", "confirmed retry must clear the attempt ID");
+assert.equal(attemptLeaveContext.signalVoiceRoomRoomId, "", "confirmed retry must clear the room ID");
+assert.equal(attemptLeaveContext.signalPendingVoiceRoomAttempts["team-lite-voice-attempt"], undefined, "confirmed retry must remove the durable marker");
+assert.equal(attemptLeaveContext.signalVoiceRoomPrepared, false, "confirmed retry must clear prepared state");
+assert.equal(attemptLeaveContext.signalVoiceRoomCreator, false, "confirmed retry must clear owner context");
+assert.ok(!attemptLeaveEvents.includes("legacy-release-unexpected"), "logical attempt cleanup must not fall back to the legacy room-release helper");
+console.log("Team Lite voice leave cancel-open retry contract tests passed.");
 
 
 const voiceSendRuntimeStart = script.indexOf("function voiceRoomSend(");
