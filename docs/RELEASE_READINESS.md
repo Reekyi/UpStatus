@@ -4083,3 +4083,87 @@ Next gates:
 ### Safety record
 
 All production SQL in this checkpoint was SELECT-only/catalog inspection. No production write, migration, Edge Function deployment/invocation, secret/flag/role change, userscript publication, merge, release, destructive operation, workflow rerun, test-script execution or fixture mutation was performed by this audit. The exact-head CI workflows were initiated by engineering/GitHub and inspected read-only; the current #74 Smoke was still running. The only write from this audit is this append to `docs/RELEASE_READINESS.md` on the dedicated QA branch. No completion percentage is reported.
+
+
+## Auditoria independente de continuidade e segurança (2026-11-06, rodada atual)
+
+### Heads e CI revalidados
+
+Todas as referências abaixo foram lidas novamente do GitHub. Os estados distinguem CI do HEAD exato de candidatos laterais.
+
+- **PR #74 Normal**: HEAD `0ff4ef9a50c79717250d9eed7e60ed85fa9c8a41`, 692 commits à frente / 0 atrás de `master`. Validate [42188549612](https://github.com/Reekyi/UpStatus/actions/runs/42188549612) e Signaling Smoke [42188549610](https://github.com/Reekyi/UpStatus/actions/runs/42188549610) concluíram SUCCESS no HEAD exato. O Smoke confirmou 116/116 verificações autenticadas, tombstone de cancel-before-prepare, rejeição de prepare atrasado, serialização de prepare/cancel, WebRTC call/voice/screen, mesh de três participantes, rate limit 90 aceitas + 1 HTTP 429, concorrência de rate limit/read receipts e cleanup.
+- **PR #75 baseline Team Lite**: HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 commits à frente / 0 atrás de `team-lite-official`. Candidate Checks histórico [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) SUCCESS. Manter como baseline histórico, não como candidato mais novo.
+- **PR #76 Team Lite**: HEAD `5cc5df4865250a0d67935937ea43e206217730d5`, 208 commits à frente / 0 atrás de `team-lite-official`, e 149 à frente / 0 atrás de #75. Candidate Checks exato [42194948317](https://github.com/Reekyi/UpStatus/actions/runs/42194948317) concluiu SUCCESS. O log confirma 103/103 verificações autenticadas, WebRTC call/voice/screen, mesh de três participantes, rate limit 90+1 e concorrência, recibos atômicos, migration guard, cleanup, persistência de logical call ID antes do prepare, storage-failure gate, recuperação de room ID desconhecido no pagehide, logout bloqueado por tentativa lógica não cancelada e aceitação de destinatário bloqueada quando não há persistência durável.
+- **PR #82 QA**: HEAD `05d384b7f47b605b4b1d453edb1b504d61cfded7`, 56 commits à frente / 0 atrás de master. Validate [42189479021](https://github.com/Reekyi/UpStatus/actions/runs/42189479021) falhou em `production updateURL mismatch`, herdado do baseline de build/validação. Não enfraquecer o validador para contornar essa divergência.
+- Todos os PRs #74, #75, #76 e #82 permanecem abertos, Draft e sem merge. Reviews humanas submetidas: zero; threads de revisão: zero nos PRs inspecionados.
+
+### Paridade de recuperação: avanço no Team Lite, dois gates ainda abertos no Normal
+
+O Team Lite #76 agora porta o protocolo de logical call attempt do Normal:
+- persiste o logical call ID por membro, sem token, antes do primeiro prepare;
+- usa `/room/prepare-call` e `/room/cancel-call`;
+- cancela por logical ID mesmo quando o navegador não recebeu o room ID;
+- restaura/reexecuta cancelamento após autenticação/reconexão;
+- faz fail-closed se o GM Storage falhar antes da chamada;
+- persiste o room-ID leave handle do destinatário antes de aceitar convite autenticado;
+- não aceita o convite se essa persistência falhar;
+- tenta cancelar logical attempts restauradas antes de leaves e logout.
+
+Os testes do Candidate Checks exato passaram, inclusive os cenários de storage failure do criador e do destinatário, pagehide com room ID desconhecido, retry offline e logout com cancelamento não confirmado.
+
+**Gate Normal N-LOGOUT ainda aberto:** o HEAD #74 `0ff4ef9` mantém no handler de logout a expressão que, quando `upCall.active=false`, tenta somente `signalRetryPendingCallLeaves()`. Isso ignora logical call attempts restauradas sem chamada ativa. O commit lateral [cf99b1b](https://github.com/Reekyi/UpStatus/commit/cf99b1b14f69b1caf6606684d2d42f9898f03a1e) corrige o fluxo e adiciona regressão, mas está exatamente 1 commit à frente de #74 e ainda não integra o PR. Seu Validate [42195926899](https://github.com/Reekyi/UpStatus/actions/runs/42195926899) falhou porque o validador reteve a asserção antiga `normal logout must await confirmed authenticated call-room release before clearing credentials`; o Smoke [42195926855](https://github.com/Reekyi/UpStatus/actions/runs/42195926855) estava IN_PROGRESS na última consulta. Não declarar a correção aprovada até ajustar a asserção ao novo contrato sem enfraquecer a validação e obter CI exato verde.
+
+**Gate Normal N-RECIPIENT-STORAGE ainda aberto:** em `src/userscript/upstatus.user.template.js`, `callAcceptGroupInvite()` chama `signalTransport.accept(signalRoomId)` sem primeiro exigir `signalTrackPendingCallLeave()`. O cleanup posterior cria o registro e chama `signalPersistPendingCallLeaves()`, mas não bloqueia se a gravação falhar. Assim, um participante Normal pode entrar na membership autenticada sem handle durável caso GM Storage falhe. O Team Lite já tem o guard e teste correspondente. Portar o mesmo fail-closed para o Normal e testar aceitação de destinatário com `GM_setValue` lançando exceção. Referências: [Normal callAcceptGroupInvite](https://github.com/Reekyi/UpStatus/blob/0ff4ef9a50c79717250d9eed7e60ed85fa9c8a41/src/userscript/upstatus.user.template.js#L2482-L2505), [Team Lite callAcceptGroupInvite](https://github.com/Reekyi/UpStatus/blob/5cc5df4865250a0d67935937ea43e206217730d5/team-lite/upstatus-team-lite.user.js#L3038-L3065), [Team Lite regressões de destinatário](https://github.com/Reekyi/UpStatus/blob/5cc5df4865250a0d67935937ea43e206217730d5/scripts/team-lite-candidate-check.mjs#L1175-L1214).
+
+### Call-attempt schema e endpoint isolado
+
+Projeto isolado `bfpjtfqlnypisxljoxkb`:
+- ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, região sa-east-1;
+- 23 migrations, incluindo `20261106082526_call_room_attempt_recovery` e `20261106082546_call_room_attempt_recovery_test`;
+- Edge Function `upstatus-signal-test` ACTIVE v29;
+- `upstatus_signal_call_attempts` existe, RLS ativo, zero policies, sem SELECT/INSERT para anon/authenticated e acesso de service_role;
+- `prepare_upstatus_signal_call_room(text,text,text)` e `cancel_upstatus_signal_call_room(text,text)` são SECURITY INVOKER, `search_path` vazio, EXECUTE negado a anon/authenticated e permitido a service_role.
+
+A consulta SELECT-only após o Candidate Checks Team Lite confirmou zero fixtures residuais: rooms 0, members 0, bindings 0, events 0, call attempts 0 e rate-limit buckets 0. O workflow terminou SUCCESS e seu log confirmou cleanup. Nenhuma suíte adicional foi iniciada pela auditoria.
+
+O endpoint isolado integra `consume_upstatus_signal_rate_limit`; os testes de concorrência e 90+1 passaram. `Retry-After` continua ausente. O teste Normal Smoke cobre a corrida real de prepare/cancel e tombstone no endpoint compartilhado; o Candidate Checks Team Lite cobre o adapter/cliente por harness e VM, mas o harness HTTP autenticado específico do Team Lite ainda conserva cenários legados create/bind. Manter a cobertura de integração Team Lite com prepare/cancel como gate explícito ou documentar formalmente que a validação do endpoint compartilhado é fornecida pelo Smoke Normal no mesmo artefato/endpoint.
+
+### Produção Supabase: bloqueadores confirmados por catálogo e Advisor
+
+Projeto `dlfvkawaiqduhlazsszm`:
+- ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, us-west-2;
+- sete migrations até `20261027155438`;
+- 38/38 Edge Functions ACTIVE, todas com `verify_jwt=false`;
+- produção ainda não possui `upstatus_signal_call_attempts`, RPCs prepare/cancel, tabela/RPC de rate limit, RPCs open/leave de sala, `merge_chat_read_receipts` nem Edge Function dedicada `upstatus-signal`.
+
+Inspeção read-only de fontes das Edge Functions `upstatus` e `upstatus-team-lite` confirmou autenticação própria por `x-upstatus-token` e `timingSafeEqual`; `verify_jwt=false` isoladamente não prova ausência de autenticação. Os bundles implantados não contêm prepare/cancel de logical call attempt, rate-limit distribuído, merge de read receipts nem `Retry-After`. SHAs: Normal `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`; Team Lite `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`; Screen Share beta10 `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29`.
+
+Catálogo PostgreSQL:
+- nove tabelas backend-owned mantêm SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER e MAINTAIN para anon/authenticated; todas com RLS ativo e zero policies;
+- `upstatus_visual_config` tem RLS e zero policies, sem grants de tabela para anon/authenticated;
+- `realtime.messages` tem RLS, zero policies e SELECT/INSERT/UPDATE para anon/authenticated;
+- três funções `upstatus_broadcast_messages()`, `upstatus_broadcast_remote_state()` e `upstatus_broadcast_users()` seguem SECURITY DEFINER, `search_path=public`, EXECUTE para anon/authenticated e triggers habilitados;
+- `upstatus_broadcast_messages()` continua serializando OLD/NEW completos com `to_jsonb` e chamando `realtime.send(..., 'db_change', ..., false)`. RT-01 continua bloqueador crítico;
+- os defaults globais de EXECUTE para funções incluem PUBLIC para postgres e supabase_admin; postgres não é superuser e não é membro de supabase_admin, portanto não pode corrigir os defaults pertencentes a esse proprietário pela sessão atual.
+
+Security Advisor atual: 3 WARN para SECURITY DEFINER executável por anon, 3 WARN para authenticated e 10 INFO para RLS sem policy. Performance Advisor sem findings. ACL-02 e RT-01 permanecem bloqueados.
+
+### Issues, validação manual e gates
+
+- [Issue #78](https://github.com/Reekyi/UpStatus/issues/78) continua aberta, 21 comentários; os oito critérios de aceitação física permanecem pendentes. Testar Tampermonkey instalado, offline/online por 10 segundos, fechamento/reload offline, recuperação sem F5, microfone/display reais e interoperabilidade instalada Normal ↔ Team Lite.
+- [Issue #79](https://github.com/Reekyi/UpStatus/issues/79) continua aberta, 74 comentários; o corpo principal permanece na fotografia antiga de 3 de novembro e precisa ser atualizado pela engenharia/release owner.
+
+Próximos gates em ordem:
+1. Integrar N-LOGOUT ao #74 e obter Validate + Smoke exatos verdes.
+2. Portar N-RECIPIENT-STORAGE ao Normal e testar falha de GM Storage antes de aceitar membership.
+3. Manter #76 com seu Candidate Checks exato verde e ampliar o harness HTTP Team Lite para prepare/cancel ou formalizar a cobertura compartilhada.
+4. Completar os testes físicos da #78.
+5. Integrar rate limit nos endpoints reais e implementar `Retry-After`.
+6. Resolver RT-01 com cutover autenticado coordenado, compatível com o token próprio do UpStatus.
+7. Resolver ACL-02 por caminho administrativo autorizado e ensaiar least-privilege no TEST com rollback.
+8. Auditar consumidores/rollback das Edge Functions antigas, atualizar #79 e obter reviews humanas.
+9. Manter #74/#76 Draft. Sem release enquanto segurança de produção, CI exato, teste físico e rollout coordenado não forem aprovados.
+
+### Registro de segurança desta rodada
+
+Todas as consultas SQL desta rodada foram SELECT-only e de catálogo/contagens. A primeira consulta de catálogo falhou por qualificar incorretamente `realtime.messages` como `public.realtime.messages`; foi corrigida para o schema `realtime` e não realizou qualquer escrita. Uma consulta de contagem incluiu dois nomes de tabelas de fixtures inexistentes e falhou sem mutação; a consulta subsequente usou somente as seis tabelas confirmadas e encontrou zero resíduos. O Candidate Checks Team Lite foi iniciado pela engenharia/GitHub e inspecionado read-only; a auditoria não iniciou testes mutáveis. Nenhuma produção write, migration, deploy, secret/flag/role change, merge, release, publicação de userscript ou operação destrutiva ocorreu. A única escrita desta rodada é este append documental nesta branch QA dedicada.
