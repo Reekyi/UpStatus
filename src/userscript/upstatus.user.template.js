@@ -624,21 +624,38 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
       signalPendingVoiceRoomStorageHealthy=false;
       return 0;
     }
-    var now=Date.now(),restored=0,seen=Object.create(null);
+    var now=Date.now(),restored=0,seen=Object.create(null),normalized=[],suspiciousOwnMember=false;
     if(stored.entries.length>20){signalPendingVoiceRoomStorageHealthy=false;return 0;}
     stored.entries.forEach(function(raw){
+      if(!raw||typeof raw!=='object'||Array.isArray(raw)){suspiciousOwnMember=true;return;}
+      if(typeof raw.member==='string'&&raw.member!==member){
+        if(raw.member.trim()===raw.member&&raw.member.length>0)return;
+        suspiciousOwnMember=true;return;
+      }
+      var rawKeys=Object.keys(raw).sort();
+      if(rawKeys.join(',')!=='attemptId,createdAt,logicalId,member'){suspiciousOwnMember=true;return;}
       var record=signalNormalizePendingVoiceRoomAttemptRecord(raw,member,now);
-      if(!record||seen[record.attemptId])return;
+      if(!record||seen[record.attemptId]){suspiciousOwnMember=true;return;}
       seen[record.attemptId]=true;
+      normalized.push(record);
+    });
+    if(suspiciousOwnMember){signalPendingVoiceRoomStorageHealthy=false;return 0;}
+    var added=[];
+    normalized.forEach(function(record){
       if(!signalPendingVoiceRoomAttempts[record.attemptId]){
         signalPendingVoiceRoomAttempts[record.attemptId]={
           attemptId:record.attemptId,logicalId:record.logicalId,member:record.member,
           transport:null,promise:null,createdAt:record.createdAt
         };
+        added.push(record.attemptId);
       }
       restored++;
     });
-    signalPersistPendingVoiceRoomAttempts();
+    if(!signalPersistPendingVoiceRoomAttempts()){
+      added.forEach(function(attemptId){delete signalPendingVoiceRoomAttempts[attemptId];});
+      signalPendingVoiceRoomStorageHealthy=false;
+      return 0;
+    }
     return restored;
   }
   function signalNewVoiceRoomAttemptId(){
