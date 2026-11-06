@@ -317,10 +317,22 @@ assert.ok(browserHarness.includes("await negotiateMeshPair(pageA, users.A, pageB
   "group browser E2E must establish every peer-to-peer mesh link");
 assert.ok(functionSource.includes('path.endsWith("/room/leave")') && functionSource.includes('db.rpc("leave_upstatus_signal_room"') && openVoiceMigration.includes("DELETE FROM public.upstatus_signal_events AS e") && openVoiceMigration.includes("e.recipient = p_user_name") && openVoiceMigration.includes("SET created_by = v_next_owner"),
   "room leave must use one transaction to remove inbox events, transfer ownership, and preserve outgoing signals");
-assert.ok(userTemplate.includes("signalTransport.leave(leavingRoomId)") &&
+assert.ok(userTemplate.includes("leavingTransport.leave(leavingRoomId)") &&
+  userTemplate.includes("signalTransport!==leavingTransport") &&
+  userTemplate.includes("signalVoiceRoomRoomId!==leavingRoomId") &&
   userTemplate.includes("signalTransport.leave(signalRoomId)") &&
   userTemplate.includes("signalTransport.leave(failedRoom)"),
-  "voice and call teardown paths must release authenticated room membership");
+  "voice and call teardown paths must release authenticated room membership without using a replacement transport after reconnect");
+assert.ok(userTemplate.includes("voiceRoomLeave({skipServerLeave:true})") &&
+  userTemplate.includes("screenShareStop(!skipServerLeave)") &&
+  userTemplate.includes("signalVoiceRoomPrepared=false") &&
+  userTemplate.includes("async function waitForVoiceRealtimeReady(") &&
+  userTemplate.includes("await waitForVoiceRealtimeReady(10000)"),
+  "Normal offline recovery must tear down locally without network leave and wait for Realtime readiness before legacy voice rejoin");
+assert.ok(userTemplate.includes("var leavingTransport=signalTransport") &&
+  userTemplate.includes("if(signalTransport!==leavingTransport||signalVoiceRoomRoomId!==leavingRoomId)return false") &&
+  userTemplate.includes("signalVoiceRoomPrepared=false;return false"),
+  "Normal leave retry must retain room context on failure and must not issue a stale leave through a replacement transport");
 console.log("PASS authenticated room leave and owner handoff are wired into client cleanup");
 console.log("PASS browser E2E asserts peer and media teardown");
 console.log("PASS authenticated browser E2E covers call, voice, and screen media paths");
