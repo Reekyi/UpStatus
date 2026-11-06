@@ -263,8 +263,10 @@ assert.ok(userTemplate.includes("}else sendRealtimeEvent('call_signal',{type:acc
 assert.ok(userTemplate.includes("startOutgoingCallWithTransport(target)") &&
   userTemplate.includes("signalStartInvitationPolling()") &&
   userTemplate.includes("signalTransport.sendToRoom({") &&
-  userTemplate.includes("signalTransport.leave(signalRoomId)"),
-  "opt-in one-to-one call setup, invitation polling, fanout, and room cleanup must be connected");
+  userTemplate.includes("function signalAttemptPendingCallLeave(roomId,expectedTransport,requireExpectedTransport)") &&
+  userTemplate.includes("transportForAttempt.leave(roomId)") &&
+  userTemplate.includes("signalPendingCallLeaves[signalRoomId]={"),
+  "opt-in one-to-one call setup, invitation polling, fanout, and retryable room cleanup must be connected");
 assert.ok(userTemplate.includes("signalTransport.accept(signalRoomId)") &&
   userTemplate.includes("signalTransport.decline(roomId)") &&
   userTemplate.includes("signalTransport.sendSignal({roomId:signalRoomId,recipient:to,eventType:'call_signal',payload:p})"),
