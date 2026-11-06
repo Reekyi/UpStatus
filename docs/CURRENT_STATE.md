@@ -370,3 +370,14 @@ The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fe
 - Normal persists only `roomId`, `member`, `callId`, `createdAt` in versioned per-member GM storage; no session token. Restore is same-member/authenticated and retryable; record is cleared after confirmed leave. The new test rejects malformed, cross-member, stale and future-dated records. Physical tests remain pending; issue #78 stays open.
 - #80 Validate [42167511914](https://github.com/Reekyi/UpStatus/actions/runs/42167511914) still fails `client signed upload helper missing`; #82 Validate [42169381115](https://github.com/Reekyi/UpStatus/actions/runs/42169381115) still fails `production updateURL mismatch`. QA branch unchanged.
 - Production remains read-only and unchanged. The public Realtime, table grants, default ACL and missing production RPC/function gates remain open.
+
+
+## 2026-11-06 — current engineering checkpoint
+
+- #74 Normal HEAD `2db440814d374ad1e06b48645920573eaa8db978`: exact-head Validate [42172723990](https://github.com/Reekyi/UpStatus/actions/runs/42172723990) and Signaling Smoke [42172723820](https://github.com/Reekyi/UpStatus/actions/runs/42172723820) passed.
+- #76 Team Lite HEAD `28e8d948f82d4d86fa853ba20d1ac6cadcd1574a`: durable pagehide/reload call-room recovery ported from Normal; Candidate Checks [42178075022](https://github.com/Reekyi/UpStatus/actions/runs/42178075022) is in progress. Guard, adapter, and endpoint-auth steps passed; integration/browser and subsequent checks had not completed at checkpoint time.
+- #76 remains 203 ahead / 0 behind `team-lite-official`, 144 ahead / 0 behind #75. #75 is 59 ahead / 0 behind its official base. #80 is 93 ahead / 0 behind develop; #82 is 53 ahead / 0 behind master. All five PRs remain open and Draft.
+- #80's Validate failure is inherited from the develop baseline, whose userscript template lacks the signed-upload helper present on master. #82's Validate failure is a master-baseline mismatch: build derives production updateURL from the beta10 API URL instead of `release.json.scriptUrl`; #74 candidate build already separates these and passes Validate.
+- Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations, 38 active functions. Public SECURITY DEFINER broadcasts, backend table grants, and broad default ACLs remain release blockers. No production signaling/read-receipt/rate-limit RPCs or rate-limit table are installed.
+- Manual close/reload-offline, no-F5 recovery, real device permissions, installed cross-version interoperability, human reviews, and production cutover remain open. A close during in-flight `prepareCallRoom` before the room ID is returned is an additional unverified orphan-room risk.
+- Production remained read-only. No merge, deploy, release, migration, secret/role/flag change, userscript publication, or destructive action occurred.
