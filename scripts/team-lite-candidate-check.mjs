@@ -478,9 +478,13 @@ const voiceSendContext = {
 };
 vm.runInNewContext(voiceSendRuntimeSource, voiceSendContext, { timeout: 1000 });
 const voiceSendPromise = voiceSendContext.__candidateVoiceRoomSend("leave", "", { active: false });
-await Promise.resolve();
-await Promise.resolve();
-assert.ok(sendEvents.includes("final-leave-signal") && sendEvents.includes("leave-rpc-start:team-lite-room-send-test"),
+// voiceRoomSend chains the final broadcast promise before starting the membership RPC.
+// A macrotask turn lets that full Promise chain settle without relying on a brittle
+// fixed number of microtask flushes.
+await new Promise(resolve => setTimeout(resolve, 0));
+const finalLeaveSignalIndex = sendEvents.indexOf("final-leave-signal");
+const leaveRpcStartIndex = sendEvents.indexOf("leave-rpc-start:team-lite-room-send-test");
+assert.ok(finalLeaveSignalIndex >= 0 && leaveRpcStartIndex > finalLeaveSignalIndex,
   "voiceRoomSend must deliver the final leave signal before invoking the membership RPC");
 assert.equal(voiceSendContext.signalVoiceRoomRoomId, "team-lite-room-send-test",
   "voiceRoomSend must retain the room ID while the membership RPC is pending");
