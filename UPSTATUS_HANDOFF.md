@@ -1335,3 +1335,17 @@ The three public broadcast functions remain SECURITY DEFINER with `search_path=p
 - #78 remains open. #79 remains open. Keep #74/#76 Draft until physical, security, migration, human-review, and cutover gates are satisfied.
 
 No production write, migration, Edge deployment, secret/role/flag change, deploy, release, merge, userscript publication, or destructive operation occurred. Production remained read-only.
+
+
+## 2026-11-06 — Team Lite durable pagehide exact-head CI result
+
+- Team Lite PR #76 exact HEAD `28e8d948f82d4d86fa853ba20d1ac6cadcd1574a` passed Candidate Checks [42178075022](https://github.com/Reekyi/UpStatus/actions/runs/42178075022). Job [127761066800](https://github.com/Reekyi/UpStatus/actions/runs/42178075022) completed success.
+- Logs confirm 15/15 unauthenticated checks, 103/103 authenticated integration checks, browser call/voice/screen WebRTC with remote audio/video tracks, three-member mesh teardown, distributed rate-limit concurrency, atomic read-receipt concurrency, migration-layout, Team Lite version 3.4.31/portal/updater metadata, and the new `Team Lite durable pagehide/reload call-room leave recovery tests passed` assertion.
+- The durable regression verified the pagehide call cleanup path, no final broadcast dependency, persisted schema fields/token absence, same-member restore and retry, cross-member isolation, malformed/stale/future rejection, and storage clearing after confirmed leave.
+- Final workflow log explicitly reports temporary users/sessions/rooms/memberships/events cleanup verified. A separate read-only count immediately after completion returned zero matching test users, sessions, rooms, memberships, events, bindings, rate-limit rows, and chat-read rows in isolated project `bfpjtfqlnypisxljoxkb`.
+- #74 Normal remains exact-head green: Validate [42172723990](https://github.com/Reekyi/UpStatus/actions/runs/42172723990) and Smoke [42172723820](https://github.com/Reekyi/UpStatus/actions/runs/42172723820) succeeded on `2db4408`.
+- #80's documentation update triggered Validate [42178888759](https://github.com/Reekyi/UpStatus/actions/runs/42178888759), which again failed at the same inherited `client signed upload helper missing` assertion. No code validator was weakened and the branch remains docs-only.
+- #82 remains at HEAD `4e8c663`; Validate [42175677100](https://github.com/Reekyi/UpStatus/actions/runs/42175677100) still fails the inherited `production updateURL mismatch` on master baseline.
+- PR review API recheck: #74 and #76 have zero submitted reviews and zero inline review comments. Both remain Draft.
+
+No production write, migration, function deployment, secret/role/flag change, deploy, release, merge, userscript publication, or destructive operation occurred.
