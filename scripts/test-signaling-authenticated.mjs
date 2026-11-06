@@ -203,7 +203,7 @@ try {
       logicalId: "forged-call-id", recipient: users.B.name,
     });
     check("call ids must be bound to the authenticated member prefix",
-      invalidCallId.status === 400 && invalidCallId.json?.error === "Invalid call preparation",
+      invalidCallId.status === 400 && invalidCallId.json?.error === "INVALID_CALL_ID",
       `HTTP ${invalidCallId.status}`);
 
     const malformedBody = await requestRaw(users.A, "/signal", "{");
