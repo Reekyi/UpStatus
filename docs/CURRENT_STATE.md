@@ -259,3 +259,11 @@ After the two documentation commits above, PR #80 is now at HEAD `af7bdf81ea4f9e
 Static review found Normal #74 also clears the authenticated voice-room ID/owner state before the leave RPC is confirmed and suppresses RPC failure. This is not yet changed or runtime-tested. Defer its patch until Team Lite Candidate Checks `42134550466` completes and the shared isolated fixture project is confirmed clean; then add a Normal fail-then-success retry regression.
 
 The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fetch the live comparison before using any branch-distance figure.
+
+## 2026-11-05 engineering update
+
+- PR #74 remains at `b0c0e03`, with exact-head Validate and Signaling Smoke passing.
+- PR #76 is now at `7538296`; Candidate Checks 42142527307 is running. The intermediate `6ba88b6` run failed in a newly added VM test's escaped-newline source boundary, not in the endpoint integration; that harness boundary was corrected before the current head.
+- PR #75 remains at `7bbf9b9`; PR #80 at `6a516cb` still fails `client signed upload helper missing`; PR #82 at `3cb3539` still fails `production updateURL mismatch`. All remain Draft.
+- Issue #78's 10-second offline/online manual failure is confirmed. Candidate recovery changes are isolated in Team Lite `7538296` and Normal `4c8e1b63`. They avoid network leave during offline teardown and wait for Realtime readiness before legacy voice/call actions. CI and physical verification remain open.
+- Production Supabase remains read-only in this work: 7 migrations through `20261027155438`, 38 active Edge Functions, missing voice/read-receipt/rate-limit RPCs, public SECURITY DEFINER broadcasts, broad backend-table grants, and broad default ACLs. No production write or deploy occurred.
