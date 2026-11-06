@@ -780,7 +780,7 @@ assert.ok(logoutFailureEvents.some(event => event.startsWith("message:")) && log
   "failed logout must show the user why the session remains active");
 console.log("Team Lite logout failure preserves session and retry state test passed.");
 
-const liteCallLeaveHelperStart = script.indexOf("function signalAttemptPendingCallLeave(");
+const liteCallLeaveHelperStart = script.indexOf("function signalPendingCallLeavesStorageKey(");
 const liteCallLeaveHelperEnd = script.indexOf("function initSignalingTransport(", liteCallLeaveHelperStart);
 const liteCallCleanupStart = script.indexOf("function callCleanup(sendSignal,signalType){");
 const liteCallCleanupEnd = script.indexOf("  function callFail(", liteCallCleanupStart);
@@ -789,8 +789,8 @@ assert.ok(liteCallLeaveHelperStart >= 0 && liteCallLeaveHelperEnd > liteCallLeav
   "Team Lite call-membership cleanup source boundaries not found");
 const liteCallRuntimeSource = script.slice(liteCallLeaveHelperStart, liteCallLeaveHelperEnd) +
   script.slice(liteCallCleanupStart, liteCallCleanupEnd) +
-  "\nthis.__candidateCallCleanup=callCleanup;this.__candidateRetryPendingCallLeaves=signalRetryPendingCallLeaves;";
-function makeLiteCallCleanupContext({ transport, callSendAll } = {}) {
+  "\nthis.__candidateCallCleanup=callCleanup;this.__candidateRetryPendingCallLeaves=signalRetryPendingCallLeaves;this.__candidatePersistPendingCallLeaves=signalPersistPendingCallLeaves;this.__candidateRestorePendingCallLeaves=signalRestorePendingCallLeaves;this.__candidateStorageKey=signalPendingCallLeavesStorageKey;";
+function makeLiteCallCleanupContext({ transport, callSendAll, storage = new Map(), member = "Team Lite Tester" } = {}) {
   const roomId = "team-lite-call-room";
   const callId = "team-lite-call-1";
   const context = {
@@ -809,8 +809,11 @@ function makeLiteCallCleanupContext({ transport, callSendAll } = {}) {
     signalPollStops: {},
     signalTransport: transport || null,
     signalTransportFlag: true,
-    member: "Team Lite Tester",
+    member,
     token: "team-lite-session-token",
+    key: "upstatus_team_lite_",
+    GM_getValue: (name, fallback) => storage.has(name) ? storage.get(name) : fallback,
+    GM_setValue: (name, value) => storage.set(name, value),
     signalStopCallPolling: () => {},
     callSendAll: callSendAll || (() => Promise.resolve(true)),
     callSend: () => Promise.resolve(true),
@@ -906,3 +909,77 @@ assert.equal(callLogoutEvents.some(event => event === "api-logout" || event === 
   "Team Lite must not logout, stop Realtime or clear credentials while call membership remains");
 console.log("Team Lite authenticated call-room cleanup retry and logout-gate tests passed.");
 
+
+
+// Durable call-room leave recovery mirrors Normal: token-free, member-bound and restored only after auth.
+assert.ok(script.includes("window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide')"),
+  "Team Lite pagehide must initiate call-room cleanup before voice-room leave");
+const liteInitForPersistenceStart=script.indexOf("function initSignalingTransport(){");
+const liteInitForPersistenceEnd=script.indexOf("function signalSafeCallId(",liteInitForPersistenceStart);
+const liteInitForPersistence=script.slice(liteInitForPersistenceStart,liteInitForPersistenceEnd);
+assert.ok(liteInitForPersistence.indexOf("signalRestorePendingCallLeaves()")>=0 &&
+  liteInitForPersistence.indexOf("signalRestorePendingCallLeaves()")<liteInitForPersistence.indexOf("signalRetryPendingCallLeaves()"),
+  "Team Lite must restore durable pending leaves before retrying on authenticated transport initialization");
+
+const litePendingLeaveStorage=new Map();
+let litePagehideSignalCalls=0;
+const litePagehideContext=makeLiteCallCleanupContext({
+  transport:null,
+  storage:litePendingLeaveStorage,
+  callSendAll:()=>{litePagehideSignalCalls++;return Promise.resolve(true);}
+});
+assert.equal(await litePagehideContext.__candidateCallCleanup(false,"pagehide"),false,
+  "Team Lite pagehide cleanup without transport must retain an unconfirmed leave");
+assert.equal(litePagehideSignalCalls,0,
+  "Team Lite authenticated pagehide must not wait for a final broadcast");
+const litePendingStorageKey=litePagehideContext.__candidateStorageKey("Team Lite Tester");
+const litePendingEnvelope=litePendingLeaveStorage.get(litePendingStorageKey);
+assert.equal(litePendingEnvelope.version,1,"Team Lite pending leave storage must use a schema version");
+assert.equal(litePendingEnvelope.entries.length,1,"Team Lite pagehide must persist its pending call room");
+assert.deepEqual(Object.keys(litePendingEnvelope.entries[0]).sort(),["callId","createdAt","member","roomId"],
+  "Team Lite storage may contain only room ID, member, call ID and timestamp");
+assert.equal(Object.prototype.hasOwnProperty.call(litePendingEnvelope.entries[0],"token"),false,
+  "Team Lite pending leave storage must never persist a session token");
+
+const liteOtherMemberReload=makeLiteCallCleanupContext({transport:null,storage:litePendingLeaveStorage,member:"Other Member"});
+assert.equal(liteOtherMemberReload.__candidateRestorePendingCallLeaves(),0,
+  "Team Lite pending leave restore must not cross member identities");
+assert.equal(Object.keys(liteOtherMemberReload.signalPendingCallLeaves).length,0,
+  "Team Lite other-member session must not receive another member's pending leave");
+
+let liteReloadLeaveCalls=0;
+const liteReloadContext=makeLiteCallCleanupContext({
+  transport:{leave:async roomId=>{liteReloadLeaveCalls++;assert.equal(roomId,"team-lite-call-room");return {ok:true};}},
+  storage:litePendingLeaveStorage
+});
+liteReloadContext.upCall.callId="";
+liteReloadContext.upCall.active=false;
+liteReloadContext.signalRoomByCallId=Object.create(null);
+liteReloadContext.signalCallIdByRoom=Object.create(null);
+assert.equal(liteReloadContext.__candidateRestorePendingCallLeaves(),1,
+  "Team Lite reload must restore a pending leave after the same member authenticates");
+assert.equal(await liteReloadContext.__candidateRetryPendingCallLeaves(),true,
+  "Team Lite authenticated reload must retry and confirm the persisted leave");
+assert.equal(liteReloadLeaveCalls,1,"Team Lite reload must retry the persisted room exactly once");
+assert.equal(litePendingLeaveStorage.get(litePendingStorageKey).entries.length,0,
+  "Team Lite confirmed reload retry must clear the persisted pending leave");
+
+const liteValidationStorage=new Map();
+liteValidationStorage.set(liteReloadContext.__candidateStorageKey("Team Lite Tester"),{
+  version:1,
+  entries:[
+    {roomId:"team-lite-call-room",member:"Team Lite Tester",callId:"team-lite-call-1",createdAt:Date.now()},
+    {roomId:"bad room",member:"Team Lite Tester",callId:"bad",createdAt:Date.now()},
+    {roomId:"other-member-room",member:"Different User",callId:"other",createdAt:Date.now()},
+    {roomId:"stale-room",member:"Team Lite Tester",callId:"stale",createdAt:Date.now()-8*24*60*60*1000},
+    {roomId:"future-room",member:"Team Lite Tester",callId:"future",createdAt:Date.now()+120000}
+  ]
+});
+const liteValidationContext=makeLiteCallCleanupContext({transport:null,storage:liteValidationStorage});
+assert.ok(script.includes("if(!/^[A-Za-z0-9._:-]{1,128}$/.test(roomId))return null;"),
+  "Team Lite persisted room IDs must use bounded opaque identifier syntax");
+assert.equal(liteValidationContext.__candidateRestorePendingCallLeaves(),1,
+  "Team Lite restore must reject malformed, cross-member, stale and future-dated records");
+assert.deepEqual(Object.keys(liteValidationContext.signalPendingCallLeaves),["team-lite-call-room"],
+  "Team Lite restore must retain only the validated pending room");
+console.log("Team Lite durable pagehide/reload call-room leave recovery tests passed.");
