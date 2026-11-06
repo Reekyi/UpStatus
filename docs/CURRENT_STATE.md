@@ -864,3 +864,49 @@ No production SQL write, migration, Edge Function deployment, merge, release, se
 ### Documentation commit follow-up
 
 The Retry-After checkpoint above was added in commit `7da61fc1e49f34abdd81485ea977b4b81b417680`, which is now the current HEAD of PR #80. The referenced Validate result `42295672751` belongs to the preceding source head `208e7d3`; this documentation-only commit has not yet received a new Validate result. PR #74 likewise has a documentation-only matrix update at HEAD `afda7f521a8f822fad69a3429de3369d294d6f99`; the runtime tests still target its unchanged parent `057645fc`.
+
+
+## 2026-11-06 — Team Lite Retry-After bundle correction
+
+### Cause and narrow fix
+
+Independent QA's exact-head Candidate Checks for Team Lite failed at the final candidate-source assertion:
+
+- Prior Team Lite HEAD: `d7067da0c5d88f9b1d04c679aa82994e949c5080`.
+- Failed run: [42302314056](https://github.com/Reekyi/UpStatus/actions/runs/42302314056).
+- Failure: `Team Lite bundled adapter must match the shared tested source module` at `scripts/team-lite-candidate-check.mjs:249`.
+
+Inspection confirmed that `src/userscript/signaling-transport.mjs` already parsed `Retry-After` (delta-seconds and HTTP-date) and made polling backoff respect the server's delay, but `team-lite/upstatus-team-lite.user.js` still embedded an older adapter. Its GM bridge preserved `responseHeaders`, but the adapter ignored them.
+
+Replaced only the stale `createSignalingTransport` block in the Team Lite userscript with the exact shared module source after removing the module's `export` keyword. The adjacent voice/screen-share state and `screenShareSend` implementation were preserved.
+
+- New commit on `team-lite/signaling-transport-candidate`: [`9f8596586f7fde9cc7f74efd9e969e49e78e3ca8`](https://github.com/Reekyi/UpStatus/commit/9f8596586f7fde9cc7f74efd9e969e49e78e3ca8).
+- Bundle blob: `ae1db5268b053fb854d0e6baad74eea7cc1805cb`.
+- Shared adapter blob: `011abfb28d042afcfa4709abf40162a78ec7156c`.
+- Post-edit source check: bundled userscript contains the shared adapter byte-for-byte; Retry-After parser and polling backoff are present.
+
+### Exact-head validation
+
+- Normal #74 HEAD `afda7f521a8f822fad69a3429de3369d294d6f99`: Validate [42302685481](https://github.com/Reekyi/UpStatus/actions/runs/42302685481) and Signaling Smoke [42302685470](https://github.com/Reekyi/UpStatus/actions/runs/42302685470) both SUCCESS. Smoke job `128187319496` completed.
+- Team Lite #76 new HEAD `9f8596586f7fde9cc7f74efd9e969e49e78e3ca8`: Candidate Checks [42308602405](https://github.com/Reekyi/UpStatus/actions/runs/42308602405) is IN_PROGRESS. Do not transfer the previous failing result or prior historical pass to this new head; await exact-head completion.
+- The failed Team Lite run had already passed adapter unit tests, voice-room recovery, screen-share VM tests, unauthenticated endpoint checks, authenticated integration/browser tests, rate-limit concurrency, and atomic read-receipt concurrency before failing only the final bundle/source equality assertion.
+- Baseline #75 remains `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, historical Candidate Checks pass.
+- Documentation PR #80 HEAD `050cdb61b2be825db216d6de472ea605c14dc9cc`: Validate [42302725589](https://github.com/Reekyi/UpStatus/actions/runs/42302725589) fails on inherited `client signed upload helper missing`.
+- Independent QA PR #82 HEAD `33405394b42f3633b351874cd8a46e77e623bcac`: Validate [42305456349](https://github.com/Reekyi/UpStatus/actions/runs/42305456349) fails on inherited `production updateURL mismatch`. QA source branch was not modified.
+- All five PRs remain open and Draft; no formal human reviews are recorded.
+- Issue #78 remains 0/8 physical acceptance criteria; issue #79 body remains 16/35 checked and is not an overall progress percentage.
+
+### Supabase read-only revalidation
+
+Production project `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY (PostgreSQL 17.11.0.002), with seven migrations through `20261027155438` and 38 ACTIVE Edge Functions. SELECT-only catalog checks reconfirmed:
+
+- Three trigger-only broadcast functions remain SECURITY DEFINER with `search_path=public` and EXECUTE effective for both `anon` and `authenticated`.
+- Nine backend-owned public tables have RLS enabled, zero policies, and client SELECT grants; `realtime.messages` has RLS enabled, zero policies, and anon/authenticated SELECT/INSERT grants.
+- Production still lacks the distributed rate-limit table/RPC, atomic read-receipt RPC, call/voice-attempt tables, and dedicated `upstatus-signal` function.
+- Security Advisor: 3 WARN for anon EXECUTE, 3 WARN for authenticated EXECUTE, 10 INFO for RLS without policies. Performance and Health returned no findings.
+
+The isolated project `bfpjtfqlnypisxljoxkb` was SELECT-only checked before the new Team Lite run and showed zero rows in the queried fixture tables (users, sessions, rooms, memberships, events, call/voice attempts, rate-limit buckets, messages, and chat reads). The new Candidate Checks run is now using that shared project; do not claim a post-run zero-fixture state until the workflow completes and a fresh read-only check is made.
+
+The independent QA automation was left untouched. QA was informed of the Team Lite fix in a comment on PR #82; issue #79 also received a concise engineering checkpoint.
+
+No production writes, migrations, deployments, merges, releases, secret/role/feature-flag changes, or userscript publication occurred.
