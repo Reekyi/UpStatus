@@ -266,7 +266,9 @@ console.log("Team Lite voice attempt recovery is ordered before session invalida
 const leaveCalls=[];
 const pagehideAttemptId="Team_Lite_Tester-voice-pagehide";
 let pagehideContext;
-const pagehideLeaveSource=template.slice(leaveStart,leaveEnd)+"\nthis.__candidateVoiceRoomLeave=voiceRoomLeave;";
+const pagehideLeaveStart=template.indexOf("var voiceRoomLeavePromise=null;");
+assert.ok(pagehideLeaveStart>=0&&pagehideLeaveStart<leaveStart,"Team Lite voice leave promise declaration must exist");
+const pagehideLeaveSource=template.slice(pagehideLeaveStart,leaveEnd)+"\nthis.__candidateVoiceRoomLeave=voiceRoomLeave;";
 pagehideContext={
   signalVoiceRoomAttemptId:pagehideAttemptId,
   signalVoiceRoomRoomId:"",
