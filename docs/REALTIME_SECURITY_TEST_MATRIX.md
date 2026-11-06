@@ -186,3 +186,15 @@ The isolated project `bfpjtfqlnypisxljoxkb` currently reports `upstatus-signal-t
 - Normal #74 runtime/test/workflow head f56acb9a59f56d0dfcef4bf3192550fc82f59c0d: Validate [42249084532](https://github.com/Reekyi/UpStatus/actions/runs/42249084532) passed; Smoke [42249084515](https://github.com/Reekyi/UpStatus/actions/runs/42249084515) passed the syntax/VM and unauthenticated endpoint stages while authenticated integration/browser/cleanup remained in progress at the last check.
 - Team Lite #76 head ac18ada46755276691e08a127b52e9b3e8955d16: Candidate Checks [42249119327](https://github.com/Reekyi/UpStatus/actions/runs/42249119327) was queued behind the shared isolated-test concurrency group. The Normal and Team Lite screen-share implementation blocks and regression test file were verified byte-identical.
 - This is candidate evidence only. No real network interruption, installed Tampermonkey UI, real display-capture permission, or live Normal ↔ Team Lite screen-share session has been verified. Production and official TEST remain untouched.
+
+## 2026-11-06 — Retry-After client propagation follow-up
+
+The earlier notes above stating that the isolated 429 response lacked `Retry-After` are superseded by the isolated endpoint v32 update and the client bridge work below.
+
+- Isolated `upstatus-signal-test` v32 returns `Retry-After: 60` on HTTP 429 and exposes the header through `Access-Control-Expose-Headers`.
+- Normal #74 and Team Lite #76 now preserve `GM_xmlhttpRequest.responseHeaders` in the signaling bridge.
+- The shared adapter parses both delta-seconds and HTTP-date formats, attaches `retryAfterMs` and `retryAfterSeconds` to HTTP errors, and makes its polling loop respect the server delay even when it exceeds the local exponential-backoff cap.
+- Non-polling write operations are not automatically retried; they receive the retry metadata so callers can avoid duplicate non-idempotent sends.
+- Regression tests cover case-insensitive raw response headers, HTTP-date conversion, and the exact 60-second poll schedule.
+
+**RT-09 remains PARTIAL.** The client now understands the isolated endpoint's retry contract, but the distributed limiter is still not integrated into the product-facing Normal/Team Lite backend endpoints or production. The authenticated signaling transport remains opt-in/default-off. Exact-head Normal Smoke and Team Lite Candidate Checks are still required, followed by official TEST and physical/manual acceptance.
