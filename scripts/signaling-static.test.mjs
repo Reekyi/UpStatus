@@ -305,16 +305,16 @@ assert.ok(
   "distributed rate-limit RPC must atomically count requests and remain service-role-only");
 
 const corsStart = functionSource.indexOf("const CORS = {");
-const corsEnd = functionSource.indexOf("\\n};", corsStart) + 3;
+const corsEnd = functionSource.indexOf("\n};", corsStart) + 3;
 const responseStart = functionSource.indexOf("function response(");
-const responseEnd = functionSource.indexOf("\\nfunction hash", responseStart);
+const responseEnd = functionSource.indexOf("\nfunction hash", responseStart);
 assert.ok(corsStart >= 0 && corsEnd > corsStart && responseStart >= 0 && responseEnd > responseStart,
   "rate-limit response helper boundaries must exist");
-const responseHarness = functionSource.slice(corsStart, corsEnd) + "\\n" +
+const responseHarness = functionSource.slice(corsStart, corsEnd) + "\n" +
   functionSource.slice(responseStart, responseEnd)
     .replace("body: unknown", "body")
     .replace("extraHeaders: Record<string,string> = {}", "extraHeaders = {}") +
-  "\\nthis.__candidateResponse = response;";
+  "\nthis.__candidateResponse = response;";
 const responseContext = { Response };
 vm.runInNewContext(responseHarness, responseContext, { timeout: 1000 });
 const candidate429 = responseContext.__candidateResponse({ error: "Rate limit exceeded" }, 429, { "Retry-After": "60" });
@@ -332,11 +332,11 @@ assert.ok(
   "production rate-limit migration must remain additive, invoker-scoped, empty-search-path and service-role-only"
 );
 assert.ok(
-  rateLimitMigrationTest.includes("search_path=\\\"\\\"") &&
+  rateLimitMigrationTest.includes('search_path=""') &&
   rateLimitMigrationTest.includes("PUBLIC/anon/authenticated must not execute the rate-limit RPC"),
   "rate-limit SQL regression must assert the actual empty search_path catalog value and client denial"
 );
-assert.match(functionSource, /try \\[\\s\\S]*JSON\\.stringify\\(p\\)\\.length[\\s\\S]*catch \\{\\s*return null;/,
+assert.match(functionSource, /try \{[\s\S]*JSON\.stringify\(p\)\.length[\s\S]*catch \{\s*return null;/,
   "payload serialization failures must be rejected as invalid payloads");
 
 assert(readFileSync("scripts/build.mjs","utf8").includes("signalingTransportTemplate") &&
