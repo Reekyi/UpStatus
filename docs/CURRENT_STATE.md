@@ -860,3 +860,7 @@ Production Security Advisor still reports three SECURITY DEFINER broadcast funct
 The isolated test project is currently in use by the shared Normal/Team Lite CI queue. No post-run cleanup count is claimed.
 
 No production SQL write, migration, Edge Function deployment, merge, release, secret/role/feature-flag change, userscript publication, or destructive operation occurred.
+
+### Documentation commit follow-up
+
+The Retry-After checkpoint above was added in commit `7da61fc1e49f34abdd81485ea977b4b81b417680`, which is now the current HEAD of PR #80. The referenced Validate result `42295672751` belongs to the preceding source head `208e7d3`; this documentation-only commit has not yet received a new Validate result. PR #74 likewise has a documentation-only matrix update at HEAD `afda7f521a8f822fad69a3429de3369d294d6f99`; the runtime tests still target its unchanged parent `057645fc`.
