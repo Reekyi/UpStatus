@@ -136,9 +136,12 @@ for(const artifact of [prodUser,testUser]){
   assert(artifact.includes("if(remotePollHintTimer)return;") && artifact.includes("if(token===expectedToken&&member===expectedMember)pollRemoteStatus();"),"remote command hint timers must coalesce and remain session-bound");
   assert(artifact.includes("sendRealtimeEvent('remote_command',{op:'hint'})"),"client remote_command broadcasts must contain only a generic hint");
   assert(!artifact.includes("sendRealtimeEvent('remote_result'"),"client must not broadcast remote result metadata publicly");
-  assert(artifact.includes("callsReleased=upCall&&upCall.active?await callCleanup(true,'hangup'):await signalRetryPendingCallLeaves();") &&
+  assert(artifact.includes("callsReleased=upCall&&upCall.active?await callCleanup(true,'hangup'):await signalRetryPendingCallAttempts();") &&
+    artifact.includes("if(callsReleased)callsReleased=await signalRetryPendingCallLeaves();") &&
     artifact.includes("if(!callsReleased){") &&
-    artifact.includes("await signalRetryPendingCallLeaves();"),"normal logout must await confirmed authenticated call-room release before clearing credentials");
+    artifact.indexOf("if(!callsReleased){") < artifact.indexOf("await api('POST','/api/logout',{})") &&
+    artifact.indexOf("if(!callsReleased){") < artifact.indexOf("token='';"),
+    "normal logout must confirm logical call-attempt cancellation and room leave before clearing credentials");
   assert(artifact.includes("await api('POST','/api/logout',{})"),"normal logout must revoke the server session before clearing the local token");
   assert(artifact.includes("return cleanupPromise;") && artifact.includes("voiceRoomLeavePromise=leavePromise.finally") && artifact.includes("return voiceRoomLeavePromise;"),"normal call and voice cleanup must expose completion promises");
   const logoutStart=artifact.indexOf("card.querySelector('.up-logout').onclick=async function()");
