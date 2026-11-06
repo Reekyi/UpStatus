@@ -92,7 +92,13 @@ assert.ok(!build.includes("fs.rmSync"), "build must not recursively delete funct
 assert.ok(script.includes("function scheduleRealtimeChatRefresh()"), "Team Lite public chat broadcasts must use a canonical refresh scheduler");
 assert.ok(script.includes("var wait=Math.max(0,1000-(Date.now()-realtimeChatRefreshLastAt));"), "Team Lite public broadcast refreshes must be throttled");
 assert.ok(script.includes("function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}"), "Team Lite must not trust chat_fast payloads as canonical message data");
-assert.ok(script.includes("sendRealtimeEvent('chat_fast')")&&!script.includes("sendRealtimeEvent('chat_fast',{message:created})")&&!script.includes("sendRealtimeEvent('chat_fast',{message:r.message})"), "Team Lite chat_fast must publish only an empty refresh hint, never a message row");
+const chatFastCalls = [...script.matchAll(/sendRealtimeEvent\('chat_fast'([^)]*)\)/g)];
+assert.equal(chatFastCalls.length, 2,
+  "Team Lite message and attachment sends must each emit one chat_fast refresh hint");
+assert.ok(chatFastCalls.every(match => match[1] === ""),
+  "Team Lite chat_fast must publish an empty refresh hint, never a message row");
+assert.doesNotMatch(script, /sendRealtimeEvent\(['"]chat_fast['"]\s*,/,
+  "Team Lite chat_fast must never include a second argument or message payload");
 assert.ok(script.includes(".on('broadcast',{event:'db_change'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)scheduleRealtimeChatRefresh();})"), "Team Lite database-change broadcasts must not apply supplied rows");
 assert.ok(script.includes(".on('broadcast',{event:'chat_fast'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)handleRealtimeChatFast();})"), "Team Lite chat_fast listener must ignore attacker-controlled payloads");
 assert.ok(script.includes(".on('broadcast',{event:'chat_read'},function(){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)scheduleRealtimeChatRefresh();})"), "Team Lite read receipts must be reconciled from the authenticated API");
