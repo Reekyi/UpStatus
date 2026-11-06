@@ -1587,3 +1587,28 @@ The earlier conclusion that authenticated `/room/resolve` alone was sufficient i
 - Validate [42215932957](https://github.com/Reekyi/UpStatus/actions/runs/42215932957) passed on the exact HEAD. Smoke [42215932716](https://github.com/Reekyi/UpStatus/actions/runs/42215932716) passed syntax and unauthenticated checks; authenticated integration/browser and cleanup are still running.
 
 This is only the server-contract milestone. The adapter and Normal/Team Lite userscripts do not yet persist/send the attempt ID, and Team Lite has not received this protocol. Do not mark issue #78 complete or enable the production transport. Production project `dlfvkawaiqduhlazsszm` remains read-only.
+
+
+## Engineering checkpoint — 2026-11-06 09:42 BRT: Normal voice-attempt client
+
+### Normal #74 — client attempt recovery and exact-head evidence
+
+- Current PR #74 HEAD: `b7a6b3cfd88548175e47db48b5f8c541a3a1e457`, branch `chore/continuity-foundation`, 726 commits ahead / 0 behind `master`. PR remains open and Draft.
+- Exact Validate [42219641493](https://github.com/Reekyi/UpStatus/actions/runs/42219641493): PASS.
+- Exact Signaling Smoke [42219641534](https://github.com/Reekyi/UpStatus/actions/runs/42219641534): IN PROGRESS at this checkpoint. Syntax/static harnesses (including `scripts/voice-room-attempt-recovery.test.mjs`) and 18 unauthenticated endpoint checks passed; authenticated integration/browser, rate-limit concurrency, read-receipt concurrency, and final cleanup were still pending. Do not call this HEAD fully approved until the run completes.
+- The immediately preceding HEAD `65cc0cb1e8f9baf5da8ef09890753df90ac27c65` completed Validate [42218802820](https://github.com/Reekyi/UpStatus/actions/runs/42218802820) and Signaling Smoke [42218802900](https://github.com/Reekyi/UpStatus/actions/runs/42218802900) successfully. Logs show 129/129 authenticated integration checks, browser WebRTC call/voice/screen negotiation and remote tracks, dynamic invitations, three-member mesh, voice-attempt cancel-before-open tombstones, late-open HTTP 410, idempotent open/cancel, open/cancel concurrency without orphan membership, rate limit 90 accepted + 1 HTTP 429, atomic read receipts, and workflow cleanup. A post-run read-only query returned zero rooms, members, bindings, events, call attempts, voice attempts, rate limits, and test users.
+- The current `b7a6b3c` candidate adds a stricter local safety layer: unreadable/malformed GM storage blocks join/recovery/logout claims; transient write failures remain retryable; member-prefix normalization uses Unicode code-point replacement to match PostgreSQL; the accepted future-clock window is bounded to seven days. The new storage-health logout gate and tests are in the exact HEAD whose Smoke is running.
+
+### Team Lite parity remains open
+
+- PR #76 remains at `5cc5df4865250a0d67935937ea43e206217730d5`, 208 ahead / 0 behind `team-lite-official`, 149 ahead / 0 behind #75. Candidate Checks [42194948317](https://github.com/Reekyi/UpStatus/actions/runs/42194948317) passed for the previous scope.
+- Team Lite's bundled adapter still exposes `openVoiceRoom(logicalId)` only; it has no `cancelVoiceRoomOpen`, no durable voice-attempt marker, and the Team Lite server template/Edge route have not yet received the new voice-attempt protocol. Do not describe Normal/Team Lite as voice-attempt-parity complete.
+
+### Other current gates
+
+- #80 current Validate [42216271705](https://github.com/Reekyi/UpStatus/actions/runs/42216271705) still fails the inherited `client signed upload helper missing` assertion on `develop`.
+- #82 QA current HEAD `3d9bcb3ac1375b4d5584fecb09c4c6dd6ed7a645`, 61 ahead / 0 behind master; Validate [42218972117](https://github.com/Reekyi/UpStatus/actions/runs/42218972117) still fails inherited `production updateURL mismatch`. The independent QA branch and its release-readiness document were not modified.
+- Production project `dlfvkawaiqduhlazsszm` remains read-only. Its 7 migrations and 38 ACTIVE Edge Functions do not include a dedicated `upstatus-signal`; the attempt migration/RPC/route exists only in isolated TEST.
+- RT-01 public full-row chat broadcast, ACL-02 default ACL ownership, product endpoint rate-limit integration/Retry-After, official TEST cutover/rollback rehearsal, human review, and physical Tampermonkey no-F5 testing remain release gates.
+
+No merge, deploy, release, production migration/SQL write, secret/role/flag change, userscript publication, or destructive action occurred.
