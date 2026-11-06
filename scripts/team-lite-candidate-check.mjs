@@ -540,9 +540,9 @@ await joinAfterLeave;
 assert.ok(joinEvents.some(x => x.startsWith("message:Sem conexão")), "voice join must continue only after leave settles");
 console.log("Team Lite rejoin serialization test passed.");
 const realtimeReadyStart = script.indexOf("async function waitForVoiceRealtimeReady(");
-const realtimeReadyEnd = script.indexOf("\\nasync function voiceRoomJoin", realtimeReadyStart);
+const realtimeReadyEnd = script.indexOf("\nasync function voiceRoomJoin", realtimeReadyStart);
 assert.ok(realtimeReadyStart >= 0 && realtimeReadyEnd > realtimeReadyStart, "voice Realtime readiness helper boundaries not found");
-const realtimeReadySource = script.slice(realtimeReadyStart, realtimeReadyEnd) + "\\nthis.__candidateWaitForVoiceRealtimeReady=waitForVoiceRealtimeReady;";
+const realtimeReadySource = script.slice(realtimeReadyStart, realtimeReadyEnd) + "\nthis.__candidateWaitForVoiceRealtimeReady=waitForVoiceRealtimeReady;";
 let realtimeStartCalls = 0;
 const readyContext = {
   navigator: { onLine: true },
