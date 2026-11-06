@@ -158,3 +158,15 @@ This section supersedes older checklist statements above where they conflict wit
 - Remaining release blockers: full userscript/UI bridge integration, real hardware permissions, simultaneous-call collision handling, reconnect and network interruption, group-call discovery/join, Team Lite client migration, and cross-client compatibility.
 - Public chat/user-status/remote-state payload-minimization migrations are staged in PR #74 and applied only to the isolated security-test database. They have not been applied to production or official TEST.
 - Keep the adapter disabled by default. Do not merge, deploy, apply production/official TEST migrations, or publish either release line without explicit approval.
+
+## Cancellable voice-room open attempts (candidate, 2026-11-06)
+
+A lost `/room/open` response is not safely recoverable by `/room/resolve` alone: a delayed open can arrive after a 404 resolution. The candidate therefore adds an attempt ID persisted by the client before opening and a server-side cancel tombstone.
+
+- Migration: `20261106120500_voice_room_attempt_recovery.sql`.
+- Service-role-only RPCs: `open_upstatus_signal_voice_room_attempt` and `cancel_upstatus_signal_voice_room_attempt`.
+- Authenticated test endpoint routes: `POST /room/open` accepts an optional `attemptId` for backward compatibility; `POST /room/cancel-open` cancels by attempt ID.
+- Open and cancel serialize on the attempt ID and the shared Normal/Team Lite logical-room lock. Cancel-before-open writes a tombstone; open-before-cancel creates the membership and the cancel removes only that member.
+- Tombstones are retained for seven days and are cleaned by the isolated signaling endpoint. Client storage is expected to contain only the logical ID, attempt ID, member, timestamp, and optional room ID, never a session token.
+
+The migration and updated `upstatus-signal-test` function were applied only to the isolated project `bfpjtfqlnypisxljoxkb` for candidate validation. The client adapter and both userscript integrations are not yet ported, and the production signaling function does not exist. This is a server-contract milestone, not a release-ready feature. No production schema, function, secret, flag, or userscript was changed.
