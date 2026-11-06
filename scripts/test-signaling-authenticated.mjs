@@ -105,6 +105,107 @@ try {
     `HTTP ${created.status}`);
 
   if (roomId) {
+    const callIdFor = (user, suffix) =>
+      user.name.replace(/[^A-Za-z0-9._:-]/g, "_").slice(0, 80) + "-" + suffix + "-" +
+      Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+
+    const preparedCallId = callIdFor(users.A, "prepare");
+    const preparedCall = await request(users.A, "/room/prepare-call", {
+      logicalId: preparedCallId, recipient: users.B.name,
+    });
+    const preparedCallRoomId = preparedCall.json?.roomId || "";
+    check("call preparation atomically creates and binds a pending room",
+      preparedCall.status === 201 && preparedCall.json?.created === true &&
+      !!preparedCallRoomId && preparedCall.json?.ok === true,
+      `HTTP ${preparedCall.status}`);
+
+    const preparedCallRetry = await request(users.A, "/room/prepare-call", {
+      logicalId: preparedCallId, recipient: users.B.name,
+    });
+    check("repeated call preparation returns the same room idempotently",
+      preparedCallRetry.status === 200 && preparedCallRetry.json?.roomId === preparedCallRoomId &&
+      preparedCallRetry.json?.existing === true,
+      `HTTP ${preparedCallRetry.status}`);
+
+    const preparedCallStatus = preparedCallRoomId
+      ? await request(users.A, "/room/status", { roomId: preparedCallRoomId })
+      : { status: 0, json: null };
+    check("atomic call preparation keeps the recipient pending until explicit acceptance",
+      preparedCallStatus.status === 200 &&
+      preparedCallStatus.json?.participants?.some(p => p.name === users.B.name && p.status === "pending"),
+      `HTTP ${preparedCallStatus.status}`);
+
+    const mismatchedRecipient = await request(users.A, "/room/prepare-call", {
+      logicalId: preparedCallId, recipient: users.C.name,
+    });
+    check("a logical call id cannot be reused for a different recipient",
+      mismatchedRecipient.status === 409 && mismatchedRecipient.json?.error === "CALL_RECIPIENT_MISMATCH",
+      `HTTP ${mismatchedRecipient.status}`);
+
+    const otherMemberCancel = await request(users.B, "/room/cancel-call", { logicalId: preparedCallId });
+    check("another member cannot cancel a call id owned by the caller",
+      otherMemberCancel.status === 400 && otherMemberCancel.json?.error === "INVALID_CALL_ID",
+      `HTTP ${otherMemberCancel.status}`);
+
+    const cancelledCall = await request(users.A, "/room/cancel-call", { logicalId: preparedCallId });
+    check("creator can cancel a call by logical id without knowing the room id",
+      cancelledCall.status === 200 && cancelledCall.json?.ok === true &&
+      cancelledCall.json?.cancelled === true,
+      `HTTP ${cancelledCall.status}`);
+
+    const cancelledCallAgain = await request(users.A, "/room/cancel-call", { logicalId: preparedCallId });
+    check("call cancellation is idempotent",
+      cancelledCallAgain.status === 200 && cancelledCallAgain.json?.alreadyCancelled === true,
+      `HTTP ${cancelledCallAgain.status}`);
+
+    const retryCancelledCall = await request(users.A, "/room/prepare-call", {
+      logicalId: preparedCallId, recipient: users.B.name,
+    });
+    check("a cancelled call id cannot create a late orphan room",
+      retryCancelledCall.status === 410 && retryCancelledCall.json?.error === "CALL_CANCELLED",
+      `HTTP ${retryCancelledCall.status}`);
+
+    const tombstoneCallId = callIdFor(users.A, "cancel-first");
+    const cancelBeforePrepare = await request(users.A, "/room/cancel-call", { logicalId: tombstoneCallId });
+    check("cancel before prepare writes an idempotent tombstone",
+      cancelBeforePrepare.status === 200 && cancelBeforePrepare.json?.notFound === true,
+      `HTTP ${cancelBeforePrepare.status}`);
+    const latePrepare = await request(users.A, "/room/prepare-call", {
+      logicalId: tombstoneCallId, recipient: users.B.name,
+    });
+    check("a late prepare cannot pass a cancel-before-prepare tombstone",
+      latePrepare.status === 410 && latePrepare.json?.error === "CALL_CANCELLED",
+      `HTTP ${latePrepare.status}`);
+
+    const raceCallId = callIdFor(users.A, "prepare-cancel-race");
+    const [parallelPrepareResults, parallelCancelResult] = await Promise.all([
+      Promise.all(Array.from({ length: 8 }, () => request(users.A, "/room/prepare-call", {
+        logicalId: raceCallId, recipient: users.B.name,
+      }))),
+      request(users.A, "/room/cancel-call", { logicalId: raceCallId }),
+    ]);
+    const raceRoomIds = [...new Set(parallelPrepareResults
+      .map(result => result.json?.roomId).filter(Boolean))];
+    check("concurrent prepare and cancel serialize to at most one call room",
+      parallelCancelResult.status === 200 &&
+      raceRoomIds.length <= 1 &&
+      parallelPrepareResults.every(result =>
+        [200, 201, 410].includes(result.status)),
+      `cancel HTTP ${parallelCancelResult.status}, rooms ${raceRoomIds.length}`);
+    const raceLatePrepare = await request(users.A, "/room/prepare-call", {
+      logicalId: raceCallId, recipient: users.B.name,
+    });
+    check("prepare/cancel race leaves a terminal call id",
+      raceLatePrepare.status === 410 && raceLatePrepare.json?.error === "CALL_CANCELLED",
+      `HTTP ${raceLatePrepare.status}`);
+
+    const invalidCallId = await request(users.A, "/room/prepare-call", {
+      logicalId: "forged-call-id", recipient: users.B.name,
+    });
+    check("call ids must be bound to the authenticated member prefix",
+      invalidCallId.status === 400 && invalidCallId.json?.error === "Invalid call preparation",
+      `HTTP ${invalidCallId.status}`);
+
     const malformedBody = await requestRaw(users.A, "/signal", "{");
     check("authenticated malformed JSON is rejected as a client error", malformedBody.status === 400,
       `HTTP ${malformedBody.status}`);
