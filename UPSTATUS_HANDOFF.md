@@ -929,3 +929,29 @@ No PR opened and no Candidate Checks run. Normal Smoke [42122609431](https://git
 As três funções broadcast continuam SECURITY DEFINER, `search_path=public`, EXECUTE para anon/authenticated; mensagens ainda envia OLD/NEW completo para tópico público com `private=false`. As nove tabelas backend-owned continuam RLS=true, zero policies e grants efetivos de SELECT/INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER/MAINTAIN para anon/authenticated; isso é superfície excessiva, não prova isolada de leitura de linhas via REST. Default ACLs atuais observados: owner postgres em `public` e `storage`; owner supabase_admin em `public`, `graphql` e `graphql_public`. A sessão SQL é postgres e não pode alterar defaults de supabase_admin. Advisor: três WARN anon EXECUTE, três WARN authenticated EXECUTE, dez INFO RLS sem policy; performance/health sem findings.
 
 Issue #78 continua aberta para testes físicos de queda/retorno de internet sem F5, pagehide e compatibilidade instalada. Issue #79 recebeu este checkpoint. Nenhuma alteração em produção foi feita; todas as consultas de produção foram SELECT-only. Nenhum merge, deploy, release, publicação, migration, secret, feature flag, role ou operação destrutiva foi executada.
+
+## 2026-11-05 21:04 BRT live engineering checkpoint
+
+### GitHub refs and CI
+
+- **PR #74 Normal:** open/Draft, head `b0c0e03fbe820e02404d4ae7d9f83e2a18642e50`; Validate `42122609464` and Signaling Smoke `42122609431` both completed successfully on that exact head. Smoke log: 103/103 authenticated integration checks, Chromium call/voice/screen WebRTC, three-member mesh, 90+1 endpoint limit, distributed rate-limit concurrency, atomic read-receipt concurrency, and fixture cleanup.
+- **PR #75 Team Lite baseline:** open/Draft, head `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; Candidate Checks `41674353127` passed on this unchanged baseline.
+- **PR #76 Team Lite signaling:** open/Draft, head `488a693dbd234817e87aa11eb232533e34459695`; the prior head `561026304756b9a2e5bd2029e59eda630df1b5cd` completed Candidate Checks `42125597354` with 103/103 authenticated checks, browser WebRTC/mesh, rate-limit and read-receipt concurrency, and fixture cleanup all passing, but the final candidate-check step failed at the voice-leave fallback assertion. The current head adds a two-file follow-up: preserve room ID/prepared/owner context until the leave RPC succeeds, report failure without discarding retry context, add fail-then-success regression coverage, and wait one event-loop turn before asserting a VM-context async fallback. Candidate Checks `42134550466` is pending; do not claim it passed until logs are inspected.
+- **PR #80 continuity:** open/Draft, head `a353e684c9a3393421cdd108d76421e1d857a5e0`; latest Validate `42126202343` fails inherited `client signed upload helper missing` after build `3.0.40 / TEST 3.0.40-beta.22`.
+- **PR #82 independent QA:** open/Draft, head `63e94e3730c5a0bb689f4def4893cd10277ae954`; Validate `42131148632` fails inherited `production updateURL mismatch`. QA branch was not modified.
+- Ancestry: #74 is 639 ahead/0 behind `master`; #76 is 177 ahead/0 behind `team-lite-official` and 118 ahead/0 behind #75; #80 is 52 ahead/0 behind `develop`; #82 is 44 ahead/0 behind `master`. #76 descends from the Team Lite baseline; do not merge #75 and #76 independently.
+
+### Production Supabase read-only recheck
+
+- Project `dlfvkawaiqduhlazsszm`: `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002; seven migrations through `20261027155438`.
+- Absent in production: open voice room RPC, leave room RPC, `merge_chat_read_receipts`, `consume_upstatus_signal_rate_limit`, and `upstatus_signal_rate_limits`.
+- 38 Edge Functions active; key deployed versions: `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15, `upstatus-screen-share-3-1-1-beta10` v6. No dedicated `upstatus-signal` function.
+- Three broadcast functions remain SECURITY DEFINER with EXECUTE effective for anon/authenticated. Message trigger still broadcasts full OLD/NEW rows on the public topic. Security Advisor: three anon SECURITY DEFINER WARN, three authenticated SECURITY DEFINER WARN, ten RLS-without-policy INFO; performance and health advisors empty.
+- No production writes, migrations, function deployments, secret/flag/role changes, or releases were performed. All production SQL in this checkpoint was SELECT-only.
+
+### Remaining release gates
+
+- Inspect Candidate Checks `42134550466` on exact #76 head `488a693`; if it passes, still require physical browser/Tampermonkey and network-recovery acceptance.
+- Issue #78 remains open: real offline/online recovery without F5, pagehide, devices, and installed Normal ↔ Team Lite interoperability are not proven by CI.
+- Public Realtime disclosure, missing production migrations/RPCs, production endpoint cutover, distributed rate-limit integration in deployed endpoints, default ACL hardening, and the #74 639-commit ancestry review remain blockers.
+- Keep all candidate PRs Draft. No merge, deploy, release, publication, production migration, or feature-flag change is authorized by this checkpoint.
