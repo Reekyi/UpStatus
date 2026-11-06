@@ -72,6 +72,13 @@ async function cleanupExpired(now = new Date()) {
       await db.from("upstatus_signal_call_attempts").delete()
         .in("call_id", expiredAttempts.map(attempt => attempt.call_id));
     }
+    const { data: expiredVoiceAttempts, error: voiceAttemptsError } = await db.from("upstatus_signal_voice_room_attempts")
+      .select("attempt_id").lte("expires_at", timestamp)
+      .order("expires_at", { ascending: true }).limit(100);
+    if (!voiceAttemptsError && expiredVoiceAttempts?.length) {
+      await db.from("upstatus_signal_voice_room_attempts").delete()
+        .in("attempt_id", expiredVoiceAttempts.map(attempt => attempt.attempt_id));
+    }
   } catch {
     // Cleanup is best-effort and must never block signaling requests.
   }
@@ -225,11 +232,16 @@ Deno.serve(async (req: Request) => {
 
     if (path.endsWith("/room/open")) {
       const logicalId = String(p.logicalId || "");
+      const attemptId = String(p.attemptId || "");
       if (!["upstatus-team-room-v1", "upstatus-team-lite-room-v1"].includes(logicalId))
         return response({ error: "Invalid open voice room logical ID" }, 400);
-      const { data, error } = await db.rpc("open_upstatus_signal_voice_room", {
-        p_logical_id: logicalId, p_user_name: sender, p_max_members: 32
-      });
+      if (attemptId && !/^[A-Za-z0-9._:-]{1,128}$/.test(attemptId))
+        return response({ error: "Invalid voice room attempt ID" }, 400);
+      const rpcName = attemptId ? "open_upstatus_signal_voice_room_attempt" : "open_upstatus_signal_voice_room";
+      const rpcArgs = attemptId
+        ? { p_attempt_id: attemptId, p_logical_id: logicalId, p_user_name: sender, p_max_members: 32 }
+        : { p_logical_id: logicalId, p_user_name: sender, p_max_members: 32 };
+      const { data, error } = await db.rpc(rpcName, rpcArgs);
       if (error) {
         const message = String(error.message || "");
         if (message.includes("VOICE_ROOM_BINDING_CONFLICT")) return response({ error: "Voice room binding conflict" }, 409);
@@ -239,10 +251,37 @@ Deno.serve(async (req: Request) => {
       if (!result || typeof result !== "object") return response({ error: "Open voice room failed" }, 500);
       if (result.error) {
         const code = String(result.error);
-        const status = code === "INVALID_LOGICAL_ID" || code === "INVALID_ARGUMENT" ? 400 : code === "UNKNOWN_USER" ? 404 : 409;
+        const status = code === "INVALID_LOGICAL_ID" || code === "INVALID_ARGUMENT" || code === "INVALID_ATTEMPT_ID" ? 400 :
+          code === "UNKNOWN_USER" ? 404 :
+          code === "VOICE_ROOM_OPEN_CANCELLED" || code === "VOICE_ROOM_UNAVAILABLE" || code === "VOICE_ROOM_MEMBERSHIP_ENDED" ? 410 :
+          code === "VOICE_ATTEMPT_CONFLICT" || code === "ROOM_FULL" ? 409 : 500;
         return response({ error: code, memberCount: result.memberCount }, status);
       }
       return response(result, result.created === true ? 201 : 200);
+    }
+
+    if (path.endsWith("/room/cancel-open")) {
+      const logicalId = String(p.logicalId || "");
+      const attemptId = String(p.attemptId || "");
+      if (!["upstatus-team-room-v1", "upstatus-team-lite-room-v1"].includes(logicalId) ||
+          !/^[A-Za-z0-9._:-]{1,128}$/.test(attemptId))
+        return response({ error: "Invalid voice room attempt" }, 400);
+      const { data, error } = await db.rpc("cancel_upstatus_signal_voice_room_attempt", {
+        p_attempt_id: attemptId, p_logical_id: logicalId, p_user_name: sender
+      });
+      if (error) throw error;
+      const result = data as Record<string, unknown> | null;
+      if (!result || typeof result !== "object") return response({ error: "Voice room cancellation failed" }, 500);
+      if (result.error) {
+        const code = String(result.error);
+        const status = code === "INVALID_LOGICAL_ID" || code === "INVALID_ARGUMENT" || code === "INVALID_ATTEMPT_ID" ? 400 :
+          code === "UNKNOWN_USER" ? 404 :
+          code === "VOICE_ATTEMPT_FORBIDDEN" ? 403 :
+          code === "VOICE_ATTEMPT_CONFLICT" ? 409 :
+          code === "VOICE_ROOM_CLEANUP_FAILED" ? 503 : 500;
+        return response({ error: code }, status);
+      }
+      return response(result);
     }
 
     if (path.endsWith("/room/bind")) {
