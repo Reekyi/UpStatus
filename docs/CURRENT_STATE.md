@@ -601,3 +601,13 @@ Production remains read-only; all release and physical acceptance gates remain o
 - Production remains read-only with no dedicated signaling endpoint or candidate signaling/rate-limit/read-receipt schema deployed. Security findings remain 3 anon SECURITY DEFINER WARN, 3 authenticated WARN, 10 RLS/no-policy INFO.
 
 No merge, deploy, release, production write/migration, secret/role/flag change, userscript publication or destructive operation.
+
+
+## 2026-11-06 13:10 BRT — screen-share recovery candidate
+
+- Normal #74 runtime head `f56acb9a59f56d0dfcef4bf3192550fc82f59c0d`: Validate [42249084532](https://github.com/Reekyi/UpStatus/actions/runs/42249084532) passed. Signaling Smoke [42249084515](https://github.com/Reekyi/UpStatus/actions/runs/42249084515) passed syntax/static (including the new screen-share VM test) and unauthenticated endpoint checks; authenticated integration/browser and cleanup were still running. The PR branch's latest docs-only head is `61f2116cfc796a1097cb3ba44d3ef8557baa73ab`.
+- Team Lite #76 head `ac18ada46755276691e08a127b52e9b3e8955d16`: Candidate Checks [42249119327](https://github.com/Reekyi/UpStatus/actions/runs/42249119327) is queued behind the shared isolated-test concurrency group.
+- Both userscripts now have byte-identical screen-share recovery logic and use the same VM test: cached offer retransmission, three retries at 3-second intervals, duplicate-offer cached-answer replay, disconnected-peer replacement, and timer cleanup. No physical browser/network-loss reproduction yet.
+- PR #80 Validate [42247097010](https://github.com/Reekyi/UpStatus/actions/runs/42247097010) still fails the inherited `client signed upload helper missing` assertion. PR #82 QA Validate [42244487940](https://github.com/Reekyi/UpStatus/actions/runs/42244487940) still fails the inherited `production updateURL mismatch`; QA branch and release-readiness document remain untouched.
+- Production `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, 38 active Edge Functions. No dedicated signaling endpoint or candidate signaling/rate-limit/attempt/read-receipt tables/RPCs are present. Security Advisor remains 3 anon + 3 authenticated SECURITY DEFINER WARN and 10 RLS/no-policy INFO; performance/health advisors returned no findings.
+- Production remained read-only. All PRs remain Draft. Physical Tampermonkey, microphone/display capture, installed Normal ↔ Team Lite, official TEST cutover, rate-limit product integration, and public Realtime retirement remain open gates.
