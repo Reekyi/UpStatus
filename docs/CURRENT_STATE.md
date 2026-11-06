@@ -323,3 +323,13 @@ The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fe
 
 - PR #80 is now at `41dd77d69b1866ea0f2bae97f2634fcad43415d1`, 81 ahead / 0 behind `develop`. Exact-head Validate [42154265009](https://github.com/Reekyi/UpStatus/actions/runs/42154265009) completed and reproduced the inherited `client signed upload helper missing` assertion after building `3.0.40 / TEST 3.0.40-beta.22`; no validator was weakened.
 - Team Lite #76 remains at `3627557f244c98a9c7e1cc986c7cea43124863a9`; Candidate Checks [42153971733](https://github.com/Reekyi/UpStatus/actions/runs/42153971733) is still running in authenticated integration/browser tests. No PASS is claimed yet.
+
+
+## 2026-11-06 — call-room teardown checkpoint
+
+- Normal #74 HEAD `c6d21ae`: exact Validate passed; exact Signaling Smoke is pending.
+- Team Lite #76 HEAD `db75585`: candidate includes retryable call-room leave and awaited logout gating; its exact-head Candidate Checks run was cancelled before jobs. Parent-head run `c133569` is still using the isolated Supabase test project. Do not overlap another fixture-mutating suite.
+- Both clients retain a member-bound in-memory call-room leave handle after a failed/offline teardown, capture the transport for the in-flight attempt, and retry after authenticated transport recreation. Logout/session end is blocked until call membership is confirmed released.
+- Isolated JS harness tests passed for retry, offline/no transport, stale transport replacement, persistent failure, member isolation and logout gating. Full CI for the new Team Lite head and Normal Smoke are still pending.
+- Full page/process termination while offline remains unresolved because the pending room ID is not persisted; the server TTL remains the fallback. Manual no-F5 and installed-client tests remain open.
+- Production was read-only: 7 migrations, 38 active Edge Functions, missing voice/receipt/rate-limit RPCs, three public SECURITY DEFINER broadcast triggers, broad backend-table grants, broad default ACLs. No production change was made.
