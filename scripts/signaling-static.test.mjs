@@ -500,9 +500,9 @@ console.log("Normal unconfirmed membership leave response tests passed.");
 
 // Logout is blocked while the authenticated room ID remains; the session is kept for a retry.
 const logoutReleaseStart = userTemplate.indexOf("async function normalReleaseVoiceRoomBeforeLogout(){");
-const logoutReleaseEnd = userTemplate.indexOf("\\nwindow.addEventListener('pagehide'", logoutReleaseStart);
+const logoutReleaseEnd = userTemplate.indexOf("\nwindow.addEventListener('pagehide'", logoutReleaseStart);
 assert.ok(logoutReleaseStart >= 0 && logoutReleaseEnd > logoutReleaseStart, "Normal logout voice-release gate source boundaries not found");
-const logoutReleaseSource = userTemplate.slice(logoutReleaseStart, logoutReleaseEnd) + "\\nthis.__candidateNormalLogoutRelease=normalReleaseVoiceRoomBeforeLogout;";
+const logoutReleaseSource = userTemplate.slice(logoutReleaseStart, logoutReleaseEnd) + "\nthis.__candidateNormalLogoutRelease=normalReleaseVoiceRoomBeforeLogout;";
 const logoutReleaseEvents = [];
 const logoutReleaseContext = {
   signalVoiceRoomRoomId: "normal-pending-logout-room",
@@ -520,7 +520,7 @@ logoutReleaseContext.voiceRoomLeave = async () => { logoutReleaseContext.signalV
 assert.equal(await logoutReleaseContext.__candidateNormalLogoutRelease(), true, "Normal logout may proceed after a confirmed leave retry");
 
 const logoutHandlerStart = userTemplate.indexOf("card.querySelector('.up-logout').onclick=async function(){");
-const logoutHandlerEnd = userTemplate.indexOf("\\n    history.querySelector", logoutHandlerStart);
+const logoutHandlerEnd = userTemplate.indexOf("\n    history.querySelector", logoutHandlerStart);
 assert.ok(logoutHandlerStart >= 0 && logoutHandlerEnd > logoutHandlerStart, "Normal logout handler source boundaries not found");
 const logoutHandler = userTemplate.slice(logoutHandlerStart, logoutHandlerEnd);
 assert.ok(logoutHandler.includes("if(!await normalReleaseVoiceRoomBeforeLogout())return;") &&
