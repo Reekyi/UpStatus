@@ -616,3 +616,12 @@ No merge, deploy, release, production write/migration, secret/role/flag change, 
 ## 2026-11-06 — rate-limit candidate disposition
 
 The branch `normal/rate-limit-retry-after-20261106` is 10 commits ahead / 13 behind current Normal #74 and has diverged; do not integrate it as a unit. Its candidate RPC performs an unbounded stale-bucket DELETE inside the request path on 1-in-64 calls. Recreate/rebase only reviewed changes from the current #74 head and replace request-path cleanup with bounded batch or scheduled cleanup before reconsidering. Product-facing Normal/Team Lite endpoints and production still lack distributed rate-limit integration; Retry-After is not yet part of the shipped contract. No migration or deployment was performed.
+
+
+## 2026-11-06 — isolated-test queue correction
+
+The Team Lite Candidate Checks run 42249119327 was cancelled while pending before a job existed because GitHub Actions concurrency groups default to one pending run. Added `queue: max` with `cancel-in-progress: false` to both Normal and Team Lite isolated-test workflows (GitHub supports up to 100 pending runs since 2026-05-07: https://github.blog/changelog/2026-05-07-github-actions-concurrency-groups-now-allow-larger-queues/).
+
+Current Normal #74 head `e585447d092bcb385ab6e5b16044d85e6674e3e3`: Validate [42250699197](https://github.com/Reekyi/UpStatus/actions/runs/42250699197) running; Smoke [42250699210](https://github.com/Reekyi/UpStatus/actions/runs/42250699210) pending. Current Team Lite #76 head `eaeb3fbb6f9f2c7971e93ed6ce7cc353fba2d227`: Candidate Checks [42250709207](https://github.com/Reekyi/UpStatus/actions/runs/42250709207) pending. The active Normal Smoke [42249822242](https://github.com/Reekyi/UpStatus/actions/runs/42249822242) is using the isolated project.
+
+Read-only counts showed unexpired reserved-prefix fixtures created after the preceding run's cleanup timestamp. Their timestamps align with the active Normal Smoke run. Do not manually delete them; allow the active and queued workflows to complete and verify cleanup afterward.
