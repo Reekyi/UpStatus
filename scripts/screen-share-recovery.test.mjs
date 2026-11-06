@@ -10,7 +10,7 @@ const allowedSources = new Set([
 assert.ok(allowedSources.has(sourcePath), "pass one explicitly allowlisted UpStatus userscript source path");
 
 const source = readFileSync(sourcePath, "utf8");
-const start = source.indexOf("function screenShareDrop(name){");
+const start = source.indexOf("function screenShareClearRecoveryTimer(p){");
 const end = source.indexOf("async function screenShareStart()", start);
 assert.ok(start >= 0 && end > start, "screen-share peer/recovery function boundaries must exist");
 
