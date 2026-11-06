@@ -1237,3 +1237,18 @@ This note supersedes the earlier `872d567` Normal head reference above.
 - Production `dlfvkawaiqduhlazsszm` was inspected read-only: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, 38 active Edge Functions. The three broadcast functions remain SECURITY DEFINER/client-executable; nine backend-owned tables retain client grants with RLS and no policies; default ACLs remain broad. Security Advisor: 3 WARN for anon, 3 WARN for authenticated, 10 INFO RLS/no-policy; performance and health have no findings.
 
 No production write, migration, role/secret/feature-flag change, deploy, release, userscript publication, merge or destructive operation occurred.
+
+
+## 2026-11-06 — superseding exact-head checkpoint
+
+This section supersedes the earlier call-room checkpoint's candidate SHAs and CI states.
+
+- Normal #74 HEAD is now `2e346162d6db9fe05a68a97d501039ddb6de4547` (671 ahead / 0 behind master). Exact Validate [42166842757](https://github.com/Reekyi/UpStatus/actions/runs/42166842757) passed. Exact Smoke [42166842803](https://github.com/Reekyi/UpStatus/actions/runs/42166842803) passed syntax and unauthenticated endpoint checks; authenticated integration/browser is still running.
+- Team Lite #76 HEAD is now `95d88e34c25679e161f09654f5f7e372f2a7a430` (201 ahead / 0 behind team-lite-official; 142 ahead / 0 behind #75). Exact Candidate Checks [42166848429](https://github.com/Reekyi/UpStatus/actions/runs/42166848429) is pending behind the shared isolated project. The prior run [42166267489](https://github.com/Reekyi/UpStatus/actions/runs/42166267489) on parent `c133569` passed integration/browser, rate-limit/read-receipt concurrency, migration-layout and cleanup; it failed only at a stale final assertion expecting the removed direct `signalTransport.leave(signalRoomId)` call. The assertion is updated in `95d88e3`; no exact-head pass yet.
+- Normal's previous Smoke [42166495874](https://github.com/Reekyi/UpStatus/actions/runs/42166495874) failed at a stale assertion that expected the old direct call. The assertion is updated in `2e34616`; the new exact-head Smoke is running.
+- #80 is now `df932946`, 88 ahead / 0 behind develop; Validate [42166706068](https://github.com/Reekyi/UpStatus/actions/runs/42166706068) again reproduces `client signed upload helper missing`. #82 remains `4b85bb1`; Validate [42163103958](https://github.com/Reekyi/UpStatus/actions/runs/42163103958) remains failed on `production updateURL mismatch`. No QA branch changes.
+
+### Additional pagehide gap
+A fresh read of both userscripts confirms their `pagehide` handlers call only `voiceRoomLeave()`; neither calls `callCleanup()`. Thus an active authenticated call can leave its call-room membership until server TTL when the tab closes. The current pending-call handle is also memory-only. The next isolated candidate should queue call cleanup from pagehide and persist only validated room ID, member, call ID and timestamp in userscript storage (never the session token), restoring/retrying only after the same member authenticates. This is not implemented yet; issue #78 remains open.
+
+The shared isolated Supabase project is currently used by Normal Smoke, with Team Lite Candidate Checks pending. Do not start another fixture-mutating run until both workflows finish and cleanup is rechecked. Production remains read-only and unchanged.
