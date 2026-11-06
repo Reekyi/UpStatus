@@ -333,3 +333,12 @@ The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fe
 - Isolated JS harness tests passed for retry, offline/no transport, stale transport replacement, persistent failure, member isolation and logout gating. Full CI for the new Team Lite head and Normal Smoke are still pending.
 - Full page/process termination while offline remains unresolved because the pending room ID is not persisted; the server TTL remains the fallback. Manual no-F5 and installed-client tests remain open.
 - Production was read-only: 7 migrations, 38 active Edge Functions, missing voice/receipt/rate-limit RPCs, three public SECURITY DEFINER broadcast triggers, broad backend-table grants, broad default ACLs. No production change was made.
+
+
+## 2026-11-06 — superseding exact-head checkpoint
+
+- Normal #74: `2e346162d6db9fe05a68a97d501039ddb6de4547`; Validate passed, Smoke is in authenticated integration/browser.
+- Team Lite #76: `95d88e34c25679e161f09654f5f7e372f2a7a430`; Candidate Checks pending. Parent-head run passed integration/browser and database tests, then failed a stale static assertion; the assertion is corrected in the current head.
+- #80 `df932946` still fails the inherited `client signed upload helper missing` validation. #82 `4b85bb1` still fails inherited `production updateURL mismatch`. All PRs remain Draft.
+- New pagehide inspection: neither Normal nor Team Lite calls `callCleanup()` from pagehide; both only call `voiceRoomLeave()`. Pending call-room handles remain memory-only. Durable, token-free userscript-storage recovery across offline reload is the next candidate design, not yet implemented.
+- Shared isolated project is occupied by Normal Smoke; do not overlap Team Lite fixture tests. Production remains read-only.
