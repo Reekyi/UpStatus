@@ -1574,3 +1574,16 @@ Only isolated project `bfpjtfqlnypisxljoxkb` was modified. The migration and tes
 - RT-01 public full-row Realtime broadcast and ACL-02 default ACL ownership remain blockers. Official TEST migration/rollback rehearsal and human reviews are also pending.
 
 Production remains read-only. No merge, deploy, release, production migration/SQL write, secret/role/flag change, userscript publication, or destructive action occurred.
+
+## Engineering checkpoint — 2026-11-06 08:55 BRT: cancellable voice-room attempts
+
+The earlier conclusion that authenticated `/room/resolve` alone was sufficient is superseded. A delayed `/room/open` request can arrive after a recovery `resolve` returns 404, so clearing the local marker on 404 could still leave a later membership. The safe candidate now uses a persisted attempt ID plus a server-side cancel tombstone.
+
+- Normal PR #74 HEAD: `8a4bfd930b1d4169f6f5ae8360beb30f1bb204e4` (715 ahead / 0 behind master; still Draft).
+- Candidate branch: `normal/voice-room-attempt-recovery-v2-20261106`.
+- Migration: `20261106120500_voice_room_attempt_recovery.sql`; table `upstatus_signal_voice_room_attempts`; service-role-only SECURITY INVOKER RPCs `open_upstatus_signal_voice_room_attempt` and `cancel_upstatus_signal_voice_room_attempt`.
+- Authenticated test routes: `/room/open` accepts optional `attemptId`; `/room/cancel-open` serializes cancel-before-open tombstones and open-before-cancel membership removal with the same logical-room lock. Tombstones expire after seven days.
+- Migration and SQL guard were applied only to isolated project `bfpjtfqlnypisxljoxkb`; isolated `upstatus-signal-test` is v31. No production write/deploy occurred.
+- Validate [42215932957](https://github.com/Reekyi/UpStatus/actions/runs/42215932957) passed on the exact HEAD. Smoke [42215932716](https://github.com/Reekyi/UpStatus/actions/runs/42215932716) passed syntax and unauthenticated checks; authenticated integration/browser and cleanup are still running.
+
+This is only the server-contract milestone. The adapter and Normal/Team Lite userscripts do not yet persist/send the attempt ID, and Team Lite has not received this protocol. Do not mark issue #78 complete or enable the production transport. Production project `dlfvkawaiqduhlazsszm` remains read-only.
