@@ -548,3 +548,17 @@ The current Normal and Team Lite `signalRestorePendingVoiceRoomAttempts()` imple
 - Rate-limit/Retry-After remains isolated-endpoint preparation only: actual Normal/Team Lite product server templates do not integrate the RPC, production has no dedicated signaling function, and product integration/Retry-After remain pending. The candidate RPC's opportunistic stale-bucket deletion in the request path still needs bounded-work/locking review.
 
 No production writes, migrations, deployments, secret/role/flag changes, merges, releases, userscript publication, destructive operations or manual fixture cleanup occurred.
+
+
+## 2026-11-06 12:44 BRT - current engineering snapshot
+
+- Normal #74 exact HEAD `9ed9fcb77958455f90c31d14c2b66a463ad9d191`: Validate and Signaling Smoke both PASS. Smoke confirms 129/129 authenticated checks, browser WebRTC call/voice/screen, three-member mesh, rate-limit 90+1 and concurrency, atomic read receipts and cleanup.
+- Team Lite #76 exact HEAD `86e71f5e549cc2b2e16629c5fcc06f047470f52f`: new Candidate Checks [42245339846](https://github.com/Reekyi/UpStatus/actions/runs/42245339846) has passed isolation, adapter, durable voice attempt/retransmission VM regressions and endpoint authentication; authenticated integration/browser and final concurrency/layout/cleanup gates are still running.
+- Normal equivalent voice signaling retry is isolated at `normal/voice-signaling-retry-20261106`, HEAD `aa33645cb242c913cb4bc5e71a22f3de70d4034c`, 2 commits ahead / 0 behind #74. Function bodies are byte-identical to Team Lite. Not integrated or CI-validated.
+- New code-inspection risk: lost voice offer/answer messages after a network outage were not retransmitted on subsequent presence; a delayed recovery timer could also drop a peer after it had recovered. Team Lite candidate fixes both paths and has unit coverage. Physical no-F5 retest remains pending.
+- The rate-limit/Retry-After branch is diverged from current Normal (10 ahead / 5 behind), unintegrated, and still contains unbounded stale-bucket deletion in its request-path RPC. Do not adopt until refreshed and cleanup is bounded.
+- #80 continuity is at `fec285947c2876eb548ea533a5c297cc71db503e`, 130 ahead / 0 behind develop. Its inherited Validate failure remains `client signed upload helper missing`. #82 QA remains at `a3596fd586872c332822a30d697be24788352890`, 65 ahead / 0 behind master, with inherited `production updateURL mismatch`.
+- Production remains read-only: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, 38 active functions; no dedicated signaling endpoint or candidate signaling/rate-limit/read-receipt schema is deployed. Security findings remain 3 anon SECURITY DEFINER WARN, 3 authenticated WARN and 10 RLS/no-policy INFO.
+- Manual gates remain: Tampermonkey close/reload offline without F5, microphone/display permissions, installed Normal ↔ Team Lite interoperability, RT-01, ACL-02, official TEST migration/rollback and human reviews.
+
+No merge, deploy, release, production write/migration, secret/role/flag change, userscript publication or destructive operation.
