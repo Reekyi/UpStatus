@@ -572,6 +572,11 @@ function voiceRoomLeave(options){
           delete signalRosterCache[leavingRoomId];
         }
       }
+    }else if((leavingAttemptId||leavingRoomId)&&typeof signalReleaseVoiceRoom==='function'){
+      if(!signalTransport&&typeof initSignalingTransport==='function')initSignalingTransport();
+      if(signalVoiceRoomAttemptId===leavingAttemptId&&signalVoiceRoomRoomId===leavingRoomId){
+        try{leaveConfirmed=await signalReleaseVoiceRoom();}catch(e){leaveConfirmed=false;}
+      }
     }else if(wasActive){
       var legacyLeave=null;
       try{legacyLeave=await Promise.resolve(leaveSignal);}catch(e){}
