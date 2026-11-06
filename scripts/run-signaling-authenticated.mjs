@@ -138,7 +138,12 @@ try {
     assert.equal(statuses.filter(status => status === 404).length, 90, "first 90 writes should pass the limiter and reach the unknown route");
     assert.equal(statuses.filter(status => status === 429).length, 1, "91st concurrent write should be rate limited");
     assert.ok(statuses.every(status => status === 404 || status === 429), "rate-limit endpoint returned an unexpected status");
-    console.log("PASS distributed endpoint rate limit: 90 accepted, 1 rejected (HTTP 429).");
+    const limited = responses.find(response => response.status === 429);
+    assert.equal(limited.headers.get("retry-after"), "60", "HTTP 429 must include a conservative 60-second Retry-After header");
+    const exposedHeaders = (limited.headers.get("access-control-expose-headers") || "")
+      .split(",").map(value => value.trim().toLowerCase()).filter(Boolean);
+    assert.ok(exposedHeaders.includes("retry-after"), "Retry-After must be exposed to cross-origin userscript clients");
+    console.log("PASS distributed endpoint rate limit: 90 accepted, 1 rejected (HTTP 429, Retry-After: 60).");
   }
 } catch (error) {
   console.error("Authenticated test setup/runner failed: " + String(error?.message || error));
