@@ -141,9 +141,13 @@ for(const artifact of [prodUser,testUser]){
   assert(artifact.includes("return cleanupPromise;") && artifact.includes("voiceRoomLeavePromise=leavePromise.finally") && artifact.includes("return voiceRoomLeavePromise;"),"normal call and voice cleanup must expose completion promises");
   const logoutStart=artifact.indexOf("card.querySelector('.up-logout').onclick=async function()");
   const logoutCallCleanup=artifact.indexOf("await callCleanup(true,'hangup')",logoutStart);
-  const logoutVoiceCleanup=artifact.indexOf("await voiceRoomLeave()",logoutStart);
+  const logoutVoiceGate=artifact.indexOf("normalReleaseVoiceRoomBeforeLogout()",logoutStart);
   const logoutRevoke=artifact.indexOf("await api('POST','/api/logout',{})",logoutStart);
-  assert(logoutStart>=0&&logoutCallCleanup>logoutStart&&logoutVoiceCleanup>logoutCallCleanup&&logoutRevoke>logoutVoiceCleanup,"normal logout must finish call/voice signaling before server session revocation");
+  const voiceGateStart=artifact.indexOf("async function normalReleaseVoiceRoomBeforeLogout(){");
+  const voiceGateEnd=artifact.indexOf("\nwindow.addEventListener('pagehide'",voiceGateStart);
+  const voiceGateSource=artifact.slice(voiceGateStart,voiceGateEnd);
+  assert(voiceGateStart>=0&&voiceGateEnd>voiceGateStart&&voiceGateSource.includes("await voiceRoomLeave()")&&voiceGateSource.includes("if(signalVoiceRoomRoomId)"),"Normal logout gate must await voice leave and retain the session while membership remains");
+  assert(logoutStart>=0&&logoutCallCleanup>logoutStart&&logoutVoiceGate>logoutCallCleanup&&logoutRevoke>logoutVoiceGate,"normal logout must finish call/voice signaling before server session revocation");
   assert(artifact.includes("if(!token||!member||!signalTransport||!signalTransportFlag||signalInvitationPollBusy)return;"),"normal invitation polling must stop issuing requests while logged out");
   assert(artifact.includes("var expectedToken=token,expectedMember=member;") && artifact.includes("if(token!==expectedToken||member!==expectedMember)return;"),"stale invitation poll responses must not cross normal-client sessions");
   assert(artifact.includes(".on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"),"remote_result broadcasts must not be authoritative");
