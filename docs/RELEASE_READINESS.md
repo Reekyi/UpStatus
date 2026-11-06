@@ -3258,3 +3258,25 @@ Como #74 permanece aberto/Draft, as proteções candidatas ainda não estão no 
 Não recomendar release. O logout Team Lite foi corrigido no código e passou no head anterior, mas o head atual 88a0865 ainda aguarda CI. O Normal possui a normalização terminal e a proteção de logout apenas em branch isolada, sem CI e fora do PR #74. Produção continua bloqueada por RT-01, ACL-02, migrations ausentes, bundles legados e testes físicos pendentes. Também faltam reviews humanos.
 
 Nenhuma operação de produção, migration, deploy, merge, publicação de userscript, alteração de secret/flag/role ou limpeza de fixtures foi realizada nesta rodada. As consultas Supabase foram SELECT-only. O único trabalho de escrita é este registro documental na branch QA dedicada.
+
+
+### Follow-up de CI e fixture cleanup — 2026-11-05 BRT / 2026-11-06 UTC
+
+Após o corte anterior, o workflow exato do Team Lite **42150807002** terminou com FAILURE no HEAD **88a0865efee9194c868dc685f3de946b128d83bd**. Não é falha dos testes de integração: o log confirma 103/103 autenticadas, WebRTC de chamada/voz/tela, mesh de três membros, rate limit 90 aceitas + 1 HTTP 429, concorrência de recibos e migration-layout guard aprovados. O cleanup das fixtures também foi confirmado pelo próprio workflow.
+
+A falha ocorreu no passo final “Check candidate scripts and version metadata”, em scripts/team-lite-candidate-check.mjs:227:
+
+**Team Lite bundled adapter must match the shared tested source module**
+
+Causa confirmada por inspeção:
+- O adapter compartilhado src/userscript/signaling-transport.mjs (blob **b2145b8a86fa775e9521f2b38c40cabad0c77172**) contém a normalização idempotente de ROOM_UNAVAILABLE e ROOM_MEMBERSHIP_ENDED.
+- O userscript Team Lite ainda incorpora a versão anterior (blob **e61ac4b7a626142e9319497de21bfc3fe8c81814**), cujo leave(roomId) apenas retorna post("/room/leave", { roomId }) e não contém terminalCodes.
+- O checker compara a implementação incorporada com o módulo compartilhado e falha corretamente. Logo, o novo tratamento ainda não está no bundle efetivamente testado/publicável do Team Lite.
+
+Gate: atualizar o adapter incorporado no userscript Team Lite a partir do módulo compartilhado, preservar o checker de igualdade e repetir Candidate Checks no novo HEAD. Não enfraquecer a asserção.
+
+Após a conclusão do workflow, uma consulta SELECT-only no projeto isolado retornou zero rooms, memberships, bindings, events, buckets de rate limit, usuários de teste, sessões de teste e chat_reads de teste. Nenhuma limpeza manual foi realizada.
+
+A atualização documental anterior gerou o commit QA **6d1e24793404a77b3ee186ed21bf297b8eb4a115**, blob **2fefb1935bbd1e25cca2860a1e034f214c3462e5**. O Validate exato **42151343042** também terminou FAILURE com a mesma asserção de baseline **production updateURL mismatch** em scripts/validate.mjs:26; o PR #82 continua alterando somente este documento.
+
+Contagem atualizada de comentários: issue #78 tem 17 comentários (último 6675276330); issue #79 tem 71 comentários (último 6675276903). A última nota de release da #79 foi publicada enquanto o run 42150807002 ainda estava em andamento; o resultado final acima substitui aquele status pendente.
