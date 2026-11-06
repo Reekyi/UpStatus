@@ -4454,3 +4454,59 @@ Os bundles implantados de produção `upstatus` v480 e `upstatus-team-lite` v15 
 ### Registro de segurança desta rodada
 
 Todas as consultas SQL bem-sucedidas foram SELECT-only/catalog/advisor/contagens. Os testes mutáveis vistos nos logs foram executados pelos workflows de engenharia no projeto isolado `bfpjtfqlnypisxljoxkb`, com guard de project ID e `UPSTATUS_SIGNAL_ALLOW_MUTATION=1`; a consulta posterior confirmou zero fixtures. A auditoria não iniciou workflows nem executou scripts mutáveis. Nenhuma escrita em produção, migration, deploy/invocação de Edge Function, alteração de secret/flag/role, merge, release, publicação de userscript ou operação destrutiva ocorreu. A única escrita desta rodada é este append documental na branch QA dedicada.
+
+
+## Correção de fotografia — Normal voice-attempt client integrado no HEAD mais novo (2026-11-06 09:35 BRT)
+
+A reconsulta final dos refs mostrou que a engenharia avançou #74 durante esta auditoria. A fotografia anterior deste documento, baseada em `2b2cc0d7`, foi supersedida por commits novos; este append registra o estado mais recente sem reescrever a história anterior.
+
+### #74 Normal — HEAD e CI mais recentes
+
+- HEAD/branch atual: `65cc0cb1e8f9baf5da8ef09890753df90ac27c65`, `chore/continuity-foundation`, 726 commits à frente / 0 atrás de master. PR continua aberta, Draft, não mesclada e mergeable.
+- Commit [`eee06f9`](https://github.com/Reekyi/UpStatus/commit/eee06f9f4148d708167c02f3c5da57b41b75e253): alteração de tratamento de falha transitória de GM Storage; uma falha de escrita não marca permanentemente o storage como unhealthy, permitindo nova tentativa. O registro continua fail-closed antes de abrir a sala.
+- Commit [`65cc0cb`](https://github.com/Reekyi/UpStatus/commit/65cc0cb1e8f9baf5da8ef09890753df90ac27c65): atualiza o contexto VM de logout e a asserção de Validate para o novo contrato de voice attempt.
+- Validate exato [42218802820](https://github.com/Reekyi/UpStatus/actions/runs/42218802820): **AUTOMATED PASS** no HEAD `65cc0cb1...`.
+- Signaling Smoke exato [42218802900](https://github.com/Reekyi/UpStatus/actions/runs/42218802900): **IN PROGRESS** na última consulta. Syntax/static harnesses e voice-attempt recovery test passaram; 18 checks não autenticados passaram; integração autenticada/browser ainda executava; rate-limit concurrency, read-receipt concurrency e cleanup aguardavam. Não declarar Smoke completo até conclusão.
+- No HEAD anterior `eee06f9`, Validate [42218478638](https://github.com/Reekyi/UpStatus/actions/runs/42218478638) falhou porque o validador ainda procurava a condição literal antiga `if(signalVoiceRoomRoomId)`, enquanto o novo gate considera também `signalVoiceRoomAttemptId` e a lista de tentativas pendentes. Smoke [42218478649](https://github.com/Reekyi/UpStatus/actions/runs/42218478649) falhou no harness estático por falta de seed de `signalVoiceRoomAttemptId` no contexto VM. O commit `65cc0cb` atualizou ambos; Validate agora passa e o Smoke atual já passou pela etapa estática. Esses erros anteriores não devem ser apresentados como estado do HEAD atual.
+
+### Normal — inspeção do novo fluxo cliente
+
+No userscript Normal atual, blob `cf2284500ff583391a4e5e965df505fd99d3f08b`:
+- `signalPrepareVoiceRoom()` primeiro tenta cancelar tentativas antigas; gera attempt ID membro-bound; persiste `attemptId/logicalId/member/createdAt` antes de chamar `openVoiceRoom(logicalId, attemptId)`; bloqueia a entrada se GM Storage falhar.
+- Após open, confere geração da entrada e attempt ID retornado. Resposta perdida, erro ou cancelamento concorrente chama `cancelVoiceRoomOpen`; se não houver confirmação, mantém o registro para retry.
+- Inicialização do transporte autenticado restaura os marcadores do mesmo membro antes de tentar cancelá-los.
+- Offline encerra mídia local com `skipServerLeave`, mas mantém o attempt persistido; pagehide chama o leave/cancel, e o marcador durável cobre o encerramento antes da resposta.
+- Logout aguarda voice leave e retry das tentativas; se a rede estiver offline ou restar membership/attempt não confirmado, mantém a sessão e não revoga as credenciais.
+- O envelope persistido não contém token, é limitado a 20 entradas e rejeita membro divergente, logical ID inválido, ID malformado, timestamps futuros e registros com mais de sete dias.
+- O teste novo `scripts/voice-room-attempt-recovery.test.mjs` (blob `b3065c85994c14d74164dd49ab505109a9c6418d`) cobre persist-before-open, restore do mesmo membro, cancel após reload sem room ID, isolamento de identidade, dados malformados/expirados/futuros, falhas de leitura/escrita, retry de rede, falha ao persistir remoção, não cancelar a sala ativa, ordem de inicialização e logout gate. A etapa estática que executa esse teste passou no Smoke atual; a integração HTTP/browser ainda está pendente.
+- O adapter Normal blob `d1a474957d5c59bb261e560cccf13addeb14976c` expõe `openVoiceRoom(logicalId, attemptId)` e `cancelVoiceRoomOpen`.
+
+**Classificação:** código Normal integrado por inspeção; unit/static harness PASS no HEAD atual; Validate PASS; Signaling Smoke ainda em execução; teste físico Tampermonkey continua pendente.
+
+### Team Lite — paridade ainda não alcançada
+
+PR #76 permanece no HEAD `5cc5df4865250a0d67935937ea43e206217730d5`, 208/0 de team-lite-official. Candidate Checks [42194948317](https://github.com/Reekyi/UpStatus/actions/runs/42194948317) continua sendo PASS para o escopo anterior de call rooms, voice WebRTC, leave sequencing, retry de room ID, storage fail-closed de call acceptance e logout. Não cobre o novo protocolo de voice attempts.
+
+O bundle Team Lite blob `186226bb68e48409ec98ef3362ebeb4d0e8fc20e` e adapter embutido blob `e33e5bca2a984bc1849401e853290e1edddc2fc7` ainda chamam `openVoiceRoom(logicalId)`, sem attempt ID e sem `cancelVoiceRoomOpen`. Migration/RPC/route de voice attempt também não foram portadas ao branch #76. Portanto, não há paridade Normal/Team Lite para esse fluxo.
+
+### Backend e limite de implantação
+
+A migration/RPC de voice attempt e a rota `/room/cancel-open` foram validadas no projeto isolado pelo Edge Function `upstatus-signal-test` v31. O Smoke anterior no parent `2b2cc0d7` passou 129/129 authenticated checks, incluindo tombstone cancel-before-open, open atrasado HTTP 410, open/cancel concorrente sem membership órfã e cleanup. O Smoke atual `42218802900` é o primeiro a testar o novo client Normal junto desse backend e ainda não terminou.
+
+O endpoint dedicado `upstatus-signal` continua ausente em produção; a função v31 é exclusivamente do projeto isolado. Os templates de servidor Normal/Team Lite não incluem a rota `cancel-open`. A migration não foi aplicada em produção. O Team Lite não tem o contrato novo. Portanto, não há release end-to-end.
+
+O projeto isolado foi reconsultado antes do Smoke atual: 27 migrations até `20261106120851`, Edge v31; a contagem SELECT-only anterior ao run atual era zero em rooms, members, bindings, events, call attempts, voice attempts e rate limits. Como o Smoke atual estava usando o mesmo projeto, não foi feita nova contagem durante a execução para não confundir fixtures transitórias com cleanup final.
+
+### QA #82 após o append anterior
+
+HEAD QA permanece `5e46c2fc8f605fd8d1f7d76d162f56e35bca760b`, blob do documento `0cd4ccf1c5eb6d86eee34d1b32ab5f2820782c60` antes deste append, 60 commits à frente / 0 atrás de master. Validate [42218626049](https://github.com/Reekyi/UpStatus/actions/runs/42218626049) concluiu FAILURE com a mesma causa herdada `production updateURL mismatch`; master ainda constrói updateURL a partir do endpoint legado, enquanto `release.json` e o validador exigem `/functions/v1/upstatus/upstatus.user.js`. O candidato #74 separa `cloud` e `release.scriptUrl`. O validador não foi alterado para aceitar o caminho errado.
+
+### Gates imediatos atualizados
+
+1. Aguardar conclusão do Smoke [42218802900](https://github.com/Reekyi/UpStatus/actions/runs/42218802900) no HEAD Normal `65cc0cb1...`; confirmar integração autenticada, browser, rate-limit, receipts e cleanup.
+2. Portar o contrato completo de voice attempts para Team Lite: migration/RPC, Edge route, adapter, bundle, persistência token-free, retry e logout gate; executar Candidate Checks no novo SHA.
+3. Validar endpoint real dedicado no TEST e configurar o cutover sem apontar userscript de produção para `upstatus-signal-test`.
+4. Fazer teste físico de offline/reload/no-F5 em Tampermonkey nos dois produtos.
+5. Manter RT-01, ACL-02, rate-limit/Retry-After, migration lineage, bump de versão Normal, #79 e human reviews como gates de release.
+
+Nenhuma branch de engenharia foi escrita pela auditoria. O HEAD QA e o blob foram reconsultados imediatamente antes desta atualização; a escrita usa o SHA do blob como precondição e preserva qualquer commit concorrente em outros arquivos.
