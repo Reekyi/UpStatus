@@ -715,24 +715,24 @@ assert.equal(failedVoiceSendContext.signalVoiceRoomPrepared, true, "unconfirmed 
 console.log("Team Lite voice send unconfirmed-response test passed.");
 
 // The logout gate must keep the session when an authenticated membership cannot be released.
+let logoutGateFailureLeaveCalls = 0;
 const logoutGateFailureContext = {
   teamLiteNetworkOffline: true,
   voiceRoomLeavePromise: null,
   voiceRoom: { active: false, joining: false },
   signalVoiceRoomRoomId: "team-lite-pending-logout",
-  voiceRoomLeaveCalls: 0,
-  voiceRoomLeave: function () { this.voiceRoomLeaveCalls++; return Promise.resolve(false); }
+  voiceRoomLeave: () => { logoutGateFailureLeaveCalls++; return Promise.resolve(false); }
 };
 vm.runInNewContext(releaseGateSource, logoutGateFailureContext, { timeout: 1000 });
 assert.equal(await logoutGateFailureContext.__candidateReleaseVoiceBeforeLogout(), false,
   "logout must be blocked while offline when a server-owned room membership remains");
-assert.equal(logoutGateFailureContext.voiceRoomLeaveCalls, 0, "offline logout gate must not send an impossible leave request");
+assert.equal(logoutGateFailureLeaveCalls, 0, "offline logout gate must not send an impossible leave request");
 logoutGateFailureContext.teamLiteNetworkOffline = false;
 assert.equal(await logoutGateFailureContext.__candidateReleaseVoiceBeforeLogout(), false,
   "logout must remain blocked after an unconfirmed server leave");
 assert.equal(logoutGateFailureContext.signalVoiceRoomRoomId, "team-lite-pending-logout",
   "failed logout gate must retain the server room ID for another retry");
-logoutGateFailureContext.voiceRoomLeave = async function () { this.signalVoiceRoomRoomId = ""; return true; };
+logoutGateFailureContext.voiceRoomLeave = async () => { logoutGateFailureContext.signalVoiceRoomRoomId = ""; return true; };
 assert.equal(await logoutGateFailureContext.__candidateReleaseVoiceBeforeLogout(), true,
   "logout may proceed after a retry confirms server membership release");
 console.log("Team Lite logout membership confirmation gate tests passed.");
