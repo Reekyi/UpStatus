@@ -303,6 +303,17 @@ assert(readFileSync("scripts/build.mjs","utf8").includes("signalingTransportTemp
   readFileSync("scripts/build.mjs","utf8").includes("__UPSTATUS_SIGNALING_TRANSPORT_CODE__") &&
   readFileSync("src/userscript/signaling-transport.mjs","utf8").includes("enabled = false"),
   "the shared build must bundle the adapter while keeping it disabled by default");
+
+const chatFastCalls = [...userTemplate.matchAll(/sendRealtimeEvent\\('chat_fast'([^)]*)\\)/g)];
+assert.equal(chatFastCalls.length, 2,
+  "Normal message and attachment sends must each emit one chat_fast refresh hint");
+assert.ok(chatFastCalls.every(match => match[1] === ""),
+  "Normal chat_fast must publish an empty refresh hint, never a message row");
+assert.doesNotMatch(userTemplate, /sendRealtimeEvent\\(['"]chat_fast['"]\\s*,/,
+  "Normal chat_fast must never include a second argument or message payload");
+assert.ok(userTemplate.includes("function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}"),
+  "Normal chat_fast receivers must reconcile only from the authenticated API");
+
 assert.ok(userTemplate.includes("signaling_transport_enabled',false)===true") &&
   userTemplate.includes("endpoint.origin!==sessionServer.origin") &&
   userTemplate.includes("signalTransport.prepareCallRoom") &&
