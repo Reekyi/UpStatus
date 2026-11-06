@@ -576,3 +576,14 @@ No merge, deploy, release, production write/migration, secret/role/flag change, 
 - Manual gates remain: Tampermonkey close/reload offline without F5, microphone/display permissions, installed Normal ↔ Team Lite interoperability, RT-01, ACL-02, official TEST migration/rollback and human reviews.
 
 No merge, deploy, release, production write/migration, secret/role/flag change, userscript publication or destructive operation.
+
+
+## 2026-11-06 12:50 BRT - exact-head delta
+
+- #74 `aa33645cb242c913cb4bc5e71a22f3de70d4034c`: Validate [42246115559](https://github.com/Reekyi/UpStatus/actions/runs/42246115559) PASS; Signaling Smoke [42246115760](https://github.com/Reekyi/UpStatus/actions/runs/42246115760) still running authenticated integration/browser.
+- #76 `86e71f5e549cc2b2e16629c5fcc06f047470f52f`: Candidate Checks [42245339846](https://github.com/Reekyi/UpStatus/actions/runs/42245339846) PASS, including new voice offer/answer retransmission tests and zero post-run fixture counts.
+- #82 QA branch independently advanced to `f6a9eaed2b127b4d2d4a4de9a413470666ecff06`, 66 ahead / 0 behind master, with inherited `production updateURL mismatch` Validate failure [42244487940](https://github.com/Reekyi/UpStatus/actions/runs/42244487940). Engineering did not edit QA files.
+- #80 continuity is `2a48773d921c44d188031c7655ec45da87f95820`, 133 ahead / 0 behind develop; known Validate failure remains `client signed upload helper missing`.
+- Shared isolated project is reserved by #74 Smoke [42246115760](https://github.com/Reekyi/UpStatus/actions/runs/42246115760). No concurrent fixture-mutating run.
+
+Production remains read-only; all release and physical acceptance gates remain open.
