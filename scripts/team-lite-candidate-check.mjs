@@ -259,7 +259,7 @@ assert.ok(voiceAttemptMigration.includes("upstatus_signal_voice_room_attempts")&
   "Team Lite shared voice-attempt migration must serialize open/cancel and keep RPCs service-role-only");
 assert.ok(voiceAttemptTestMigration.includes("open_upstatus_signal_voice_room_attempt")&&voiceAttemptTestMigration.includes("cancel_upstatus_signal_voice_room_attempt")&&voiceAttemptTestMigration.includes("has_function_privilege"),
   "Team Lite voice-attempt SQL test must verify RPC existence and privilege boundaries");
-assert.ok(script.includes("function signalReleaseVoiceRoom()")&&script.includes("await signalReleaseVoiceRoom()")&&script.includes("signalTransport.leave(room)")&&script.includes("signalAttemptPendingVoiceRoomCancel(attemptId,transport,true)"),
+assert.ok(script.includes("function signalReleaseVoiceRoom()")&&script.includes("await signalReleaseVoiceRoom()")&&script.includes("transport.leave(room)")&&script.includes("signalAttemptPendingVoiceRoomCancel(attemptId,transport,true)"),
   "Team Lite must release a pending or failed open voice membership and stop its poller");
 assert.ok(openVoiceMigration.includes("pg_advisory_xact_lock")&&openVoiceMigration.includes("FOR UPDATE")&&openVoiceMigration.includes("ROOM_FULL")&&openVoiceMigration.includes("SECURITY INVOKER")&&openVoiceMigration.includes("SET search_path = ''")&&openVoiceMigration.includes("GRANT EXECUTE ON FUNCTION public.open_upstatus_signal_voice_room"),
   "Team Lite open voice migration must be atomic, bounded, and service-role-only");
