@@ -467,3 +467,15 @@ No production writes, migrations, deployment, merge, release, secret/role/flag c
 - PR #80 Validate [42207746918](https://github.com/Reekyi/UpStatus/actions/runs/42207746918) remains blocked by `client signed upload helper missing`; PR #82 Validate [42211720970](https://github.com/Reekyi/UpStatus/actions/runs/42211720970) remains blocked by `production updateURL mismatch`. These validators were not weakened.
 - A server-side voice-room attempt/tombstone candidate is in #74, with isolated migration and test endpoint v31. Client adapter/userscript integration and Team Lite parity remain pending.
 - Production remains at 7 migrations and 38 Edge Functions; no `upstatus-signal` function. Security findings remain 3 anon SECURITY DEFINER, 3 authenticated SECURITY DEFINER, and 10 RLS-without-policy INFO. No production writes or deployments.
+
+
+## Engineering checkpoint — 2026-11-06 09:42 BRT: Normal voice-attempt client
+
+- Normal #74 is now at `b7a6b3cfd88548175e47db48b5f8c541a3a1e457` (726/0 vs master, Draft). Validate [42219641493](https://github.com/Reekyi/UpStatus/actions/runs/42219641493) passed. Smoke [42219641534](https://github.com/Reekyi/UpStatus/actions/runs/42219641534) is still running; static/unauthenticated checks passed, authenticated browser integration and cleanup are pending.
+- The preceding exact HEAD `65cc0cb` passed full Smoke [42218802900](https://github.com/Reekyi/UpStatus/actions/runs/42218802900): 129/129 authenticated checks, real-browser WebRTC call/voice/screen, three-member mesh, voice attempt tombstone/open-cancel race, rate limit, receipts, and cleanup. Independent post-run SELECT counts were zero for all temporary signaling fixtures.
+- The current candidate adds a fail-closed logout gate when GM storage cannot be read, retryable transient writes, Unicode member-prefix normalization matching PostgreSQL, and additional durable-attempt tests.
+- Team Lite #76 remains `5cc5df4` with its prior Candidate Checks PASS, but does not yet implement the voice-attempt adapter, client marker, or server route/RPC parity. Do not mark issue #78 complete.
+- #80 Validate [42216271705](https://github.com/Reekyi/UpStatus/actions/runs/42216271705) still fails `client signed upload helper missing`. #82 QA HEAD `3d9bcb3` Validate [42218972117](https://github.com/Reekyi/UpStatus/actions/runs/42218972117) still fails `production updateURL mismatch`.
+- Production `dlfvkawaiqduhlazsszm` remains read-only: 7 migrations, 38 ACTIVE Edge Functions, no dedicated `upstatus-signal`. Security findings remain 3 SECURITY DEFINER WARN for anon, 3 for authenticated, and 10 RLS-without-policy INFO. RT-01 and ACL-02 remain open.
+
+All PRs remain Draft. No merge, deploy, release, production write/migration, secret/role/flag change, userscript publication, or destructive operation occurred.
