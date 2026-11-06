@@ -3777,7 +3777,7 @@ function chatAvatarPresence(name){
     card.querySelector('.up-logout').onclick=async function(){
       var callsReleased=false;
       try{
-        callsReleased=upCall&&upCall.active?await callCleanup(true,'hangup'):await signalRetryPendingCallLeaves();
+        callsReleased=upCall&&upCall.active?await callCleanup(true,'hangup'):await signalRetryPendingCallAttempts();
         if(callsReleased)callsReleased=await signalRetryPendingCallLeaves();
       }catch(e){callsReleased=false;}
       if(!callsReleased){voiceRoomMessage('Não foi possível confirmar a saída da chamada. Sua sessão foi mantida. Reconecte e tente sair novamente.');voiceRoomRender();return;}

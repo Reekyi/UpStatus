@@ -569,8 +569,10 @@ assert.ok(logoutHandler.includes("var callsReleased=false;") &&
   logoutHandler.includes("if(!callsReleased){") &&
   logoutHandler.indexOf("if(!callsReleased)") < logoutHandler.indexOf("await api('POST','/api/logout',{})") &&
   logoutHandler.indexOf("if(!callsReleased)") < logoutHandler.indexOf("token='';") &&
+  logoutHandler.includes("await signalRetryPendingCallAttempts()") &&
   logoutHandler.includes("await signalRetryPendingCallLeaves()"),
   "Normal logout must confirm every authenticated call-room leave before voice leave, API logout and credential invalidation");
+assert.ok(logoutHandler.indexOf("await signalRetryPendingCallAttempts()")>=0 && logoutHandler.indexOf("await signalRetryPendingCallAttempts()")<logoutHandler.indexOf("await signalRetryPendingCallLeaves()"), "Normal idle logout must cancel logical call attempts before retrying room leaves");
 const offlineHandlerStart = userTemplate.indexOf("window.addEventListener('offline'");
 const onlineHandlerStart = userTemplate.indexOf("window.addEventListener('online'", offlineHandlerStart);
 assert.ok(offlineHandlerStart >= 0 && onlineHandlerStart > offlineHandlerStart, "Normal offline handler source boundaries not found");
@@ -714,6 +716,29 @@ await normalLogoutContext.__candidateLogout();
 assert.equal(normalLogoutContext.token, "normal-session-token", "Normal failed call leave must retain the session token");
 assert.equal(normalLogoutEvents.some(event => event === "api-logout" || event === "stop-realtime" || event === "storage-clear" || event === "login" || event === "voice-release"), false,
   "Normal logout must abort before voice leave, API logout, Realtime stop or credential clearing when call membership remains");
+const normalPendingAttemptLogoutEvents = [];
+const normalPendingAttemptLogoutContext = {
+  ...normalLogoutContext,
+  upCall: { active: false },
+  callCleanup: async () => { normalPendingAttemptLogoutEvents.push("call-cleanup"); return true; },
+  signalRetryPendingCallAttempts: async () => { normalPendingAttemptLogoutEvents.push("retry-attempts"); return false; },
+  signalRetryPendingCallLeaves: async () => { normalPendingAttemptLogoutEvents.push("retry-leaves"); return true; },
+  voiceRoomMessage: message => normalPendingAttemptLogoutEvents.push("message:" + message),
+  voiceRoomRender: () => normalPendingAttemptLogoutEvents.push("render"),
+  normalReleaseVoiceRoomBeforeLogout: async () => { normalPendingAttemptLogoutEvents.push("voice-release"); return true; },
+  broadcastChatPresence: () => normalPendingAttemptLogoutEvents.push("chat-presence"),
+  api: async () => { normalPendingAttemptLogoutEvents.push("api-logout"); },
+  stopRealtime: () => normalPendingAttemptLogoutEvents.push("stop-realtime"),
+  GM_setValue: () => normalPendingAttemptLogoutEvents.push("storage-clear")
+};
+vm.runInNewContext("async function __candidateLogout(){" + normalLogoutMatch[1] + "} this.__candidateLogout=__candidateLogout;", normalPendingAttemptLogoutContext, { timeout: 1000 });
+await normalPendingAttemptLogoutContext.__candidateLogout();
+assert.equal(normalPendingAttemptLogoutContext.token, "normal-session-token", "Normal failed logical call cancellation must preserve the session token");
+assert.ok(normalPendingAttemptLogoutEvents.includes("retry-attempts"), "Normal idle logout must retry restored logical call attempts");
+assert.equal(normalPendingAttemptLogoutEvents.includes("retry-leaves"), false, "Normal must not proceed to room leaves while logical call cancellation is unconfirmed");
+assert.equal(normalPendingAttemptLogoutEvents.some(event => event === "voice-release" || event === "api-logout" || event === "stop-realtime" || event === "storage-clear" || event === "login"), false,
+  "Normal must not leave voice, logout, stop Realtime or clear credentials while a logical call attempt remains");
+console.log("Normal idle logout blocks on unconfirmed logical call-attempt cancellation.");
 console.log("Normal authenticated call-room cleanup retry and logout-gate tests passed.");
 
 
