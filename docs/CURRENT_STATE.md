@@ -361,3 +361,12 @@ The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fe
 - #78 remains open: physical no-F5 recovery, real microphone/display capture, and installed Normal ↔ Team Lite acceptance remain manual gates. Pagehide persistence is now a Normal-only candidate pending CI; Team Lite parity is not implemented yet.
 - Production remains read-only: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations, 38 active Edge Functions; three public SECURITY DEFINER broadcasts and broad client table/default grants remain. No production signaling endpoint or candidate RPCs have been installed.
 - No merge, deployment, release, production write, migration, secret/role/flag change, userscript publication or destructive action occurred.
+
+
+## 2026-11-06 03:12 BRT — pagehide persistence candidate correction
+
+- Normal pagehide persistence is now in the #74 candidate. Initial Smoke [42172519519](https://github.com/Reekyi/UpStatus/actions/runs/42172519519) failed at the new malformed-room-ID assertion before fixture mutation; source validation was tightened in `a3784be` and explicitly asserted in `2db4408`. Current exact-head #74 Validate [42172723990](https://github.com/Reekyi/UpStatus/actions/runs/42172723990) is in progress; parent Smoke [42172671559](https://github.com/Reekyi/UpStatus/actions/runs/42172671559) is running after static/unauthenticated success; exact-head Smoke [42172723820](https://github.com/Reekyi/UpStatus/actions/runs/42172723820) is queued. No approval is claimed yet.
+- #76 Team Lite remains at `95d88e3`; exact-head Candidate Checks [42166848429](https://github.com/Reekyi/UpStatus/actions/runs/42166848429) passed. Pagehide persistence has not been ported to Team Lite.
+- Normal persists only `roomId`, `member`, `callId`, `createdAt` in versioned per-member GM storage; no session token. Restore is same-member/authenticated and retryable; record is cleared after confirmed leave. The new test rejects malformed, cross-member, stale and future-dated records. Physical tests remain pending; issue #78 stays open.
+- #80 Validate [42167511914](https://github.com/Reekyi/UpStatus/actions/runs/42167511914) still fails `client signed upload helper missing`; #82 Validate [42169381115](https://github.com/Reekyi/UpStatus/actions/runs/42169381115) still fails `production updateURL mismatch`. QA branch unchanged.
+- Production remains read-only and unchanged. The public Realtime, table grants, default ACL and missing production RPC/function gates remain open.

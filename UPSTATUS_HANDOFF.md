@@ -1277,3 +1277,14 @@ The shared isolated Supabase project is currently used by Normal Smoke, with Tea
 - Isolated project `bfpjtfqlnypisxljoxkb` is `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003, 21 migrations through `20261105220323`. Immediately before the new Normal run started, read-only fixture counts were zero; the active run now owns the shared isolated test group. No overlapping fixture-mutating suite was started.
 
 No merge, deploy, release, production migration/write, secret/role/flag change, userscript publication, or destructive operation occurred. Production remained read-only.
+
+
+## 2026-11-06 03:12 BRT — pagehide persistence regression and correction
+
+- The first pagehide persistence candidate commit `acd26e02119633164c0e23624bcccdf5bd66bd5f` passed Validate [42172519530](https://github.com/Reekyi/UpStatus/actions/runs/42172519530), but Signaling Smoke [42172519519](https://github.com/Reekyi/UpStatus/actions/runs/42172519519) failed in the new VM regression: a room identifier containing whitespace was accepted as valid. The failure occurred in the static harness before any fixture-mutating step.
+- Tightened the Normal persistence validator to accept only the opaque room identifier alphabet `[A-Za-z0-9._:-]{1,128}` in commit [`a3784be`](https://github.com/Reekyi/UpStatus/commit/a3784be9ca7625d6b5206ff04ec72295920ad728), and added an explicit source assertion in [`2db4408`](https://github.com/Reekyi/UpStatus/commit/2db440814d374ad1e06b48645920573eaa8db978).
+- Current #74 HEAD is `2db440814d374ad1e06b48645920573eaa8db978`. Validate [42172723990](https://github.com/Reekyi/UpStatus/actions/runs/42172723990) is in progress. Smoke [42172671559](https://github.com/Reekyi/UpStatus/actions/runs/42172671559) is running on parent `a3784be` (static and unauthenticated steps passed; authenticated browser/integration step is running); exact-head Smoke [42172723820](https://github.com/Reekyi/UpStatus/actions/runs/42172723820) is queued behind it. Do not mark the new candidate approved until the exact-head run completes.
+- #76 Team Lite remains at `95d88e34c25679e161f09654f5f7e372f2a7a430`; exact-head Candidate Checks [42166848429](https://github.com/Reekyi/UpStatus/actions/runs/42166848429) passed. The pagehide persistence change has not yet been ported to Team Lite; keep the two products serialized through the shared isolated fixture project.
+- The new Normal storage record is versioned and per-member, bounded to 20 rooms, and contains only room ID, member, call ID and timestamp. It stores no token, validates member identity and opaque room ID, rejects control characters, stale (>7 days) and future-dated records, restores only after same-member authentication/transport initialization, and clears after confirmed leave. Physical browser close/reload/offline tests remain outstanding.
+
+No production writes or release actions occurred.
