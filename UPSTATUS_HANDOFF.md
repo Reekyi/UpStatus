@@ -1656,3 +1656,15 @@ Production remains read-only. Do not treat the exact-head Smoke as green until [
 - RT-01 public full-row broadcasts, ACL-02 default ACL ownership, production endpoint/migration cutover, runtime Retry-After, official TEST rollback rehearsal, physical no-F5/Tampermonkey/device checks, live Normal ↔ Team Lite interoperability, and human reviews remain release gates.
 
 No merge, deployment, release, production migration/SQL write, secret/role/flag change, userscript publication, or destructive operation occurred.
+
+
+### Follow-up checkpoint — 2026-11-06 (Team Lite harness)
+
+- Team Lite #76 advanced to `8746abf0988a2ce28c1ce57b35f780f1e315d7c8`, 226 ahead / 0 behind `team-lite-official` and 167 ahead / 0 behind #75.
+- Run [42227413397](https://github.com/Reekyi/UpStatus/actions/runs/42227413397) completed with steps 1–10 successful, including authenticated/browser integration, rate-limit concurrency, read-receipt concurrency and migration layout. Its final VM check found a missing `signalVoiceRoomAttemptId` in the standalone `signalReleaseVoiceRoom` test context.
+- The candidate checker now seeds attempt ID, pending-attempt map, storage-health state, roster cache and transport defaults in all affected voice leave/release/logout VM contexts. The new exact-head run [42228414423](https://github.com/Reekyi/UpStatus/actions/runs/42228414423) has passed steps 1–6 and is currently executing authenticated integration/browser tests. Do not claim final approval until steps 7–11 and cleanup pass.
+- The 20-second unauthenticated endpoint timeout is active in the Team Lite candidate after a single cold-start timeout at 12 seconds.
+- The separate Normal rate-limit branch is now `7fa1b0aef76aec6acc293c350414309b38362744`, 10 commits ahead / 0 behind #74. It includes the production migration, SQL regression allowlist entry, Retry-After/CORS source change, and static response-helper test; it remains isolated and unvalidated.
+- The latest #80 Validate [42228131771](https://github.com/Reekyi/UpStatus/actions/runs/42228131771) still fails only at the known `client signed upload helper missing` check. The independent #82 branch remains unchanged and its known `production updateURL mismatch` failure persists.
+
+No merge, deployment, release, production write/migration, secret/role/flag change, userscript publication, or destructive operation occurred.
