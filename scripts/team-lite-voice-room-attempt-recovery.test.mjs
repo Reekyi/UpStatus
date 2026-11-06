@@ -396,7 +396,7 @@ pendingOfferPeer.pc.createOffer = async () => {
   return { type: "offer", sdp: "unexpected-new-offer" };
 };
 vm.runInNewContext(
-  voiceOfferSource + "\\nthis.__candidateVoiceRoomOffer = voiceRoomOffer;",
+  voiceOfferSource + "\nthis.__candidateVoiceRoomOffer = voiceRoomOffer;",
   pendingOfferContext,
   { timeout: 1000 },
 );
@@ -451,7 +451,7 @@ const stalePeerContext = {
   },
 };
 vm.runInNewContext(
-  voiceOfferSource + "\\nthis.__candidateVoiceRoomOffer = voiceRoomOffer;",
+  voiceOfferSource + "\nthis.__candidateVoiceRoomOffer = voiceRoomOffer;",
   stalePeerContext,
   { timeout: 1000 },
 );
@@ -495,7 +495,7 @@ const duplicateOfferContext = {
 };
 vm.runInNewContext(
   "async function __candidateReceiveOffer(p) {" + receiveOfferBranch +
-    "}\\nthis.__candidateReceiveOffer = __candidateReceiveOffer;",
+    "}\nthis.__candidateReceiveOffer = __candidateReceiveOffer;",
   duplicateOfferContext,
   { timeout: 1000 },
 );
@@ -539,7 +539,7 @@ const recoveredContext = {
   voiceRoomMessage: () => {},
 };
 vm.runInNewContext(
-  recoverySource + "\\nthis.__candidateScheduleRecovery = voiceRoomScheduleRecovery;",
+  recoverySource + "\nthis.__candidateScheduleRecovery = voiceRoomScheduleRecovery;",
   recoveredContext,
   { timeout: 1000 },
 );
@@ -576,7 +576,7 @@ const failedContext = {
   voiceRoomMessage: () => {},
 };
 vm.runInNewContext(
-  recoverySource + "\\nthis.__candidateScheduleRecovery = voiceRoomScheduleRecovery;",
+  recoverySource + "\nthis.__candidateScheduleRecovery = voiceRoomScheduleRecovery;",
   failedContext,
   { timeout: 1000 },
 );
