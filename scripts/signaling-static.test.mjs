@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 
 const functionSource = readFileSync("supabase/functions/upstatus-signal-test/index.ts", "utf8");
 const userTemplate = readFileSync("src/userscript/upstatus.user.template.js", "utf8");
+const transportSource = readFileSync("src/userscript/signaling-transport.mjs", "utf8");
 const bodyModule = readFileSync("supabase/functions/upstatus-signal-test/body.mjs", "utf8");
 const envelopeModule = readFileSync("supabase/functions/upstatus-signal-test/legacy-envelope.mjs", "utf8");
 const envelopeTest = readFileSync("scripts/signaling-envelope.test.mjs", "utf8");
@@ -40,6 +41,7 @@ const readReceiptsProductionMigration = readFileSync(
   "supabase/migrations/20261105160000_merge_chat_read_receipts.sql", "utf8",
 );
 const openVoiceMigration = readFileSync("supabase/migrations/20261105190000_open_voice_room_membership.sql", "utf8");
+const callAttemptMigration = readFileSync("supabase/migrations/20261106080200_call_room_attempt_recovery.sql", "utf8");
 const rateLimitMigration = readFileSync(
   "supabase/test-migrations/20261104154623_distributed_signaling_rate_limit_test.sql", "utf8",
 );
@@ -102,6 +104,27 @@ assert.ok(bindingMigration.includes("ENABLE ROW LEVEL SECURITY") &&
   bindingMigration.includes("REVOKE ALL PRIVILEGES") && bindingMigration.includes("GRANT ALL PRIVILEGES") &&
   bindingMigration.includes("service_role"),
   "logical room binding table must remain service-role-only");
+assert.ok(callAttemptMigration.includes("CREATE TABLE IF NOT EXISTS public.upstatus_signal_call_attempts") &&
+  callAttemptMigration.includes("ENABLE ROW LEVEL SECURITY") &&
+  callAttemptMigration.includes("REVOKE ALL PRIVILEGES ON TABLE public.upstatus_signal_call_attempts FROM PUBLIC, anon, authenticated") &&
+  callAttemptMigration.includes("pg_advisory_xact_lock") &&
+  callAttemptMigration.includes("CALL_CANCELLED") &&
+  callAttemptMigration.includes("interval '7 days'") &&
+  callAttemptMigration.includes("SECURITY INVOKER") &&
+  callAttemptMigration.includes("SET search_path = ''") &&
+  callAttemptMigration.includes("GRANT EXECUTE ON FUNCTION public.prepare_upstatus_signal_call_room(text, text, text) TO service_role") &&
+  callAttemptMigration.includes("GRANT EXECUTE ON FUNCTION public.cancel_upstatus_signal_call_room(text, text) TO service_role"),
+  "call attempt table and RPCs must be RLS-protected, service-role-only, idempotent and tombstone-aware");
+assert.ok(functionSource.includes('path.endsWith("/room/prepare-call")') &&
+  functionSource.includes('path.endsWith("/room/cancel-call")') &&
+  functionSource.includes('db.rpc("prepare_upstatus_signal_call_room"') &&
+  functionSource.includes('db.rpc("cancel_upstatus_signal_call_room"') &&
+  functionSource.includes('from("upstatus_signal_call_attempts")'),
+  "signaling endpoint must expose the authenticated call prepare/cancel protocol and expire old attempt records");
+assert.ok(transportSource.includes('post("/room/prepare-call"') &&
+  transportSource.includes('post("/room/cancel-call"') &&
+  transportSource.includes("async function cancelCallRoom(logicalId"),
+  "client transport must prepare and cancel call rooms using the logical call ID");
 assert.ok(functionSource.includes('path.endsWith("/room/bind")'),
   "endpoint must expose authorized logical room binding");
 assert.ok(functionSource.includes('path.endsWith("/room/resolve")'),
@@ -325,13 +348,18 @@ assert.ok(userTemplate.includes("leavingTransport.leave(leavingRoomId)") &&
   userTemplate.includes("signalVoiceRoomRoomId!==leavingRoomId") &&
   userTemplate.includes("function signalAttemptPendingCallLeave(roomId,expectedTransport,requireExpectedTransport)") &&
   userTemplate.includes("transportForAttempt.leave(roomId)") &&
+  userTemplate.includes("function signalAttemptPendingCallAttempt(callId,expectedTransport,requireExpectedTransport)") &&
+  userTemplate.includes("transportForAttempt.cancelCallRoom(callId)") &&
+  userTemplate.includes("signalTrackPendingCallAttempt(transportCallId)") &&
   userTemplate.includes("await voiceRoomLeave()"),
   "voice and call teardown paths must release authenticated room membership without using a replacement transport after reconnect");
 const normalInitStart=userTemplate.indexOf("function initSignalingTransport(){");
 const normalInitEnd=userTemplate.indexOf("var lastMember=",normalInitStart);
 const normalInitSource=userTemplate.slice(normalInitStart,normalInitEnd);
-assert.ok(normalInitStart>=0&&normalInitEnd>normalInitStart&&normalInitSource.includes("signalRetryPendingCallLeaves();"),
-  "Normal signaling transport initialization must retry pending call-room leaves after reconnect");
+assert.ok(normalInitStart>=0&&normalInitEnd>normalInitStart&&normalInitSource.includes("signalRetryPendingCallLeaves();") &&
+  normalInitSource.indexOf("signalRestorePendingCallAttempts()")>=0 &&
+  normalInitSource.indexOf("signalRestorePendingCallAttempts()")<normalInitSource.indexOf("signalRetryPendingCallAttempts()"),
+  "Normal signaling transport initialization must restore call-ID recovery handles before retrying them after reconnect");
 const normalStartCallStart=userTemplate.indexOf("async function startOutgoingCall(target){");
 const normalStartCallEnd=userTemplate.indexOf("async function callAcceptIncomingOffer",normalStartCallStart);
 const normalStartCallSource=userTemplate.slice(normalStartCallStart,normalStartCallEnd);
@@ -569,7 +597,7 @@ assert.ok(callLeaveHelperStart >= 0 && callLeaveHelperEnd > callLeaveHelperStart
   "Normal call-membership cleanup source boundaries not found");
 const callRuntimeSource = userTemplate.slice(callLeaveHelperStart, callLeaveHelperEnd) +
   userTemplate.slice(callCleanupStart, callCleanupEnd) +
-  "\nthis.__candidateCallCleanup=callCleanup;this.__candidateRetryPendingCallLeaves=signalRetryPendingCallLeaves;this.__candidatePersistPendingCallLeaves=signalPersistPendingCallLeaves;this.__candidateRestorePendingCallLeaves=signalRestorePendingCallLeaves;this.__candidateStorageKey=signalPendingCallLeavesStorageKey;";
+  "\nthis.__candidateCallCleanup=callCleanup;this.__candidateRetryPendingCallLeaves=signalRetryPendingCallLeaves;this.__candidatePersistPendingCallLeaves=signalPersistPendingCallLeaves;this.__candidateRestorePendingCallLeaves=signalRestorePendingCallLeaves;this.__candidateStorageKey=signalPendingCallLeavesStorageKey;this.__candidateTrackPendingCallAttempt=signalTrackPendingCallAttempt;this.__candidateRestorePendingCallAttempts=signalRestorePendingCallAttempts;this.__candidateRetryPendingCallAttempts=signalRetryPendingCallAttempts;this.__candidateAttemptPendingCallAttempt=signalAttemptPendingCallAttempt;this.__candidateAttemptStorageKey=signalPendingCallAttemptsStorageKey;";
 function makeCallCleanupContext({ transport, callSendAll, storage = new Map(), member = "Normal Tester" } = {}) {
   const roomId = "normal-call-room";
   const callId = "normal-call-1";
@@ -586,6 +614,7 @@ function makeCallCleanupContext({ transport, callSendAll, storage = new Map(), m
     signalCreatorCallIds: { [callId]: false },
     signalRosterCache: { [roomId]: { members: [] } },
     signalPendingCallLeaves: Object.create(null),
+    signalPendingCallAttempts: Object.create(null),
     signalPollStops: {},
     signalTransport: transport || null,
     signalTransportFlag: true,
@@ -690,8 +719,10 @@ const normalInitForPersistenceStart=userTemplate.indexOf("function initSignaling
 const normalInitForPersistenceEnd=userTemplate.indexOf("var lastMember=",normalInitForPersistenceStart);
 const normalInitForPersistence=userTemplate.slice(normalInitForPersistenceStart,normalInitForPersistenceEnd);
 assert.ok(normalInitForPersistence.indexOf("signalRestorePendingCallLeaves()")>=0 &&
-  normalInitForPersistence.indexOf("signalRestorePendingCallLeaves()")<normalInitForPersistence.indexOf("signalRetryPendingCallLeaves()"),
-  "Normal must restore durable leave handles before retrying them on authenticated transport initialization");
+  normalInitForPersistence.indexOf("signalRestorePendingCallLeaves()")<normalInitForPersistence.indexOf("signalRetryPendingCallLeaves()") &&
+  normalInitForPersistence.indexOf("signalRestorePendingCallAttempts()")>=0 &&
+  normalInitForPersistence.indexOf("signalRestorePendingCallAttempts()")<normalInitForPersistence.indexOf("signalRetryPendingCallAttempts()"),
+  "Normal must restore durable room and call-ID handles before retrying them on authenticated transport initialization");
 
 const normalPendingLeaveStorage=new Map();
 let normalPagehideSignalCalls=0;
@@ -755,3 +786,92 @@ assert.equal(normalValidationContext.__candidateRestorePendingCallLeaves(),1,
 assert.deepEqual(Object.keys(normalValidationContext.signalPendingCallLeaves),["normal-call-room"],
   "Normal restore must retain only the validated pending room");
 console.log("Normal durable pagehide/reload call-room leave recovery tests passed.");
+
+// A call ID is durably recorded before the first prepare request; storage failure blocks call creation.
+const normalAttemptStorage=new Map();
+const normalAttemptContext=makeCallCleanupContext({
+  transport:{cancelCallRoom:async callId=>({ok:true,cancelled:true})},
+  storage:normalAttemptStorage
+});
+const normalAttemptId="Normal_Tester-call-attempt-1";
+assert.equal(normalAttemptContext.__candidateTrackPendingCallAttempt(normalAttemptId),true,
+  "Normal must persist a call ID before sending the room-prepare request");
+const normalAttemptStorageKey=normalAttemptContext.__candidateAttemptStorageKey("Normal Tester");
+const normalAttemptEnvelope=normalAttemptStorage.get(normalAttemptStorageKey);
+assert.equal(normalAttemptEnvelope.version,1,"call-attempt persistence must use a versioned envelope");
+assert.deepEqual(Object.keys(normalAttemptEnvelope.entries[0]).sort(),["callId","createdAt","member"],
+  "call-attempt persistence must contain only call ID, member and timestamp");
+assert.equal(JSON.stringify(normalAttemptEnvelope).includes("normal-session-token"),false,
+  "call-attempt persistence must never contain a session token");
+const normalAttemptReload=makeCallCleanupContext({transport:null,storage:normalAttemptStorage});
+assert.equal(normalAttemptReload.__candidateRestorePendingCallAttempts(),1,
+  "the same member must restore a pending call attempt after reload");
+const normalAttemptOtherMember=makeCallCleanupContext({transport:null,storage:normalAttemptStorage,member:"Other Member"});
+assert.equal(normalAttemptOtherMember.__candidateRestorePendingCallAttempts(),0,
+  "call-attempt recovery must remain scoped to the authenticated member");
+
+const failingAttemptStorage={has:()=>false,get:()=>null,set:()=>{throw new Error("userscript storage unavailable");}};
+const normalAttemptStorageFailure=makeCallCleanupContext({transport:null,storage:failingAttemptStorage});
+assert.equal(normalAttemptStorageFailure.__candidateTrackPendingCallAttempt("Normal_Tester-call-storage-failure"),false,
+  "Normal must not start a call when its durable recovery handle cannot be stored");
+assert.equal(Object.keys(normalAttemptStorageFailure.signalPendingCallAttempts).length,0,
+  "failed call-attempt persistence must not leave a false in-memory durable handle");
+
+const outgoingStartStart=userTemplate.indexOf("async function startOutgoingCallWithTransport(target){");
+const outgoingStartEnd=userTemplate.indexOf("\n  function callNewId()",outgoingStartStart);
+assert.ok(outgoingStartStart>=0&&outgoingStartEnd>outgoingStartStart,"Normal outgoing-call start source boundaries not found");
+const outgoingStartSource=userTemplate.slice(outgoingStartStart,outgoingStartEnd)+"\nthis.__candidateStartOutgoingCall=startOutgoingCallWithTransport;";
+const outgoingStartMessages=[];
+let outgoingPrepareCalls=0;
+const outgoingStartContext={
+  member:"Normal Tester",upCall:{active:false},
+  callNewId:()=>"Normal Tester-call-storage-failure",
+  signalSafeCallId:value=>value,
+  signalTrackPendingCallAttempt:()=>false,
+  message:value=>outgoingStartMessages.push(String(value)),
+  signalTransport:{prepareCallRoom:async()=>{outgoingPrepareCalls++;return {roomId:"must-not-exist"};}},
+  Promise,Object,Error
+};
+vm.runInNewContext(outgoingStartSource,outgoingStartContext,{timeout:1000});
+await outgoingStartContext.__candidateStartOutgoingCall("Peer");
+assert.equal(outgoingPrepareCalls,0,"call preparation must not reach the server when durable storage fails");
+assert.ok(outgoingStartMessages.some(value=>value.includes("armazenamento do userscript")),
+  "storage failure must explain why call creation was blocked");
+
+// pagehide before prepareCallRoom returns has no room ID, so cancellation must use the persisted logical call ID.
+let normalUnknownRoomCancels=0;
+const normalUnknownRoomContext=makeCallCleanupContext({
+  transport:{cancelCallRoom:async callId=>{normalUnknownRoomCancels++;assert.equal(callId,"Normal_Tester-preparing-1");return {ok:true,cancelled:true};}},
+  storage:new Map()
+});
+normalUnknownRoomContext.upCall.callId="Normal_Tester-preparing-1";
+normalUnknownRoomContext.signalRoomByCallId=Object.create(null);
+normalUnknownRoomContext.signalCallIdByRoom=Object.create(null);
+normalUnknownRoomContext.signalCreatorCallIds[normalUnknownRoomContext.upCall.callId]=true;
+normalUnknownRoomContext.signalPendingCallAttempts[normalUnknownRoomContext.upCall.callId]={
+  callId:normalUnknownRoomContext.upCall.callId,member:"Normal Tester",createdAt:Date.now(),roomId:"",transport:null,promise:null
+};
+assert.equal(await normalUnknownRoomContext.__candidateCallCleanup(false,"pagehide"),true,
+  "Normal pagehide must cancel a call by logical ID even before a room ID is known");
+assert.equal(normalUnknownRoomCancels,1,"Normal unknown-room pagehide must issue one server-side call cancellation");
+assert.equal(Object.keys(normalUnknownRoomContext.signalPendingCallAttempts).length,0,
+  "confirmed logical-ID cancellation must clear the pending attempt");
+
+let normalUnknownRoomRetries=0;
+const normalOfflineAttemptContext=makeCallCleanupContext({transport:null,storage:new Map()});
+normalOfflineAttemptContext.upCall.callId="Normal_Tester-preparing-offline";
+normalOfflineAttemptContext.signalRoomByCallId=Object.create(null);
+normalOfflineAttemptContext.signalCallIdByRoom=Object.create(null);
+normalOfflineAttemptContext.signalCreatorCallIds[normalOfflineAttemptContext.upCall.callId]=true;
+normalOfflineAttemptContext.signalPendingCallAttempts[normalOfflineAttemptContext.upCall.callId]={
+  callId:normalOfflineAttemptContext.upCall.callId,member:"Normal Tester",createdAt:Date.now(),roomId:"",transport:null,promise:null
+};
+assert.equal(await normalOfflineAttemptContext.__candidateCallCleanup(false,"pagehide"),false,
+  "offline pagehide before room creation must retain the call-ID retry handle");
+normalOfflineAttemptContext.signalTransport={cancelCallRoom:async callId=>{normalUnknownRoomRetries++;assert.equal(callId,"Normal_Tester-preparing-offline");return {ok:true,cancelled:true};}};
+assert.equal(await normalOfflineAttemptContext.__candidateRetryPendingCallAttempts(),true,
+  "the same member must cancel a pending call by logical ID after transport recovery");
+assert.equal(normalUnknownRoomRetries,1,"call-ID recovery must retry exactly once after transport recreation");
+assert.equal(Object.keys(normalOfflineAttemptContext.signalPendingCallAttempts).length,0,
+  "confirmed retry must clear the durable call-attempt handle");
+console.log("Normal pre-prepare call-ID persistence, storage-failure gate and unknown-room recovery tests passed.");
