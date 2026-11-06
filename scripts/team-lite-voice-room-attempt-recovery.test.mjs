@@ -93,7 +93,7 @@ assert.equal(cancelCalls, 1);
 assert.equal(storage.get(storageKey).entries.length, 0);
 
 const malformedStorage = new Map();
-malformedStorage.set("upstatus_team_lite_signal_pending_voice_room_attempts_v1_Normal%20Tester", {
+malformedStorage.set("upstatus_team_lite_signal_pending_voice_room_attempts_v1_Team%20Lite%20Tester", {
   version: 1,
   entries: [
     { attemptId: "Team_Lite_Tester-voice-valid", logicalId: "upstatus-team-room-v1", member: "Team Lite Tester", createdAt: Date.now() },
@@ -110,7 +110,7 @@ assert.equal(validation.__candidateRestore(), 1,
 assert.deepEqual(Object.keys(validation.signalPendingVoiceRoomAttempts), ["Team_Lite_Tester-voice-valid"]);
 
 const oversizedStorage = new Map();
-const oversizedKey = "upstatus_team_lite_signal_pending_voice_room_attempts_v1_Normal%20Tester";
+const oversizedKey = "upstatus_team_lite_signal_pending_voice_room_attempts_v1_Team%20Lite%20Tester";
 oversizedStorage.set(oversizedKey, {
   version: 1,
   entries: Array.from({ length: 21 }, (_, index) => ({
