@@ -490,3 +490,15 @@ All PRs remain Draft. No merge, deploy, release, production write/migration, sec
 - #80 Validate [42219924635](https://github.com/Reekyi/UpStatus/actions/runs/42219924635) still fails `client signed upload helper missing`; #82 Validate [42218972117](https://github.com/Reekyi/UpStatus/actions/runs/42218972117) still fails `production updateURL mismatch`.
 
 No production writes or release actions occurred.
+
+
+## 2026-11-06 current engineering state
+
+- Normal #74 exact head `94513c106d42cb8d77ab9a1c11ff7c9bfa610ba6`: Validate and Signaling Smoke both PASS; Smoke confirms 129/129 authenticated checks, browser call/voice/screen WebRTC, voice-attempt cancellation races, 90+1 rate limiting, read-receipt concurrency, and cleanup.
+- Team Lite #76 exact head `65e0176212091d4aa07a483aa978d2980f498479`: voice-attempt client recovery is now implemented. Candidate Checks [42227413397](https://github.com/Reekyi/UpStatus/actions/runs/42227413397) has passed isolation, adapter, voice-attempt, and unauthenticated endpoint steps; authenticated/browser and final checks remain in progress.
+- Team Lite harness regressions were corrected after two failed runs: VM contexts now seed durable voice storage state, and unauthenticated endpoint requests have a 20-second timeout to avoid a cold-start false failure.
+- A separate Normal branch `normal/rate-limit-retry-after-20261106` at `ed36fb2764619ab7787672803159edbcf507321c` stages the missing production rate-limit migration and Retry-After/CORS behavior. It is 9 commits ahead / 0 behind #74, not integrated, not CI-validated, and not deployed.
+- Production remains read-only: 7 migrations, 38 ACTIVE Edge Functions, no dedicated `upstatus-signal`, no rate-limit table/RPC, and no voice-attempt table/RPC. Security findings remain 3 SECURITY DEFINER WARN for anon, 3 for authenticated, and 10 RLS-without-policy INFO; public full-row chat broadcasts and broad default ACLs remain open.
+- Physical Tampermonkey no-F5, real microphone/display capture, live Normal ↔ Team Lite interoperability, RT-01, ACL-02, official TEST migration/rollback, and human review remain release gates.
+
+No merge, deploy, release, production write/migration, secret/role/flag change, userscript publication, or destructive action.
