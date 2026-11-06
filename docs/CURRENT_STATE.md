@@ -687,3 +687,13 @@ The deployed Normal v480 and Team Lite v15 bundles still send `chat_fast` with `
 - Candidate release versions, endpoint cutover, migration packaging/rollback in official TEST, Realtime authorization/private transport, 38-function auth/ownership inventory, human reviews, and explicit release approval remain open.
 
 This checkpoint used GitHub metadata/workflow logs and read-only Supabase metadata, advisors, catalog SQL, and isolated-project fixture counts. No production SQL write, migration, deployment, flag/secret/role change, userscript publication, merge, destructive operation, or manual test-fixture mutation was performed.
+
+
+## 2026-11-06 — chat_fast payload guard parity and revalidation
+
+- **Normal #74** advanced from `05c9b4d` to `206a2fff08a67d024291e8f074e930e54a72baf9` with a test-only addition in `scripts/signaling-static.test.mjs`. The regression requires exactly two `chat_fast` sends, no second argument/payload, and a refresh-only receiver. Validate [42267444815](https://github.com/Reekyi/UpStatus/actions/runs/42267444815) passed. Smoke [42267444841](https://github.com/Reekyi/UpStatus/actions/runs/42267444841) is still in progress; static harness and unauthenticated endpoint stages passed, authenticated/browser integration is running. Do not mark exact-head Smoke complete yet.
+- **Team Lite #76** advanced from `b784daa` to `6e247d7b6107b965d9341ddb814f1498a4f3b8e4` with an equivalent stronger guard in `scripts/team-lite-candidate-check.mjs`. It now requires exactly two empty `chat_fast` hints and rejects any second argument. Candidate Checks [42267664191](https://github.com/Reekyi/UpStatus/actions/runs/42267664191) is pending in the shared isolated-project queue behind Normal.
+- A read-only source comparison confirmed both current candidate userscripts have exactly two empty `chat_fast` sends and a receiver that refetches canonical messages through the authenticated API. The deployed production bundles still send full message objects in those events; the candidate changes are not production fixes until approved cutover.
+- The previous isolated-project post-run SELECT snapshot showed zero reserved-prefix fixtures. Because the new Normal run is currently mutating the isolated project and Team Lite is queued, no new cleanup count is claimed until the full queue completes.
+- These changes are static-test-only; no runtime behavior or Supabase schema changed. Both main PRs remain Draft.
+
