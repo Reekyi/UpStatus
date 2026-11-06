@@ -748,6 +748,8 @@ normalValidationStorage.set(normalReloadContext.__candidateStorageKey("Normal Te
   ]
 });
 const normalValidationContext=makeCallCleanupContext({transport:null,storage:normalValidationStorage});
+assert.ok(userTemplate.includes("if(!/^[A-Za-z0-9._:-]{1,128}$/.test(roomId))return null;"),
+  "Normal persisted room IDs must use bounded opaque identifier syntax");
 assert.equal(normalValidationContext.__candidateRestorePendingCallLeaves(),1,
   "Normal restore must reject malformed, cross-member, stale and future-dated records");
 assert.deepEqual(Object.keys(normalValidationContext.signalPendingCallLeaves),["normal-call-room"],
