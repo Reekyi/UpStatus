@@ -25,6 +25,22 @@ const cases = [
     expected: 401,
   },
   {
+    name: "atomic call preparation requires a valid UpStatus session",
+    run: () => fetch(base + "/room/prepare-call", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ logicalId: "forged-call", recipient: "someone" }),
+    }),
+    expected: 401,
+  },
+  {
+    name: "call cancellation by logical ID requires a valid UpStatus session",
+    run: () => fetch(base + "/room/cancel-call", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ logicalId: "forged-call" }),
+    }),
+    expected: 401,
+  },
+  {
     name: "open voice room requires a valid UpStatus session",
     run: () => fetch(base + "/room/open", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logicalId: "upstatus-team-room-v1" }) }),
     expected: 401,
