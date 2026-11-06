@@ -276,3 +276,9 @@ The earlier 52-ahead ancestry count predates the documentation follow-ups; re-fe
 - #74 `b0c0e03` CI green; #75 `7bbf9b9` historical CI green; #76 `f573981` pending; #80 `c6fabac` fails `client signed upload helper missing`; #82 `b916551` fails `production updateURL mismatch`. All remain Draft.
 - Residual: the room ID is not persisted across a full browser reload, so a browser closed while offline can still leave membership until TTL. Issue #78 remains open for physical reconnection and this lifecycle edge.
 - Production Supabase remains SELECT-only: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, 38 active Edge Functions. Voice/read-receipt/rate-limit RPCs and the dedicated signaling function remain absent; public broadcast and broad grants/default ACL findings remain. No production writes or deploys.
+
+
+## 2026-11-05 23:16 BRT — CI follow-up
+
+- Team Lite run [42148017860](https://github.com/Reekyi/UpStatus/actions/runs/42148017860) on `24e5c64` passed 103/103 authenticated checks, browser WebRTC call/voice/screen, mesh, 90/1 rate limit, rate/read-receipt concurrency, migration guard, candidate metadata, and fixture cleanup. It failed only in the final VM logout-gate test because `teamLiteNetworkOffline` was absent from the extracted test context. The stub was added in `6c1fcf5`.
+- Latest exact-head run [42148155469](https://github.com/Reekyi/UpStatus/actions/runs/42148155469) on `f573981` is in progress. Do not start another mutating suite until it completes and cleanup is verified.
