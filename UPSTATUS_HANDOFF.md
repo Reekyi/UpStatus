@@ -1940,3 +1940,12 @@ No production or official TEST writes, migrations, deployments, secret/role/flag
 - A fresh comparison against current Normal #74 shows branch `normal/rate-limit-retry-after-20261106` is 10 commits ahead / 13 behind and diverged. Do not integrate it as a unit.
 - Its candidate RPC still executes an unbounded `DELETE FROM upstatus_signal_rate_limits WHERE updated_at < now() - interval '1 day'` in the request path on 1-in-64 calls. Replace this with a bounded batch or scheduled cleanup before reconsidering the migration.
 - Product-facing Normal/Team Lite endpoints still do not call the distributed limiter, production has no rate-limit table/RPC, and Retry-After behavior is not yet integrated into the shipped clients. No migration or deployment was performed.
+
+
+### Isolated-test queue correction — 2026-11-06
+
+- Team Lite Candidate Checks [42249119327](https://github.com/Reekyi/UpStatus/actions/runs/42249119327) was cancelled while pending before a job existed. The shared GitHub Actions concurrency group retained only one pending run, so a newer Normal Smoke replaced it.
+- Added `queue: max` and kept `cancel-in-progress: false` in both `.github/workflows/signaling-smoke.yml` and `.github/workflows/team-lite-candidate.yml`. GitHub supports this bounded 100-run queue since 2026-05-07: https://github.blog/changelog/2026-05-07-github-actions-concurrency-groups-now-allow-larger-queues/.
+- Current Normal #74 head `e585447d092bcb385ab6e5b16044d85e6674e3e3`: Validate [42250699197](https://github.com/Reekyi/UpStatus/actions/runs/42250699197) is running; Smoke [42250699210](https://github.com/Reekyi/UpStatus/actions/runs/42250699210) is pending. The preceding Smoke [42249822242](https://github.com/Reekyi/UpStatus/actions/runs/42249822242) is active in the shared project and has passed syntax/static and unauthenticated stages.
+- Current Team Lite #76 head `eaeb3fbb6f9f2c7971e93ed6ce7cc353fba2d227`: Candidate Checks [42250709207](https://github.com/Reekyi/UpStatus/actions/runs/42250709207) is pending behind the Normal runs and should now remain queued.
+- Read-only fixture counts after the preceding Normal Smoke showed unexpired reserved-prefix users/sessions/rooms/memberships/attempts created after that run's cleanup timestamp. Their timestamps align with the currently active Normal Smoke; do not delete them or start another mutating suite. The active run's cleanup and the subsequent queued runs must be allowed to finish before a final zero-count check.
