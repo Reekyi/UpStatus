@@ -7,6 +7,8 @@ const read = (path) => fs.readFileSync(path, "utf8");
 const manifest = JSON.parse(read("team-lite/release.json"));
 const script = read("team-lite/upstatus-team-lite.user.js");
 const openVoiceMigration = read("supabase/migrations/20261105190000_open_voice_room_membership.sql");
+const voiceAttemptMigration = read("supabase/migrations/20261106120500_voice_room_attempt_recovery.sql");
+const voiceAttemptTestMigration = read("supabase/test-migrations/20261106120500_voice_room_attempt_recovery_test.sql");
 const signalingAdapterSource = read("src/userscript/signaling-transport.mjs").replace(/^export\s+/gm, "");
 const luccaSite = read("lucca-site/index.html");
 const luccaStandalone = read("lucca.html");
@@ -247,9 +249,17 @@ assert.ok(script.includes("if(!signalTransport||!signalRoomId)return false"), "c
 const voicePrepareStart=script.indexOf("async function signalPrepareVoiceRoom(){");
 const voicePrepareEnd=script.indexOf("function signalReleaseVoiceRoom(){",voicePrepareStart);
 const voicePrepareSource=script.slice(voicePrepareStart,voicePrepareEnd);
-assert.ok(voicePrepareStart>=0&&voicePrepareEnd>voicePrepareStart&&voicePrepareSource.includes("signalTransport.openVoiceRoom(voiceRoom.id)")&&!voicePrepareSource.includes("invitations")&&!voicePrepareSource.includes("accept(")&&!voicePrepareSource.includes("createRoom(")&&!voicePrepareSource.includes("bindRoom("),
-  "Team Lite voice room must use open authenticated membership, not invitation/acceptance");
-assert.ok(script.includes("function signalReleaseVoiceRoom()")&&script.includes("await signalReleaseVoiceRoom()")&&script.includes("signalTransport.leave(room)"),
+assert.ok(voicePrepareStart>=0&&voicePrepareEnd>voicePrepareStart&&voicePrepareSource.includes("signalTrackPendingVoiceRoomAttempt(voiceRoom.id,attemptId)")&&voicePrepareSource.indexOf("signalTrackPendingVoiceRoomAttempt(voiceRoom.id,attemptId)")<voicePrepareSource.indexOf("transportForOpen.openVoiceRoom(voiceRoom.id,attemptId)")&&voicePrepareSource.includes("signalAttemptPendingVoiceRoomCancel(attemptId,transportForOpen,true)")&&!voicePrepareSource.includes("invitations")&&!voicePrepareSource.includes("accept(")&&!voicePrepareSource.includes("createRoom(")&&!voicePrepareSource.includes("bindRoom("),
+  "Team Lite voice room must persist and cancel a logical attempt before/after authenticated open");
+assert.ok(script.includes("async function openVoiceRoom(logicalId, attemptId)")&&script.includes("async function cancelVoiceRoomOpen(logicalId, attemptId, options = {})")&&signalingAdapterSource.includes("async function openVoiceRoom(logicalId, attemptId)")&&signalingAdapterSource.includes("async function cancelVoiceRoomOpen(logicalId, attemptId, options = {})"),
+  "Team Lite bundled and shared signaling adapters must support voice attempt open/cancel");
+assert.ok(script.includes("signalRestorePendingVoiceRoomAttempts()")&&script.includes("signalRetryPendingVoiceRoomAttempts()")&&script.includes("signalPendingVoiceRoomStorageHealthy")&&script.includes("signalAttemptPendingVoiceRoomCancel(leavingAttemptId,leavingTransport,true)"),
+  "Team Lite must restore, retry, and gate logout on durable voice attempts");
+assert.ok(voiceAttemptMigration.includes("upstatus_signal_voice_room_attempts")&&voiceAttemptMigration.includes("open_upstatus_signal_voice_room_attempt")&&voiceAttemptMigration.includes("cancel_upstatus_signal_voice_room_attempt")&&voiceAttemptMigration.includes("SECURITY INVOKER")&&voiceAttemptMigration.includes("SET search_path = ''")&&voiceAttemptMigration.includes("pg_advisory_xact_lock")&&voiceAttemptMigration.includes("FOR UPDATE")&&voiceAttemptMigration.includes("GRANT EXECUTE ON FUNCTION public.cancel_upstatus_signal_voice_room_attempt"),
+  "Team Lite shared voice-attempt migration must serialize open/cancel and keep RPCs service-role-only");
+assert.ok(voiceAttemptTestMigration.includes("open_upstatus_signal_voice_room_attempt")&&voiceAttemptTestMigration.includes("cancel_upstatus_signal_voice_room_attempt")&&voiceAttemptTestMigration.includes("has_function_privilege"),
+  "Team Lite voice-attempt SQL test must verify RPC existence and privilege boundaries");
+assert.ok(script.includes("function signalReleaseVoiceRoom()")&&script.includes("await signalReleaseVoiceRoom()")&&script.includes("signalTransport.leave(room)")&&script.includes("signalAttemptPendingVoiceRoomCancel(attemptId,transport,true)"),
   "Team Lite must release a pending or failed open voice membership and stop its poller");
 assert.ok(openVoiceMigration.includes("pg_advisory_xact_lock")&&openVoiceMigration.includes("FOR UPDATE")&&openVoiceMigration.includes("ROOM_FULL")&&openVoiceMigration.includes("SECURITY INVOKER")&&openVoiceMigration.includes("SET search_path = ''")&&openVoiceMigration.includes("GRANT EXECUTE ON FUNCTION public.open_upstatus_signal_voice_room"),
   "Team Lite open voice migration must be atomic, bounded, and service-role-only");
