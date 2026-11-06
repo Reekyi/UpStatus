@@ -61,6 +61,11 @@ assert.match(attemptId, /^Normal_Tester-voice-[A-Za-z0-9._:-]+$/);
 assert.ok(attemptId.length <= 128);
 assert.equal(initial.__candidateTrack("upstatus-team-room-v1", attemptId), true,
   "Normal must persist the member-bound voice attempt before /room/open");
+const emojiMember = makeContext({ member: "Voice😀Tester" });
+const emojiAttemptId = emojiMember.__candidateNewId();
+assert.ok(emojiAttemptId.startsWith("Voice_Tester-voice-"),
+  "JavaScript prefix normalization must match PostgreSQL code-point replacement for non-BMP names");
+assert.equal(emojiMember.__candidateTrack("upstatus-team-room-v1", emojiAttemptId), true);
 const storageKey = initial.__candidateStorageKey("Normal Tester");
 const envelope = storage.get(storageKey);
 assert.equal(envelope.version, 1);
@@ -95,7 +100,7 @@ malformedStorage.set("upstatus_signal_pending_voice_room_attempts_v1_Normal%20Te
     { attemptId: "Other_Member-voice-cross", logicalId: "upstatus-team-room-v1", member: "Other Member", createdAt: Date.now() },
     { attemptId: "Normal_Tester-voice-bad room", logicalId: "upstatus-team-room-v1", member: "Normal Tester", createdAt: Date.now() },
     { attemptId: "Normal_Tester-voice-stale", logicalId: "upstatus-team-room-v1", member: "Normal Tester", createdAt: Date.now() - 8 * 24 * 60 * 60 * 1000 },
-    { attemptId: "Normal_Tester-voice-future", logicalId: "upstatus-team-room-v1", member: "Normal Tester", createdAt: Date.now() + 120000 },
+    { attemptId: "Normal_Tester-voice-future", logicalId: "upstatus-team-room-v1", member: "Normal Tester", createdAt: Date.now() + 8 * 24 * 60 * 60 * 1000 },
     { attemptId: "Normal_Tester-voice-wrong-logical", logicalId: "call:wrong", member: "Normal Tester", createdAt: Date.now() },
   ],
 });
