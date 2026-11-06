@@ -3005,3 +3005,148 @@ O workflow .github/workflows/deploy-production.yml, blob SHA f3493d19cb59bb4d9f4
 ### Segurança e execução desta rodada
 
 Todas as consultas SQL desta rodada foram SELECT-only. O workflow [42134550466](https://github.com/Reekyi/UpStatus/actions/runs/42134550466) foi iniciado pela engenharia, não pela QA; os logs confirmam o project ref isolado, opt-in explícito de mutação e cleanup. A auditoria confirmou zero linhas residuais nas tabelas de fixtures. Nenhum workflow foi disparado manualmente pela QA. Nenhuma escrita em produção, migration, deploy, alteração de secret/flag/role, publicação de userscript, merge ou operação destrutiva foi realizada. A única escrita desta rodada é este registro documental na branch QA dedicada.
+
+
+## Revalidação independente — 2026-11-05 22:31 BRT
+
+Esta seção substitui os estados anteriores quando há SHA, execução ou catálogo mais recente. A leitura da branch QA ocorreu antes da escrita; a atualização foi condicionada ao head #82 `3cb3539ba10c0061d104d5936c2c04ee5bb81b79` e ao blob atual `782397b450590a8e916f2affc0705c7b13bb154f`. Nenhum arquivo de engenharia foi alterado.
+
+### Heads, ancestralidade e reviews
+
+| PR | Head exato | Estado | Comparação |
+|---|---|---|---|
+| #74 Normal | `b0c0e03fbe820e02404d4ae7d9f83e2a18642e50` | Aberta/Draft | 639 ahead / 0 behind de master |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Aberta/Draft | 59 ahead / 0 behind de team-lite-official |
+| #76 Team Lite signaling | `092dc83c75e2257de2a5564429cc7d9995403509` | Aberta/Draft | 190 ahead / 0 behind de team-lite-official; 131 ahead / 0 behind de #75 |
+| #82 QA | `3cb3539ba10c0061d104d5936c2c04ee5bb81b79` | Aberta/Draft | 45 ahead / 0 behind de master; somente `docs/RELEASE_READINESS.md` |
+
+Nenhum dos PRs foi mesclado. As consultas de reviews e review threads retornaram zero submissões e zero threads nos PRs #74, #75, #76 e #82. #76 continua descendente de #75; não tratar os dois como merges independentes.
+
+### CI por HEAD exato
+
+**Normal #74 — AUTOMATED PASS**
+
+- Validate [42122609464](https://github.com/Reekyi/UpStatus/actions/runs/42122609464): SUCCESS.
+- Signaling Smoke [42122609431](https://github.com/Reekyi/UpStatus/actions/runs/42122609431): SUCCESS.
+- O Smoke no head exato `b0c0e03` passou 15/15 verificações não autenticadas e 103/103 autenticadas, incluindo open voice join/late join, aliases Normal/Team Lite, idempotência, capacidade, owner handoff, concorrência de saída/entrada, WebRTC call/voice/screen, mesh de três participantes, rate limit 90 aceitos + 1 HTTP 429, concorrência, recibos atômicos e cleanup.
+
+**Team Lite #76 — PENDING no head atual**
+
+- Head exato `092dc83c75e2257de2a5564429cc7d9995403509`.
+- Candidate Checks [42143206998](https://github.com/Reekyi/UpStatus/actions/runs/42143206998): `in_progress`, job [127648319099](https://github.com/Reekyi/UpStatus/actions/runs/42143206998).
+- Na última observação, mutation guard, adapter e autenticação do endpoint haviam concluído com SUCCESS. A etapa de integração autenticada/browser ainda estava `in_progress`; rate-limit concurrency, read-receipt concurrency, migration-layout guard, candidate metadata e cleanup ainda estavam pendentes. Não declarar pass/fail até o término do run.
+- A execução pertence à engenharia e usa o projeto isolado. Consultas SELECT-only durante o run encontraram 10 salas, 12 memberships, 2 bindings, 1 evento e 6 rate-limit buckets. Esses registros são compatíveis com fixtures em uso. Não iniciar outra suíte mutável nem limpar manualmente enquanto o run estiver ativo.
+- O commit [092dc83](https://github.com/Reekyi/UpStatus/commit/092dc83c75e2257de2a5564429cc7d9995403509) adiciona `realtimeRetryTimer: null` ao contexto VM do teste de readiness. É uma correção de harness; o run exato ainda não terminou.
+
+**Team Lite #75 — HISTORICAL PASS**
+
+- Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127): SUCCESS no baseline inalterado. Não substitui o resultado atual de #76.
+
+**QA #82 — VALIDATION BLOCKED**
+
+- Validate [42137572524](https://github.com/Reekyi/UpStatus/actions/runs/42137572524): FAILURE no head exato `3cb3539`.
+- O log mostra build `UpStatus 3.4.7 / TEST 3.4.7`, seguido de `scripts/validate.mjs:26`: `VALIDATION FAILED: production updateURL mismatch`.
+- O PR altera somente este Markdown. O validador não foi enfraquecido nem modificado; o erro continua sendo uma incompatibilidade do contrato de URL do baseline, não uma aprovação da documentação.
+
+### Reconexão: dois candidatos ainda não equivalem a aceite
+
+A reprodução manual da [issue #78](https://github.com/Reekyi/UpStatus/issues/78) continua registrada como falha confirmada: após aproximadamente 10 segundos sem internet, os clientes podem não recuperar entrada em sala/chamadas sem F5. Nenhum teste manual de recuperação foi aprovado.
+
+**Normal:** a branch separada `normal/reconnect-recovery-candidate` está no commit [08ebf838](https://github.com/Reekyi/UpStatus/commit/08ebf838f327134a672d06d787d9cdbd778d801b), 15 commits ahead / 0 behind do head #74. O compare mostra dois arquivos alterados: `src/userscript/upstatus.user.template.js` e `scripts/signaling-static.test.mjs`. O commit não possui workflow run associado. A branch candidata inclui teardown local offline, espera de Realtime SUBSCRIBED antes de rejoin/chamadas, leave Promise serializada, captura da instância de transporte para evitar leave tardio em transporte substituído, retenção do room ID em falha e proteção contra tentativa de chamada duplicada. Isso é CODE INSPECTION; ainda não está integrado ao PR #74 nem automatizado em CI.
+
+**Team Lite:** o head atual #76 inclui handlers offline/online, teardown local com `skipServerLeave`, reconstrução do Realtime e espera de até 10 segundos por canal pronto antes de rejoin/chamada legada. A suíte exata está em andamento no run acima. A aceitação física permanece MANUAL PENDING.
+
+### Novo achado de código — logout Team Lite pode invalidar a sessão após leave não confirmado
+
+**CODE INSPECTION — bloqueador de robustez.**
+
+No userscript Team Lite do head #76, blob `fb5524fcd4e38896f315bdeae1713862a49f9581`:
+
+- `signalReleaseVoiceRoom()` preserva room ID/prepared/owner se o RPC falha e retorna `false`.
+- `voiceRoomLeave()` aguarda o sinal final e o fallback, mas suprime a rejeição do leave inicial e não transforma o resultado `false` do fallback em falha da Promise de saída.
+- `teamLiteReleaseVoiceRoomBeforeLogout()` apenas aguarda `voiceRoomLeave()`; não verifica se a associação foi confirmada como removida nem se `signalVoiceRoomRoomId` ficou vazio.
+- `teamLiteEndSession()` captura exceções e continua: invalida `authenticated`, incrementa `authGeneration`, chama `/api/logout`, para Realtime e apaga token/membro do estado e do Tampermonkey.
+
+Se o leave inicial e o fallback falharem por rede, a Promise pode resolver mesmo com a membership ainda ativa. O logout então remove a credencial que permitiria repetir o leave. A associação accepted pode permanecer no servidor até a expiração da sala.
+
+O harness atual testa que logout aguarda uma Promise pendente que depois resolve com sucesso. Não simula fallback retornando `false`, falha persistente e preservação da sessão. Gate: propagar estado explícito de leave confirmado/não confirmado; manter sessão para retry ou implementar revogação server-side da membership no encerramento da sessão; testar falha inicial + fallback falho + retry bem-sucedido.
+
+### Risco de ocupação por membership offline — TTL fixo do candidato
+
+**CODE INSPECTION — impacto limitado, requisito ainda não aceito.**
+
+A migration `20261105190000_open_voice_room_membership.sql` cria salas com `expires_at = now() + interval '2 hours'`. Ao reutilizar uma sala ativa, a RPC não estende esse TTL. A tabela `upstatus_signal_room_members` contém `joined_at` e `status`, sem heartbeat/last_seen por membro. O endpoint isolado executa cleanup no máximo uma vez por minuto e remove salas expiradas; as FKs fazem cascade para memberships e eventos.
+
+O caminho offline dos clientes usa leave local (`skipServerLeave`) para não depender da rede. Portanto, um membro desconectado sem leave confirmado pode continuar como `accepted` e contar para o limite de 32 até a expiração da sala (no máximo duas horas desde sua criação). O rejoin do mesmo usuário é idempotente, mas outros participantes podem observar ocupação residual. Não é prova de vazamento permanente; é um limite operacional a aceitar/documentar ou resolver com lease/heartbeat e testes de capacidade após quedas.
+
+### Projeto Supabase isolado — estado durante o CI
+
+Projeto `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, região `sa-east-1`, PostgreSQL 17.11.0.003, 21 migrations até `20261105220323`.
+
+- `upstatus-signal-test`: ACTIVE v28, SHA `e26011f026c74821a1e05bf314340604d715820ab864b63d66fd481d93d00d4f`.
+- `upstatus-signal-e2e-once`: ACTIVE v3, SHA `db0c9206b2171f5f5d67459e2e7451ecbaf6e8ad3c8f55cb4e491660164f5053`.
+- As RPCs `consume_upstatus_signal_rate_limit`, `merge_chat_read_receipts`, `open_upstatus_signal_voice_room` e `leave_upstatus_signal_room` existem. Foram observadas como SECURITY INVOKER, `search_path` vazio, EXECUTE negado a anon/authenticated e permitido a service_role.
+- Os fixtures não estavam vazios durante esta observação porque o Candidate Checks [42143206998](https://github.com/Reekyi/UpStatus/actions/runs/42143206998) estava ativo. Nenhuma limpeza manual foi feita.
+
+### Produção Supabase — catálogo e runtime atuais
+
+Projeto `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, `us-west-2`, PostgreSQL 17.11.0.002, sete migrations até `20261027155438`.
+
+As relações/funções candidatas continuam ausentes: `upstatus_signal_rate_limits`, `consume_upstatus_signal_rate_limit`, `merge_chat_read_receipts`, `open_upstatus_signal_voice_room` e `leave_upstatus_signal_room`; `to_regclass`/`to_regprocedure` retornaram NULL.
+
+**RLS/grants:**
+- As nove tabelas backend-owned `chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing` e `users` mantêm RLS ativo, zero policies, FORCE RLS desativado e os oito privilégios efetivos para anon/authenticated: SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER e MAINTAIN.
+- `upstatus_visual_config` mantém RLS e nenhum privilégio de cliente.
+- `realtime.messages` mantém RLS ativo, zero policies e SELECT/INSERT/UPDATE para anon/authenticated. Os grants não provam acesso a linhas por si sós com RLS ativo e sem policies.
+
+**Default ACL:**
+- Defaults de postgres continuam concedendo a anon/authenticated privilégios de sequences, funções e tabelas nos schemas `public` e `storage`.
+- Defaults de supabase_admin continuam concedendo esses privilégios em `public`, `graphql` e `graphql_public`. No schema gerenciado `realtime`, os defaults observados eram para dashboard_user/postgres, não para anon/authenticated.
+- `acldefault('f', postgres)` continua incluindo PUBLIC EXECUTE e EXECUTE para postgres. ACL-02 permanece BLOCKED; a sessão é postgres, sem superuser e sem membership em supabase_admin.
+
+**SECURITY DEFINER e triggers:**
+- `upstatus_broadcast_messages()`, `upstatus_broadcast_remote_state()` e `upstatus_broadcast_users()` continuam SECURITY DEFINER, owner postgres, `search_path=public`, EXECUTE efetivo para anon/authenticated/service_role.
+- Os três triggers estão habilitados. `upstatus_messages_broadcast` dispara AFTER INSERT/UPDATE/DELETE em `public.messages`; a função serializa OLD/NEW com `to_jsonb` e chama `realtime.send(..., 'db_change', ..., false)`. O broadcast de mensagem continua público e inclui conteúdo/metadados.
+- Os triggers de estado remoto e status de usuários também publicam metadados em tópicos públicos. RT-01 permanece BLOCKED.
+
+**Security Advisor**, observado em `2026-11-06T01:31:28.378Z`:
+- 3 WARN SECURITY DEFINER executável por anon;
+- 3 WARN SECURITY DEFINER executável por authenticated;
+- 10 INFO RLS habilitado sem policy;
+- Performance e Health sem findings.
+
+### Edge Functions e bundles de produção
+
+O inventário contém 38/38 funções ACTIVE; todas reportam `verify_jwt=false`, o que não prova ausência de autenticação própria. Os três runtimes principais continuam:
+
+- `upstatus`: v480, SHA `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`, userscript 3.4.7.
+- `upstatus-team-lite`: v15, SHA `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`, userscript 3.4.30.
+- `upstatus-screen-share-3-1-1-beta10`: v6, SHA `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29`, userscript 3.1.1-beta8.
+
+A decodificação read-only dos três bundles confirma em cada um dois emissores `chat_fast` com payload `message` e um receptor que lê `payload.message`. Nenhum contém `openVoiceRoom`; os runtimes server-side não chamam a RPC de recibos nem a RPC de rate limit. A função `upstatus-signal` autenticada continua ausente do projeto de produção.
+
+`upstatus-backup-327-pre328` permanece ACTIVE v1, entrypoint `index.ts` vazio (0 bytes), SHA `3d6c4f8e5f777830ea720ab2938cb023b5a4e4c7d26f3fc02b926ce0e4d0dd90`. Não foi exercitada nem desativada; consumidores e rollback permanecem NOT VERIFIED.
+
+### Deploy, issues e aceitação manual
+
+- `.github/workflows/deploy-production.yml`, blob `f3493d19cb59bb4d9f41eb4ab05d542befa2b8ce`, mantém checkout por SHA, branch master obrigatória, igualdade HEAD/GITHUB_SHA, project ID esperado, token obrigatório, release 3.4.7 e Supabase CLI 2.122.1. Ainda implanta somente `upstatus`, sem deploy coordenado de Team Lite nem allowlist independente de SHA aprovado; proteções externas do Environment `production` não foram verificadas.
+- [#78](https://github.com/Reekyi/UpStatus/issues/78) permanece aberta, 15 comentários; a reprodução manual de queda de rede continua confirmada e todos os critérios de aceite físico permanecem desmarcados.
+- [#79](https://github.com/Reekyi/UpStatus/issues/79) permanece aberta, 69 comentários; o corpo principal ainda usa a fotografia de 2026-11-03. O comentário [6674095424](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6674095424) registra o Validate de #82 e o estado anterior dos candidatos; os comentários [6674082399](https://github.com/Reekyi/UpStatus/issues/78#issuecomment-6674082399) e [6674082908](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6674082908) registram os heads separados de reconnect Normal/Team Lite.
+- Perda real de internet por ~10 segundos, recuperação sem F5, reentrada, chamadas após reconexão, ausência de peers/pollers duplicados, microfone/áudio/tela reais, Tampermonkey em perfis separados e interoperabilidade instalada Normal ↔ Team Lite continuam MANUAL PENDING.
+
+### Próximos gates
+
+1. Corrigir Team Lite logout para não invalidar token/sessão quando leave/fallback não forem confirmados; testar falha persistente e retry.
+2. Concluir Candidate Checks no head atual #76 e investigar qualquer falha do run `42143206998`; não sobrepor fixtures.
+3. Integrar o candidato Normal `08ebf838` ao fluxo revisado somente depois de CI no branch isolado e revisão do diff; o #74 aprovado ainda não contém esse código.
+4. Definir e testar a política de membership stale/TTL de duas horas, inclusive ocupação de capacidade após offline.
+5. Implementar Retry-After e integrar rate limit aos endpoints reais.
+6. Manter RT-01 bloqueado até remover broadcast público de conteúdo completo e validar cutover coordenado dos clientes legados.
+7. Validar migrations oficiais de voz, recibos, rate limit e ACL no ambiente autorizado de TEST; obter caminho administrativo suportado para supabase_admin.
+8. Completar testes físicos da #78, inventário das Edge Functions restantes e investigação do backup vazio.
+9. Resolver o contrato do Validate para `production updateURL mismatch` sem enfraquecer o gate.
+10. Obter reviews humanos e revisar a ancestralidade extensa de #74/#76.
+
+### Segurança e execução desta rodada
+
+Todas as consultas SQL desta rodada foram SELECT-only. O Candidate Checks [42143206998](https://github.com/Reekyi/UpStatus/actions/runs/42143206998) foi iniciado pela engenharia e permanecia em execução; as fixtures observadas pertencem a essa execução. Nenhum workflow foi disparado manualmente pela auditoria, nenhuma fixture foi alterada ou limpa pela QA, e nenhuma escrita em produção, migration, deploy, alteração de secret/flag/role, publicação de userscript, merge ou operação destrutiva foi realizada. A única escrita desta rodada é este registro documental na branch QA dedicada.
