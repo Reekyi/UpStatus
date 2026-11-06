@@ -323,9 +323,15 @@ assert.ok(functionSource.includes('path.endsWith("/room/leave")') && functionSou
 assert.ok(userTemplate.includes("leavingTransport.leave(leavingRoomId)") &&
   userTemplate.includes("signalTransport!==leavingTransport") &&
   userTemplate.includes("signalVoiceRoomRoomId!==leavingRoomId") &&
-  userTemplate.includes("signalTransport.leave(signalRoomId)") &&
+  userTemplate.includes("function signalAttemptPendingCallLeave(roomId,expectedTransport,requireExpectedTransport)") &&
+  userTemplate.includes("transportForAttempt.leave(roomId)") &&
   userTemplate.includes("await voiceRoomLeave()"),
   "voice and call teardown paths must release authenticated room membership without using a replacement transport after reconnect");
+const normalInitStart=userTemplate.indexOf("function initSignalingTransport(){");
+const normalInitEnd=userTemplate.indexOf("var lastMember=",normalInitStart);
+const normalInitSource=userTemplate.slice(normalInitStart,normalInitEnd);
+assert.ok(normalInitStart>=0&&normalInitEnd>normalInitStart&&normalInitSource.includes("signalRetryPendingCallLeaves();"),
+  "Normal signaling transport initialization must retry pending call-room leaves after reconnect");
 const normalStartCallStart=userTemplate.indexOf("async function startOutgoingCall(target){");
 const normalStartCallEnd=userTemplate.indexOf("async function callAcceptIncomingOffer",normalStartCallStart);
 const normalStartCallSource=userTemplate.slice(normalStartCallStart,normalStartCallEnd);
