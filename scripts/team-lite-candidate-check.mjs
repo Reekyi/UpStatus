@@ -374,6 +374,41 @@ const clearRoomPosition = voiceSendSource.indexOf("signalVoiceRoomRoomId='';");
 assert.ok(leaveRpcPosition >= 0 && clearRoomPosition > leaveRpcPosition,
   "Team Lite must retain the room binding until the authenticated leave RPC succeeds");
 
+// The release helper must retain its retry context when the network fails, and clear it only after server confirmation.
+const signalReleaseStart = script.indexOf("function signalReleaseVoiceRoom(){");
+const signalReleaseEnd = script.indexOf("\n\n  var lastMember=", signalReleaseStart);
+assert.ok(signalReleaseStart >= 0 && signalReleaseEnd > signalReleaseStart, "signal release boundaries not found");
+const signalReleaseSource = script.slice(signalReleaseStart, signalReleaseEnd) + "\nthis.__candidateSignalReleaseVoiceRoom=signalReleaseVoiceRoom;";
+const releaseEvents = [];
+let releaseAttempts = 0;
+const releaseContext = {
+  signalVoiceRoomRoomId: "team-lite-room-retry",
+  signalVoiceRoomPrepared: true,
+  signalVoiceRoomCreator: true,
+  signalTransport: {
+    leave: async room => {
+      releaseEvents.push("leave:" + room);
+      releaseAttempts++;
+      if (releaseAttempts === 1) throw new Error("simulated network outage");
+      return { ok: true };
+    }
+  },
+  signalStopCallPolling: room => releaseEvents.push("poll-stop:" + room),
+  voiceRoomMessage: message => releaseEvents.push("message:" + message)
+};
+vm.runInNewContext(signalReleaseSource, releaseContext, { timeout: 1000 });
+const failedRelease = await releaseContext.__candidateSignalReleaseVoiceRoom();
+assert.equal(failedRelease, false, "failed membership release must report failure");
+assert.equal(releaseContext.signalVoiceRoomRoomId, "team-lite-room-retry", "failed release must retain the room ID for retry");
+assert.equal(releaseContext.signalVoiceRoomPrepared, true, "failed release must retain prepared state");
+assert.equal(releaseContext.signalVoiceRoomCreator, true, "failed release must retain owner context");
+const successfulRelease = await releaseContext.__candidateSignalReleaseVoiceRoom();
+assert.equal(successfulRelease.ok, true, "retry must return the server leave result");
+assert.equal(releaseContext.signalVoiceRoomRoomId, "", "successful retry must clear the room ID");
+assert.equal(releaseContext.signalVoiceRoomPrepared, false, "successful retry must clear prepared state");
+assert.equal(releaseContext.signalVoiceRoomCreator, false, "successful retry must clear owner context");
+console.log("Team Lite voice-room release retry-context tests passed.");
+
 const fallbackEvents = [];
 let finishFallbackLeave;
 const pendingFallbackLeave = new Promise(resolve => {
@@ -406,8 +441,9 @@ vm.runInNewContext(voiceLeaveSource, fallbackLeaveContext, { timeout: 1000 });
 const fallbackPromise = fallbackLeaveContext.__candidateVoiceRoomLeave();
 let fallbackSettled = false;
 fallbackPromise.then(() => { fallbackSettled = true; });
-await Promise.resolve();
-await Promise.resolve();
+// The extracted async function runs in a separate VM context; yield one event-loop turn
+// so its cross-context Promise continuation reaches the fallback before asserting.
+await new Promise(resolve => setTimeout(resolve, 0));
 assert.ok(fallbackEvents.includes("fallback-start"), "failed active leave must retry through signalReleaseVoiceRoom while the room binding remains");
 assert.equal(fallbackSettled, false, "voice leave must await the fallback membership release");
 finishFallbackLeave();
