@@ -1933,3 +1933,10 @@ No production or official TEST writes, migrations, deployments, secret/role/flag
 - Complete exact-head Normal Smoke and Team Lite Candidate Checks, then verify isolated fixture counts are zero.
 - Physical Tampermonkey close/reload while offline, real microphone/display-capture permissions, and installed Normal ↔ Team Lite cross-client testing remain pending.
 - Product-facing rate-limit integration and Retry-After, public Realtime retirement, production ACL/function-grant hardening, official TEST cutover/rollback rehearsal, and human PR reviews remain release gates.
+
+
+### Rate-limit candidate disposition — 2026-11-06
+
+- A fresh comparison against current Normal #74 shows branch `normal/rate-limit-retry-after-20261106` is 10 commits ahead / 13 behind and diverged. Do not integrate it as a unit.
+- Its candidate RPC still executes an unbounded `DELETE FROM upstatus_signal_rate_limits WHERE updated_at < now() - interval '1 day'` in the request path on 1-in-64 calls. Replace this with a bounded batch or scheduled cleanup before reconsidering the migration.
+- Product-facing Normal/Team Lite endpoints still do not call the distributed limiter, production has no rate-limit table/RPC, and Retry-After behavior is not yet integrated into the shipped clients. No migration or deployment was performed.
