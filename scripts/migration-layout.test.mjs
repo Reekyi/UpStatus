@@ -49,7 +49,10 @@ assert.match(boundedRateLimitCleanupTest, /FOR UPDATE SKIP LOCKED/i,
   "bounded cleanup must skip rows already locked by concurrent cleanup");
 assert.match(boundedRateLimitCleanupTest, /v_remaining <> 50/i,
   "isolated SQL regression must prove that 150 stale buckets leave exactly 50 after cleanup");
-assert.match(boundedRateLimitCleanupTest, /v_preexisting_stale <> 0[\\s\\S]*zero pre-existing stale buckets/i,
-  "isolated SQL regression must reject pre-existing stale rows so its 150-to-50 assertion is deterministic");
+assert.ok(
+  boundedRateLimitCleanupTest.includes("v_preexisting_stale <> 0") &&
+  boundedRateLimitCleanupTest.includes("zero pre-existing stale buckets"),
+  "isolated SQL regression must reject pre-existing stale rows so its 150-to-50 assertion is deterministic"
+);
 
 console.log("Test migration layout guard passed.");
