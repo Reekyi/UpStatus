@@ -1481,3 +1481,51 @@ The isolated project `bfpjtfqlnypisxljoxkb` is ACTIVE_HEALTHY, PostgreSQL `17.11
 - Integrate distributed rate limiting into product endpoints with `Retry-After`; resolve RT-01 public Realtime exposure and ACL-02 default-ACL administration; rehearse official TEST migration/rollback; obtain human reviews.
 
 All production queries were SELECT/catalog reads only. No production write, migration, function deployment, secret/role/flag change, merge, deploy, release, userscript publication or destructive operation occurred.
+
+
+## Engineering checkpoint — 2026-11-06 07:02 BRT (latest exact-head refresh)
+
+This section supersedes the preceding note that the Normal recipient-recovery candidate had not yet been integrated.
+
+### Normal recipient acceptance: missing helper fixed
+
+- The Normal candidate at 1a62a38b44968a89dd72685132ad2235f4b0c569 exposed two exact-head CI failures: Validate 42199746909 still had an old logout assertion in scripts/chat-regression.test.mjs; Smoke 42199746902 failed the recipient storage regression.
+- Source inspection found a real runtime omission: callAcceptGroupInvite() called signalTrackPendingCallLeave(), but the Normal template had no definition. Team Lite already had the bounded, member-scoped implementation.
+- Added the helper to the Normal template, exported it into the VM harness, and updated the chat-regression contract to require logical call-attempt cancellation followed by confirmed room leave before API logout/credential clearing.
+- The new candidate branch normal/recipient-call-storage-helper-20261106 was three commits ahead / zero behind 1a62a38; its three-file diff was reviewed before a fast-forward update of PR #74. No force update was used.
+- **Current Normal #74 head:** 18201b01f875d1ab5d3706e4e35f07ab23ed1c86, 700 ahead / 0 behind master, Open/Draft.
+- Exact-head Validate [42200054443](https://github.com/Reekyi/UpStatus/actions/runs/42200054443) passed.
+- Exact-head Signaling Smoke [42200054440](https://github.com/Reekyi/UpStatus/actions/runs/42200054440) is still running. At last inspection, syntax/static harnesses passed and the unauthenticated endpoint step was in progress; authenticated integration/browser, rate-limit concurrency, atomic receipt concurrency, and final cleanup were pending. Do not claim Smoke approval until its complete job log and cleanup are inspected.
+
+### Current PR and CI snapshot
+
+| PR | Exact head | Ancestry | Latest evidence |
+|---|---|---:|---|
+| #74 Normal | 18201b01 | 700 / 0 vs master | Validate 42200054443 passed; Smoke 42200054440 running |
+| #75 Team Lite baseline | 7bbf9b9 | 59 / 0 vs team-lite-official | Historical Candidate Checks 41674353127 passed |
+| #76 Team Lite | 5cc5df4 | 208 / 0 vs team-lite-official; 149 / 0 vs #75 | Candidate Checks 42194948317 passed |
+| #80 continuity | 7d948bc | 104 / 0 vs develop | Validate 42196656716 reproduces inherited client signed upload helper missing |
+| #82 independent QA | a4b675b | 57 / 0 vs master | Validate 42196233886 reproduces production updateURL mismatch |
+
+All five PRs remain open and Draft. #74 and #76 have no submitted human reviews. #76 remains a descendant of #75; do not treat them as independent releases. The QA branch and docs/RELEASE_READINESS.md were not modified.
+
+Team Lite #76 exact-head Candidate Checks 42194948317 passed 103/103 authenticated checks, WebRTC call/voice/screen and three-member mesh, pagehide/reload recovery, pre-prepare call-ID persistence, storage-failure fail-closed acceptance, rate-limit 90+1/concurrency, atomic receipts, and cleanup. A read-only post-run count showed zero temporary users, sessions, rooms, memberships, bindings, events, call attempts, rate-limit buckets, and receipts. The isolated project is now occupied by Normal Smoke; do not start a concurrent fixture workflow.
+
+### Production Supabase — read-only refresh
+
+Project dlfvkawaiqduhlazsszm is ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations through 20261027155438, and 38 ACTIVE Edge Functions (upstatus v480, upstatus-test v281, upstatus-team-lite v15, screen-share beta10 v6). No dedicated upstatus-signal function is present.
+
+Read-only catalog checks confirm the following are absent: public.upstatus_signal_call_attempts, public.upstatus_signal_rate_limits, merge_chat_read_receipts(text,jsonb,timestamptz), consume_upstatus_signal_rate_limit(text,integer,integer), and the inspected voice-room open/leave and call-attempt prepare/cancel RPC names.
+
+The catalog reports nine public tables with anon/authenticated grants, three client privileges on realtime.messages, and three broadcast SECURITY DEFINER functions executable by both client roles. Security Advisor: three anon EXECUTE WARN, three authenticated EXECUTE WARN, ten RLS-without-policy INFO; Performance and Health advisors are empty. The public full-row broadcast and default-ACL issues remain release blockers.
+
+All production database queries in this checkpoint were SELECT/catalog reads. No production migration, SQL write, function deployment, secret, role, or flag change occurred.
+
+### Remaining engineering and release gates
+
+- Finish Normal Smoke 42200054440, inspect the full authenticated/browser/rate-limit/read-receipt logs, then verify isolated fixture cleanup.
+- Keep the new Normal recipient-acceptance helper and regression tests only if the exact-head Smoke passes; otherwise fix the demonstrated failure on a new isolated candidate.
+- Durable voice-room leave recovery is still a separate gap: signalPrepareVoiceRoom() retains the room ID only in page memory, and offline pagehide can skip remote leave. The open-response-loss race needs a server-side logical attempt/tombstone; call-room call-ID recovery does not solve voice-room creation.
+- Physical Tampermonkey offline close/reload, same-member no-F5 recovery, real microphone/display permissions, and live Normal ↔ Team Lite interoperability remain MANUAL PENDING.
+- Integrate distributed rate limiting into product endpoints with Retry-After; resolve RT-01 public Realtime disclosure and ACL/default-privilege gates; validate reviewed migrations and rollback in official TEST; obtain human reviews.
+- Keep PRs Draft. No merge, deploy, release, publication, production migration, or irreversible action is authorized by this checkpoint.
