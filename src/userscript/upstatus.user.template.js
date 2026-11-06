@@ -2189,6 +2189,7 @@ function renderChatText(text){
       }
     }
     if(upCall.startAttempt!==callStartAttempt){return;}
+    if(upCall.active){upCall.starting=false;message('Você já está em uma chamada.',true);return;}
     upCall.starting=false;
     
     
@@ -2266,7 +2267,9 @@ function renderChatText(text){
       var realtimeReady=await waitForRealtimeReady(10000);
       if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
     }
-    var sent=sendRealtimeEvent('call_signal',{type:'join_request',callId:callId,from:member,to:target,target:target,participants:entry.participants.slice(),updatedAt:Date.now()});
+
+    if(upCall.active){message('Você já está em uma chamada.',true);return;}
+        var sent=sendRealtimeEvent('call_signal',{type:'join_request',callId:callId,from:member,to:target,target:target,participants:entry.participants.slice(),updatedAt:Date.now()});
     if(sent)message('Pedido para entrar enviado a '+target+'. Aguarde a confirmação.',false);
     else message('Não foi possível enviar o pedido de entrada.',true);
   }
