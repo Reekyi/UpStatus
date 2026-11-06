@@ -487,7 +487,7 @@ assert.equal(oldTransportLeaves, 0, "leave must not use a transport instance tha
 assert.equal(newTransportLeaves, 0, "an old leave promise must never release membership through the replacement transport");
 console.log("Normal offline voice recovery, Realtime readiness, leave retry, and stale-transport tests passed.");
 
-console.log("20/20 signaling static regression groups passed.");
+console.log("21/21 signaling static regression groups passed.");
 
 
 // An HTTP-success response that explicitly denies membership removal must not clear the room binding.
@@ -523,11 +523,13 @@ const logoutHandlerStart = userTemplate.indexOf("card.querySelector('.up-logout'
 const logoutHandlerEnd = userTemplate.indexOf("\n    history.querySelector", logoutHandlerStart);
 assert.ok(logoutHandlerStart >= 0 && logoutHandlerEnd > logoutHandlerStart, "Normal logout handler source boundaries not found");
 const logoutHandler = userTemplate.slice(logoutHandlerStart, logoutHandlerEnd);
-assert.ok(logoutHandler.includes("if(!await normalReleaseVoiceRoomBeforeLogout())return;") &&
-  logoutHandler.indexOf("normalReleaseVoiceRoomBeforeLogout") < logoutHandler.indexOf("await api('POST','/api/logout',{})") &&
-  logoutHandler.indexOf("normalReleaseVoiceRoomBeforeLogout") < logoutHandler.indexOf("token='';") &&
-  logoutHandler.indexOf("normalReleaseVoiceRoomBeforeLogout") < logoutHandler.indexOf("GM_setValue(key+'token','');"),
-  "Normal logout must confirm voice membership release before API logout and local credential invalidation");
+assert.ok(logoutHandler.includes("var callsReleased=false;") &&
+  logoutHandler.includes("await callCleanup(true,'hangup')") &&
+  logoutHandler.includes("if(!callsReleased){") &&
+  logoutHandler.indexOf("if(!callsReleased)") < logoutHandler.indexOf("await api('POST','/api/logout',{})") &&
+  logoutHandler.indexOf("if(!callsReleased)") < logoutHandler.indexOf("token='';") &&
+  logoutHandler.includes("await signalRetryPendingCallLeaves()"),
+  "Normal logout must confirm every authenticated call-room leave before voice leave, API logout and credential invalidation");
 const offlineHandlerStart = userTemplate.indexOf("window.addEventListener('offline'");
 const onlineHandlerStart = userTemplate.indexOf("window.addEventListener('online'", offlineHandlerStart);
 assert.ok(offlineHandlerStart >= 0 && onlineHandlerStart > offlineHandlerStart, "Normal offline handler source boundaries not found");
@@ -549,4 +551,124 @@ assert.ok(normalVoiceJoinCatch.includes("await voiceRoomLeave()") &&
   !normalVoiceJoinCatch.includes("signalTransport.leave(failedRoom)"),
   "Normal microphone/setup failure must use confirmed leave and preserve room context when release fails");
 console.log("Normal voice join failure membership-retention test passed.");
+
+const callLeaveHelperStart = userTemplate.indexOf("function signalAttemptPendingCallLeave(");
+const callLeaveHelperEnd = userTemplate.indexOf("function initSignalingTransport(", callLeaveHelperStart);
+const callCleanupStart = userTemplate.indexOf("function callCleanup(sendSignal,signalType){");
+const callCleanupEnd = userTemplate.indexOf("  function callFail(", callCleanupStart);
+assert.ok(callLeaveHelperStart >= 0 && callLeaveHelperEnd > callLeaveHelperStart &&
+  callCleanupStart >= 0 && callCleanupEnd > callCleanupStart,
+  "Normal call-membership cleanup source boundaries not found");
+const callRuntimeSource = userTemplate.slice(callLeaveHelperStart, callLeaveHelperEnd) +
+  userTemplate.slice(callCleanupStart, callCleanupEnd) +
+  "\nthis.__candidateCallCleanup=callCleanup;this.__candidateRetryPendingCallLeaves=signalRetryPendingCallLeaves;";
+function makeCallCleanupContext({ transport, callSendAll } = {}) {
+  const roomId = "normal-call-room";
+  const callId = "normal-call-1";
+  const context = {
+    upCall: {
+      startAttempt: 0, starting: false, callId, active: true, peer: "", role: "", initiator: "",
+      participants: ["Normal Tester", "Peer"], pendingInvites: {}, pendingOffers: {}, pendingInvite: null,
+      peers: {}, localStream: null, remoteStream: null, audio: null, connected: true, muted: false,
+      startedAt: 0, waitingForConnection: false, notice: "", presenceTimer: null, timer: null,
+      counterTimer: null, signalAbortController: null
+    },
+    signalRoomByCallId: { [callId]: roomId },
+    signalCallIdByRoom: { [roomId]: callId },
+    signalCreatorCallIds: { [callId]: false },
+    signalRosterCache: { [roomId]: { members: [] } },
+    signalPendingCallLeaves: Object.create(null),
+    signalPollStops: {},
+    signalTransport: transport || null,
+    signalTransportFlag: true,
+    member: "Normal Tester",
+    token: "normal-session-token",
+    signalStopCallPolling: () => {},
+    callSendAll: callSendAll || (() => Promise.resolve(true)),
+    callSend: () => Promise.resolve(true),
+    sendRealtimeEvent: () => {},
+    callStopRingtone: () => {},
+    callRemovePeer: () => {},
+    callStopStream: () => {},
+    callHideOverlay: () => {},
+    clearInterval: () => {},
+    clearTimeout: () => {},
+    Promise, Object, Error
+  };
+  vm.runInNewContext(callRuntimeSource, context, { timeout: 1000 });
+  return context;
+}
+let normalLeaveAttempts = 0;
+const normalRetryContext = makeCallCleanupContext({
+  transport: { leave: async () => { normalLeaveAttempts++; if (normalLeaveAttempts === 1) throw new Error("temporary network failure"); return { ok: true }; } }
+});
+const normalFirstCallCleanup = await normalRetryContext.__candidateCallCleanup(false);
+assert.equal(normalFirstCallCleanup, false, "Normal call cleanup must report an unconfirmed server leave");
+assert.ok(normalRetryContext.signalPendingCallLeaves["normal-call-room"], "Normal call cleanup must preserve a retry handle after leave failure");
+assert.equal(normalRetryContext.upCall.callId, "", "Normal call media/UI cleanup must finish even while server leave remains pending");
+assert.equal(await normalRetryContext.__candidateRetryPendingCallLeaves(), true, "Normal reconnect retry must confirm the pending call-room leave");
+assert.equal(normalLeaveAttempts, 2, "Normal retry must repeat the same idempotent room leave");
+assert.equal(normalRetryContext.signalPendingCallLeaves["normal-call-room"], undefined, "Normal confirmed retry must clear the pending handle");
+
+let normalOldTransportLeaves = 0, normalNewTransportLeaves = 0, finishNormalSignal;
+const pendingNormalSignal = new Promise(resolve => { finishNormalSignal = resolve; });
+const normalOldTransport = { leave: async () => { normalOldTransportLeaves++; return { ok: true }; } };
+const normalNewTransport = { leave: async () => { normalNewTransportLeaves++; return { ok: true }; } };
+const normalTransportSwapContext = makeCallCleanupContext({
+  transport: normalOldTransport,
+  callSendAll: () => pendingNormalSignal
+});
+const normalSwapCleanup = normalTransportSwapContext.__candidateCallCleanup(false);
+normalTransportSwapContext.signalTransport = normalNewTransport;
+finishNormalSignal(true);
+assert.equal(await normalSwapCleanup, false, "Normal in-flight cleanup must not silently switch to a replacement transport");
+assert.equal(normalOldTransportLeaves, 0, "Normal cleanup must not use a stopped transport");
+assert.equal(normalNewTransportLeaves, 0, "Normal cleanup must not use a replacement transport before explicit retry");
+assert.ok(normalTransportSwapContext.signalPendingCallLeaves["normal-call-room"], "Normal transport replacement must retain the room retry handle");
+assert.equal(await normalTransportSwapContext.__candidateRetryPendingCallLeaves(), true, "Normal explicit retry must use the current authenticated transport");
+assert.equal(normalNewTransportLeaves, 1, "Normal retry must use the replacement transport exactly once");
+
+const normalNoTransportContext = makeCallCleanupContext({ transport: null });
+assert.equal(await normalNoTransportContext.__candidateCallCleanup(false), false, "Normal offline call cleanup must report pending server membership");
+assert.ok(normalNoTransportContext.signalPendingCallLeaves["normal-call-room"], "Normal offline call cleanup must retain the room ID");
+let normalRecoveredLeaveCalls = 0;
+normalNoTransportContext.signalTransport = { leave: async () => { normalRecoveredLeaveCalls++; return { ok: true }; } };
+assert.equal(await normalNoTransportContext.__candidateRetryPendingCallLeaves(), true, "Normal reconnect must retry a leave after transport recreation");
+assert.equal(normalRecoveredLeaveCalls, 1, "Normal reconnect must release the retained call room once");
+
+let normalPersistentAttempts = 0;
+const normalPersistentContext = makeCallCleanupContext({
+  transport: { leave: async () => { normalPersistentAttempts++; return { ok: false, error: "server unavailable" }; } }
+});
+assert.equal(await normalPersistentContext.__candidateCallCleanup(false), false, "Normal persistent leave failure must remain unconfirmed");
+assert.equal(await normalPersistentContext.__candidateRetryPendingCallLeaves(), false, "Normal persistent leave failure must remain retryable");
+assert.ok(normalPersistentContext.signalPendingCallLeaves["normal-call-room"], "Normal persistent failure must not discard the retry handle");
+const attemptsBeforeOtherMember = normalPersistentAttempts;
+normalPersistentContext.member = "Different User";
+assert.equal(await normalPersistentContext.__candidateRetryPendingCallLeaves(), true, "A different member must not be blocked by another member's pending call cleanup");
+assert.equal(normalPersistentAttempts, attemptsBeforeOtherMember, "A pending room must never be released under another member identity");
+
+const normalLogoutMatch = userTemplate.match(/card\.querySelector\('\.up-logout'\)\.onclick=async function\(\)\{([\s\S]*?)\};/);
+assert.ok(normalLogoutMatch, "Normal logout handler source not found");
+const normalLogoutEvents = [];
+const normalLogoutContext = {
+  upCall: { active: true }, callCleanup: async () => false, signalRetryPendingCallLeaves: async () => true,
+  voiceRoomMessage: message => normalLogoutEvents.push("message:" + message),
+  voiceRoomRender: () => normalLogoutEvents.push("render"),
+  normalReleaseVoiceRoomBeforeLogout: async () => { normalLogoutEvents.push("voice-release"); return true; },
+  broadcastChatPresence: () => normalLogoutEvents.push("chat-presence"),
+  api: async () => { normalLogoutEvents.push("api-logout"); },
+  stopRealtime: () => normalLogoutEvents.push("stop-realtime"),
+  GM_setValue: () => normalLogoutEvents.push("storage-clear"),
+  token: "normal-session-token", member: "Normal Tester", role: "implementation_user",
+  history: { classList: { add: () => {} } }, health: { classList: { add: () => {} } },
+  img: { src: "" }, profileFallback: () => "", login: () => normalLogoutEvents.push("login")
+};
+vm.runInNewContext("async function __candidateLogout(){" + normalLogoutMatch[1] + "} this.__candidateLogout=__candidateLogout;", normalLogoutContext, { timeout: 1000 });
+await normalLogoutContext.__candidateLogout();
+assert.equal(normalLogoutContext.token, "normal-session-token", "Normal failed call leave must retain the session token");
+assert.equal(normalLogoutEvents.some(event => event === "api-logout" || event === "stop-realtime" || event === "storage-clear" || event === "login" || event === "voice-release"), false,
+  "Normal logout must abort before voice leave, API logout, Realtime stop or credential clearing when call membership remains");
+console.log("Normal authenticated call-room cleanup retry and logout-gate tests passed.");
+
 
