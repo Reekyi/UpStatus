@@ -333,7 +333,7 @@ assert.ok(userTemplate.includes("if(upCall.starting){") && userTemplate.includes
 const outgoingStartStart=userTemplate.indexOf("async function startOutgoingCall(target){");
 const outgoingStartEnd=userTemplate.indexOf("async function callAcceptIncomingOffer",outgoingStartStart);
 assert.ok(outgoingStartStart>=0&&outgoingStartEnd>outgoingStartStart,"outgoing-call recovery source boundaries not found");
-const outgoingStartSource=userTemplate.slice(outgoingStartStart,outgoingStartEnd)+"\\nthis.__candidateStartOutgoingCall=startOutgoingCall;";
+const outgoingStartSource=userTemplate.slice(outgoingStartStart,outgoingStartEnd)+"\nthis.__candidateStartOutgoingCall=startOutgoingCall;";
 let finishRealtimeWait;
 const pendingRealtimeWait=new Promise(resolve=>{finishRealtimeWait=resolve;});
 let realtimeWaitCalls=0,callIdsCreated=0;
