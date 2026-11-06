@@ -329,6 +329,7 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
   var signalRoomByCallId=Object.create(null),signalCallIdByRoom=Object.create(null);
   var signalPollStops=Object.create(null),signalCreatorCallIds=Object.create(null),signalRosterCache=Object.create(null);
   var signalPendingCallLeaves=Object.create(null);
+  var signalPendingCallAttempts=Object.create(null);
   function signalPendingCallLeavesStorageKey(memberName){
     return key+'signal_pending_call_leaves_v1_'+encodeURIComponent(String(memberName||''));
   }
@@ -374,6 +375,122 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
     });
     signalPersistPendingCallLeaves();
     return restored;
+  }
+  function signalPendingCallAttemptsStorageKey(memberName){
+    return key+'signal_pending_call_attempts_v1_'+encodeURIComponent(String(memberName||''));
+  }
+  function signalNormalizePendingCallAttemptRecord(record,expectedMember,now){
+    if(!record||typeof record!=='object'||Array.isArray(record))return null;
+    var callId=String(record.callId||'').trim(),recordMember=String(record.member||''),createdAt=Number(record.createdAt);
+    if(!expectedMember||recordMember!==expectedMember)return null;
+    if(!/^[A-Za-z0-9._:-]{1,128}$/.test(callId))return null;
+    var prefix=String(expectedMember).replace(/[^A-Za-z0-9._:-]/g,'_').slice(0,80)+'-';
+    if(callId.indexOf(prefix)!==0)return null;
+    if(!Number.isFinite(createdAt)||createdAt<=0||createdAt>now+60000||now-createdAt>7*24*60*60*1000)return null;
+    return {callId:callId,member:recordMember,createdAt:createdAt};
+  }
+  function signalPersistPendingCallAttempts(){
+    if(!member)return false;
+    var records=[],now=Date.now();
+    Object.keys(signalPendingCallAttempts).forEach(function(callId){
+      if(records.length>=20)return;
+      var entry=signalPendingCallAttempts[callId];
+      if(!entry||entry.member!==member)return;
+      var record=signalNormalizePendingCallAttemptRecord({callId:callId,member:entry.member,createdAt:entry.createdAt||now},member,now);
+      if(record)records.push(record);
+    });
+    try{GM_setValue(signalPendingCallAttemptsStorageKey(member),{version:1,entries:records});return true;}catch(e){return false;}
+  }
+  function signalTrackPendingCallAttempt(callId){
+    var now=Date.now();
+    var record=signalNormalizePendingCallAttemptRecord({callId:callId,member:member,createdAt:now},member,now);
+    if(!record)return false;
+    if(signalPendingCallAttempts[callId])return true;
+    var count=Object.keys(signalPendingCallAttempts).filter(function(id){
+      var entry=signalPendingCallAttempts[id];return !!entry&&entry.member===member;
+    }).length;
+    if(count>=20)return false;
+    signalPendingCallAttempts[callId]={callId:callId,member:member,transport:null,promise:null,createdAt:now,roomId:''};
+    if(!signalPersistPendingCallAttempts()){
+      delete signalPendingCallAttempts[callId];
+      return false;
+    }
+    return true;
+  }
+  function signalRestorePendingCallAttempts(){
+    if(!token||!member)return 0;
+    var stored=null;
+    try{stored=GM_getValue(signalPendingCallAttemptsStorageKey(member),null);}catch(e){return 0;}
+    if(!stored||stored.version!==1||!Array.isArray(stored.entries))return 0;
+    var now=Date.now(),restored=0,seen=Object.create(null);
+    stored.entries.slice(0,20).forEach(function(raw){
+      var record=signalNormalizePendingCallAttemptRecord(raw,member,now);
+      if(!record||seen[record.callId])return;
+      seen[record.callId]=true;
+      if(!signalPendingCallAttempts[record.callId]){
+        signalPendingCallAttempts[record.callId]={callId:record.callId,member:record.member,transport:null,promise:null,createdAt:record.createdAt,roomId:''};
+      }
+      restored++;
+    });
+    signalPersistPendingCallAttempts();
+    return restored;
+  }
+  function signalAttemptPendingCallAttempt(callId,expectedTransport,requireExpectedTransport){
+    var entry=signalPendingCallAttempts[callId];
+    if(!entry)return Promise.resolve(true);
+    if(entry.member!==member)return Promise.resolve(false);
+    var currentTransport=signalTransport;
+    if(entry.promise){
+      if(requireExpectedTransport&&entry.transport!==expectedTransport)return entry.promise;
+      if(!requireExpectedTransport&&currentTransport&&entry.transport!==currentTransport){
+        return entry.promise.then(function(){return signalAttemptPendingCallAttempt(callId,null,false);});
+      }
+      return entry.promise;
+    }
+    var transportForAttempt=requireExpectedTransport?expectedTransport:currentTransport;
+    if(!transportForAttempt||currentTransport!==transportForAttempt||typeof transportForAttempt.cancelCallRoom!=='function')return Promise.resolve(false);
+    entry.transport=transportForAttempt;
+    var attempt=Promise.resolve().then(function(){return transportForAttempt.cancelCallRoom(callId);}).then(function(result){
+      if(result===false||(result&&typeof result==='object'&&(result.ok===false||result.error)))
+        throw new Error(result&&result.error?String(result.error):'O servidor não confirmou o cancelamento da chamada.');
+      if(signalPendingCallAttempts[callId]===entry)delete signalPendingCallAttempts[callId];
+      var roomId=entry.roomId||signalRoomByCallId[callId];
+      if(roomId){
+        if(signalPendingCallLeaves[roomId])delete signalPendingCallLeaves[roomId];
+        if(signalRoomByCallId[callId]===roomId)delete signalRoomByCallId[callId];
+        if(signalCallIdByRoom[roomId]===callId)delete signalCallIdByRoom[roomId];
+        delete signalRosterCache[roomId];
+        signalStopCallPolling(roomId);
+        signalPersistPendingCallLeaves();
+      }
+      delete signalCreatorCallIds[callId];
+      signalPersistPendingCallAttempts();
+      return true;
+    }).catch(function(error){
+      var code=error&&(error.code||error.message);
+      if(['CALL_CANCELLED','CALL_EXPIRED','CALL_MEMBERSHIP_ENDED','ROOM_UNAVAILABLE','ROOM_MEMBERSHIP_ENDED'].indexOf(String(code))>=0){
+        if(signalPendingCallAttempts[callId]===entry)delete signalPendingCallAttempts[callId];
+        signalPersistPendingCallAttempts();
+        return true;
+      }
+      return false;
+    });
+    entry.promise=attempt.then(function(ok){
+      entry.promise=null;
+      if(!ok&&!requireExpectedTransport&&signalTransport&&signalTransport!==transportForAttempt)
+        return signalAttemptPendingCallAttempt(callId,null,false);
+      return ok;
+    });
+    return entry.promise;
+  }
+  function signalRetryPendingCallAttempts(){
+    var calls=Object.keys(signalPendingCallAttempts).filter(function(callId){
+      var entry=signalPendingCallAttempts[callId];return !!entry&&entry.member===member;
+    });
+    if(!calls.length)return Promise.resolve(true);
+    return Promise.all(calls.map(function(callId){return signalAttemptPendingCallAttempt(callId,null,false);})).then(function(results){
+      return results.every(function(ok){return ok===true;});
+    });
   }
   function signalTransportRequest(route,payload,options){
     return new Promise(function(resolve,reject){
@@ -452,7 +569,7 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
       var endpoint=new URL(signalTransportEndpoint),sessionServer=new URL(server);
       if(endpoint.protocol!=='https:'||endpoint.origin!==sessionServer.origin||endpoint.search||endpoint.hash||
         !/\/functions\/v1\/upstatus-signal(?:-test)?$/.test(endpoint.pathname))return;
-      signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});signalRestorePendingCallLeaves();signalStartInvitationPolling();signalRetryPendingCallLeaves();
+      signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});signalRestorePendingCallLeaves();signalRestorePendingCallAttempts();signalStartInvitationPolling();signalRetryPendingCallAttempts();signalRetryPendingCallLeaves();
     }catch(e){signalTransport=null;}
   }
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
@@ -2047,14 +2164,14 @@ function renderChatText(text){
   async function startOutgoingCallWithTransport(target){
     if(!target||target===member)return;
     if(upCall.active){message('Você já está em uma chamada.',true);return;}
-    var transportCallId=signalSafeCallId(callNewId());upCall.callId=transportCallId;upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
+    var transportCallId=signalSafeCallId(callNewId());if(!signalTrackPendingCallAttempt(transportCallId)){message('Não foi possível salvar a recuperação segura da chamada. Verifique o armazenamento do userscript e tente novamente.',true);return;}upCall.callId=transportCallId;upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
     upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
     upCall.signalAbortController=new AbortController();signalCreatorCallIds[upCall.callId]=true;
     callPrimeAudio();callStartRingtone();callRender(target,'Chamando…',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true,'hangup');}}]);
-    upCall.timer=setTimeout(function(){if(upCall.active&&!upCall.connected){try{if(upCall.signalAbortController)upCall.signalAbortController.abort();}catch(e){}callFail('Sem resposta.');}},30000);
+    upCall.timer=setTimeout(function(){if(upCall.active&&!upCall.connected){try{if(upCall.signalAbortController)upCall.signalAbortController.abort();}catch(e){}callCleanup(false,'timeout').then(function(){callFail('Sem resposta.');});}},30000);
     try{
       var room=await signalTransport.prepareCallRoom(upCall.callId,target,{timeoutMs:28000,intervalMs:900,signal:upCall.signalAbortController.signal});
-      if(!upCall.active){signalTransport.close(room.roomId).catch(function(){});delete signalCreatorCallIds[transportCallId];return;}
+      if(!upCall.active){signalAttemptPendingCallAttempt(transportCallId,signalTransport,true);delete signalCreatorCallIds[transportCallId];return;}
       signalRoomByCallId[transportCallId]=room.roomId;signalCallIdByRoom[room.roomId]=transportCallId;
       signalStartCallPolling(room.roomId,transportCallId);
       await callGetMicrophone();
@@ -2064,7 +2181,7 @@ function renderChatText(text){
       if(!upCall.active||upCall.signalAbortController.signal.aborted){callCleanup(false);return;}
       p.offerSent=true;callStartPresence();callSendTo(target,'offer',{sdp:p.pc.localDescription,phase:'initial'});
     }catch(e){
-      if(upCall.active)callFail(e.message||'Não foi possível iniciar a chamada.');
+      if(upCall.active){var failureMessage=e.message||'Não foi possível iniciar a chamada.';callCleanup(false,'prepare-failed').then(function(){callFail(failureMessage);});}
     }
   }
   function callNewId(){return String(member||'user')+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);}
@@ -2152,7 +2269,7 @@ function renderChatText(text){
   function callCleanup(sendSignal,signalType){
     var cleanupPromise=Promise.resolve(true);
     upCall.startAttempt=(upCall.startAttempt||0)+1;upCall.starting=false;
-    var callId=upCall.callId,signalRoomId=signalRoomByCallId[callId],signalRoomCreator=signalCreatorCallIds[callId]===true,pendingSignals=[],leavingTransport=signalTransport,leavingMember=member;
+    var callId=upCall.callId,signalRoomId=signalRoomByCallId[callId],signalRoomCreator=signalCreatorCallIds[callId]===true,callAttemptCreator=!!(callId&&signalPendingCallAttempts[callId]&&signalPendingCallAttempts[callId].member===member),pendingSignals=[],leavingTransport=signalTransport,leavingMember=member;
     if(callId&&upCall.active&&!(signalTransportFlag&&signalType==='pagehide')){
       if(signalTransportFlag){
         if(signalTransport&&signalRoomId&&!upCall.pendingInvite)pendingSignals.push(callSendAll('ended',{updatedAt:Date.now()}));
@@ -2181,15 +2298,41 @@ function renderChatText(text){
         signalPendingCallLeaves[signalRoomId]={roomId:signalRoomId,callId:callId,member:leavingMember,transport:leavingTransport,promise:null,createdAt:Date.now()};
       }
       signalPersistPendingCallLeaves();
+      if(callAttemptCreator){var attemptEntry=signalPendingCallAttempts[callId];if(attemptEntry)attemptEntry.roomId=signalRoomId;signalPersistPendingCallAttempts();}
       delete signalRoomByCallId[callId];delete signalCallIdByRoom[signalRoomId];delete signalRosterCache[signalRoomId];
     }
     delete signalCreatorCallIds[callId];
     upCall.callId='';upCall.peer='';upCall.role='';upCall.initiator='';upCall.participants=[];upCall.pendingInvites={};upCall.pendingOffers={};upCall.pendingInvite=null;upCall.peers={};upCall.localStream=null;upCall.remoteStream=null;upCall.audio=null;upCall.active=false;upCall.connected=false;upCall.muted=false;upCall.startedAt=0;upCall.waitingForConnection=false;upCall.notice='';
     callHideOverlay();
     cleanupPromise=Promise.allSettled(pendingSignals.map(function(p){return Promise.resolve(p);})).then(function(){
-      if(!signalRoomId)return signalRetryPendingCallLeaves();
+      if(callAttemptCreator){
+        return signalAttemptPendingCallAttempt(callId,leavingTransport,true).then(function(ok){
+          if(!ok&&signalRoomId){
+            return signalAttemptPendingCallLeave(signalRoomId,leavingTransport,true).then(function(leaveOk){
+              if(!leaveOk)return false;
+              delete signalPendingCallAttempts[callId];signalPersistPendingCallAttempts();
+              return signalRetryPendingCallAttempts().then(function(attemptsOk){
+                return signalRetryPendingCallLeaves().then(function(leavesOk){return attemptsOk&&leavesOk;});
+              });
+            });
+          }
+          if(!ok)return false;
+          return signalRetryPendingCallAttempts().then(function(attemptsOk){
+            return signalRetryPendingCallLeaves().then(function(leavesOk){return attemptsOk&&leavesOk;});
+          });
+        });
+      }
+      if(!signalRoomId){
+        return signalRetryPendingCallAttempts().then(function(attemptsOk){
+          return signalRetryPendingCallLeaves().then(function(leavesOk){return attemptsOk&&leavesOk;});
+        });
+      }
       return signalAttemptPendingCallLeave(signalRoomId,leavingTransport,true).then(function(ok){
-        if(ok||!signalPendingCallLeaves[signalRoomId])return signalRetryPendingCallLeaves();
+        if(ok||!signalPendingCallLeaves[signalRoomId]){
+          return signalRetryPendingCallAttempts().then(function(attemptsOk){
+            return signalRetryPendingCallLeaves().then(function(leavesOk){return attemptsOk&&leavesOk;});
+          });
+        }
         return false;
       });
     });
