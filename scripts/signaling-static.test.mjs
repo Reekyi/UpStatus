@@ -933,7 +933,7 @@ assert.ok(normalAcceptBlock.includes("signalTransportFlag") &&
   normalAcceptBlock.indexOf("signalTrackPendingCallLeave(signalRoomId,upCall.callId,signalTransport)")>=0 &&
   normalAcceptBlock.indexOf("signalTrackPendingCallLeave(signalRoomId,upCall.callId,signalTransport)")<normalAcceptBlock.indexOf("signalTransport.accept(signalRoomId)"),
   "Normal must persist the recipient leave handle before accepting an authenticated call");
-const normalAcceptSource=normalAcceptBlock+"\\nthis.__candidateAcceptGroupInvite=callAcceptGroupInvite;";
+const normalAcceptSource=normalAcceptBlock+"\nthis.__candidateAcceptGroupInvite=callAcceptGroupInvite;";
 function makeNormalRecipientAcceptContext(storage,events){
   const context=makeCallCleanupContext({transport:null,storage});
   context.upCall.pendingInvite={from:"Peer",participants:["Peer"]};
