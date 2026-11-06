@@ -625,3 +625,8 @@ The Team Lite Candidate Checks run 42249119327 was cancelled while pending befor
 Current Normal #74 head `e585447d092bcb385ab6e5b16044d85e6674e3e3`: Validate [42250699197](https://github.com/Reekyi/UpStatus/actions/runs/42250699197) passed; Smoke [42250699210](https://github.com/Reekyi/UpStatus/actions/runs/42250699210) pending. Current Team Lite #76 head `eaeb3fbb6f9f2c7971e93ed6ce7cc353fba2d227`: Candidate Checks [42250709207](https://github.com/Reekyi/UpStatus/actions/runs/42250709207) pending. The preceding Normal Smoke [42249822242](https://github.com/Reekyi/UpStatus/actions/runs/42249822242) completed successfully: 129/129 authenticated checks, browser call/voice/screen WebRTC with remote media, three-member mesh, rate-limit 90+1, read-receipt concurrency, and runner cleanup verification all passed. The current Smoke [42250699210](https://github.com/Reekyi/UpStatus/actions/runs/42250699210) is now active.
 
 Read-only counts showed unexpired reserved-prefix fixtures created after the preceding run's cleanup timestamp. Their timestamps align with the active Normal Smoke run. Do not manually delete them; allow the active and queued workflows to complete and verify cleanup afterward.
+
+
+### Screen-share follow-up risk
+
+The current recovery candidate does not yet serialize simultaneous local offer creation or concurrent duplicate remote-offer handling while setRemoteDescription is in flight. Presence/join paths can invoke screenShareOffer more than once for the same peer. Add a per-peer in-flight negotiation lock and concurrent-offer regression before marking screen-share recovery complete. This is an unverified review/test gap, not a reproduced defect.
