@@ -2486,8 +2486,13 @@ function renderChatText(text){
       var realtimeReady=await waitForRealtimeReady(10000);
       if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
     }
-    if(signalTransport&&signalRoomId){
+    if(signalTransportFlag){
+      if(!signalTransport||!signalRoomId){callCleanup(false);message('A sala autenticada não está disponível. Tente novamente.',true);return;}
       try{
+        if(!signalTrackPendingCallLeave(signalRoomId,upCall.callId,signalTransport)){
+          message('Não foi possível preparar a recuperação da chamada. Verifique o armazenamento do userscript e tente novamente.',true);
+          return;
+        }
         await signalTransport.accept(signalRoomId);
         upCall.pendingInvite=null;upCall.role='member';callMergeParticipants(invite.participants||[invite.from]);
         upCall.waitingForConnection=true;signalStartCallPolling(signalRoomId,upCall.callId);callStartPresence();
