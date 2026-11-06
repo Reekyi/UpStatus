@@ -9,6 +9,7 @@ on:
       - "lucca.html"
       - "ycaro.html"
       - "scripts/team-lite-candidate-check.mjs"
+      - "scripts/team-lite-voice-room-attempt-recovery.test.mjs"
       - "scripts/test-chat-read-receipts.mjs"
       - "scripts/assert-isolated-supabase.mjs"
       - "scripts/isolation-guard.test.mjs"
@@ -52,6 +53,10 @@ jobs:
           node scripts/isolation-guard.test.mjs
       - name: Test authenticated signaling adapter
         run: node scripts/signaling-transport.test.mjs
+      - name: Test durable voice-room attempt recovery
+        run: |
+          node --check scripts/team-lite-voice-room-attempt-recovery.test.mjs
+          node scripts/team-lite-voice-room-attempt-recovery.test.mjs
       - name: Test isolated signaling endpoint authentication
         env:
           UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
