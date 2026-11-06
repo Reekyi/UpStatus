@@ -1430,3 +1430,54 @@ Project `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, `us-west-2`, PostgreSQL `
 Fresh catalog checks confirm production still lacks the call-attempt table and prepare/cancel RPCs, open/leave voice RPCs, atomic read-receipt RPC, rate-limit RPC/table and dedicated `upstatus-signal`. The three public broadcast functions remain executable by anon/authenticated; `realtime.messages` retains client grants. Security Advisor remains 3 WARN for anon-executable SECURITY DEFINER, 3 WARN for authenticated, and 10 INFO for RLS without policies; performance and health advisors are empty. SQL role is `postgres`, not superuser. Previously confirmed broad backend-table grants and default ACLs remain unresolved.
 
 All production queries were SELECT/catalog reads only. No production write, migration, function deployment, secret/role/flag change, merge, deploy, release, userscript publication or destructive operation occurred.
+
+
+
+## Engineering checkpoint — 2026-11-06 06:30 BRT
+
+### Current repository state and CI
+
+All five tracked PRs remain open, Draft and unmerged.
+
+- **#74 Normal**: HEAD `cf99b1b14f69b1caf6606684d2d42f9898f03a1e`, 693 ahead / 0 behind `master`. Validate [42195926899](https://github.com/Reekyi/UpStatus/actions/runs/42195926899) failed at `scripts/validate.mjs:139` because the validator still expected the old direct `signalRetryPendingCallLeaves()` logout path. The current implementation first retries logical call-attempt cancellation, then room-ID leaves. Smoke [42195926855](https://github.com/Reekyi/UpStatus/actions/runs/42195926855) is still running; authenticated integration/browser step was active at this checkpoint.
+- **#75 Team Lite baseline**: HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 ahead / 0 behind `team-lite-official`. Historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed.
+- **#76 Team Lite**: HEAD `5cc5df4865250a0d67935937ea43e206217730d5`, 208 ahead / 0 behind `team-lite-official`, 149 ahead / 0 behind #75. Candidate Checks [42194948317](https://github.com/Reekyi/UpStatus/actions/runs/42194948317) passed. The exact log confirms 103/103 authenticated checks, WebRTC call/voice/screen, three-member mesh, rate-limit 90 accepted + 1 HTTP 429, atomic read receipts, durable pagehide/reload recovery, pre-prepare call-ID persistence, idle-logout cancellation gate and recipient fail-closed acceptance. Temporary users/sessions/rooms/memberships/events were cleaned. An independent read-only count immediately after this run showed zero users, sessions, rooms, memberships, bindings, events, call attempts, rate-limit buckets and read receipts.
+- **#80 continuity**: HEAD `f96b71910b1e5bff5cf4e2e635b06fdd233f1d24`, 102 ahead / 0 behind `develop`. Validate [42194285929](https://github.com/Reekyi/UpStatus/actions/runs/42194285929) reproduced inherited `client signed upload helper missing`; this is a baseline mismatch in `develop`, not a reason to add unrelated upload code or weaken the validator.
+- **#82 independent QA**: HEAD `a4b675bace4f94ce2e4fb961b3446ca55887b4d3`, 57 ahead / 0 behind `master`. Validate [42196233886](https://github.com/Reekyi/UpStatus/actions/runs/42196233886) reproduced inherited `production updateURL mismatch`. QA branch and `docs/RELEASE_READINESS.md` remain untouched.
+
+### Normal recipient acceptance parity fix — candidate only
+
+The current Normal template still accepted an authenticated group invitation without first persisting the recipient's room-ID leave handle. Team Lite #76 now fails closed when userscript storage throws and verifies that persistence happens before `signalTransport.accept()`.
+
+Created isolated branch `normal/recipient-call-recovery-20261106` from the exact Normal candidate parent. Current candidate HEAD is `1a62a38b44968a89dd72685132ad2235f4b0c569`, four commits ahead / zero behind #74. It:
+- requires the authenticated transport when the signaling flag is enabled;
+- persists the recipient leave handle before accepting membership;
+- blocks acceptance and retains the pending invitation if GM storage fails;
+- adds VM regressions for storage failure, persistence-before-accept ordering, token absence and successful acceptance;
+- updates the Validate contract to require logical call-attempt cancellation before room-ID leave and credential clearing.
+
+This candidate has not run CI yet. It is deliberately not integrated into #74 while Smoke [42195926855](https://github.com/Reekyi/UpStatus/actions/runs/42195926855) is still using the shared isolated Supabase project. After that run finishes and cleanup is verified, re-check branch/PR HEADs and fast-forward only if the ancestry remains exactly 4 ahead / 0 behind.
+
+### Additional voice-room recovery gap
+
+Code review of both Normal and Team Lite shows `signalPrepareVoiceRoom()` stores `signalVoiceRoomRoomId` only in page memory. `pagehide` attempts `voiceRoomLeave()`, but the offline path intentionally skips the server leave. There is no token-free durable pending voice-room leave record to restore after a full reload. Therefore a tab closed offline after the room ID was received can lose the only client-side room reference while server membership remains until the room TTL (currently two hours). This is a code-inspection gap, not a reproduced runtime failure.
+
+The next design should persist a per-member room-ID leave handle before voice UI activation, restore/retry after authenticated transport initialization, and separately handle the open-response-loss race with a server-side logical attempt/tombstone. Do not claim this is solved by the existing call-room logical-ID protocol; voice-room membership is a separate flow.
+
+### Supabase state
+
+Production project `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, PostgreSQL `17.11.0.002`, seven migrations through `20261027155438`, 38 ACTIVE Edge Functions (Normal v480, TEST v281, Team Lite v15, screen-share beta10 v6). Read-only catalog checks confirm production still lacks the call-attempt table/RPCs, voice open/leave RPCs, atomic read-receipt RPC, rate-limit table/RPC and dedicated `upstatus-signal`.
+
+The three public broadcast functions remain SECURITY DEFINER and executable by anon/authenticated. The messages broadcast trigger still sends full OLD/NEW row JSON to the public `db_change` topic. Nine backend-owned public tables retain broad client grants despite RLS enabled with no policies; `realtime.messages` also retains client SELECT/INSERT/UPDATE grants. Default ACLs remain broad for postgres and supabase_admin. Security Advisor: 3 WARN for anon-executable SECURITY DEFINER, 3 WARN for authenticated, 10 INFO for RLS without policies; performance and health advisors are empty. SQL role is `postgres`, not superuser.
+
+The isolated project `bfpjtfqlnypisxljoxkb` is ACTIVE_HEALTHY, PostgreSQL `17.11.0.003`, with call-attempt migrations through `20261106082546` and `upstatus-signal-test` v29. The zero-fixture read happened after #76 cleanup and before #74 Smoke began; do not treat the lab as idle while #74 Smoke remains in progress.
+
+### Remaining gates
+
+- Finish #74 Smoke on `cf99b1b`; then revalidate the isolated-project cleanup.
+- Fast-forward the Normal recipient candidate only after a fresh ancestry/HEAD check; run exact-head Validate + Smoke.
+- Implement durable voice-room leave recovery and the open-response-loss race in both clients.
+- Physical Tampermonkey close/reload while offline, same-member no-F5 recovery, real microphone/display permissions and installed Normal ↔ Team Lite interoperability remain unverified.
+- Integrate distributed rate limiting into product endpoints with `Retry-After`; resolve RT-01 public Realtime exposure and ACL-02 default-ACL administration; rehearse official TEST migration/rollback; obtain human reviews.
+
+All production queries were SELECT/catalog reads only. No production write, migration, function deployment, secret/role/flag change, merge, deploy, release, userscript publication or destructive operation occurred.
