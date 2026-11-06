@@ -485,7 +485,8 @@ assert.equal(releaseContext.signalVoiceRoomRoomId, "team-lite-room-retry", "fail
 assert.equal(releaseContext.signalVoiceRoomPrepared, true, "failed release must retain prepared state");
 assert.equal(releaseContext.signalVoiceRoomCreator, true, "failed release must retain owner context");
 const successfulRelease = await releaseContext.__candidateSignalReleaseVoiceRoom();
-assert.equal(successfulRelease.ok, true, "retry must return the server leave result");
+assert.equal(successfulRelease, true, "retry must report a confirmed server leave");
+assert.equal(releaseAttempts, 2, "retry must perform exactly one additional authenticated leave after the transient failure");
 assert.equal(releaseContext.signalVoiceRoomRoomId, "", "successful retry must clear the room ID");
 assert.equal(releaseContext.signalVoiceRoomPrepared, false, "successful retry must clear prepared state");
 assert.equal(releaseContext.signalVoiceRoomCreator, false, "successful retry must clear owner context");
