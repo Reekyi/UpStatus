@@ -172,20 +172,69 @@ async function signalPrepareVoiceRoom(){
   signalStartCallPolling(opened.roomId,voiceRoom.id);
 }
 
+async function waitForVoiceRealtimeReady(timeoutMs){
+  var deadline=Date.now()+(Number(timeoutMs)||10000);
+  while(Date.now()<deadline){
+    if(typeof navigator!=='undefined'&&navigator.onLine===false)return false;
+    if(!token)return false;
+    if(realtimeActive&&realtimeChannel)return true;
+    if(!realtimeClient)startRealtime();
+    await new Promise(function(resolve){setTimeout(resolve,150);});
+  }
+  return !!(token&&realtimeActive&&realtimeChannel);
+}
 async function voiceRoomJoin(){
 if(typeof navigator!=='undefined'&&navigator.onLine===false){voiceRoomMessage('Sem conexão com a internet. Aguarde a reconexão e tente novamente.');return;}
 if(voiceRoom.active||voiceRoom.joining)return;
-if(signalTransportFlag&&!signalTransport){voiceRoomMessage('A sinalização autenticada não está configurada.');return;}
+if(signalTransportFlag&&!signalTransport)initSignalingTransport();if(signalTransportFlag&&!signalTransport){voiceRoomMessage('A sinalização autenticada não está configurada.');return;}
 if(signalTransportFlag&&!signalVoiceRoomPrepared){
   voiceRoom.joining=true;voiceRoomRender();voiceRoomMessage('');
   try{await signalPrepareVoiceRoom();voiceRoom.joining=false;signalVoiceRoomPrepared=true;await voiceRoomJoin();signalVoiceRoomPrepared=false;return;}
   catch(e){voiceRoom.joining=false;signalVoiceRoomPrepared=false;voiceRoomMessage(e.message||'Não foi possível preparar a sala autenticada.');voiceRoomRender();return;}
 }
+if(!signalTransportFlag&&(!realtimeActive||!realtimeChannel)){
+  voiceRoom.joining=true;voiceRoomRender();voiceRoomMessage('Reconectando a conexão da sala...');
+  var realtimeReady=await waitForVoiceRealtimeReady(10000);
+  voiceRoom.joining=false;
+  if(!realtimeReady){voiceRoomMessage('A conexão da sala ainda não foi restabelecida. Tente novamente.');voiceRoomRender();return;}
+}
 if((!realtimeActive||!realtimeChannel)&&!(signalTransport&&signalTransportFlag)){voiceRoomMessage('A conexão da sala ainda está sendo preparada. Tente novamente em alguns segundos.');return;}
 voiceRoom.joining=true;voiceRoom.pingMs=null;voiceRoomRender();voiceRoomMessage('');var joinGeneration=(voiceRoom.joinGeneration||0)+1;voiceRoom.joinGeneration=joinGeneration;try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Este navegador não disponibiliza acesso ao microfone.');voiceRoom.stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:false,autoGainControl:false}});if(voiceRoom.joinGeneration!==joinGeneration){try{voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(_){}voiceRoom.stream=null;return;}var roomHadParticipants=Object.keys(voiceRoom.participants).some(function(n){return Date.now()-voiceRoom.participants[n].at<16000;});if(!roomHadParticipants)voiceRoom.sessionStartedAt=Date.now();voiceRoom.muted=false;voiceRoom.active=true;voiceRoom.participants[member]={at:Date.now(),muted:false,speaking:false,sessionStartedAt:voiceRoom.sessionStartedAt};voiceRoomPlayCue('join');voiceRoomSend('join','',{});voiceRoomSend('presence','',{});if(!voiceRoom.audioContext){var AC=window.AudioContext||window.webkitAudioContext;if(AC)voiceRoom.audioContext=new AC();}if(voiceRoom.audioContext&&voiceRoom.audioContext.state==='suspended')await voiceRoom.audioContext.resume();if(voiceRoom.joinGeneration!==joinGeneration)return;if(voiceRoom.audioContext){voiceRoom.localAnalyser=voiceRoom.audioContext.createAnalyser();voiceRoom.localAnalyser.fftSize=512;voiceRoom.localLevelData=new Uint8Array(voiceRoom.localAnalyser.frequencyBinCount);voiceRoom.audioContext.createMediaStreamSource(voiceRoom.stream).connect(voiceRoom.localAnalyser);}voiceRoom.levelTimer=setInterval(function(){var changed=false;Object.keys(voiceRoom.participants).forEach(function(n){var x=voiceRoom.participants[n];if(!x)return;var analyser=n===member?voiceRoom.localAnalyser:(voiceRoom.peers[n]&&voiceRoom.peers[n].analyser),data=n===member?voiceRoom.localLevelData:(voiceRoom.peers[n]&&voiceRoom.peers[n].levelData);if(x.muted||!analyser||!data){if(x.speaking){x.speaking=false;changed=true;}return;}analyser.getByteFrequencyData(data);var sum=0;for(var i=0;i<data.length;i++)sum+=data[i];var level=sum/data.length;x.level=level;var speaking=level>8;if(speaking)voiceRoom.lastSpeaker=n;if(x.speaking!==speaking){x.speaking=speaking;changed=true;}});if(changed)voiceRoomRender();else if(voiceControlWave&&voiceRoom.currentSpeaker){var liveLevel=Number((voiceRoom.participants[voiceRoom.currentSpeaker]||{}).level||0),liveSpeaking=!!(voiceRoom.participants[voiceRoom.currentSpeaker]&&voiceRoom.participants[voiceRoom.currentSpeaker].speaking&&!voiceRoom.participants[voiceRoom.currentSpeaker].muted),normalized=Math.max(0,Math.min(1,liveLevel/32));voiceControlWave.style.opacity=String((liveSpeaking?0.22:0.13)+normalized*(liveSpeaking?0.68:0.07));voiceControlWave.style.setProperty('--voice-level',String(normalized));}},160);voiceRoom.timer=setInterval(function(){voiceRoomSend('presence','',{});Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member&&Date.now()-voiceRoom.participants[n].at>30000){delete voiceRoom.participants[n];voiceRoomDrop(n);}});voiceRoomRender();},4000);if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);voiceRoom.pingTimer=setInterval(function(){voiceRoomMeasurePing();},2500);voiceRoomMeasurePing();voiceRoomMessage('');Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member)voiceRoomOffer(n).catch(function(e){voiceRoomMessage('Não foi possível conectar com '+n+': '+(e.message||e));});});}catch(e){if(signalTransport&&signalVoiceRoomRoomId){var failedRoom=signalVoiceRoomRoomId;signalStopCallPolling(failedRoom);delete signalRosterCache[failedRoom];signalVoiceRoomRoomId='';signalTransport.leave(failedRoom).catch(function(){});signalVoiceRoomCreator=false;}try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(_){}voiceRoom.stream=null;voiceRoom.active=false;delete voiceRoom.participants[member];voiceRoomMessage((e&&e.name==='NotAllowedError'?'Permita o acesso ao microfone nas configurações do navegador. ':e&&e.name==='NotFoundError'?'Nenhum microfone foi encontrado. ':'Falha ao entrar na sala: ')+(e.message||'erro desconhecido'));}finally{voiceRoom.joining=false;voiceRoomRender();}}
 function voiceRoomToggleSpeakers(){if(!voiceRoom.active)return;voiceRoom.speakersMuted=!voiceRoom.speakersMuted;voiceRoom.muted=voiceRoom.speakersMuted;if(voiceRoom.stream)voiceRoom.stream.getAudioTracks().forEach(function(t){t.enabled=!voiceRoom.muted;});if(voiceRoom.participants[member]){voiceRoom.participants[member].muted=voiceRoom.muted;if(voiceRoom.muted)voiceRoom.participants[member].speaking=false;}Object.keys(voiceRoom.peers).forEach(function(n){var p=voiceRoom.peers[n];if(p&&p.audio)p.audio.muted=voiceRoom.speakersMuted;});voiceRoomSend('presence','',{});voiceRoomRender();}
 function voiceRoomMute(){if(!voiceRoom.active||!voiceRoom.stream)return;voiceRoom.muted=!voiceRoom.muted;voiceRoom.stream.getAudioTracks().forEach(function(t){t.enabled=!voiceRoom.muted;});if(voiceRoom.participants[member]){voiceRoom.participants[member].muted=voiceRoom.muted;if(voiceRoom.muted)voiceRoom.participants[member].speaking=false;}voiceRoomSend('presence','',{});voiceRoomRender();}
-function voiceRoomLeave(){voiceRoom.joinGeneration=(voiceRoom.joinGeneration||0)+1;var leavePromise=Promise.resolve(),screenLeaveSignal=screenShareStop(true),wasActive=voiceRoom.active,leaveSignal=null,leavingRoomId=signalVoiceRoomRoomId;voiceRoom.active=false;voiceRoom.joining=false;Object.keys(voiceRoom.recoveryTimers||{}).forEach(function(n){clearTimeout(voiceRoom.recoveryTimers[n]);});voiceRoom.recoveryTimers={};voiceRoom.recoveryAttempts={};if(wasActive){voiceRoomPlayCue('leave');leaveSignal=voiceRoomSend('leave','',{active:false});}if(voiceRoom.timer)clearInterval(voiceRoom.timer);if(voiceRoom.levelTimer)clearInterval(voiceRoom.levelTimer);if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);voiceRoom.timer=null;voiceRoom.levelTimer=null;voiceRoom.pingTimer=null;voiceRoom.pingMs=null;Object.keys(voiceRoom.peers).forEach(function(n){voiceRoomDrop(n);});try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}voiceRoom.stream=null;voiceRoom.muted=false;delete voiceRoom.participants[member];voiceRoomRender();voiceRoomMessage('');if(signalTransport&&leavingRoomId){signalStopCallPolling(leavingRoomId);delete signalRosterCache[leavingRoomId];signalVoiceRoomRoomId='';signalVoiceRoomCreator=false;leavePromise=Promise.allSettled([screenLeaveSignal,leaveSignal].map(function(p){return Promise.resolve(p);})).then(function(){return signalTransport.leave(leavingRoomId);}).catch(function(){});}return leavePromise;}
+function voiceRoomLeave(options){
+var skipServerLeave=!!(options&&options.skipServerLeave);
+voiceRoom.joinGeneration=(voiceRoom.joinGeneration||0)+1;
+var leavePromise=Promise.resolve(),screenLeaveSignal=screenShareStop(!skipServerLeave),wasActive=voiceRoom.active,leaveSignal=null,leavingRoomId=signalVoiceRoomRoomId,leavingTransport=signalTransport;
+voiceRoom.active=false;voiceRoom.joining=false;
+Object.keys(voiceRoom.recoveryTimers||{}).forEach(function(n){clearTimeout(voiceRoom.recoveryTimers[n]);});
+voiceRoom.recoveryTimers={};voiceRoom.recoveryAttempts={};
+if(wasActive&&!skipServerLeave){voiceRoomPlayCue('leave');leaveSignal=voiceRoomSend('leave','',{active:false});}
+if(voiceRoom.timer)clearInterval(voiceRoom.timer);
+if(voiceRoom.levelTimer)clearInterval(voiceRoom.levelTimer);
+if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);
+voiceRoom.timer=null;voiceRoom.levelTimer=null;voiceRoom.pingTimer=null;voiceRoom.pingMs=null;
+Object.keys(voiceRoom.peers).forEach(function(n){voiceRoomDrop(n);});
+try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}
+voiceRoom.stream=null;voiceRoom.muted=false;delete voiceRoom.participants[member];voiceRoomRender();voiceRoomMessage('');
+if(skipServerLeave){
+  if(leavingRoomId){signalStopCallPolling(leavingRoomId);delete signalRosterCache[leavingRoomId];}
+  signalVoiceRoomRoomId='';signalVoiceRoomCreator=false;signalVoiceRoomPrepared=false;
+}else if(leavingTransport&&leavingRoomId){
+  signalStopCallPolling(leavingRoomId);
+  leavePromise=Promise.allSettled([screenLeaveSignal,leaveSignal].map(function(p){return Promise.resolve(p);})).then(function(){
+    if(signalTransport!==leavingTransport||signalVoiceRoomRoomId!==leavingRoomId)return false;
+    return leavingTransport.leave(leavingRoomId);
+  }).then(function(result){
+    if(signalTransport===leavingTransport&&signalVoiceRoomRoomId===leavingRoomId){
+      delete signalRosterCache[leavingRoomId];
+      signalVoiceRoomRoomId='';signalVoiceRoomCreator=false;signalVoiceRoomPrepared=false;
+    }
+    return result;
+  }).catch(function(){signalVoiceRoomPrepared=false;return false;});
+}
+return leavePromise;
+}
 window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}});
 
   // Controle global do ringtone: evita áudio órfão quando há mais de uma instância do userscript na página.
@@ -2395,7 +2444,7 @@ function renderChatText(text){
   var upNetworkOffline=false;
   window.addEventListener('offline',function(){
     upNetworkOffline=true;
-    try{if(voiceRoom.active||voiceRoom.joining)voiceRoomLeave();}catch(e){}
+    try{if(voiceRoom.active||voiceRoom.joining||signalVoiceRoomRoomId)voiceRoomLeave({skipServerLeave:true});}catch(e){}
     try{if(upCall&&upCall.active)callCleanup(false);}catch(e){}
     if(signalInvitationTimer){clearInterval(signalInvitationTimer);signalInvitationTimer=null;}
     try{if(signalTransport){signalTransport.stopAll();signalTransport=null;}}catch(e){}
