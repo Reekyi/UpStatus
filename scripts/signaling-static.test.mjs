@@ -42,6 +42,8 @@ const readReceiptsProductionMigration = readFileSync(
 );
 const openVoiceMigration = readFileSync("supabase/migrations/20261105190000_open_voice_room_membership.sql", "utf8");
 const callAttemptMigration = readFileSync("supabase/migrations/20261106080200_call_room_attempt_recovery.sql", "utf8");
+const voiceAttemptMigration = readFileSync("supabase/migrations/20261106120500_voice_room_attempt_recovery.sql", "utf8");
+const voiceAttemptTest = readFileSync("supabase/test-migrations/20261106120500_voice_room_attempt_recovery_test.sql", "utf8");
 const rateLimitMigration = readFileSync(
   "supabase/test-migrations/20261104154623_distributed_signaling_rate_limit_test.sql", "utf8",
 );
@@ -115,6 +117,34 @@ assert.ok(callAttemptMigration.includes("CREATE TABLE IF NOT EXISTS public.upsta
   callAttemptMigration.includes("GRANT EXECUTE ON FUNCTION public.prepare_upstatus_signal_call_room(text, text, text) TO service_role") &&
   callAttemptMigration.includes("GRANT EXECUTE ON FUNCTION public.cancel_upstatus_signal_call_room(text, text) TO service_role"),
   "call attempt table and RPCs must be RLS-protected, service-role-only, idempotent and tombstone-aware");
+assert.ok(voiceAttemptMigration.includes("CREATE TABLE IF NOT EXISTS public.upstatus_signal_voice_room_attempts") &&
+  voiceAttemptMigration.includes("pg_advisory_xact_lock") &&
+  voiceAttemptMigration.includes("VOICE_ROOM_OPEN_CANCELLED") &&
+  voiceAttemptMigration.includes("cancel-before-open tombstone") &&
+  voiceAttemptMigration.includes("SECURITY INVOKER") &&
+  voiceAttemptMigration.includes("SET search_path = ''") &&
+  voiceAttemptMigration.includes("REVOKE ALL PRIVILEGES ON TABLE public.upstatus_signal_voice_room_attempts FROM PUBLIC, anon, authenticated") &&
+  voiceAttemptMigration.includes("GRANT EXECUTE ON FUNCTION public.open_upstatus_signal_voice_room_attempt") &&
+  voiceAttemptMigration.includes("GRANT EXECUTE ON FUNCTION public.cancel_upstatus_signal_voice_room_attempt") &&
+  !/SECURITY DEFINER/i.test(voiceAttemptMigration),
+  "voice-room attempts must serialize open/cancel, write tombstones, and remain service-role-only");
+assert.ok(voiceAttemptTest.includes("has_table_privilege") &&
+  voiceAttemptTest.includes("has_function_privilege") &&
+  voiceAttemptTest.includes("relrowsecurity") &&
+  voiceAttemptTest.includes("search_path"),
+  "isolated voice-room attempt test must verify RLS, grants, and pinned function search paths");
+assert.ok(functionSource.includes('path.endsWith("/room/cancel-open")') &&
+  functionSource.includes('db.rpc("open_upstatus_signal_voice_room_attempt"') &&
+  functionSource.includes('db.rpc("cancel_upstatus_signal_voice_room_attempt"') &&
+  functionSource.includes('from("upstatus_signal_voice_room_attempts")'),
+  "signaling endpoint must expose authenticated voice attempt open/cancel and expiry cleanup");
+assert.ok(authenticatedHarness.includes("voice cancel-before-open writes an idempotent tombstone") &&
+  authenticatedHarness.includes("late voice open cannot pass a cancel-before-open tombstone") &&
+  authenticatedHarness.includes("concurrent voice open and cancel serialize without an orphan membership") &&
+  authenticatedHarness.includes("another member cannot cancel a voice attempt it does not own") &&
+  authenticatedRunner.includes("upstatus_signal_voice_room_attempts?created_by=") &&
+  authenticatedRunner.includes("upstatus_signal_voice_room_attempts?select=attempt_id&created_by="),
+  "authenticated voice attempt tests and fixture cleanup must cover tombstones, ownership, races, and cleanup");
 assert.ok(functionSource.includes('path.endsWith("/room/prepare-call")') &&
   functionSource.includes('path.endsWith("/room/cancel-call")') &&
   functionSource.includes('db.rpc("prepare_upstatus_signal_call_room"') &&
