@@ -965,4 +965,4 @@ Issue #78 continua aberta para testes físicos de queda/retorno de internet sem 
 
 ### Final ancestry correction — 2026-11-05
 
-After the two documentation follow-up commits in this branch, PR #80 current head is `f5efebd5b2ead25de4566522b37bcd1fc0dcd1c3`, now **56 commits ahead / 0 behind `develop`**. The earlier 52-commit count in the initial 21:04 checkpoint predates these two documentation updates.
+The branch advanced with documentation follow-ups after the earlier 52-ahead snapshot. Its exact current ancestry must be re-fetched from GitHub before any integration decision; do not rely on the historical count.
