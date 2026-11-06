@@ -421,7 +421,7 @@ const retryAfterClient = createSignalingTransport({
   request: async () => ({
     status: 429,
     body: { error: "Rate limit exceeded" },
-    headers: "content-type: application/json\\r\\nReTrY-AfTeR: 60\\r\\n",
+    headers: "content-type: application/json\r\nReTrY-AfTeR: 60\r\n",
   }),
 });
 await assert.rejects(
@@ -457,7 +457,7 @@ const retryPollingClient = createSignalingTransport({
   request: async () => ({
     status: 429,
     body: { error: "Rate limit exceeded" },
-    headers: "Retry-After: 60\\r\\n",
+    headers: "Retry-After: 60\r\n",
   }),
 });
 const stopRetryPolling = retryPollingClient.startPolling("sig_retry_after_poll", async () => {});
