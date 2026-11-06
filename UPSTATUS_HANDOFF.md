@@ -1145,3 +1145,10 @@ Security Advisor still reports 3 WARN for anon-executable SECURITY DEFINER funct
 Issue #78 remains open: physical no-F5 network recovery, full Tampermonkey GM-bridge/device validation, Normal ↔ Team Lite installed interoperability, and the full-reload/offline room-ID persistence edge remain unverified. Voice-room IDs are retained in page memory; a browser closed while offline can still leave a server membership until its two-hour room TTL.
 
 No production SQL write, migration, Edge Function update, secret/flag/role change, deploy, release, userscript publication, merge, or destructive action occurred.
+
+
+## Continuity validation follow-up — 2026-11-06
+
+The documentation commits advanced PR #80 to HEAD `41dd77d69b1866ea0f2bae97f2634fcad43415d1`, now 81 commits ahead / 0 behind `develop`. Exact-head Validate [42154265009](https://github.com/Reekyi/UpStatus/actions/runs/42154265009) completed and reproduced the inherited `client signed upload helper missing` assertion after building `3.0.40 / TEST 3.0.40-beta.22`. This is the same base-validator mismatch already recorded; no validator was weakened and the documentation-only changes did not alter runtime code.
+
+Team Lite PR #76 remains at `3627557f244c98a9c7e1cc986c7cea43124863a9`; Candidate Checks [42153971733](https://github.com/Reekyi/UpStatus/actions/runs/42153971733) is still in the authenticated integration/browser step. Its exact adapter/bundle equality fix is committed, but final CI and post-run fixture cleanup remain pending.
