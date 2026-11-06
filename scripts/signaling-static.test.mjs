@@ -329,6 +329,32 @@ const normalStartCallEnd=userTemplate.indexOf("async function callAcceptIncoming
 const normalStartCallSource=userTemplate.slice(normalStartCallStart,normalStartCallEnd);
 assert.ok(normalStartCallStart>=0&&normalStartCallEnd>normalStartCallStart&&normalStartCallSource.indexOf("await waitForRealtimeReady(10000)")>=0&&normalStartCallSource.indexOf("await waitForRealtimeReady(10000)")<normalStartCallSource.indexOf("upCall.callId=callNewId()"),"Normal legacy outgoing calls must wait for Realtime before allocating a call");
 assert.ok(userTemplate.includes("async function callRequestToJoin(callId,target)")&&userTemplate.includes("await waitForRealtimeReady(10000)"),"Normal legacy group-call join requests must wait for Realtime after reconnect");
+assert.ok(userTemplate.includes("if(upCall.starting){") && userTemplate.includes("upCall.startAttempt=(upCall.startAttempt||0)+1;upCall.starting=false;"), "outgoing-call recovery must serialize duplicate clicks and invalidate pending attempts on cleanup");
+const outgoingStartStart=userTemplate.indexOf("async function startOutgoingCall(target){");
+const outgoingStartEnd=userTemplate.indexOf("async function callAcceptIncomingOffer",outgoingStartStart);
+assert.ok(outgoingStartStart>=0&&outgoingStartEnd>outgoingStartStart,"outgoing-call recovery source boundaries not found");
+const outgoingStartSource=userTemplate.slice(outgoingStartStart,outgoingStartEnd)+"\\nthis.__candidateStartOutgoingCall=startOutgoingCall;";
+let finishRealtimeWait;
+const pendingRealtimeWait=new Promise(resolve=>{finishRealtimeWait=resolve;});
+let realtimeWaitCalls=0,callIdsCreated=0;
+const outgoingContext={
+  upCall:{active:false,starting:false,startAttempt:0},
+  member:"Reconnect Tester",signalTransportFlag:false,realtimeActive:false,realtimeChannel:null,
+  waitForRealtimeReady:()=>{realtimeWaitCalls++;return pendingRealtimeWait;},
+  message:()=>{},callNewId:()=>{callIdsCreated++;return "should-not-start";}
+};
+vm.runInNewContext(outgoingStartSource,outgoingContext,{timeout:1000});
+const firstOutgoingAttempt=outgoingContext.__candidateStartOutgoingCall("Peer");
+assert.equal(outgoingContext.upCall.starting,true,"first outgoing call must reserve the start slot while Realtime reconnects");
+await outgoingContext.__candidateStartOutgoingCall("Peer");
+assert.equal(realtimeWaitCalls,1,"a duplicate click must not start a second Realtime readiness wait");
+outgoingContext.upCall.startAttempt++;
+outgoingContext.upCall.starting=false;
+finishRealtimeWait(true);
+await firstOutgoingAttempt;
+assert.equal(outgoingContext.upCall.active,false,"a call attempt invalidated by cleanup must not start after reconnect");
+assert.equal(callIdsCreated,0,"a stale outgoing call must not allocate a call ID after cleanup");
+
 assert.ok(userTemplate.includes("voiceRoomLeave({skipServerLeave:true})") &&
   userTemplate.includes("screenShareStop(!skipServerLeave)") &&
   userTemplate.includes("signalVoiceRoomPrepared=false") &&
