@@ -961,3 +961,8 @@ Issue #78 continua aberta para testes físicos de queda/retorno de internet sem 
 
 - Static review of Normal PR #74 head `b0c0e03fbe820e02404d4ae7d9f83e2a18642e50` found the same retry-context risk: `voiceRoomLeave()` clears `signalVoiceRoomRoomId` and owner state before awaiting `signalTransport.leave(leavingRoomId)`, then suppresses RPC failure. The roster cache is also cleared before server confirmation. This is code inspection, not a runtime failure reproduction.
 - Do not start another fixture-mutating workflow while Team Lite Candidate Checks `42134550466` is pending in the shared isolated-project concurrency group. After #76 completes and cleanup is confirmed, port the retain-until-success behavior to Normal with a fail-then-success regression. #74 remains otherwise CI-green on its current exact head.
+
+
+### Final ancestry correction — 2026-11-05
+
+After the two documentation follow-up commits in this branch, PR #80 current head is `f5efebd5b2ead25de4566522b37bcd1fc0dcd1c3`, now **56 commits ahead / 0 behind `develop`**. The earlier 52-commit count in the initial 21:04 checkpoint predates these two documentation updates.
