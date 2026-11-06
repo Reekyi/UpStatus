@@ -395,7 +395,7 @@ function screenShareRender(){var room=card&&card.querySelector('.up-voice-room')
   async function screenShareReceive(p){if(!p||p.roomId!==voiceRoom.id||typeof p.from!=='string'||!p.from||p.from.length>80||p.from===member||p.to&&p.to!==member)return;if((p.type==='offer'||p.type==='answer'||p.type==='ice')&&p.to!==member)return;if((p.type==='offer'||p.type==='answer')&&(!p.sdp||typeof p.sdp.sdp!=='string'||p.sdp.sdp.length>100000))return;if(p.type==='ice'&&(!p.candidate||JSON.stringify(p.candidate).length>4096))return;if(p.type==='presence'){if(p.active){screenShareSend('presence',p.from,{});if(screenShare.active)screenShareOffer(p.from).catch(function(){});}else{delete screenShare.remoteVideos[p.from];screenShareDrop(p.from);screenShareRender();}return;}if(p.type==='leave'){delete screenShare.remoteVideos[p.from];screenShareDrop(p.from);screenShareRender();return;}if(p.type==='offer'&&p.sdp){try{var existing=screenShare.peers[p.from];if(existing&&existing.pc&&['failed','closed'].indexOf(existing.pc.connectionState)>=0)screenShareDrop(p.from);var peer=await screenShareMakePeer(p.from);if(peer.pc.remoteDescription&&peer.pc.remoteDescription.sdp===p.sdp.sdp)return;await peer.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));while(peer.pending.length)await peer.pc.addIceCandidate(peer.pending.shift());var answer=await peer.pc.createAnswer();await peer.pc.setLocalDescription(answer);screenShareSend('answer',p.from,{sdp:peer.pc.localDescription});}catch(e){screenShareMessage('Falha ao negociar a tela com '+p.from+': '+(e.message||e));}return;}if(p.type==='answer'&&p.sdp){var a=screenShare.peers[p.from];if(a&&a.pc&&!a.pc.remoteDescription){try{await a.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));while(a.pending.length)await a.pc.addIceCandidate(a.pending.shift());}catch(e){screenShareMessage('Falha ao aceitar a tela de '+p.from+'.');}}return;}if(p.type==='ice'&&p.candidate){var ip=screenShare.peers[p.from];if(!ip){ip={pc:null,pending:[],stream:new MediaStream()};screenShare.peers[p.from]=ip;}var candidate=p.candidate instanceof RTCIceCandidate?p.candidate:new RTCIceCandidate(p.candidate);if(ip.pc&&ip.pc.remoteDescription){try{await ip.pc.addIceCandidate(candidate);}catch(e){}}else if(ip.pending.length<128)ip.pending.push(candidate);}}
   async function screenShareStart(){if(screenShare.active||screenShare.starting)return;screenShare.starting=true;screenShareRender();screenShareMessage('Selecione a tela ou janela que deseja compartilhar.');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getDisplayMedia)throw new Error('Este navegador não permite compartilhar a tela.');screenShare.stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:15,max:24}},audio:false});screenShare.active=true;screenShare.stream.getVideoTracks().forEach(function(track){track.onended=function(){screenShareStop(true);};});screenShareMessage('Compartilhamento ativo. Áudio do sistema desativado para evitar eco.');screenShareSend('presence','',{});Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member)screenShareOffer(n).catch(function(){});});}catch(e){screenShare.active=false;try{if(screenShare.stream)screenShare.stream.getTracks().forEach(function(t){t.stop();});}catch(_){}screenShare.stream=null;screenShareMessage(e&&e.name==='NotAllowedError'?'Compartilhamento cancelado.':'Não foi possível iniciar: '+(e.message||e));}finally{screenShare.starting=false;screenShareRender();}}
   function screenShareStop(sendSignal){var wasActive=screenShare.active||screenShare.starting;screenShare.active=false;screenShare.starting=false;if(sendSignal!==false&&wasActive)screenShareSend('leave','',{active:false});try{if(screenShare.stream)screenShare.stream.getTracks().forEach(function(t){t.onended=null;t.stop();});}catch(e){}screenShare.stream=null;Object.keys(screenShare.peers).forEach(screenShareDrop);Object.keys(screenShare.remoteVideos).forEach(function(n){delete screenShare.remoteVideos[n];});var room=card&&card.querySelector('.up-voice-room');if(room){var grid=room.querySelector('.up-screen-share-grid');if(grid)grid.replaceChildren();}screenShareMessage('');screenShareRender();}
-function voiceRoomSend(type,to,data){var payload=Object.assign({roomId:voiceRoom.id,type:type,from:member,to:to||'',active:voiceRoom.active,muted:voiceRoom.muted,speakersMuted:!!voiceRoom.speakersMuted,version:CURRENT_VERSION,sessionId:voiceRoom.sessionId,at:Date.now(),sessionStartedAt:voiceRoom.sessionStartedAt||0},data||{});if(signalTransportFlag){if(!signalTransport||!signalVoiceRoomRoomId){voiceRoomMessage('Sinalização autenticada indisponível.');return false;}var pending=to?signalTransport.sendSignal({roomId:signalVoiceRoomRoomId,recipient:to,eventType:'voice_room_signal',payload:payload}):signalTransport.sendToRoom({roomId:signalVoiceRoomRoomId,eventType:'voice_room_signal',payload:payload,senderName:member});return Promise.resolve(pending).catch(function(e){voiceRoomMessage(e.message||'Falha na sinalização autenticada.');return false;}).then(function(result){if(type==='leave'&&signalTransport&&signalVoiceRoomRoomId){var room=signalVoiceRoomRoomId;signalStopCallPolling(room);return signalTransport.leave(room).then(function(leaveResult){if(signalVoiceRoomRoomId===room){signalVoiceRoomRoomId='';signalVoiceRoomPrepared=false;signalVoiceRoomCreator=false;}return leaveResult;}).catch(function(){return result;});}return result;});}if(!realtimeActive||!realtimeChannel||!member)return false;try{realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:payload});if(voiceRoom.id==='upstatus-team-room-v1')realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:Object.assign({},payload,{roomId:'upstatus-team-lite-room-v1'})});return true;}catch(e){return false;}}
+function voiceRoomSend(type,to,data){var payload=Object.assign({roomId:voiceRoom.id,type:type,from:member,to:to||'',active:voiceRoom.active,muted:voiceRoom.muted,speakersMuted:!!voiceRoom.speakersMuted,version:CURRENT_VERSION,sessionId:voiceRoom.sessionId,at:Date.now(),sessionStartedAt:voiceRoom.sessionStartedAt||0},data||{});if(signalTransportFlag){if(!signalTransport||!signalVoiceRoomRoomId){voiceRoomMessage('Sinalização autenticada indisponível.');return false;}var pending=to?signalTransport.sendSignal({roomId:signalVoiceRoomRoomId,recipient:to,eventType:'voice_room_signal',payload:payload}):signalTransport.sendToRoom({roomId:signalVoiceRoomRoomId,eventType:'voice_room_signal',payload:payload,senderName:member});return Promise.resolve(pending).catch(function(e){voiceRoomMessage(e.message||'Falha na sinalização autenticada.');return false;}).then(function(result){if(type==='leave'&&signalTransport&&signalVoiceRoomRoomId){var room=signalVoiceRoomRoomId;signalStopCallPolling(room);return signalTransport.leave(room).then(function(leaveResult){if(signalVoiceRoomRoomId===room){signalVoiceRoomRoomId='';signalVoiceRoomPrepared=false;signalVoiceRoomCreator=false;}return leaveResult;}).catch(function(e){voiceRoomMessage(e&&e.message?e.message:'Não foi possível confirmar a saída da sala. Tente novamente.');return false;});}return result;});}if(!realtimeActive||!realtimeChannel||!member)return false;try{realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:payload});if(voiceRoom.id==='upstatus-team-room-v1')realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:Object.assign({},payload,{roomId:'upstatus-team-lite-room-v1'})});return true;}catch(e){return false;}}
 function voiceRoomMessage(t){var e=card&&card.querySelector('.up-voice-message');if(e)e.textContent=t||'';}
 function voiceRoomPlayCue(kind){try{var AC=window.AudioContext||window.webkitAudioContext;if(!voiceRoom.audioContext&&AC)voiceRoom.audioContext=new AC();var ctx=voiceRoom.audioContext;if(!ctx)return;if(ctx.state==='suspended')ctx.resume().catch(function(){});var notes=kind==='leave'?[620,500,360]:[480,760];var start=ctx.currentTime+.015;notes.forEach(function(freq,i){var osc=ctx.createOscillator(),gain=ctx.createGain(),at=start+i*(kind==='leave'?.105:.09),dur=kind==='leave'?.095:.115;osc.type='sine';osc.frequency.setValueAtTime(freq,at);gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(.065,at+.012);gain.gain.exponentialRampToValueAtTime(.0001,at+dur);osc.connect(gain);gain.connect(ctx.destination);osc.start(at);osc.stop(at+dur+.01);});}catch(e){}}
 async function voiceRoomMeasurePing(){if(!voiceRoom.active)return;var values=[];await Promise.all(Object.keys(voiceRoom.peers).map(async function(n){var p=voiceRoom.peers[n];if(!p||!p.pc||p.pc.connectionState==='closed')return;try{var stats=await p.pc.getStats();stats.forEach(function(st){if(st.type==='candidate-pair'&&(st.selected||st.nominated)&&typeof st.currentRoundTripTime==='number')values.push(st.currentRoundTripTime*1000);});}catch(e){}}));if(!voiceRoom.active)return;var next=values.length?Math.min.apply(Math,values):null;if(voiceRoom.pingMs===null&&next===null)return;if(next===null||voiceRoom.pingMs===null||Math.abs(next-voiceRoom.pingMs)>3){voiceRoom.pingMs=next;voiceRoomRender();}}
@@ -490,7 +490,7 @@ function voiceRoomLeave(options){
     voiceRoom.recoveryAttempts={};
     var leaveTask;
     if(skipServerLeave){
-      leaveTask=Promise.resolve(true);
+      leaveTask=Promise.resolve(!signalRoomId);
     }else if(wasActive){
       voiceRoomPlayCue('leave');
       leaveTask=voiceRoomSend('leave','',{active:false});
@@ -511,8 +511,17 @@ function voiceRoomLeave(options){
     delete voiceRoom.participants[member];
     voiceRoomRender();
     voiceRoomMessage('');
-    await Promise.resolve(leaveTask).catch(function(){});
-    if(!skipServerLeave&&signalRoomId&&signalVoiceRoomRoomId===signalRoomId)await signalReleaseVoiceRoom();
+    var leaveConfirmed=false;
+    try{
+      var leaveResult=await Promise.resolve(leaveTask);
+      leaveConfirmed=leaveResult===true||(!!leaveResult&&typeof leaveResult==='object'&&leaveResult.ok!==false&&!leaveResult.error);
+    }catch(e){}
+    if(!skipServerLeave&&wasActive&&signalRoomId&&signalVoiceRoomRoomId===signalRoomId){
+      var fallbackResult=await signalReleaseVoiceRoom();
+      leaveConfirmed=fallbackResult===true||(!!fallbackResult&&typeof fallbackResult==='object'&&fallbackResult.ok!==false&&!fallbackResult.error);
+    }
+    if(signalRoomId&&signalVoiceRoomRoomId===signalRoomId)leaveConfirmed=false;
+    return leaveConfirmed;
   })();
   voiceRoomLeavePromise=leavePromise.finally(function(){voiceRoomLeavePromise=null;voiceRoomRender();});
   voiceRoomRender();
@@ -713,6 +722,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave().catch(functio
     if(!signalTransport)return Promise.resolve(false);
     signalStopCallPolling(room);
     return Promise.resolve().then(function(){return signalTransport.leave(room);}).then(function(result){
+      if(result===false||(result&&typeof result==='object'&&(result.ok===false||result.error)))throw new Error(result&&result.error?String(result.error):'O servidor não confirmou a saída da sala.');
       if(signalVoiceRoomRoomId===room){
         signalVoiceRoomRoomId='';
         signalVoiceRoomPrepared=false;
@@ -734,13 +744,27 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave().catch(functio
   var TEAM_LITE_IDLE_TIMEOUT=180000;
   function teamLiteClearIdleTimer(){if(teamLiteIdleTimer){clearTimeout(teamLiteIdleTimer);teamLiteIdleTimer=null;}}
   async function teamLiteReleaseVoiceRoomBeforeLogout(){
-    if(voiceRoomLeavePromise||(voiceRoom&&(voiceRoom.active||voiceRoom.joining||signalVoiceRoomRoomId)))await voiceRoomLeave();
+    if(teamLiteNetworkOffline&&signalVoiceRoomRoomId)return false;
+    if(voiceRoomLeavePromise)await voiceRoomLeave();
+    if(signalVoiceRoomRoomId||(voiceRoom&&(voiceRoom.active||voiceRoom.joining))){
+      var released=await voiceRoomLeave();
+      return released===true&&!signalVoiceRoomRoomId;
+    }
+    return true;
   }
   async function teamLiteEndSession(){
-    if(teamLiteSessionEnded||!token)return;
+    if(teamLiteSessionEnded||!token)return false;
     teamLiteSessionEnded=true;teamLiteClearIdleTimer();
     try{if(upCall&&upCall.active)callCleanup(true,'hangup');}catch(e){}
-    try{await teamLiteReleaseVoiceRoomBeforeLogout();}catch(e){}
+    var voiceReleased=false;
+    try{voiceReleased=await teamLiteReleaseVoiceRoomBeforeLogout();}catch(e){}
+    if(!voiceReleased){
+      teamLiteSessionEnded=false;
+      voiceRoomMessage('Não foi possível confirmar a saída da sala de voz. Sua sessão foi mantida. Reconecte e tente sair novamente.');
+      card.classList.remove('hidden');
+      voiceRoomRender();
+      return false;
+    }
     try{if(!chat.classList.contains('hidden')){saveChatDraft();stopTypingHeartbeat();broadcastChatPresence(false);}}catch(e){}
     authenticated=false;authGeneration++;
     chat.classList.add('hidden');history.classList.add('hidden');health.classList.add('hidden');remoteOverlay.classList.add('hidden');
@@ -753,6 +777,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave().catch(functio
     chatCache=[];chatInitialized=false;chatDomInitialized=false;chatDomMember='';chatLastRenderKey='';
     GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');
     login();
+    return true;
   }
   function teamLiteStartIdleTimer(){
     if(isTeamLiteEphemeralMember()&&teamLiteIdleTimer&&card.classList.contains('hidden'))return;
@@ -2974,8 +2999,9 @@ function renderChatText(text){
     if(!realtimeActive||!realtimeChannel)return;
     try{realtimeChannel.send({type:'broadcast',event:'chat_presence',payload:{name:member,open:!!open}});}catch(e){}
   }
-  function stopRealtime(){
-    if(signalInvitationTimer){clearInterval(signalInvitationTimer);signalInvitationTimer=null;}if(signalTransport){signalTransport.stopAll();signalTransport=null;}Object.keys(signalPollStops).forEach(signalStopCallPolling);signalRoomByCallId=Object.create(null);signalCallIdByRoom=Object.create(null);signalCreatorCallIds=Object.create(null);signalVoiceRoomRoomId='';signalVoiceRoomPrepared=false;signalVoiceRoomCreator=false;
+  function stopRealtime(options){
+    var preserveVoiceRoomContext=!!(options&&options.preserveVoiceRoomContext);
+    if(signalInvitationTimer){clearInterval(signalInvitationTimer);signalInvitationTimer=null;}if(signalTransport){signalTransport.stopAll();signalTransport=null;}Object.keys(signalPollStops).forEach(signalStopCallPolling);signalRoomByCallId=Object.create(null);signalCallIdByRoom=Object.create(null);signalCreatorCallIds=Object.create(null);if(!preserveVoiceRoomContext)signalVoiceRoomRoomId='';signalVoiceRoomPrepared=false;signalVoiceRoomCreator=false;
     realtimeActive=false;
     if(remotePollHintTimer){clearTimeout(remotePollHintTimer);remotePollHintTimer=null;}
     if(realtimeStatusRefreshTimer){clearTimeout(realtimeStatusRefreshTimer);realtimeStatusRefreshTimer=null;}
@@ -2991,12 +3017,12 @@ function renderChatText(text){
     teamLiteNetworkOffline=true;
     try{if(voiceRoom.active||voiceRoom.joining||signalVoiceRoomRoomId)voiceRoomLeave({skipServerLeave:true}).catch(function(){});}catch(e){}
     try{if(upCall&&upCall.active)callCleanup(false);}catch(e){}
-    stopRealtime();
+    stopRealtime({preserveVoiceRoomContext:true});
   });
   window.addEventListener('online',function(){
     if(!teamLiteNetworkOffline)return;
     teamLiteNetworkOffline=false;
-    stopRealtime();
+    stopRealtime({preserveVoiceRoomContext:true});
     if(!isAuthenticated())return;
     startRealtime();
     refresh();
