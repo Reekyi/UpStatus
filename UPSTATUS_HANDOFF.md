@@ -1381,3 +1381,52 @@ No production write, migration, function deployment, secret/role/flag change, de
 - Complete real Tampermonkey/browser close/reload-offline and no-F5 acceptance in both products; keep #78 open.
 - Integrate distributed rate limiting into both product endpoints and add `Retry-After`; resolve RT-01 public Realtime exposure and ACL-02 via supported admin path; rehearse migrations in official TEST with rollback.
 - Keep #74/#76 Draft. No merge, deploy, release, production migration/write, secret/role/flag change, userscript publication, or destructive action is authorized by this checkpoint.
+
+
+## 2026-11-06 06:18 BRT — Team Lite logical call-attempt parity and logout gate
+
+### Fresh refs and exact-head CI
+
+All tracked PRs remain open, Draft, unmerged. No submitted human reviews or inline review threads were found for #74/#76.
+
+- **#74 Normal** — HEAD `0ff4ef9a50c79717250d9eed7e60ed85fa9c8a41`, 692 ahead / 0 behind `master`. Validate [42188549612](https://github.com/Reekyi/UpStatus/actions/runs/42188549612) and Signaling Smoke [42188549610](https://github.com/Reekyi/UpStatus/actions/runs/42188549610) both completed SUCCESS on the exact head. Smoke logs confirm 116/116 authenticated integration checks, the cancel-before-prepare tombstone and rejection of a late prepare, call/voice/screen WebRTC with remote tracks, three-member mesh, rate limit 90 accepted + 1 HTTP 429, rate-limit concurrency, atomic read-receipt concurrency, and temporary fixture cleanup.
+- **#76 Team Lite** — HEAD `c22ff0666b5e769de010fd25c4011f8346349c24`, 206 ahead / 0 behind `team-lite-official`, 147 ahead / 0 behind #75. New Candidate Checks [42193658040](https://github.com/Reekyi/UpStatus/actions/runs/42193658040) is **IN PROGRESS**. Isolation guard, adapter tests and endpoint-authentication checks passed; authenticated integration/browser tests are running; rate-limit concurrency, read-receipt concurrency, migration-layout, metadata and final cleanup are still pending. Do not claim exact-head approval yet.
+- **#75 baseline** — HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 ahead / 0 behind `team-lite-official`; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed. #76 remains its descendant.
+- **#80 continuity** — HEAD `a1f01b28edbb89a26125b6ab468bdeef37b9965f`, 101 ahead / 0 behind `develop`. Validate [42189355400](https://github.com/Reekyi/UpStatus/actions/runs/42189355400) failed at the inherited `client signed upload helper missing` assertion; #80 remains documentation-only.
+- **#82 independent QA** — HEAD `05d384b7f47b605b4b1d453edb1b504d61cfded7`, 56 ahead / 0 behind `master`. Validate [42189479021](https://github.com/Reekyi/UpStatus/actions/runs/42189479021) failed at the inherited `production updateURL mismatch` assertion. QA branch and `docs/RELEASE_READINESS.md` were not modified.
+- **Normal logout-gate candidate** — branch `normal/call-attempt-logout-gate-20261106`, HEAD `cf99b1b14f69b1caf6606684d2d42f9898f03a1e`, one commit ahead / zero behind #74. Not yet fast-forwarded into #74 because the shared isolated fixture project is currently owned by #76's Candidate Checks.
+
+### Team Lite logical call-attempt recovery
+
+The source review confirmed the previous Team Lite path used `createRoom → bindRoom → waitForAcceptance` and could not cancel a call if the prepare response (and room ID) was lost. The candidate now mirrors Normal's logical-call protocol:
+
+- The adapter uses atomic `/room/prepare-call` and `/room/cancel-call` operations; decline/abort cleanup is keyed by logical call ID, not room ID.
+- The userscript writes a per-member, versioned, token-free call-attempt record before sending prepare; same-member restore and cancellation retry run after authenticated transport initialization.
+- Pagehide during an in-flight prepare can cancel by logical ID before any room ID is known. Offline failure retains the logical ID for retry after reconnect.
+- Storage failure is fail-closed for outgoing call creation. The record contains only `callId`, `member` and `createdAt`, with validation, a 20-entry bound and seven-day expiry.
+- The embedded Team Lite adapter is byte-identical to `src/userscript/signaling-transport.mjs`; the shared adapter tests now cover prepare, cancel, decline and abort paths.
+- Candidate regressions cover same-member restore, cross-member/malformed/stale/future rejection, token absence, storage failure, unknown-room pagehide, offline retry and preservation of an active call.
+
+The shared call-attempt migration and isolated Edge Function routes remain owned by Normal PR #74. No duplicate SQL migration was added to #76. The Team Lite candidate depends on that shared schema/endpoint being part of the coordinated cutover; its current CI uses the already-provisioned isolated project, not production.
+
+### Newly found logout safety gap — candidate fix in both clients
+
+A restored logical call attempt could remain pending while `upCall.active` was false. Both logout handlers previously retried room-ID leaves but skipped logical call-attempt cancellation, allowing logout to invalidate the token before the server-side tombstone was confirmed.
+
+- Team Lite #76 now retries `signalRetryPendingCallAttempts()` before room leaves; its candidate test blocks logout and preserves the token when cancellation is unconfirmed.
+- Normal candidate `cf99b1b` applies the same order and adds an equivalent regression. This Normal candidate still needs exact-head Validate + Smoke after the Team Lite run releases the shared lab.
+
+### Remaining recovery/security gates
+
+- QA's non-creator storage concern remains open: `signalPersistPendingCallLeaves()` can return false when GM storage throws, while the acceptance/cleanup path does not yet fail closed before a recipient joins. Add throwing-storage tests and persist the recipient leave handle before accepting; review voice-room membership persistence separately.
+- Physical Tampermonkey close/reload while offline, same-member no-F5 recovery, real microphone/display permissions and installed Normal ↔ Team Lite interoperability remain unverified.
+- Product-facing endpoints still lack coordinated distributed rate-limit integration and `Retry-After`; isolated rate-limit tests are not production readiness.
+- RT-01 public Realtime broadcast exposure and ACL-02 default-ACL administration remain release blockers. Official TEST migration/rollback rehearsal and human reviews remain pending.
+
+### Production read-only revalidation
+
+Project `dlfvkawaiqduhlazsszm` remains ACTIVE_HEALTHY, `us-west-2`, PostgreSQL `17.11.0.002`, seven migrations through `20261027155438`, and 38 ACTIVE Edge Functions. Relevant deployed versions remain Normal v480, TEST v281, Team Lite v15 and screen-share beta10 v6.
+
+Fresh catalog checks confirm production still lacks the call-attempt table and prepare/cancel RPCs, open/leave voice RPCs, atomic read-receipt RPC, rate-limit RPC/table and dedicated `upstatus-signal`. The three public broadcast functions remain executable by anon/authenticated; `realtime.messages` retains client grants. Security Advisor remains 3 WARN for anon-executable SECURITY DEFINER, 3 WARN for authenticated, and 10 INFO for RLS without policies; performance and health advisors are empty. SQL role is `postgres`, not superuser. Previously confirmed broad backend-table grants and default ACLs remain unresolved.
+
+All production queries were SELECT/catalog reads only. No production write, migration, function deployment, secret/role/flag change, merge, deploy, release, userscript publication or destructive operation occurred.
