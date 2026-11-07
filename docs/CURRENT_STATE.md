@@ -1359,3 +1359,15 @@ Project `bfpjtfqlnypisxljoxkb` is the only isolated Supabase project found; the 
 - Do not trust `X-Forwarded-For` or `CF-Connecting-IP` for auth buckets until gateway provenance is proven. Do not reuse the divergent rate-limit candidate with unbounded request-path cleanup.
 
 No production SQL write/migration, function deployment, secret/role/flag change, merge, release, userscript publication, destructive operation, or manual fixture cleanup occurred in this checkpoint.
+
+
+## 2026-11-07 04:11 BRT — Team Lite candidate-check correction
+
+- Team Lite #76 HEAD before this follow-up: `c6b74ee39a4246f3af85e112fbb4f08986b445ae`. Candidate Checks attempt 1 timed out on one of 16 unauthenticated endpoint probes (`/room/request-invite`, 20 seconds). A failed-job rerun (attempt 2) passed that endpoint probe and all subsequent runtime/database checks: 103/103 authenticated, Chromium WebRTC call/voice/screen, three-member mesh, 90+1 rate-limit with Retry-After 60s, distributed rate-limit concurrency, atomic read receipts, AUTH-03 one-winner invite consumption including padded-admin non-escalation, migration layout and cleanup.
+- Attempt 2 failed only at the final static candidate check because `scripts/team-lite-candidate-check.mjs:85` still expected the earlier role expression `role: enrolled.role || "implementation_user"`. The current Team Lite server intentionally uses `enrolledRole` and `sessionRole` to default blank roles while preserving every non-empty role literally.
+- Updated only that stale assertion in commit [628acb6](https://github.com/Reekyi/UpStatus/commit/628acb6050b92f88790d4fdb33efb5d367c20787). The assertion now matches the literal-preservation contract already enforced by Normal validation and `scripts/auth-enrollment.test.mjs`.
+- New exact-head Candidate Checks [42349939459](https://github.com/Reekyi/UpStatus/actions/runs/42349939459) is running on #76 HEAD `628acb6050b92f88790d4fdb33efb5d367c20787`. No PASS is claimed until it completes.
+- After attempt 2 finished, SELECT-only fixture counts were zero across users, sessions, rooms, memberships, bindings, events, rate-limit buckets, call attempts, voice attempts, chat reads and messages. No manual cleanup was performed.
+- #80's previous documentation commit [59af6b9](https://github.com/Reekyi/UpStatus/commit/59af6b97a2ab72fa47b7cbf40b8b1755d8cacac6) triggered Validate [42349839778](https://github.com/Reekyi/UpStatus/actions/runs/42349839778), which failed at the same inherited `client signed upload helper missing` assertion. No validator was weakened.
+
+No production changes or release actions occurred in this follow-up.
