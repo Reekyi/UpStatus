@@ -123,7 +123,8 @@ assert(source.includes("data-sender-color"),"per-sender chat color rendering mis
 assert(source.includes("function requestPublicChatLinkTitle(url,callback)"),"stable Google Docs link-title hydration helper missing");
 assert(source.includes('class="up-chat-link-card"'),"stable chat link-card renderer missing");
 assert(source.includes("hydrateChatLinkTitles(list);"),"chat link-card hydration hook missing");
-assert(source.includes("upstatus-340-chat-link-card-compat"),"chat link-card compatibility styles missing");
+assert(source.includes("'.up-chat-bubble:has(.up-chat-link-card){padding:4px!important;border-width:1px!important;box-shadow:none!important}'"),"chat link-card bubble compatibility styles missing");
+assert(source.includes("'.up-chat-link-card{padding:7px!important;gap:8px!important;border-width:1px!important;border-radius:9px!important}'"),"chat link-card compact styles missing");
 
 assert(source.includes("var chatPendingAttachment=null;"),"chat attachment state must be transient and explicit");
 assert(source.includes("var chatLinkPreviewDismissed=false,chatLinkPreviewDismissedUrl='';"),"link preview dismissal state must be explicit");
