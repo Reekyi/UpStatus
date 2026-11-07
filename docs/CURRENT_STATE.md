@@ -1087,3 +1087,11 @@ The first two Normal validation attempts exposed test-maintenance mistakes: a ma
 - Password minima remain divergent (6 Normal / 4 Team Lite). Physical #78 acceptance and human PR reviews remain pending.
 
 No production SQL write, migration, Edge Function deployment, secret/role/flag change, userscript publication, PR merge, release, or destructive operation occurred. The only database mutation was the additive setup-invite migration on the allowlisted isolated project. The isolated integration workflow is the next validation gate.
+
+### Head reconciliation — 2026-11-07 02:15 UTC
+
+- PR #74 current head is now `2ff1881dd91f387c708eabd02620db0f20d1d759`. Its runtime/auth implementation head remains `9d7977949a0afe7d0e9db770c1bb7b14bc5aefb5`; the later commits are documentation-only. Latest Validate [42328111083](https://github.com/Reekyi/UpStatus/actions/runs/42328111083) passed; latest Smoke [42328111146](https://github.com/Reekyi/UpStatus/actions/runs/42328111146) is pending in the shared queue.
+- PR #76 current head remains `58a3f7b04233733fb4a5bd198ad9e7c02151f2c3`; Candidate Checks [42327988659](https://github.com/Reekyi/UpStatus/actions/runs/42327988659) is pending.
+- PR #80 head before this documentation append was `f5fe9faa56710d3d38ad6ac1f73963fed9d6b60e`; Validate [42328117245](https://github.com/Reekyi/UpStatus/actions/runs/42328117245) reproduces the same inherited `client signed upload helper missing` assertion. This append is documentation-only.
+- PR #82 QA remains at `c6d674176140f17b8bd76eeba9e7b05853101b59`; Validate [42324832647](https://github.com/Reekyi/UpStatus/actions/runs/42324832647) remains blocked by `production updateURL mismatch`. The QA branch itself was not edited.
+- All five PRs remain open and Draft; the latest review query returned zero submitted reviews.
