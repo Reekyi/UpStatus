@@ -35,6 +35,7 @@ for (const name of [
   "20261106111000_call_attempt_foreign_key_indexes_test.sql",
   "20261106120500_voice_room_attempt_recovery_test.sql",
   "20261107010000_setup_invites_test.sql",
+  "20261107170000_pin_empty_search_path_trigger_broadcasts_test.sql",
 ]) {
   const testPath = path.join(testMigrationsRoot, name);
   const migrationPath = path.join(migrationsRoot, name);
@@ -80,5 +81,24 @@ assert.ok(
   boundedRateLimitCleanupTest.includes("zero pre-existing stale buckets"),
   "isolated SQL regression must reject pre-existing stale rows so its 150-to-50 assertion is deterministic"
 );
+
+
+const broadcastSearchPathMigration = readFileSync(
+  path.join(migrationsRoot, '20261107170000_pin_empty_search_path_trigger_broadcasts.sql'), "utf8"
+);
+const broadcastSearchPathTest = readFileSync(
+  path.join(testMigrationsRoot, '20261107170000_pin_empty_search_path_trigger_broadcasts_test.sql'), "utf8"
+);
+for (const name of ["upstatus_broadcast_messages", "upstatus_broadcast_remote_state", "upstatus_broadcast_users"]) {
+  const statement = "ALTER FUNCTION public." + name + "() SET search_path = '';";
+  assert.ok(broadcastSearchPathMigration.includes(statement),
+    "production migration must pin an empty search_path for " + name);
+  assert.ok(broadcastSearchPathTest.includes(statement),
+    "isolated test migration must exercise the empty search_path for " + name);
+}
+assert.ok(broadcastSearchPathTest.includes("has_function_privilege") &&
+  broadcastSearchPathTest.includes("pg_get_functiondef") &&
+  broadcastSearchPathTest.includes("pg_trigger"),
+  "isolated broadcast test must preserve client-role denial, qualified realtime.send, and trigger bindings");
 
 console.log("Test migration layout guard passed.");
