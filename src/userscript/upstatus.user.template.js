@@ -21,7 +21,7 @@
   var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
   var CLOUD_SERVER='__UPSTATUS_CLOUD_SERVER__';
   var server=CLOUD_SERVER;
-  var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';
+  var UP_REALTIME_URL='__UPSTATUS_REALTIME_URL__';
   var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
   var UP_REALTIME_TOPIC='__UPSTATUS_REALTIME_TOPIC__';
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
@@ -2118,13 +2118,53 @@
   }
   function fileToDataUrl(file){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Use PNG, JPG, WEBP, GIF, MP4 ou WEBM.'));return;}var max=/^video\//i.test(info.mime)?25*1024*1024:5*1024*1024;if(file.size>max){reject(new Error('O arquivo deve ter no máximo '+(max/1024/1024)+' MB.'));return;}var reader=new FileReader();reader.onload=function(){var data=reader.result;if(!(data instanceof ArrayBuffer)){resolve(String(data));return;}var bytes=new Uint8Array(data),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+info.mime+';base64,'+btoa(bin));};reader.onerror=function(){reject(new Error('Não foi possível ler o arquivo.'));};reader.readAsArrayBuffer(file);});}
   function fileToDataUrlForProfile(file,type,ext){var info=resolveFileMime(file,false),mime=info.ok?info.mime:fileMimeFromExt(ext);if(!/^image\//i.test(mime)){return Promise.reject(new Error('Use PNG, JPG, WEBP ou GIF.'));}return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){try{var bytes=new Uint8Array(reader.result),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+mime+';base64,'+btoa(bin));}catch(e){reject(new Error('Não foi possível preparar a foto.'));}};reader.onerror=function(){reject(new Error('Não foi possível ler a foto.'));};reader.readAsArrayBuffer(file);});}
-  function sendChatMedia(file){var btn=chat.querySelector('.up-chat-send'),photoBtn=chat.querySelector('.up-chat-attach');if(btn)btn.disabled=true;if(photoBtn)photoBtn.disabled=true;fileToDataUrl(file).then(function(dataUrl){return api('POST','/api/chat/image',{dataUrl:dataUrl})}).then(function(r){return api('POST','/api/chat',{message:'',imageUrl:r.imageUrl,type:r.type,replyTo:chatReplyTo})}).then(function(r){if(r&&r.message)sendRealtimeEvent('chat_fast',{message:r.message});return refreshChatAfterSend(null,btn)}).catch(function(e){if(btn)btn.disabled=false;message(e.message,true)}).finally(function(){if(photoBtn)photoBtn.disabled=false});}
+  function uploadFileDirect(file,route){
+    return new Promise(function(resolve,reject){
+      if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}
+      var expectedBucket=route==='/api/chat/upload-url'?'chat-images':route==='/api/profile/avatar-upload-url'?'profile-images':'';
+      if(!expectedBucket){reject(new Error('Rota de upload não permitida.'));return;}
+      var info=resolveFileMime(file,expectedBucket==='chat-images');
+      if(!info.ok){reject(new Error('Tipo de arquivo não suportado.'));return;}
+      var size=Number(file.size);
+      if(!Number.isFinite(size)||size<1||size>20*1024*1024){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}
+      api('POST',route,{mime:info.mime,size:size,name:String(file.name||'arquivo')}).then(function(ticket){
+        if(!ticket||!ticket.token||!ticket.publicUrl||!ticket.path||ticket.bucket!==expectedBucket||ticket.mime!==info.mime||Number(ticket.size)!==size)throw new Error('Resposta de autorização incompleta.');
+        var base,url,publicUrl;
+        try{
+          base=new URL(UP_REALTIME_URL);
+          url=new URL(ticket.uploadUrl||ticket.signedUrl,base);
+          publicUrl=new URL(ticket.publicUrl,base);
+        }catch(e){throw new Error('URL de upload inválida.');}
+        if(url.origin!==base.origin||publicUrl.origin!==base.origin)throw new Error('O Storage retornou uma origem inesperada.');
+        var uploadPrefix='/storage/v1/object/upload/sign/'+expectedBucket+'/';
+        if(url.pathname.indexOf(uploadPrefix)!==0)throw new Error('O Storage retornou um caminho de upload inesperado.');
+        var uploadedPath;
+        try{uploadedPath=decodeURIComponent(url.pathname.slice(uploadPrefix.length));}catch(e){throw new Error('Caminho de upload inválido.');}
+        if(uploadedPath!==String(ticket.path))throw new Error('O caminho assinado não corresponde ao arquivo solicitado.');
+        var publicPrefix='/storage/v1/object/public/'+expectedBucket+'/';
+        if(publicUrl.pathname.indexOf(publicPrefix)!==0||publicUrl.search||publicUrl.hash)throw new Error('A URL pública retornada é inválida.');
+        var publicPath;
+        try{publicPath=decodeURIComponent(publicUrl.pathname.slice(publicPrefix.length));}catch(e){throw new Error('Caminho público inválido.');}
+        if(publicPath!==String(ticket.path))throw new Error('O caminho público não corresponde ao arquivo autorizado.');
+        var queryToken=url.searchParams.get('token');
+        if(!queryToken)url.searchParams.set('token',String(ticket.token));
+        else if(queryToken!==String(ticket.token))throw new Error('O token da URL assinada não corresponde à autorização.');
+        if(!url.searchParams.get('token'))throw new Error('A URL assinada veio sem token.');
+        return fetch(url.toString(),{method:'PUT',credentials:'omit',redirect:'error',headers:{'Content-Type':info.mime,'x-upsert':'true','cache-control':'max-age=3600'},body:file}).then(function(resp){
+          if(!resp||!resp.ok)throw new Error('Falha no Storage ('+Number(resp&&resp.status||0)+').');
+          return {publicUrl:publicUrl.toString(),path:String(ticket.path),bucket:expectedBucket,mime:info.mime,size:size};
+        });
+      }).then(resolve).catch(reject);
+    });
+  }
+
+  function sendChatMedia(file){var btn=chat.querySelector('.up-chat-send'),photoBtn=chat.querySelector('.up-chat-attach');if(btn)btn.disabled=true;if(photoBtn)photoBtn.disabled=true;uploadFileDirect(file,'/api/chat/upload-url').then(function(upload){return api('POST','/api/chat',{message:'',imageUrl:upload.publicUrl,type:upload.mime.indexOf('video/')===0?'video':'image',replyTo:chatReplyTo});}).then(function(r){if(r&&r.message)sendRealtimeEvent('chat_fast',{message:r.message});return refreshChatAfterSend(null,btn)}).catch(function(e){if(btn)btn.disabled=false;message(e.message,true)}).finally(function(){if(photoBtn)photoBtn.disabled=false});}
 
   function openProfileModal(){var file=profileModal.querySelector('.up-chat-profile-file'),preview=profileModal.querySelector('.up-chat-profile-preview'),msg=profileModal.querySelector('.up-chat-profile-message');msg.textContent='';file.value='';hydrateAvatar(preview,member);profileModal.classList.remove('hidden');}
   function closeProfileModal(){closePopupAnimated(profileModal,function(){profileModal.classList.add('hidden');profileModal.classList.remove('up-popup-closing');});}
   profileModal.querySelector('.up-chat-profile-cancel').onclick=function(){closeProfileModal();};profileModal.onclick=function(e){if(e.target===profileModal)closeProfileModal();};
   profileModal.querySelector('.up-chat-profile-file').onchange=function(){var f=this.files&&this.files[0],msg=profileModal.querySelector('.up-chat-profile-message');if(!f)return;var type=String(f.type||'').toLowerCase(),ext=String(f.name||'').split('.').pop().toLowerCase();var okType=/^image\/(png|jpe?g|webp|gif)$/i.test(type)||['png','jpg','jpeg','webp','gif'].indexOf(ext)>=0;if(!okType){msg.textContent='Use PNG, JPG, WEBP ou GIF.';return;}if(f.size>2*1024*1024){msg.textContent='A foto deve ter no máximo 2 MB.';return;}fileToDataUrlForProfile(f,type,ext).then(function(data){profileModal.querySelector('.up-chat-profile-preview').src=data;msg.textContent='';}).catch(function(e){msg.textContent=e.message;});};
-  profileModal.querySelector('.up-chat-profile-save').onclick=function(){var file=profileModal.querySelector('.up-chat-profile-file').files&&profileModal.querySelector('.up-chat-profile-file').files[0],msg=profileModal.querySelector('.up-chat-profile-message'),btn=this;if(!file){msg.textContent='Escolha uma foto.';return;}btn.disabled=true;msg.textContent='Salvando…';fileToDataUrl(file).then(function(data){return api('POST','/api/profile/avatar',{dataUrl:data});}).then(function(r){var ck='profile:'+member;if(mediaBlobCache[ck]){try{URL.revokeObjectURL(mediaBlobCache[ck]);}catch(e){}delete mediaBlobCache[ck];}GM_setValue(key+ck,r.avatarUrl);profileCache[member]=r.avatarUrl;hydrateAvatar(profileModal.querySelector('.up-chat-profile-preview'),member);updateBubbleAvatar(false);closeProfileModal();loadChat();}).catch(function(e){msg.textContent=e.message;}).finally(function(){btn.disabled=false;});};
+  profileModal.querySelector('.up-chat-profile-save').onclick=function(){var file=profileModal.querySelector('.up-chat-profile-file').files&&profileModal.querySelector('.up-chat-profile-file').files[0],msg=profileModal.querySelector('.up-chat-profile-message'),btn=this;if(!file){msg.textContent='Escolha uma foto.';return;}btn.disabled=true;msg.textContent='Salvando…';uploadFileDirect(file,'/api/profile/avatar-upload-url').then(function(upload){return api('POST','/api/profile/avatar',{avatarUrl:upload.publicUrl});}).then(function(r){var ck='profile:'+member;if(mediaBlobCache[ck]){try{URL.revokeObjectURL(mediaBlobCache[ck]);}catch(e){}delete mediaBlobCache[ck];}GM_setValue(key+ck,r.avatarUrl);profileCache[member]=r.avatarUrl;hydrateAvatar(profileModal.querySelector('.up-chat-profile-preview'),member);updateBubbleAvatar(false);closeProfileModal();loadChat();}).catch(function(e){msg.textContent=e.message;}).finally(function(){btn.disabled=false;});};
 
   var healthPingPending={},healthPingResults={},healthRefreshTimer=null,healthLoading=false;
   function canViewHealth(){return ['Ricardo','Lohan','Guilherme'].indexOf(member)>=0;}
