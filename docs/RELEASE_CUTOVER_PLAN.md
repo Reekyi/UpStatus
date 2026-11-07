@@ -103,3 +103,18 @@ The Normal runtime candidate at `73c19d5a890d39ee9524c1fb5042b7f6ffb7f53b` compl
 Team Lite #76 head `4178e54654b1bd2c06516fba9edea17d779b9ecd` also passed Candidate Checks [42119919319](https://github.com/Reekyi/UpStatus/actions/runs/42119919319) with 103/103 authenticated checks. These are isolated-candidate results, not manual or production acceptance.
 
 **Still blocked:** no production migration or Edge deployment; no Retry-After header on HTTP 429; distributed rate limiting is not yet integrated into the deployed product endpoints; public Realtime full-row broadcasts remain; physical network/device and live cross-client tests remain pending. Keep the transport default-off.
+
+## AUTH-03 — first-access enrollment
+
+The candidate migration `20261107010000_setup_invites.sql` adds hashed, expiring one-time enrollment metadata to `public.users` and a SECURITY INVOKER `consume_upstatus_setup_invite` RPC whose EXECUTE privilege is limited to `service_role`. The Normal and Team Lite candidate templates require an admin-issued token for `POST /api/setup`; the public account-state endpoint no longer reveals setup state. The client never persists the raw token.
+
+The migration was applied only to isolated project `bfpjtfqlnypisxljoxkb` under ledger entry `20261107020949_upstatus_setup_invites_isolated_test`. Its catalog/security assertion passed. Exact-head Normal and Team Lite integration workflows are still pending, so this is not release approval.
+
+Before official TEST or production:
+1. Complete the isolated concurrent/expired-token integration test on both exact candidate heads.
+2. Review the admin invite issuance route and provide a controlled admin UI or documented internal operator procedure.
+3. Validate the production migration and rollback in the approved official TEST environment.
+4. Deploy the backend and migration before distributing the client that submits setup tokens.
+5. Keep the separate distributed auth rate limiter, password-policy decision, human review, and physical first-login acceptance as independent gates.
+
+No production migration, Edge deployment, secret change, or release is authorized by this plan.
