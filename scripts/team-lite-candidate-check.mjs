@@ -82,7 +82,7 @@ assert.ok(backend.includes("const readAt=Math.max(previousReadAt,latestReadAt);"
 assert.ok(backend.includes("async function readRoute(req:Request,name:string,guestJoinedAt=0)") && backend.includes("Date.parse(String(x.created_at))>=guestJoinedAt"), "guest read receipts must respect the current session start");
 assert.ok(backend.includes('return a?.role==="implementation_admin"'), "admin access must use stored role");
 assert.ok(!backend.includes('const isAdmin=name==="Ricardo"||await admin(name);'), "backend must not grant admin by name alone");
-assert.ok(backend.includes('const role=a.role||"implementation_user";'), "initial account setup must not grant admin privileges by matching a name");
+assert.ok(backend.includes('p_setup_token_hash:tokenHash(setupToken)') && backend.includes('return createSession(name,{name,role:enrolled.role||"implementation_user"});'), "initial account setup must consume a one-time invite and preserve only a non-admin default");
 assert.ok(!backend.includes('const role=a.role||(["Ricardo","Lohan","Guilherme"].includes(name)? "implementation_admin"'), "legacy name-based admin setup must not return");
 assert.ok(backend.includes('if(!(await admin(name)))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);'), "health endpoint must authorize by stored admin role");
 assert.ok(!backend.includes('if(!["Ricardo","Lohan","Guilherme"].includes(name))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);'), "health endpoint must not authorize by name alone");
