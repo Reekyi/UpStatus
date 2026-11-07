@@ -64,8 +64,15 @@ assert(testFn.includes("createSignedUploadUrl(path,{upsert:true})"),"Storage sig
 assert(testFn.includes('const max=20*1024*1024;'),"TEST signed upload limit must be 20 MiB");
 assert(testFn.includes('if(!uploadToken||!signedUrl||signedPath!==path)'),"TEST backend must verify signed upload response fields");
 assert(testFn.includes('if(p.dataUrl){'),"legacy avatar dataUrl compatibility missing from TEST backend");
-assert(testUser.includes("function uploadFileDirect(file,route)"),"client signed upload helper missing");
-assert(testUser.includes("headers:{'Content-Type':info.mime,'x-upsert':'true','authorization':'Bearer '+ticket.token}"),"client signed upload authorization headers missing");
+assert(prodUser.includes("function uploadFileDirect(file,route)")&&testUser.includes("function uploadFileDirect(file,route)"),"client signed upload helper missing from both artifacts");
+for(const [label,user] of [["production",prodUser],["TEST",testUser]]){
+  const signedUploadStart=user.indexOf("function uploadFileDirect(file,route)");
+  const signedUploadEnd=user.indexOf("function sendChatMedia(",signedUploadStart);
+  const signedUploadHelper=signedUploadStart>=0&&signedUploadEnd>signedUploadStart?user.slice(signedUploadStart,signedUploadEnd):"";
+  assert(signedUploadHelper.includes("url.searchParams.set('token',String(ticket.token))"),label+" signed upload must use the scoped Storage upload token");
+  assert(signedUploadHelper.includes("url.origin!==base.origin"),label+" signed upload URL must be pinned to the configured Supabase project");
+  assert(!signedUploadHelper.includes("authorization"),label+" signed upload token must not be sent as a bearer Authorization header");
+}
 assert(testUser.includes("uploadFileDirect(file,'/api/chat/upload-url')"),"client chat upload endpoint mismatch");
 assert(testUser.includes("uploadFileDirect(file,'/api/profile/avatar-upload-url')"),"client avatar upload endpoint mismatch");
 
