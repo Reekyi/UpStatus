@@ -14,6 +14,11 @@ const config = product === "team-lite"
 assert.ok(config, "usage: node scripts/auth-enrollment.test.mjs normal|team-lite");
 
 const server = fs.readFileSync(path.join(ROOT, config.server), "utf8");
+const loginMatch = server.match(/async function login\\(req:Request,setup:boolean\\)\\{([\\s\\S]*?)\\n\\}/);
+assert.ok(loginMatch, "login handler must remain testable for password compatibility");
+const loginBody = loginMatch[1];
+assert.match(loginBody, /const minPasswordLength=4;/, "team-lite password policy changed unexpectedly");
+assert.match(loginBody, /password\\.length<minPasswordLength/, "login and setup must use the explicit minimum-length policy");
 const client = fs.readFileSync(path.join(ROOT, config.client), "utf8");
 const migration = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261107010000_setup_invites.sql"), "utf8");
 const testMigration = fs.readFileSync(path.join(ROOT, "supabase/test-migrations/20261107010000_setup_invites_test.sql"), "utf8");
