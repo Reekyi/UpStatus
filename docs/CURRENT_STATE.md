@@ -1896,3 +1896,10 @@ All seven PRs remain open and Draft, with no submitted human reviews. CI PASS is
 - Full-product TEST remains absent. AUTH-03 production cutover, distributed auth throttling, production migration/rollback, `supabase_admin` default ACL remediation, and real Storage integration remain open.
 - Issue #78 remains OPEN with 0/8 physical criteria approved. The latest Team Lite CI includes offline/online recovery tests, but it does not replace real Tampermonkey/network-loss acceptance or physical microphone/display capture.
 - No production SQL write, migration, Edge Function deployment, secret/role/grant/policy/ACL/flag change, PR merge, release, fixture cleanup, or userscript publication occurred. Production access was read-only. The lab was queried read-only and is currently reserved by the queued #74 smoke workflow.
+
+## CI follow-up — 2026-11-07
+
+- PR #74 exact HEAD `27e8fdc4986f583a37fb6b0c5d2cf8df1bac3e02`: Validate [42389921918](https://github.com/Reekyi/UpStatus/actions/runs/42389921918) completed SUCCESS. Logs confirm TEST target guard, migration-layout guard (including the new empty-search-path migration contract), enrollment static checks, chat/updater regressions, and `Validation OK: PROD 3.4.7 / TEST 3.4.7`.
+- PR #74 Signaling Smoke [42389921913](https://github.com/Reekyi/UpStatus/actions/runs/42389921913) remains PENDING with no jobs at the latest query. It shares the isolated fixture project, so the manual test migration and trigger probe remain deferred until that workflow finishes and a fresh SELECT confirms cleanup.
+- PR #80 exact HEAD `145581a7fe126fe502355b15d02d594a2ce9887d`: Validate [42390030876](https://github.com/Reekyi/UpStatus/actions/runs/42390030876) failed again at the inherited develop-base contract `client signed upload helper missing`. PR #80 remains documentation-only; no validator was weakened.
+- PR #82 remains at `e57177325be8294533d5c2beb332124bff063a4e`; Validate [42387782891](https://github.com/Reekyi/UpStatus/actions/runs/42387782891) remains failed at the inherited master-base contract `production updateURL mismatch`. The #85 correction remains candidate-only.
