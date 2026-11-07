@@ -15,7 +15,8 @@ begin
   if v_function is null then raise exception 'consume_upstatus_setup_invite is missing'; end if;
   if v_security_definer then raise exception 'setup invite RPC must remain SECURITY INVOKER'; end if;
   if coalesce(v_config,'') not ilike '%search_path=%' then raise exception 'setup invite RPC must pin an empty search_path'; end if;
-  if position($needle$nullif(btrim(u.role, E' \t\n\r'), '')$needle$ in pg_catalog.pg_get_functiondef(v_function)) = 0 then
+  if position($needle$nullif(btrim(u.role, E' \t\n\r'), '')$needle$ in pg_catalog.pg_get_functiondef(v_function)) = 0
+     and position($needle$case when u.role is null or btrim(u.role, E' \t\n\r') = '' then 'implementation_user' else u.role end$needle$ in pg_catalog.pg_get_functiondef(v_function)) = 0 then
     raise exception 'blank role normalization is missing';
   end if;
   if not has_function_privilege('service_role', v_function, 'EXECUTE') then raise exception 'service_role must execute setup invite RPC'; end if;
