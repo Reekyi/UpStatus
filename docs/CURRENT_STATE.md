@@ -1795,3 +1795,20 @@ Production catalog/data checks:
 6. Obtain human reviews and explicit release authorization. CI success is not approval to merge, deploy or publish.
 
 No production SQL write, migration, Edge Function deployment, secret/role/feature-flag change, fixture cleanup, destructive action, merge, release or userscript publication occurred. Production queries in this checkpoint were SELECT/catalog reads only.
+
+
+## Engineering checkpoint — 2026-11-07 12:22 BRT (server-side signed-upload regression)
+
+This is the latest engineering checkpoint and supersedes the 12:16 snapshot for PR #85.
+
+- PR #85 master candidate HEAD: `1755452` (full SHA `17554523ef51bafd503e74b3f1271d55f43a6eda`).
+- Exact-head Validate: [42386047749](https://github.com/Reekyi/UpStatus/actions/runs/42386047749) SUCCESS.
+- The Validate log reports build PROD/TEST 3.4.7, signed-upload client regression PASS, signed-upload server VM regression PASS, chat regression PASS, and `Validation OK: PROD 3.4.7 / TEST 3.4.7`.
+- The new server VM test extracts the candidate `signedUploadRoute` and `profileRoute` into an isolated Node VM with mocked Storage/database APIs. It checks chat/avatar bucket selection, MIME and 20 MB limits, integer sizes, HTTPS/project origin, signed path and token consistency, public URL origin/path, URL fragments, foreign origins, invalid profile buckets/paths/query strings, and legacy data-URL profile compatibility. It performs no network or database writes.
+- The server test's initial mock incorrectly represented Supabase Storage's signed URL as a root-relative `/object/...` path; the mock was corrected to the absolute `https://<project>/storage/v1/object/...` shape. The path mismatch tests now distinguish returned-path mismatch from signed-URL path mismatch. The final exact-head CI passed.
+- PR #85 remains Open/Draft with zero human reviews. No deploy, merge, release or userscript publication.
+- No real Storage integration test is possible in the current lab: it has no `chat-images`/`profile-images` buckets. Production buckets were inspected only; no object was uploaded.
+- Production RT-01 broadcasts and ACL/default-ACL issues remain unchanged. The client-side `chat_fast` payload reduction does not close the deployed full-row public database trigger.
+- The separate QA branch #82 and its `RELEASE_READINESS.md` were not modified. #82 still fails its inherited `production updateURL mismatch` until the master candidate is reviewed/integrated; #80 still fails its inherited develop `client signed upload helper missing` gate.
+
+No production SQL write, migration, Edge Function deployment, secret/role/feature-flag change, fixture cleanup, destructive action, merge, release or userscript publication occurred. Production access remained SELECT/catalog-only.
