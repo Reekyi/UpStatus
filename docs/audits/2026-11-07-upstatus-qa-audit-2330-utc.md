@@ -267,3 +267,25 @@ Não reportar percentual de conclusão. CI verde, inspeção de código, runtime
 - [Supabase Advisor: SECURITY DEFINER callable by anon](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable)
 - [Supabase Advisor: SECURITY DEFINER callable by authenticated](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
 - [Supabase Advisor: RLS enabled without policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
+
+
+## Addendum — pós-run Team Lite, 2026-11-07 20:38 BRT
+
+A consulta de status após o snapshot inicial confirmou que o run #76 [42424260073](https://github.com/Reekyi/UpStatus/actions/runs/42424260073), job 128562806585, terminou **SUCCESS** no HEAD exato 544866b17cc797209269036ffb76e4a7edb25cf9.
+
+Resultados finais do run:
+- 16/16 verificações não autenticadas;
+- 103/103 verificações autenticadas;
+- WebRTC de chamada, voz e tela com faixas remotas;
+- mesh autenticado de três participantes;
+- rate limit 90 aceitas + 1 HTTP 429 com Retry-After 60s;
+- setup invite atômico, role preservation e replay/expiração;
+- recuperação durável de voice-room, logout gate e screen-share;
+- candidate checks concluídos com versão 3.4.31, manifesto consistente e sintaxe dos userscripts/portais aprovada;
+- cleanup do próprio workflow confirmado.
+
+Após a conclusão, uma consulta independente SELECT-only retornou zero em todas as categorias verificadas no laboratório: users, sessions, messages, rooms, memberships, bindings, events, rate_limits, call_attempts, voice_attempts, chat_reads e realtime.messages. As quatro linhas de users vistas durante o run foram removidas pelo cleanup do workflow; a auditoria não fez limpeza manual.
+
+Esta atualização **não** corrige nem invalida o achado de autorização em POST /api/chat/clear no Team Lite. O código do HEAD 544866b continua exigindo apenas o nome Ricardo nessa rota; manter o blocker até existir correção e regressão explícita.
+
+O laboratório segue sem partições de realtime.messages. O cleanup zero-row não comprova entrega de broadcast Realtime.
