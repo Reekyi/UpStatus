@@ -222,3 +222,15 @@ The existing `docs/RELEASE_READINESS.md` was read first and left untouched in th
 ## Safety record
 
 No production or isolated SQL write, migration, Edge Function deployment, secret/flag/role change, userscript publication, PR merge, release, fixture mutation, or fixture cleanup was performed by QA. All SQL issued by QA was SELECT-only. No workflow was started or rerun. Existing workflows were inspected only. The only repository write in this audit is this new documentation addendum on the dedicated QA branch; the existing readiness file and all engineering branches were preserved. No completion percentage is reported.
+
+
+## Post-commit workflow recheck — 2026-11-07 03:38 UTC
+
+After this addendum was committed as `b9e0ec6478ba51a73ad11696adb07475b745a4ca` (file blob `3c0bfa1098166d8a303d2030f9d8ec3f6c853377`), a fresh read-only workflow check showed:
+
+- Normal exact-head Signaling Smoke [42332394510](https://github.com/Reekyi/UpStatus/actions/runs/42332394510) is now **IN PROGRESS** on `7a8c407bbbcf4c21624981708576930f284caf2d`. Job `128289469874`: syntax/static harness checks and unauthenticated endpoint checks passed; authenticated isolated integration/browser step is in progress; distributed rate-limit, atomic read-receipt, and setup-invite runtime steps remain pending.
+- Team Lite exact-head Candidate Checks [42332429169](https://github.com/Reekyi/UpStatus/actions/runs/42332429169) remains **PENDING** with no jobs; exact head remains `c87e4daa9e966980d08a03f3ea5c014ae2f0fca1`.
+- QA documentation Validate [42334907192](https://github.com/Reekyi/UpStatus/actions/runs/42334907192) is **IN PROGRESS** on the new documentation commit. No result is claimed yet.
+- PR #82 remains open/Draft, now 80 commits ahead / 0 behind master. The main `docs/RELEASE_READINESS.md` blob remains unchanged at `1ae48aab678a06b4ff75d061d2355a6449cbe1e0`.
+
+No test was launched or rerun by QA; these are existing engineering workflows observed after the documentation commit.
