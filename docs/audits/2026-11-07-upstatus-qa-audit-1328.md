@@ -66,7 +66,7 @@ Inspeção do conteúdo atual:
 - Usa Supabase CLI `latest`.
 - Executa `supabase functions deploy upstatus-test --project-ref "$SUPABASE_PROJECT_ID"`.
 
-O valor do secret não foi lido; portanto, não afirmo que o destino atual seja produção. O risco é que o workflow não impõe uma allowlist de projeto e reutiliza a credencial/variável de produção. **Não executar esse workflow enquanto o guard não estiver integrado à branch ativa.**
+O valor do secret não foi lido; portanto, não afirmo que o destino atual seja produção. O risco é que o workflow não impõe uma allowlist de projeto e reutiliza a variável compartilhada `SUPABASE_PROJECT_ID`; o valor do secret/token e o destino efetivo não foram lidos. **Não executar esse workflow enquanto o guard não estiver integrado à branch ativa.**
 
 ### Versão corrigida na #84
 
