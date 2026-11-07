@@ -15,6 +15,8 @@ on:
       - "scripts/assert-isolated-supabase.mjs"
       - "scripts/isolation-guard.test.mjs"
       - "scripts/migration-layout.test.mjs"
+      - "scripts/auth-enrollment.test.mjs"
+      - "scripts/test-auth-enrollment.mjs"
       - "scripts/test-signal-rate-limit.mjs"
       - "supabase/migrations/**"
       - "supabase/test-migrations/**"
@@ -55,6 +57,11 @@ jobs:
           node scripts/isolation-guard.test.mjs
       - name: Test authenticated signaling adapter
         run: node scripts/signaling-transport.test.mjs
+      - name: Test first-access enrollment contract
+        run: |
+          node --check scripts/auth-enrollment.test.mjs
+          node scripts/auth-enrollment.test.mjs team-lite
+          node --check scripts/test-auth-enrollment.mjs
       - name: Test durable voice-room attempt recovery
         run: |
           node --check scripts/team-lite-voice-room-attempt-recovery.test.mjs
@@ -92,6 +99,12 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
           UPSTATUS_SIGNAL_ALLOW_MUTATION: "1"
         run: node scripts/test-chat-read-receipts.mjs
+      - name: Verify one-time setup invite atomic consumption
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_AUTH_ALLOW_MUTATION: "1"
+        run: node scripts/test-auth-enrollment.mjs
       - name: Verify test migrations stay outside Supabase CLI discovery
         run: node scripts/migration-layout.test.mjs
       - name: Check candidate scripts and version metadata
