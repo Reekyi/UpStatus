@@ -174,7 +174,7 @@ function makeInviteHarness(targetAvailable=true){
     randomBytes:n=>({toString:encoding=>{assert.equal(encoding,"hex");return "ab".repeat(n);}}),
     tokenHash:raw=>"sha256:"+raw
   };
-  const handlers=vm.runInNewContext(adminFunction+"\n"+issueInviteFunction+"\\n({admin,issueSetupInvite})",sandbox);
+  const handlers=vm.runInNewContext([adminFunction,issueInviteFunction,"({admin,issueSetupInvite})"].join("\n"),sandbox);
   return {handlers,state};
 }
 const authHarness=makeInviteHarness();
