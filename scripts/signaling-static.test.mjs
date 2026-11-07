@@ -1131,3 +1131,11 @@ const testRealtimeBuild = readFileSync("scripts/build.mjs", "utf8");
 assert.ok(testRealtimeTemplate.includes("var UP_REALTIME_URL='__UPSTATUS_REALTIME_URL__';") &&
   testRealtimeBuild.includes('"__UPSTATUS_REALTIME_URL__":"https://"+(test?TEST_PROJECT:PROJECT)+".supabase.co"'),
   "TEST Realtime URL must be rendered from the same isolated project target as the TEST API");
+
+const isolatedBuildTemplate = readFileSync("src/userscript/upstatus.user.template.js", "utf8");
+const isolatedBuildScript = readFileSync("scripts/build.mjs", "utf8");
+assert.ok(!isolatedBuildTemplate.includes("dlfvkawaiqduhlazsszm") &&
+  isolatedBuildTemplate.includes("var UP_REALTIME_URL='__UPSTATUS_REALTIME_URL__';") &&
+  isolatedBuildTemplate.includes("var UPSTATUS_TEST_CHANNEL=__UPSTATUS_TEST_CHANNEL__;") &&
+  isolatedBuildScript.includes('"__UPSTATUS_RELEASE_MANIFEST_URL__":test?"":"https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"'),
+  "Normal TEST template must not hardcode production API, Realtime, Storage, or updater origins");
