@@ -107,4 +107,120 @@ if(product==="normal"){
   assert.deepEqual(Array.from(store.keys()).sort(),["other_password","upstatus_team_lite_token"],"Team Lite cleanup must delete only namespaced legacy password keys");
 }
 
+
+function extractBlock(source,marker){
+  const start=source.indexOf(marker);
+  assert.ok(start>=0,"missing function: "+marker);
+  const brace=source.indexOf("{",start);
+  let depth=0;
+  for(let i=brace;i<source.length;i++){
+    if(source[i]==="{")depth++;
+    else if(source[i]==="}"&&--depth===0)return source.slice(start,i+1);
+  }
+  throw new Error("Could not extract "+marker);
+}
+const adminFunction=extractBlock(server,"async function admin(name:string|null){")
+  .replace("async function admin(name:string|null){","async function admin(name){");
+const issueInviteFunction=extractBlock(server,"async function issueSetupInvite(req:Request,adminName:string){")
+  .replace("async function issueSetupInvite(req:Request,adminName:string){","async function issueSetupInvite(req,adminName){")
+  .replace("const p:any=await readBody(req);","const p=await readBody(req);");
+const contextAt=server.indexOf("const ctx=await contextName(req);");
+const authGuardAt=server.indexOf('if(!ctx)return response({error:"Faça login para continuar."},401);',contextAt);
+const inviteRouteAt=server.indexOf('if(path==="/api/setup-invite"&&req.method==="POST")',contextAt);
+assert.ok(contextAt>=0&&authGuardAt>contextAt&&inviteRouteAt>authGuardAt,"setup-invite route must be behind the active-session guard");
+assert.ok(server.includes('issueSetupInvite(req,name||"")'),"setup-invite route must use the name derived from the authenticated context");
+assert.doesNotMatch(issueInviteFunction,/console\\.(log|error)\\(/,"raw setup tokens must never be logged by the invite handler");
+
+const roleMap=new Map([
+  ["Admin","implementation_admin"],
+  ["User","implementation_user"],
+  ["PaddedAdmin"," implementation_admin "]
+]);
+function makeInviteHarness(targetAvailable=true){
+  const state={targetAvailable,updates:[],filter:null,orFilter:null,selected:null,readBodyCalls:0};
+  const db={
+    from(table){
+      assert.equal(table,"users","invite issuance may update only the users table");
+      return {
+        update(payload){
+          state.updates.push(payload);
+          return {
+            eq(column,value){
+              state.filter={column,value};
+              return {
+                or(filter){
+                  state.orFilter=filter;
+                  return {
+                    select(columns){
+                      state.selected=columns;
+                      return {
+                        maybeSingle:async()=>({data:state.targetAvailable?{name:state.filter.value}:null,error:null})
+                      };
+                    }
+                  };
+                }
+              };
+            }
+          };
+        }
+      };
+    }
+  };
+  const sandbox={
+    account:async name=>roleMap.has(name)?{role:roleMap.get(name)}:null,
+    db,
+    readBody:async req=>{state.readBodyCalls++;return req.body||{};},
+    response:(body,status=200)=>({body,status}),
+    randomBytes:n=>({toString:encoding=>{assert.equal(encoding,"hex");return "ab".repeat(n);}}),
+    tokenHash:raw=>"sha256:"+raw
+  };
+  const handlers=vm.runInNewContext(adminFunction+"\\n"+issueInviteFunction+"\\n({admin,issueSetupInvite})",sandbox);
+  return {handlers,state};
+}
+const authHarness=makeInviteHarness();
+assert.equal(await authHarness.handlers.admin(null),false,"missing caller cannot be an admin");
+assert.equal(await authHarness.handlers.admin("User"),false,"stored implementation_user cannot issue invites");
+assert.equal(await authHarness.handlers.admin("PaddedAdmin"),false,"whitespace-padded admin text cannot become an admin");
+assert.equal(await authHarness.handlers.admin("Admin"),true,"only the exact stored implementation_admin role is accepted");
+
+const deniedHarness=makeInviteHarness();
+const denied=await deniedHarness.handlers.issueSetupInvite({body:{name:"Target"}}, "User");
+assert.equal(denied.status,403,"non-admin invite issuance must be denied");
+assert.equal(deniedHarness.state.readBodyCalls,0,"unauthorized requests must be rejected before reading target data");
+assert.equal(deniedHarness.state.updates.length,0,"unauthorized requests must not touch the database");
+assert.equal(denied.body.setupToken,undefined,"denial must not disclose a setup token");
+
+const invalidHarness=makeInviteHarness();
+const invalid=await invalidHarness.handlers.issueSetupInvite({body:{name:"   "}}, "Admin");
+assert.equal(invalid.status,400,"blank target names must be rejected");
+assert.equal(invalidHarness.state.updates.length,0,"invalid targets must not update users");
+const oversized=await invalidHarness.handlers.issueSetupInvite({body:{name:"x".repeat(121)}}, "Admin");
+assert.equal(oversized.status,400,"target names over 120 characters must be rejected");
+
+const successHarness=makeInviteHarness(true);
+const issued=await successHarness.handlers.issueSetupInvite({body:{name:"  Target User  "}}, "Admin");
+assert.equal(issued.status,200,"authorized invite issuance must succeed for an uninitialized account");
+assert.equal(issued.body.name,"Target User","target name must be normalized");
+assert.match(issued.body.setupToken,/^[0-9a-f]{64}$/,"the one-time token must contain 256 random bits");
+assert.equal(successHarness.state.updates.length,1,"authorized issuance must perform one conditional update");
+assert.equal(successHarness.state.filter.column,"name");
+assert.equal(successHarness.state.filter.value,"Target User");
+assert.equal(successHarness.state.orFilter,'password_hash.is.null,password_hash.eq.""',"only NULL/legacy-empty password rows may receive an invite");
+assert.equal(successHarness.state.selected,"name");
+const persisted=successHarness.state.updates[0];
+assert.deepEqual(Object.keys(persisted).sort(),["setup_token_hash","setup_token_expires_at","setup_token_issued_by","setup_token_issued_at"].sort());
+assert.equal(persisted.setup_token_hash,"sha256:"+issued.body.setupToken,"only the token hash may be persisted");
+assert.equal(persisted.setup_token_issued_by,"Admin","the stored issuer must be the authenticated admin");
+assert.equal(JSON.stringify(persisted).includes(issued.body.setupToken),false,"the raw token must never be persisted");
+const lifetime=Date.parse(issued.body.expiresAt)-Date.parse(persisted.setup_token_issued_at);
+assert.ok(lifetime>=899000&&lifetime<=901000,"setup invite must expire after 15 minutes");
+
+const unavailableHarness=makeInviteHarness(false);
+const unavailable=await unavailableHarness.handlers.issueSetupInvite({body:{name:"AlreadyConfigured"}}, "Admin");
+assert.equal(unavailable.status,409,"configured or missing accounts must return a generic conflict");
+assert.equal(unavailable.body.setupToken,undefined,"unavailable accounts must not receive a token");
+assert.equal(unavailableHarness.state.updates.length,1,"the database must receive one conditional eligibility update");
+
+console.log(product+" setup-invite route authorization and token-handling checks passed.");
+
 console.log(product + " one-time setup enrollment static checks passed.");
