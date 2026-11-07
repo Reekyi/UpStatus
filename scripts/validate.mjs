@@ -11,12 +11,21 @@ const release=JSON.parse(fs.readFileSync(path.join(ROOT,"release.json"),"utf8"))
 const baseVersion=String(release.version).trim();
 const preRelease=String(release.preRelease||"").trim();
 const testVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
+const buildManifest=JSON.parse(fs.readFileSync(path.join(ROOT,"dist/build-manifest.json"),"utf8"));
+const testProjectId=String(buildManifest.testProjectId||"").trim();
+const configuredTestProject=String(process.env.UPSTATUS_TEST_PROJECT_ID||"").trim();
 const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.ts"),"utf8");
 const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
+assert(/^[a-z0-9]{20}$/.test(testProjectId),"TEST project reference must be a 20-character lowercase Supabase ref");
+assert(testProjectId!=="dlfvkawaiqduhlazsszm","TEST artifact must never target production Supabase");
+assert(testProjectId!=="bfpjtfqlnypisxljoxkb","full TEST artifact must not target the isolated signaling/auth project");
+assert(buildManifest.testTargetConfigured===Boolean(configuredTestProject),"build manifest TEST target configuration mismatch");
+assert(testProjectId===(configuredTestProject||"00000000000000000000"),"build manifest TEST project reference mismatch");
+const expectedTestUrl="https://"+testProjectId+".supabase.co/functions/v1/upstatus-test/upstatus.user.js";
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
 function checkSyntax(text,label){new vm.Script(text,{filename:label});}
 assert(headerValue(prodUser,"version")===baseVersion,"production userscript version mismatch");
@@ -24,7 +33,8 @@ assert(headerValue(testUser,"version")===testVersion,"test userscript version mi
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
 assert(headerValue(testUser,"namespace")==="upseller-test","test namespace mismatch");
 assert(headerValue(prodUser,"updateURL").includes("/upstatus/upstatus.user.js"),"production updateURL mismatch");
-assert(headerValue(testUser,"updateURL").includes("/upstatus-test/upstatus.user.js"),"test updateURL mismatch");
+assert(headerValue(testUser,"updateURL")===expectedTestUrl,"test updateURL must use the configured non-production TEST project");
+assert(headerValue(testUser,"downloadURL")===expectedTestUrl,"test downloadURL must use the configured non-production TEST project");
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
 assert(prodUser.includes("var key='upstatus_';"),"production storage prefix mismatch");
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
