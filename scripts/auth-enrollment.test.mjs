@@ -26,7 +26,7 @@ assert.match(server, /\.is\("password_hash",null\)/, "admin may invite only an u
 assert.match(server, /consume_upstatus_setup_invite/, "first setup must consume the invite through the atomic RPC");
 assert.match(server, /p_setup_token_hash:tokenHash\(setupToken\)/, "first setup must send only the token hash to the database");
 assert.match(server, /if\(path==="\/api\/setup-invite"&&req\.method==="POST"\)/, "admin invite route missing");
-assert.match(server, /if\(path==="\/api\/account"&&req\.method==="GET"\)\{\s*return response\(\{needsSetup:false\}\);/s, "public account endpoint must not disclose setup state");
+assert.match(server, /if\(path==="\\/api\\/account"&&req\.method==="GET"\)return response\(\{needsSetup:false\}\);/, "public account endpoint must not disclose setup state");
 assert.doesNotMatch(server, /if\(setup\)\{\s*if\(a\.password_hash\)/, "first setup must not rely on first-caller claimability");
 assert.match(server, /Código de primeiro acesso inválido ou expirado/, "setup failures must use a generic response");
 
