@@ -17,6 +17,12 @@ const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.t
 const ycaroPage=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
 
 const PROJECT="dlfvkawaiqduhlazsszm";
+const ISOLATED_SIGNALING_PROJECT="bfpjtfqlnypisxljoxkb";
+const configuredTestProject=String(process.env.UPSTATUS_TEST_PROJECT_ID||"").trim();
+const TEST_PROJECT=configuredTestProject||"00000000000000000000";
+if(!/^[a-z0-9]{20}$/.test(TEST_PROJECT))throw new Error("UPSTATUS_TEST_PROJECT_ID must be a 20-character lowercase Supabase project reference.");
+if(TEST_PROJECT===PROJECT)throw new Error("Refusing to build TEST artifacts against the production Supabase project.");
+if(TEST_PROJECT===ISOLATED_SIGNALING_PROJECT)throw new Error("Refusing to build full TEST artifacts against the isolated signaling/auth project.");
 const PROD_FUNCTION="upstatus";
 const TEST_FUNCTION="upstatus-test";
 const PROD_TOPIC="upstatus-screen-share-live-3-1-1-beta10";
@@ -46,7 +52,7 @@ function renderUser({version,test}){
   const topic=test?TEST_TOPIC:PROD_TOPIC;
   const ringtoneChannel=test?TEST_RINGTONE_CHANNEL:PROD_RINGTONE_CHANNEL;
   const ringtoneStorage=test?TEST_RINGTONE_STORAGE:PROD_RINGTONE_STORAGE;
-  const cloud=test?"https://"+PROJECT+".supabase.co/functions/v1/"+fn:"https://"+PROJECT+".supabase.co/functions/v1/upstatus-screen-share-3-1-1-beta10";
+  const cloud=test?"https://"+TEST_PROJECT+".supabase.co/functions/v1/"+fn:"https://"+PROJECT+".supabase.co/functions/v1/upstatus-screen-share-3-1-1-beta10";
   const updateUrl=test?cloud+"/upstatus.user.js":String(release.scriptUrl||("https://"+PROJECT+".supabase.co/functions/v1/upstatus/upstatus.user.js")).trim();
   if(!updateUrl)throw new Error("Could not determine the production userscript update URL.");
   if(!test&&!/^https:\/\/[^/]+\/functions\/v1\/upstatus\/upstatus\.user\.js$/.test(updateUrl))throw new Error("release.json: scriptUrl must point to the production /upstatus/upstatus.user.js endpoint.");
@@ -97,10 +103,11 @@ fs.writeFileSync(path.join(dist,"upstatus.user.js"),prodUser,"utf8");
 fs.writeFileSync(path.join(dist,"upstatus-test.user.js"),testUser,"utf8");
 fs.writeFileSync(path.join(dist,"build-manifest.json"),JSON.stringify({
   baseVersion,testVersion:fullVersion,channel:preRelease?"pre-release":"stable",
-  productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION
+  productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION,
+  testProjectId:TEST_PROJECT,testTargetConfigured:Boolean(configuredTestProject)
 },null,2)+"\n","utf8");
 if(syncRootArtifact){
   fs.writeFileSync(rootArtifactPath,prodUser,"utf8");
   console.log("Synchronized tracked UpStatus.user.js artifact.");
 }
-console.log("Built UpStatus "+baseVersion+" / TEST "+fullVersion);
+console.log("Built UpStatus "+baseVersion+" / TEST "+fullVersion+" / TEST target "+(configuredTestProject?TEST_PROJECT:"inert sentinel (not deployable)"));
