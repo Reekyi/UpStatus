@@ -36,6 +36,7 @@ const cases = [
   { name: "__auth_test_empty_password_" + suffix, passwordHash: "", role: "", token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
   { name: "__auth_test_whitespace_role_" + suffix, passwordHash: null, role: " \t\n ", token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
   { name: "__auth_test_admin_role_" + suffix, passwordHash: null, role: "implementation_admin", token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
+  { name: "__auth_test_padded_admin_role_" + suffix, passwordHash: null, role: " implementation_admin ", token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
   { name: "__auth_test_configured_" + suffix, passwordHash: "already-configured", role: "implementation_user", token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
 ];
 const newPasswordHash = "isolated-test-only:" + randomBytes(32).toString("hex");
@@ -91,8 +92,8 @@ try {
     }))),
   });
 
-  const [concurrent, expired, emptyPassword, whitespaceRole, adminRole, configured] = cases;
-  for (const item of [concurrent, expired, emptyPassword, whitespaceRole, adminRole]) {
+  const [concurrent, expired, emptyPassword, whitespaceRole, adminRole, paddedAdminRole, configured] = cases;
+  for (const item of [concurrent, expired, emptyPassword, whitespaceRole, adminRole, paddedAdminRole]) {
     const issued = await issueInvite(item);
     assert.equal(issued.length, 1, "NULL and empty-string password hashes must both be eligible for invite issuance");
     assert.equal(issued[0].name, item.name);
@@ -155,9 +156,16 @@ try {
 
   const adminResult = await consume(adminRole);
   assert.equal(Array.isArray(adminResult) && adminResult.length, 1, "explicitly provisioned admin role must remain valid");
-  assert.equal(adminResult[0].role, "implementation_admin", "non-empty explicit roles must be preserved");
+  assert.equal(adminResult[0].role, "implementation_admin", "valid explicit admin roles must be preserved");
 
-  console.log("Isolated setup enrollment passed: NULL/empty eligibility, configured-account denial, malformed/wrong/expired/replayed tokens, one-winner concurrency, NULL/empty/whitespace role fallback, explicit-role preservation, and cleanup.");
+  const paddedAdminResult = await consume(paddedAdminRole);
+  assert.equal(Array.isArray(paddedAdminResult) && paddedAdminResult.length, 1, "padded-role account must consume a valid invite");
+  assert.equal(paddedAdminResult[0].role, " implementation_admin ", "non-empty role strings must be preserved verbatim");
+  assert.notEqual(paddedAdminResult[0].role, "implementation_admin", "whitespace-padded admin text must not become an admin role");
+  const paddedAdminRow = await getUser(paddedAdminRole.name);
+  assert.equal(paddedAdminRow.role, " implementation_admin ");
+
+  console.log("Isolated setup enrollment passed: NULL/empty eligibility, configured-account denial, malformed/wrong/expired/replayed tokens, one-winner concurrency, NULL/empty/whitespace role fallback, explicit-role preservation, padded-admin non-escalation, and cleanup.");
 } finally {
   if (fixturesMayExist) {
     for (const item of cases) {
