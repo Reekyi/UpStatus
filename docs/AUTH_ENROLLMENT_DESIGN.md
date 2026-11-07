@@ -21,6 +21,7 @@ The current public `POST /api/setup` accepts a caller-supplied password for any 
 ## Database contract
 
 - `public.users.setup_token_hash`: SHA-256 only, unique when non-null.
+- Invite issuance and atomic consumption treat both `password_hash IS NULL` and legacy `password_hash = ''` as uninitialized; configured password hashes are never overwritten.
 - `setup_token_expires_at`, `setup_token_issued_by`, `setup_token_issued_at`: enrollment metadata.
 - `consume_upstatus_setup_invite(text,text,text)`: SECURITY INVOKER, empty search_path, service_role-only EXECUTE.
 - No client role receives direct access to the RPC or invite metadata.
