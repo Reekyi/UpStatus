@@ -18,6 +18,8 @@ on:
       - "scripts/assert-isolated-supabase.mjs"
       - "scripts/isolation-guard.test.mjs"
       - "scripts/migration-layout.test.mjs"
+      - "scripts/auth-enrollment.test.mjs"
+      - "scripts/test-auth-enrollment.mjs"
       - "supabase/migrations/**"
       - "supabase/test-migrations/**"
       - "src/server/index.template.ts"
@@ -75,6 +77,9 @@ jobs:
           node scripts/isolation-guard.test.mjs
           node --check scripts/migration-layout.test.mjs
           node scripts/migration-layout.test.mjs
+          node --check scripts/auth-enrollment.test.mjs
+          node scripts/auth-enrollment.test.mjs normal
+          node --check scripts/test-auth-enrollment.mjs
           node --check scripts/test-chat-read-receipts.mjs
           node --check scripts/test-signal-rate-limit.mjs
       - name: Run unauthenticated endpoint checks against isolated project
@@ -106,3 +111,9 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
           UPSTATUS_SIGNAL_ALLOW_MUTATION: "1"
         run: node scripts/test-chat-read-receipts.mjs
+      - name: Verify one-time setup invite atomic consumption
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_AUTH_ALLOW_MUTATION: "1"
+        run: node scripts/test-auth-enrollment.mjs
