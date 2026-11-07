@@ -234,3 +234,12 @@ Sem percentual de conclusão. CI verde não autoriza merge, deploy, release ou p
 - Nenhum workflow disparado manualmente pela auditoria.
 - Nenhuma branch de engenharia alterada.
 - Única escrita desta rodada: novo relatório nesta branch QA dedicada.
+
+
+## Pós-commit — validação automática da própria atualização QA
+
+Após a criação deste relatório, o commit documental \`268bb2ae3b6864a3db5ca00b2dc2081cfd6424b3\` disparou automaticamente [Validate 42387735290](https://github.com/Reekyi/UpStatus/actions/runs/42387735290), no HEAD exato. O job terminou FAILURE em \`VALIDATION FAILED: production updateURL mismatch\`. O build foi concluído como PROD 3.4.7 / TEST 3.4.7 antes da asserção.
+
+A falha confirma que o validador herdado em master ainda não contém a correção da PR #85. Não é falha causada pelo conteúdo documental, e não foi removida nem enfraquecida nenhuma asserção. A PR #82 permanece Draft; a correção do validador continua isolada na #85 e aguarda revisão/integração autorizada.
+
+Verificação antes desta atualização: branch QA em \`268bb2ae3b6864a3db5ca00b2dc2081cfd6424b3\`; blob do relatório \`5bde7205fe6e40fbcf70ba20308f46693dc49673\`; \`docs/RELEASE_READINESS.md\` preservado em \`1ae48aab678a06b4ff75d061d2355a6449cbe1e0\`.
