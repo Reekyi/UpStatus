@@ -19,6 +19,7 @@ function harness(overrides={}){
   const calls={storage:[],upserts:[],legacyUploads:[]};
   const context=vm.createContext({
     PROJECT_URL:project,
+    URL,Date,
     readBody:async req=>req.body||{},
     response:(body,status=200)=>({body,status}),
     randomBytes:n=>({toString:()=> "a".repeat(n*2)}),
