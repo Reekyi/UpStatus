@@ -70,8 +70,12 @@ assert.ok(testUser.includes("var UPSTATUS_TEST_CHANNEL=true;") &&
 assert.ok(testUser.includes("var CLOUD_SERVER='https://" + sentinelProject + ".supabase.co/functions/v1/upstatus-test';") &&
   testUser.includes("var UPDATE_URL=CLOUD_SERVER+'/upstatus.user.js';"),
   "default TEST manual update URL must derive from the inert TEST cloud server");
-assert.ok(testUser.includes("new URL(UP_REALTIME_URL+'/storage/v1/object/upload/sign/'"),
-  "TEST Storage fallback must use the TEST Realtime origin");
+assert.ok(testUser.includes("base=new URL(UP_REALTIME_URL);") &&
+  testUser.includes("url=new URL(rawUploadUrl,base);") &&
+  testUser.includes("url.origin!==base.origin") &&
+  testUser.includes("publicUrl.origin!==base.origin") &&
+  testUser.includes("var uploadPrefix='/storage/v1/object/upload/sign/'+expectedBucket+'/';"),
+  "TEST Storage URLs must resolve against and remain bound to the TEST project origin and bucket");
 assert.ok(!testUser.includes("https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),
   "TEST artifact must not contain the production release manifest");
 
