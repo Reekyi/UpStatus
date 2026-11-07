@@ -2038,3 +2038,19 @@ The direct branch-protection API read returned HTTP 403 in this pass. A previous
 - Obtain human reviews and complete physical #78 acceptance before any release decision.
 
 No production SQL write, migration, Edge Function deployment, secret/role/grant/policy/ACL/flag change, workflow dispatch/cancel/rerun, PR merge, release, userscript publication, or destructive operation occurred. All production SQL was SELECT/catalog-only; the isolated project was also queried read-only in this pass. No QA branch or QA file was modified.
+
+ 
+### Post-checkpoint follow-up — Normal signed-upload contract, exact-head CI
+
+- PR #74 advanced to HEAD `d949c4b765e77b80d01d3115e76c35555f28949b`. The signed-upload client/server hardening and two VM regression suites are now included in the candidate.
+- Validate [42404667942](https://github.com/Reekyi/UpStatus/actions/runs/42404667942) completed SUCCESS on that exact HEAD. Logs explicitly report:
+  - `PASS signed-upload client validates route, bucket, MIME, size, project origin, object path, one-time token, PUT contract, and UI wiring.`
+  - `PASS signed-upload server validates bucket, path, token, MIME, size, HTTPS origin and profile compatibility.`
+  - `Validation OK: PROD 3.4.7 / TEST 3.4.7`.
+- The stale TEST Storage fallback assertions in both `scripts/test-build-target-guard.mjs` and `scripts/validate.mjs` were replaced with checks that relative signed URLs resolve against `UP_REALTIME_URL`, and upload/public origins plus bucket/object paths remain bound to that project. This strengthens the invariant; it does not remove TEST isolation checks.
+- Signaling Smoke [42404668009](https://github.com/Reekyi/UpStatus/actions/runs/42404668009) remains PENDING in the serialized fixture queue. Earlier #74 Smoke run [42404314379](https://github.com/Reekyi/UpStatus/actions/runs/42404314379) was still in progress, with intermediate runs [42404353806](https://github.com/Reekyi/UpStatus/actions/runs/42404353806) and [42404359973](https://github.com/Reekyi/UpStatus/actions/runs/42404359973) queued. Do not claim new-head Realtime Smoke or post-run cleanup until the queue drains.
+- These upload tests are Node VM mocks, not real Supabase Storage E2E. The lab still has no Realtime child partitions and cannot prove trigger-to-WebSocket delivery.
+
+PR #80 remains documentation-only at HEAD `89b11cf8ec26edba0996a068448a3d663d8e404b`. Its Validate [42404510059](https://github.com/Reekyi/UpStatus/actions/runs/42404510059) failed at the inherited develop assertion `client signed upload helper missing`; no validator was weakened. PR #82 remains at `31072bf`, with inherited master updater assertion failure [42401762317](https://github.com/Reekyi/UpStatus/actions/runs/42401762317).
+
+No production writes or deployment occurred. The QA branch and release-readiness files remain untouched.
