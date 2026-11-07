@@ -23,5 +23,7 @@ jobs:
         run: node scripts/test-test-project-preflight.mjs
       - name: Test TEST deploy workflow secret scope
         run: node scripts/test-deploy-workflow-guard.mjs
+      - name: Test signed upload client contract
+        run: node scripts/test-signed-upload-client.mjs
       - name: Validate build
         run: node scripts/validate.mjs
