@@ -2096,3 +2096,42 @@ All seven PRs remain open/Draft, unmerged and without human approvals. Live comp
 - RT-01 public Realtime/full-row disclosure, product rate-limit integration, production migrations/cutover/rollback, official TEST provisioning, real Storage E2E, human review and physical #78 acceptance remain open.
 
 No production SQL write, migration, Edge Function deployment, secret/role/grant/ACL/policy/flag change, merge, release, userscript publication or destructive operation occurred. Production SQL was SELECT/catalog-only. The shared lab was inspected read-only after CI cleanup; no manual fixture cleanup or overlapping test was started.
+
+
+## 2026-11-07 21:10 UTC — Team Lite authenticated voice leave regression
+
+This checkpoint supersedes earlier PR/CI snapshots in this file where the exact HEAD differs. All refs and workflows below were re-fetched from GitHub; production SQL was SELECT/catalog-only.
+
+### Exact PR heads and CI
+
+| PR | HEAD | Current evidence |
+|---|---|---|
+| #74 Normal | `a79ec9a922eaa064d2982bf650dbd7a6d186e9bd` | Validate [42409229531](https://github.com/Reekyi/UpStatus/actions/runs/42409229531) PASS; Signaling Smoke [42409229487](https://github.com/Reekyi/UpStatus/actions/runs/42409229487) SUCCESS |
+| #75 baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Historical PASS only |
+| #76 Team Lite | `26122c55fd453882f92094e12c09914d77b11b07` | Candidate Checks [42414281711](https://github.com/Reekyi/UpStatus/actions/runs/42414281711) IN_PROGRESS; durable voice-leave regression step PASS; authenticated integration/browser step still running |
+| #80 continuity | `46063a7c6330ddd080056c22780616d076908de5` | Validate [42409234616](https://github.com/Reekyi/UpStatus/actions/runs/42409234616) FAIL at inherited develop assertion `client signed upload helper missing` |
+| #82 independent QA | `8fd27d0c30d188a65d1ce6e6a44778de109035eb` | Validate [42412118724](https://github.com/Reekyi/UpStatus/actions/runs/42412118724) FAIL at inherited master assertion `production updateURL mismatch` |
+| #84 TEST isolation | `21341f331270e142bdf7584c1cdf16e6011e41b3` | Validate [42387042361](https://github.com/Reekyi/UpStatus/actions/runs/42387042361) PASS |
+| #85 master stabilization | `17554523ef51bafd503e74b3f1271d55f43a6eda` | Validate [42386047749](https://github.com/Reekyi/UpStatus/actions/runs/42386047749) PASS; Storage remains mocked |
+
+All seven PRs remain open/Draft, unmerged and without human approvals. Current compare counts: #74 852 ahead/0 behind master; #75 59/0 team-lite-official; #76 314/0 team-lite-official; #80 201/0 develop; #82 108/0 master; #84 30/0 develop; #85 21/0 master. The large #74/#76 ancestry still requires careful overlap/review before any integration.
+
+### Team Lite voice leave — QA finding reconciled against current source
+
+Fresh inspection of #76 HEAD `2e0ff69419cdd2a06c68c5d58cf221ccfc6738c7` found the current artifact blob `0e0660a6abc26052e67b9b1832a75fde7bc0b06e`. Its active authenticated `voiceRoomLeave()` path stops the room poller, sends and awaits the final leave signal, calls `leavingTransport.leave(leavingRoomId)`, and clears room/owner/prepared/roster state only after server confirmation. A rejected leave retains the room ID for retry. The QA note referenced a different artifact blob (`516b22afba2e8bd05871993be702c47ea4cca2d8`), so its described missing RPC call is not present in the currently fetched artifact.
+
+The prior candidate-check VM test used `signalTransport: null` and therefore exercised only the legacy leave-signal path. Added an authenticated active-leave regression to `scripts/team-lite-voice-room-attempt-recovery.test.mjs` in commit [26122c5](https://github.com/Reekyi/UpStatus/commit/26122c55fd453882f92094e12c09914d77b11b07). It verifies poller stop, final-signal ordering, waiting for the `/room/leave` RPC, confirmed state cleanup, failed-leave state retention and successful retry. The exact workflow has passed the static/durable-voice test step; full Candidate Checks remains in progress. QA was notified in PR #82 comment [6713033198](https://github.com/Reekyi/UpStatus/pull/82#issuecomment-6713033198). No QA branch or `docs/RELEASE_READINESS.md` was changed.
+
+### Supabase read-only snapshot
+
+- Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations, 38 ACTIVE Edge Functions; core versions Normal `upstatus` v480, TEST v281, Team Lite v15 and legacy screen-share v6. `public.users`: 5 rows, 0 NULL/empty password hashes, 0 missing roles, 3 explicit admins.
+- Production broadcast functions remain SECURITY DEFINER with `search_path=public`; direct EXECUTE is true for anon/authenticated/service_role. `realtime.messages` has 7 child partitions and 50 rows. Nine backend-owned tables retain broad anon/authenticated grants including TRUNCATE. Default ACLs for postgres/public+storage and supabase_admin/public+graphql+graphql_public remain broad.
+- Production still lacks setup-invite columns/RPC, auth-specific rate-limit table/RPC, signaling rate-limit table/RPC, atomic chat-read merge RPC and voice open/leave RPCs. Deployed Normal and Team Lite retain the legacy public setup path and name-based initial-admin fallback; the current five accounts are initialized, so this is latent future onboarding risk, not evidence that a current account is claimable.
+- Isolated lab `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 34 migrations; `upstatus-signal-test` v32 and E2E helper v3. A SELECT-only post-run snapshot before the new queued workflow found zero rows in users, sessions, rooms, memberships, events, bindings, rate limits, call attempts, voice attempts, chat reads and messages. `realtime.messages` has 0 rows and 0 child partitions. The three broadcast functions have empty search_path and EXECUTE only for service_role; setup-invite, signaling rate-limit, receipt-merge and voice-room RPCs are also service_role-only.
+- Production Security Advisor: 3 WARN anon + 3 WARN authenticated for the three broadcast functions; 10 RLS-without-policy INFO. Performance and Health advisors are empty. Lab Security Advisor: 17 RLS-without-policy INFO and no SECURITY DEFINER WARN.
+
+### Remaining release gates
+
+RT-01 public/full-row broadcasts and private Realtime authorization; product integration of distributed signaling and auth rate limits; route-level AUTH-03 invite issuance/denial/token-leakage tests; official full-product TEST provisioning; real Storage E2E; table grants/default ACL remediation; production migration/cutover/rollback; human review; and physical Issue #78 acceptance (still 0/8). The old push-triggered develop TEST workflow remains a risk until #84's manual-only, TEST-specific, SHA-pinned workflow is integrated. Branch-protection state could not be revalidated because the administrative GitHub API returned HTTP 403.
+
+No production SQL write, migration, Edge Function deployment, secret/role/grant/ACL/policy/flag change, merge, release, userscript publication or destructive operation occurred. The shared lab is currently owned by Candidate Checks run [42414281711](https://github.com/Reekyi/UpStatus/actions/runs/42414281711); do not start another fixture-mutating suite until it completes and cleanup is checked.
