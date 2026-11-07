@@ -147,7 +147,7 @@ for (const test of cases) {
   }
 }
 try {
-  const preflight = await fetch(base + "/health", { method: "OPTIONS" });
+  const preflight = await request(base + "/health", { method: "OPTIONS" });
   const exposed = (preflight.headers.get("access-control-expose-headers") || "")
     .split(",").map(value => value.trim().toLowerCase()).filter(Boolean);
   const ok = preflight.status === 200 && exposed.includes("retry-after");
