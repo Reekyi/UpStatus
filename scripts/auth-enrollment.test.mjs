@@ -172,7 +172,7 @@ function makeInviteHarness(targetAvailable=true){
     readBody:async req=>{state.readBodyCalls++;return req.body||{};},
     response:(body,status=200)=>({body,status}),
     randomBytes:n=>({toString:encoding=>{assert.equal(encoding,"hex");return "ab".repeat(n);}}),
-    tokenHash:raw=>"sha256:"+raw
+    tokenHash:raw=>"sha256:"+"cd".repeat(32)
   };
   const handlers=vm.runInNewContext([adminFunction,issueInviteFunction,"({admin,issueSetupInvite})"].join("\n"),sandbox);
   return {handlers,state};
@@ -209,7 +209,7 @@ assert.equal(successHarness.state.orFilter,'password_hash.is.null,password_hash.
 assert.equal(successHarness.state.selected,"name");
 const persisted=successHarness.state.updates[0];
 assert.deepEqual(Object.keys(persisted).sort(),["setup_token_hash","setup_token_expires_at","setup_token_issued_by","setup_token_issued_at"].sort());
-assert.equal(persisted.setup_token_hash,"sha256:"+issued.body.setupToken,"only the token hash may be persisted");
+assert.equal(persisted.setup_token_hash,"sha256:"+"cd".repeat(32),"only the token hash may be persisted");
 assert.equal(persisted.setup_token_issued_by,"Admin","the stored issuer must be the authenticated admin");
 assert.equal(JSON.stringify(persisted).includes(issued.body.setupToken),false,"the raw token must never be persisted");
 const lifetime=Date.parse(issued.body.expiresAt)-Date.parse(persisted.setup_token_issued_at);
