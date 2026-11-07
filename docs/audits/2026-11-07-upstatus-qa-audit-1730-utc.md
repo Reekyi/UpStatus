@@ -306,3 +306,13 @@ Não atribuir percentual. CI verde de subsistema isolado não equivale a aprova�
 ## Registro de segurança
 
 Nenhum SQL write, migration, deploy, alteração de Edge Function, secret/token/flag/role/grant/policy/ACL, limpeza de fixture, merge, release ou publicação de userscript foi realizado. Nenhuma branch de engenharia foi alterada. A única escrita desta rodada é este relatório novo na branch QA dedicada. O arquivo principal \`docs/RELEASE_READINESS.md\` foi preservado no blob SHA informado no início.
+
+
+## 13. Validação automática do commit documental
+
+A criação do relatório gerou o commit \`84d08a882912becd08aee8b882aff2390875eb0e\`. O workflow automático [Validate 42397106911](https://github.com/Reekyi/UpStatus/actions/runs/42397106911) foi associado a esse commit e terminou em FAILURE.
+
+Job \`128476729384\`; erro em \`scripts/validate.mjs:26\`:
+\`VALIDATION FAILED: production updateURL mismatch\`.
+
+O log construiu PROD/TEST 3.4.7 antes da asserção. A falha é a mesma do baseline master já registrada para #82; não é causada pelo relatório Markdown. Nenhum validador foi modificado ou contornado. O novo relatório continua sendo documentação-only.
