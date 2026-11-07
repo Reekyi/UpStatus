@@ -380,6 +380,7 @@ function makeRouteHarness(options={}){
   return {dispatch,state};
 }
 function makeRouteRequest(state,options={}){
+  state.guestOnline=!!options.guest;
   const headers=new Map([
     ["x-upstatus-token",options.token||""],
     ["x-test-guest",options.guest||""]
