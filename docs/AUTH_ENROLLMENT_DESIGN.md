@@ -24,7 +24,7 @@ The current public `POST /api/setup` accepts a caller-supplied password for any 
 - Invite issuance and atomic consumption treat both `password_hash IS NULL` and legacy `password_hash = ''` as uninitialized; configured password hashes are never overwritten.
 - `setup_token_expires_at`, `setup_token_issued_by`, `setup_token_issued_at`: enrollment metadata.
 - `consume_upstatus_setup_invite(text,text,text)`: SECURITY INVOKER, empty search_path, service_role-only EXECUTE.
-- Follow-up migration `20261107060000_normalize_setup_invite_role.sql` maps NULL, empty, and ASCII-whitespace-only roles to `implementation_user`, while preserving explicit non-empty roles. The server trims the returned role again before creating the session.
+- Follow-up migrations `20261107060000_normalize_setup_invite_role.sql` and `20261107062000_preserve_setup_invite_roles_verbatim.sql` default only NULL, empty, and ASCII-whitespace-only roles to `implementation_user`. Every non-empty role value is preserved verbatim, including invalid whitespace-padded values, so ` implementation_admin ` cannot be canonicalized into an administrator role. The server defaults blank RPC values without trimming non-empty values before session creation.
 - No client role receives direct access to the RPC or invite metadata.
 - The public account-state endpoint returns a generic response and no longer reports whether a named account needs setup.
 
