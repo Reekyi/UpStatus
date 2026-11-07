@@ -124,4 +124,25 @@ assert(source.includes("function requestPublicChatLinkTitle(url,callback)"),"sta
 assert(source.includes('class="up-chat-link-card"'),"stable chat link-card renderer missing");
 assert(source.includes("hydrateChatLinkTitles(list);"),"chat link-card hydration hook missing");
 assert(source.includes("upstatus-340-chat-link-card-compat"),"chat link-card compatibility styles missing");
-console.log("Chat regression tests passed: composer, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");
+
+assert(source.includes("var chatPendingAttachment=null;"),"chat attachment state must be transient and explicit");
+assert(source.includes("var chatLinkPreviewDismissed=false,chatLinkPreviewDismissedUrl='';"),"link preview dismissal state must be explicit");
+assert(source.includes("photoFile.addEventListener('change',function(){if(photoFile.files&&photoFile.files[0])setPendingAttachment(photoFile.files[0]);photoFile.value='';});"),"selected files must remain staged and the input must reset");
+assert(source.includes("updateLinkPreview(input.value||'')"),"typing must update the removable link preview");
+assert(source.includes("if(!input||(!text&&!chatPendingAttachment))return;"),"send action must accept either text or a staged attachment");
+assert(source.includes("sendChatMedia(pending,text,reply)"),"staged attachments must preserve caption and reply context");
+assert(source.includes("function sendChatMedia(file,caption,replyOverride){"),"attachment send must support caption and reply context");
+assert(source.includes("fileName:isDocument?String(file.name||'Documento'):'',"),"document filename must be stored separately from the caption");
+assert(source.includes("var expectedBucket=route==='/api/chat/upload-url'?'chat-images':route==='/api/profile/avatar-upload-url'?'profile-images':'';"),"signed uploads must bind each API route to one bucket");
+assert(source.includes("credentials:'omit',redirect:'error'"),"signed Storage PUT must omit credentials and reject redirects");
+assert(source.includes("function canViewHealth(){return role==='implementation_admin';}"),"health UI must use the stored administrator role");
+assert(!source.includes("sendRealtimeEvent('chat_fast',{message:created})"),"chat refresh broadcasts must not include full message rows");
+assert(serverTemplate.includes("async function signedUploadRoute(req:Request,kind:\"chat\"|\"avatar\")"),"server signed-upload route is missing");
+assert(serverTemplate.includes('const uploadPrefix="/storage/v1/object/upload/sign/"+bucket+"/";'),"server must validate signed upload bucket and path");
+assert(serverTemplate.includes('const publicPrefix="/storage/v1/object/public/"+bucket+"/";'),"server must validate public object bucket and path");
+assert(serverTemplate.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");'),"chat upload-url route must be authenticated and wired");
+assert(serverTemplate.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");'),"avatar upload-url route must be authenticated and wired");
+assert(serverTemplate.includes("const avatarUrl=String(p.avatarUrl||\"\").trim();"),"profile route must accept the signed-upload result");
+assert(serverTemplate.includes("Backward compatibility for already-installed clients"),"legacy base64 avatar clients must remain compatible");
+
+console.log("Chat regression tests passed: staged attachments, signed uploads, role gates, link previews, screen sharing, notifications, and unread indicators.");
