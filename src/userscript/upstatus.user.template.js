@@ -9,6 +9,8 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_listValues
+// @grant        GM_deleteValue
 // @grant        GM_openInTab
 // @updateURL    __UPSTATUS_UPDATE_URL__
 // @downloadURL  __UPSTATUS_DOWNLOAD_URL__
@@ -58,16 +60,25 @@
   })();
 
   var key='__UPSTATUS_STORAGE_PREFIX__';
+  function clearLegacyPasswordStorage(){
+    try{
+      if(typeof GM_listValues!=='function'||typeof GM_deleteValue!=='function')return;
+      GM_listValues().forEach(function(storageKey){
+        if(typeof storageKey==='string'&&storageKey.indexOf(key+'password_')===0)GM_deleteValue(storageKey);
+      });
+    }catch(_){}
+  }
+  clearLegacyPasswordStorage();
   var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
   var CLOUD_SERVER='__UPSTATUS_CLOUD_SERVER__';
   var server=CLOUD_SERVER;
-  var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';
+  var UP_REALTIME_URL='__UPSTATUS_REALTIME_URL__';
   var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
   var UP_REALTIME_TOPIC='__UPSTATUS_REALTIME_TOPIC__';
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
   // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
   // Mantido isolado do chat, status e demais recursos do UpStatus.
-  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,overlay:null,callId:'',peer:'',role:'',initiator:'',participants:[],pendingInvites:{},pendingOffers:{},pendingInvite:null,peers:{},active:false,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0,waitingForConnection:false,notice:'',ringtoneTimer:null,ringtoneCtx:null,ringtoneAllowed:false,ringtoneLoadId:0,ringtoneSource:null,ringtoneGain:null,presenceTimer:null};
+  var upCall={pc:null,localStream:null,remoteStream:null,audio:null,audioCtx:null,audioSource:null,audioGain:null,overlay:null,callId:'',peer:'',role:'',initiator:'',participants:[],pendingInvites:{},pendingOffers:{},pendingInvite:null,peers:{},active:false,starting:false,startAttempt:0,connected:false,muted:false,timer:null,counterTimer:null,startedAt:0,waitingForConnection:false,notice:'',ringtoneTimer:null,ringtoneCtx:null,ringtoneAllowed:false,ringtoneLoadId:0,ringtoneSource:null,ringtoneGain:null,presenceTimer:null};
   
 var upCallDirectory={};
 var voiceControlBubble=null,voiceControlAvatar=null,voiceControlWave=null,voiceControlSpeakerName=''; var voiceRoom={id:'upstatus-team-room-v1',seenSignals:{},sessionId:'vr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10),active:false,muted:false,speakersMuted:false,stream:null,peers:{},participants:{},timer:null,joining:false,audioContext:null,levelTimer:null,sessionStartedAt:0,sessionTimer:null,pingTimer:null,pingMs:null,lastSpeaker:'',currentSpeaker:'',recoveryAttempts:{},recoveryTimers:{}};
@@ -75,18 +86,240 @@ var VOICE_ROOM_EVENT='voice_room_signal';
   // Dedicated video mesh for screen sharing. Do not reuse voiceRoom.stream or audio peers.
   var SCREEN_ROOM_EVENT='upstatus_screen_signal_3_1_1_beta8';
   var screenShare={stream:null,peers:{},active:false,starting:false,sessionId:'ss-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10),remoteVideos:{}};
-  function screenShareSend(type,to,data){if(!realtimeActive||!realtimeChannel||!member)return;try{realtimeChannel.send({type:'broadcast',event:SCREEN_ROOM_EVENT,payload:Object.assign({roomId:voiceRoom.id,type:type,from:member,to:to||'',active:screenShare.active,sessionId:screenShare.sessionId,at:Date.now()},data||{})});}catch(e){}}
+  function screenShareSend(type,to,data){
+    if(!member)return;
+    var payload=Object.assign({roomId:voiceRoom.id,type:type,from:member,to:to||'',active:screenShare.active,sessionId:screenShare.sessionId,at:Date.now()},data||{});
+    if(signalTransportFlag){
+      if(!signalTransport||!signalVoiceRoomRoomId){screenShareMessage('Sinalização autenticada indisponível.');return false;}
+      return (to?signalTransport.sendSignal({roomId:signalVoiceRoomRoomId,recipient:to,eventType:'screen_signal',payload:payload}):
+        signalTransport.sendToRoom({roomId:signalVoiceRoomRoomId,eventType:'screen_signal',payload:payload,senderName:member})).catch(function(e){screenShareMessage(e.message||'Falha na sinalização autenticada.');return false;});
+    }
+    if(!realtimeActive||!realtimeChannel||!member)return false;
+    try{realtimeChannel.send({type:'broadcast',event:SCREEN_ROOM_EVENT,payload:payload});}catch(e){}
+  }
   function screenShareMessage(message){var el=card&&card.querySelector('.up-screen-share-message');if(el)el.textContent=message||'';}
   function screenShareExpand(expanded){var room=card&&card.querySelector('.up-voice-room'),panel=room&&room.querySelector('.up-screen-share-panel');if(!panel)return;panel.setAttribute('aria-hidden',expanded?'false':'true');panel.style.maxHeight=expanded?'520px':'0px';panel.style.opacity=expanded?'1':'0';panel.style.marginTop=expanded?'10px':'0';panel.style.paddingTop=expanded?'10px':'0';panel.style.paddingBottom=expanded?'10px':'0';panel.style.borderTopWidth=expanded?'1px':'0';}
   function screenShareOpenViewer(tile,video){if(!tile||!video||document.querySelector('.up-screen-viewer-overlay'))return;var overlay=document.createElement('div');overlay.className='up-screen-viewer-overlay';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label','Visualização ampliada do compartilhamento');var stage=document.createElement('div');stage.className='up-screen-viewer-stage';var close=document.createElement('button');close.type='button';close.className='up-screen-viewer-close';close.setAttribute('aria-label','Fechar visualização');close.title='Fechar (Esc)';close.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m18 6-12 12M6 6l12 12"/></svg>';var previousFocus=document.activeElement;var parent=video.parentNode,next=video.nextSibling;stage.appendChild(video);stage.appendChild(close);overlay.appendChild(stage);function cleanup(){document.removeEventListener('keydown',onKey,true);if(overlay.parentNode)overlay.parentNode.removeChild(overlay);if(parent){if(next&&next.parentNode===parent)parent.insertBefore(video,next);else parent.appendChild(video);}try{if(previousFocus&&previousFocus.isConnected&&previousFocus.focus)previousFocus.focus({preventScroll:true});}catch(e){}}function onKey(e){if(e.key==='Escape'){e.preventDefault();cleanup();}}close.onclick=function(e){e.preventDefault();e.stopPropagation();cleanup();};overlay.addEventListener('click',function(e){if(e.target===overlay)cleanup();});document.addEventListener('keydown',onKey,true);document.body.appendChild(overlay);try{close.focus({preventScroll:true});}catch(e){}}
 function screenShareRender(){var room=card&&card.querySelector('.up-voice-room');var remote=Object.keys(screenShare.remoteVideos);if(voiceControlBubble){var shareIndicator=voiceControlBubble.querySelector('.up-voice-control-screen');if(shareIndicator){var shareAvailable=!!(screenShare.active||remote.length);shareIndicator.classList.toggle('hidden',!shareAvailable);shareIndicator.title=screenShare.active?'Sua tela estᠳendo compartilhada. Abrir UpStatus':'Tela compartilhada. Abrir para visualizar';shareIndicator.setAttribute('aria-label',shareIndicator.title);}}if(!room)return;var btn=room.querySelector('.up-screen-share-toggle'),status=room.querySelector('.up-screen-share-status'),grid=room.querySelector('.up-screen-share-grid');if(btn){btn.classList.toggle('hidden',!voiceRoom.active);btn.classList.toggle('is-sharing',screenShare.active);btn.disabled=screenShare.starting;btn.title=screenShare.starting?'Preparando compartilhamento':screenShare.active?'Parar compartilhamento de tela':'Compartilhar tela';btn.setAttribute('aria-label',btn.title);btn.setAttribute('aria-pressed',screenShare.active?'true':'false');}if(status)status.textContent=screenShare.active?'Sua tela está sendo compartilhada':remote.length?'Tela compartilhada por '+remote.join(', '):'Compartilhamento de tela e janela';if(grid){grid.querySelectorAll('[data-screen-remote]').forEach(function(el){if(!screenShare.remoteVideos[el.getAttribute('data-screen-remote')])el.remove();});remote.forEach(function(name){var tile=Array.from(grid.querySelectorAll('[data-screen-remote]')).find(function(el){return el.getAttribute('data-screen-remote')===name;}),video=tile&&tile.querySelector('video');if(!tile){tile=document.createElement('div');tile.className='up-screen-share-tile';tile.setAttribute('data-screen-remote',name);var label=document.createElement('div');label.className='up-screen-share-label';label.textContent=name;video=document.createElement('video');video.autoplay=true;video.playsInline=true;video.muted=true;video.setAttribute('playsinline','');tile.append(label,video);grid.appendChild(tile);}if(video.srcObject!==screenShare.remoteVideos[name])video.srcObject=screenShare.remoteVideos[name];});if(screenShare.active&&screenShare.stream){var local=grid.querySelector('[data-screen-local]');if(!local){local=document.createElement('div');local.className='up-screen-share-tile';local.setAttribute('data-screen-local','1');var label=document.createElement('div');label.className='up-screen-share-label';label.textContent='Sua tela';var video=document.createElement('video');video.autoplay=true;video.muted=true;video.playsInline=true;video.setAttribute('playsinline','');local.append(label,video);grid.prepend(local);}var lv=local.querySelector('video');if(lv.srcObject!==screenShare.stream)lv.srcObject=screenShare.stream;}else{var local=grid.querySelector('[data-screen-local]');if(local)local.remove();}}grid.querySelectorAll('.up-screen-share-tile').forEach(function(tile){var video=tile.querySelector('video'),expand=tile.querySelector('.up-screen-share-fullscreen');if(video&&!expand){expand=document.createElement('button');expand.type='button';expand.className='up-screen-share-fullscreen';expand.title='Ampliar compartilhamento';expand.setAttribute('aria-label','Ampliar compartilhamento');expand.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>';expand.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();screenShareOpenViewer(tile,video)});tile.appendChild(expand)}});screenShareExpand(screenShare.active||screenShare.starting||remote.length>0);}
-  function screenShareDrop(name){var p=screenShare.peers[name];if(!p)return;delete screenShare.peers[name];try{if(p.pc){p.pc.ontrack=null;p.pc.onicecandidate=null;p.pc.onconnectionstatechange=null;p.pc.close();}}catch(e){}}
-  async function screenShareMakePeer(name){var p=screenShare.peers[name];if(p&&p.pc&&p.pc.signalingState!=='closed')return p;p=p||{pc:null,pending:[],stream:new MediaStream()};p.pending=p.pending||[];p.stream=p.stream||new MediaStream();p.pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]});screenShare.peers[name]=p;p.pc.onicecandidate=function(e){if(e.candidate)screenShareSend('ice',name,{candidate:e.candidate});};p.pc.ontrack=function(e){var track=e.track;if(!track)return;if(!p.stream.getTracks().some(function(t){return t.id===track.id;})){p.stream.addTrack(track);track.addEventListener('ended',function(){var peer=screenShare.peers[name];if(!peer||peer.stream!==p.stream)return;delete screenShare.remoteVideos[name];screenShareDrop(name);screenShareRender();});}screenShare.remoteVideos[name]=p.stream;screenShareRender();};p.pc.onconnectionstatechange=function(){if(!p.pc||screenShare.peers[name]!==p)return;if(['failed','closed'].indexOf(p.pc.connectionState)>=0){delete screenShare.remoteVideos[name];screenShareDrop(name);screenShareRender();}};if(screenShare.active&&screenShare.stream)screenShare.stream.getVideoTracks().forEach(function(t){if(t.readyState==='live')p.pc.addTrack(t,screenShare.stream);});return p;}
-  async function screenShareOffer(name){if(!screenShare.active)return;var p=await screenShareMakePeer(name);if(p.pc.signalingState!=='stable'||p.pc.localDescription)return;var offer=await p.pc.createOffer();await p.pc.setLocalDescription(offer);screenShareSend('offer',name,{sdp:p.pc.localDescription});}
-  async function screenShareReceive(p){if(!p||p.roomId!==voiceRoom.id||!p.from||p.from===member||p.to&&p.to!==member)return;if(p.type==='presence'){if(p.active){screenShareSend('presence',p.from,{});if(screenShare.active)screenShareOffer(p.from).catch(function(){});}else{delete screenShare.remoteVideos[p.from];screenShareDrop(p.from);screenShareRender();}return;}if(p.type==='leave'){delete screenShare.remoteVideos[p.from];screenShareDrop(p.from);screenShareRender();return;}if(p.type==='offer'&&p.sdp){try{var existing=screenShare.peers[p.from];if(existing&&existing.pc&&['failed','closed'].indexOf(existing.pc.connectionState)>=0)screenShareDrop(p.from);var peer=await screenShareMakePeer(p.from);if(peer.pc.remoteDescription&&peer.pc.remoteDescription.sdp===p.sdp.sdp)return;await peer.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));while(peer.pending.length)await peer.pc.addIceCandidate(peer.pending.shift());var answer=await peer.pc.createAnswer();await peer.pc.setLocalDescription(answer);screenShareSend('answer',p.from,{sdp:peer.pc.localDescription});}catch(e){screenShareMessage('Falha ao negociar a tela com '+p.from+': '+(e.message||e));}return;}if(p.type==='answer'&&p.sdp){var a=screenShare.peers[p.from];if(a&&a.pc&&!a.pc.remoteDescription){try{await a.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));while(a.pending.length)await a.pc.addIceCandidate(a.pending.shift());}catch(e){screenShareMessage('Falha ao aceitar a tela de '+p.from+'.');}}return;}if(p.type==='ice'&&p.candidate){var ip=screenShare.peers[p.from];if(!ip){ip={pc:null,pending:[],stream:new MediaStream()};screenShare.peers[p.from]=ip;}var candidate=p.candidate instanceof RTCIceCandidate?p.candidate:new RTCIceCandidate(p.candidate);if(ip.pc&&ip.pc.remoteDescription){try{await ip.pc.addIceCandidate(candidate);}catch(e){}}else if(ip.pending.length<128)ip.pending.push(candidate);}}
-  async function screenShareStart(){if(screenShare.active||screenShare.starting)return;screenShare.starting=true;screenShareRender();screenShareMessage('Selecione a tela ou janela que deseja compartilhar.');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getDisplayMedia)throw new Error('Este navegador não permite compartilhar a tela.');screenShare.stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:15,max:24}},audio:false});screenShare.active=true;screenShare.stream.getVideoTracks().forEach(function(track){track.onended=function(){screenShareStop(true);};});screenShareMessage('Compartilhamento ativo. Áudio do sistema desativado para evitar eco.');screenShareSend('presence','',{});Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member)screenShareOffer(n).catch(function(){});});}catch(e){screenShare.active=false;try{if(screenShare.stream)screenShare.stream.getTracks().forEach(function(t){t.stop();});}catch(_){}screenShare.stream=null;screenShareMessage(e&&e.name==='NotAllowedError'?'Compartilhamento cancelado.':'Não foi possível iniciar: '+(e.message||e));}finally{screenShare.starting=false;screenShareRender();}}
-  function screenShareStop(sendSignal){var wasActive=screenShare.active||screenShare.starting;screenShare.active=false;screenShare.starting=false;if(sendSignal!==false&&wasActive)screenShareSend('leave','',{active:false});try{if(screenShare.stream)screenShare.stream.getTracks().forEach(function(t){t.onended=null;t.stop();});}catch(e){}screenShare.stream=null;Object.keys(screenShare.peers).forEach(screenShareDrop);Object.keys(screenShare.remoteVideos).forEach(function(n){delete screenShare.remoteVideos[n];});var room=card&&card.querySelector('.up-voice-room');if(room){var grid=room.querySelector('.up-screen-share-grid');if(grid)grid.replaceChildren();}screenShareMessage('');screenShareRender();}
-function voiceRoomSend(type,to,data){if(!realtimeActive||!realtimeChannel||!member)return;try{var payload=Object.assign({roomId:voiceRoom.id,type:type,from:member,to:to||'',active:voiceRoom.active,muted:voiceRoom.muted,speakersMuted:!!voiceRoom.speakersMuted,version:CURRENT_VERSION,sessionId:voiceRoom.sessionId,at:Date.now(),sessionStartedAt:voiceRoom.sessionStartedAt||0},data||{});realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:payload});if(voiceRoom.id==='upstatus-team-room-v1')realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:Object.assign({},payload,{roomId:'upstatus-team-lite-room-v1'})});}catch(e){}}
+  function screenShareClearRecoveryTimer(p){
+  if(!p)return;
+  if(p.recoveryTimer!==null&&p.recoveryTimer!==undefined){clearTimeout(p.recoveryTimer);p.recoveryTimer=null;}
+}
+function screenShareScheduleRecovery(name,p){
+  if(!p||!p.pc||!p.localOffer||Number(p.offerRetries||0)>=3)return;
+  screenShareClearRecoveryTimer(p);
+  p.recoveryTimer=setTimeout(function(){
+    p.recoveryTimer=null;
+    if(screenShare.peers[name]!==p||!screenShare.active)return;
+    var pc=p.pc;
+    if(!pc||pc.signalingState==='closed')return;
+    if(pc.connectionState==='connected'||pc.iceConnectionState==='connected'||pc.iceConnectionState==='completed'){p.offerRetries=0;p.localOffer=null;return;}
+    if(pc.signalingState==='have-local-offer'&&pc.localDescription&&pc.localDescription.type==='offer'){
+      p.offerRetries=(Number(p.offerRetries)||0)+1;
+      screenShareSend('offer',name,{sdp:p.localOffer||pc.localDescription});
+      screenShareScheduleRecovery(name,p);
+    }
+  },3000);
+}
+function screenShareDrop(name){
+  var p=screenShare.peers[name];
+  if(!p)return;
+  screenShareClearRecoveryTimer(p);
+  delete screenShare.peers[name];
+  try{if(p.pc){p.pc.ontrack=null;p.pc.onicecandidate=null;p.pc.onconnectionstatechange=null;p.pc.close();}}catch(e){}
+}
+async function screenShareMakePeer(name){
+  var p=screenShare.peers[name];
+  if(p&&p.pc&&p.pc.signalingState!=='closed')return p;
+  if(!p||(p.pc&&p.pc.signalingState==='closed'))p={pc:null,pending:[],stream:new MediaStream(),negotiationPromise:null};
+  p.pending=p.pending||[];
+  p.stream=p.stream||new MediaStream();
+  p.localOffer=null;
+  p.localAnswer=null;
+  p.offerRetries=0;
+  p.recoveryTimer=null;
+  if(!Object.prototype.hasOwnProperty.call(p,'negotiationPromise'))p.negotiationPromise=null;
+  p.pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]});
+  screenShare.peers[name]=p;
+  p.pc.onicecandidate=function(e){if(e.candidate)screenShareSend('ice',name,{candidate:e.candidate});};
+  p.pc.ontrack=function(e){
+    var track=e.track;
+    if(!track)return;
+    if(!p.stream.getTracks().some(function(t){return t.id===track.id;})){
+      p.stream.addTrack(track);
+      track.addEventListener('ended',function(){
+        var peer=screenShare.peers[name];
+        if(!peer||peer.stream!==p.stream)return;
+        delete screenShare.remoteVideos[name];
+        screenShareDrop(name);
+        screenShareRender();
+      });
+    }
+    screenShare.remoteVideos[name]=p.stream;
+    screenShareRender();
+  };
+  p.pc.onconnectionstatechange=function(){
+    if(!p.pc||screenShare.peers[name]!==p)return;
+    if(p.pc.connectionState==='connected'||p.pc.iceConnectionState==='connected'||p.pc.iceConnectionState==='completed'){
+      screenShareClearRecoveryTimer(p);
+      p.offerRetries=0;
+      p.localOffer=null;
+    }
+    if(['failed','closed'].indexOf(p.pc.connectionState)>=0){
+      delete screenShare.remoteVideos[name];
+      screenShareDrop(name);
+      screenShareRender();
+    }
+  };
+  if(screenShare.active&&screenShare.stream)screenShare.stream.getVideoTracks().forEach(function(t){if(t.readyState==='live')p.pc.addTrack(t,screenShare.stream);});
+  return p;
+}
+function screenShareQueuePeerOperation(name,p,operation){
+  if(!p||typeof operation!=='function')return Promise.resolve(false);
+  var previous=p.negotiationPromise||Promise.resolve();
+  var next=previous.catch(function(){}).then(function(){
+    if(screenShare.peers[name]!==p)return false;
+    return operation(p);
+  });
+  var tracked=next.then(function(result){
+    if(p.negotiationPromise===tracked)p.negotiationPromise=null;
+    return result;
+  },function(error){
+    if(p.negotiationPromise===tracked)p.negotiationPromise=null;
+    throw error;
+  });
+  p.negotiationPromise=tracked;
+  return tracked;
+}
+async function screenShareOffer(name){
+  if(!screenShare.active)return;
+  var existing=screenShare.peers[name];
+  if(existing&&existing.pc&&(['failed','closed','disconnected'].indexOf(existing.pc.connectionState)>=0||['failed','closed','disconnected'].indexOf(existing.pc.iceConnectionState)>=0))screenShareDrop(name);
+  var p=await screenShareMakePeer(name);
+  return screenShareQueuePeerOperation(name,p,async function(peer){
+    if(!screenShare.active||screenShare.peers[name]!==peer||!peer.pc||peer.pc.signalingState==='closed')return false;
+    var pc=peer.pc;
+    if(pc.signalingState==='have-local-offer'&&pc.localDescription&&pc.localDescription.type==='offer'&&!pc.remoteDescription){
+      peer.localOffer=peer.localOffer||pc.localDescription;
+      screenShareSend('offer',name,{sdp:peer.localOffer});
+      screenShareScheduleRecovery(name,peer);
+      return true;
+    }
+    if(pc.signalingState!=='stable'||pc.localDescription)return false;
+    var offer=await pc.createOffer();
+    if(screenShare.peers[name]!==peer||peer.pc!==pc||pc.signalingState==='closed')return false;
+    await pc.setLocalDescription(offer);
+    if(screenShare.peers[name]!==peer||peer.pc!==pc||pc.signalingState==='closed')return false;
+    peer.localOffer=pc.localDescription;
+    peer.localAnswer=null;
+    peer.offerRetries=0;
+    screenShareSend('offer',name,{sdp:peer.localOffer});
+    screenShareScheduleRecovery(name,peer);
+    return true;
+  });
+}
+async function screenShareReceive(p){
+  if(!p||p.roomId!==voiceRoom.id||typeof p.from!=='string'||!p.from||p.from.length>80||p.from===member||p.to&&p.to!==member)return;
+  if((p.type==='offer'||p.type==='answer'||p.type==='ice')&&p.to!==member)return;
+  if((p.type==='offer'||p.type==='answer')&&(!p.sdp||typeof p.sdp.sdp!=='string'||p.sdp.sdp.length>100000))return;
+  if(p.type==='ice'&&(!p.candidate||JSON.stringify(p.candidate).length>4096))return;
+  if(p.type==='presence'){
+    if(p.active){screenShareSend('presence',p.from,{});if(screenShare.active)screenShareOffer(p.from).catch(function(){});}
+    else{delete screenShare.remoteVideos[p.from];screenShareDrop(p.from);screenShareRender();}
+    return;
+  }
+  if(p.type==='leave'){delete screenShare.remoteVideos[p.from];screenShareDrop(p.from);screenShareRender();return;}
+  if(p.type==='offer'&&p.sdp){
+    try{
+      var existing=screenShare.peers[p.from];
+      if(existing&&existing.pc&&(['failed','closed','disconnected'].indexOf(existing.pc.connectionState)>=0||['failed','closed','disconnected'].indexOf(existing.pc.iceConnectionState)>=0))screenShareDrop(p.from);
+      var peer=await screenShareMakePeer(p.from);
+      return await screenShareQueuePeerOperation(p.from,peer,async function(current){
+        var pc=current.pc;
+        if(!pc||pc.signalingState==='closed')return false;
+        if(pc.remoteDescription&&pc.remoteDescription.sdp===p.sdp.sdp){
+          if(pc.localDescription&&pc.localDescription.type==='answer'){
+            current.localAnswer=pc.localDescription;
+            screenShareSend('answer',p.from,{sdp:current.localAnswer});
+          }
+          return true;
+        }
+        var collision=pc.signalingState==='have-local-offer';
+        var polite=String(member).localeCompare(String(p.from),'pt-BR')>0;
+        if(collision&&!polite)return false;
+        if(collision&&polite){
+          await pc.setLocalDescription({type:'rollback'});
+          if(screenShare.peers[p.from]!==current||current.pc!==pc)return false;
+          screenShareClearRecoveryTimer(current);
+          current.offerRetries=0;
+          current.localOffer=null;
+          current.localAnswer=null;
+        }
+        await pc.setRemoteDescription(new RTCSessionDescription(p.sdp));
+        if(screenShare.peers[p.from]!==current||current.pc!==pc)return false;
+        while(current.pending.length){
+          await pc.addIceCandidate(current.pending.shift());
+          if(screenShare.peers[p.from]!==current||current.pc!==pc)return false;
+        }
+        var answer=await pc.createAnswer();
+        if(screenShare.peers[p.from]!==current||current.pc!==pc)return false;
+        await pc.setLocalDescription(answer);
+        if(screenShare.peers[p.from]!==current||current.pc!==pc)return false;
+        current.localAnswer=pc.localDescription;
+        screenShareSend('answer',p.from,{sdp:current.localAnswer});
+        return true;
+      });
+    }catch(e){screenShareMessage('Falha ao negociar a tela com '+p.from+': '+(e.message||e));}
+    return;
+  }
+  if(p.type==='answer'&&p.sdp){
+    var answerPeer=screenShare.peers[p.from];
+    if(answerPeer&&answerPeer.pc){
+      try{
+        return await screenShareQueuePeerOperation(p.from,answerPeer,async function(current){
+          var pc=current.pc;
+          if(!pc||pc.signalingState!=='have-local-offer'||pc.remoteDescription)return false;
+          await pc.setRemoteDescription(new RTCSessionDescription(p.sdp));
+          if(screenShare.peers[p.from]!==current||current.pc!==pc)return false;
+          while(current.pending.length){
+            await pc.addIceCandidate(current.pending.shift());
+            if(screenShare.peers[p.from]!==current||current.pc!==pc)return false;
+          }
+          screenShareClearRecoveryTimer(current);
+          current.offerRetries=0;
+          current.localOffer=null;
+          return true;
+        });
+      }catch(e){screenShareMessage('Falha ao aceitar a tela de '+p.from+'.');}
+    }
+    return;
+  }
+  if(p.type==='ice'&&p.candidate){
+    var icePeer=screenShare.peers[p.from];
+    if(!icePeer){icePeer={pc:null,pending:[],stream:new MediaStream(),negotiationPromise:null};screenShare.peers[p.from]=icePeer;}
+    var candidate=p.candidate instanceof RTCIceCandidate?p.candidate:new RTCIceCandidate(p.candidate);
+    return screenShareQueuePeerOperation(p.from,icePeer,async function(current){
+      if(current.pc&&current.pc.remoteDescription){
+        try{await current.pc.addIceCandidate(candidate);}catch(e){}
+      }else if(current.pending.length<128)current.pending.push(candidate);
+      return true;
+    });
+  }
+}
+async function screenShareStart(){if(screenShare.active||screenShare.starting)return;screenShare.starting=true;screenShareRender();screenShareMessage('Selecione a tela ou janela que deseja compartilhar.');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getDisplayMedia)throw new Error('Este navegador não permite compartilhar a tela.');screenShare.stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:15,max:24}},audio:false});screenShare.active=true;screenShare.stream.getVideoTracks().forEach(function(track){track.onended=function(){screenShareStop(true);};});screenShareMessage('Compartilhamento ativo. Áudio do sistema desativado para evitar eco.');screenShareSend('presence','',{});Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member)screenShareOffer(n).catch(function(){});});}catch(e){screenShare.active=false;try{if(screenShare.stream)screenShare.stream.getTracks().forEach(function(t){t.stop();});}catch(_){}screenShare.stream=null;screenShareMessage(e&&e.name==='NotAllowedError'?'Compartilhamento cancelado.':'Não foi possível iniciar: '+(e.message||e));}finally{screenShare.starting=false;screenShareRender();}}
+  function screenShareStop(sendSignal){var wasActive=screenShare.active||screenShare.starting,stopSignal=null;screenShare.active=false;screenShare.starting=false;if(sendSignal!==false&&wasActive)stopSignal=screenShareSend('leave','',{active:false});try{if(screenShare.stream)screenShare.stream.getTracks().forEach(function(t){t.onended=null;t.stop();});}catch(e){}screenShare.stream=null;Object.keys(screenShare.peers).forEach(screenShareDrop);Object.keys(screenShare.remoteVideos).forEach(function(n){delete screenShare.remoteVideos[n];});var room=card&&card.querySelector('.up-voice-room');if(room){var grid=room.querySelector('.up-screen-share-grid');if(grid)grid.replaceChildren();}screenShareMessage('');screenShareRender();return stopSignal;}
+function voiceRoomSend(type,to,data){
+  if(!member)return;
+  var payload=Object.assign({roomId:voiceRoom.id,type:type,from:member,to:to||'',active:voiceRoom.active,muted:voiceRoom.muted,speakersMuted:!!voiceRoom.speakersMuted,version:CURRENT_VERSION,sessionId:voiceRoom.sessionId,at:Date.now(),sessionStartedAt:voiceRoom.sessionStartedAt||0},data||{});
+  if(signalTransportFlag){
+    if(!signalTransport||!signalVoiceRoomRoomId){voiceRoomMessage('Sinalização autenticada indisponível.');return false;}
+    var send=to?signalTransport.sendSignal({roomId:signalVoiceRoomRoomId,recipient:to,eventType:'voice_room_signal',payload:payload}):
+      signalTransport.sendToRoom({roomId:signalVoiceRoomRoomId,eventType:'voice_room_signal',payload:payload,senderName:member});
+    return Promise.resolve(send).catch(function(e){voiceRoomMessage(e.message||'Falha na sinalização autenticada.');return false;});
+  }
+  if(!realtimeActive||!realtimeChannel)return false;
+  try{realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:payload});if(voiceRoom.id==='upstatus-team-room-v1')realtimeChannel.send({type:'broadcast',event:VOICE_ROOM_EVENT,payload:Object.assign({},payload,{roomId:'upstatus-team-lite-room-v1'})});}catch(e){}
+}
 function voiceRoomMessage(t){var e=card&&card.querySelector('.up-voice-message');if(e)e.textContent=t||'';}
 function voiceRoomPlayCue(kind){try{var AC=window.AudioContext||window.webkitAudioContext;if(!voiceRoom.audioContext&&AC)voiceRoom.audioContext=new AC();var ctx=voiceRoom.audioContext;if(!ctx)return;if(ctx.state==='suspended')ctx.resume().catch(function(){});var notes=kind==='leave'?[620,500,360]:[480,760];var start=ctx.currentTime+.015;notes.forEach(function(freq,i){var osc=ctx.createOscillator(),gain=ctx.createGain(),at=start+i*(kind==='leave'?.105:.09),dur=kind==='leave'?.095:.115;osc.type='sine';osc.frequency.setValueAtTime(freq,at);gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(.065,at+.012);gain.gain.exponentialRampToValueAtTime(.0001,at+dur);osc.connect(gain);gain.connect(ctx.destination);osc.start(at);osc.stop(at+dur+.01);});}catch(e){}}
 async function voiceRoomMeasurePing(){if(!voiceRoom.active)return;var values=[];await Promise.all(Object.keys(voiceRoom.peers).map(async function(n){var p=voiceRoom.peers[n];if(!p||!p.pc||p.pc.connectionState==='closed')return;try{var stats=await p.pc.getStats();stats.forEach(function(st){if(st.type==='candidate-pair'&&(st.selected||st.nominated)&&typeof st.currentRoundTripTime==='number')values.push(st.currentRoundTripTime*1000);});}catch(e){}}));if(!voiceRoom.active)return;var next=values.length?Math.min.apply(Math,values):null;if(voiceRoom.pingMs===null&&next===null)return;if(next===null||voiceRoom.pingMs===null||Math.abs(next-voiceRoom.pingMs)>3){voiceRoom.pingMs=next;voiceRoomRender();}}
@@ -138,15 +371,147 @@ function voiceRoomApplyParticipantSignal(p){var name=String(p.from||''),current=
 function voiceRoomRemoveParticipantSignal(p){var name=String(p.from||''),current=voiceRoom.participants[name];if(!current)return;if(current.sessionId&&(!p.sessionId||String(p.sessionId)!==String(current.sessionId)))return;var sentAt=Number(p.at)||0;if(sentAt&&current.lastSignalAt&&sentAt<current.lastSignalAt)return;delete voiceRoom.participants[name];voiceRoomDrop(name);voiceRoomRender();}
 function voiceRoomCandidateMatchesRemote(candidate,pc){if(!candidate||!pc||!pc.remoteDescription||!pc.remoteDescription.sdp)return false;var raw=String(candidate.candidate||''),ufrag=candidate.usernameFragment||((raw.match(/\bufrag\s+([^\s]+)/)||[])[1]);if(!ufrag)return true;var sdp=String(pc.remoteDescription.sdp),match=sdp.match(/(?:^|\r?\n)a=ice-ufrag:([^\r\n]+)/);return !match||match[1]===ufrag;}
 async function voiceRoomFlushCandidates(peer){if(!peer||!peer.pc||!peer.pc.remoteDescription)return;var queued=peer.pending.splice(0);for(var i=0;i<queued.length;i++){var candidate=queued[i];if(!voiceRoomCandidateMatchesRemote(candidate,peer.pc))continue;try{await peer.pc.addIceCandidate(candidate);}catch(e){if(!/ufrag/i.test(String(e&&e.message||e)))voiceRoomMessage('Falha ao configurar candidato de áudio: '+(e.message||e));}}}
-function voiceRoomScheduleRecovery(n,peer,state){if(!voiceRoom.active||!peer||voiceRoom.peers[n]!==peer||voiceRoom.recoveryTimers[n])return;var attempt=Number(voiceRoom.recoveryAttempts[n]||0);if(attempt>=5){voiceRoomMessage('Áudio com '+n+' indisponível. Aguardando nova tentativa de conexão.');voiceRoom.recoveryAttempts[n]=0;return;}voiceRoom.recoveryAttempts[n]=attempt+1;var delay=Math.min(10000,800*Math.pow(2,attempt));voiceRoom.recoveryTimers[n]=setTimeout(function(){delete voiceRoom.recoveryTimers[n];if(!voiceRoom.active||voiceRoom.peers[n]!==peer)return;voiceRoomDrop(n);if(!voiceRoom.active)return;if(String(member).localeCompare(String(n),'pt-BR')<0){voiceRoomOffer(n).catch(function(){voiceRoomMessage('Restabelecendo áudio com '+n+'...');});}else{voiceRoomSend('presence',n,{});}},delay);}
-async function voiceRoomMakePeer(n){var p=voiceRoom.peers[n];if(p&&p.pc&&p.pc.signalingState!=='closed')return p;if(!voiceRoom.stream)throw new Error('Microfone não iniciado');p=p||{pc:null,pending:[],audio:null,analyser:null,audioSource:null,remoteStream:null};p.pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]});p.pending=p.pending||[];p.remoteStream=p.remoteStream||new MediaStream();voiceRoom.peers[n]=p;voiceRoom.stream.getAudioTracks().forEach(function(t){if(t.readyState==='live')p.pc.addTrack(t,voiceRoom.stream);});p.pc.onicecandidate=function(e){if(e.candidate&&voiceRoom.active)voiceRoomSend('ice',n,{candidate:e.candidate});};p.pc.onconnectionstatechange=function(){if(!p.pc||voiceRoom.peers[n]!==p)return;var state=p.pc.connectionState;if(state==='failed'||state==='disconnected')voiceRoomScheduleRecovery(n,p,state);};p.pc.oniceconnectionstatechange=function(){if(!p.pc||voiceRoom.peers[n]!==p)return;var state=p.pc.iceConnectionState;if(state==='failed'||state==='disconnected')voiceRoomScheduleRecovery(n,p,state);};p.pc.ontrack=function(e){try{var track=e.track;if(!track)return;if(!p.remoteStream.getTracks().some(function(t){return t.id===track.id;}))p.remoteStream.addTrack(track);if(!p.audio){p.audio=document.createElement('audio');p.audio.autoplay=true;p.audio.playsInline=true;p.audio.setAttribute('playsinline','');p.audio.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-100px;bottom:0';document.body.appendChild(p.audio);}if(p.audio.srcObject!==p.remoteStream)p.audio.srcObject=p.remoteStream;p.audio.muted=!!voiceRoom.speakersMuted;p.audio.volume=1;var playRemote=function(){if(!voiceRoom.active||!p.audio)return;if(voiceRoom.audioContext&&voiceRoom.audioContext.state==='suspended')voiceRoom.audioContext.resume().catch(function(){});var play=p.audio.play();if(play&&play.catch)play.catch(function(){voiceRoomMessage('O navegador bloqueou a reprodução do áudio. Clique uma vez na sala para liberar o som.');});};track.onunmute=playRemote;track.onended=function(){try{p.remoteStream.removeTrack(track);}catch(e){}};if(voiceRoom.audioContext&&!p.analyser){p.audioSource=voiceRoom.audioContext.createMediaStreamSource(p.remoteStream);p.analyser=voiceRoom.audioContext.createAnalyser();p.analyser.fftSize=512;p.audioSource.connect(p.analyser);p.levelData=new Uint8Array(p.analyser.frequencyBinCount);}playRemote();}catch(err){voiceRoomMessage('Erro ao preparar o áudio de '+n+': '+(err.message||err));}};return p;}
-async function voiceRoomOffer(n){if(!voiceRoom.active||String(member).localeCompare(String(n),'pt-BR')>=0)return;var p=await voiceRoomMakePeer(n);if(p.pc.signalingState!=='stable'||p.pc.localDescription)return;var offer=await p.pc.createOffer();await p.pc.setLocalDescription(offer);voiceRoomSend('offer',n,{sdp:p.pc.localDescription});}
-async function voiceRoomReceive(p){if(!p||(p.roomId!==voiceRoom.id&&p.roomId!=='upstatus-team-lite-room-v1')||!p.from||p.from===member||p.to&&p.to!==member)return;var signalKey=[p.from,p.to||'',p.type||'',p.sessionId||'',p.at||'',p.sdp&&p.sdp.type||'',p.candidate&&p.candidate.candidate||''].join('|');voiceRoom.seenSignals=voiceRoom.seenSignals||{};if(voiceRoom.seenSignals[signalKey])return;voiceRoom.seenSignals[signalKey]=Date.now();var seenSignalKeys=Object.keys(voiceRoom.seenSignals);if(seenSignalKeys.length>300)seenSignalKeys.slice(0,seenSignalKeys.length-200).forEach(function(k){delete voiceRoom.seenSignals[k];});if(p.type==='presence'){if(p.active){if(!voiceRoomApplyParticipantSignal(p))return;voiceRoomRender();if(!p.to)voiceRoomSend('presence',p.from,{});if(voiceRoom.active&&String(member).localeCompare(String(p.from),'pt-BR')<0)voiceRoomOffer(p.from).catch(function(e){voiceRoomMessage('Não foi possível iniciar áudio com '+p.from+': '+(e.message||e));});if(voiceRoom.active&&screenShare.active)screenShareOffer(p.from).catch(function(){});}else voiceRoomRemoveParticipantSignal(p);return;}if(p.type==='join'){if(p.active){if(!voiceRoomApplyParticipantSignal(p))return;if(voiceRoom.active)voiceRoomPlayCue('join');voiceRoomRender();if(voiceRoom.active&&screenShare.active)screenShareOffer(p.from).catch(function(){});}return;}if(p.type==='leave'){if(voiceRoom.active)voiceRoomPlayCue('leave');voiceRoomRemoveParticipantSignal(p);return;}if(!voiceRoom.active)return;if(p.type==='offer'&&p.sdp&&String(member).localeCompare(String(p.from),'pt-BR')>0){try{var existing=voiceRoom.peers[p.from];if(existing&&existing.pc&&(existing.pc.connectionState==='failed'||existing.pc.connectionState==='closed'||existing.pc.iceConnectionState==='failed'))voiceRoomDrop(p.from);var peer=await voiceRoomMakePeer(p.from);if(peer.pc.remoteDescription&&peer.pc.remoteDescription.sdp===p.sdp.sdp)return;await peer.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));await voiceRoomFlushCandidates(peer);var answer=await peer.pc.createAnswer();await peer.pc.setLocalDescription(answer);voiceRoomSend('answer',p.from,{sdp:peer.pc.localDescription});}catch(e){voiceRoomMessage('Falha ao negociar áudio com '+p.from+': '+(e.message||e));}return;}if(p.type==='answer'&&p.sdp){var ap=voiceRoom.peers[p.from];if(ap&&ap.pc&&!ap.pc.remoteDescription){try{await ap.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));await voiceRoomFlushCandidates(ap);}catch(e){voiceRoomMessage('Falha ao aceitar áudio de '+p.from+': '+(e.message||e));}}return;}if(p.type==='ice'&&p.candidate){var ip=voiceRoom.peers[p.from];if(!ip){ip={pc:null,pending:[],audio:null,analyser:null,audioSource:null,remoteStream:null};voiceRoom.peers[p.from]=ip;}var incomingCandidate=p.candidate instanceof RTCIceCandidate?p.candidate:new RTCIceCandidate(p.candidate);if(ip.pc&&ip.pc.remoteDescription){if(voiceRoomCandidateMatchesRemote(incomingCandidate,ip.pc)){try{await ip.pc.addIceCandidate(incomingCandidate);}catch(e){if(!/ufrag/i.test(String(e&&e.message||e)))voiceRoomMessage('Falha ao configurar áudio de '+p.from+': '+(e.message||e));}}}else if(ip.pending.length<128)ip.pending.push(incomingCandidate);}}
-async function voiceRoomJoin(){if(voiceRoom.active||voiceRoom.joining)return;if(!realtimeActive||!realtimeChannel){voiceRoomMessage('A conexão da sala ainda está sendo preparada. Tente novamente em alguns segundos.');return;}voiceRoom.joining=true;voiceRoom.pingMs=null;voiceRoomRender();voiceRoomMessage('');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Este navegador não disponibiliza acesso ao microfone.');voiceRoom.stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:false,autoGainControl:false}});var roomHadParticipants=Object.keys(voiceRoom.participants).some(function(n){return Date.now()-voiceRoom.participants[n].at<16000;});if(!roomHadParticipants)voiceRoom.sessionStartedAt=Date.now();voiceRoom.muted=false;voiceRoom.active=true;voiceRoom.participants[member]={at:Date.now(),muted:false,speaking:false,sessionStartedAt:voiceRoom.sessionStartedAt};voiceRoomPlayCue('join');voiceRoomSend('join','',{});voiceRoomSend('presence','',{});if(!voiceRoom.audioContext){var AC=window.AudioContext||window.webkitAudioContext;if(AC)voiceRoom.audioContext=new AC();}if(voiceRoom.audioContext&&voiceRoom.audioContext.state==='suspended')await voiceRoom.audioContext.resume();if(voiceRoom.audioContext){voiceRoom.localAnalyser=voiceRoom.audioContext.createAnalyser();voiceRoom.localAnalyser.fftSize=512;voiceRoom.localLevelData=new Uint8Array(voiceRoom.localAnalyser.frequencyBinCount);voiceRoom.audioContext.createMediaStreamSource(voiceRoom.stream).connect(voiceRoom.localAnalyser);}voiceRoom.levelTimer=setInterval(function(){var changed=false;Object.keys(voiceRoom.participants).forEach(function(n){var x=voiceRoom.participants[n];if(!x)return;var analyser=n===member?voiceRoom.localAnalyser:(voiceRoom.peers[n]&&voiceRoom.peers[n].analyser),data=n===member?voiceRoom.localLevelData:(voiceRoom.peers[n]&&voiceRoom.peers[n].levelData);if(x.muted||!analyser||!data){if(x.speaking){x.speaking=false;changed=true;}return;}analyser.getByteFrequencyData(data);var sum=0;for(var i=0;i<data.length;i++)sum+=data[i];var level=sum/data.length;x.level=level;var speaking=level>8;if(speaking)voiceRoom.lastSpeaker=n;if(x.speaking!==speaking){x.speaking=speaking;changed=true;}});if(changed)voiceRoomRender();else if(voiceControlWave&&voiceRoom.currentSpeaker){var liveLevel=Number((voiceRoom.participants[voiceRoom.currentSpeaker]||{}).level||0),liveSpeaking=!!(voiceRoom.participants[voiceRoom.currentSpeaker]&&voiceRoom.participants[voiceRoom.currentSpeaker].speaking&&!voiceRoom.participants[voiceRoom.currentSpeaker].muted),normalized=Math.max(0,Math.min(1,liveLevel/32));voiceControlWave.style.opacity=String((liveSpeaking?0.22:0.13)+normalized*(liveSpeaking?0.68:0.07));voiceControlWave.style.setProperty('--voice-level',String(normalized));}},160);voiceRoom.timer=setInterval(function(){voiceRoomSend('presence','',{});Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member&&Date.now()-voiceRoom.participants[n].at>30000){delete voiceRoom.participants[n];voiceRoomDrop(n);}});voiceRoomRender();},4000);if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);voiceRoom.pingTimer=setInterval(function(){voiceRoomMeasurePing();},2500);voiceRoomMeasurePing();voiceRoomMessage('');Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member)voiceRoomOffer(n).catch(function(e){voiceRoomMessage('Não foi possível conectar com '+n+': '+(e.message||e));});});}catch(e){try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(_){}voiceRoom.stream=null;voiceRoom.active=false;delete voiceRoom.participants[member];voiceRoomMessage((e&&e.name==='NotAllowedError'?'Permita o acesso ao microfone nas configurações do navegador. ':e&&e.name==='NotFoundError'?'Nenhum microfone foi encontrado. ':'Falha ao entrar na sala: ')+(e.message||'erro desconhecido'));}finally{voiceRoom.joining=false;voiceRoomRender();}}
+function voiceRoomScheduleRecovery(n,peer,state){if(!voiceRoom.active||!peer||voiceRoom.peers[n]!==peer||voiceRoom.recoveryTimers[n])return;var attempt=Number(voiceRoom.recoveryAttempts[n]||0);if(attempt>=5){voiceRoomMessage('Áudio com '+n+' indisponível. Aguardando nova tentativa de conexão.');voiceRoom.recoveryAttempts[n]=0;return;}voiceRoom.recoveryAttempts[n]=attempt+1;var delay=Math.min(10000,800*Math.pow(2,attempt));voiceRoom.recoveryTimers[n]=setTimeout(function(){delete voiceRoom.recoveryTimers[n];if(!voiceRoom.active||voiceRoom.peers[n]!==peer)return;var connectionState=peer.pc&&peer.pc.connectionState,iceState=peer.pc&&peer.pc.iceConnectionState;if(connectionState==='connected'||iceState==='connected'||iceState==='completed'){voiceRoom.recoveryAttempts[n]=0;return;}voiceRoomDrop(n);if(!voiceRoom.active)return;if(String(member).localeCompare(String(n),'pt-BR')<0){voiceRoomOffer(n).catch(function(){voiceRoomMessage('Restabelecendo áudio com '+n+'...');});}else{voiceRoomSend('presence',n,{});}},delay);}async function voiceRoomMakePeer(n){var p=voiceRoom.peers[n];if(p&&p.pc&&p.pc.signalingState!=='closed')return p;if(!voiceRoom.stream)throw new Error('Microfone não iniciado');p=p||{pc:null,pending:[],audio:null,analyser:null,audioSource:null,remoteStream:null};p.pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]});p.pending=p.pending||[];p.remoteStream=p.remoteStream||new MediaStream();voiceRoom.peers[n]=p;voiceRoom.stream.getAudioTracks().forEach(function(t){if(t.readyState==='live')p.pc.addTrack(t,voiceRoom.stream);});p.pc.onicecandidate=function(e){if(e.candidate&&voiceRoom.active)voiceRoomSend('ice',n,{candidate:e.candidate});};p.pc.onconnectionstatechange=function(){if(!p.pc||voiceRoom.peers[n]!==p)return;var state=p.pc.connectionState;if(state==='failed'||state==='disconnected')voiceRoomScheduleRecovery(n,p,state);};p.pc.oniceconnectionstatechange=function(){if(!p.pc||voiceRoom.peers[n]!==p)return;var state=p.pc.iceConnectionState;if(state==='failed'||state==='disconnected')voiceRoomScheduleRecovery(n,p,state);};p.pc.ontrack=function(e){try{var track=e.track;if(!track)return;if(!p.remoteStream.getTracks().some(function(t){return t.id===track.id;}))p.remoteStream.addTrack(track);if(!p.audio){p.audio=document.createElement('audio');p.audio.autoplay=true;p.audio.playsInline=true;p.audio.setAttribute('playsinline','');p.audio.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-100px;bottom:0';document.body.appendChild(p.audio);}if(p.audio.srcObject!==p.remoteStream)p.audio.srcObject=p.remoteStream;p.audio.muted=!!voiceRoom.speakersMuted;p.audio.volume=1;var playRemote=function(){if(!voiceRoom.active||!p.audio)return;if(voiceRoom.audioContext&&voiceRoom.audioContext.state==='suspended')voiceRoom.audioContext.resume().catch(function(){});var play=p.audio.play();if(play&&play.catch)play.catch(function(){voiceRoomMessage('O navegador bloqueou a reprodução do áudio. Clique uma vez na sala para liberar o som.');});};track.onunmute=playRemote;track.onended=function(){try{p.remoteStream.removeTrack(track);}catch(e){}};if(voiceRoom.audioContext&&!p.analyser){p.audioSource=voiceRoom.audioContext.createMediaStreamSource(p.remoteStream);p.analyser=voiceRoom.audioContext.createAnalyser();p.analyser.fftSize=512;p.audioSource.connect(p.analyser);p.levelData=new Uint8Array(p.analyser.frequencyBinCount);}playRemote();}catch(err){voiceRoomMessage('Erro ao preparar o áudio de '+n+': '+(err.message||err));}};return p;}
+async function voiceRoomOffer(n){if(!voiceRoom.active||String(member).localeCompare(String(n),'pt-BR')>=0)return;var existing=voiceRoom.peers[n];if(existing&&existing.pc&&(existing.pc.signalingState==='closed'||existing.pc.connectionState==='failed'||existing.pc.connectionState==='closed'||existing.pc.connectionState==='disconnected'||existing.pc.iceConnectionState==='failed'||existing.pc.iceConnectionState==='closed'||existing.pc.iceConnectionState==='disconnected'))voiceRoomDrop(n);var p=await voiceRoomMakePeer(n);if(p.pc.signalingState==='have-local-offer'&&p.pc.localDescription&&p.pc.localDescription.type==='offer'&&!p.pc.remoteDescription)return voiceRoomSend('offer',n,{sdp:p.pc.localDescription});if(p.pc.signalingState!=='stable'||p.pc.localDescription)return;var offer=await p.pc.createOffer();await p.pc.setLocalDescription(offer);return voiceRoomSend('offer',n,{sdp:p.pc.localDescription});}
+async function voiceRoomReceive(p){if(!p||(p.roomId!==voiceRoom.id&&p.roomId!=='upstatus-team-lite-room-v1')||typeof p.from!=='string'||!p.from||p.from.length>80||p.from===member||p.to&&p.to!==member)return;if((p.type==='offer'||p.type==='answer'||p.type==='ice')&&p.to!==member)return;if((p.type==='offer'||p.type==='answer')&&(!p.sdp||typeof p.sdp.sdp!=='string'||p.sdp.sdp.length>100000))return;if(p.type==='ice'&&(!p.candidate||JSON.stringify(p.candidate).length>4096))return;var signalKey=[p.from,p.to||'',p.type||'',p.sessionId||'',p.at||'',p.sdp&&p.sdp.type||'',p.candidate&&p.candidate.candidate||''].join('|');voiceRoom.seenSignals=voiceRoom.seenSignals||{};if(voiceRoom.seenSignals[signalKey])return;voiceRoom.seenSignals[signalKey]=Date.now();var seenSignalKeys=Object.keys(voiceRoom.seenSignals);if(seenSignalKeys.length>300)seenSignalKeys.slice(0,seenSignalKeys.length-200).forEach(function(k){delete voiceRoom.seenSignals[k];});if(p.type==='presence'){if(p.active){if(!voiceRoomApplyParticipantSignal(p))return;voiceRoomRender();if(!p.to)voiceRoomSend('presence',p.from,{});if(voiceRoom.active&&String(member).localeCompare(String(p.from),'pt-BR')<0)voiceRoomOffer(p.from).catch(function(e){voiceRoomMessage('Não foi possível iniciar áudio com '+p.from+': '+(e.message||e));});if(voiceRoom.active&&screenShare.active)screenShareOffer(p.from).catch(function(){});}else voiceRoomRemoveParticipantSignal(p);return;}if(p.type==='join'){if(p.active){if(!voiceRoomApplyParticipantSignal(p))return;if(voiceRoom.active)voiceRoomPlayCue('join');voiceRoomRender();if(voiceRoom.active&&screenShare.active)screenShareOffer(p.from).catch(function(){});}return;}if(p.type==='leave'){if(voiceRoom.active)voiceRoomPlayCue('leave');voiceRoomRemoveParticipantSignal(p);return;}if(!voiceRoom.active)return;if(p.type==='offer'&&p.sdp&&String(member).localeCompare(String(p.from),'pt-BR')>0){try{var existing=voiceRoom.peers[p.from];if(existing&&existing.pc&&(existing.pc.connectionState==='failed'||existing.pc.connectionState==='closed'||existing.pc.connectionState==='disconnected'||existing.pc.iceConnectionState==='failed'||existing.pc.iceConnectionState==='closed'||existing.pc.iceConnectionState==='disconnected'))voiceRoomDrop(p.from);var peer=await voiceRoomMakePeer(p.from);if(peer.pc.remoteDescription&&peer.pc.remoteDescription.sdp===p.sdp.sdp){if(peer.pc.localDescription&&peer.pc.localDescription.type==='answer')await voiceRoomSend('answer',p.from,{sdp:peer.pc.localDescription});return;}await peer.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));await voiceRoomFlushCandidates(peer);var answer=await peer.pc.createAnswer();await peer.pc.setLocalDescription(answer);await voiceRoomSend('answer',p.from,{sdp:peer.pc.localDescription});}catch(e){voiceRoomMessage('Falha ao negociar áudio com '+p.from+': '+(e.message||e));}return;}if(p.type==='answer'&&p.sdp){var ap=voiceRoom.peers[p.from];if(ap&&ap.pc&&!ap.pc.remoteDescription){try{await ap.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));await voiceRoomFlushCandidates(ap);}catch(e){voiceRoomMessage('Falha ao aceitar áudio de '+p.from+': '+(e.message||e));}}return;}if(p.type==='ice'&&p.candidate){var ip=voiceRoom.peers[p.from];if(!ip){ip={pc:null,pending:[],audio:null,analyser:null,audioSource:null,remoteStream:null};voiceRoom.peers[p.from]=ip;}var incomingCandidate=p.candidate instanceof RTCIceCandidate?p.candidate:new RTCIceCandidate(p.candidate);if(ip.pc&&ip.pc.remoteDescription){if(voiceRoomCandidateMatchesRemote(incomingCandidate,ip.pc)){try{await ip.pc.addIceCandidate(incomingCandidate);}catch(e){if(!/ufrag/i.test(String(e&&e.message||e)))voiceRoomMessage('Falha ao configurar áudio de '+p.from+': '+(e.message||e));}}}else if(ip.pending.length<128)ip.pending.push(incomingCandidate);}}
+async function signalPrepareVoiceRoom(){
+  if(!signalTransport||!signalTransportFlag)throw new Error('A conexão autenticada da sala não está disponível.');
+  if(!await signalRetryPendingVoiceRoomAttempts(true))throw new Error('Existe uma saída de sala de voz pendente. Reconecte antes de entrar novamente.');
+  var attemptId=signalNewVoiceRoomAttemptId();
+  if(!attemptId||!signalTrackPendingVoiceRoomAttempt(voiceRoom.id,attemptId))throw new Error('Não foi possível salvar a referência de recuperação da sala de voz no armazenamento do userscript. A entrada foi bloqueada.');
+  signalVoiceRoomAttemptId=attemptId;
+  var prepareGeneration=Number(voiceRoom.joinGeneration||0),transportForOpen=signalTransport;
+  try{
+    var opened=await transportForOpen.openVoiceRoom(voiceRoom.id,attemptId);
+    if((voiceRoom.joinGeneration||0)!==prepareGeneration||!voiceRoom.joining||
+      signalVoiceRoomAttemptId!==attemptId||!signalPendingVoiceRoomAttempts[attemptId]){
+      await signalAttemptPendingVoiceRoomCancel(attemptId,null,false);
+      throw new Error('A tentativa de entrada na sala foi cancelada antes da conclusão.');
+    }
+    if(!opened||typeof opened.roomId!=='string'||!opened.roomId||opened.attemptId!==attemptId)
+      throw new Error('O servidor não confirmou uma sala de voz válida para esta tentativa.');
+    signalPendingVoiceRoomAttempts[attemptId].roomId=opened.roomId;
+    signalVoiceRoomCreator=opened.created===true;
+    signalVoiceRoomRoomId=opened.roomId;
+    signalStartCallPolling(opened.roomId,voiceRoom.id);
+  }catch(e){
+    if(signalPendingVoiceRoomAttempts[attemptId]){
+      var cancelled=await signalAttemptPendingVoiceRoomCancel(attemptId,transportForOpen,true);
+      if(!cancelled)voiceRoomMessage('A tentativa de sala de voz ficou salva para cancelamento após a reconexão.');
+    }
+    throw e;
+  }
+}
+
+async function waitForRealtimeReady(timeoutMs){
+  var deadline=Date.now()+(Number(timeoutMs)||10000);
+  while(Date.now()<deadline){
+    if(typeof navigator!=='undefined'&&navigator.onLine===false)return false;
+    if(!token)return false;
+    if(realtimeActive&&realtimeChannel)return true;
+    if(!realtimeClient&&!realtimeRetryTimer)startRealtime();
+    await new Promise(function(resolve){setTimeout(resolve,150);});
+  }
+  return !!(token&&realtimeActive&&realtimeChannel);
+}
+async function voiceRoomJoin(){while(voiceRoomLeavePromise){try{await voiceRoomLeavePromise;}catch(e){}}
+if(typeof navigator!=='undefined'&&navigator.onLine===false){voiceRoomMessage('Sem conexão com a internet. Aguarde a reconexão e tente novamente.');return;}
+if(voiceRoom.active||voiceRoom.joining)return;
+if(signalTransportFlag&&!signalTransport)initSignalingTransport();if(signalTransportFlag&&!signalTransport){voiceRoomMessage('A sinalização autenticada não está configurada.');return;}
+if(signalTransportFlag&&!signalVoiceRoomPrepared){
+  voiceRoom.joining=true;voiceRoomRender();voiceRoomMessage('');
+  try{await signalPrepareVoiceRoom();voiceRoom.joining=false;signalVoiceRoomPrepared=true;await voiceRoomJoin();signalVoiceRoomPrepared=false;return;}
+  catch(e){voiceRoom.joining=false;signalVoiceRoomPrepared=false;voiceRoomMessage(e.message||'Não foi possível preparar a sala autenticada.');voiceRoomRender();return;}
+}
+if(!signalTransportFlag&&(!realtimeActive||!realtimeChannel)){
+  voiceRoom.joining=true;voiceRoomRender();voiceRoomMessage('Reconectando a conexão da sala...');
+  var realtimeReady=await waitForRealtimeReady(10000);
+  voiceRoom.joining=false;
+  if(!realtimeReady){voiceRoomMessage('A conexão da sala ainda não foi restabelecida. Tente novamente.');voiceRoomRender();return;}
+}
+if((!realtimeActive||!realtimeChannel)&&!(signalTransport&&signalTransportFlag)){voiceRoomMessage('A conexão da sala ainda está sendo preparada. Tente novamente em alguns segundos.');return;}
+voiceRoom.joining=true;voiceRoom.pingMs=null;voiceRoomRender();voiceRoomMessage('');var joinGeneration=(voiceRoom.joinGeneration||0)+1;voiceRoom.joinGeneration=joinGeneration;try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Este navegador não disponibiliza acesso ao microfone.');voiceRoom.stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:false,autoGainControl:false}});if(voiceRoom.joinGeneration!==joinGeneration){try{voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(_){}voiceRoom.stream=null;return;}var roomHadParticipants=Object.keys(voiceRoom.participants).some(function(n){return Date.now()-voiceRoom.participants[n].at<16000;});if(!roomHadParticipants)voiceRoom.sessionStartedAt=Date.now();voiceRoom.muted=false;voiceRoom.active=true;voiceRoom.participants[member]={at:Date.now(),muted:false,speaking:false,sessionStartedAt:voiceRoom.sessionStartedAt};voiceRoomPlayCue('join');voiceRoomSend('join','',{});voiceRoomSend('presence','',{});if(!voiceRoom.audioContext){var AC=window.AudioContext||window.webkitAudioContext;if(AC)voiceRoom.audioContext=new AC();}if(voiceRoom.audioContext&&voiceRoom.audioContext.state==='suspended')await voiceRoom.audioContext.resume();if(voiceRoom.joinGeneration!==joinGeneration)return;if(voiceRoom.audioContext){voiceRoom.localAnalyser=voiceRoom.audioContext.createAnalyser();voiceRoom.localAnalyser.fftSize=512;voiceRoom.localLevelData=new Uint8Array(voiceRoom.localAnalyser.frequencyBinCount);voiceRoom.audioContext.createMediaStreamSource(voiceRoom.stream).connect(voiceRoom.localAnalyser);}voiceRoom.levelTimer=setInterval(function(){var changed=false;Object.keys(voiceRoom.participants).forEach(function(n){var x=voiceRoom.participants[n];if(!x)return;var analyser=n===member?voiceRoom.localAnalyser:(voiceRoom.peers[n]&&voiceRoom.peers[n].analyser),data=n===member?voiceRoom.localLevelData:(voiceRoom.peers[n]&&voiceRoom.peers[n].levelData);if(x.muted||!analyser||!data){if(x.speaking){x.speaking=false;changed=true;}return;}analyser.getByteFrequencyData(data);var sum=0;for(var i=0;i<data.length;i++)sum+=data[i];var level=sum/data.length;x.level=level;var speaking=level>8;if(speaking)voiceRoom.lastSpeaker=n;if(x.speaking!==speaking){x.speaking=speaking;changed=true;}});if(changed)voiceRoomRender();else if(voiceControlWave&&voiceRoom.currentSpeaker){var liveLevel=Number((voiceRoom.participants[voiceRoom.currentSpeaker]||{}).level||0),liveSpeaking=!!(voiceRoom.participants[voiceRoom.currentSpeaker]&&voiceRoom.participants[voiceRoom.currentSpeaker].speaking&&!voiceRoom.participants[voiceRoom.currentSpeaker].muted),normalized=Math.max(0,Math.min(1,liveLevel/32));voiceControlWave.style.opacity=String((liveSpeaking?0.22:0.13)+normalized*(liveSpeaking?0.68:0.07));voiceControlWave.style.setProperty('--voice-level',String(normalized));}},160);voiceRoom.timer=setInterval(function(){voiceRoomSend('presence','',{});Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member&&Date.now()-voiceRoom.participants[n].at>30000){delete voiceRoom.participants[n];voiceRoomDrop(n);}});voiceRoomRender();},4000);if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);voiceRoom.pingTimer=setInterval(function(){voiceRoomMeasurePing();},2500);voiceRoomMeasurePing();voiceRoomMessage('');Object.keys(voiceRoom.participants).forEach(function(n){if(n!==member)voiceRoomOffer(n).catch(function(e){voiceRoomMessage('Não foi possível conectar com '+n+': '+(e.message||e));});});}catch(e){var membershipReleased=!signalVoiceRoomRoomId;if(signalVoiceRoomRoomId){try{membershipReleased=await voiceRoomLeave();}catch(_){membershipReleased=false;}}try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(_){}voiceRoom.stream=null;voiceRoom.active=false;delete voiceRoom.participants[member];voiceRoomMessage((e&&e.name==='NotAllowedError'?'Permita o acesso ao microfone nas configurações do navegador. ':e&&e.name==='NotFoundError'?'Nenhum microfone foi encontrado. ':'Falha ao entrar na sala: ')+(e.message||'erro desconhecido')+(membershipReleased?'':' A saída da sala não foi confirmada; sua sessão foi mantida para nova tentativa.'));}finally{voiceRoom.joining=false;voiceRoomRender();}}
 function voiceRoomToggleSpeakers(){if(!voiceRoom.active)return;voiceRoom.speakersMuted=!voiceRoom.speakersMuted;voiceRoom.muted=voiceRoom.speakersMuted;if(voiceRoom.stream)voiceRoom.stream.getAudioTracks().forEach(function(t){t.enabled=!voiceRoom.muted;});if(voiceRoom.participants[member]){voiceRoom.participants[member].muted=voiceRoom.muted;if(voiceRoom.muted)voiceRoom.participants[member].speaking=false;}Object.keys(voiceRoom.peers).forEach(function(n){var p=voiceRoom.peers[n];if(p&&p.audio)p.audio.muted=voiceRoom.speakersMuted;});voiceRoomSend('presence','',{});voiceRoomRender();}
 function voiceRoomMute(){if(!voiceRoom.active||!voiceRoom.stream)return;voiceRoom.muted=!voiceRoom.muted;voiceRoom.stream.getAudioTracks().forEach(function(t){t.enabled=!voiceRoom.muted;});if(voiceRoom.participants[member]){voiceRoom.participants[member].muted=voiceRoom.muted;if(voiceRoom.muted)voiceRoom.participants[member].speaking=false;}voiceRoomSend('presence','',{});voiceRoomRender();}
-function voiceRoomLeave(){screenShareStop(true);var wasActive=voiceRoom.active;voiceRoom.active=false;voiceRoom.joining=false;Object.keys(voiceRoom.recoveryTimers||{}).forEach(function(n){clearTimeout(voiceRoom.recoveryTimers[n]);});voiceRoom.recoveryTimers={};voiceRoom.recoveryAttempts={};if(wasActive){voiceRoomPlayCue('leave');voiceRoomSend('leave','',{active:false});}if(voiceRoom.timer)clearInterval(voiceRoom.timer);if(voiceRoom.levelTimer)clearInterval(voiceRoom.levelTimer);if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);voiceRoom.timer=null;voiceRoom.levelTimer=null;voiceRoom.pingTimer=null;voiceRoom.pingMs=null;Object.keys(voiceRoom.peers).forEach(function(n){voiceRoomDrop(n);});try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}voiceRoom.stream=null;voiceRoom.muted=false;delete voiceRoom.participants[member];voiceRoomRender();voiceRoomMessage('')}
-window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}});
+var voiceRoomLeavePromise=null;
+function voiceRoomLeave(options){
+if(voiceRoomLeavePromise)return voiceRoomLeavePromise;
+var skipServerLeave=!!(options&&options.skipServerLeave);
+voiceRoom.joinGeneration=(voiceRoom.joinGeneration||0)+1;
+var wasActive=voiceRoom.active,leaveSignal=null,leavingRoomId=signalVoiceRoomRoomId,
+  leavingAttemptId=signalVoiceRoomAttemptId,leavingTransport=signalTransport;
+var screenLeaveSignal=screenShareStop(!skipServerLeave);
+var leavePromise=Promise.resolve(!leavingRoomId&&!leavingAttemptId);
+voiceRoom.active=false;voiceRoom.joining=false;
+Object.keys(voiceRoom.recoveryTimers||{}).forEach(function(n){clearTimeout(voiceRoom.recoveryTimers[n]);});
+voiceRoom.recoveryTimers={};voiceRoom.recoveryAttempts={};
+if(wasActive&&!skipServerLeave){voiceRoomPlayCue('leave');leaveSignal=voiceRoomSend('leave','',{active:false});}
+if(voiceRoom.timer)clearInterval(voiceRoom.timer);
+if(voiceRoom.levelTimer)clearInterval(voiceRoom.levelTimer);
+if(voiceRoom.pingTimer)clearInterval(voiceRoom.pingTimer);
+voiceRoom.timer=null;voiceRoom.levelTimer=null;voiceRoom.pingTimer=null;voiceRoom.pingMs=null;
+Object.keys(voiceRoom.peers).forEach(function(n){voiceRoomDrop(n);});
+try{if(voiceRoom.stream)voiceRoom.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}
+voiceRoom.stream=null;voiceRoom.muted=false;delete voiceRoom.participants[member];voiceRoomRender();voiceRoomMessage('');
+if(skipServerLeave){
+  if(leavingRoomId){signalStopCallPolling(leavingRoomId);delete signalRosterCache[leavingRoomId];}
+  signalVoiceRoomCreator=false;signalVoiceRoomPrepared=false;
+  leavePromise=Promise.resolve(!leavingRoomId&&!leavingAttemptId);
+}else if(leavingAttemptId&&leavingTransport){
+  if(leavingRoomId)signalStopCallPolling(leavingRoomId);
+  leavePromise=Promise.allSettled([screenLeaveSignal,leaveSignal].map(function(p){return Promise.resolve(p);})).then(function(){
+    if(signalTransport!==leavingTransport)return false;
+    return signalAttemptPendingVoiceRoomCancel(leavingAttemptId,leavingTransport,true);
+  }).then(function(ok){
+    if(!ok)throw new Error('O servidor não confirmou a saída da sala de voz.');
+    if(leavingRoomId)delete signalRosterCache[leavingRoomId];
+    return !signalVoiceRoomAttemptId&&!signalPendingVoiceRoomAttempts[leavingAttemptId];
+  }).catch(function(){signalVoiceRoomPrepared=false;return false;});
+}else if(leavingTransport&&leavingRoomId){
+  signalStopCallPolling(leavingRoomId);
+  leavePromise=Promise.allSettled([screenLeaveSignal,leaveSignal].map(function(p){return Promise.resolve(p);})).then(function(){
+    if(signalTransport!==leavingTransport||signalVoiceRoomRoomId!==leavingRoomId)return false;
+    return leavingTransport.leave(leavingRoomId);
+  }).then(function(result){
+    if(result===false||(result&&typeof result==='object'&&(result.ok===false||result.error)))throw new Error(result&&result.error?String(result.error):'O servidor não confirmou a saída da sala.');
+    if(signalTransport===leavingTransport&&signalVoiceRoomRoomId===leavingRoomId){
+      delete signalRosterCache[leavingRoomId];
+      signalVoiceRoomRoomId='';signalVoiceRoomCreator=false;signalVoiceRoomPrepared=false;
+    }
+    return !signalVoiceRoomRoomId;
+  }).catch(function(){signalVoiceRoomPrepared=false;return false;});
+}else if(leavingRoomId||leavingAttemptId){
+  leavePromise=Promise.resolve(false);
+}
+voiceRoomLeavePromise=leavePromise.finally(function(){voiceRoomLeavePromise=null;voiceRoomRender();});
+voiceRoomRender();
+return voiceRoomLeavePromise;
+}
+async function normalReleaseVoiceRoomBeforeLogout(){
+  if(!signalPendingVoiceRoomStorageHealthy){
+    voiceRoomMessage('Não foi possível verificar as saídas pendentes da sala de voz. Sua sessão foi mantida. Recarregue e tente novamente.');
+    card.classList.remove('hidden');
+    voiceRoomRender();
+    return false;
+  }
+  var hasPendingForMember=Object.keys(signalPendingVoiceRoomAttempts).some(function(id){
+    var entry=signalPendingVoiceRoomAttempts[id];return !!entry&&entry.member===member;
+  });
+  if(upNetworkOffline&&(signalVoiceRoomRoomId||signalVoiceRoomAttemptId||hasPendingForMember))return false;
+  try{await voiceRoomLeave();}catch(e){}
+  var pendingReleased=await signalRetryPendingVoiceRoomAttempts();
+  hasPendingForMember=Object.keys(signalPendingVoiceRoomAttempts).some(function(id){
+    var entry=signalPendingVoiceRoomAttempts[id];return !!entry&&entry.member===member;
+  });
+  if(!pendingReleased||hasPendingForMember||signalVoiceRoomAttemptId||signalVoiceRoomRoomId){
+    voiceRoomMessage('Não foi possível confirmar a saída da sala de voz. Sua sessão foi mantida. Reconecte e tente sair novamente.');
+    card.classList.remove('hidden');
+    voiceRoomRender();
+    return false;
+  }
+  return true;
+}
+window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').catch(function(){});}catch(e){}try{voiceRoomLeave();}catch(e){}});
 
   // Controle global do ringtone: evita áudio órfão quando há mais de uma instância do userscript na página.
   var upRingtoneGlobal=window.__upstatusRingtoneGlobal||(window.__upstatusRingtoneGlobal={generation:0,sources:[],gains:[]});
@@ -212,9 +577,442 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   GM_setValue(key+'server',CLOUD_SERVER);
   var token=GM_getValue(key+'token','');
   var member=GM_getValue(key+'member','');
+  // Server-mediated signaling is an opt-in migration path. It is inert by default.
+  var signalTransportFlag=GM_getValue(key+'signaling_transport_enabled',false)===true;
+  var signalTransportEndpoint=String(GM_getValue(key+'signaling_transport_endpoint','')||'').trim();
+  var signalTransport=null,signalInvitationTimer=null,signalInvitationPollBusy=false;
+  var signalVoiceRoomRoomId="",signalVoiceRoomCreator=false,signalVoiceRoomPrepared=false,signalVoiceRoomAttemptId="";
+  var signalRoomByCallId=Object.create(null),signalCallIdByRoom=Object.create(null);
+  var signalPollStops=Object.create(null),signalCreatorCallIds=Object.create(null),signalRosterCache=Object.create(null);
+  var signalPendingCallLeaves=Object.create(null);
+  var signalPendingCallAttempts=Object.create(null);
+  var signalPendingVoiceRoomAttempts=Object.create(null),signalPendingVoiceRoomStorageHealthy=true;
+  function signalPendingCallLeavesStorageKey(memberName){
+    return key+'signal_pending_call_leaves_v1_'+encodeURIComponent(String(memberName||''));
+  }
+  function signalHasControlChars(value){
+    for(var i=0;i<value.length;i++){var code=value.charCodeAt(i);if(code<32||code===127)return true;}
+    return false;
+  }
+  function signalNormalizePendingCallLeaveRecord(record,expectedMember,now){
+    if(!record||typeof record!=='object'||Array.isArray(record))return null;
+    var roomId=String(record.roomId||'').trim(),recordMember=String(record.member||''),callId=String(record.callId||'').trim(),createdAt=Number(record.createdAt);
+    if(!expectedMember||recordMember!==expectedMember)return null;
+    if(!/^[A-Za-z0-9._:-]{1,128}$/.test(roomId))return null;
+    if(!callId||callId.length>160||signalHasControlChars(callId))return null;
+    if(!Number.isFinite(createdAt)||createdAt<=0||createdAt>now+60000||now-createdAt>7*24*60*60*1000)return null;
+    return {roomId:roomId,member:recordMember,callId:callId,createdAt:createdAt};
+  }
+  function signalPersistPendingCallLeaves(){
+    if(!member)return false;
+    var records=[],now=Date.now();
+    Object.keys(signalPendingCallLeaves).forEach(function(roomId){
+      if(records.length>=20)return;
+      var entry=signalPendingCallLeaves[roomId];
+      if(!entry||entry.member!==member)return;
+      var record=signalNormalizePendingCallLeaveRecord({roomId:roomId,member:entry.member,callId:entry.callId,createdAt:entry.createdAt||now},member,now);
+      if(record)records.push(record);
+    });
+    try{GM_setValue(signalPendingCallLeavesStorageKey(member),{version:1,entries:records});return true;}catch(e){return false;}
+  }
+  function signalRestorePendingCallLeaves(){
+    if(!token||!member)return 0;
+    var stored=null;
+    try{stored=GM_getValue(signalPendingCallLeavesStorageKey(member),null);}catch(e){return 0;}
+    if(!stored||stored.version!==1||!Array.isArray(stored.entries))return 0;
+    var now=Date.now(),restored=0,seen=Object.create(null);
+    stored.entries.slice(0,20).forEach(function(raw){
+      var record=signalNormalizePendingCallLeaveRecord(raw,member,now);
+      if(!record||seen[record.roomId])return;
+      seen[record.roomId]=true;
+      if(!signalPendingCallLeaves[record.roomId]){
+        signalPendingCallLeaves[record.roomId]={roomId:record.roomId,callId:record.callId,member:record.member,transport:null,promise:null,createdAt:record.createdAt};
+      }
+      restored++;
+    });
+    signalPersistPendingCallLeaves();
+    return restored;
+  }
+  function signalTrackPendingCallLeave(roomId,callId,transport){
+    var now=Date.now();
+    var record=signalNormalizePendingCallLeaveRecord({roomId:roomId,member:member,callId:callId,createdAt:now},member,now);
+    if(!record)return false;
+    var existing=signalPendingCallLeaves[record.roomId];
+    if(existing){
+      if(existing.member!==member||(existing.callId&&existing.callId!==record.callId))return false;
+      existing.callId=record.callId;
+      existing.transport=existing.transport||transport||signalTransport;
+      if(!existing.createdAt)existing.createdAt=now;
+    }else{
+      var count=Object.keys(signalPendingCallLeaves).filter(function(id){
+        var entry=signalPendingCallLeaves[id];return !!entry&&entry.member===member;
+      }).length;
+      if(count>=20)return false;
+      signalPendingCallLeaves[record.roomId]={roomId:record.roomId,callId:record.callId,member:member,transport:transport||signalTransport,promise:null,createdAt:now};
+    }
+    if(!signalPersistPendingCallLeaves()){
+      if(!existing)delete signalPendingCallLeaves[record.roomId];
+      return false;
+    }
+    return true;
+  }
+  function signalPendingCallAttemptsStorageKey(memberName){
+    return key+'signal_pending_call_attempts_v1_'+encodeURIComponent(String(memberName||''));
+  }
+  function signalNormalizePendingCallAttemptRecord(record,expectedMember,now){
+    if(!record||typeof record!=='object'||Array.isArray(record))return null;
+    var callId=String(record.callId||'').trim(),recordMember=String(record.member||''),createdAt=Number(record.createdAt);
+    if(!expectedMember||recordMember!==expectedMember)return null;
+    if(!/^[A-Za-z0-9._:-]{1,128}$/.test(callId))return null;
+    var prefix=String(expectedMember).replace(/[^A-Za-z0-9._:-]/gu,'_').slice(0,80)+'-';
+    if(callId.indexOf(prefix)!==0)return null;
+    if(!Number.isFinite(createdAt)||createdAt<=0||createdAt>now+60000||now-createdAt>7*24*60*60*1000)return null;
+    return {callId:callId,member:recordMember,createdAt:createdAt};
+  }
+  function signalPersistPendingCallAttempts(){
+    if(!member)return false;
+    var records=[],now=Date.now();
+    Object.keys(signalPendingCallAttempts).forEach(function(callId){
+      if(records.length>=20)return;
+      var entry=signalPendingCallAttempts[callId];
+      if(!entry||entry.member!==member)return;
+      var record=signalNormalizePendingCallAttemptRecord({callId:callId,member:entry.member,createdAt:entry.createdAt||now},member,now);
+      if(record)records.push(record);
+    });
+    try{GM_setValue(signalPendingCallAttemptsStorageKey(member),{version:1,entries:records});return true;}catch(e){return false;}
+  }
+  function signalTrackPendingCallAttempt(callId){
+    var now=Date.now();
+    var record=signalNormalizePendingCallAttemptRecord({callId:callId,member:member,createdAt:now},member,now);
+    if(!record)return false;
+    if(signalPendingCallAttempts[callId])return true;
+    var count=Object.keys(signalPendingCallAttempts).filter(function(id){
+      var entry=signalPendingCallAttempts[id];return !!entry&&entry.member===member;
+    }).length;
+    if(count>=20)return false;
+    signalPendingCallAttempts[callId]={callId:callId,member:member,transport:null,promise:null,createdAt:now,roomId:''};
+    if(!signalPersistPendingCallAttempts()){
+      delete signalPendingCallAttempts[callId];
+      return false;
+    }
+    return true;
+  }
+  function signalRestorePendingCallAttempts(){
+    if(!token||!member)return 0;
+    var stored=null;
+    try{stored=GM_getValue(signalPendingCallAttemptsStorageKey(member),null);}catch(e){return 0;}
+    if(!stored||stored.version!==1||!Array.isArray(stored.entries))return 0;
+    var now=Date.now(),restored=0,seen=Object.create(null);
+    stored.entries.slice(0,20).forEach(function(raw){
+      var record=signalNormalizePendingCallAttemptRecord(raw,member,now);
+      if(!record||seen[record.callId])return;
+      seen[record.callId]=true;
+      if(!signalPendingCallAttempts[record.callId]){
+        signalPendingCallAttempts[record.callId]={callId:record.callId,member:record.member,transport:null,promise:null,createdAt:record.createdAt,roomId:''};
+      }
+      restored++;
+    });
+    signalPersistPendingCallAttempts();
+    return restored;
+  }
+  function signalAttemptPendingCallAttempt(callId,expectedTransport,requireExpectedTransport){
+    var entry=signalPendingCallAttempts[callId];
+    if(!entry)return Promise.resolve(true);
+    if(typeof upCall!=='undefined'&&upCall&&upCall.active&&upCall.callId===callId)return Promise.resolve(true);
+    if(entry.member!==member)return Promise.resolve(false);
+    var currentTransport=signalTransport;
+    if(entry.promise){
+      if(requireExpectedTransport&&entry.transport!==expectedTransport)return entry.promise;
+      if(!requireExpectedTransport&&currentTransport&&entry.transport!==currentTransport){
+        return entry.promise.then(function(){return signalAttemptPendingCallAttempt(callId,null,false);});
+      }
+      return entry.promise;
+    }
+    var transportForAttempt=requireExpectedTransport?expectedTransport:currentTransport;
+    if(!transportForAttempt||currentTransport!==transportForAttempt||typeof transportForAttempt.cancelCallRoom!=='function')return Promise.resolve(false);
+    entry.transport=transportForAttempt;
+    var attempt=Promise.resolve().then(function(){return transportForAttempt.cancelCallRoom(callId);}).then(function(result){
+      if(result===false||(result&&typeof result==='object'&&(result.ok===false||result.error)))
+        throw new Error(result&&result.error?String(result.error):'O servidor não confirmou o cancelamento da chamada.');
+      if(signalPendingCallAttempts[callId]===entry)delete signalPendingCallAttempts[callId];
+      var roomId=entry.roomId||signalRoomByCallId[callId];
+      if(roomId){
+        if(signalPendingCallLeaves[roomId])delete signalPendingCallLeaves[roomId];
+        if(signalRoomByCallId[callId]===roomId)delete signalRoomByCallId[callId];
+        if(signalCallIdByRoom[roomId]===callId)delete signalCallIdByRoom[roomId];
+        delete signalRosterCache[roomId];
+        signalStopCallPolling(roomId);
+        signalPersistPendingCallLeaves();
+      }
+      delete signalCreatorCallIds[callId];
+      signalPersistPendingCallAttempts();
+      return true;
+    }).catch(function(error){
+      var code=error&&(error.code||error.message);
+      if(['CALL_CANCELLED','CALL_EXPIRED','CALL_MEMBERSHIP_ENDED','ROOM_UNAVAILABLE','ROOM_MEMBERSHIP_ENDED'].indexOf(String(code))>=0){
+        if(signalPendingCallAttempts[callId]===entry)delete signalPendingCallAttempts[callId];
+        signalPersistPendingCallAttempts();
+        return true;
+      }
+      return false;
+    });
+    entry.promise=attempt.then(function(ok){
+      entry.promise=null;
+      if(!ok&&!requireExpectedTransport&&signalTransport&&signalTransport!==transportForAttempt)
+        return signalAttemptPendingCallAttempt(callId,null,false);
+      return ok;
+    });
+    return entry.promise;
+  }
+  function signalRetryPendingCallAttempts(){
+    var calls=Object.keys(signalPendingCallAttempts).filter(function(callId){
+      var entry=signalPendingCallAttempts[callId];return !!entry&&entry.member===member;
+    });
+    if(!calls.length)return Promise.resolve(true);
+    return Promise.all(calls.map(function(callId){return signalAttemptPendingCallAttempt(callId,null,false);})).then(function(results){
+      return results.every(function(ok){return ok===true;});
+    });
+  }
+  function signalPendingVoiceRoomAttemptsStorageKey(memberName){
+    return key+'signal_pending_voice_room_attempts_v1_'+encodeURIComponent(String(memberName||''));
+  }
+  function signalNormalizePendingVoiceRoomAttemptRecord(record,expectedMember,now){
+    if(!record||typeof record!=='object'||Array.isArray(record))return null;
+    var logicalId=String(record.logicalId||''),attemptId=String(record.attemptId||'').trim(),recordMember=String(record.member||''),createdAt=Number(record.createdAt);
+    if(!expectedMember||recordMember!==expectedMember)return null;
+    if(logicalId!=='upstatus-team-room-v1'&&logicalId!=='upstatus-team-lite-room-v1')return null;
+    if(!/^[A-Za-z0-9._:-]{1,128}$/.test(attemptId))return null;
+    var prefix=String(expectedMember).replace(/[^A-Za-z0-9._:-]/gu,'_')+'-voice-';
+    if(attemptId.indexOf(prefix)!==0)return null;
+    if(!Number.isFinite(createdAt)||createdAt<=0||createdAt>now+7*24*60*60*1000||now-createdAt>7*24*60*60*1000)return null;
+    return {attemptId:attemptId,logicalId:logicalId,member:recordMember,createdAt:createdAt};
+  }
+  function signalPersistPendingVoiceRoomAttempts(){
+    if(!member||!signalPendingVoiceRoomStorageHealthy)return false;
+    var records=[],now=Date.now();
+    Object.keys(signalPendingVoiceRoomAttempts).forEach(function(attemptId){
+      if(records.length>=20)return;
+      var entry=signalPendingVoiceRoomAttempts[attemptId];
+      if(!entry||entry.member!==member)return;
+      var record=signalNormalizePendingVoiceRoomAttemptRecord({
+        attemptId:attemptId,logicalId:entry.logicalId,member:entry.member,createdAt:entry.createdAt||now
+      },member,now);
+      if(record)records.push(record);
+    });
+    try{GM_setValue(signalPendingVoiceRoomAttemptsStorageKey(member),{version:1,entries:records});return true;}
+    catch(e){return false;}
+  }
+  function signalTrackPendingVoiceRoomAttempt(logicalId,attemptId){
+    if(!signalPendingVoiceRoomStorageHealthy)return false;
+    var now=Date.now();
+    var record=signalNormalizePendingVoiceRoomAttemptRecord({
+      logicalId:logicalId,attemptId:attemptId,member:member,createdAt:now
+    },member,now);
+    if(!record)return false;
+    var existing=signalPendingVoiceRoomAttempts[record.attemptId];
+    if(existing)return existing.member===member&&existing.logicalId===record.logicalId;
+    var count=Object.keys(signalPendingVoiceRoomAttempts).filter(function(id){
+      var entry=signalPendingVoiceRoomAttempts[id];return !!entry&&entry.member===member;
+    }).length;
+    if(count>=20)return false;
+    signalPendingVoiceRoomAttempts[record.attemptId]={
+      attemptId:record.attemptId,logicalId:record.logicalId,member:record.member,
+      transport:null,promise:null,createdAt:record.createdAt
+    };
+    if(!signalPersistPendingVoiceRoomAttempts()){
+      delete signalPendingVoiceRoomAttempts[record.attemptId];
+      return false;
+    }
+    return true;
+  }
+  function signalRestorePendingVoiceRoomAttempts(){
+    if(!token||!member)return 0;
+    var stored=null;
+    try{stored=GM_getValue(signalPendingVoiceRoomAttemptsStorageKey(member),null);}
+    catch(e){signalPendingVoiceRoomStorageHealthy=false;return 0;}
+    if(stored===null||stored===undefined)return 0;
+    if(!stored||stored.version!==1||!Array.isArray(stored.entries)){
+      signalPendingVoiceRoomStorageHealthy=false;
+      return 0;
+    }
+    var now=Date.now(),restored=0,seen=Object.create(null),normalized=[],suspiciousOwnMember=false;
+    if(stored.entries.length>20){signalPendingVoiceRoomStorageHealthy=false;return 0;}
+    stored.entries.forEach(function(raw){
+      if(!raw||typeof raw!=='object'||Array.isArray(raw)){suspiciousOwnMember=true;return;}
+      if(typeof raw.member==='string'&&raw.member!==member){
+        if(raw.member.trim()!==raw.member||!raw.member){suspiciousOwnMember=true;return;}
+        var foreignPrefix=String(raw.member).replace(/[^A-Za-z0-9._:-]/gu,'_')+'-voice-';
+        var foreignAttemptId=String(raw.attemptId||'');
+        if(foreignAttemptId.indexOf(foreignPrefix)===0)return;
+        suspiciousOwnMember=true;return;
+      }
+      var rawKeys=Object.keys(raw).sort();
+      if(rawKeys.join(',')!=='attemptId,createdAt,logicalId,member'){suspiciousOwnMember=true;return;}
+      var record=signalNormalizePendingVoiceRoomAttemptRecord(raw,member,now);
+      if(!record||seen[record.attemptId]){suspiciousOwnMember=true;return;}
+      seen[record.attemptId]=true;
+      normalized.push(record);
+    });
+    if(suspiciousOwnMember){signalPendingVoiceRoomStorageHealthy=false;return 0;}
+    var added=[];
+    normalized.forEach(function(record){
+      if(!signalPendingVoiceRoomAttempts[record.attemptId]){
+        signalPendingVoiceRoomAttempts[record.attemptId]={
+          attemptId:record.attemptId,logicalId:record.logicalId,member:record.member,
+          transport:null,promise:null,createdAt:record.createdAt
+        };
+        added.push(record.attemptId);
+      }
+      restored++;
+    });
+    if(!signalPersistPendingVoiceRoomAttempts()){
+      added.forEach(function(attemptId){delete signalPendingVoiceRoomAttempts[attemptId];});
+      signalPendingVoiceRoomStorageHealthy=false;
+      return 0;
+    }
+    return restored;
+  }
+  function signalNewVoiceRoomAttemptId(){
+    if(!member)return '';
+    var prefix=String(member).replace(/[^A-Za-z0-9._:-]/gu,'_')+'-voice-';
+    return prefix+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,12);
+  }
+  function signalAttemptPendingVoiceRoomCancel(attemptId,expectedTransport,requireExpectedTransport){
+    var entry=signalPendingVoiceRoomAttempts[attemptId];
+    if(!entry)return Promise.resolve(true);
+    if(entry.member!==member)return Promise.resolve(false);
+    var currentTransport=signalTransport;
+    if(entry.promise){
+      if(requireExpectedTransport&&entry.transport!==expectedTransport)return entry.promise;
+      if(!requireExpectedTransport&&currentTransport&&entry.transport!==currentTransport){
+        return entry.promise.then(function(){return signalAttemptPendingVoiceRoomCancel(attemptId,null,false);});
+      }
+      return entry.promise;
+    }
+    var transportForAttempt=requireExpectedTransport?expectedTransport:currentTransport;
+    if(!transportForAttempt||currentTransport!==transportForAttempt||typeof transportForAttempt.cancelVoiceRoomOpen!=='function')return Promise.resolve(false);
+    entry.transport=transportForAttempt;
+    var attempt=Promise.resolve().then(function(){
+      return transportForAttempt.cancelVoiceRoomOpen(entry.logicalId,attemptId);
+    }).then(function(result){
+      if(!result||result.ok!==true||result.cancelled!==true)throw new Error('O servidor não confirmou o cancelamento da tentativa de sala de voz.');
+      if(signalPendingVoiceRoomAttempts[attemptId]!==entry)return false;
+      delete signalPendingVoiceRoomAttempts[attemptId];
+      if(!signalPersistPendingVoiceRoomAttempts()){
+        signalPendingVoiceRoomAttempts[attemptId]=entry;
+        return false;
+      }
+      if(signalVoiceRoomAttemptId===attemptId){
+        signalVoiceRoomAttemptId='';
+        signalVoiceRoomRoomId='';
+        signalVoiceRoomCreator=false;
+        signalVoiceRoomPrepared=false;
+      }
+      return true;
+    }).catch(function(){return false;});
+    entry.promise=attempt.then(function(ok){
+      entry.promise=null;
+      if(!ok&&!requireExpectedTransport&&signalTransport&&signalTransport!==transportForAttempt)
+        return signalAttemptPendingVoiceRoomCancel(attemptId,null,false);
+      return ok;
+    });
+    return entry.promise;
+  }
+  function signalRetryPendingVoiceRoomAttempts(force){
+    if(!signalPendingVoiceRoomStorageHealthy)return Promise.resolve(false);
+    var attempts=Object.keys(signalPendingVoiceRoomAttempts).filter(function(attemptId){
+      var entry=signalPendingVoiceRoomAttempts[attemptId];
+      return !!entry&&entry.member===member;
+    });
+    if(!attempts.length)return Promise.resolve(true);
+    return Promise.all(attempts.map(function(attemptId){
+      if(!force&&(voiceRoom.active||voiceRoom.joining)&&signalVoiceRoomAttemptId===attemptId)return Promise.resolve(true);
+      return signalAttemptPendingVoiceRoomCancel(attemptId,null,false);
+    })).then(function(results){return results.every(function(ok){return ok===true;});});
+  }
+  function signalTransportRequest(route,payload,options){
+    return new Promise(function(resolve,reject){
+      var signal=options&&options.signal,handle=null,settled=false,abortHandler=null;
+      function finish(fn,value){
+        if(settled)return;settled=true;
+        if(signal&&abortHandler)signal.removeEventListener('abort',abortHandler);
+        fn(value);
+      }
+      if(signal&&signal.aborted){var aborted=new Error('Signaling request aborted');aborted.name='AbortError';reject(aborted);return;}
+      try{
+        handle=GM_xmlhttpRequest({
+          method:'POST',url:signalTransportEndpoint.replace(/\/$/,'')+route,
+          headers:{'Content-Type':'application/json','X-UpStatus-Token':token,'Cache-Control':'no-store'},
+          data:JSON.stringify(payload||{}),timeout:12000,
+          onload:function(r){var body={};try{body=JSON.parse(r.responseText||'{}')}catch(e){body={error:'Invalid signaling response'}}finish(resolve,{status:Number(r.status)||0,body:body,headers:r.responseHeaders||''});},
+          onerror:function(){finish(reject,new Error('Signaling network request failed'));},
+          ontimeout:function(){finish(reject,new Error('Signaling request timed out'));},
+          onabort:function(){var e=new Error('Signaling request aborted');e.name='AbortError';finish(reject,e);}
+        });
+        if(signal){
+          abortHandler=function(){try{if(handle&&handle.abort)handle.abort();else{var e=new Error('Signaling request aborted');e.name='AbortError';finish(reject,e);}}catch(e){finish(reject,e);}};
+          signal.addEventListener('abort',abortHandler,{once:true});
+          if(signal.aborted)abortHandler();
+        }
+      }catch(e){finish(reject,e);}
+    });
+  }
+  function signalAttemptPendingCallLeave(roomId,expectedTransport,requireExpectedTransport){
+    var entry=signalPendingCallLeaves[roomId];
+    if(!entry)return Promise.resolve(true);
+    if(entry.member!==member)return Promise.resolve(true);
+    var currentTransport=signalTransport;
+    if(entry.promise){
+      if(requireExpectedTransport&&entry.transport!==expectedTransport)return entry.promise;
+      if(!requireExpectedTransport&&currentTransport&&entry.transport!==currentTransport){
+        return entry.promise.then(function(){return signalAttemptPendingCallLeave(roomId,null,false);});
+      }
+      return entry.promise;
+    }
+    var transportForAttempt=requireExpectedTransport?expectedTransport:currentTransport;
+    if(!transportForAttempt||currentTransport!==transportForAttempt)return Promise.resolve(false);
+    entry.transport=transportForAttempt;
+    var attempt=Promise.resolve().then(function(){return transportForAttempt.leave(roomId);}).then(function(result){
+      if(result===false||(result&&typeof result==='object'&&(result.ok===false||result.error)))throw new Error(result&&result.error?String(result.error):'O servidor não confirmou a saída da chamada.');
+      if(signalPendingCallLeaves[roomId]===entry)delete signalPendingCallLeaves[roomId];
+      if(entry.callId){
+        if(signalRoomByCallId[entry.callId]===roomId)delete signalRoomByCallId[entry.callId];
+        delete signalCreatorCallIds[entry.callId];
+      }
+      if(signalCallIdByRoom[roomId]===entry.callId)delete signalCallIdByRoom[roomId];
+      delete signalRosterCache[roomId];
+      signalPersistPendingCallLeaves();
+      return true;
+    }).catch(function(){return false;});
+    entry.promise=attempt.then(function(ok){
+      entry.promise=null;
+      if(!ok&&!requireExpectedTransport&&signalTransport&&signalTransport!==transportForAttempt)return signalAttemptPendingCallLeave(roomId,null,false);
+      return ok;
+    });
+    return entry.promise;
+  }
+  function signalRetryPendingCallLeaves(){
+    var rooms=Object.keys(signalPendingCallLeaves).filter(function(roomId){
+      var entry=signalPendingCallLeaves[roomId];
+      return !!entry&&entry.member===member;
+    });
+    if(!rooms.length)return Promise.resolve(true);
+    return Promise.all(rooms.map(function(roomId){return signalAttemptPendingCallLeave(roomId,null,false);})).then(function(results){
+      return results.every(function(ok){return ok===true;});
+    });
+  }
+  function initSignalingTransport(){
+    if(!signalTransportFlag||signalTransport||!token||!signalTransportEndpoint||typeof createSignalingTransport!=='function')return;
+    try{
+      var endpoint=new URL(signalTransportEndpoint),sessionServer=new URL(server);
+      if(endpoint.protocol!=='https:'||endpoint.origin!==sessionServer.origin||endpoint.search||endpoint.hash||
+        !/\/functions\/v1\/upstatus-signal(?:-test)?$/.test(endpoint.pathname))return;
+      signalTransport=createSignalingTransport({request:signalTransportRequest,enabled:true});signalRestorePendingCallLeaves();signalRestorePendingCallAttempts();signalRestorePendingVoiceRoomAttempts();signalStartInvitationPolling();signalRetryPendingCallAttempts();signalRetryPendingCallLeaves();signalRetryPendingVoiceRoomAttempts();
+    }catch(e){signalTransport=null;}
+  }
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
-  var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
+  var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,remoteLastPollAt=0,refreshing=false,readSentKey='',chatFastSince='';
   var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,chatUserScrollInterruptedUntil=0,pendingChatNotificationMessages=[],chatScrollObserver=null,chatScrollObservedList=null,chatLightbox=null,chatHasUnreadBelow=false;
   var remoteResultCache={},remoteResultWaiters={};
   var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
@@ -464,13 +1262,18 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var recordingTimer=null;
   var recordingStartedAt=0;
   var chatReplyTo=null;
+  var chatPendingAttachment=null;
+  var chatLinkPreviewDismissed=false;
+  var chatLinkPreviewDismissedUrl='';
   var chatContextMessageId=null;
   var luccaOnline=false;
   var lastLuccaJoinEventId='';
   var originalTitle=document.title;
   var currentStatus='offline';
   var CURRENT_VERSION='__UPSTATUS_VERSION__'
-  var UPDATE_URL='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js';
+  var UPSTATUS_TEST_CHANNEL=__UPSTATUS_TEST_CHANNEL__;
+  var RELEASE_MANIFEST_URL='__UPSTATUS_RELEASE_MANIFEST_URL__';
+  var UPDATE_URL=CLOUD_SERVER+'/upstatus.user.js';
   var externalNotifPermission='default';
   var externalNotifSeen={};
   function iconSvg(name,cls){var p={
@@ -513,6 +1316,8 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   function reasonIcon(reason){var r=reasons.find(function(x){return x.value===reason});return '<span class="up-icon-wrap">'+iconSvg(r?r.icon:'edit')+'</span>'}
   function reasonLabel(reason){var r=reasons.find(function(x){return x.value===reason});return r?r.label:reason}
   function reasonEmoji(reason){return reasonIcon(reason)}
+
+  __UPSTATUS_SIGNALING_TRANSPORT_CODE__
 
   function api(method,route,data){
     return new Promise(function(resolve,reject){
@@ -1041,14 +1846,19 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     var installed=String(CURRENT_VERSION||'').trim();
     statuses.forEach(function(s){s.textContent=' • Verificando versão oficial…';});
     manuals.forEach(function(x){x.disabled=true;x.title='Verificando versão oficial';x.onclick=function(){};});
-    fetch('https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
+    if(UPSTATUS_TEST_CHANNEL){
+      statuses.forEach(function(s){s.textContent=' • Atualização automática desativada no canal TEST.';});
+      manuals.forEach(function(x){x.disabled=true;x.title='Atualização indisponível no canal TEST';x.onclick=function(){};});
+      return;
+    }
+    fetch(RELEASE_MANIFEST_URL+'?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
       .then(function(r){if(!r.ok)throw new Error('Manifesto oficial: HTTP '+r.status);return r.json();})
       .then(function(manifest){
         if(!manifest||!Object.prototype.hasOwnProperty.call(manifest,'version'))throw new Error('Manifesto inválido para este canal.');
         var remote=String(manifest.version||'').trim();
-        var url=String(manifest.scriptUrl||'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js').trim();
+        var url=String(manifest.scriptUrl||CLOUD_SERVER+'/upstatus.user.js').trim();
         if(!remote||!/^\d+(?:\.\d+){1,3}(?:-[0-9A-Za-z.-]+)?$/.test(remote))throw new Error('Versão do manifesto inválida.');
-        if(url!=='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js')throw new Error('Link do script não corresponde ao canal oficial.');
+        if(url!==CLOUD_SERVER+'/upstatus.user.js')throw new Error('Link do script não corresponde ao canal oficial.');
         return fetch(url+'?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
           .then(function(sr){if(!sr.ok)throw new Error('Script oficial: HTTP '+sr.status);return sr.text();})
           .then(function(text){
@@ -1377,7 +2187,7 @@ function renderChatText(text){
     return {
       id:String(record.id),user:String(rawUser||''),message:String(record.message||''),type:String(record.type||'text'),
       systemType:String(record.system_type!=null?record.system_type:(record.systemType||'')),createdAt:record.created_at||record.createdAt||new Date().toISOString(),
-      imageUrl:String(record.image_url!=null?record.image_url:(record.imageUrl||'')),mentions:Array.isArray(record.mentions)?record.mentions:[],
+      imageUrl:String(record.image_url!=null?record.image_url:(record.imageUrl||'')),fileName:String(record.file_name!=null?record.file_name:(record.fileName||'')),mentions:Array.isArray(record.mentions)?record.mentions:[],
       replyTo:record.reply_to!=null?record.reply_to:(record.replyTo||null),reactions:record.reactions||{},readBy:Array.isArray(record.readBy)?record.readBy:[]
     };
   }
@@ -1736,12 +2546,102 @@ function renderChatText(text){
       setTimeout(function(){if(!upCall.active)showChatToast(pending);},0);
     }
   }
+  function signalSafeCallId(id){return String(id||'call').replace(/[^A-Za-z0-9._:-]/gu,'_').slice(0,128)||('call-'+Date.now().toString(36));}
+  async function signalGetRoomMembers(roomId){
+    var cached=signalRosterCache[roomId];
+    if(cached&&Date.now()-cached.at<3000)return cached.members.slice();
+    var members=await signalTransport.roomMembers(roomId);
+    signalRosterCache[roomId]={at:Date.now(),members:members.slice()};
+    return members;
+  }
+  function signalStartCallPolling(roomId,callId){
+    if(!signalTransport||!roomId||signalPollStops[roomId])return;
+    signalPollStops[roomId]=signalTransport.startPolling(roomId,async function(event){
+      if(!event||!event.payload)return;
+      if(event.event_type==='call_signal'){
+        var p=Object.assign({},event.payload,{from:event.sender,to:member,callId:event.payload.callId||callId,_authenticatedTransport:true});
+        try{p.participants=await signalGetRoomMembers(roomId);}catch(e){p.participants=[member,event.sender];}
+        if(!p.initiator)p.initiator=signalCreatorCallIds[p.callId]?member:event.sender;
+        await receiveCallSignal(p);
+        return;
+      }
+      if(event.event_type==='voice_room_signal'){
+        var voicePayload=Object.assign({},event.payload,{from:event.sender,to:member,roomId:voiceRoom.id});
+        await voiceRoomReceive(voicePayload);
+        return;
+      }
+      if(event.event_type==='screen_signal'){
+        var screenPayload=Object.assign({},event.payload,{from:event.sender,to:member,roomId:voiceRoom.id});
+        await screenShareReceive(screenPayload);
+      }
+    });
+  }
+  function signalStopCallPolling(roomId){
+    if(!roomId)return;
+    var stop=signalPollStops[roomId];if(stop){try{stop();}catch(e){}delete signalPollStops[roomId];}
+  }
+  async function signalPollInvitations(){
+    if(!token||!member||!signalTransport||!signalTransportFlag||signalInvitationPollBusy)return;
+    var expectedToken=token,expectedMember=member;
+    signalInvitationPollBusy=true;
+    try{
+      var invitations=await signalTransport.invitations();
+      if(token!==expectedToken||member!==expectedMember)return;
+      for(var i=0;i<invitations.length;i++){
+        if(token!==expectedToken||member!==expectedMember)return;
+        var invitation=invitations[i],binding=(invitation.bindings||[]).find(function(b){return b&&b.bindingType==='call'&&typeof b.logicalId==='string';});
+        if(!binding||!invitation.roomId||signalRoomByCallId[binding.logicalId])continue;
+        let callId=binding.logicalId,roomId=invitation.roomId;
+        signalRoomByCallId[callId]=roomId;signalCallIdByRoom[roomId]=callId;signalCreatorCallIds[callId]=false;
+        if(upCall.active){
+          signalTransport.decline(roomId).catch(function(){}).finally(function(){delete signalRoomByCallId[callId];delete signalCallIdByRoom[roomId];delete signalCreatorCallIds[callId];});
+          continue;
+        }
+        await receiveCallSignal({type:'invite',callId:callId,from:invitation.invitedBy,initiator:invitation.invitedBy,participants:[invitation.invitedBy,member],to:member,_authenticatedTransport:true});
+      }
+    }catch(e){}finally{signalInvitationPollBusy=false;}
+  }
+  function signalStartInvitationPolling(){
+    if(!signalTransport||signalInvitationTimer)return;
+    signalPollInvitations();
+    signalInvitationTimer=setInterval(signalPollInvitations,1500);
+  }
+  async function startOutgoingCallWithTransport(target){
+    if(!target||target===member)return;
+    if(upCall.active){message('Você já está em uma chamada.',true);return;}
+    var transportCallId=signalSafeCallId(callNewId());if(!signalTrackPendingCallAttempt(transportCallId)){message('Não foi possível salvar a recuperação segura da chamada. Verifique o armazenamento do userscript e tente novamente.',true);return;}upCall.callId=transportCallId;upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
+    upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
+    upCall.signalAbortController=new AbortController();signalCreatorCallIds[upCall.callId]=true;
+    callPrimeAudio();callStartRingtone();callRender(target,'Chamando…',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true,'hangup');}}]);
+    upCall.timer=setTimeout(function(){if(upCall.active&&!upCall.connected){try{if(upCall.signalAbortController)upCall.signalAbortController.abort();}catch(e){}callCleanup(false,'timeout').then(function(){callFail('Sem resposta.');});}},30000);
+    try{
+      var room=await signalTransport.prepareCallRoom(upCall.callId,target,{timeoutMs:28000,intervalMs:900,signal:upCall.signalAbortController.signal});
+      if(!upCall.active){signalAttemptPendingCallAttempt(transportCallId,signalTransport,true);delete signalCreatorCallIds[transportCallId];return;}
+      signalRoomByCallId[transportCallId]=room.roomId;signalCallIdByRoom[room.roomId]=transportCallId;
+      signalStartCallPolling(room.roomId,transportCallId);
+      await callGetMicrophone();
+      if(!upCall.active||upCall.signalAbortController.signal.aborted){callCleanup(false);return;}
+      var p=await callCreatePeer(target),offer=await p.pc.createOffer();
+      await p.pc.setLocalDescription(offer);
+      if(!upCall.active||upCall.signalAbortController.signal.aborted){callCleanup(false);return;}
+      p.offerSent=true;callStartPresence();callSendTo(target,'offer',{sdp:p.pc.localDescription,phase:'initial'});
+    }catch(e){
+      if(upCall.active){var failureMessage=e.message||'Não foi possível iniciar a chamada.';callCleanup(false,'prepare-failed').then(function(){callFail(failureMessage);});}
+    }
+  }
   function callNewId(){return String(member||'user')+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);}
   function callConnectionId(remote){
     return String(upCall.callId)+'::'+[String(member||''),String(remote||'')].sort().join('::');
   }
   function callPublishPresence(){
     if(!upCall.active||!upCall.callId)return;
+    var roomId=signalRoomByCallId[upCall.callId];
+    if(signalTransportFlag){
+      if(signalTransport&&roomId)callSendAll('presence',{initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false});
+      // Public Realtime is discovery-only while authenticated signaling is enabled.
+      sendRealtimeEvent('call_signal',{type:'presence',callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false,discoveryOnly:true});
+      return;
+    }
     sendRealtimeEvent('call_signal',{type:'presence',callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now(),sharing:false});
   }
   function callStartPresence(){
@@ -1749,18 +2649,46 @@ function renderChatText(text){
     callPublishPresence();upCall.presenceTimer=setInterval(callPublishPresence,5000);
   }
   function callReceivePresence(p){
-    if(!p||!p.callId||!p.from||!Array.isArray(p.participants))return;
+    if(!p||typeof p.callId!=='string'||!p.callId||p.callId.length>160||typeof p.from!=='string'||!p.from||p.from.length>80||!Array.isArray(p.participants)||p.participants.length>32)return;
+    if(p.participants.some(function(n){return typeof n!=='string'||!n||n.length>80;}))return;
+    var participants=[];p.participants.forEach(function(n){if(participants.indexOf(n)<0&&participants.length<32)participants.push(n);});
+    if(participants.indexOf(p.from)<0){if(participants.length>=32)return;participants.push(p.from);}
     var old=upCallDirectory[p.callId]||{callId:p.callId,participants:[]};
-    old.callId=p.callId;old.participants=p.participants.slice();if(old.participants.indexOf(p.from)<0)old.participants.push(p.from);
-    old.initiator=p.initiator||old.initiator||p.from;old.updatedAt=Date.now();old.sharing=!!p.sharing;old.screenSharer=p.screenSharer||'';upCallDirectory[p.callId]=old;
+    old.callId=p.callId;old.participants=participants;
+    old.initiator=typeof p.initiator==='string'&&p.initiator.length<=80?p.initiator:(old.initiator||p.from);old.updatedAt=Date.now();old.sharing=!!p.sharing;old.screenSharer=typeof p.screenSharer==='string'&&p.screenSharer.length<=80?p.screenSharer:'';upCallDirectory[p.callId]=old;
   }
   function callSendTo(to,type,extra){
     if(!to||!upCall.callId)return false;
     var p=Object.assign({type:type,callId:upCall.callId,from:member,to:to,connectionId:callConnectionId(to),participants:upCall.participants.slice()},extra||{});
+    var signalRoomId=signalRoomByCallId[upCall.callId];
+    if(signalTransportFlag){
+      if(!signalTransport||!signalRoomId)return false;
+      if(type==='invite'){
+        signalTransport.invite(signalRoomId,to).then(function(){
+          return signalTransport.waitForAcceptance(signalRoomId,to,{timeoutMs:30000,intervalMs:900});
+        }).then(function(){
+          if(upCall.participants.indexOf(to)<0)upCall.participants.push(to);
+          signalStartCallPolling(signalRoomId,upCall.callId);
+          return callStartOffer(to);
+        }).catch(function(e){upCall.notice='Não foi possível adicionar '+to+': '+(e.message||e);callRenderConnected();});
+        return true;
+      }
+      return signalTransport.sendSignal({roomId:signalRoomId,recipient:to,eventType:'call_signal',payload:p}).catch(function(e){
+        if(upCall.active){upCall.notice='Falha no sinal para '+to+': '+(e.message||e);callRenderConnected();}
+      });
+    }
     return sendRealtimeEvent('call_signal',p);
   }
   function callSend(type,extra){return callSendTo(upCall.peer,type,extra);}
   function callSendAll(type,extra){
+    var signalRoomId=signalRoomByCallId[upCall.callId];
+    if(signalTransportFlag){
+      if(!signalTransport||!signalRoomId)return false;
+      return signalTransport.sendToRoom({
+        roomId:signalRoomId,eventType:'call_signal',senderName:member,
+        payload:Object.assign({type:type,callId:upCall.callId,from:member,participants:upCall.participants.slice(),initiator:upCall.initiator||member,updatedAt:Date.now()},extra||{})
+      }).catch(function(e){if(upCall.active){upCall.notice='Falha ao enviar sinal para a sala: '+(e.message||e);callRenderConnected();}});
+    }
     var sent=false;
     upCall.participants.forEach(function(name){if(name&&name!==member)sent=callSendTo(name,type,extra)||sent;});
     return sent;
@@ -1784,15 +2712,22 @@ function renderChatText(text){
     if(!upCall.connected&&upCall.startedAt){upCall.startedAt=0;if(upCall.counterTimer){clearInterval(upCall.counterTimer);upCall.counterTimer=null;}}
   }
   function callCleanup(sendSignal,signalType){
-    var callId=upCall.callId;
-    if(callId&&upCall.active)sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now()});
+    var cleanupPromise=Promise.resolve(true);
+    upCall.startAttempt=(upCall.startAttempt||0)+1;upCall.starting=false;
+    var callId=upCall.callId,signalRoomId=signalRoomByCallId[callId],signalRoomCreator=signalCreatorCallIds[callId]===true,callAttemptCreator=!!(callId&&signalPendingCallAttempts[callId]&&signalPendingCallAttempts[callId].member===member),pendingSignals=[],leavingTransport=signalTransport,leavingMember=member;
+    if(callId&&upCall.active&&!(signalTransportFlag&&signalType==='pagehide')){
+      if(signalTransportFlag){
+        if(signalTransport&&signalRoomId&&!upCall.pendingInvite)pendingSignals.push(callSendAll('ended',{updatedAt:Date.now()}));
+        if(signalRoomCreator)sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now(),discoveryOnly:true});
+      }else sendRealtimeEvent('call_signal',{type:'ended',callId:callId,from:member,participants:upCall.participants.slice(),updatedAt:Date.now()});
+    }
     if(upCall.presenceTimer){clearInterval(upCall.presenceTimer);upCall.presenceTimer=null;}
     if(sendSignal&&callId){
       try{
-        if(signalType==='hangup'&&upCall.peer)callSend('hangup');
-        else if(signalType)callSendAll(signalType);
-        else if(upCall.connected||upCall.participants.length>2)callSendAll('leave');
-        else if(upCall.peer)callSend('hangup');
+        if(signalType==='hangup'&&upCall.peer)pendingSignals.push(callSend('hangup'));
+        else if(signalType)pendingSignals.push(callSendAll(signalType));
+        else if(upCall.connected||upCall.participants.length>2)pendingSignals.push(callSendAll('leave'));
+        else if(upCall.peer)pendingSignals.push(callSend('hangup'));
       }catch(e){}
     }
     if(upCall.timer){clearTimeout(upCall.timer);upCall.timer=null;}
@@ -1800,8 +2735,53 @@ function renderChatText(text){
     callStopRingtone();
     Object.keys(upCall.peers).slice().forEach(function(name){callRemovePeer(name,false);});
     callStopStream();
+    try{if(upCall.signalAbortController)upCall.signalAbortController.abort();}catch(e){}
+    upCall.signalAbortController=null;
+    if(signalRoomId){
+      signalStopCallPolling(signalRoomId);
+      if(!signalPendingCallLeaves[signalRoomId]){
+        signalPendingCallLeaves[signalRoomId]={roomId:signalRoomId,callId:callId,member:leavingMember,transport:leavingTransport,promise:null,createdAt:Date.now()};
+      }
+      signalPersistPendingCallLeaves();
+      if(callAttemptCreator){var attemptEntry=signalPendingCallAttempts[callId];if(attemptEntry)attemptEntry.roomId=signalRoomId;signalPersistPendingCallAttempts();}
+      delete signalRoomByCallId[callId];delete signalCallIdByRoom[signalRoomId];delete signalRosterCache[signalRoomId];
+    }
+    delete signalCreatorCallIds[callId];
     upCall.callId='';upCall.peer='';upCall.role='';upCall.initiator='';upCall.participants=[];upCall.pendingInvites={};upCall.pendingOffers={};upCall.pendingInvite=null;upCall.peers={};upCall.localStream=null;upCall.remoteStream=null;upCall.audio=null;upCall.active=false;upCall.connected=false;upCall.muted=false;upCall.startedAt=0;upCall.waitingForConnection=false;upCall.notice='';
     callHideOverlay();
+    cleanupPromise=Promise.allSettled(pendingSignals.map(function(p){return Promise.resolve(p);})).then(function(){
+      if(callAttemptCreator){
+        return signalAttemptPendingCallAttempt(callId,leavingTransport,true).then(function(ok){
+          if(!ok&&signalRoomId){
+            return signalAttemptPendingCallLeave(signalRoomId,leavingTransport,true).then(function(leaveOk){
+              if(!leaveOk)return false;
+              delete signalPendingCallAttempts[callId];signalPersistPendingCallAttempts();
+              return signalRetryPendingCallAttempts().then(function(attemptsOk){
+                return signalRetryPendingCallLeaves().then(function(leavesOk){return attemptsOk&&leavesOk;});
+              });
+            });
+          }
+          if(!ok)return false;
+          return signalRetryPendingCallAttempts().then(function(attemptsOk){
+            return signalRetryPendingCallLeaves().then(function(leavesOk){return attemptsOk&&leavesOk;});
+          });
+        });
+      }
+      if(!signalRoomId){
+        return signalRetryPendingCallAttempts().then(function(attemptsOk){
+          return signalRetryPendingCallLeaves().then(function(leavesOk){return attemptsOk&&leavesOk;});
+        });
+      }
+      return signalAttemptPendingCallLeave(signalRoomId,leavingTransport,true).then(function(ok){
+        if(ok||!signalPendingCallLeaves[signalRoomId]){
+          return signalRetryPendingCallAttempts().then(function(attemptsOk){
+            return signalRetryPendingCallLeaves().then(function(leavesOk){return attemptsOk&&leavesOk;});
+          });
+        }
+        return false;
+      });
+    });
+    return cleanupPromise;
   }
   function callFail(msg){
     if(upCall.timer){clearTimeout(upCall.timer);upCall.timer=null;}
@@ -1864,10 +2844,10 @@ function renderChatText(text){
     for(var i=0;i<q.length;i++){try{await p.pc.addIceCandidate(q[i]);}catch(e){}}
   }
   function callMergeParticipants(list){
-    var next=Array.isArray(list)?list.slice():[];if(member)next.push(member);
-    next=next.filter(function(n){return n;});
-    var out=[];next.forEach(function(n){if(out.indexOf(n)<0)out.push(n);});
-    if(member&&out.indexOf(member)<0)out.push(member);upCall.participants=out;
+    var out=[];
+    if(typeof member==='string'&&member&&member.length<=80)out.push(member);
+    (Array.isArray(list)?list.slice(0,32):[]).forEach(function(n){if(typeof n==='string'&&n&&n.length<=80&&out.indexOf(n)<0&&out.length<32)out.push(n);});
+    upCall.participants=out;
   }
   function callRenderConnected(){
     if(!upCall.active)return;
@@ -1892,7 +2872,30 @@ function renderChatText(text){
   }
   async function startOutgoingCall(target){
     if(!target||target===member)return;
+    if(signalTransportFlag){
+      if(!signalTransport){message('A sinalização autenticada não está configurada. A chamada não foi iniciada.',true);return;}
+      return startOutgoingCallWithTransport(target);
+    }
+    
     if(upCall.active){message('Voc\u00ea j\u00e1 est\u00e1 em uma chamada.',true);return;}
+    if(upCall.starting){message('Uma chamada já está sendo preparada.',false);return;}
+    var callStartAttempt=(upCall.startAttempt||0)+1;
+    upCall.startAttempt=callStartAttempt;upCall.starting=true;
+    if(!realtimeActive||!realtimeChannel){
+      message('Reconectando a conexão das chamadas...',false);
+      var realtimeReady=false;
+      try{realtimeReady=await waitForRealtimeReady(10000);}catch(e){}
+      if(!realtimeReady||upCall.startAttempt!==callStartAttempt){
+        if(upCall.startAttempt===callStartAttempt)upCall.starting=false;
+        if(!realtimeReady)message('A conexão ainda não foi restabelecida. Tente novamente.',true);
+        return;
+      }
+    }
+    if(upCall.startAttempt!==callStartAttempt){return;}
+    if(upCall.active){upCall.starting=false;message('Você já está em uma chamada.',true);return;}
+    upCall.starting=false;
+    
+    
     upCall.callId=callNewId();upCall.peer=target;upCall.role='caller';upCall.initiator=member;upCall.participants=[member,target];
     upCall.pendingInvites={};upCall.pendingOffers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=true;
     callStartPresence();callPrimeAudio();callStartRingtone();callRender(target,'Chamando\u2026',[{label:'Cancelar',danger:true,onClick:function(){callCleanup(true,'hangup');}}]);
@@ -1904,6 +2907,10 @@ function renderChatText(text){
   }
   async function callAcceptIncomingOffer(remoteName){
     var p=callGetPeer(remoteName),sdp=upCall.pendingOffers[remoteName];if(!p||!sdp)return;
+    if(!signalTransportFlag&&(!realtimeActive||!realtimeChannel)){
+      var realtimeReady=await waitForRealtimeReady(10000);
+      if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
+    }
     callStartPresence();
     try{
       upCall.waitingForConnection=true;await callGetMicrophone();await callCreatePeer(remoteName);
@@ -1918,6 +2925,25 @@ function renderChatText(text){
   }
   async function callAcceptGroupInvite(){
     var invite=upCall.pendingInvite;if(!invite||!upCall.active)return;
+    var signalRoomId=signalRoomByCallId[upCall.callId];
+    if(!signalTransportFlag&&(!realtimeActive||!realtimeChannel)){
+      var realtimeReady=await waitForRealtimeReady(10000);
+      if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
+    }
+    if(signalTransportFlag){
+      if(!signalTransport||!signalRoomId){callCleanup(false);message('A sala autenticada não está disponível. Tente novamente.',true);return;}
+      try{
+        if(!signalTrackPendingCallLeave(signalRoomId,upCall.callId,signalTransport)){
+          message('Não foi possível preparar a recuperação da chamada. Verifique o armazenamento do userscript e tente novamente.',true);
+          return;
+        }
+        await signalTransport.accept(signalRoomId);
+        upCall.pendingInvite=null;upCall.role='member';callMergeParticipants(invite.participants||[invite.from]);
+        upCall.waitingForConnection=true;signalStartCallPolling(signalRoomId,upCall.callId);callStartPresence();
+        callRender(callNames(' + '),'Aguardando conexão…',[{label:upCall.muted?'Ativar mic':'Mutar',icon:upCall.muted?'micOff':'mic',muted:upCall.muted,onClick:toggleCallMute},{label:'Desligar',icon:'hangup',danger:true,onClick:function(){callCleanup(true);}}]);
+      }catch(e){callCleanup(false);message(e.message||'Não foi possível aceitar o convite.',true);}
+      return;
+    }
     upCall.pendingInvite=null;upCall.role='member';callMergeParticipants(invite.participants||[invite.from]);callStartPresence();
     try{
       await callGetMicrophone();upCall.waitingForConnection=true;
@@ -1932,17 +2958,35 @@ function renderChatText(text){
     if(upCall.pendingInvite)return callAcceptGroupInvite();
     var names=Object.keys(upCall.pendingOffers||{});if(names.length)return callAcceptIncomingOffer(names[0]);
   }
-  function callRequestToJoin(callId,target){
+  async function callRequestToJoin(callId,target){
     var entry=upCallDirectory[callId];
     if(upCall.active){message('Você já está em uma chamada.',true);return;}
     if(!entry||!entry.participants||entry.participants.indexOf(target)<0){message('A chamada não está mais disponível. Atualize a equipe.',true);return;}
-    var sent=sendRealtimeEvent('call_signal',{type:'join_request',callId:callId,from:member,to:target,target:target,participants:entry.participants.slice(),updatedAt:Date.now()});
+    if(signalTransportFlag){
+      if(!signalTransport){message('A sinalização autenticada não está configurada. O pedido não foi enviado.',true);return;}
+      signalTransport.requestInvite(callId).then(function(){
+        message('Pedido para entrar enviado ao responsável pela chamada. Aguarde a confirmação.',false);
+      }).catch(function(e){
+        message(e.status===409?'Já existe um convite ou pedido pendente para esta chamada.':e.status===404?'A chamada não está mais disponível.':'Não foi possível enviar o pedido de entrada.',true);
+      });
+      return;
+    }
+    if(!realtimeActive||!realtimeChannel){
+      var realtimeReady=await waitForRealtimeReady(10000);
+      if(!realtimeReady){message('A conexão ainda não foi restabelecida. Tente novamente.',true);return;}
+    }
+
+    if(upCall.active){message('Você já está em uma chamada.',true);return;}
+        var sent=sendRealtimeEvent('call_signal',{type:'join_request',callId:callId,from:member,to:target,target:target,participants:entry.participants.slice(),updatedAt:Date.now()});
     if(sent)message('Pedido para entrar enviado a '+target+'. Aguarde a confirmação.',false);
     else message('Não foi possível enviar o pedido de entrada.',true);
   }
   async function receiveCallSignal(p){
-    if(!p||!p.type||!p.callId||!p.from||p.from===member)return;
-    if(p.to&&p.to!==member)return;
+    if(!p||typeof p.type!=='string'||typeof p.callId!=='string'||!p.callId||p.callId.length>160||typeof p.from!=='string'||!p.from||p.from.length>80||p.from===member)return;
+    if(signalTransportFlag&&!p._authenticatedTransport&&!((p.type==='presence'||p.type==='ended'||p.type==='join_declined')&&p.discoveryOnly===true))return;
+    if(p.type!=='presence'&&p.type!=='ended'&&p.to!==member)return;
+    if((p.type==='offer'||p.type==='answer')&&(!p.sdp||typeof p.sdp.sdp!=='string'||p.sdp.sdp.length>100000))return;
+    if(p.type==='ice'&&(!p.candidate||JSON.stringify(p.candidate).length>4096))return;
     if(p.type==='presence'){callReceivePresence(p);return;}
     if(p.type==='ended'){delete upCallDirectory[p.callId];return;}
     if(p.type==='join_request'){
@@ -1950,8 +2994,15 @@ function renderChatText(text){
       var requester=String(p.from);
       var accepted=false;
       try{accepted=window.confirm(requester+' quer entrar na sua chamada em grupo.\n\nPermitir a entrada?');}catch(e){}
-      sendRealtimeEvent('call_signal',{type:accepted?'join_approved':'join_declined',callId:p.callId,from:member,to:requester,participants:upCall.participants.slice(),updatedAt:Date.now()});
-      if(accepted)message('Você aceitou o pedido de '+requester+'. Conectando à sala…',false);
+      if(signalTransportFlag){
+        if(signalTransport&&signalRoomByCallId[p.callId]){
+          if(accepted)callSendTo(requester,'invite',{participants:upCall.participants.slice(),initiator:upCall.initiator||member});
+          else callSendTo(requester,'join_declined',{updatedAt:Date.now()});
+        }else{
+          message('A sinalização autenticada da chamada não está disponível. O pedido não foi processado.',true);
+        }
+      }else sendRealtimeEvent('call_signal',{type:accepted?'join_approved':'join_declined',callId:p.callId,from:member,to:requester,participants:upCall.participants.slice(),updatedAt:Date.now()});
+      if(accepted)message('Você aceitou o pedido de '+requester+'. Enviando convite para entrar…',false);
       return;
     }
     if(p.type==='join_approved'){callJoinActiveCall(p.callId);return;}
@@ -1964,23 +3015,23 @@ function renderChatText(text){
         upCall.pendingOffers={};upCall.pendingOffers[p.from]=p.sdp;upCall.pendingInvite=null;upCall.peers={};
         upCall.active=true;upCall.connected=false;upCall.startedAt=0;upCall.waitingForConnection=false;
         callStartRingtone();
-        callRender(p.from,'Chamada recebida',[{label:'Atender',icon:'phone',onClick:function(){callAcceptIncomingCall();}},{label:'Recusar',icon:'hangup',danger:true,onClick:function(){callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}]);
+        callRender(p.from,'Chamada recebida',[{label:'Atender',icon:'phone',onClick:function(){callAcceptIncomingCall();}},{label:'Recusar',icon:'hangup',danger:true,onClick:function(){var roomId=signalRoomByCallId[p.callId];if(signalTransport&&roomId){signalTransport.decline(roomId).catch(function(){}).finally(function(){callCleanup(false);});}else{callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}}]);
         return;
       }
       if(p.callId!==upCall.callId){
-        sendRealtimeEvent('call_signal',{type:'busy',callId:p.callId,from:member,to:p.from,connectionId:String(p.callId)+'::busy'});return;
+        callSendTo(p.from,'busy',{connectionId:String(p.callId)+'::busy'});return;
       }
       callMergeParticipants(p.participants||[]);
       if(!upCall.peers[p.from]||!upCall.peers[p.from].pc){
         upCall.pendingOffers[p.from]=p.sdp;
-        if(p.phase==='mesh'){try{await callAcceptIncomingOffer(p.from);}catch(e){}}
+        if(p.phase==='mesh'||(signalTransport&&signalRoomByCallId[p.callId]&&upCall.role==='member'&&!upCall.pendingInvite)){try{await callAcceptIncomingOffer(p.from);}catch(e){}}
       }
       return;
     }
     if(p.type==='invite'){
       if(upCall.active){
         if(p.callId===upCall.callId)return;
-        sendRealtimeEvent('call_signal',{type:'busy',callId:p.callId,from:member,to:p.from,connectionId:String(p.callId)+'::busy'});return;
+        callSendTo(p.from,'busy',{connectionId:String(p.callId)+'::busy'});return;
       }
       upCall.callId=p.callId;upCall.peer=p.from;upCall.role='callee';upCall.initiator=p.initiator||p.from;
       callMergeParticipants(p.participants||[p.from]);
@@ -1988,9 +3039,9 @@ function renderChatText(text){
       upCall.pendingOffers={};upCall.peers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;
       callStartRingtone();
       var inviteNames=Array.isArray(p.participants)?p.participants.filter(function(n){return n&&n!==member;}).join(', '):p.from;
-      callRender('Convite para chamada em grupo','Participantes: '+inviteNames,[
+      callRender(Array.isArray(p.participants)&&p.participants.length>2?'Convite para chamada em grupo':'Chamada recebida','Participantes: '+inviteNames,[
         {label:'Atender',icon:'phone',onClick:function(){callAcceptIncomingCall();}},
-        {label:'Recusar',icon:'hangup',danger:true,onClick:function(){callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}
+        {label:'Recusar',icon:'hangup',danger:true,onClick:function(){var roomId=signalRoomByCallId[p.callId];if(signalTransport&&roomId){signalTransport.decline(roomId).catch(function(){}).finally(function(){callCleanup(false);});}else{callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}}
       ]);
       return;
     }
@@ -2050,45 +3101,60 @@ function renderChatText(text){
     if(changed&&!chat.classList.contains('hidden'))renderChat();
   }
 
-  function handleRealtimeChatFast(payload){
-    var m=payload&&payload.message;
-    if(!m||!m.id)return;
-    upsertRealtimeMessage(m);
+  var realtimeChatRefreshTimer=null,realtimeChatRefreshLastAt=0;
+  function scheduleRealtimeChatRefresh(){
+    if(!token||realtimeChatRefreshTimer)return;
+    var wait=Math.max(0,1000-(Date.now()-realtimeChatRefreshLastAt));
+    realtimeChatRefreshTimer=setTimeout(function(){
+      realtimeChatRefreshTimer=null;
+      if(!token)return;
+      realtimeChatRefreshLastAt=Date.now();
+      loadChat(true);
+    },wait);
+  }
+  // The shared Realtime topic is public. Treat broadcast payloads as untrusted hints,
+  // and reconcile chat state only from the authenticated API.
+  function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}
+  var remotePollHintTimer=null;
+  function scheduleRemoteStatusPoll(){
+    if(remotePollHintTimer)return;
+    var expectedToken=token,expectedMember=member;
+    remotePollHintTimer=setTimeout(function(){
+      remotePollHintTimer=null;
+      if(token===expectedToken&&member===expectedMember)pollRemoteStatus();
+    },1100);
+  }
+  var realtimeStatusRefreshTimer=null,realtimeStatusRefreshLastAt=0;
+  function scheduleRealtimeStatusRefresh(){
+    if(realtimeStatusRefreshTimer)return;
+    var expectedToken=token,expectedMember=member;
+    var wait=Math.max(0,1000-(Date.now()-realtimeStatusRefreshLastAt));
+    realtimeStatusRefreshTimer=setTimeout(function(){
+      realtimeStatusRefreshTimer=null;
+      if(token!==expectedToken||member!==expectedMember)return;
+      realtimeStatusRefreshLastAt=Date.now();
+      refresh();
+    },wait);
   }
   function startRealtime(){
     if(!token||realtimeClient||typeof supabase==='undefined'||!supabase.createClient)return;
+    initSignalingTransport();
     try{
       realtimeClient=supabase.createClient(UP_REALTIME_URL,UP_REALTIME_KEY,{auth:{persistSession:false}});
       realtimeChannel=realtimeClient.channel(UP_REALTIME_TOPIC);
       realtimeChannel
-        .on('broadcast',{event:'db_change'},function(payload){
-          var p=payload&&payload.payload||{};
-          var record=p.record;
-          if(!record)return;
-          if(p.op==='DELETE')handleRealtimeDelete(record);
-          else upsertRealtimeMessage(record);
-        })
-        .on('broadcast',{event:'chat_fast'},function(payload){handleRealtimeChatFast(payload&&payload.payload||{});})
-        .on('broadcast',{event:'chat_read'},function(payload){handleRealtimeChatRead(payload&&payload.payload||{});})
-        .on('broadcast',{event:'user_status'},function(){refresh();})
+        .on('broadcast',{event:'db_change'},function(){scheduleRealtimeChatRefresh();})
+        .on('broadcast',{event:'chat_fast'},function(){handleRealtimeChatFast();})
+        .on('broadcast',{event:'chat_read'},function(){scheduleRealtimeChatRefresh();})
+        .on('broadcast',{event:'user_status'},function(){scheduleRealtimeStatusRefresh();})
         .on('broadcast',{event:'chat_presence'},function(payload){var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();})
         .on('broadcast',{event:'health_ping'},function(payload){handleHealthPing(payload&&payload.payload||{});})
         .on('broadcast',{event:'health_pong'},function(payload){handleHealthPong(payload&&payload.payload||{});})
-        .on('broadcast',{event:'remote_command'},function(payload){
-          var c=payload&&payload.payload&&payload.payload.command;
-          if(c&&c.target===member)executeRemoteCommand(c);
-        })
+        .on('broadcast',{event:'remote_command'},function(){scheduleRemoteStatusPoll();})
         .on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{});})
-        .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){voiceRoomReceive(payload&&payload.payload||{});})
-        .on('broadcast',{event:SCREEN_ROOM_EVENT},function(payload){screenShareReceive(payload&&payload.payload||{});})
-        .on('broadcast',{event:'remote_result'},function(payload){
-          var r=payload&&payload.payload&&payload.payload.result;
-          if(r&&r.commandId&&r.sender===member){
-            remoteResultCache[String(r.commandId)]=r;
-            var waiter=remoteResultWaiters[String(r.commandId)];
-            if(waiter)waiter(r);
-          }
-        })
+        .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){if(!signalTransportFlag)voiceRoomReceive(payload&&payload.payload||{});})
+        .on('broadcast',{event:SCREEN_ROOM_EVENT},function(payload){if(!signalTransportFlag)screenShareReceive(payload&&payload.payload||{});})
+        .on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })
         .subscribe(function(status){
           if(status==='SUBSCRIBED'){realtimeActive=true;if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}broadcastChatPresence(!chat.classList.contains('hidden'));return;}
           if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
@@ -2111,11 +3177,34 @@ function renderChatText(text){
   }
   function stopRealtime(){
     realtimeActive=false;
+    if(remotePollHintTimer){clearTimeout(remotePollHintTimer);remotePollHintTimer=null;}
+    if(realtimeStatusRefreshTimer){clearTimeout(realtimeStatusRefreshTimer);realtimeStatusRefreshTimer=null;}
     if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}
     try{if(realtimeChannel)realtimeChannel.unsubscribe();}catch(e){}
     try{if(realtimeClient)realtimeClient.removeAllChannels();}catch(e){}
     realtimeChannel=null;realtimeClient=null;
   }
+  // Recover local media state when the browser reports a real network outage.
+  // A room is intentionally not auto-joined after recovery: the user can re-enter
+  // once the authenticated Realtime channel is subscribed again.
+  var upNetworkOffline=false;
+  window.addEventListener('offline',function(){
+    upNetworkOffline=true;
+    try{if(voiceRoom.active||voiceRoom.joining||signalVoiceRoomRoomId)voiceRoomLeave({skipServerLeave:true});}catch(e){}
+    try{if(upCall&&upCall.active)callCleanup(false);}catch(e){}
+    if(signalInvitationTimer){clearInterval(signalInvitationTimer);signalInvitationTimer=null;}
+    try{if(signalTransport){signalTransport.stopAll();signalTransport=null;}}catch(e){}
+    signalVoiceRoomCreator=false;signalVoiceRoomPrepared=false;
+    stopRealtime();
+  });
+  window.addEventListener('online',function(){
+    if(!upNetworkOffline)return;
+    upNetworkOffline=false;
+    stopRealtime();
+    if(!token)return;
+    startRealtime();
+    refresh();
+  });
   function updateLuccaPresence(active){
     luccaOnline=!!active;
     if(quickChatBubble)quickChatBubble.classList.toggle('lucca-active',luccaOnline);
@@ -2449,7 +3538,7 @@ function chatAvatarPresence(name){
     chatContextMessageId=m.id;
     var canReply=m.user!==member;
     var quick=['😂','❤️','👍','😡','😮','👏'];
-    var canDelete=m.user===member||member==='Ricardo'||role==='implementation_admin';
+    var canDelete=m.user===member||role==='implementation_admin';
     menu.innerHTML=(canReply?'<button type="button" class="up-chat-context-action" data-action="reply">↩ Responder</button>':'')+(canDelete?'<button type="button" class="up-chat-context-action up-chat-context-delete" data-action="delete">🗑 Excluir mensagem</button>':'')+'<div class="up-chat-context-reaction-row">'+quick.map(function(em){return '<button type="button" class="up-chat-reaction" data-context-reaction="'+esc(em)+'">'+em+'</button>';}).join('')+'</div>';
     menu.classList.add('show');
     var x=Math.min(window.innerWidth-menu.offsetWidth-8,Math.max(8,e.clientX||8)),y=Math.min(window.innerHeight-menu.offsetHeight-8,Math.max(8,e.clientY||8));menu.style.left=x+'px';menu.style.top=y+'px';
@@ -2539,7 +3628,7 @@ function chatAvatarPresence(name){
     setUnread(0);
     chat.classList.remove('hidden');card.classList.add('hidden');history.classList.add('hidden');broadcastChatPresence(true);refresh();
     chat.setAttribute('data-upstatus-chat-member',member);
-    chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><button type="button" class="up-chat-profile-btn" title="Alterar foto de perfil"><img alt="Minha foto"></button><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">●</span> 0 online · 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+(member==='Ricardo'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'<button class="up-chat-library" type="button" title="Biblioteca de imagens" aria-label="Biblioteca de imagens">'+iconSvg('folder')+'</button>'+'<button class="up-chat-back" type="button" aria-label="Voltar" title="Voltar">←</button></div></div><div class="up-chat-lucca-alert hidden">🔴 ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregando…</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">×</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando áudio <span class="up-chat-recording-time">0:00</span></div><div class="up-chat-input-wrap"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">'+iconSvg('clip')+'</button><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">'+iconSvg('mic')+'</button><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-scroll-latest" aria-label="Ir para a última mensagem" title="Ir para a última mensagem"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-6-6 6 6 6-6"/></svg></button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.rtf" hidden></div></div><div class="up-chat-lightbox hidden"><img alt="Imagem ampliada"></div>';
+    chat.innerHTML='<div class="up-history-head"><div class="up-chat-title-wrap"><button type="button" class="up-chat-profile-btn" title="Alterar foto de perfil"><img alt="Minha foto"></button><div><div class="up-history-title">Chat da equipe</div><div class="up-chat-header-info"><span class="chat-online-dot">●</span> 0 online · 0 no bate-papo</div></div></div><div style="display:flex;gap:6px;align-items:center">'+(member==='Ricardo'&&role==='implementation_admin'?'<button class="up-chat-clear" type="button" title="Limpar chat">'+iconSvg('trash')+'</button>':'')+'<button class="up-chat-library" type="button" title="Biblioteca de imagens" aria-label="Biblioteca de imagens">'+iconSvg('folder')+'</button>'+'<button class="up-chat-back" type="button" aria-label="Voltar" title="Voltar">←</button></div></div><div class="up-chat-lucca-alert hidden">🔴 ALERTA DE LUCCA MALUCO</div><div class="up-chat-list">Carregando…</div><div class="up-chat-typing hidden"></div><div class="up-chat-context-menu"></div><div class="up-chat-compose"><div class="up-chat-reply-bar hidden"><div class="up-chat-reply-copy"></div><button type="button" class="up-chat-reply-close">×</button></div><div class="up-mention-menu hidden"></div><div class="up-chat-emoji-menu hidden"></div><div class="up-chat-recording-label">Gravando áudio <span class="up-chat-recording-time">0:00</span></div><div class="up-chat-pending-preview hidden" aria-live="polite"></div><div class="up-chat-input-wrap"><button type="button" class="up-chat-emoji-btn" title="Emojis" aria-label="Emojis">'+iconSvg('emoji')+'</button><button type="button" class="up-chat-attach" title="Enviar foto, GIF ou vídeo" aria-label="Enviar foto, GIF ou vídeo">'+iconSvg('clip')+'</button><textarea class="up-chat-input" maxlength="1000" placeholder="Digite uma mensagem"></textarea><button type="button" class="up-chat-record" title="Gravar áudio (até 30 segundos)" aria-label="Gravar áudio">'+iconSvg('mic')+'</button><button type="button" class="up-chat-send" title="Enviar mensagem" aria-label="Enviar mensagem">'+iconSvg('send')+'</button></div><div class="up-chat-tools"><button type="button" class="up-chat-scroll-latest" aria-label="Ir para a última mensagem" title="Ir para a última mensagem"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-6-6 6 6 6-6"/></svg></button><input class="up-chat-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.rtf" hidden></div></div><div class="up-chat-lightbox hidden"><img alt="Imagem ampliada"></div>';
     var chatOpeningLoader=document.createElement('div');chatOpeningLoader.className='up-chat-opening-loader';chatOpeningLoader.innerHTML='<span class="up-chat-opening-spinner"></span>';chatOpeningLoader.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,16,28,.98);z-index:999;pointer-events:none';if(getComputedStyle(chat).position==='static')chat.style.position='relative';var openingLoaderStyle=document.getElementById('up-chat-opening-loader-style');if(!openingLoaderStyle){openingLoaderStyle=document.createElement('style');openingLoaderStyle.id='up-chat-opening-loader-style';openingLoaderStyle.textContent='.up-chat-opening-spinner{width:26px;height:26px;border:3px solid rgba(160,180,210,.25);border-top-color:#8baeff;border-radius:50%;animation:upChatOpenSpin .65s linear infinite}@keyframes upChatOpenSpin{to{transform:rotate(360deg)}}';document.head.appendChild(openingLoaderStyle);}chat.appendChild(chatOpeningLoader);
     var profileBtn=chat.querySelector('.up-chat-profile-btn');if(profileBtn){hydrateAvatar(profileBtn.querySelector('img'),member);profileBtn.onclick=function(e){e.stopPropagation();openProfileModal();};profileBtn.addEventListener('mouseenter',function(e){showChatProfileHover(profileBtn.querySelector('img'),member,e);});profileBtn.addEventListener('mousemove',positionChatProfileHover);profileBtn.addEventListener('mouseleave',hideChatProfileHover);}
     var input=chat.querySelector('.up-chat-input'),photoBtn=chat.querySelector('.up-chat-attach'),photoFile=chat.querySelector('.up-chat-file'),emojiBtn=chat.querySelector('.up-chat-emoji-btn'),emojiMenu=chat.querySelector('.up-chat-emoji-menu'),recordBtn=chat.querySelector('.up-chat-record');
@@ -2566,11 +3655,11 @@ function chatAvatarPresence(name){
       },true);
     }
     photoBtn.onclick=function(e){e.stopPropagation();photoFile.click()};
-    photoFile.addEventListener('change',function(){if(photoFile.files&&photoFile.files[0])sendChatMedia(photoFile.files[0])});
+    photoFile.addEventListener('change',function(){if(photoFile.files&&photoFile.files[0])setPendingAttachment(photoFile.files[0]);photoFile.value='';});
     setupEmojiPicker(emojiBtn,emojiMenu,input);
     if(recordBtn)recordBtn.onclick=function(e){e.stopPropagation();toggleAudioRecording(recordBtn);};
     var cancelRecordBtn=chat.querySelector('.up-chat-record-cancel');if(cancelRecordBtn)cancelRecordBtn.onclick=function(e){e.preventDefault();e.stopPropagation();stopAudioRecording(false);};
-    input.addEventListener('paste',function(e){var items=e.clipboardData&&e.clipboardData.items?Array.from(e.clipboardData.items):[];var item=items.find(function(x){return x.kind==='file'&&/^image\//i.test(x.type)});if(item){var file=item.getAsFile();if(file){e.preventDefault();sendChatMedia(file);}}});
+    input.addEventListener('paste',function(e){var items=e.clipboardData&&e.clipboardData.items?Array.from(e.clipboardData.items):[];var item=items.find(function(x){return x.kind==='file'&&/^image\//i.test(x.type)});if(item){var file=item.getAsFile();if(file){e.preventDefault();setPendingAttachment(file);}}});
     chat.querySelector('.up-chat-reply-close').onclick=function(e){e.stopPropagation();setChatReply(null);};
     if(!chatDocumentClickBound){
       chatDocumentClickBound=true;
@@ -2580,10 +3669,10 @@ function chatAvatarPresence(name){
       });
     }
     chat.querySelector('.up-chat-back').onclick=function(e){e.stopPropagation();closeChat(true);};
-    var clearBtn=chat.querySelector('.up-chat-clear');if(clearBtn)clearBtn.onclick=clearChatRicardo;
+    var clearBtn=chat.querySelector('.up-chat-clear');if(clearBtn)clearBtn.onclick=clearChatAdmin;
     var lightbox=chat.querySelector('.up-chat-lightbox');if(lightbox)chatLightbox=lightbox;
     chat.querySelector('.up-chat-send').onclick=function(e){e.stopPropagation();sendChat()};
-    input.addEventListener('input',function(){renderMentionMenu();handleTypingInput();});input.addEventListener('click',renderMentionMenu);input.addEventListener('keyup',renderMentionMenu);input.addEventListener('keydown',function(e){if(e.key.length===1||e.key==='Backspace'||e.key==='Delete')startTypingHeartbeat();});input.addEventListener('focus',function(){if(String(input.value||'').trim())startTypingHeartbeat();});input.addEventListener('blur',function(){if(typingStopTimer)clearTimeout(typingStopTimer);typingStopTimer=setTimeout(function(){stopTypingHeartbeat();},1200);});
+    input.addEventListener('input',function(){renderMentionMenu();updateLinkPreview(input.value||'');handleTypingInput();});input.addEventListener('click',renderMentionMenu);input.addEventListener('keyup',renderMentionMenu);input.addEventListener('keydown',function(e){if(e.key.length===1||e.key==='Backspace'||e.key==='Delete')startTypingHeartbeat();});input.addEventListener('focus',function(){if(String(input.value||'').trim())startTypingHeartbeat();});input.addEventListener('blur',function(){if(typingStopTimer)clearTimeout(typingStopTimer);typingStopTimer=setTimeout(function(){stopTypingHeartbeat();},1200);});
     input.addEventListener('keydown',function(e){if(e.key==='Escape'){var menu=chat.querySelector('.up-mention-menu');if(menu)menu.classList.add('hidden');return;}if(e.key==='Enter'&&!e.shiftKey){if(e.repeat){e.preventDefault();return;}var menu=chat.querySelector('.up-mention-menu');if(menu&&!menu.classList.contains('hidden')){var first=menu.querySelector('.up-mention-option');if(first){e.preventDefault();applyMention(first.getAttribute('data-name'));return;}}e.preventDefault();sendChat();}});
     if(chatCache.length)renderChat();
     updateLuccaPresence(luccaOnline);
@@ -2688,7 +3777,7 @@ function chatAvatarPresence(name){
   }
   function sendChatAudioData(dataUrl){var send=chat.querySelector('.up-chat-send'),record=chat.querySelector('.up-chat-record');if(send)send.disabled=true;if(record)record.disabled=true;var raw=String(dataUrl||'');var match=raw.match(/^data:(audio\/[^;,]+)(?:;[^,]*)?;base64,/i);if(!match){if(send)send.disabled=false;if(record)record.disabled=false;showChatError('Áudio inválido.',true);return;}api('POST','/api/chat/audio',{dataUrl:raw}).then(function(r){return api('POST','/api/chat',{message:'',imageUrl:r.imageUrl,type:'audio',replyTo:chatReplyTo});}).then(function(){chatReplyTo=null;setChatReply(null);stopTypingHeartbeat();return refreshChatAfterSend(null,send);}).catch(function(e){if(send)send.disabled=false;showChatError(e.message,true);}).finally(function(){if(record)record.disabled=false;});
   }
-  function clearChatRicardo(){if(member!=='Ricardo')return;if(!confirm('Limpar todo o chat para a equipe?'))return;api('POST','/api/chat/clear',{}).then(function(){chatCache=[];chatLastRenderKey='';return api('GET','/api/chat');}).then(function(d){chatCache=d.messages||[];if(d.profiles)profileCache=d.profiles;renderChat();}).catch(function(e){message(e.message,true);});}
+  function clearChatAdmin(){if(member!=='Ricardo'||role!=='implementation_admin')return;if(!confirm('Limpar todo o chat para a equipe?'))return;api('POST','/api/chat/clear',{}).then(function(){chatCache=[];chatLastRenderKey='';return api('GET','/api/chat');}).then(function(d){chatCache=d.messages||[];if(d.profiles)profileCache=d.profiles;renderChat();}).catch(function(e){message(e.message,true);});}
   function scrollChatToBottom(force){
     if(force===false)return;
     if(Date.now()<chatUserScrollInterruptedUntil&&!chatForceScrollBottom){chatPendingInitialScroll=false;return;}
@@ -2779,16 +3868,31 @@ function chatAvatarPresence(name){
       });
     }
   }
+  function setPendingAttachment(file){
+    if(!file)return;var info=resolveFileMime(file,true);if(!info.ok){showChatError('Tipo de arquivo não suportado.');return;}if(file.size>20*1024*1024){showChatError('O arquivo deve ter no máximo 20 MB.');return;}
+    chatPendingAttachment=file;var box=chat.querySelector('.up-chat-pending-preview');if(!box)return;var name=String(file.name||'Imagem colada'),size=file.size?' · '+(file.size/1024/1024).toFixed(1)+' MB':'';
+    box.innerHTML='<div class="up-chat-pending-card" style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin:0 0 6px;border:1px solid #536784;border-radius:9px;background:rgba(79,125,255,.10);color:inherit;font:12px Segoe UI,Arial,sans-serif"><span aria-hidden="true">📎</span><span style="min-width:0;flex:1;overflow-wrap:anywhere">'+esc(name)+esc(size)+'</span><button type="button" class="up-chat-pending-remove" aria-label="Remover anexo" title="Remover anexo" style="border:0;border-radius:6px;padding:3px 8px;background:rgba(120,135,160,.18);color:inherit;cursor:pointer">×</button></div>';
+    box.classList.remove('hidden');box.querySelector('.up-chat-pending-remove').onclick=function(e){e.preventDefault();e.stopPropagation();chatPendingAttachment=null;box.textContent='';var input=chat.querySelector('.up-chat-input');if(input)updateLinkPreview(input.value||'');else box.classList.add('hidden');};
+  }
+  function updateLinkPreview(text){
+    var box=chat.querySelector('.up-chat-pending-preview');if(!box)return;var existing=box.querySelector('.up-chat-link-preview');if(existing)existing.remove();var match=String(text||'').match(/https?:\/\/[^\s<>"']+/i);
+    if(!match){chatLinkPreviewDismissed=false;if(!chatPendingAttachment){box.classList.add('hidden');box.textContent='';}return;}
+    var raw=match[0].replace(/[),.!?]+$/,'');var url;try{url=new URL(raw);if(url.protocol!=='http:'&&url.protocol!=='https:'){if(!chatPendingAttachment)box.classList.add('hidden');return;}}catch(e){if(!chatPendingAttachment)box.classList.add('hidden');return;}if(chatLinkPreviewDismissed&&url.href===chatLinkPreviewDismissedUrl){if(!chatPendingAttachment)box.classList.add('hidden');return;}chatLinkPreviewDismissed=false;chatLinkPreviewDismissedUrl='';
+    var preview=document.createElement('div');preview.className='up-chat-link-preview';preview.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 10px;margin:0 0 6px;border:1px solid #536784;border-radius:9px;background:rgba(79,125,255,.08);color:inherit;font:12px Segoe UI,Arial,sans-serif';var copy=document.createElement('div');copy.style.cssText='min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';copy.textContent=url.hostname+url.pathname;
+    var remove=document.createElement('button');remove.type='button';remove.className='up-chat-link-preview-remove';remove.setAttribute('aria-label','Ocultar prévia do link');remove.title='Ocultar prévia';remove.textContent='×';remove.style.cssText='border:0;border-radius:6px;padding:3px 8px;background:rgba(120,135,160,.18);color:inherit;cursor:pointer';remove.onclick=function(e){e.preventDefault();e.stopPropagation();chatLinkPreviewDismissed=true;chatLinkPreviewDismissedUrl=url.href;preview.remove();if(!chatPendingAttachment)box.classList.add('hidden');};preview.appendChild(copy);preview.appendChild(remove);box.appendChild(preview);box.classList.remove('hidden');
+  }
   function sendChat(){
     if(mediaRecorder&&mediaRecorder.state==='recording'){stopAudioRecording(true);return;}
     var input=chat.querySelector('.up-chat-input'),text=input?(input.value||'').trim():'';
-    if(!input||!text)return;
+    if(!input||(!text&&!chatPendingAttachment))return;
+    if(chatPendingAttachment){var pending=chatPendingAttachment,reply=chatReplyTo;chatPendingAttachment=null;var previewBox=chat.querySelector('.up-chat-pending-preview');if(previewBox){previewBox.classList.add('hidden');previewBox.textContent='';}chatLinkPreviewDismissed=false;chatLinkPreviewDismissedUrl='';input.value='';clearChatDraft();setChatReply(null);sendChatMedia(pending,text,reply);return;}
     var btn=chat.querySelector('.up-chat-send');
     var tempId='local-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
     var tempReply=chatReplyTo;
     var optimistic={id:tempId,user:member,message:text,type:'text',systemType:'',createdAt:new Date().toISOString(),imageUrl:'',mentions:[],replyTo:tempReply,reactions:{},readBy:[],optimistic:true};
     chatCache.push(optimistic);
     input.value='';
+    updateLinkPreview('');
     chatForceScrollBottom=true;
     chatOpenScrollUntil=Date.now()+1500;
     clearChatDraft();
@@ -2806,7 +3910,7 @@ function chatAvatarPresence(name){
           chatCache=chatCache.filter(function(m){return String(m.id)!==String(tempId);});
           loadChat(true);
         }
-        try{sendRealtimeEvent('chat_fast',{message:created});}catch(_){}
+        try{sendRealtimeEvent('chat_fast');}catch(_){}
       }else{
         chatCache=chatCache.filter(function(m){return m.id!==tempId;});
         loadChat(true);
@@ -2832,15 +3936,15 @@ function chatAvatarPresence(name){
   }
   function fileToDataUrl(file){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Use imagens, vídeos ou documentos PDF, DOC/DOCX, XLS/XLSX, CSV, PPT/PPTX, TXT e RTF.'));return;}var max=20*1024*1024;if(file.size>max){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}var reader=new FileReader();reader.onload=function(){var data=reader.result;if(!(data instanceof ArrayBuffer)){resolve(String(data));return;}var bytes=new Uint8Array(data),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+info.mime+';base64,'+btoa(bin));};reader.onerror=function(){reject(new Error('Não foi possível ler o arquivo.'));};reader.readAsArrayBuffer(file);});}
   function fileToDataUrlForProfile(file,type,ext){var info=resolveFileMime(file,false),mime=info.ok?info.mime:fileMimeFromExt(ext);if(!/^image\//i.test(mime)){return Promise.reject(new Error('Use PNG, JPG, WEBP ou GIF.'));}return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){try{var bytes=new Uint8Array(reader.result),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+mime+';base64,'+btoa(bin));}catch(e){reject(new Error('Não foi possível preparar a foto.'));}};reader.onerror=function(){reject(new Error('Não foi possível ler a foto.'));};reader.readAsArrayBuffer(file);});}
-  function uploadFileDirect(file,route){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Tipo de arquivo não suportado.'));return;}if(file.size>20*1024*1024){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}api('POST',route,{mime:info.mime,size:file.size,name:String(file.name||'arquivo')}).then(function(ticket){if(!ticket||(!ticket.uploadUrl&&!ticket.signedUrl)||!ticket.token||!ticket.publicUrl||!ticket.path)throw new Error('Resposta de autorização incompleta: '+Object.keys(ticket||{}).join(', '));var url;try{url=new URL(ticket.uploadUrl||ticket.signedUrl);}catch(e){url=new URL('https://dlfvkawaiqduhlazsszm.supabase.co/storage/v1/object/upload/sign/'+ticket.bucket+'/'+ticket.path);}if(ticket.token&&!url.searchParams.has('token'))url.searchParams.set('token',ticket.token);if(!url.searchParams.has('token'))throw new Error('A URL assinada veio sem token.');return fetch(url.toString(),{method:'PUT',headers:{'Content-Type':info.mime,'x-upsert':'true','cache-control':'max-age=3600'},body:file}).then(function(resp){if(!resp.ok)return resp.text().then(function(t){throw new Error('Falha no Storage ('+resp.status+'): '+String(t||'').slice(0,180));});return ticket;});}).then(resolve).catch(reject);});}
-  function sendChatMedia(file){
+  function uploadFileDirect(file,route){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Tipo de arquivo não suportado.'));return;}if(file.size>20*1024*1024){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}api('POST',route,{mime:info.mime,size:file.size,name:String(file.name||'arquivo')}).then(function(ticket){if(!ticket||(!ticket.uploadUrl&&!ticket.signedUrl)||!ticket.token||!ticket.publicUrl||!ticket.path)throw new Error('Resposta de autorização incompleta: '+Object.keys(ticket||{}).join(', '));var url;try{url=new URL(ticket.uploadUrl||ticket.signedUrl);}catch(e){url=new URL(UP_REALTIME_URL+'/storage/v1/object/upload/sign/'+ticket.bucket+'/'+ticket.path);}if(ticket.token&&!url.searchParams.has('token'))url.searchParams.set('token',ticket.token);if(!url.searchParams.has('token'))throw new Error('A URL assinada veio sem token.');return fetch(url.toString(),{method:'PUT',headers:{'Content-Type':info.mime,'x-upsert':'true','cache-control':'max-age=3600'},body:file}).then(function(resp){if(!resp.ok)return resp.text().then(function(t){throw new Error('Falha no Storage ('+resp.status+'): '+String(t||'').slice(0,180));});return ticket;});}).then(resolve).catch(reject);});}
+  function sendChatMedia(file,caption,replyOverride){
     if(!file)return;
-    var tempId='local-upload-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),reply=chatReplyTo,info=resolveFileMime(file,true),isVideo=String(info.mime||'').indexOf('video/')===0,isDocument=/^(application\/|text\/)/i.test(info.mime||''),label=isDocument?'Enviando documento…':isVideo?'Enviando vídeo…':'Enviando imagem…';
-    var optimistic={id:tempId,user:member,message:'',type:isDocument?'document':isVideo?'video':'image',systemType:'',createdAt:new Date().toISOString(),imageUrl:'',mentions:[],replyTo:reply,reactions:{},readBy:[],optimistic:true,pendingUpload:true,uploadLabel:label};
+    var tempId='local-upload-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),reply=replyOverride!==undefined?replyOverride:chatReplyTo,info=resolveFileMime(file,true),isVideo=String(info.mime||'').indexOf('video/')===0,isDocument=/^(application\/|text\/)/i.test(info.mime||''),label=isDocument?'Enviando documento…':isVideo?'Enviando vídeo…':'Enviando imagem…';
+    var optimistic={id:tempId,user:member,message:isDocument?(String(caption||'').trim()||String(file.name||'Documento')):String(caption||'').trim(),type:isDocument?'document':isVideo?'video':'image',systemType:'',createdAt:new Date().toISOString(),imageUrl:'',mentions:[],replyTo:reply,reactions:{},readBy:[],optimistic:true,pendingUpload:true,uploadLabel:label};
     chatCache.push(optimistic);chatForceScrollBottom=true;chatOpenScrollUntil=Date.now()+1200;
     try{renderChat();scrollChatToBottom(true);}catch(e){}
     uploadFileDirect(file,'/api/chat/upload-url').then(function(upload){
-      return api('POST','/api/chat',{message:isDocument?String(file.name||'Documento'):'',imageUrl:upload.publicUrl,type:isDocument?'document':isVideo?'video':'image',replyTo:reply});
+      return api('POST','/api/chat',{message:isDocument?(String(caption||'').trim()||String(file.name||'Documento')):String(caption||'').trim(),fileName:isDocument?String(file.name||'Documento'):'',imageUrl:upload.publicUrl,type:isDocument?'document':isVideo?'video':'image',replyTo:reply});
     }).then(function(r){
       var created=normalizeChatMessage(r&&r.message);
       if(!created)throw new Error('O anexo foi enviado, mas não recebemos a confirmação da mensagem.');
@@ -2848,8 +3952,8 @@ function chatAvatarPresence(name){
       var idx=chatCache.findIndex(function(m){return String(m.id)===String(tempId);});
       if(idx>=0)chatCache[idx]=created;else if(!chatCache.some(function(m){return String(m.id)===String(created.id);}))chatCache.push(created);
       chatCache.sort(function(a,b){return Date.parse(a.createdAt)-Date.parse(b.createdAt);});renderChat();
-      try{sendRealtimeEvent('chat_fast',{message:r.message});}catch(e){}
-    }).catch(function(e){chatCache=chatCache.filter(function(m){return String(m.id)!==String(tempId);});try{renderChat();}catch(_){}showChatError(e&&e.message||'Não foi possível enviar o anexo.');});
+      try{sendRealtimeEvent('chat_fast');}catch(e){}
+    }).catch(function(e){chatCache=chatCache.filter(function(m){return String(m.id)!==String(tempId);});chatPendingAttachment=file;var input=chat.querySelector('.up-chat-input');if(input){input.value=String(caption||'');saveChatDraft(input);}setPendingAttachment(file);if(input)updateLinkPreview(input.value||'');setChatReply(reply);try{renderChat();}catch(_){}showChatError(e&&e.message||'Não foi possível enviar o anexo. O arquivo e a legenda foram restaurados para você tentar novamente.');});
   }
 
   function closeChatLibrary(){var modal=document.querySelector('.up-chat-library-modal');if(modal)modal.remove();}
@@ -2948,7 +4052,7 @@ function chatAvatarPresence(name){
   profileModal.querySelector('.up-chat-profile-save').onclick=function(){var file=profileModal.querySelector('.up-chat-profile-file').files&&profileModal.querySelector('.up-chat-profile-file').files[0],msg=profileModal.querySelector('.up-chat-profile-message'),btn=this;if(!file){msg.textContent='Escolha uma foto.';return;}btn.disabled=true;msg.textContent='Salvando…';uploadFileDirect(file,'/api/profile/avatar-upload-url').then(function(upload){return api('POST','/api/profile/avatar',{avatarUrl:upload.publicUrl});}).then(function(r){var ck='profile:'+member;if(mediaBlobCache[ck]){try{URL.revokeObjectURL(mediaBlobCache[ck]);}catch(e){}delete mediaBlobCache[ck];}GM_setValue(key+ck,r.avatarUrl);profileCache[member]=r.avatarUrl;hydrateAvatar(profileModal.querySelector('.up-chat-profile-preview'),member);updateBubbleAvatar(false);closeProfileModal();loadChat();}).catch(function(e){msg.textContent=e.message;}).finally(function(){btn.disabled=false;});};
 
   var healthPingPending={},healthPingResults={},healthRefreshTimer=null,healthLoading=false;
-  function canViewHealth(){return ['Ricardo','Lohan','Guilherme'].indexOf(member)>=0;}
+  function canViewHealth(){return role==='implementation_admin';}
   function healthLed(ok,kind){return '<span class="up-health-led '+(ok?'ok':kind||'bad')+'"></span>';}
   function healthPingLabel(name){
     if(name===member)return '<span class="up-health-ping good">local</span>';
@@ -2974,12 +4078,12 @@ function chatAvatarPresence(name){
     });
   }
   function handleHealthPing(payload){
-    if(!payload||payload.target!==member||!realtimeActive||!realtimeChannel)return;
+    if(!payload||payload.target!==member||typeof payload.sender!=='string'||!payload.sender||payload.sender.length>80||typeof payload.id!=='string'||!payload.id||payload.id.length>160||!realtimeActive||!realtimeChannel)return;
     try{realtimeChannel.send({type:'broadcast',event:'health_pong',payload:{id:payload.id,target:payload.sender,sender:member,createdAt:Date.now()}});}catch(e){}
   }
   function handleHealthPong(payload){
-    if(!payload||payload.target!==member||!payload.id)return;
-    var p=healthPingPending[payload.id];if(!p)return;delete healthPingPending[payload.id];
+    if(!payload||payload.target!==member||typeof payload.sender!=='string'||!payload.sender||payload.sender.length>80||typeof payload.id!=='string'||!payload.id||payload.id.length>160)return;
+    var p=healthPingPending[payload.id];if(!p||payload.sender!==p.name)return;delete healthPingPending[payload.id];
     healthPingResults[p.name]=Math.max(0,performance.now()-p.startedAt);
     if(health.classList.contains('hidden'))return;
     var el=health.querySelector('[data-health-ping="'+CSS.escape(p.name)+'"]');if(el)el.innerHTML=healthPingLabel(p.name);
@@ -3035,7 +4139,7 @@ function chatAvatarPresence(name){
   function login(){
     health.classList.add('hidden');
     img.src=profileFallback();
-    var loginMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';lastMember=loginMember;card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><button id="up-enter">Entrar</button></div><div class="up-update up-login-update"><div><span>Versão v'+CURRENT_VERSION+'</span><a href="#" class="up-patch-link">O que há de novo?</a></div><div><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div><span class="up-update-status"></span></div><div class="up-message"></div>';
+    var loginMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';lastMember=loginMember;card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><label>Código de primeiro acesso (novas contas)</label><input class="up-input" id="up-setup-token" type="password" autocomplete="off" placeholder="Código fornecido pelo administrador"><button id="up-enter">Entrar</button></div><div class="up-update up-login-update"><div><span>Versão v'+CURRENT_VERSION+'</span><a href="#" class="up-patch-link">O que há de novo?</a></div><div><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div><span class="up-update-status"></span></div><div class="up-message"></div>';
     var nameSelect=card.querySelector('#up-name');
     function setLoginMembers(names){
       var list=(names||[]).filter(Boolean);
@@ -3044,25 +4148,26 @@ function chatAvatarPresence(name){
       if(list.indexOf(loginMember)<0)loginMember=list[0];
       nameSelect.value=loginMember;
     }
-    function passwordKey(name){return key+'password_'+String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'_');}
-    function loadSavedPassword(){var saved=GM_getValue(passwordKey(loginMember),'');var input=card.querySelector('#up-password');if(input)input.value=saved||'';}
     setLoginMembers(['Ricardo','Lohan','Guilherme']);
-    nameSelect.onchange=function(){loginMember=nameSelect.value;lastMember=loginMember;GM_setValue(key+'last_member',loginMember);loadSavedPassword();};
-    loadSavedPassword();
+    nameSelect.onchange=function(){loginMember=nameSelect.value;lastMember=loginMember;GM_setValue(key+'last_member',loginMember);var setupInput=card.querySelector('#up-setup-token');if(setupInput)setupInput.value='';};
     api('GET','/api/members').then(function(r){setLoginMembers((r.members||[]).map(function(x){return x.name;}));}).catch(function(){});
     card.querySelector('#up-enter').onclick=async function(){
       try{
         server=CLOUD_SERVER;
         var name=loginMember;
         var password=card.querySelector('#up-password').value;
-        var account=await api('GET','/api/account?name='+encodeURIComponent(name));
-        var r=await api('POST',account.needsSetup?'/api/setup':'/api/login',{name:name,password:password});
+        var setupToken=String(card.querySelector('#up-setup-token').value||'').trim();
+        var endpoint=setupToken?'/api/setup':'/api/login';
+        var payload={name:name,password:password};
+        if(setupToken)payload.setupToken=setupToken;
+        var r=await api('POST',endpoint,payload);
         token=r.token;member=r.name;role=r.role||'implementation_user';lastMember=member;
-        GM_setValue(key+'server',CLOUD_SERVER);GM_setValue(key+'token',token);GM_setValue(key+'member',member);GM_setValue(key+'last_member',member);GM_setValue(key+'role',role);GM_setValue(passwordKey(name),password);
+        GM_setValue(key+'server',CLOUD_SERVER);GM_setValue(key+'token',token);GM_setValue(key+'member',member);GM_setValue(key+'last_member',member);GM_setValue(key+'role',role);var passwordInput=card.querySelector('#up-password');if(passwordInput)passwordInput.value='';var setupTokenInput=card.querySelector('#up-setup-token');if(setupTokenInput)setupTokenInput.value='';
         img.src=profileFallback();app();refresh();startRealtime();updateBubbleAvatar(true);
       }catch(e){message(e.message,true)}
     };
     card.querySelector('#up-password').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();card.querySelector('#up-enter').click();}});
+    card.querySelector('#up-setup-token').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();card.querySelector('#up-enter').click();}});
     card.querySelector('.up-update-check').onclick=checkUpdate;
     card.querySelector('.up-patch-link').onclick=function(e){e.preventDefault();openPatchNotes();};
     checkUpdate();
@@ -3119,7 +4224,18 @@ function chatAvatarPresence(name){
     card.querySelector('.up-screen-share-toggle').onclick=function(e){e.preventDefault();e.stopPropagation();if(screenShare.active)screenShareStop(true);else screenShareStart();};
     voiceRoomRender();
     document.addEventListener('click',function(e){if(box&&!box.contains(e.target))menu.classList.add('hidden')});
-    card.querySelector('.up-logout').onclick=function(){voiceRoomLeave();broadcastChatPresence(false);stopRealtime();token='';member='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');history.classList.add('hidden');health.classList.add('hidden');img.src=profileFallback();login()};
+    card.querySelector('.up-logout').onclick=async function(){
+      var callsReleased=false;
+      try{
+        callsReleased=upCall&&upCall.active?await callCleanup(true,'hangup'):await signalRetryPendingCallAttempts();
+        if(callsReleased)callsReleased=await signalRetryPendingCallLeaves();
+      }catch(e){callsReleased=false;}
+      if(!callsReleased){voiceRoomMessage('Não foi possível confirmar a saída da chamada. Sua sessão foi mantida. Reconecte e tente sair novamente.');voiceRoomRender();return;}
+      try{if(!await normalReleaseVoiceRoomBeforeLogout())return;}catch(e){return;}
+      broadcastChatPresence(false);
+      try{await api('POST','/api/logout',{});}catch(e){}
+      stopRealtime();token='';member='';role='implementation_user';GM_setValue(key+'token','');GM_setValue(key+'member','');GM_setValue(key+'role','');history.classList.add('hidden');health.classList.add('hidden');img.src=profileFallback();login()
+    };
     history.querySelector('.up-close').onclick=function(){history.classList.add('hidden')};
     history.querySelector('.up-export').onclick=function(){exportHistoryTxt()};
     if(settingsBtn)settingsBtn.onclick=function(e){e.stopPropagation();settingsMenu.classList.toggle('hidden');};
@@ -3157,7 +4273,7 @@ function chatAvatarPresence(name){
       api('POST','/api/remote-status',{target:target,status:selected,reason:selected==='busy'?selectedReason:selected==='away'?'Ausente':''}).then(function(r){
         if(!r.commandId)throw new Error('O servidor não confirmou o comando.');
         msg.textContent='Aguardando '+target+' executar…';
-        if(r.command)sendRealtimeEvent('remote_command',{command:r.command});
+        if(r.command)sendRealtimeEvent('remote_command',{op:'hint'});
         waitRemoteResult(r.commandId,target,msg,confirm);
       }).catch(function(e){msg.textContent=e.message||'Não foi possível enviar o comando.';confirm.disabled=false;});
     };
@@ -3220,17 +4336,15 @@ function chatAvatarPresence(name){
         ok=true;
         if(location.hostname==='app.salesmartly.com')setTimeout(function(){location.reload()},250);
       }catch(e){error=e.message||'Falha ao sincronizar o Sale Smartly.';}
-      var resultPayload={commandId:c.id,sender:c.sender||'',target:member,status:c.status,reason:c.reason||'',ok:ok,error:error,createdAt:new Date().toISOString()};
       try{await api('POST','/api/remote-status/result',{commandId:c.id,ok:ok,error:error});}catch(_){ }
-      sendRealtimeEvent('remote_result',{result:resultPayload});
       delete remotePending[c.id];
       if(!ok)message('Comando remoto de '+c.sender+' falhou: '+error,true);else refresh();
     })();
   }
 
   function pollRemoteStatus(){
-    if(!token||remotePolling)return;
-    remotePolling=true;
+    var now=Date.now();if(!token||remotePolling||now-remoteLastPollAt<1000)return;
+    remoteLastPollAt=now;remotePolling=true;
     api('GET','/api/remote-status').then(function(d){
       if(!d.pending||!d.command)return;
       executeRemoteCommand(d.command);
@@ -3268,7 +4382,7 @@ function chatAvatarPresence(name){
         a.addEventListener('mouseleave',hideChatProfileHover);
       });
       team.querySelectorAll('.up-member-status-button').forEach(function(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();var target=btn.getAttribute('data-target'),wrap=btn.parentNode,old=wrap.querySelector('.up-team-status-menu');if(old){old.remove();return;}team.querySelectorAll('.up-team-status-menu').forEach(function(x){x.remove();});var current=(window.__upstatusTeam||{})[target]||{},menu=document.createElement('div');menu.className='up-team-status-menu';menu.innerHTML='<button type="button" data-status="online">Online</button><button type="button" data-status="busy">Ocupado</button><button type="button" data-status="away">Ausente</button>';wrap.style.position='relative';wrap.appendChild(menu);var outsideClose=function(ev){if(!menu.isConnected){document.removeEventListener('click',outsideClose,true);return;}if(menu.contains(ev.target)||(ev.target&&ev.target.closest&&ev.target.closest('.up-member-status-button')))return;menu.remove();document.removeEventListener('click',outsideClose,true);};document.addEventListener('click',outsideClose,true);menu.querySelectorAll('[data-status]').forEach(function(opt){opt.classList.toggle('active',opt.getAttribute('data-status')===current.status);opt.onclick=function(ev){ev.preventDefault();ev.stopPropagation();var status=opt.getAttribute('data-status');if(status==='busy'){menu.innerHTML='<div class="up-team-reason"><div class="up-team-reason-title">Motivo de ocupado</div>'+reasons.map(function(r){return '<button type="button" data-reason="'+esc(r.value)+'">'+iconSvg(r.icon)+'<span>'+esc(r.label)+'</span></button>';}).join('')+'</div>';menu.querySelectorAll('[data-reason]').forEach(function(rb){rb.onclick=function(re){re.preventDefault();re.stopPropagation();sendRemoteStatus(target,'busy',rb.getAttribute('data-reason'),menu);};});return;}sendRemoteStatus(target,status,status==='away'?'Ausente':'',menu);};});};});
-      function sendRemoteStatus(target,status,reason,menu){if(role!=='implementation_admin'||!target||target===member)return;if(status==='busy'&&!reason){return;}menu.innerHTML='<span class="up-team-status-wait">Enviando…</span>';api('POST','/api/remote-status',{target:target,status:status,reason:status==='busy'?reason:status==='away'?'Ausente':''}).then(function(r){if(!r.commandId)throw new Error('O servidor não confirmou o comando.');menu.innerHTML='<span class="up-team-status-wait">Aguardando confirmação…</span>';if(r.command)sendRealtimeEvent('remote_command',{command:r.command});waitRemoteResult(r.commandId,target,menu,menu.querySelector('button'));}).catch(function(err){menu.innerHTML='<span class="up-team-status-wait">'+esc(err.message||'Falha ao alterar status')+'</span>';});}
+      function sendRemoteStatus(target,status,reason,menu){if(role!=='implementation_admin'||!target||target===member)return;if(status==='busy'&&!reason){return;}menu.innerHTML='<span class="up-team-status-wait">Enviando…</span>';api('POST','/api/remote-status',{target:target,status:status,reason:status==='busy'?reason:status==='away'?'Ausente':''}).then(function(r){if(!r.commandId)throw new Error('O servidor não confirmou o comando.');menu.innerHTML='<span class="up-team-status-wait">Aguardando confirmação…</span>';if(r.command)sendRealtimeEvent('remote_command',{op:'hint'});waitRemoteResult(r.commandId,target,menu,menu.querySelector('button'));}).catch(function(err){menu.innerHTML='<span class="up-team-status-wait">'+esc(err.message||'Falha ao alterar status')+'</span>';});}
       setBubbleStatus(currentStatus);
     }).catch(function(e){message(e.message,true)}).finally(function(){refreshing=false});
     loadChat();
