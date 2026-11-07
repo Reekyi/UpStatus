@@ -1568,3 +1568,55 @@ No production or isolated SQL write/migration, Edge Function deployment, secret/
 ### #80 Validate follow-up — 2026-11-07 07:56 BRT
 
 After the 07:55 BRT continuity append, PR #80 head `d4d2f52d55e9866647ebd9e23df66a9392619c6b` completed Validate run [42366246384](https://github.com/Reekyi/UpStatus/actions/runs/42366246384) with FAILURE at `node scripts/validate.mjs`: `VALIDATION FAILED: client signed upload helper missing`. The workflow checked out the expected docs-branch merge ref; the failure is still the unchanged `develop` baseline contract. The signed-upload implementation and its exact-head green Validate remain isolated in PR #84; no code was copied into #80 and no validator was weakened. This note is documentation-only and does not change the runtime candidate.
+
+
+## 2026-11-07 08:59 BRT — live engineering revalidation
+
+This checkpoint supersedes earlier PR/CI snapshots above. All refs and the relevant workflow jobs were re-fetched before recording it.
+
+### Exact GitHub state
+
+| PR | Current head | State | Exact-head evidence |
+|---|---|---|---|
+| #74 Normal | `7475a82e421c9286e6944ea17ee73afd39ed73d9` | Open / Draft | Validate [42354944089](https://github.com/Reekyi/UpStatus/actions/runs/42354944089) SUCCESS; Signaling Smoke [42354944038](https://github.com/Reekyi/UpStatus/actions/runs/42354944038) SUCCESS |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Open / Draft | Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) historical PASS; superseded by #76 |
+| #76 Team Lite signaling | `87bbb2f91ac21477d69f7945ec62598e2bc6dce7` | Open / Draft | Candidate Checks [42354761800](https://github.com/Reekyi/UpStatus/actions/runs/42354761800) SUCCESS; 103/103 authenticated checks and browser call/voice/screen WebRTC, three-member mesh, 90+1 rate-limit/Retry-After, concurrency, atomic receipts, AUTH-03 and cleanup |
+| #80 continuity | `e95765d52ace32af3d8416ce3c0f18c57bb13e03` | Open / Draft | Validate [42366423731](https://github.com/Reekyi/UpStatus/actions/runs/42366423731) FAILURE: inherited `client signed upload helper missing` |
+| #82 independent QA | `3cf28a9762199b3d7ea7a4d4b12a700900cdae33` | Open / Draft | Validate [42368817280](https://github.com/Reekyi/UpStatus/actions/runs/42368817280) FAILURE: inherited `production updateURL mismatch` |
+| #84 TEST isolation | `66ccc65af430dfee55560e90e1f832336fff0212` | Open / Draft | Validate [42366213144](https://github.com/Reekyi/UpStatus/actions/runs/42366213144) SUCCESS, including target guard, project metadata contract, scoped token, signed-upload contract and full Validate |
+
+Default branch heads at this check: `develop=6b33e1e26ad105143f00372ae6d0f2fa52df60d6`, `master=a9288ccfcb0f308d3a587bfca624418a395be07b`, `team-lite-official=9065bc1536fde64f437f6f12b7abb9b072cb8281`.
+
+### TEST workflow risk remains on develop
+
+The live `.github/workflows/deploy-test.yml` on `develop` still has a `push` trigger for `develop`, binds the shared `SUPABASE_PROJECT_ID` secret at job scope, and deploys `upstatus-test` to that value. The secret value was not read. This is a target-control gap, not proof that the secret currently points to production.
+
+PR #84 contains the candidate replacement: manual-only, explicit TEST project variable, production/lab rejection, read-only organization/status/DB-host preflight, exact dispatch-SHA checkout and verification, and step-scoped access-token exposure. Its CI is green, but it remains Draft and has not been merged or dispatched. The old workflow remains active on the base until an authorized integration.
+
+### Supabase — fresh read-only verification
+
+- Organization `bcjtvojfkfoxvsitzmkl` still has exactly two projects: production `dlfvkawaiqduhlazsszm` and isolated signaling/auth lab `bfpjtfqlnypisxljoxkb`. No dedicated full-product TEST project exists.
+- Production remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations and 38 ACTIVE Edge Functions. Core deployed versions remain Normal `upstatus` v480, in-production `upstatus-test` v281, Team Lite v15, and legacy screen-share v6.
+- A fresh SELECT-only catalog inspection retrieved the three production broadcast function definitions. `upstatus_broadcast_messages()` remains SECURITY DEFINER with `search_path=public`, serializes the complete OLD/NEW row using `to_jsonb`, and calls `realtime.send(..., false)`. Remote-state and user-status functions also publish metadata to public channels. EXECUTE remains effective for anon/authenticated/service_role.
+- Security Advisor currently returns 3 SECURITY DEFINER WARN for anon, 3 for authenticated, and 10 RLS-without-policy INFO; Performance and Health return no findings.
+- The isolated lab remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 33 migrations, `upstatus-signal-test` v32 and E2E helper v3. A fresh SELECT-only count returned zero rows in all 11 checked fixture tables: users, sessions, rooms, room members, bindings, events, rate-limit buckets, call attempts, voice-room attempts, messages and chat reads.
+- No migration, SQL write, function deployment, secret/role/flag change or cleanup was performed.
+
+### Release gates
+
+- Issue #78 remains OPEN, 0/8 physical acceptance criteria. Real Tampermonkey no-F5 recovery, browser close/reopen while offline, real microphone/display capture and installed Normal ↔ Team Lite interoperability remain MANUAL PENDING.
+- RT-01 remains BLOCKED by public full-row message and remote/user metadata broadcasts. Candidate client-side payload reductions do not remove the deployed trigger path.
+- AUTH-03 candidate CI is green, but production remains on the legacy name-based setup path; route-level HTTP tests for admin issuance/non-admin denial and token handling remain required.
+- Auth-specific distributed rate limiting is absent from production and not integrated into both product endpoints.
+- Official TEST provisioning and migration/rollback rehearsal, ACL/default-ACL remediation, route-by-route Edge Function auth inventory, human reviews and explicit release approval remain open.
+- Do not report a completion percentage. Automated candidate CI, isolated database evidence, production catalog state, manual acceptance and release authorization are separate gates.
+
+### Next concrete actions
+
+1. Obtain human review of #84; do not merge or dispatch it without Ricardo's explicit authorization.
+2. Provision a dedicated full-product TEST project only after explicit approval; do not repurpose the signaling/auth lab.
+3. Design and validate the authenticated replacement for public Realtime before any production cutover.
+4. Complete HTTP-level AUTH-03 tests and integrate a separate distributed auth limiter.
+5. Complete the physical #78 matrix in installed Tampermonkey clients.
+
+No production write, migration, deploy, merge, release, userscript publication, secret/role/feature-flag change, destructive action or manual fixture cleanup occurred in this checkpoint.
