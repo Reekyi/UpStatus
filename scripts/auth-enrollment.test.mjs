@@ -68,10 +68,12 @@ assert.match(migration, /grant execute on function public\.consume_upstatus_setu
 assert.match(testMigration, /has_function_privilege\('anon'/i);
 assert.match(testMigration, /has_function_privilege\('authenticated'/i);
 assert.match(testMigration, /has_function_privilege\('service_role'/i);
-assert.ok(roleMigration.includes(String.raw\`case when u.role is null or btrim(u.role, E' \t\n\r') = '' then 'implementation_user' else u.role end\`), "initial migration must preserve non-empty roles verbatim");
-assert.ok(roleTestMigration.includes(String.raw\`nullif(btrim(u.role, E' \t\n\r'), '')\`)&&roleTestMigration.includes(String.raw\`case when u.role is null or btrim(u.role, E' \t\n\r') = '' then 'implementation_user' else u.role end\`), "initial assertion accepts historical and final safe role expressions");
-assert.ok(rolePreservationMigration.includes(String.raw`case when u.role is null or btrim(u.role, E' \t\n\r') = '' then 'implementation_user' else u.role end`), "final migration must preserve non-empty roles verbatim");
-assert.ok(rolePreservationTestMigration.includes(String.raw`case when u.role is null or btrim(u.role, E' \t\n\r') = '' then 'implementation_user' else u.role end`), "final isolated assertion must verify verbatim role preservation");
+const legacyRoleExpression = "nullif(btrim(u.role, E' \\t\\n\\r'), '')";
+const safeRoleExpression = "case when u.role is null or btrim(u.role, E' \\t\\n\\r') = '' then 'implementation_user' else u.role end";
+assert.ok(roleMigration.includes(safeRoleExpression), "initial migration must preserve non-empty roles verbatim");
+assert.ok(roleTestMigration.includes(legacyRoleExpression)&&roleTestMigration.includes(safeRoleExpression), "initial assertion accepts historical and final safe role expressions");
+assert.ok(rolePreservationMigration.includes(safeRoleExpression), "follow-up migration must preserve non-empty roles verbatim");
+assert.ok(rolePreservationTestMigration.includes(safeRoleExpression), "follow-up isolated assertion must verify verbatim role preservation");
 
 
 function extractFunction(source,name){
