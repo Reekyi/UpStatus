@@ -284,7 +284,7 @@ Resultados finais do run:
 - candidate checks concluídos com versão 3.4.31, manifesto consistente e sintaxe dos userscripts/portais aprovada;
 - cleanup do próprio workflow confirmado.
 
-Após a conclusão, uma consulta independente SELECT-only retornou zero em todas as categorias verificadas no laboratório: users, sessions, messages, rooms, memberships, bindings, events, rate_limits, call_attempts, voice_attempts, chat_reads e realtime.messages. As quatro linhas de users vistas durante o run foram removidas pelo cleanup do workflow; a auditoria não fez limpeza manual.
+Após a conclusão, uma consulta independente SELECT-only retornou zero em todas as categorias verificadas no laboratório: users, sessions, messages, rooms, memberships, bindings, events, rate_limits, call_attempts, voice_attempts, chat_reads e realtime.messages. As quatro linhas de users vistas durante o run não estavam presentes no snapshot pós-run; o workflow registrou cleanup verificado. A auditoria não fez limpeza manual.
 
 Esta atualização **não** corrige nem invalida o achado de autorização em POST /api/chat/clear no Team Lite. O código do HEAD 544866b continua exigindo apenas o nome Ricardo nessa rota; manter o blocker até existir correção e regressão explícita.
 
