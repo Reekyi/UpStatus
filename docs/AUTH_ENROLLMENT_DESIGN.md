@@ -24,6 +24,7 @@ The current public `POST /api/setup` accepts a caller-supplied password for any 
 - Invite issuance and atomic consumption treat both `password_hash IS NULL` and legacy `password_hash = ''` as uninitialized; configured password hashes are never overwritten.
 - `setup_token_expires_at`, `setup_token_issued_by`, `setup_token_issued_at`: enrollment metadata.
 - `consume_upstatus_setup_invite(text,text,text)`: SECURITY INVOKER, empty search_path, service_role-only EXECUTE.
+- Follow-up migration `20261107060000_normalize_setup_invite_role.sql` maps NULL, empty, and ASCII-whitespace-only roles to `implementation_user`, while preserving explicit non-empty roles. The server trims the returned role again before creating the session.
 - No client role receives direct access to the RPC or invite metadata.
 - The public account-state endpoint returns a generic response and no longer reports whether a named account needs setup.
 
@@ -40,7 +41,7 @@ The current public `POST /api/setup` accepts a caller-supplied password for any 
 
 - Wrong, expired, replayed, and malformed tokens do not set a password.
 - Two concurrent setup requests with one token produce exactly one winner.
-- Missing roles default to `implementation_user`, never an admin role.
+- NULL, empty, and whitespace-only roles default to `implementation_user`; explicit non-empty roles are preserved.
 - Only an authenticated admin can issue a token, and only for an existing uninitialized account.
 - No raw token is logged or stored.
 - Normal and Team Lite UI submit the token without persisting it.
