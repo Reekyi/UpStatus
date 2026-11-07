@@ -1438,3 +1438,19 @@ The isolated project has 33 migration records, `upstatus-signal-test` v32, and `
 - #80 and #82 inherited validators remain failing; do not weaken them to obtain green status.
 
 No production or isolated SQL write/migration, Edge Function deployment, secret/role/flag change, userscript publication, merge, release, destructive operation, or manual fixture cleanup occurred in this checkpoint.
+
+
+### PR #84 exact-head follow-up — TEST deploy secret scope
+
+PR #84 now points to head `1e2f9251cb0064ed5cec713736e778edb6b0959d` (20 commits ahead / 0 behind `develop`).
+
+A security review found the Management API/deploy PAT was initially job-scoped, which unnecessarily exposed it to build and validation scripts. The workflow now injects `SUPABASE_ACCESS_TOKEN` only into three steps: credential presence check, read-only Management API metadata verification, and the TEST function deploy step. Added `scripts/test-deploy-workflow-guard.mjs` to assert manual-only trigger, no shared production project secret, TEST-only deploy target, and exactly three step-scoped token bindings.
+
+Exact-head Validate [42358463945](https://github.com/Reekyi/UpStatus/actions/runs/42358463945):
+- TEST build-target guard: PASS.
+- Management API metadata contract regression: PASS.
+- Deploy workflow secret-scope regression: PASS.
+- Repository Validate then fails at the inherited `client signed upload helper missing` assertion from `develop`. No validator was weakened.
+- The real Management API request was not run because no dedicated full-product TEST project exists; no project/secret was created or changed.
+
+The documentation update immediately before this follow-up created #80 head `15dee4322fc44ff90fa97d08c5c9563eba4d8528`; its Validate [42358326607](https://github.com/Reekyi/UpStatus/actions/runs/42358326607) also fails at the same inherited helper assertion. This new documentation commit will itself trigger the same base validator; re-fetch the exact #80 head before any later action.
