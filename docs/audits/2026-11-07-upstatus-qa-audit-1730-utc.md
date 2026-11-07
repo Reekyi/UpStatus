@@ -316,3 +316,10 @@ Job \`128476729384\`; erro em \`scripts/validate.mjs:26\`:
 \`VALIDATION FAILED: production updateURL mismatch\`.
 
 O log construiu PROD/TEST 3.4.7 antes da asserção. A falha é a mesma do baseline master já registrada para #82; não é causada pelo relatório Markdown. Nenhum validador foi modificado ou contornado. O novo relatório continua sendo documentação-only.
+
+
+## 14. Snapshot final da branch QA
+
+A tabela de heads na seção 1 registra o snapshot dos candidatos antes da gravação deste relatório. Após a gravação e o adendo da validação, o HEAD documental atual da PR #82 é \`2fab01b0f6d9d2b47eacee4a6770fba95e6ac677\` (104 commits, 16 arquivos, Open/Draft). O relatório verificado imediatamente antes deste adendo tinha blob \`9f6a3f3c3265da44162adeb84b4f72929981d064\`.
+
+O run [42397106911](https://github.com/Reekyi/UpStatus/actions/runs/42397106911) foi disparado pelo commit documental anterior \`84d08a882912becd08aee8b882aff2390875eb0e\` e falhou em \`production updateURL mismatch\`. Na última consulta, não havia workflow associado ao HEAD \`2fab01b0f6d9d2b47eacee4a6770fba95e6ac677\`. Não inferir resultado para esse HEAD.
