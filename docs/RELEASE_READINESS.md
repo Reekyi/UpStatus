@@ -6084,3 +6084,137 @@ No completion percentage is reported. Automated CI, static source inspection, pr
 ### Safety record for this revalidation
 
 No production or isolated SQL writes, migrations, Edge Function deployments, secrets/flags/role changes, userscript publication, PR merge, release, or destructive operations were performed. All SQL executed by this audit was SELECT-only. Existing GitHub workflows were inspected, not started or rerun. No setup/login request was sent and no brute-force test was attempted. The isolated fixture counts were read-only. The only write by this audit is this documentation append on the dedicated QA branch, guarded by the freshly fetched file blob SHA and matching PR head. PR #80 and all engineering branches remain untouched.
+
+
+## Independent QA revalidation 2026-11-06 23:35 BRT — one-time setup candidate, exact-head CI queue, and active isolated fixtures
+
+This pass re-read the current readiness file first, then refreshed PR metadata/comparisons, issue #78/#79, exact-head workflow status, candidate source/tests/migrations, deployed Edge Function source, Supabase project/migration/function inventories, Advisors, and SELECT-only catalogs. This addendum supersedes earlier setup-claimability statements only for candidate code; production remains unchanged.
+
+### Exact GitHub heads and current CI state
+
+| PR | Exact head | Base | Ahead / behind | Current evidence |
+|---|---|---|---:|---|
+| #74 Normal | `2ff1881dd91f387c708eabd02620db0f20d1d759` | `master` | 787 / 0 | Validate [42328111083](https://github.com/Reekyi/UpStatus/actions/runs/42328111083) **SUCCESS**; Signaling Smoke [42328111146](https://github.com/Reekyi/UpStatus/actions/runs/42328111146) **PENDING** |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | `team-lite-official` | 59 / 0 | Historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) **SUCCESS** |
+| #76 Team Lite candidate | `58a3f7b04233733fb4a5bd198ad9e7c02151f2c3` | `team-lite-official` | 275 / 0 | Candidate Checks [42327988659](https://github.com/Reekyi/UpStatus/actions/runs/42327988659) **PENDING** |
+| #82 QA documentation | `c6d674176140f17b8bd76eeba9e7b05853101b59` | `master` | 78 / 0 | Validate [42324832647](https://github.com/Reekyi/UpStatus/actions/runs/42324832647) **FAILURE** at inherited `production updateURL mismatch` |
+
+All four PRs remain open, Draft, and unmerged; review queries returned zero submitted human reviews. #76 is 216 commits ahead of #75 and is its continuation, not an independent sibling candidate. #74 has 787 commits of ancestry ahead of master; GitHub's mergeable flag is not approval and a deliberate merge-base/history review remains required. #82 changes only `docs/RELEASE_READINESS.md`.
+
+**Exact-head distinction:** the earlier complete Normal and Team Lite PASS runs belong to older heads `afda7f52` and `9f859658`. Do not transfer those results to the current heads. The current Normal Validate log includes the new static enrollment checks and reports `normal one-time setup enrollment static checks passed`; its Signaling Smoke is still pending with no jobs at the last query. Team Lite Candidate Checks is also pending with no jobs. Therefore the new enrollment runtime test has **not yet earned an exact-head CI PASS** for either current candidate.
+
+Normal Validate run [42328111083](https://github.com/Reekyi/UpStatus/actions/runs/42328111083) built UpStatus 3.4.7 / TEST 3.4.7 and completed successfully. The current #82 Validate failure is run [42324832647](https://github.com/Reekyi/UpStatus/actions/runs/42324832647), job [128257593443](https://github.com/Reekyi/UpStatus/actions/runs/42324832647/job/128257593443); it fails at `scripts/validate.mjs:26` with `production updateURL mismatch` after the build prints 3.4.7 / TEST 3.4.7. No validator or runtime code was changed by QA.
+
+### AUTH-03 candidate implementation — first-caller claimability addressed in source, not released
+
+The previous audit found public first-caller setup in both candidate templates. Engineering has now added a one-time enrollment flow to both candidate branches:
+
+- Normal current PR head `2ff1881dd91f387c708eabd02620db0f20d1d759`; runtime/auth implementation commit is reported as `9d7977949a0afe7d0e9db770c1bb7b14bc5aefb5`, with later documentation-only commits on the PR head.
+- Team Lite current PR head `58a3f7b04233733fb4a5bd198ad9e7c02151f2c3`.
+
+Candidate source inspection (Normal template blob `48a781f920a404f042fa1f9126699f41908e0cb5`; Team Lite template blob `53ee8aa61165c4d487c72f56eca9522e3d861e1d`) confirms:
+
+1. `POST /api/setup-invite` is behind the authenticated application-context gate and calls an admin-role check.
+2. The server generates 32 random bytes (256 bits), persists only the SHA-256 hash, records issuer/time, and sets a 15-minute expiry.
+3. `POST /api/setup` now requires a 64-character hexadecimal `setupToken` and calls `consume_upstatus_setup_invite`; no first-caller username-only claim remains in these candidate templates.
+4. The RPC performs one conditional UPDATE that checks account is uninitialized, token hash matches, and expiry is in the future, then sets the password and clears invite metadata atomically. This permits only one concurrent/replay winner.
+5. The RPC is SECURITY INVOKER, has an empty pinned search_path, and EXECUTE is restricted to service_role; anon/authenticated EXECUTE is denied.
+6. `GET /api/account` now returns a generic `{needsSetup:false}`; new clients submit the one-time token in the setup field. Source inspection found no GM/sessionStorage persistence of the setup token.
+7. Missing/null roles default to `implementation_user`, not admin.
+
+The admin issuance flow still has no dedicated UI button; an authenticated internal API client is required to issue and privately deliver the one-time token. This is an operational/usability follow-up, not proof of a bypass.
+
+**Small consistency edge case:** the RPC accepts either NULL or empty-string `password_hash` as uninitialized, but the admin issuance handler currently filters only `.is("password_hash", null)`. A row provisioned with an empty string would be accepted by the RPC if it had a token but would not be eligible for invite issuance. Existing production rows are not in this state; normalize the predicate or provision exclusively with NULL and assert that invariant.
+
+### Enrollment test coverage and remaining gaps
+
+- Static test `scripts/auth-enrollment.test.mjs` (blob `bec5f6157ee49d5ae39c277390d196702b30f0aa`) checks both product templates, client token field, admin gate, random-token generation, hashed storage, RPC call, migration security attributes, and test-migration grants.
+- Runtime test `scripts/test-auth-enrollment.mjs` (blob `a76b45bcef681c3eeb2ac3f419df78e5f006bdf6`) uses the exact isolated-project guard, service-role key, and explicit `UPSTATUS_AUTH_ALLOW_MUTATION=1`. It creates two isolated user fixtures, races two RPC calls against one token, expects exactly one winner, checks non-admin role fallback and token clearing, checks expiry rejection, then deletes its fixtures.
+- The test migration `supabase/test-migrations/20261107010000_setup_invites_test.sql` (blob `c161d8b8122ae701116ac1992a2a58c03d629775`) asserts the columns/index, SECURITY INVOKER, pinned search_path, service_role EXECUTE, and no anon/authenticated EXECUTE.
+- The candidate production migration is `supabase/migrations/20261107010000_setup_invites.sql` (blob `cc052b3195f4ec8b3b37e217abd8c3f99b6b080c`). A separate isolated test migration is recorded in the isolated ledger as `20261107020949_upstatus_setup_invites_isolated_test`.
+
+**Not yet covered by the runtime enrollment script:** wrong-token rejection, malformed-token rejection, an explicit post-success replay, issuance through the actual authenticated Edge Function route, rejection of a non-admin issuer, and the full HTTP `/api/setup-invite` → private delivery → `/api/setup` flow. The static test is not a substitute for those route-level integration checks. Add them before closing AUTH-03.
+
+### AUTH-02 and cross-product compatibility remain open
+
+Fresh source inspection of both templates found no auth-specific limiter call in `login(req, setup)`. Neither production nor isolated project contains `upstatus_auth_rate_limits` or `consume_upstatus_auth_rate_limit`. The signaling limiter does not protect login, setup, or invite issuance.
+
+Password minimums remain different:
+- Normal: 6 characters.
+- Team Lite: 4 characters.
+
+Because both products share the same account/password store, a 4- or 5-character password accepted by Team Lite is rejected by Normal's client-side/server-handler minimum before password verification. This is a concrete cross-product login incompatibility unless the policy is unified or the product contract explicitly prevents those accounts from using Normal.
+
+The candidate admin invite endpoint has no dedicated UI; setup tokens must be delivered privately and must not be pasted into GitHub issues, logs, or persistent client storage.
+
+### Supabase: production remains on the old setup path
+
+**Production `dlfvkawaiqduhlazsszm`** rechecked read-only:
+
+- `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, seven migrations through `20261027155438`, 38 Edge Functions ACTIVE.
+- Core deployed Edge Functions remain: Normal `upstatus` v480 (SHA `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`, embedded 3.4.7); Team Lite `upstatus-team-lite` v15 (SHA `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`, embedded 3.4.30); legacy Normal `upstatus-screen-share-3-1-1-beta10` v6 (SHA `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29`, embedded 3.1.1-beta8).
+- All three deployed sources still expose the old public `POST /api/setup` path and the name-based admin fallback for an uninitialized/missing-role row. Their public `GET /api/account?name=...` still reports `needsSetup` based on the named row. This is a **latent production risk**, not evidence of a currently claimable official account.
+- Aggregate SELECT on production `public.users`: five rows, zero NULL/empty password hashes, zero NULL/blank roles. No current account is claimable in this snapshot.
+- Production has no setup-token columns or `consume_upstatus_setup_invite` RPC, no auth-rate-limit table/RPC, no signaling-rate-limit table/RPC, and no atomic chat-read receipt RPC. No candidate setup migration or Edge Function has been deployed to production.
+
+**Isolated `bfpjtfqlnypisxljoxkb`**:
+
+- `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003, 29 migration records through `20261107020949`.
+- Setup-token columns and `consume_upstatus_setup_invite(text,text,text)` are installed. Catalog confirms SECURITY INVOKER, empty search_path, EXECUTE for service_role only, and no anon/authenticated EXECUTE.
+- The isolated signaling endpoint remains v32 (SHA `f893360a4e0021a0d608e6cb58b8644c68f7389bce685c3177c025eb376b8712`); E2E helper remains v3 (SHA `db0c9206b2171f5f5d67459e2e7451ecbaf6e8ad3c8f55cb4e491660164f5053`).
+- No auth-specific rate-limit table/RPC exists. `realtime.messages` remains RLS-enabled with zero policies and anon/authenticated SELECT/INSERT/UPDATE grants; private Realtime authorization is not solved.
+- Migration provenance is explicitly split: candidate production migration `20261107010000_setup_invites.sql`; isolated test migration ledger `20261107020949_upstatus_setup_invites_isolated_test`. Do not apply the candidate production migration to production from this audit.
+
+### Active isolated fixture activity — do not run or clean fixtures
+
+A SELECT-only snapshot at approximately `2026-11-07T02:35:36Z` found non-zero, actively changing test data in the isolated project:
+
+| Fixture | Count |
+|---|---:|
+| Test-prefixed users (all uninitialized) | 4 |
+| Sessions | 4 |
+| Signal rooms | 4 |
+| Memberships | 5 |
+| Call attempts | 3 |
+| Signal rate-limit buckets | 6 |
+| Events | 0 |
+| Voice-room attempts | 0 |
+
+Creation/update timestamps clustered between `02:34:40Z` and `02:35:36Z`; rooms/sessions were not expired at query time. A prior SELECT in the same pass showed smaller counts, so the fixtures were actively changing. The exact PR #74 Smoke and #76 Candidate Checks runs above were still reported as pending with no jobs at the latest GitHub query. The actor/workflow responsible for these fixture writes is therefore **NOT ATTRIBUTED** by this audit; do not assume the pending PR runs own them.
+
+The test project is currently busy. QA did not start/rerun any workflow, call any fixture-mutating script, or delete/clean these rows. Wait for the concurrent owner to finish and verify cleanup by SELECT before authorizing another fixture suite.
+
+### Realtime, RLS/grants, and Advisors — production recheck
+
+Production catalog still confirms:
+- Three enabled broadcast triggers call SECURITY DEFINER functions with `search_path=public`, EXECUTE effective for PUBLIC/anon/authenticated/service_role, and public `private=false` broadcasts.
+- `upstatus_broadcast_messages()` publishes the complete OLD/NEW row via `to_jsonb` on `db_change`; remote-state emits command/result metadata; user-status emits name/status/reason/update metadata.
+- Nine backend-owned public tables remain RLS-enabled with zero policies and effective anon/authenticated SELECT/INSERT/UPDATE/DELETE grants. `upstatus_visual_config` has no client table grants.
+- `realtime.messages` remains RLS-enabled with zero policies and anon/authenticated SELECT/INSERT/UPDATE grants. These grants are excessive privilege surface, but with zero permissive policies they do not alone prove direct row access.
+- Default ACLs remain broad for postgres in public/storage and supabase_admin in public/graphql/graphql_public.
+- Security Advisor observed at `2026-11-07T02:33:56Z`: three SECURITY DEFINER WARN for anon, three for authenticated, and ten RLS-without-policy INFO. Performance and Health on production returned no findings.
+- Isolated Security Advisor: 17 RLS-without-policy INFO, zero SECURITY DEFINER WARN; Performance: four unused-index INFO; Health: no findings.
+
+### Issues and manual acceptance
+
+- [#78](https://github.com/Reekyi/UpStatus/issues/78) remains OPEN with all 8 acceptance boxes unchecked. Real Tampermonkey no-F5 recovery, browser termination while offline, physical microphone/display capture, and installed Normal ↔ Team Lite acceptance remain **MANUAL PENDING**.
+- [#79](https://github.com/Reekyi/UpStatus/issues/79) remains OPEN; its body still shows the older 2026-11-03 snapshot and 16/35 checked. Latest engineering comment [6700860476](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6700860476) records the candidate enrollment implementation and pending CI. Prefer exact PR/run metadata above; no issue body/comment was edited by QA.
+
+### Next gates
+
+1. Complete exact-head Normal Smoke and Team Lite Candidate Checks; do not reuse older green runs.
+2. Add runtime tests for wrong/malformed/replayed invite tokens and actual admin issuance/setup HTTP routes; verify non-admin denial and no token leakage.
+3. Resolve the empty-string versus NULL eligibility mismatch in invite issuance.
+4. Add a separate distributed, fail-closed login/setup throttle with concurrency, recovery, 429/Retry-After, and trusted client-origin handling.
+5. Unify Normal/Team Lite password policy or explicitly guarantee cross-product compatibility.
+6. Cut over production from the old public setup/name-based-admin path only after official TEST validation and a reviewed rollback; production currently remains on the vulnerable legacy contract.
+7. Remove full-row chat/remote-state broadcasts and complete authenticated signaling/private Realtime authorization; production remains public and unchanged.
+8. Reduce table/function grants and resolve ACL-02 through an authorized admin path.
+9. Wait for the current isolated fixture owner to finish, then verify cleanup; do not start another mutating suite while counts are non-zero.
+10. Complete physical #78 acceptance, reconcile #79, obtain human PR reviews, and resolve the inherited master updater URL validator mismatch without weakening validation.
+
+No completion percentage is reported. Current exact-head CI, candidate code inspection, isolated migration/runtime evidence, production catalog/source evidence, physical acceptance, and release readiness remain separate classifications.
+
+### Safety record
+
+No production or isolated SQL write, migration, Edge Function deployment, secret/flag/role change, userscript publication, PR merge, release, or destructive operation was performed by QA. All SQL issued by this audit was SELECT-only. No workflow was started or rerun, and no setup/login/brute-force request was sent. The non-zero isolated fixtures observed above were not modified or cleaned by QA. The only repository write is this append to `docs/RELEASE_READINESS.md` on the dedicated QA branch, guarded by the freshly fetched blob SHA and matching PR #82 head. PR #80 and all engineering branches remain untouched.
