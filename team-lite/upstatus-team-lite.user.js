@@ -16,6 +16,18 @@
 // ==/UserScript==
 (function () {
   'use strict';
+
+  var key='upstatus_team_lite_';
+  function clearLegacyPasswordStorage(){
+    try{
+      var prefix=key+'password_';
+      for(var i=sessionStorage.length-1;i>=0;i--){
+        var storageKey=sessionStorage.key(i);
+        if(storageKey&&storageKey.indexOf(prefix)===0)sessionStorage.removeItem(storageKey);
+      }
+    }catch(_){}
+  }
+  clearLegacyPasswordStorage();
 /**
  * Authenticated signaling transport adapter.
  *
@@ -4730,11 +4742,8 @@ function chatAvatarPresence(name){
       if(list.indexOf(loginMember)<0)loginMember=list[0];
       nameSelect.value=loginMember;
     }
-    function passwordKey(name){return key+'password_'+String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'_');}
-    function loadSavedPassword(){var saved='';try{saved=sessionStorage.getItem(passwordKey(loginMember))||'';}catch(e){}var input=card.querySelector('#up-password');if(input)input.value=saved;}
     setLoginMembers(['Lucca','Ycaro']);
-    nameSelect.onchange=function(){loginMember=nameSelect.value;lastMember=loginMember;GM_setValue(key+'last_member',loginMember);var setupInput=card.querySelector('#up-setup-token');if(setupInput)setupInput.value='';loadSavedPassword();};
-    loadSavedPassword();
+    nameSelect.onchange=function(){loginMember=nameSelect.value;lastMember=loginMember;GM_setValue(key+'last_member',loginMember);var setupInput=card.querySelector('#up-setup-token');if(setupInput)setupInput.value='';};
     api('GET','/api/members').then(function(r){setLoginMembers((r.members||[]).map(function(x){return x.name;}));}).catch(function(){});
     card.querySelector('#up-enter').onclick=async function(){
       var button=card.querySelector('#up-enter');
@@ -4766,7 +4775,7 @@ function chatAvatarPresence(name){
         if(!r||!r.token||!r.name||String(r.name)!==String(name))throw new Error('Resposta de autenticação inválida. Verifique o usuário e tente novamente.');
         token=r.token;member=r.name;role=r.role||'implementation_user';lastMember=member;
         authenticated=true;authGeneration++;
-        GM_setValue(key+'server',CLOUD_SERVER);GM_setValue(key+'token',token);GM_setValue(key+'member',member);GM_setValue(key+'last_member',member);GM_setValue(key+'role',role);try{sessionStorage.setItem(passwordKey(name),password);}catch(e){}
+        GM_setValue(key+'server',CLOUD_SERVER);GM_setValue(key+'token',token);GM_setValue(key+'member',member);GM_setValue(key+'last_member',member);GM_setValue(key+'role',role);if(passwordInput)passwordInput.value='';if(setupTokenInput)setupTokenInput.value='';
         if(quickChatBubble)quickChatBubble.disabled=false;
         img.src=profileFallback();app();refresh();startRealtime();updateBubbleAvatar(true);openUpStatusPanel();
       }catch(e){
