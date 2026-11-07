@@ -1667,3 +1667,65 @@ The live `develop/.github/workflows/deploy-test.yml` still has a `push` trigger 
 - Official TEST provisioning, migration/rollback rehearsal, ACL/default-ACL remediation, per-function auth inventory, human reviews and explicit release approval remain open.
 
 No production SQL write, migration, Edge Function deployment, secret/role/flag change, userscript publication, merge, release, fixture cleanup or destructive operation was performed. No workflow was dispatched or rerun. All Supabase SQL in this checkpoint was SELECT-only.
+
+
+### Live engineering checkpoint — 2026-11-07 11:02 BRT
+
+This checkpoint supersedes earlier PR, workflow, and database snapshots above where refs differ. All refs were re-fetched from GitHub immediately before this update. Production Supabase checks were SELECT/catalog-only.
+
+#### Git refs and exact-head CI
+
+- `master`: `a9288ccfcb0f308d3a587bfca624418a395be07b`, currently reported unprotected.
+- `develop`: `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`, currently reported unprotected.
+- **#74 Normal** `7475a82e421c9286e6944ea17ee73afd39ed73d9`: Validate [42354944089](https://github.com/Reekyi/UpStatus/actions/runs/42354944089) and Signaling Smoke [42354944038](https://github.com/Reekyi/UpStatus/actions/runs/42354944038) SUCCESS.
+- **#75 Team Lite baseline** `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`: historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) SUCCESS; #76 is the active Team Lite signaling candidate.
+- **#76 Team Lite** `87bbb2f91ac21477d69f7945ec62598e2bc6dce7`: Candidate Checks [42354761800](https://github.com/Reekyi/UpStatus/actions/runs/42354761800) SUCCESS (103/103 authenticated checks, WebRTC call/voice/screen, three-member mesh, rate limit 90+1/429 with Retry-After, concurrency, receipts, AUTH-03 and cleanup).
+- **#80 continuity** `c90ecb942c05f453addaf7738541b73cf0db3ad8`: Validate [42375346258](https://github.com/Reekyi/UpStatus/actions/runs/42375346258) FAILURE at the inherited develop assertion `client signed upload helper missing`.
+- **#82 independent QA** `348df4e7d024b8336b1133ac191d2b75b5de3d69`: Validate [42377839699](https://github.com/Reekyi/UpStatus/actions/runs/42377839699) FAILURE at the inherited master assertion `production updateURL mismatch`. QA branch and `docs/RELEASE_READINESS.md` remain untouched.
+- **#84 TEST isolation** `66ccc65af430dfee55560e90e1f832336fff0212`: Validate [42366213144](https://github.com/Reekyi/UpStatus/actions/runs/42366213144) SUCCESS, including target guard, project metadata, token scope, dispatch-SHA pin, signed-upload client regression and full repository Validate.
+- **#85 master updater/admin candidate** `fc6611809b742cfb826e8cbeb56491ad5c40038b`: Validate [42379624982](https://github.com/Reekyi/UpStatus/actions/runs/42379624982) FAILURE at the next existing chat contract, `files are staged instead of uploaded immediately`. All preceding admin-role assertions passed in that run. #85 remains open/Draft.
+
+All seven PRs #74, #75, #76, #80, #82, #84 and #85 are open and Draft. The current review query returned zero submitted reviews for all seven.
+
+#### Master authorization hardening on #85
+
+The exact #85 branch was inspected before editing; its base remained master `a9288ccf`, with no QA branch changes. The candidate now:
+
+- Defaults NULL/empty/whitespace-only first-access roles to `implementation_user`, preserving every non-empty role verbatim. Name alone no longer bootstraps `implementation_admin`.
+- Gates `/api/health` through the stored admin role.
+- Preserves the Ricardo-only chat-clear policy while additionally requiring the stored admin role server-side.
+- Removes name-only admin affordances from message deletion, clear-chat visibility, and the clear handler.
+- Adds regression assertions for these contracts.
+
+Commits: server [dacb504](https://github.com/Reekyi/UpStatus/commit/dacb504ffc5e0193aaeab47cbb20c787c9179681), client UI [ee228a0](https://github.com/Reekyi/UpStatus/commit/ee228a00ed04d39ff24c3c6cae2d9277e457fe75), initial tests [f852de4](https://github.com/Reekyi/UpStatus/commit/f852de498fd13433fe627b273e34ba7f739d337c), final clear-chat assertion [fc66118](https://github.com/Reekyi/UpStatus/commit/fc6611809b742cfb826e8cbeb56491ad5c40038b).
+
+The first run exposed a stale name-only clear-chat assertion; the test was corrected to require Ricardo plus stored admin role. The next exact-head run passed those admin checks and stopped at the missing staged-attachment contract. Investigation found the master client has an `uploadFileDirect` helper and calls `/api/chat/upload-url`, but the master server template has no `signedUploadRoute` or chat/avatar upload-url routes. File selection and paste still call `sendChatMedia` immediately; `setPendingAttachment`, link-preview staging and the pending-preview node are absent. This is a real partial client/server integration gap, not a reason to weaken the regression. The complete route/staging pattern exists in the Normal candidate, but it has not been ported to #85; the next candidate task is to port it with strict project-origin/bucket/path/token checks and mocked Storage tests, without reusing the lab as an official full-product TEST project.
+
+#### Supabase read-only snapshot
+
+Organization inventory still contains exactly two projects:
+
+- Production `dlfvkawaiqduhlazsszm`: `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, seven migrations through `20261027155438`, 38 Edge Functions. Deployed functions: Normal `upstatus` v480, `upstatus-test` v281, Team Lite `upstatus-team-lite` v15, legacy screen-share beta10 v6. No dedicated `upstatus-signal` function.
+- Isolated lab `bfpjtfqlnypisxljoxkb`: `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003, 33 migrations; `upstatus-signal-test` v32 and `upstatus-signal-e2e-once` v3.
+
+A fresh SELECT-only fixture snapshot on the isolated lab returned zero in all 12 checked categories: users, reserved-prefix users, sessions, messages, chat reads, rooms, memberships, bindings, events, rate-limit buckets, call attempts and voice attempts. This is a point-in-time observation, not an exclusive reservation.
+
+Production SQL/catalog snapshot at approximately 2026-11-07 13:59:49 UTC:
+
+- Five users, zero NULL/empty password hashes, zero blank roles, three explicit `implementation_admin` roles.
+- Setup-invite RPC, auth rate-limit table, signaling rate-limit table and atomic chat-read receipt RPC are absent.
+- Three broadcast functions remain SECURITY DEFINER, `search_path=public`, EXECUTE granted to anon/authenticated/service_role; message broadcast publishes the full row via `to_jsonb` to a public channel. Remote-state and user-status broadcasts also expose metadata on public channels.
+- Nine backend-owned public tables remain RLS-enabled with zero policies and broad anon/authenticated grants including TRUNCATE. `realtime.messages` retains anon/authenticated SELECT/INSERT/UPDATE grants; zero policies mean the grants are excessive privilege surface, not proof of direct row access.
+- Security Advisor: three SECURITY DEFINER WARN for anon, three for authenticated, ten RLS-without-policy INFO; Performance and Health returned no findings.
+
+#### Remaining release gates
+
+1. Complete the master signed-upload/staged-attachment contract before claiming #85 Validate green.
+2. Keep #84 Draft until human review and a dedicated full-product TEST project exist; the current develop deploy workflow remains the older push-triggered/shared-secret version until an authorized integration.
+3. Resolve RT-01 public broadcasts and authenticated/private Realtime authorization.
+4. Add product-integrated distributed auth throttling and complete route-level AUTH-03 HTTP tests.
+5. Remediate ACL/default-ACL issues through a separately reviewed, authorized path.
+6. Complete physical Issue #78 acceptance; it remains OPEN at 0/8: real Tampermonkey network-loss/no-F5 recovery, browser close/offline recovery, physical microphone/display capture and installed Normal ↔ Team Lite interoperability remain MANUAL PENDING.
+7. Obtain human PR reviews and explicit release authorization.
+
+No production SQL write, migration, Edge Function deployment, secret/role/flag change, userscript publication, merge, release, fixture cleanup or destructive action occurred. No workflow_dispatch or deployment was executed. All production SQL in this checkpoint was SELECT-only.
