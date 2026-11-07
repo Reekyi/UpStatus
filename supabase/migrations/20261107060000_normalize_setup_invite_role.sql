@@ -12,7 +12,7 @@ begin
   return query
   update public.users as u
   set password_hash = p_password_hash,
-      role = coalesce(nullif(btrim(u.role, E' \t\n\r'), ''), 'implementation_user'),
+      role = case when u.role is null or btrim(u.role, E' \t\n\r') = '' then 'implementation_user' else u.role end,
       setup_token_hash = null,
       setup_token_expires_at = null,
       setup_token_issued_by = null,
