@@ -70,8 +70,16 @@ const validTicket=ticketFor();
   assert.equal(h.calls.api[0].route,"/api/profile/avatar-upload-url");
 }
 {
+  const docFile={name:"report.pdf",type:"application/pdf",size:123};
+  const docTicket=ticketFor({mime:"application/pdf",path:"20261107-report.pdf"});
+  const h=harness(docTicket);
+  const result=await h.uploadFileDirect(docFile,"/api/chat/upload-url");
+  assert.equal(result.mime,"application/pdf");
+  assert.equal(result.bucket,"chat-images");
+}
+{
   const h=harness(validTicket);
-  await assert.rejects(()=>h.uploadFileDirect({name:"bad.pdf",type:"application/pdf",size:123},"/api/chat/upload-url"),/Tipo de arquivo/);
+  await assert.rejects(()=>h.uploadFileDirect({name:"bad.zip",type:"application/zip",size:123},"/api/chat/upload-url"),/Tipo de arquivo/);
   assert.equal(h.calls.api.length,0);
   await assert.rejects(()=>h.uploadFileDirect({name:"large.png",type:"image/png",size:20*1024*1024+1},"/api/chat/upload-url"),/20 MB/);
   assert.equal(h.calls.api.length,0);
