@@ -981,3 +981,62 @@ A fresh SELECT-only post-run query returned zero prefixed users/sessions, rooms,
 - Public broadcast payload minimization/cutover, ACL/default-ACL hardening, official TEST migration/rollback rehearsal, 38-function route auth inventory, human reviews, and scope decisions remain open.
 
 Next safe engineering work is to finish the product-facing signaling endpoint/rate-limit cutover plan and validate its dependency order in official TEST, while keeping production untouched. Do not treat isolated CI as production approval.
+
+
+## 2026-11-06 21:59 BRT — exact-head CI closure and authentication revalidation
+
+### Current GitHub refs and exact-head CI
+
+All five tracked PRs remain open, Draft, unmerged, and without submitted human reviews.
+
+| PR | Exact HEAD | Base | Ahead / behind | Exact-head result |
+|---|---|---|---:|---|
+| #74 Normal | `afda7f521a8f822fad69a3429de3369d294d6f99` | master | 770 / 0 | Validate + Signaling Smoke PASS |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | team-lite-official | 59 / 0 | Historical Candidate Checks PASS |
+| #76 Team Lite signaling | `9f8596586f7fde9cc7f74efd9e969e49e78e3ca8` | team-lite-official | 263 / 0 | Candidate Checks PASS |
+| #80 Continuity | `87d4164f14a1beffdb250432bb34dc29d8420bdd` | develop | 167 / 0 | Validate reproduces inherited signed-upload assertion |
+| #82 Independent QA | `0e8543311035e782a6c0768fbabbc95e945487aa` | master | 77 / 0 | Validate reproduces inherited updateURL assertion |
+
+Exact workflow evidence:
+- Normal #74 Validate [42302685481](https://github.com/Reekyi/UpStatus/actions/runs/42302685481) and Signaling Smoke [42302685470](https://github.com/Reekyi/UpStatus/actions/runs/42302685470) completed SUCCESS on the exact head. Job [128187319496](https://github.com/Reekyi/UpStatus/actions/runs/42302685470/job/128187319496) passed 19/19 unauthenticated and 129/129 authenticated checks, Chromium call/voice/screen media, three-member mesh, voice-room late join across product aliases, retry/recovery, rate limit 90 accepted + 1 HTTP 429 with `Retry-After: 60`, rate-limit concurrency, atomic read-receipt concurrency, and fixture cleanup.
+- Team Lite #76 Candidate Checks [42308602405](https://github.com/Reekyi/UpStatus/actions/runs/42308602405) completed SUCCESS on the exact head. Job [128204180146](https://github.com/Reekyi/UpStatus/actions/runs/42308602405/job/128204180146) passed 16/16 unauthenticated and 103/103 authenticated checks, browser call/voice/screen media, three-member mesh, open voice-room late join/idempotency/owner handoff/capacity, rate limit 90+1 with Retry-After, atomic receipts, recovery, migration layout, version/portal/updater checks, and cleanup.
+- #75 remains historical baseline evidence only; #76 is the current Team Lite candidate.
+- #80 Validate [42316184960](https://github.com/Reekyi/UpStatus/actions/runs/42316184960) fails at `client signed upload helper missing` on the inherited develop baseline.
+- #82 Validate [42319252988](https://github.com/Reekyi/UpStatus/actions/runs/42319252988) fails at `production updateURL mismatch` on the master-based QA branch. The QA branch was not modified by engineering.
+
+### Authentication findings — source inspection, not exploit reproduction
+
+Fresh read-only source inspection confirms:
+- Production Normal `upstatus` v480 and Team Lite `upstatus-team-lite` v15 still contain the name-based initial-role fallback for Ricardo/Lohan/Guilherme.
+- Both candidate templates now default missing roles to `implementation_user`; this removes the name-based admin escalation from those candidate templates.
+- **Residual setup claimability remains in both candidate templates:** public `POST /api/setup` accepts any existing account with an empty `password_hash`, sets a caller-supplied password, and creates a session. The role fallback is no longer admin-by-name, but an uninitialized account can still be claimed by its first caller. A controlled one-time enrollment proof or trusted provisioning path is required before onboarding accounts through this route.
+- Public `GET /api/account?name=...` reveals whether an account needs setup. Treat this as an account-enumeration surface; return a generic response or protect it as part of the enrollment design.
+- Neither candidate login/setup handler contains a distributed auth-specific throttle. The signaling quota does not protect `/api/login` or `/api/setup`.
+- Password minimum remains divergent: Normal 6 characters; Team Lite 4. Do not silently change Team Lite policy without a compatibility/migration plan.
+
+Production account snapshot (read-only): 5 rows in `public.users`, 0 uninitialized accounts, 0 NULL roles. This reduces immediate exposure for current rows but does not close the future onboarding risk.
+
+### Production and isolated Supabase snapshot
+
+Production `dlfvkawaiqduhlazsszm`:
+- ACTIVE_HEALTHY; PostgreSQL 17.11.0.002; seven migrations through `20261027155438`; 38 ACTIVE Edge Functions.
+- 38/38 functions report `verify_jwt=false`; 37 non-empty sources use custom UpStatus session/token checks, and one ACTIVE backup `upstatus-backup-327-pre328` has an empty `index.ts`. It was not invoked, changed, or disabled.
+- Production has neither `upstatus_auth_rate_limits` / `consume_upstatus_auth_rate_limit` nor `upstatus_signal_rate_limits` / `consume_upstatus_signal_rate_limit`.
+- The deployed core login/setup routes still lack auth-specific throttling. Production Normal and Team Lite retain the name-based role fallback.
+- Security Advisor observed at 2026-11-07 01:00 UTC: 3 WARN for anon-executable SECURITY DEFINER broadcast functions, 3 WARN for authenticated, and 10 INFO for RLS-enabled tables without policies. Performance and Health advisors returned no findings.
+- The three public broadcast functions and public full-row message payload remain release blockers. The public Realtime topic is still the default legacy path.
+
+Isolated `bfpjtfqlnypisxljoxkb`:
+- ACTIVE_HEALTHY; PostgreSQL 17.11.0.003; 28 migration records through `20261106210556`; `upstatus-signal-test` v32 and `upstatus-signal-e2e-once` v3.
+- SELECT-only post-CI query returned zero reserved-prefix rows in users, sessions, rooms, memberships, events, call attempts, voice attempts, rate-limit buckets, chat reads, and messages.
+- No cleanup was performed manually.
+
+### Required next gates
+
+1. Design and implement an explicit one-time enrollment proof for `/api/setup`; do not accept caller-chosen passwords for arbitrary uninitialized account rows.
+2. Add distributed, fail-closed, auth-specific throttling for login and setup, with bounded 429/Retry-After, concurrency tests, and recovery behavior. Establish trusted client-IP semantics before relying on IP buckets; do not trust arbitrary forwarded headers without verifying gateway behavior.
+3. Decide and document the password policy for Team Lite versus Normal; preserve compatibility deliberately.
+4. Remove the name-based admin fallback from the deployed endpoint set through a reviewed cutover; map consumers of historical ACTIVE functions before retirement.
+5. Continue RT-01 public Realtime and ACL/default-privilege hardening, official TEST migration/rollback, physical #78 acceptance, and human PR reviews.
+
+No production or isolated SQL writes, migrations, function deployments, secret/role/flag changes, userscript publication, PR merge, release, or destructive operations occurred in this revalidation. All Supabase SQL was SELECT-only. No runtime code was changed in this checkpoint.
