@@ -96,7 +96,7 @@ assert(prodFn.includes('if(!(await admin(name)))return response({error:"Seu perf
 assert(!prodFn.includes('if(!["Ricardo","Lohan","Guilherme"].includes(name))'),"health diagnostics must not use a name-only access check");
 assert(prodFn.includes('message:"🧹 "+name+" limpou o chat."'),"chat clear audit message must identify the acting admin");
 assert(!prodFn.includes('if(name!=="Ricardo")return response({error:"Somente Ricardo pode limpar o chat."}'),"chat clearing must not use a name-only admin check");
-assert(prodFn.includes('const role=a.role||"implementation_user";'),"account setup must preserve only explicit database roles");
+assert(prodFn.includes('return createSession(name,{name,role:enrolled.role||"implementation_user"});'),"account setup must consume an explicit one-time invite and preserve only a non-admin default role");
 assert(triggerGrantMigration.includes("FROM PUBLIC, anon, authenticated"),"trigger broadcast migration must revoke direct execution from public client roles");
 for(const fn of ["upstatus_broadcast_messages","upstatus_broadcast_remote_state","upstatus_broadcast_users"]){
   assert(triggerGrantMigration.includes("public."+fn+"()"),"trigger broadcast execution migration missing "+fn);
