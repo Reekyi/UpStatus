@@ -467,7 +467,7 @@ function makeRouteRequest(state,options={}){
 }
 {
   const h=makeRouteHarness({rpcAccept:false});
-  const rawToken="9a".repeat(32);
+  const rawToken="cd".repeat(32);
   const result=await h.dispatch(makeRouteRequest(h.state,{
     body:{name:"Target",password:"abcdef",setupToken:rawToken}
   }),"/api/setup");
