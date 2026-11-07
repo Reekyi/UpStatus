@@ -2135,3 +2135,8 @@ The prior candidate-check VM test used `signalTransport: null` and therefore exe
 RT-01 public/full-row broadcasts and private Realtime authorization; product integration of distributed signaling and auth rate limits; route-level AUTH-03 invite issuance/denial/token-leakage tests; official full-product TEST provisioning; real Storage E2E; table grants/default ACL remediation; production migration/cutover/rollback; human review; and physical Issue #78 acceptance (still 0/8). The old push-triggered develop TEST workflow remains a risk until #84's manual-only, TEST-specific, SHA-pinned workflow is integrated. Branch-protection state could not be revalidated because the administrative GitHub API returned HTTP 403.
 
 No production SQL write, migration, Edge Function deployment, secret/role/grant/ACL/policy/flag change, merge, release, userscript publication or destructive operation occurred. The shared lab is currently owned by Candidate Checks run [42414281711](https://github.com/Reekyi/UpStatus/actions/runs/42414281711); do not start another fixture-mutating suite until it completes and cleanup is checked.
+
+
+## 2026-11-07 21:12 UTC — #80 documentation-head follow-up
+
+The checkpoint above was committed as HEAD `fbbd80f0a75e1f1df4ec469337c85fdfead19024`. Its exact Validate [42414485760](https://github.com/Reekyi/UpStatus/actions/runs/42414485760) completed FAILURE at the inherited develop-base assertion `client signed upload helper missing` (confirmed in the job log). This is the same base mismatch recorded above, not a failure in the documentation change. PR #80 remains open/Draft; compare is now 202/0 ahead/behind develop. No product code was copied into the continuity branch and no validator was weakened.
