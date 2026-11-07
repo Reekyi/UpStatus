@@ -60,6 +60,7 @@ function renderUser({version,test}){
     "__UPSTATUS_DOWNLOAD_URL__":updateUrl,
     "__UPSTATUS_STORAGE_PREFIX__":prefix,
     "__UPSTATUS_CLOUD_SERVER__":cloud,
+    "__UPSTATUS_REALTIME_URL__":"https://"+(test?TEST_PROJECT:PROJECT)+".supabase.co",
     "__UPSTATUS_REALTIME_TOPIC__":topic,
     "__UPSTATUS_RINGTONE_CHANNEL__":ringtoneChannel,
     "__UPSTATUS_RINGTONE_STORAGE_KEY__":ringtoneStorage
