@@ -1210,3 +1210,28 @@ Supabase documentation describes `Sb-Forwarded-For` for Supabase Auth rate limit
 - Actual HTTP tests for setup-invite issuance/non-admin denial, distributed auth rate limiting, official TEST cutover/rollback, public Realtime replacement, physical Tampermonkey/network recovery, and human reviews remain pending.
 
 No production SQL write, migration, function deployment, secret/role/flag change, userscript publication, PR merge, release, or destructive operation occurred in this checkpoint. Candidate-only commits were added to #74 and #76; the only database changes remain the previously validated additive AUTH-03 migration in the allowlisted isolated project.
+
+
+### Additional release blockers found — 2026-11-07 04:04 UTC
+
+#### No dedicated official TEST Supabase project
+
+A fresh `list_projects` inventory returned exactly two projects in the organization:
+- Production `dlfvkawaiqduhlazsszm` / `UpStatus`.
+- Isolated security-test `bfpjtfqlnypisxljoxkb` / `upstatus-security-test`.
+
+There is **no separate official TEST Supabase project**. The `upstatus-test` Edge Function (v281) is deployed inside the production project and shares its database; its name does not make it isolated. Do not apply candidate migrations or run fixture-mutating release tests against that function/project. The security-test project is currently the isolated candidate-validation target, not an explicitly designated official TEST cutover environment. The cutover plan's "official TEST first" gate is blocked until a separate TEST project is provisioned/approved or Ricardo explicitly designates a safe target.
+
+#### Plaintext password persistence in both userscripts
+
+A source inspection found:
+- Normal reads saved passwords from Tampermonkey GM storage and writes the raw password with `GM_setValue(passwordKey(name), password)` after login.
+- Team Lite reads and writes the raw password through `sessionStorage`.
+- Neither candidate has a matching `GM_deleteValue` / `sessionStorage.removeItem` cleanup for these password entries.
+- The first-access token is not persisted by either client; it is read from the input and sent only in the setup request.
+
+This is a separate credential-at-rest risk: passwords are retained in plaintext browser storage. It was not changed in this run because removing the convenience auto-fill and clearing existing saved values is a user-visible behavior/security decision. Add a release gate to decide whether to remove password persistence (recommended default), clear legacy saved entries on upgrade, and require re-entry. Do not treat the password input's `type=password` as protection for stored values.
+
+#### Password compatibility client check
+
+A static inspection of both login UIs found no client-side minimum-length check; the new server-side minimum policy is not blocked by a second hard-coded client validator. This is source inspection only; exact-head CI remains the validation gate.
