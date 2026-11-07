@@ -14,11 +14,12 @@ const config = product === "team-lite"
 assert.ok(config, "usage: node scripts/auth-enrollment.test.mjs normal|team-lite");
 
 const server = fs.readFileSync(path.join(ROOT, config.server), "utf8");
-const loginMatch = server.match(/async function login\\(req:Request,setup:boolean\\)\\{([\\s\\S]*?)\\n\\}/);
-assert.ok(loginMatch, "login handler must remain testable for password compatibility");
-const loginBody = loginMatch[1];
-assert.match(loginBody, /const minPasswordLength=setup\\?6:4;/, "normal password policy changed unexpectedly");
-assert.match(loginBody, /password\\.length<minPasswordLength/, "login and setup must use the explicit minimum-length policy");
+const loginStart = server.indexOf("async function login(req:Request,setup:boolean){");
+const loginEnd = loginStart >= 0 ? server.indexOf("\n}", loginStart) : -1;
+assert.ok(loginStart >= 0 && loginEnd > loginStart, "login handler must remain testable for password compatibility");
+const loginBody = server.slice(loginStart, loginEnd);
+assert.ok(loginBody.includes("const minPasswordLength=setup?6:4;"), "password minimum policy changed unexpectedly");
+assert.ok(loginBody.includes("password.length<minPasswordLength"), "login and setup must use the explicit minimum-length policy");
 const client = fs.readFileSync(path.join(ROOT, config.client), "utf8");
 const migration = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261107010000_setup_invites.sql"), "utf8");
 const testMigration = fs.readFileSync(path.join(ROOT, "supabase/test-migrations/20261107010000_setup_invites_test.sql"), "utf8");
