@@ -71,6 +71,13 @@ assert(headerValue(testUser,"updateURL")===expectedTestUrl,"test updateURL must 
 assert(headerValue(testUser,"downloadURL")===expectedTestUrl,"test downloadURL must use the configured non-production TEST project");
 assert(prodUser.includes("var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';"),"production Realtime URL must remain pinned to production");
 assert(testUser.includes("var UP_REALTIME_URL='https://"+testProjectId+".supabase.co';"),"TEST Realtime URL must use the dedicated TEST project");
+assert(prodUser.includes("var UPSTATUS_TEST_CHANNEL=false;"),"production updater channel flag must be false");
+assert(testUser.includes("var UPSTATUS_TEST_CHANNEL=true;"),"TEST updater must be disabled by channel flag");
+assert(prodUser.includes("var RELEASE_MANIFEST_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json';"),"production updater must use the production release manifest");
+assert(testUser.includes("var RELEASE_MANIFEST_URL='';"),"TEST artifact must not use the production release manifest");
+assert(!testUser.includes("https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),"TEST artifact must not contain the production release feed");
+assert(testUser.includes("var UPDATE_URL='https://"+testProjectId+".supabase.co/functions/v1/upstatus-test/upstatus.user.js';"),"TEST manual update URL must use the TEST project");
+assert(testUser.includes("new URL(UP_REALTIME_URL+'/storage/v1/object/upload/sign/'"),"TEST Storage fallback must use the TEST Realtime origin");
 assert(headerValue(testUser,"updateURL")!=="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js","test updateURL must not target production");
 assert(headerValue(testUser,"downloadURL")!=="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js","test downloadURL must not target production");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
