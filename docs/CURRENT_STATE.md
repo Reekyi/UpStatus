@@ -1095,3 +1095,60 @@ No production SQL write, migration, Edge Function deployment, secret/role/flag c
 - PR #80 head before this documentation append was `f5fe9faa56710d3d38ad6ac1f73963fed9d6b60e`; Validate [42328117245](https://github.com/Reekyi/UpStatus/actions/runs/42328117245) reproduces the same inherited `client signed upload helper missing` assertion. This append is documentation-only.
 - PR #82 QA remains at `c6d674176140f17b8bd76eeba9e7b05853101b59`; Validate [42324832647](https://github.com/Reekyi/UpStatus/actions/runs/42324832647) remains blocked by `production updateURL mismatch`. The QA branch itself was not edited.
 - All five PRs remain open and Draft; the latest review query returned zero submitted reviews.
+
+
+### Live engineering reconciliation — 2026-11-07 03:10 UTC
+
+This section supersedes earlier handoff snapshots where the same PR/branch/runtime fields differ. Re-check live state before any future action.
+
+#### Current PR heads and exact-head checks
+
+- **#74 Normal:** head `7a8c407bbbcf4c21624981708576930f284caf2d`, open Draft. Validate [42332394502](https://github.com/Reekyi/UpStatus/actions/runs/42332394502) passed on this exact head. Signaling Smoke [42332394510](https://github.com/Reekyi/UpStatus/actions/runs/42332394510) is pending and has no jobs yet.
+- **#75 Team Lite baseline:** head `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, open Draft. Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) is historical baseline evidence, not validation of #76.
+- **#76 Team Lite candidate:** head `c87e4daa9e966980d08a03f3ea5c014ae2f0fca1`, open Draft. Candidate Checks [42332429169](https://github.com/Reekyi/UpStatus/actions/runs/42332429169) is pending with no jobs yet.
+- **#80 continuity:** head `093792fa73c970d18dbf9577efa72f95d095c376`, open Draft. Validate [42328274083](https://github.com/Reekyi/UpStatus/actions/runs/42328274083) still fails at the inherited `client signed upload helper missing` assertion.
+- **#82 QA:** head `4465d5fdba2f29f63fb7f1e452c998e042b0f9b8`, open Draft. Validate [42330121968](https://github.com/Reekyi/UpStatus/actions/runs/42330121968) still fails at `production updateURL mismatch`.
+- Current review query returned no submitted human reviews. Keep all five PRs Draft.
+
+#### AUTH-03 follow-up: legacy empty password rows
+
+QA identified that both `issueSetupInvite` handlers used `.is("password_hash", null)`, while the atomic consumer already accepted both NULL and empty-string hashes. This prevented legacy rows stored as `''` from receiving an invite.
+
+The candidate fix is now present in both products:
+- Normal server filter: [44303b1](https://github.com/Reekyi/UpStatus/commit/44303b19b9d7222cec50b5ddbf53bc9629df290a).
+- Normal static regression: [90f0a2a](https://github.com/Reekyi/UpStatus/commit/90f0a2a558ec04dcbed6931c5e81debb4c114dae).
+- Normal isolated integration test expansion: [7a8c407](https://github.com/Reekyi/UpStatus/commit/7a8c407bbbcf4c21624981708576930f284caf2d).
+- Team Lite server filter: [d181042](https://github.com/Reekyi/UpStatus/commit/d181042cc27feb36ee1a8549a113b28ca917a019).
+- Team Lite static regression: [c2072e6](https://github.com/Reekyi/UpStatus/commit/c2072e6cad87a5ba292b3bfbc7492f86a7d9ca08).
+- Team Lite isolated integration test expansion: [c87e4da](https://github.com/Reekyi/UpStatus/commit/c87e4daa9e966980d08a03f3ea5c014ae2f0fca1).
+
+The integration harness now covers NULL and empty-string issuance, configured-account denial, malformed/wrong/expired/replayed token rejection, one-winner concurrent consumption, non-admin role fallback, token metadata clearing, and cleanup. It has **not** completed against the isolated database yet. Actual HTTP-route tests for admin issuance/non-admin denial remain open.
+
+#### Supabase snapshots
+
+Production `dlfvkawaiqduhlazsszm` was checked read-only:
+- `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, 7 migration records, 38 ACTIVE Edge Functions.
+- `public.users` has 5 rows, 0 NULL/empty password hashes, and 0 NULL roles.
+- No `setup_token_*` columns, no `upstatus_signal_rooms`, no `upstatus_signal_rate_limits`, and no dedicated `upstatus-signal` function.
+- Security Advisor: 3 SECURITY DEFINER warnings for `anon`, 3 for `authenticated`, and 10 RLS-enabled/no-policy INFO findings. Performance and Health advisors returned no findings.
+- Public message/remote-state/user broadcast functions and the full-row public message broadcast remain unresolved. No production change was made.
+
+Isolated `bfpjtfqlnypisxljoxkb`:
+- `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003, 29 migration records through `20261107020949_upstatus_setup_invites_isolated_test`.
+- `upstatus-signal-test` v32 and `upstatus-signal-e2e-once` v3.
+- Latest SELECT-only fixture snapshot at approximately 2026-11-07 03:06:57 UTC: 4 test users, 4 sessions, 2 rooms, 4 memberships, 1 event, 0 call attempts, 0 voice attempts, 0 chat read receipts, and 6 rate-limit buckets. Counts changed between reads. The actor/workflow owning these fixtures is not attributed.
+- Do not run or clean fixture-mutating tests until the owner finishes and a fresh SELECT-only snapshot confirms the project is clear. The two latest candidate workflows are pending with no jobs.
+
+#### Remaining release gates
+
+1. Complete exact-head Normal Smoke and Team Lite Candidate Checks, then verify isolated fixture cleanup.
+2. Add actual HTTP-route tests for admin invite issuance, non-admin denial, setup token handling, and no raw-token leakage.
+3. Add distributed fail-closed login/setup rate limiting with concurrency, 429/Retry-After, recovery, and trusted client-origin semantics.
+4. Resolve Normal 6-character vs Team Lite 4-character password compatibility deliberately.
+5. Validate migration/cutover/rollback in official TEST before any production authorization request.
+6. Replace public Realtime full-row broadcasts with an authenticated/server-mediated design; do not flip private Realtime without a trusted Supabase Auth JWT or tested replacement.
+7. Complete physical #78 acceptance (all 8 criteria remain unchecked), obtain human reviews, and resolve the inherited #80/#82 validator mismatches without weakening validation.
+
+Latest coordination comments: [Issue #79](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6701433511) and [QA PR #82](https://github.com/Reekyi/UpStatus/pull/82#issuecomment-6701433866).
+
+No production SQL write, migration, function deployment, secret/role/flag change, userscript publication, PR merge, release, or destructive operation was performed in this checkpoint. The only database migration remains the additive AUTH-03 candidate migration on the allowlisted isolated project.
