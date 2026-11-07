@@ -32,7 +32,7 @@ The current public `POST /api/setup` accepts a caller-supplied password for any 
 - Existing configured accounts continue using `/api/login`.
 - Old clients that still query `/api/account` receive `needsSetup:false`; they can continue logging into configured accounts but cannot claim a new account.
 - New clients expose an optional one-time token field. Tokens are not persisted in GM storage or sessionStorage.
-- Normal retains its current six-character password minimum; Team Lite retains its current four-character minimum pending a separate compatibility decision.
+- New first-access setup keeps the existing product policy: Normal requires six characters and Team Lite requires four. For existing logins, both handlers accept at least four characters so a 4–5-character Team Lite account can authenticate in Normal without weakening passwords issued by Normal.
 - This candidate does not yet add the separate distributed auth rate limiter. Login brute-force protection remains an independent release gate.
 - The migration is staged only. Apply it to the isolated project for validation; never infer production readiness from isolated success.
 
@@ -61,4 +61,4 @@ x-upstatus-token: <active-admin-session-token>
 
 The response returns `setupToken` once and an `expiresAt` timestamp. Deliver the token privately to the intended user. Do not paste it into GitHub comments, tickets, logs, or persistent userscript storage. The route requires the caller's current UpStatus session and stored `implementation_admin` role; it returns a generic conflict when the target does not exist or already has a password.
 
-The admin UI for issuing invites remains a usability follow-up. Until it exists, use a controlled internal API client. The candidate keeps the current product-specific password minima (Normal 6, Team Lite 4); the distributed login/setup rate limiter is still a separate open gate.
+The admin UI for issuing invites remains a usability follow-up. Until it exists, use a controlled internal API client. New setup retains the product-specific minima (Normal 6, Team Lite 4), while login validation accepts four characters in both products for shared-store compatibility. The distributed login/setup rate limiter is still a separate open gate.
