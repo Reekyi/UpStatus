@@ -33,6 +33,7 @@ The existing `SUPABASE_ACCESS_TOKEN` must have read access to project metadata (
 - It uses `vars.SUPABASE_TEST_PROJECT_ID`, not the shared production project secret.
 - The workflow runs build-target and project-metadata regressions plus full repository validation before invoking the Management API preflight.
 - The Management API preflight is read-only and confirms that the target is an active project in the UpStatus organization.
+- The access token is scoped to only the credential-check, metadata-verification, and deploy steps; build and test scripts do not inherit it.
 - The CLI version is pinned. The workflow deploys only `upstatus-test` to the verified TEST project.
 
 No project was created, no migration was applied, no secret was changed, and no Edge Function was deployed as part of this change. A full TEST project and its migration/rollback rehearsal remain release gates.
