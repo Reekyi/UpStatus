@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import vm from "node:vm";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -62,5 +63,37 @@ assert.match(migration, /grant execute on function public\.consume_upstatus_setu
 assert.match(testMigration, /has_function_privilege\('anon'/i);
 assert.match(testMigration, /has_function_privilege\('authenticated'/i);
 assert.match(testMigration, /has_function_privilege\('service_role'/i);
+
+
+function extractFunction(source,name){
+  const marker="function "+name+"(){";
+  const start=source.indexOf(marker);
+  assert.ok(start>=0, name+" function must exist");
+  let depth=0;
+  for(let i=source.indexOf("{",start);i<source.length;i++){
+    if(source[i]==="{")depth++;
+    else if(source[i]==="}"&&--depth===0)return source.slice(start,i+1);
+  }
+  throw new Error("Could not extract "+name);
+}
+const cleanupFunction=extractFunction(client,"clearLegacyPasswordStorage");
+if(product==="normal"){
+  const store=new Map([["upstatus_password_ricardo","legacy-secret"],["upstatus_password_lohan","legacy-secret"],["upstatus_token","keep"],["other_password","keep"]]);
+  vm.runInNewContext(cleanupFunction+";clearLegacyPasswordStorage();",{
+    key:"upstatus_",
+    GM_listValues:()=>Array.from(store.keys()),
+    GM_deleteValue:storageKey=>store.delete(storageKey)
+  });
+  assert.deepEqual(Array.from(store.keys()).sort(),["other_password","upstatus_token"],"Normal cleanup must delete only namespaced legacy password keys");
+}else{
+  const store=new Map([["upstatus_team_lite_password_lucca","legacy-secret"],["upstatus_team_lite_password_ycaro","legacy-secret"],["upstatus_team_lite_token","keep"],["other_password","keep"]]);
+  const sessionStorage={
+    get length(){return store.size;},
+    key:index=>Array.from(store.keys())[index]??null,
+    removeItem:storageKey=>store.delete(storageKey)
+  };
+  vm.runInNewContext(cleanupFunction+";clearLegacyPasswordStorage();",{key:"upstatus_team_lite_",sessionStorage});
+  assert.deepEqual(Array.from(store.keys()).sort(),["other_password","upstatus_team_lite_token"],"Team Lite cleanup must delete only namespaced legacy password keys");
+}
 
 console.log(product + " one-time setup enrollment static checks passed.");
