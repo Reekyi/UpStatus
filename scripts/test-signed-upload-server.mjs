@@ -87,6 +87,10 @@ for(const size of [0,-1,1.5,20*1024*1024+1]){
 }
 {
   const h=harness({signedData:({bucket,path,token})=>({token,path:path+"-other",signedUrl:project+"/storage/v1/object/upload/sign/"+bucket+"/"+path+"?token="+token})});
+  await assert.rejects(()=>h.context.__signedUploadRoute(req({mime:"image/png",size:10,name:"x.png"}),"chat"),/URL assinada válida/);
+}
+{
+  const h=harness({signedData:({bucket,path,token})=>({token,path,signedUrl:project+"/storage/v1/object/upload/sign/"+bucket+"/"+path+"-other?token="+token})});
   await assert.rejects(()=>h.context.__signedUploadRoute(req({mime:"image/png",size:10,name:"x.png"}),"chat"),/caminho assinado/);
 }
 {
