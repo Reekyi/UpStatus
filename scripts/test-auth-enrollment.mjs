@@ -31,11 +31,44 @@ function randomToken() { return randomBytes(32).toString("hex"); }
 
 const suffix = randomBytes(8).toString("hex");
 const cases = [
-  { name: "__auth_test_concurrent_" + suffix, token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
-  { name: "__auth_test_expired_" + suffix, token: randomToken(), expires: new Date(Date.now() - 60 * 1000).toISOString() },
+  { name: "__auth_test_concurrent_" + suffix, passwordHash: null, token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
+  { name: "__auth_test_expired_" + suffix, passwordHash: null, token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
+  { name: "__auth_test_empty_password_" + suffix, passwordHash: "", token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
+  { name: "__auth_test_configured_" + suffix, passwordHash: "already-configured", token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
 ];
-const passwordHash = "isolated-test-only:" + randomBytes(32).toString("hex");
+const newPasswordHash = "isolated-test-only:" + randomBytes(32).toString("hex");
 let fixturesMayExist = false;
+
+async function issueInvite(item) {
+  const filters = new URLSearchParams();
+  filters.set("name", "eq." + item.name);
+  filters.set("or", '(password_hash.is.null,password_hash.eq."")');
+  const rows = await rest("/users?" + filters.toString(), {
+    method: "PATCH",
+    headers: { prefer: "return=representation" },
+    body: JSON.stringify({
+      setup_token_hash: hash(item.token),
+      setup_token_expires_at: item.expires,
+      setup_token_issued_by: "__auth_test_admin",
+      setup_token_issued_at: new Date().toISOString(),
+    }),
+  });
+  return Array.isArray(rows) ? rows : [];
+}
+async function consume(item, suppliedHash = hash(item.token)) {
+  return await rest("/rpc/consume_upstatus_setup_invite", {
+    method: "POST",
+    body: JSON.stringify({
+      p_user_name: item.name,
+      p_setup_token_hash: suppliedHash,
+      p_password_hash: newPasswordHash,
+    }),
+  });
+}
+async function getUser(name) {
+  const rows = await rest("/users?select=name,password_hash,role,setup_token_hash,setup_token_expires_at,setup_token_issued_by,setup_token_issued_at&name=eq." + encodeURIComponent(name));
+  return Array.isArray(rows) ? rows[0] : null;
+}
 
 try {
   fixturesMayExist = true;
@@ -46,59 +79,79 @@ try {
       name: item.name,
       role: null,
       status: "offline",
-      password_hash: null,
-      setup_token_hash: hash(item.token),
-      setup_token_expires_at: item.expires,
-      setup_token_issued_by: "__auth_test_admin",
-      setup_token_issued_at: new Date().toISOString(),
+      password_hash: item.passwordHash,
+      setup_token_hash: null,
+      setup_token_expires_at: null,
+      setup_token_issued_by: null,
+      setup_token_issued_at: null,
       reason: "isolated auth enrollment regression",
       sync: "not_configured",
     }))),
   });
 
-  const concurrent = cases[0];
-  const invoke = () => rest("/rpc/consume_upstatus_setup_invite", {
-    method: "POST",
-    body: JSON.stringify({
-      p_user_name: concurrent.name,
-      p_setup_token_hash: hash(concurrent.token),
-      p_password_hash: passwordHash,
-    }),
-  });
-  const results = await Promise.all([invoke(), invoke()]);
+  const [concurrent, expired, emptyPassword, configured] = cases;
+  for (const item of [concurrent, expired, emptyPassword]) {
+    const issued = await issueInvite(item);
+    assert.equal(issued.length, 1, "NULL and empty-string password hashes must both be eligible for invite issuance");
+    assert.equal(issued[0].name, item.name);
+  }
+  const configuredInvite = await issueInvite(configured);
+  assert.deepEqual(configuredInvite, [], "configured accounts must not receive a first-access invite");
+
+  const malformed = await consume(concurrent, "not-a-sha256-token");
+  assert.deepEqual(malformed, [], "malformed token hashes must not consume an invite");
+  const wrong = await consume(concurrent, hash(randomToken()));
+  assert.deepEqual(wrong, [], "wrong token hashes must not consume an invite");
+  const unchangedAfterWrong = await getUser(concurrent.name);
+  assert.equal(unchangedAfterWrong.password_hash, null);
+  assert.equal(unchangedAfterWrong.setup_token_hash, hash(concurrent.token));
+
+  const results = await Promise.all([consume(concurrent), consume(concurrent)]);
   const winners = results.filter(result => Array.isArray(result) && result.length === 1);
   assert.equal(winners.length, 1, "exactly one concurrent setup attempt must consume the invite");
   assert.equal(winners[0][0].name, concurrent.name);
   assert.equal(winners[0][0].role, "implementation_user", "missing roles must default to a non-admin role");
 
-  const row = await rest("/users?select=name,password_hash,role,setup_token_hash,setup_token_expires_at&name=eq." + encodeURIComponent(concurrent.name));
-  assert.equal(row.length, 1);
-  assert.equal(row[0].password_hash, passwordHash);
-  assert.equal(row[0].role, "implementation_user");
-  assert.equal(row[0].setup_token_hash, null);
-  assert.equal(row[0].setup_token_expires_at, null);
+  const replay = await consume(concurrent);
+  assert.deepEqual(replay, [], "a consumed invite must not be replayable");
+  const consumed = await getUser(concurrent.name);
+  assert.equal(consumed.password_hash, newPasswordHash);
+  assert.equal(consumed.role, "implementation_user");
+  assert.equal(consumed.setup_token_hash, null);
+  assert.equal(consumed.setup_token_expires_at, null);
+  assert.equal(consumed.setup_token_issued_by, null);
+  assert.equal(consumed.setup_token_issued_at, null);
 
-  const expired = cases[1];
-  const expiredResult = await rest("/rpc/consume_upstatus_setup_invite", {
-    method: "POST",
-    body: JSON.stringify({
-      p_user_name: expired.name,
-      p_setup_token_hash: hash(expired.token),
-      p_password_hash: passwordHash,
-    }),
+  const expiredTime = new Date(Date.now() - 60 * 1000).toISOString();
+  await rest("/users?name=eq." + encodeURIComponent(expired.name), {
+    method: "PATCH",
+    headers: { prefer: "return=minimal" },
+    body: JSON.stringify({ setup_token_expires_at: expiredTime }),
   });
+  const expiredResult = await consume(expired);
   assert.deepEqual(expiredResult, [], "expired enrollment tokens must not set a password");
-  const expiredRow = await rest("/users?select=password_hash,setup_token_hash&name=eq." + encodeURIComponent(expired.name));
-  assert.equal(expiredRow[0].password_hash, null);
-  assert.equal(expiredRow[0].setup_token_hash, hash(expired.token));
+  const expiredRow = await getUser(expired.name);
+  assert.equal(expiredRow.password_hash, null);
+  assert.equal(expiredRow.setup_token_hash, hash(expired.token));
 
-  console.log("Isolated setup enrollment RPC passed: one-time concurrency, role fallback, token consumption, and expiry.");
+  const emptyWrong = await consume(emptyPassword, hash(randomToken()));
+  assert.deepEqual(emptyWrong, [], "wrong token must not initialize a legacy empty-string password row");
+  const emptyResult = await consume(emptyPassword);
+  assert.equal(Array.isArray(emptyResult) && emptyResult.length, 1, "legacy empty-string password rows must be consumable after a valid invite");
+  assert.equal(emptyResult[0].role, "implementation_user");
+  const emptyRow = await getUser(emptyPassword.name);
+  assert.equal(emptyRow.password_hash, newPasswordHash);
+  assert.equal(emptyRow.setup_token_hash, null);
+  assert.equal(emptyRow.setup_token_expires_at, null);
+
+  console.log("Isolated setup enrollment passed: NULL/empty eligibility, configured-account denial, malformed/wrong/expired/replayed tokens, one-winner concurrency, role fallback, and cleanup.");
 } finally {
   if (fixturesMayExist) {
     for (const item of cases) {
       await rest("/users?name=eq." + encodeURIComponent(item.name), { method: "DELETE" });
     }
-    const remaining = await rest("/users?select=name&name=like.__auth_test_" + suffix + "*");
+    const pattern = encodeURIComponent("__auth_test_" + suffix + "*");
+    const remaining = await rest("/users?select=name&name=like." + pattern);
     assert.deepEqual(remaining, [], "isolated auth enrollment fixtures must be removed");
   }
 }
