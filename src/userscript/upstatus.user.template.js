@@ -3936,7 +3936,49 @@ function chatAvatarPresence(name){
   }
   function fileToDataUrl(file){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Use imagens, vídeos ou documentos PDF, DOC/DOCX, XLS/XLSX, CSV, PPT/PPTX, TXT e RTF.'));return;}var max=20*1024*1024;if(file.size>max){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}var reader=new FileReader();reader.onload=function(){var data=reader.result;if(!(data instanceof ArrayBuffer)){resolve(String(data));return;}var bytes=new Uint8Array(data),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+info.mime+';base64,'+btoa(bin));};reader.onerror=function(){reject(new Error('Não foi possível ler o arquivo.'));};reader.readAsArrayBuffer(file);});}
   function fileToDataUrlForProfile(file,type,ext){var info=resolveFileMime(file,false),mime=info.ok?info.mime:fileMimeFromExt(ext);if(!/^image\//i.test(mime)){return Promise.reject(new Error('Use PNG, JPG, WEBP ou GIF.'));}return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){try{var bytes=new Uint8Array(reader.result),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+mime+';base64,'+btoa(bin));}catch(e){reject(new Error('Não foi possível preparar a foto.'));}};reader.onerror=function(){reject(new Error('Não foi possível ler a foto.'));};reader.readAsArrayBuffer(file);});}
-  function uploadFileDirect(file,route){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Tipo de arquivo não suportado.'));return;}if(file.size>20*1024*1024){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}api('POST',route,{mime:info.mime,size:file.size,name:String(file.name||'arquivo')}).then(function(ticket){if(!ticket||(!ticket.uploadUrl&&!ticket.signedUrl)||!ticket.token||!ticket.publicUrl||!ticket.path)throw new Error('Resposta de autorização incompleta: '+Object.keys(ticket||{}).join(', '));var url;try{url=new URL(ticket.uploadUrl||ticket.signedUrl);}catch(e){url=new URL(UP_REALTIME_URL+'/storage/v1/object/upload/sign/'+ticket.bucket+'/'+ticket.path);}if(ticket.token&&!url.searchParams.has('token'))url.searchParams.set('token',ticket.token);if(!url.searchParams.has('token'))throw new Error('A URL assinada veio sem token.');return fetch(url.toString(),{method:'PUT',headers:{'Content-Type':info.mime,'x-upsert':'true','cache-control':'max-age=3600'},body:file}).then(function(resp){if(!resp.ok)return resp.text().then(function(t){throw new Error('Falha no Storage ('+resp.status+'): '+String(t||'').slice(0,180));});return ticket;});}).then(resolve).catch(reject);});}
+  function uploadFileDirect(file,route){
+    return new Promise(function(resolve,reject){
+      if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}
+      var expectedBucket=route==='/api/chat/upload-url'?'chat-images':route==='/api/profile/avatar-upload-url'?'profile-images':'';
+      if(!expectedBucket){reject(new Error('Rota de upload não permitida.'));return;}
+      var info=resolveFileMime(file,expectedBucket==='chat-images');
+      if(!info.ok){reject(new Error('Tipo de arquivo não suportado.'));return;}
+      var size=Number(file.size);
+      if(!Number.isFinite(size)||size<1||size>20*1024*1024){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}
+      api('POST',route,{mime:info.mime,size:size,name:String(file.name||'arquivo')}).then(function(ticket){
+        if(!ticket||!ticket.token||!ticket.publicUrl||!ticket.path||ticket.bucket!==expectedBucket||ticket.mime!==info.mime||Number(ticket.size)!==size)throw new Error('Resposta de autorização incompleta.');
+        var base,url,publicUrl,rawUploadUrl=String(ticket.uploadUrl||ticket.signedUrl||'');
+        if(!rawUploadUrl)throw new Error('Resposta de autorização incompleta.');
+        try{
+          base=new URL(UP_REALTIME_URL);
+          if(base.protocol!=='https:')throw new Error('URL de upload inválida.');
+          url=new URL(rawUploadUrl,base);
+          publicUrl=new URL(ticket.publicUrl,base);
+        }catch(e){throw new Error('URL de upload inválida.');}
+        if(url.origin!==base.origin||publicUrl.origin!==base.origin||url.username||url.password||publicUrl.username||publicUrl.password||url.hash)throw new Error('O Storage retornou uma origem inesperada.');
+        var uploadPrefix='/storage/v1/object/upload/sign/'+expectedBucket+'/';
+        if(url.pathname.indexOf(uploadPrefix)!==0)throw new Error('O Storage retornou um caminho de upload inesperado.');
+        var uploadedPath;
+        try{uploadedPath=decodeURIComponent(url.pathname.slice(uploadPrefix.length));}catch(e){throw new Error('Caminho de upload inválido.');}
+        if(uploadedPath!==String(ticket.path))throw new Error('O caminho assinado não corresponde ao arquivo solicitado.');
+        var publicPrefix='/storage/v1/object/public/'+expectedBucket+'/';
+        if(publicUrl.pathname.indexOf(publicPrefix)!==0||publicUrl.search||publicUrl.hash)throw new Error('A URL pública retornada é inválida.');
+        var publicPath;
+        try{publicPath=decodeURIComponent(publicUrl.pathname.slice(publicPrefix.length));}catch(e){throw new Error('Caminho público inválido.');}
+        if(publicPath!==String(ticket.path))throw new Error('O caminho público não corresponde ao arquivo autorizado.');
+        var queryToken=url.searchParams.get('token');
+        if(!queryToken)url.searchParams.set('token',String(ticket.token));
+        else if(queryToken!==String(ticket.token))throw new Error('O token da URL assinada não corresponde à autorização.');
+        if(!url.searchParams.get('token'))throw new Error('A URL assinada veio sem token.');
+        return fetch(url.toString(),{method:'PUT',credentials:'omit',redirect:'error',headers:{'Content-Type':info.mime,'x-upsert':'true','cache-control':'max-age=3600'},body:file}).then(function(resp){
+          if(!resp||!resp.ok)throw new Error('Falha no Storage ('+Number(resp&&resp.status||0)+').');
+          return {publicUrl:publicUrl.toString(),path:String(ticket.path),bucket:expectedBucket,mime:info.mime,size:size};
+        });
+      }).then(resolve).catch(reject);
+    });
+  }
+
+
   function sendChatMedia(file,caption,replyOverride){
     if(!file)return;
     var tempId='local-upload-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),reply=replyOverride!==undefined?replyOverride:chatReplyTo,info=resolveFileMime(file,true),isVideo=String(info.mime||'').indexOf('video/')===0,isDocument=/^(application\/|text\/)/i.test(info.mime||''),label=isDocument?'Enviando documento…':isVideo?'Enviando vídeo…':'Enviando imagem…';
