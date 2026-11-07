@@ -1109,3 +1109,19 @@ assert.deepEqual(Object.keys(recipientEnvelope.entries[0]).sort(),["callId","cre
 assert.equal(JSON.stringify(recipientEnvelope).includes("normal-session-token"),false,
   "recipient leave persistence must never store the session token");
 console.log("Normal recipient call acceptance fails closed without durable leave storage and persists before accept.");
+
+const testDeployWorkflow = readFileSync(".github/workflows/deploy-test.yml", "utf8");
+assert.ok(testDeployWorkflow.includes("workflow_dispatch:") && !/^\\s+push:/m.test(testDeployWorkflow),
+  "TEST deployment must be manual-only; pushes must never deploy automatically");
+assert.ok(testDeployWorkflow.includes("vars.SUPABASE_TEST_PROJECT_ID") &&
+  !testDeployWorkflow.includes("secrets.SUPABASE_PROJECT_ID"),
+  "TEST deployment must use a dedicated TEST project variable, not the shared project secret");
+assert.ok(testDeployWorkflow.includes('if [ "$GITHUB_REF" != "refs/heads/develop" ]') &&
+  testDeployWorkflow.includes('if [ "$SUPABASE_TEST_PROJECT_ID" = "$EXPECTED_PRODUCTION_PROJECT_ID" ]') &&
+  testDeployWorkflow.includes('if [ "$SUPABASE_TEST_PROJECT_ID" = "$EXPECTED_ISOLATED_SIGNALING_PROJECT_ID" ]'),
+  "TEST deployment must be restricted to develop and reject production/fixture projects");
+assert.ok(testDeployWorkflow.includes("node scripts/test-build-target-guard.mjs") &&
+  testDeployWorkflow.includes("version: 2.122.1") &&
+  testDeployWorkflow.includes('--project-ref "$SUPABASE_TEST_PROJECT_ID"'),
+  "TEST deployment must run the target guard, use a pinned CLI, and deploy only to the dedicated TEST project");
+console.log("PASS manual TEST deployment is isolated from production and the signaling fixture project.");
