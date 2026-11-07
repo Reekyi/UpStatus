@@ -22,7 +22,8 @@ assert.match(server, /async function issueSetupInvite\(req:Request,adminName:str
 assert.match(server, /if\(!await admin\(adminName\)\)/, "setup invite issuance must require an authenticated admin");
 assert.match(server, /randomBytes\(32\)\.toString\("hex"\)/, "setup invite must use a 256-bit random token");
 assert.match(server, /setup_token_hash:tokenHash\(raw\)/, "only the setup-token hash may be persisted");
-assert.match(server, /\.is\("password_hash",null\)/, "admin may invite only an uninitialized account");
+assert.ok(server.includes('password_hash.is.null,password_hash.eq.""'), "admin may invite NULL or legacy empty-string password rows only");
+assert.doesNotMatch(server, /\.is\("password_hash",null\)/, "invite issuance must not exclude legacy empty-string password rows");
 assert.match(server, /consume_upstatus_setup_invite/, "first setup must consume the invite through the atomic RPC");
 assert.match(server, /p_setup_token_hash:tokenHash\(setupToken\)/, "first setup must send only the token hash to the database");
 assert.match(server, /if\(path==="\/api\/setup-invite"&&req\.method==="POST"\)/, "admin invite route missing");
@@ -36,6 +37,7 @@ assert.doesNotMatch(client, /\/api\/account\?name=/, "client must not enumerate 
 
 assert.match(migration, /add column if not exists setup_token_hash/i);
 assert.match(migration, /create unique index if not exists users_setup_token_hash_uidx/i);
+assert.match(migration, /u\.password_hash is null or u\.password_hash = ''/i, "atomic invite consumption must accept NULL and legacy empty-string hashes");
 assert.match(migration, /security invoker/i);
 assert.match(migration, /set search_path = ''/i);
 assert.match(migration, /revoke all on function public\.consume_upstatus_setup_invite\(text, text, text\) from public/i);
