@@ -86,20 +86,43 @@ async function createSession(name:string,knownAccount?:any){
 }
 async function login(req:Request,setup:boolean){
   const p:any=await readBody(req);
-  const name=String(p.name||"");
+  const name=String(p.name||"").trim();
   const password=String(p.password||"");
   if(!name||password.length<6)return response({error:"Use um usuário válido e uma senha de pelo menos 6 caracteres."},400);
-  const a=await account(name);
-  if(!a)return response({error:"Use um usuário válido e uma senha de pelo menos 6 caracteres."},400);
   if(setup){
-    if(a.password_hash)return response({error:"Esta conta já foi configurada."},409);
-    const role=a.role||"implementation_user";
-    const {error}=await db.from("users").update({password_hash:passwordHash(password),role}).eq("name",name);
+    const setupToken=String(p.setupToken||"").trim();
+    if(!/^[0-9a-f]{64}$/i.test(setupToken))return response({error:"Código de primeiro acesso inválido ou expirado."},403);
+    const {data,error}=await db.rpc("consume_upstatus_setup_invite",{
+      p_user_name:name,
+      p_setup_token_hash:tokenHash(setupToken),
+      p_password_hash:passwordHash(password)
+    });
     if(error)throw error;
-    return createSession(name,{...a,password_hash:undefined,role});
+    const enrolled=Array.isArray(data)?data[0]:null;
+    if(!enrolled||String(enrolled.name)!==name)return response({error:"Código de primeiro acesso inválido ou expirado."},403);
+    return createSession(name,{name,role:enrolled.role||"implementation_user"});
   }
-  if(!a.password_hash||!checkPassword(password,String(a.password_hash)))return response({error:"Nome ou senha incorretos."},401);
+  const a=await account(name);
+  if(!a||!a.password_hash||!checkPassword(password,String(a.password_hash)))return response({error:"Nome ou senha incorretos."},401);
   return createSession(name,a);
+}
+async function issueSetupInvite(req:Request,adminName:string){
+  if(!await admin(adminName))return response({error:"Acesso não autorizado."},403);
+  const p:any=await readBody(req);
+  const target=String(p.name||"").trim();
+  if(!target||target.length>120)return response({error:"Conta inválida."},400);
+  const raw=randomBytes(32).toString("hex");
+  const issuedAt=new Date().toISOString();
+  const expiresAt=new Date(Date.now()+15*60*1000).toISOString();
+  const {data,error}=await db.from("users").update({
+    setup_token_hash:tokenHash(raw),
+    setup_token_expires_at:expiresAt,
+    setup_token_issued_by:adminName,
+    setup_token_issued_at:issuedAt
+  }).eq("name",target).is("password_hash",null).select("name").maybeSingle();
+  if(error)throw error;
+  if(!data)return response({error:"Conta indisponível para primeiro acesso."},409);
+  return response({name:target,setupToken:raw,expiresAt});
 }
 async function members(){
   const now=Date.now();
@@ -687,11 +710,7 @@ Deno.serve(async(req)=>{
     }
     if(path.startsWith("/api/ycaro/"))return await ycaroRoute(req);
     if(path.startsWith("/api/lucca/"))return await luccaRoute(req);
-    if(path==="/api/account"&&req.method==="GET"){
-      const name=new URL(req.url).searchParams.get("name")||"";
-      const a=await account(name);
-      return response({needsSetup:!a||!a.password_hash});
-    }
+    if(path==="/api/account"&&req.method==="GET")return response({needsSetup:false});
     if(path==="/api/setup"&&req.method==="POST")return await login(req,true);
     if(path==="/api/login"&&req.method==="POST")return await login(req,false);
 
@@ -702,6 +721,7 @@ Deno.serve(async(req)=>{
       return response({authenticated:!!name,name:name||null,role:a?.role||null,canViewHistory:a?.role==="implementation_admin",needsSetup:!!a&&!a.password_hash});
     }
     if(!ctx)return response({error:"Faça login para continuar."},401);
+    if(path==="/api/setup-invite"&&req.method==="POST")return await issueSetupInvite(req,name||"");
 
     if(path==="/api/logout"&&req.method==="POST"){
       const t=token(req);if(t){await db.from("upstatus_sessions").delete().eq("token_hash",tokenHash(t));sessionCache.delete(t);}
