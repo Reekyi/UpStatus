@@ -1812,3 +1812,49 @@ This is the latest engineering checkpoint and supersedes the 12:16 snapshot for 
 - The separate QA branch #82 and its `RELEASE_READINESS.md` were not modified. #82 still fails its inherited `production updateURL mismatch` until the master candidate is reviewed/integrated; #80 still fails its inherited develop `client signed upload helper missing` gate.
 
 No production SQL write, migration, Edge Function deployment, secret/role/feature-flag change, fixture cleanup, destructive action, merge, release or userscript publication occurred. Production access remained SELECT/catalog-only.
+
+
+## Engineering checkpoint — 2026-11-07 12:35 BRT (password-policy parity and release-doc alignment)
+
+This checkpoint supersedes earlier snapshots for the refs and workflow results listed below. All values were re-fetched from GitHub/Supabase during this run.
+
+### GitHub branches and PRs
+
+- Base branches: `master` = `a9288ccfcb0f308d3a587bfca624418a395be07b`; `develop` = `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`.
+- #74 Normal: `chore/continuity-foundation`, HEAD `7475a82e421c9286e6944ea17ee73afd39ed73d9`, 839 commits ahead / 0 behind master. Validate `42354944089` and Signaling Smoke `42354944038` SUCCESS.
+- #75 Team Lite baseline: `team-lite/3.4.31-guest-fixes`, HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 ahead / 0 behind team-lite-official. Candidate Checks `41674353127` historical SUCCESS; #76 is the active candidate.
+- #76 Team Lite: `team-lite/signaling-transport-candidate`, HEAD `2e0ff69419cdd2a06c68c5d58cf221ccfc6738c7`, 312 ahead / 0 behind team-lite-official. Server commit `80ba937` changes first-access/login password thresholds to `setup ? 6 : 4`; test commit `95c3757` added a cross-product assertion but initially compared against the stale Normal server template carried by the Team Lite base. The test harness was corrected in `2e0ff69` to assert the Team Lite contract directly. Candidate Checks `42386904302` is still IN_PROGRESS in the authenticated isolated integration/browser step. Earlier run `42386822774` failed before any fixture-mutating step at the incorrect static Normal-template assertion.
+- #80 continuity: `docs/continuity-handoff-2026-11-04`, HEAD `2473853e70c02f6bf86ea245c01f40c29a9a641a`, 192 ahead / 0 behind develop. Validate `42386143497` failed at the inherited `client signed upload helper missing` contract.
+- #82 independent QA: `qa/release-readiness-2026-11-04-master`, HEAD `64fe8272869b0ee9d01a557ea99c3bc4a1420042`, 99 ahead / 0 behind master. Validate `42382198198` failed at the inherited `production updateURL mismatch`. QA branch and its release-readiness file were not edited by engineering.
+- #84 TEST isolation: `safety/test-deploy-target-guard-20261107`, HEAD `21341f331270e142bdf7584c1cdf16e6011e41b3`, 30 ahead / 0 behind develop. README now matches the candidate workflow: TEST deploy is manual-only, restricted to develop, uses `SUPABASE_TEST_PROJECT_ID`, checks out the dispatch SHA, verifies project identity and deploys only `upstatus-test`. Validate `42387042361` SUCCESS.
+- #85 master stabilization: `fix/master-release-script-url-20261107`, HEAD `17554523ef51bafd503e74b3f1271d55f43a6eda`, 21 ahead / 0 behind master. Validate `42386047749` SUCCESS: signed-upload client/server VM regressions and chat regression all passed; build reports PROD/TEST 3.4.7.
+- All seven PRs remain OPEN/Draft, unmerged, with zero submitted human reviews.
+
+### Password policy: deployed mismatch versus candidate correction
+
+Read-only retrieval of the deployed production Edge Function sources confirms:
+- Production Normal `upstatus` currently rejects passwords shorter than 6 for both login and first setup.
+- Production Team Lite `upstatus-team-lite` currently rejects passwords shorter than 4 for both login and first setup.
+- This is a real cross-product login incompatibility for shared accounts with 4–5 character passwords.
+
+The Normal candidate #74 already separates the policies as `setup ? 6 : 4`. Engineering applied the same rule to Team Lite #76. Existing 4–5 character passwords remain valid for login, while new first-access enrollment requires six characters. This is candidate-only; production remains unchanged until a separately reviewed and explicitly approved coordinated rollout.
+
+### Supabase read-only snapshot
+
+- Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations, 38 Edge Functions. Normal `upstatus` v480, TEST `upstatus-test` v281, Team Lite `upstatus-team-lite` v15, legacy screen-share v6.
+- Isolated lab `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 33 migrations, `upstatus-signal-test` v32 and E2E helper v3. The lab has no chat/profile Storage buckets.
+- Immediately before run `42386904302`, SELECT-only counts showed zero users, sessions, messages, chat reads, rooms, memberships, bindings, events, rate-limit buckets, call attempts and voice-room attempts. The authenticated integration/browser step is currently running; do not assume post-run cleanup until it completes and a new SELECT confirms zero.
+- Production aggregate: five users, zero NULL/blank password hashes and roles; `messages.file_name` exists; chat/profile buckets are public with 20 MB limits and expected MIME allowlists.
+- Production still lacks setup-invite objects, auth-specific rate limiter, signaling rate limiter and dedicated `upstatus-signal` function.
+- Three production broadcast functions remain SECURITY DEFINER with `search_path=public`, EXECUTE for anon/authenticated and public Realtime publication. The message trigger publishes full OLD/NEW rows via `to_jsonb`.
+- Nine backend-owned public tables retain ALL table privileges for anon/authenticated, including TRUNCATE. Default ACLs remain broad for objects created by postgres and supabase_admin.
+- Security Advisor: three SECURITY DEFINER WARN for anon, three for authenticated and ten RLS-without-policy INFO; Performance and Health have no findings.
+
+### Release gates and safety
+
+- RT-01 public broadcasts/private Realtime cutover remains open.
+- Dedicated full-product TEST project remains absent; the isolated signaling/auth lab is not a product TEST environment.
+- AUTH-03 production cutover, route-level HTTP tests, distributed auth throttling and ACL/default-ACL remediation remain open.
+- Issue #78 remains OPEN at 0/8 physical acceptance criteria. Real Tampermonkey offline/no-F5 recovery, browser-close recovery, physical microphone/display capture and installed Normal ↔ Team Lite compatibility remain MANUAL PENDING.
+- Issue #79 remains OPEN. CI success is not human review or release approval.
+- No production SQL write, migration, Edge Function deployment, secret/role/feature-flag change, fixture cleanup, PR merge, release or userscript publication occurred. Production queries were SELECT/catalog reads only. The only active fixture-mutating work is the explicitly allowlisted Team Lite candidate workflow above.
