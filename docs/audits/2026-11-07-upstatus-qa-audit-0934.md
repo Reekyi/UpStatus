@@ -75,7 +75,7 @@ The completed job log confirms:
 - Team Lite version 3.4.31, updater scenarios, userscript syntax, Lucca/Ycaro portal syntax and guest-session isolation checks passed.
 - Temporary fixture cleanup was verified.
 
-The Supabase Preview check was skipped; the candidate job's tests used the existing isolated signaling/auth project. Do not interpret the skipped Preview as a full product backend deployment.
+The candidate job has no Supabase Preview step and performs no full-product Edge Function deployment; its integration tests use the existing isolated signaling/auth project. Do not interpret Candidate Checks as a full product backend deployment.
 
 ### Team Lite baseline #75
 
