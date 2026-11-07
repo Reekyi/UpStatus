@@ -45,3 +45,19 @@ The current public `POST /api/setup` accepts a caller-supplied password for any 
 - Normal and Team Lite UI submit the token without persisting it.
 - The auth-specific distributed rate limiter is validated separately before release.
 - Physical first-login acceptance and the production cutover remain pending.
+
+## Admin operation (candidate only)
+
+The candidate exposes an authenticated admin endpoint; there is not yet a dedicated admin-panel button.
+
+```http
+POST /api/setup-invite
+Content-Type: application/json
+x-upstatus-token: <active-admin-session-token>
+
+{"name":"<pre-provisioned-account-name>"}
+```
+
+The response returns `setupToken` once and an `expiresAt` timestamp. Deliver the token privately to the intended user. Do not paste it into GitHub comments, tickets, logs, or persistent userscript storage. The route requires the caller's current UpStatus session and stored `implementation_admin` role; it returns a generic conflict when the target does not exist or already has a password.
+
+The admin UI for issuing invites remains a usability follow-up. Until it exists, use a controlled internal API client. The candidate keeps the current product-specific password minima (Normal 6, Team Lite 4); the distributed login/setup rate limiter is still a separate open gate.
