@@ -1235,3 +1235,44 @@ This is a separate credential-at-rest risk: passwords are retained in plaintext 
 #### Password compatibility client check
 
 A static inspection of both login UIs found no client-side minimum-length check; the new server-side minimum policy is not blocked by a second hard-coded client validator. This is source inspection only; exact-head CI remains the validation gate.
+
+
+### Engineering checkpoint — 2026-11-07 05:05 UTC
+
+#### Candidate credential-storage hardening
+
+- **Normal #74** exact candidate HEAD: `e07293b802129ba347b6ef8116c29af77a27931c`.
+  - Removed password read/write through Tampermonkey GM storage.
+  - Added `GM_listValues` / `GM_deleteValue` grants and startup deletion limited to keys beginning with the rendered UpStatus storage prefix plus `password_`.
+  - Successful login/setup clears both password and one-time-token inputs.
+  - Static assertions were added to `scripts/auth-enrollment.test.mjs`.
+- **Team Lite #76** exact candidate HEAD: `c81af34bcee6acb5776f3f60ae42fd7e7587075a`.
+  - Removed password read/write through `sessionStorage`; startup deletes only keys beginning with `upstatus_team_lite_password_`.
+  - Successful login/setup clears both inputs.
+  - Review found the candidate bundle lacked the `var key='upstatus_team_lite_'` declaration present in `team-lite-official`; restored it before first use and added a static regression assertion.
+- This removes password auto-fill in the candidates. Existing deployed scripts are unchanged; no production publication occurred.
+
+#### Exact-head CI
+
+- Normal Validate [42340871331](https://github.com/Reekyi/UpStatus/actions/runs/42340871331): PASS.
+- Normal Signaling Smoke [42340871398](https://github.com/Reekyi/UpStatus/actions/runs/42340871398): pending; no jobs created at the last check.
+- Team Lite Candidate Checks [42340875756](https://github.com/Reekyi/UpStatus/actions/runs/42340875756): pending; no jobs created at the last check.
+- The previous exact-head results do not certify these new commits. Wait for the two current workflows.
+
+#### Current production snapshot — SELECT/catalog only
+
+Project `dlfvkawaiqduhlazsszm` remains `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, seven migrations through `20261027155438`, and 38 ACTIVE Edge Functions. Deployed versions remain Normal `upstatus` v480, legacy Normal `upstatus-screen-share-3-1-1-beta10` v6, Team Lite v15, and `upstatus-test` v281 inside the production project.
+
+Catalog query confirmed: no setup-invite columns/RPC, no signaling rate-limit table, and no voice-attempt table. Aggregate `public.users`: 5 rows, 0 NULL/empty password hashes, 0 missing roles. Security Advisor at 05:01 UTC: 3 anon + 3 authenticated SECURITY DEFINER WARNs and 10 RLS/no-policy INFO; Performance and Health have no findings.
+
+#### Remaining release gates
+
+- Actual HTTP tests for admin setup-invite issuance/non-admin denial and raw-token/log handling.
+- Distributed fail-closed login/setup rate limiting and trusted client-origin contract.
+- Official TEST project remains absent; production's `upstatus-test` is not isolated.
+- Public Realtime full-row broadcasts and broad table/function grants remain unresolved.
+- Physical Issue #78 acceptance remains 0/8; no real Tampermonkey/network-loss/no-F5 acceptance was performed in this run.
+- PR #80 still fails its inherited `client signed upload helper missing` validator; PR #82 still fails `production updateURL mismatch`. Do not weaken either validator.
+- All five tracked PRs remain open Draft with zero submitted human approvals.
+
+No production SQL write, migration, function deployment, secret/role/flag change, userscript publication, merge, release, or destructive operation occurred in this checkpoint.
