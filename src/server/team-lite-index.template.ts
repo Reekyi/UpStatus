@@ -90,8 +90,8 @@ async function login(req:Request,setup:boolean){
   const password=String(p.password||"");
   if(!name||password.length<4)return response({error:"Use um usuário válido e uma senha de pelo menos 4 caracteres."},400);
   if(setup){
-    const setupToken=String(p.setupToken||"").trim();
-    if(!/^[0-9a-f]{64}$/i.test(setupToken))return response({error:"Código de primeiro acesso inválido ou expirado."},403);
+    const setupToken=String(p.setupToken||"").trim().toLowerCase();
+    if(!/^[0-9a-f]{64}$/.test(setupToken))return response({error:"Código de primeiro acesso inválido ou expirado."},403);
     const {data,error}=await db.rpc("consume_upstatus_setup_invite",{
       p_user_name:name,
       p_setup_token_hash:tokenHash(setupToken),
