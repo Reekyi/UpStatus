@@ -61,6 +61,8 @@ function renderUser({version,test}){
     "__UPSTATUS_NAME__":name,
     "__UPSTATUS_NAMESPACE__":namespace,
     "__UPSTATUS_VERSION__":version,
+    "__UPSTATUS_TEST_CHANNEL__":test?"true":"false",
+    "__UPSTATUS_RELEASE_MANIFEST_URL__":test?"":"https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json",
     "__UPSTATUS_UPDATE_URL__":updateUrl,
     "__UPSTATUS_DOWNLOAD_URL__":updateUrl,
     "__UPSTATUS_STORAGE_PREFIX__":prefix,
