@@ -1620,3 +1620,8 @@ PR #84 contains the candidate replacement: manual-only, explicit TEST project va
 5. Complete the physical #78 matrix in installed Tampermonkey clients.
 
 No production write, migration, deploy, merge, release, userscript publication, secret/role/feature-flag change, destructive action or manual fixture cleanup occurred in this checkpoint.
+
+
+### #80 documentation commit follow-up — 2026-11-07 09:04 BRT
+
+The continuity update above created a new PR #80 head: `2c7f50bdc9a6844e4538ae989a469385bbf97fa0`. Its exact-head Validate run [42370862157](https://github.com/Reekyi/UpStatus/actions/runs/42370862157) completed FAILURE at the same inherited `develop`-base assertion: `client signed upload helper missing`. The job log confirms the failure occurs in `node scripts/validate.mjs`; it is not a failure in the new documentation content. PR #80 remains open/Draft. No product code was copied into the docs branch and no validator was weakened.
