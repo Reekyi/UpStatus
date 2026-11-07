@@ -31,10 +31,12 @@ function randomToken() { return randomBytes(32).toString("hex"); }
 
 const suffix = randomBytes(8).toString("hex");
 const cases = [
-  { name: "__auth_test_concurrent_" + suffix, passwordHash: null, token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
-  { name: "__auth_test_expired_" + suffix, passwordHash: null, token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
-  { name: "__auth_test_empty_password_" + suffix, passwordHash: "", token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
-  { name: "__auth_test_configured_" + suffix, passwordHash: "already-configured", token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
+  { name: "__auth_test_concurrent_" + suffix, passwordHash: null, role: null, token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
+  { name: "__auth_test_expired_" + suffix, passwordHash: null, role: null, token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
+  { name: "__auth_test_empty_password_" + suffix, passwordHash: "", role: "", token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
+  { name: "__auth_test_whitespace_role_" + suffix, passwordHash: null, role: " \t\n ", token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
+  { name: "__auth_test_admin_role_" + suffix, passwordHash: null, role: "implementation_admin", token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
+  { name: "__auth_test_configured_" + suffix, passwordHash: "already-configured", role: "implementation_user", token: randomToken(), expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
 ];
 const newPasswordHash = "isolated-test-only:" + randomBytes(32).toString("hex");
 let fixturesMayExist = false;
@@ -77,7 +79,7 @@ try {
     headers: { prefer: "return=minimal" },
     body: JSON.stringify(cases.map(item => ({
       name: item.name,
-      role: null,
+      role: item.role,
       status: "offline",
       password_hash: item.passwordHash,
       setup_token_hash: null,
@@ -89,8 +91,8 @@ try {
     }))),
   });
 
-  const [concurrent, expired, emptyPassword, configured] = cases;
-  for (const item of [concurrent, expired, emptyPassword]) {
+  const [concurrent, expired, emptyPassword, whitespaceRole, adminRole, configured] = cases;
+  for (const item of [concurrent, expired, emptyPassword, whitespaceRole, adminRole]) {
     const issued = await issueInvite(item);
     assert.equal(issued.length, 1, "NULL and empty-string password hashes must both be eligible for invite issuance");
     assert.equal(issued[0].name, item.name);
@@ -141,10 +143,21 @@ try {
   assert.equal(emptyResult[0].role, "implementation_user");
   const emptyRow = await getUser(emptyPassword.name);
   assert.equal(emptyRow.password_hash, newPasswordHash);
+  assert.equal(emptyRow.role, "implementation_user", "empty-string roles must default to a non-admin role");
   assert.equal(emptyRow.setup_token_hash, null);
   assert.equal(emptyRow.setup_token_expires_at, null);
 
-  console.log("Isolated setup enrollment passed: NULL/empty eligibility, configured-account denial, malformed/wrong/expired/replayed tokens, one-winner concurrency, role fallback, and cleanup.");
+  const whitespaceResult = await consume(whitespaceRole);
+  assert.equal(Array.isArray(whitespaceResult) && whitespaceResult.length, 1, "whitespace-role accounts must consume a valid invite");
+  assert.equal(whitespaceResult[0].role, "implementation_user", "whitespace-only roles must default to a non-admin role");
+  const whitespaceRow = await getUser(whitespaceRole.name);
+  assert.equal(whitespaceRow.role, "implementation_user");
+
+  const adminResult = await consume(adminRole);
+  assert.equal(Array.isArray(adminResult) && adminResult.length, 1, "explicitly provisioned admin role must remain valid");
+  assert.equal(adminResult[0].role, "implementation_admin", "non-empty explicit roles must be preserved");
+
+  console.log("Isolated setup enrollment passed: NULL/empty eligibility, configured-account denial, malformed/wrong/expired/replayed tokens, one-winner concurrency, NULL/empty/whitespace role fallback, explicit-role preservation, and cleanup.");
 } finally {
   if (fixturesMayExist) {
     for (const item of cases) {
