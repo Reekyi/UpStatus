@@ -35,6 +35,8 @@ assert(headerValue(testUser,"namespace")==="upseller-test","test namespace misma
 assert(headerValue(prodUser,"updateURL").includes("/upstatus/upstatus.user.js"),"production updateURL mismatch");
 assert(headerValue(testUser,"updateURL")===expectedTestUrl,"test updateURL must use the configured non-production TEST project");
 assert(headerValue(testUser,"downloadURL")===expectedTestUrl,"test downloadURL must use the configured non-production TEST project");
+assert(prodUser.includes("var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';"),"production Realtime URL must remain pinned to production");
+assert(testUser.includes("var UP_REALTIME_URL='https://"+testProjectId+".supabase.co';"),"TEST Realtime URL must use the dedicated TEST project");
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
 assert(prodUser.includes("var key='upstatus_';"),"production storage prefix mismatch");
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
