@@ -2209,3 +2209,10 @@ The shared isolated project was not queried or modified after the workflow while
 The three earlier failed Team Lite attempts were confined to defects in the new test harness itself (regex escaping, VM script joining, and a fake hash that included the raw token); the corrected exact HEAD above is the successful run. No product runtime code changed in this test-only work.
 
 No production write, migration, deploy, merge, release, flag/secret/role/ACL change or userscript publication occurred.
+
+
+## 2026-11-07 22:13 UTC — latest continuity Validate result
+
+The latest documentation checkpoint is HEAD `8c085c0cbdfd688d6da4e607c5eda904a7e39437`. Validate [42419519453](https://github.com/Reekyi/UpStatus/actions/runs/42419519453) completed FAILURE at the unchanged inherited develop-base assertion `client signed upload helper missing` in `scripts/validate.mjs:55`. This is the same base-contract mismatch, not a failure in the Markdown-only continuity update. PR #80 remains Draft and no product code or validator was changed.
+
+At this point #76 exact-head Candidate Checks [42419070366](https://github.com/Reekyi/UpStatus/actions/runs/42419070366) is SUCCESS, while #74 exact-head Signaling Smoke [42419107700](https://github.com/Reekyi/UpStatus/actions/runs/42419107700) remains IN_PROGRESS after static and unauthenticated checks passed. The isolated lab is in use by that Normal Smoke; do not run another fixture-mutating suite or query cleanup counts until it finishes.
