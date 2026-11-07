@@ -1276,3 +1276,20 @@ Catalog query confirmed: no setup-invite columns/RPC, no signaling rate-limit ta
 - All five tracked PRs remain open Draft with zero submitted human approvals.
 
 No production SQL write, migration, function deployment, secret/role/flag change, userscript publication, merge, release, or destructive operation occurred in this checkpoint.
+
+
+### Follow-up checkpoint — 2026-11-07 05:08 UTC
+
+The preceding 05:05 checkpoint's candidate SHAs are superseded by these exact heads:
+
+- Normal #74: `7a17b8de29495d1344ef8b0b71b3785e22f90774`.
+- Team Lite #76: `36c8c62846c912440eb1f73858aac76ba433e8ef`.
+
+Both `scripts/auth-enrollment.test.mjs` files now execute `clearLegacyPasswordStorage()` in a Node VM with stub storage and assert that only the matching product-prefixed password keys are deleted. This is a pure local test; it does not access Supabase.
+
+Exact-head CI as of 05:08 UTC:
+- Normal Validate [42341111073](https://github.com/Reekyi/UpStatus/actions/runs/42341111073): PASS.
+- Normal Signaling Smoke [42341111066](https://github.com/Reekyi/UpStatus/actions/runs/42341111066): pending, no jobs created.
+- Team Lite Candidate Checks [42341115265](https://github.com/Reekyi/UpStatus/actions/runs/42341115265): pending, no jobs created.
+
+The Team Lite candidate's missing `key` declaration was restored as `var key='upstatus_team_lite_'` before any storage access. The new test asserts that declaration. No physical Tampermonkey test has been performed; Issue #78 remains 0/8.
