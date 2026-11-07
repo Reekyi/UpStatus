@@ -12,6 +12,16 @@ assert.doesNotMatch(workflow, /^      SUPABASE_ACCESS_TOKEN:/m,
 const scopedTokenBindings = workflow.match(/^\s{10}SUPABASE_ACCESS_TOKEN: \$\{\{ secrets\.SUPABASE_ACCESS_TOKEN \}\}$/gm) || [];
 assert.equal(scopedTokenBindings.length, 3,
   "Supabase access token must be scoped only to credential check, metadata verification, and deploy steps");
+
+assert.match(workflow,
+  /name: Checkout exact dispatch commit\n\s+uses: actions\/checkout@[0-9a-f]{40}\n\s+with:\n\s+ref: \$\{\{ github\.sha \}\}\n\s+persist-credentials: false/,
+  "TEST deployment must check out the exact workflow-dispatch SHA without persisting credentials");
+assert.match(workflow,
+  /name: Require approved develop ref and exact checkout SHA[\s\S]*?GITHUB_REF[\s\S]*?refs\/heads\/develop[\s\S]*?git rev-parse HEAD[\s\S]*?GITHUB_SHA/,
+  "workflow must require develop and verify that the checked-out commit matches the dispatch SHA");
+assert.doesNotMatch(workflow, /ref: develop/,
+  "workflow must not resolve a moving develop branch after dispatch");
+
 assert.match(workflow, /name: Verify dedicated TEST project with Supabase Management API\n        env:/,
   "metadata verifier must receive the token only at its own step");
 assert.match(workflow, /name: Deploy TEST only\n        env:/,
@@ -21,4 +31,4 @@ assert.match(workflow, /supabase functions deploy upstatus-test --project-ref "\
 assert.doesNotMatch(workflow, /secrets\.SUPABASE_PROJECT_ID/,
   "workflow must not use the shared production project secret");
 
-console.log("PASS TEST deploy workflow is manual-only, TEST-only, and scopes the Supabase access token to the three steps that require it.");
+console.log("PASS TEST deploy workflow is manual-only, pins the dispatch SHA, verifies develop, deploys only TEST, and scopes the Supabase access token.");
