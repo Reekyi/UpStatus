@@ -1467,7 +1467,7 @@ This checkpoint supersedes the pending CI statuses in the earlier TEST-project f
 | #74 Normal | 7475a82e421c9286e6944ea17ee73afd39ed73d9 | Validate [42354944089](https://github.com/Reekyi/UpStatus/actions/runs/42354944089) SUCCESS; Signaling Smoke [42354944038](https://github.com/Reekyi/UpStatus/actions/runs/42354944038) SUCCESS |
 | #75 Team Lite baseline | 7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309 | Historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) SUCCESS |
 | #76 Team Lite signaling | 87bbb2f91ac21477d69f7945ec62598e2bc6dce7 | Candidate Checks [42354761800](https://github.com/Reekyi/UpStatus/actions/runs/42354761800) SUCCESS |
-| #80 continuity | 13d49a3af9fc4fcbed665a7a0891f3ed4ee9ef18 | Validate [42358547006](https://github.com/Reekyi/UpStatus/actions/runs/42358547006) fails inherited develop-base assertion: client signed upload helper missing |
+| #80 continuity | 7d6a0f3766e50ad83aab4c6150dec6c5bc7f172c | Validate [42362724293](https://github.com/Reekyi/UpStatus/actions/runs/42362724293) fails inherited develop-base assertion: client signed upload helper missing |
 | #82 independent QA | 6ca946f7520610b9d96bce296c74cfd0a7696748 | Validate [42360361232](https://github.com/Reekyi/UpStatus/actions/runs/42360361232) fails inherited master-base assertion: production updateURL mismatch |
 | #84 TEST target guard | 773cf5e1af2774568c5705cd0d108acdf5d417e0 | Validate [42362618413](https://github.com/Reekyi/UpStatus/actions/runs/42362618413) SUCCESS |
 
