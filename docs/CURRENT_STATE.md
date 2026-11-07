@@ -1516,3 +1516,50 @@ After #76 completed, an exact SELECT count on the isolated project returned zero
 - RT-01 public Realtime payload disclosure, table/function/default ACL remediation, distributed auth rate limiting, route-by-route Edge Function auth inventory, official TEST project/migration/rollback rehearsal, human reviews and explicit release approval remain open.
 
 No production or isolated SQL write/migration, Edge Function deployment, secret/role/flag change, userscript publication, merge, release, destructive operation or manual fixture cleanup occurred in this checkpoint.
+
+
+## 2026-11-07 07:55 BRT — exact-head refresh and TEST dispatch pin
+
+This checkpoint was appended after re-reading the Project Guide, the QA release-readiness document, the release cutover plan, the Realtime security matrix, and the live PR/issue/runtime state. It supersedes the 07:00 BRT CI table above.
+
+### Exact GitHub refs and CI
+
+- Default branches: `develop` = `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`; `master` = `a9288ccfcb0f308d3a587bfca624418a395be07b`; `team-lite-official` = `9065bc1536fde64f437f6f12b7abb9b072cb8281`.
+- PR #74 Normal: open/Draft, head `7475a82e421c9286e6944ea17ee73afd39ed73d9`. Validate [42354944089](https://github.com/Reekyi/UpStatus/actions/runs/42354944089) and Signaling Smoke [42354944038](https://github.com/Reekyi/UpStatus/actions/runs/42354944038) both SUCCESS on that exact head.
+- PR #75 Team Lite baseline: open/Draft, head `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`. Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) is historical PASS; #76 is the newer signaling candidate.
+- PR #76 Team Lite: open/Draft, head `87bbb2f91ac21477d69f7945ec62598e2bc6dce7`. Candidate Checks [42354761800](https://github.com/Reekyi/UpStatus/actions/runs/42354761800) SUCCESS on the exact head; the latest issue #79 checkpoint records 103/103 authenticated checks, WebRTC call/voice/screen, three-member mesh, 90 accepted + 1 HTTP 429 with Retry-After 60s, concurrency, atomic receipts, AUTH-03 and fixture cleanup.
+- PR #80 continuity: open/Draft, head `e1062da07c5779687e652e0587dba6000df439a4`. Validate [42362808249](https://github.com/Reekyi/UpStatus/actions/runs/42362808249) FAILURE at the inherited develop-base assertion `client signed upload helper missing`. Do not copy runtime code into the documentation branch or weaken the validator; the candidate implementation is in #84.
+- PR #82 independent QA: open/Draft, head `d5d71586a07ea1d7436f868b51c1dc1c09a54f5f`. Validate [42364918068](https://github.com/Reekyi/UpStatus/actions/runs/42364918068) FAILURE at the inherited master-base assertion `production updateURL mismatch`. QA branch remains untouched.
+- PR #84 TEST isolation: open/Draft, head `66ccc65af430dfee55560e90e1f832336fff0212`. The preceding exact-head Validate [42362618413](https://github.com/Reekyi/UpStatus/actions/runs/42362618413) passed all guards and full Validate on head `773cf5e`. The new exact-head Validate [42366213144](https://github.com/Reekyi/UpStatus/actions/runs/42366213144) is IN_PROGRESS after the dispatch-SHA hardening below; do not reuse the prior green result as evidence for `66ccc65`.
+- All six PRs remain open and Draft. Latest review-list queries found no submitted human approvals.
+
+### PR #84 — exact commit pinning for manual TEST deployment
+
+A review of the candidate workflow found a small race: it checked out the moving branch name `develop` after the workflow-dispatch event. If `develop` advanced between dispatch and checkout, the run could deploy a different commit from the one recorded by GitHub for that run.
+
+The candidate now checks out `${{ github.sha }}` and verifies `git rev-parse HEAD` equals `GITHUB_SHA`, while retaining the explicit `refs/heads/develop` allowlist. The regression script asserts exact-SHA checkout, ref allowlist, SHA equality, manual-only trigger, TEST-only function target, and step-scoped access-token bindings. Documentation was updated in `docs/TEST_ENVIRONMENT_GUARD.md`.
+
+Commits on the existing isolated #84 branch:
+- `4e644869566424ac1500ec7fa68937e2d1f6e99a`: pin checkout to dispatch SHA and assert the approved develop ref/SHA.
+- `3840a7110cc12ed1cdd7f80ee9906b6b8144e9c7`: add regression assertions.
+- `66ccc65af430dfee55560e90e1f832336fff0212`: document the dispatch-SHA contract.
+
+The branch was re-read before each edit; the current PR head and file contents were re-fetched afterward. The new Validate run is still in progress. No workflow_dispatch deploy was run and no live Management API request was made.
+
+### Supabase — fresh read-only state
+
+- Organization `bcjtvojfkfoxvsitzmkl` still has exactly two projects: production `dlfvkawaiqduhlazsszm` and isolated signaling/auth lab `bfpjtfqlnypisxljoxkb`. There is no dedicated full-product TEST project.
+- Production remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations through `20261027155438`, and 38 ACTIVE Edge Functions. Current core versions: Normal `upstatus` v480, `upstatus-test` v281 (inside production), Team Lite v15, legacy Normal screen-share v6.
+- Production remains without setup-invite objects, auth-specific rate-limit objects, product signaling rate-limit objects, or a dedicated `upstatus-signal` function.
+- Read-only function ACL query reconfirmed all three trigger-only broadcast functions are SECURITY DEFINER, use `search_path=public`, and have EXECUTE effective for anon/authenticated/service_role. Security Advisor observed at 10:57 UTC: 3 WARN for anon, 3 WARN for authenticated, and 10 RLS-enabled/no-policy INFO; Health returned no findings.
+- Isolated lab remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 33 migrations, `upstatus-signal-test` v32 and E2E helper v3. No test suite or fixture mutation was started in this pass.
+
+### Release gates
+
+- Issue #78 remains OPEN with 0/8 acceptance criteria checked. Physical Tampermonkey network loss/recovery without F5, real microphone/display permissions, browser lifecycle and installed Normal ↔ Team Lite interoperability remain MANUAL PENDING.
+- RT-01 remains BLOCKED: production public Realtime triggers still publish full message rows and remote/user metadata. Candidate payload minimization is not deployed and does not retire public legacy signaling.
+- RT-09 remains PARTIAL: the distributed rate limiter is validated in the isolated signaling endpoint but is not integrated into both product-facing endpoints or production.
+- Production table/function/default ACL remediation, official TEST provisioning, migration/rollback rehearsal, product endpoint cutover, human reviews, and explicit release approval remain open.
+- The deployed production Normal/Team Lite functions remain on their current versions; no candidate migration or Edge Function was deployed.
+
+No production or isolated SQL write/migration, Edge Function deployment, secret/role/flag change, userscript publication, merge, release, destructive operation, or manual fixture cleanup occurred in this checkpoint. All Supabase SQL in this pass was SELECT-only.
