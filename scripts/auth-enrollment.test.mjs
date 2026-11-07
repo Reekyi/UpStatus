@@ -276,9 +276,11 @@ function makeRouteHarness(options={}){
     ["Lucca","implementation_user"],
     ["Target",null]
   ]);
+  const sessionHashes=new Map([["admin-session","session-hash-admin"],["user-session","session-hash-user"],["padded-admin-session","session-hash-padded-admin"]]);
+  const routeTokenHash=raw=>sessionHashes.get(raw)||("sha256:"+"cd".repeat(32));
   const sessions=new Map();
   for(const [raw,name] of [["admin-session","Admin"],["user-session","User"],["padded-admin-session","PaddedAdmin"]]){
-    sessions.set("sha256:"+raw,{
+    sessions.set(routeTokenHash(raw),{
       user_name:name,
       expires_at:new Date(Date.now()+60000).toISOString()
     });
@@ -355,7 +357,7 @@ function makeRouteHarness(options={}){
     db,
     sessionCache:new Map(),
     SESSION_CACHE_TTL_MS:5000,
-    tokenHash:raw=>"sha256:"+raw,
+    tokenHash:routeTokenHash,
     randomBytes:n=>({toString:encoding=>{assert.equal(encoding,"hex");return "ab".repeat(n);}}),
     passwordHash:password=>"password-hash:"+password,
     checkPassword:()=>false,
@@ -434,7 +436,7 @@ function makeRouteRequest(state,options={}){
   assert.match(result.body.setupToken,/^[0-9a-f]{64}$/);
   assert.equal(h.state.updates.length,1);
   assert.equal(h.state.updates[0].setup_token_issued_by,"Admin","issuer identity must come from the validated session, not request JSON");
-  assert.equal(h.state.updates[0].setup_token_hash,"sha256:"+result.body.setupToken,"only the token hash may be persisted");
+  assert.equal(h.state.updates[0].setup_token_hash,"sha256:"+"cd".repeat(32),"only the token hash may be persisted");
   assert.equal(JSON.stringify(h.state.updates[0]).includes(result.body.setupToken),false,"the raw invite token must not be persisted");
   assert.equal(h.state.eligibilityFilter,'password_hash.is.null,password_hash.eq.""');
 }
@@ -473,7 +475,7 @@ function makeRouteRequest(state,options={}){
   assert.equal(result.body.error,"Código de primeiro acesso inválido ou expirado.");
   assert.equal(h.state.rpcCalls.length,1);
   assert.equal(h.state.rpcCalls[0].name,"consume_upstatus_setup_invite");
-  assert.equal(h.state.rpcCalls[0].args.p_setup_token_hash,"sha256:"+rawToken,"only the token hash may reach the consume RPC");
+  assert.equal(h.state.rpcCalls[0].args.p_setup_token_hash,"sha256:"+"cd".repeat(32),"only the token hash may reach the consume RPC");
   assert.equal(JSON.stringify(h.state.rpcCalls[0].args).includes(rawToken),false,"raw setup tokens must not reach the RPC");
   assert.equal(h.state.createdSessions.length,0,"failed invite consumption must not create a session");
 }
@@ -485,7 +487,7 @@ function makeRouteRequest(state,options={}){
   }),"/api/setup");
   assert.equal(result.status,200,"a valid one-time invite must complete the actual first-setup route");
   assert.equal(h.state.rpcCalls.length,1);
-  assert.equal(h.state.rpcCalls[0].args.p_setup_token_hash,"sha256:"+rawToken);
+  assert.equal(h.state.rpcCalls[0].args.p_setup_token_hash,"sha256:"+"cd".repeat(32));
   assert.equal(h.state.rpcCalls[0].args.p_password_hash,"password-hash:abcdef");
   assert.deepEqual(h.state.createdSessions,[{name:"Target",role:"implementation_user"}],"blank enrolled roles must default to implementation_user");
 }
