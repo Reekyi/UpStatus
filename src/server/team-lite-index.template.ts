@@ -101,7 +101,8 @@ async function login(req:Request,setup:boolean){
     if(error)throw error;
     const enrolled=Array.isArray(data)?data[0]:null;
     if(!enrolled||String(enrolled.name)!==name)return response({error:"Código de primeiro acesso inválido ou expirado."},403);
-    return createSession(name,{name,role:enrolled.role||"implementation_user"});
+    const enrolledRole=String(enrolled.role||"").trim()||"implementation_user";
+    return createSession(name,{name,role:enrolledRole});
   }
   const a=await account(name);
   if(!a||!a.password_hash||!checkPassword(password,String(a.password_hash)))return response({error:"Nome ou senha incorretos."},401);
