@@ -1563,3 +1563,8 @@ The branch was re-read before each edit; the current PR head and file contents w
 - The deployed production Normal/Team Lite functions remain on their current versions; no candidate migration or Edge Function was deployed.
 
 No production or isolated SQL write/migration, Edge Function deployment, secret/role/flag change, userscript publication, merge, release, destructive operation, or manual fixture cleanup occurred in this checkpoint. All Supabase SQL in this pass was SELECT-only.
+
+
+### #80 Validate follow-up — 2026-11-07 07:56 BRT
+
+After the 07:55 BRT continuity append, PR #80 head `d4d2f52d55e9866647ebd9e23df66a9392619c6b` completed Validate run [42366246384](https://github.com/Reekyi/UpStatus/actions/runs/42366246384) with FAILURE at `node scripts/validate.mjs`: `VALIDATION FAILED: client signed upload helper missing`. The workflow checked out the expected docs-branch merge ref; the failure is still the unchanged `develop` baseline contract. The signed-upload implementation and its exact-head green Validate remain isolated in PR #84; no code was copied into #80 and no validator was weakened. This note is documentation-only and does not change the runtime candidate.
