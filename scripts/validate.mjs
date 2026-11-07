@@ -76,7 +76,8 @@ assert(testUser.includes("var UPSTATUS_TEST_CHANNEL=true;"),"TEST updater must b
 assert(prodUser.includes("var RELEASE_MANIFEST_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json';"),"production updater must use the production release manifest");
 assert(testUser.includes("var RELEASE_MANIFEST_URL='';"),"TEST artifact must not use the production release manifest");
 assert(!testUser.includes("https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),"TEST artifact must not contain the production release feed");
-assert(testUser.includes("var UPDATE_URL='https://"+testProjectId+".supabase.co/functions/v1/upstatus-test/upstatus.user.js';"),"TEST manual update URL must use the TEST project");
+assert(testUser.includes("var CLOUD_SERVER='https://"+testProjectId+".supabase.co/functions/v1/upstatus-test';"),"TEST cloud server must use the dedicated TEST project");
+assert(testUser.includes("var UPDATE_URL=CLOUD_SERVER+'/upstatus.user.js';"),"TEST manual update URL must derive from the TEST cloud server");
 assert(testUser.includes("new URL(UP_REALTIME_URL+'/storage/v1/object/upload/sign/'"),"TEST Storage fallback must use the TEST Realtime origin");
 assert(headerValue(testUser,"updateURL")!=="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js","test updateURL must not target production");
 assert(headerValue(testUser,"downloadURL")!=="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js","test downloadURL must not target production");
