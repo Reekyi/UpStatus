@@ -1908,3 +1908,62 @@ All seven PRs remain open and Draft, with no submitted human reviews. CI PASS is
 
 - PR #80 current HEAD `9202a4d0abb786be02fc656e765310f785a6a385` received Validate [42390098833](https://github.com/Reekyi/UpStatus/actions/runs/42390098833), which failed at the same inherited develop-base assertion `client signed upload helper missing`. The changed files remain documentation-only; no validator was weakened. The helper is candidate-only in PR #84 and is not yet part of `develop`.
 - PR #74 current HEAD `27e8fdc4986f583a37fb6b0c5d2cf8df1bac3e02` still has Validate [42389921918](https://github.com/Reekyi/UpStatus/actions/runs/42389921918) SUCCESS and Signaling Smoke [42389921913](https://github.com/Reekyi/UpStatus/actions/runs/42389921913) PENDING with no jobs. Keep the isolated lab reserved; do not apply the new test migration until the smoke workflow finishes and post-run fixture counts are rechecked.
+
+
+## Engineering checkpoint — 2026-11-07 13:56 BRT (live revalidation)
+
+This entry supersedes the previous 12:35 BRT/16:14 UTC snapshots for the refs, workflows, and isolated database evidence below. PR #82's QA branch and `docs/RELEASE_READINESS.md` were read but not edited.
+
+### Exact GitHub refs and CI
+
+| PR | HEAD | Base | Ahead / behind | Exact-head workflow |
+|---|---|---|---:|---|
+| #74 Normal | `27e8fdc4986f583a37fb6b0c5d2cf8df1bac3e02` | `master` | 843 / 0 | Validate [42389921918](https://github.com/Reekyi/UpStatus/actions/runs/42389921918) SUCCESS; Signaling Smoke [42389921913](https://github.com/Reekyi/UpStatus/actions/runs/42389921913) SUCCESS |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | `team-lite-official` | 59 / 0 | Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) historical SUCCESS |
+| #76 Team Lite | `2e0ff69419cdd2a06c68c5d58cf221ccfc6738c7` | `team-lite-official` | 313 / 0 | Candidate Checks [42386904302](https://github.com/Reekyi/UpStatus/actions/runs/42386904302) SUCCESS |
+| #80 continuity | `61595a186108a3bdc6d8e0db9a9a653ea88eaa6e` | `develop` | 196 / 0 | Validate [42390166606](https://github.com/Reekyi/UpStatus/actions/runs/42390166606) FAILURE: inherited `client signed upload helper missing` |
+| #82 independent QA | `6b5bf481ac68602f3ff45e6af225bb92d6eabff5` | `master` | 102 / 0 | Validate [42392158080](https://github.com/Reekyi/UpStatus/actions/runs/42392158080) FAILURE: inherited `production updateURL mismatch` |
+| #84 TEST isolation | `21341f331270e142bdf7584c1cdf16e6011e41b3` | `develop` | 30 / 0 | Validate [42387042361](https://github.com/Reekyi/UpStatus/actions/runs/42387042361) SUCCESS |
+| #85 master stabilization | `17554523ef51bafd503e74b3f1271d55f43a6eda` | `master` | 21 / 0 | Validate [42386047749](https://github.com/Reekyi/UpStatus/actions/runs/42386047749) SUCCESS |
+
+All seven PRs remain OPEN, Draft, unmerged, and have zero submitted human reviews. #76 is the current Team Lite continuation of #75, not an independent release candidate. #80 changes only `UPSTATUS_HANDOFF.md` and `docs/CURRENT_STATE.md`; its Validate failure is inherited from develop. #82 changes only QA documentation; its failure is the old master validator contract, not proof of a bad URL in the #74 candidate.
+
+Normal Smoke logs on exact HEAD #74 show 129/129 authenticated integration checks, call/voice/screen WebRTC with remote tracks, three-member mesh/teardown, 90 accepted + 1 HTTP 429 with `Retry-After: 60s`, concurrent room/voice-attempt lifecycle cases, AUTH-03 wrong/malformed/expired/replayed-token and one-winner checks, role fallback/preservation/padded-admin non-escalation, and fixture cleanup. Team Lite exact-head logs show 103/103 authenticated checks, call/voice/screen WebRTC, three-member mesh, 90 + 1 HTTP 429/`Retry-After: 60s`, durable voice leave/rejoin/offline-online/pagehide recovery tests, AUTH-03 and cleanup.
+
+### Branch governance and TEST workflow
+
+The GitHub branch API currently reports `protected=false` for both `master` and `develop`; required status-check enforcement is off. No branch-protection or ruleset settings were changed.
+
+The live `develop` branch still contains the old push-triggered TEST deploy workflow using shared `SUPABASE_PROJECT_ID`. The safer manual-only, TEST-specific, metadata-verified, exact-dispatch-SHA workflow exists only in Draft PR #84. Do not dispatch the old workflow or assume #84 is active in develop. The organization still has no full-product TEST project, and Team Lite has no separate full-product TEST function/workflow.
+
+### Supabase inventory and isolated search-path test
+
+- Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations, 38 active Edge Functions. Core versions remain Normal `upstatus` v480, TEST `upstatus-test` v281, Team Lite `upstatus-team-lite` v15, and legacy screen-share v6.
+- Isolated lab `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003. The organization still has only these two projects.
+- Before the isolated test migration, all 11 application fixture categories were zero and the GitHub Actions API showed no queued/in-progress runs. The isolated-only counterpart `20261107170000_pin_empty_search_path_trigger_broadcasts_test.sql` was applied to this exact allowlisted project; the migration ledger now records `20261107165942 pin_empty_search_path_trigger_broadcasts_test`. Production migrations were not touched.
+- Post-migration catalog verification: all three broadcast functions remain SECURITY DEFINER; each has empty function `search_path`; each remains attached to its original trigger; `realtime.send` remains schema-qualified; `anon` and `authenticated` cannot EXECUTE; `service_role` can EXECUTE.
+- All 11 application fixture counts plus `realtime.messages` were zero after the test.
+
+### Trigger probe limitation discovered in the isolated lab
+
+A transactional DML probe exercised message insert, remote-state insert, and user-status update with a sentinel exception that rolled back the entire subtransaction. The trigger functions ran under empty `search_path`, but `realtime.send` logged and swallowed `WarnSendingBroadcastMessage: no partition of relation "messages" found for row`; no Realtime rows were inserted. The probe therefore did **not** prove end-to-end broadcast delivery, and no persistent fixture or Realtime row remained.
+
+Catalog inspection explains the limitation: the isolated project's partitioned `realtime.messages` relation has no child partitions. Production has daily child partitions for 2026-11-03 through 2026-11-09, including the current date. Neither project reports `pg_cron` or `pg_partman` installed. Do not create partitions manually in Supabase-managed schemas as an ad-hoc fix. The isolated test migration proves the function configuration/grants/bindings; a separate supported Realtime lab setup is needed for delivery testing.
+
+### Production security snapshot — read only
+
+Production broadcast functions still have `search_path=public`, effective EXECUTE for `anon` and `authenticated`, and public Realtime sends. The message function still serializes the full row with `to_jsonb`; the candidate empty-search-path migration does not remove payloads or make channels private. Security Advisor at 2026-11-07 16:58 UTC reports 3 SECURITY DEFINER WARN for anon, 3 for authenticated, and 10 RLS-without-policy INFO; Performance and Health have no findings. Nine backend-owned tables retain excessive client grants (including TRUNCATE), and default ACL remediation remains open.
+
+### Release gates and manual acceptance
+
+- RT-01: remove full-row/public broadcasts and complete a coordinated authenticated/private Realtime or server-mediated cutover.
+- Provision a full-product TEST project and a separate Team Lite TEST runtime/workflow; do not repurpose production or the signaling/auth lab.
+- Complete AUTH-03 HTTP issuance/non-admin denial/token-delivery tests and a distributed fail-closed auth limiter.
+- Resolve grants/default ACLs through the correct owner/admin path.
+- Validate real Storage behavior and decide whether public bucket reads are acceptable for chat documents.
+- Issue #78 remains OPEN at 0/8 physical criteria. Real Tampermonkey network loss/no-F5 recovery, browser termination while offline, physical microphone/display capture, and installed Normal ↔ Team Lite acceptance remain MANUAL PENDING.
+- Reconcile the stale body of issue #79; the latest engineering checkpoint comment is the live source until the checklist body is deliberately reconciled.
+
+### Safety
+
+Only the isolated test migration above was applied. Production SQL was SELECT/catalog-only. No production migration/write, deploy, Edge Function change, secret/role/grant/policy/ACL/flag change, fixture cleanup, workflow dispatch/rerun/cancel, PR merge, release, userscript publication, or branch-protection change occurred. No QA branch or QA file was modified.
