@@ -21,6 +21,9 @@ for(const sidecar of ["supabase/functions/upstatus/index_v25_loader.ts","supabas
 const baseVersion=String(release.version).trim();
 const preRelease=String(release.preRelease||"").trim();
 const testVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
+const buildManifest=JSON.parse(fs.readFileSync(path.join(ROOT,"dist/build-manifest.json"),"utf8"));
+const testProjectId=String(buildManifest.testProjectId||"").trim();
+const configuredTestProject=String(process.env.UPSTATUS_TEST_PROJECT_ID||"").trim();
 const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.ts"),"utf8");
 const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
 const triggerGrantMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261029170500_restrict_trigger_function_execute.sql"),"utf8");
@@ -32,6 +35,12 @@ const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
+assert(/^[a-z0-9]{20}$/.test(testProjectId),"TEST project reference must be a 20-character lowercase Supabase ref");
+assert(testProjectId!=="dlfvkawaiqduhlazsszm","TEST artifact must never target production Supabase");
+assert(testProjectId!=="bfpjtfqlnypisxljoxkb","full TEST artifact must not target the isolated signaling/auth project");
+assert(buildManifest.testTargetConfigured===Boolean(configuredTestProject),"build manifest TEST target configuration mismatch");
+assert(testProjectId===(configuredTestProject||"00000000000000000000"),"build manifest TEST project reference mismatch");
+const expectedTestUrl="https://"+testProjectId+".supabase.co/functions/v1/upstatus-test/upstatus.user.js";
 function compareVersions(a,b){const left=String(a||"").split(".").map(Number),right=String(b||"").split(".").map(Number);for(let i=0;i<3;i++){const x=left[i]||0,y=right[i]||0;if(x!==y)return x>y?1:-1;}return 0;}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
 function checkSyntax(text,label){new vm.Script(text,{filename:label});}
@@ -58,8 +67,8 @@ assert(headerValue(testUser,"namespace")==="upseller-test","test namespace misma
 const expectedProductionUpdateUrl=String(release.scriptUrl||"https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js").trim();
 assert(headerValue(prodUser,"updateURL")===expectedProductionUpdateUrl,"production updateURL must match the configured stable endpoint");
 assert(headerValue(prodUser,"downloadURL")===expectedProductionUpdateUrl,"production downloadURL must match the configured stable endpoint");
-assert(headerValue(testUser,"updateURL")==="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test/upstatus.user.js","test updateURL mismatch");
-assert(headerValue(testUser,"downloadURL")==="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test/upstatus.user.js","test downloadURL mismatch");
+assert(headerValue(testUser,"updateURL")===expectedTestUrl,"test updateURL must use the configured non-production TEST project");
+assert(headerValue(testUser,"downloadURL")===expectedTestUrl,"test downloadURL must use the configured non-production TEST project");
 assert(headerValue(testUser,"updateURL")!=="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js","test updateURL must not target production");
 assert(headerValue(testUser,"downloadURL")!=="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js","test downloadURL must not target production");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
