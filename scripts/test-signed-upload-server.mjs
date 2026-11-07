@@ -32,7 +32,7 @@ function harness(overrides={}){
             const token=overrides.token||"server-token";
             const data=overrides.signedData
               ?overrides.signedData({bucket,path,token})
-              :{token,path,signedUrl:"/object/upload/sign/"+bucket+"/"+path+"?token="+encodeURIComponent(token)};
+              :{token,path,signedUrl:project+"/storage/v1/object/upload/sign/"+bucket+"/"+path+"?token="+encodeURIComponent(token)};
             return {data,error:null};
           },
           getPublicUrl:path=>({data:{publicUrl:overrides.publicUrl?overrides.publicUrl({bucket,path}):project+"/storage/v1/object/public/"+bucket+"/"+path}})
@@ -82,15 +82,15 @@ for(const size of [0,-1,1.5,20*1024*1024+1]){
   await assert.rejects(()=>h.context.__signedUploadRoute(req({mime:"image/png",size:10,name:"x.png"}),"chat"),/origem ou rota de upload inesperada/);
 }
 {
-  const h=harness({signedData:({bucket,path,token})=>({token,path,signedUrl:"/object/upload/sign/"+bucket+"/"+path+"?token=wrong"})});
+  const h=harness({signedData:({bucket,path,token})=>({token,path,signedUrl:project+"/storage/v1/object/upload/sign/"+bucket+"/"+path+"?token=wrong"})});
   await assert.rejects(()=>h.context.__signedUploadRoute(req({mime:"image/png",size:10,name:"x.png"}),"chat"),/token da URL assinada/);
 }
 {
-  const h=harness({signedData:({bucket,path,token})=>({token,path:path+"-other",signedUrl:"/object/upload/sign/"+bucket+"/"+path+"?token="+token})});
+  const h=harness({signedData:({bucket,path,token})=>({token,path:path+"-other",signedUrl:project+"/storage/v1/object/upload/sign/"+bucket+"/"+path+"?token="+token})});
   await assert.rejects(()=>h.context.__signedUploadRoute(req({mime:"image/png",size:10,name:"x.png"}),"chat"),/caminho assinado/);
 }
 {
-  const h=harness({signedData:({bucket,path,token})=>({token,path,signedUrl:"/object/upload/sign/"+bucket+"/"+path+"?token="+token+"#fragment"})});
+  const h=harness({signedData:({bucket,path,token})=>({token,path,signedUrl:project+"/storage/v1/object/upload/sign/"+bucket+"/"+path+"?token="+token+"#fragment"})});
   await assert.rejects(()=>h.context.__signedUploadRoute(req({mime:"image/png",size:10,name:"x.png"}),"chat"),/origem ou rota de upload inesperada/);
 }
 {
