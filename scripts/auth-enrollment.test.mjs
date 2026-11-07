@@ -47,6 +47,7 @@ assert.doesNotMatch(client, /GM_setValue\(passwordKey\(name\),password\)|session
 assert.match(client, /passwordInput\.value=''/, "successful authentication must clear the password input");
 assert.match(client, /setupTokenInput\.value=''/, "successful first access must clear the one-time token input");
 if (product === "normal") {
+  assert.ok(client.includes("var key='__UPSTATUS_STORAGE_PREFIX__';"), "Normal storage namespace placeholder must remain present");
   assert.match(client, /@grant\s+GM_listValues/, "Normal must request GM_listValues to purge legacy credentials");
   assert.match(client, /@grant\s+GM_deleteValue/, "Normal must request GM_deleteValue to purge legacy credentials");
   assert.match(client, /GM_listValues\(\)/, "Normal must enumerate its legacy credential keys");
