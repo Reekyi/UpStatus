@@ -2140,3 +2140,12 @@ No production SQL write, migration, Edge Function deployment, secret/role/grant/
 ## 2026-11-07 21:12 UTC — #80 documentation-head follow-up
 
 The checkpoint above was committed as HEAD `fbbd80f0a75e1f1df4ec469337c85fdfead19024`. Its exact Validate [42414485760](https://github.com/Reekyi/UpStatus/actions/runs/42414485760) completed FAILURE at the inherited develop-base assertion `client signed upload helper missing` (confirmed in the job log). This is the same base mismatch recorded above, not a failure in the documentation change. PR #80 remains open/Draft; compare is now 202/0 ahead/behind develop. No product code was copied into the continuity branch and no validator was weakened.
+
+
+## 2026-11-07 21:13 UTC — Team Lite Candidate Checks completed
+
+PR #76 exact HEAD `26122c55fd453882f92094e12c09914d77b11b07` completed Candidate Checks [42414281711](https://github.com/Reekyi/UpStatus/actions/runs/42414281711) **SUCCESS**. All workflow steps passed, including the new authenticated active voice-room leave regression. The exact job log confirms 103/103 authenticated integration checks; open voice late join across Normal/Team Lite aliases, idempotency, owner handoff, capacity and leave/close races; Chromium call/voice/screen WebRTC with remote tracks; three-member mesh and teardown; 90 accepted + one HTTP 429 with `Retry-After: 60s`; distributed rate-limit concurrency; atomic chat receipt concurrency; setup-invite malformed/wrong/expired/replayed token and one-winner checks; migration layout and Team Lite version/portal/updater checks.
+
+A SELECT-only post-run snapshot on isolated project `bfpjtfqlnypisxljoxkb` confirmed zero rows in all 11 fixture categories (users, sessions, rooms, memberships, events, bindings, rate limits, call attempts, voice attempts, chat reads and messages), plus zero rows/child partitions in `realtime.messages`. No manual cleanup was performed.
+
+This is exact-head isolated CI evidence, not physical Tampermonkey acceptance. Issue #78 remains OPEN at 0/8 physical criteria; no real network outage/no-F5, hardware microphone/display permission or installed cross-product test was performed. Production remains unchanged.
