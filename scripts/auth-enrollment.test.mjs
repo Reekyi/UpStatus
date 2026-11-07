@@ -19,8 +19,14 @@ const loginStart = server.indexOf("async function login(req:Request,setup:boolea
 const loginEnd = loginStart >= 0 ? server.indexOf("\n}", loginStart) : -1;
 assert.ok(loginStart >= 0 && loginEnd > loginStart, "login handler must remain testable for password compatibility");
 const loginBody = server.slice(loginStart, loginEnd);
-assert.ok(loginBody.includes("const minPasswordLength=4;"), "password minimum policy changed unexpectedly");
-assert.ok(loginBody.includes("password.length<minPasswordLength"), "login and setup must use the explicit minimum-length policy");
+const normalServer = fs.readFileSync(path.join(ROOT, "src/server/index.template.ts"), "utf8");
+const normalLoginStart = normalServer.indexOf("async function login(req:Request,setup:boolean){");
+const normalLoginEnd = normalLoginStart >= 0 ? normalServer.indexOf("\n}", normalLoginStart) : -1;
+assert.ok(normalLoginStart >= 0 && normalLoginEnd > normalLoginStart, "Normal login handler must remain available for cross-product password-policy checks");
+const normalLoginBody = normalServer.slice(normalLoginStart, normalLoginEnd);
+assert.ok(normalLoginBody.includes("const minPasswordLength=setup?6:4;"), "Normal must require six characters for first setup while preserving four-character login compatibility");
+assert.ok(loginBody.includes("const minPasswordLength=setup?6:4;"), "Team Lite must match Normal: six characters for first setup and four for existing login compatibility");
+assert.ok(loginBody.includes("password.length<minPasswordLength"), "Team Lite must enforce the shared setup/login minimum policy");
 const client = fs.readFileSync(path.join(ROOT, config.client), "utf8");
 const migration = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261107010000_setup_invites.sql"), "utf8");
 const testMigration = fs.readFileSync(path.join(ROOT, "supabase/test-migrations/20261107010000_setup_invites_test.sql"), "utf8");
