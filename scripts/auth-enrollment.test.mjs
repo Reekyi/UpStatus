@@ -129,7 +129,7 @@ const authGuardAt=server.indexOf('if(!ctx)return response({error:"Faça login pa
 const inviteRouteAt=server.indexOf('if(path==="/api/setup-invite"&&req.method==="POST")',contextAt);
 assert.ok(contextAt>=0&&authGuardAt>contextAt&&inviteRouteAt>authGuardAt,"setup-invite route must be behind the active-session guard");
 assert.ok(server.includes('issueSetupInvite(req,name||"")'),"setup-invite route must use the name derived from the authenticated context");
-assert.doesNotMatch(issueInviteFunction,/console\\.(log|error)\\(/,"raw setup tokens must never be logged by the invite handler");
+assert.doesNotMatch(issueInviteFunction,/console\.(log|error)\(/,"raw setup tokens must never be logged by the invite handler");
 
 const roleMap=new Map([
   ["Admin","implementation_admin"],
@@ -174,7 +174,7 @@ function makeInviteHarness(targetAvailable=true){
     randomBytes:n=>({toString:encoding=>{assert.equal(encoding,"hex");return "ab".repeat(n);}}),
     tokenHash:raw=>"sha256:"+raw
   };
-  const handlers=vm.runInNewContext(adminFunction+"\\n"+issueInviteFunction+"\\n({admin,issueSetupInvite})",sandbox);
+  const handlers=vm.runInNewContext(adminFunction+"\n"+issueInviteFunction+"\\n({admin,issueSetupInvite})",sandbox);
   return {handlers,state};
 }
 const authHarness=makeInviteHarness();
