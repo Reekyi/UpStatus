@@ -262,6 +262,6 @@ The isolated broadcast payload reduction is useful but does not close RT-01. Do 
 
 ## Post-snapshot verification — 2026-11-07 07:38 UTC
 
-The 07:30 snapshot above recorded QA PR #82 at its pre-report head \`1693410699346c988976c679f3ad8b1be00a5d28\`. Creating this audit and correcting its Markdown escaping advanced the QA branch to \`fe55e2e344e880fbb1496a18ac0aea1c1d4cbc47\` (87 commits ahead of master, zero behind).
+The 07:30 snapshot above recorded QA PR #82 at its pre-report head `1693410699346c988976c679f3ad8b1be00a5d28`. Creating this audit and correcting its Markdown escaping advanced the QA branch to `fe55e2e344e880fbb1496a18ac0aea1c1d4cbc47` (87 commits ahead of master, zero behind).
 
-A fresh exact-head workflow query on \`fe55e2e\` returned [Validate 42352117995](https://github.com/Reekyi/UpStatus/actions/runs/42352117995), completed FAILURE. Job \`128342281405\` built UpStatus 3.4.7 / TEST 3.4.7, then failed with \`VALIDATION FAILED: production updateURL mismatch\`. This is the same build/manifest contract failure; no validator change is recommended. The new QA append below records the observed failure; it does not change the underlying release gate.
+A fresh exact-head workflow query on `fe55e2e` returned [Validate 42352117995](https://github.com/Reekyi/UpStatus/actions/runs/42352117995), completed FAILURE. Job `128342281405` built UpStatus 3.4.7 / TEST 3.4.7, then failed with `VALIDATION FAILED: production updateURL mismatch`. This is the same build/manifest contract failure; no validator change is recommended. The new QA append below records the observed failure; it does not change the underlying release gate.
