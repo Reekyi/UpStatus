@@ -1125,3 +1125,9 @@ assert.ok(testDeployWorkflow.includes("node scripts/test-build-target-guard.mjs"
   testDeployWorkflow.includes('--project-ref "$SUPABASE_TEST_PROJECT_ID"'),
   "TEST deployment must run the target guard, use a pinned CLI, and deploy only to the dedicated TEST project");
 console.log("PASS manual TEST deployment is isolated from production and the signaling fixture project.");
+
+const testRealtimeTemplate = readFileSync("src/userscript/upstatus.user.template.js", "utf8");
+const testRealtimeBuild = readFileSync("scripts/build.mjs", "utf8");
+assert.ok(testRealtimeTemplate.includes("var UP_REALTIME_URL='__UPSTATUS_REALTIME_URL__';") &&
+  testRealtimeBuild.includes('"__UPSTATUS_REALTIME_URL__":"https://"+(test?TEST_PROJECT:PROJECT)+".supabase.co"'),
+  "TEST Realtime URL must be rendered from the same isolated project target as the TEST API");
