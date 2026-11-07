@@ -17,19 +17,27 @@ jobs:
       EXPECTED_ISOLATED_SIGNALING_PROJECT_ID: bfpjtfqlnypisxljoxkb
       EXPECTED_SUPABASE_ORGANIZATION_ID: bcjtvojfkfoxvsitzmkl
     steps:
-      - name: Checkout develop
+      - name: Checkout exact dispatch commit
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          ref: develop
+          ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Require a dedicated TEST project and credentials
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      - name: Require approved develop ref and exact checkout SHA
+        shell: bash
         run: |
           if [ "$GITHUB_REF" != "refs/heads/develop" ]; then
             echo "::error::TEST deploy is allowed only from refs/heads/develop."
             exit 1
           fi
+          checked_out_sha="$(git rev-parse HEAD)"
+          if [ -z "$GITHUB_SHA" ] || [ "$checked_out_sha" != "$GITHUB_SHA" ]; then
+            echo "::error::Checked-out commit does not match the workflow dispatch SHA."
+            exit 1
+          fi
+      - name: Require a dedicated TEST project and credentials
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
           if [ -z "$SUPABASE_TEST_PROJECT_ID" ]; then
             echo "::error::vars.SUPABASE_TEST_PROJECT_ID is required; refusing to deploy TEST."
             exit 1
