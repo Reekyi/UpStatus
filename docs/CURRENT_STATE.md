@@ -1625,3 +1625,45 @@ No production write, migration, deploy, merge, release, userscript publication, 
 ### #80 documentation commit follow-up — 2026-11-07 09:04 BRT
 
 The continuity update above created a new PR #80 head: `2c7f50bdc9a6844e4538ae989a469385bbf97fa0`. Its exact-head Validate run [42370862157](https://github.com/Reekyi/UpStatus/actions/runs/42370862157) completed FAILURE at the same inherited `develop`-base assertion: `client signed upload helper missing`. The job log confirms the failure occurs in `node scripts/validate.mjs`; it is not a failure in the new documentation content. PR #80 remains open/Draft. No product code was copied into the docs branch and no validator was weakened.
+
+
+### Live revalidation — 2026-11-07 10:04 BRT
+
+This checkpoint supersedes earlier PR/CI snapshots in this file where the exact head or run differs. Refs and checks were re-fetched from GitHub; Supabase checks below were read-only.
+
+### GitHub PRs and exact-head workflows
+
+| PR | Current head | State | Exact workflow evidence |
+|---|---|---|---|
+| [#74 Normal](https://github.com/Reekyi/UpStatus/pull/74) | `7475a82e421c9286e6944ea17ee73afd39ed73d9` | Open / Draft | [Validate 42354944089](https://github.com/Reekyi/UpStatus/actions/runs/42354944089) and [Signaling Smoke 42354944038](https://github.com/Reekyi/UpStatus/actions/runs/42354944038) SUCCESS |
+| [#75 Team Lite baseline](https://github.com/Reekyi/UpStatus/pull/75) | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Open / Draft | [Candidate Checks 41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) historical SUCCESS; superseded by #76 for current signaling work |
+| [#76 Team Lite signaling](https://github.com/Reekyi/UpStatus/pull/76) | `87bbb2f91ac21477d69f7945ec62598e2bc6dce7` | Open / Draft | [Candidate Checks 42354761800](https://github.com/Reekyi/UpStatus/actions/runs/42354761800) SUCCESS; 103/103 authenticated checks and browser call/voice/screen WebRTC, mesh, rate-limit/Retry-After, concurrency, atomic receipts, AUTH-03 and cleanup |
+| [#80 continuity](https://github.com/Reekyi/UpStatus/pull/80) | `0e6b14ef7b2d81857d59c3336a88656eda9a9f08` | Open / Draft | [Validate 42370902874](https://github.com/Reekyi/UpStatus/actions/runs/42370902874) FAILURE: inherited `client signed upload helper missing` in `scripts/validate.mjs:55` |
+| [#82 independent QA](https://github.com/Reekyi/UpStatus/pull/82) | `3227d62160de28a8eacee462d87bcd3eea502adc` | Open / Draft | [Validate 42373412069](https://github.com/Reekyi/UpStatus/actions/runs/42373412069) FAILURE: inherited `production updateURL mismatch` in `scripts/validate.mjs:26` |
+| [#84 TEST isolation](https://github.com/Reekyi/UpStatus/pull/84) | `66ccc65af430dfee55560e90e1f832336fff0212` | Open / Draft | [Validate 42366213144](https://github.com/Reekyi/UpStatus/actions/runs/42366213144) SUCCESS, including build-target, project metadata, token-scope, SHA-pin, signed-upload and full repository validation |
+
+All six PRs remain open and Draft. No merge or deploy workflow was dispatched. The latest review queries on #74, #76 and #84 returned no submitted reviews; no claim is made here about unqueried review queues on #75, #80 or #82.
+
+### Current TEST workflow control
+
+The live `develop/.github/workflows/deploy-test.yml` still has a `push` trigger and binds the shared `SUPABASE_PROJECT_ID` secret at job scope. The secret value was not read, so this is a target-control gap, not proof of its current destination. PR #84's candidate version is manual-only, requires a dedicated `SUPABASE_TEST_PROJECT_ID`, rejects production and the fixture lab, checks organization/project identity and health, pins checkout to the dispatch SHA, and scopes the access token to the steps that need it. It remains Draft and has not been integrated.
+
+### Supabase read-only revalidation
+
+- The organization still has exactly two projects: production `dlfvkawaiqduhlazsszm` and isolated signaling/auth lab `bfpjtfqlnypisxljoxkb`. Both report `ACTIVE_HEALTHY`; no dedicated full-product TEST project exists.
+- Production: PostgreSQL 17.11.0.002, seven migrations through `20261027155438`, 38 ACTIVE Edge Functions; `upstatus` v480, `upstatus-test` v281 in the production project, Team Lite v15 and legacy screen-share v6.
+- Isolated lab: PostgreSQL 17.11.0.003, 33 migrations; `upstatus-signal-test` v32 and E2E helper v3. A fresh SELECT-only count returned zero rows in ten checked fixture categories (users, sessions, messages, chat reads, rooms, memberships, events, rate limits, call attempts and voice-room attempts). This is a point-in-time observation, not an exclusive reservation.
+- Production account aggregate: five users, zero NULL/empty password hashes, zero missing/blank roles, three explicit `implementation_admin` roles.
+- Production catalog: all three broadcast functions remain SECURITY DEFINER with `search_path=public`, EXECUTE effective for anon/authenticated/service_role; the message function serializes row data and the broadcast functions call Realtime with a public-channel flag. The three functions remain attached to the existing public broadcast path.
+- The nine backend-owned public tables retain seven client privileges each for anon and authenticated (DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE). `realtime.messages` retains INSERT/SELECT/UPDATE for both client roles. RLS has no policies on these tables; these grants are unnecessary privilege surface, but the catalog result alone does not prove row access through RLS.
+- Security Advisor observed at 2026-11-07 13:04:30 UTC: three SECURITY DEFINER WARN for anon, three for authenticated and ten RLS-without-policy INFO. Performance and Health returned no findings.
+
+### Release gates still open
+
+- [Issue #78](https://github.com/Reekyi/UpStatus/issues/78) remains OPEN with 0/8 physical criteria checked. Real Tampermonkey network-loss/recovery without F5, browser-close/offline recovery, physical microphone/display capture and installed Normal ↔ Team Lite acceptance remain MANUAL PENDING.
+- RT-01 remains BLOCKED by public message-row and remote/user metadata broadcasts. Client-side refresh-hint behavior does not remove the deployed server-side disclosure path.
+- AUTH-03 is candidate-only; production still uses the legacy name-based setup path. HTTP tests for admin issuance, non-admin denial and token handling remain required.
+- Auth-specific distributed rate limiting is not integrated in production product endpoints.
+- Official TEST provisioning, migration/rollback rehearsal, ACL/default-ACL remediation, per-function auth inventory, human reviews and explicit release approval remain open.
+
+No production SQL write, migration, Edge Function deployment, secret/role/flag change, userscript publication, merge, release, fixture cleanup or destructive operation was performed. No workflow was dispatched or rerun. All Supabase SQL in this checkpoint was SELECT-only.
