@@ -1967,3 +1967,74 @@ Production broadcast functions still have `search_path=public`, effective EXECUT
 ### Safety
 
 Only the isolated test migration above was applied. Production SQL was SELECT/catalog-only. No production migration/write, deploy, Edge Function change, secret/role/grant/policy/ACL/flag change, fixture cleanup, workflow dispatch/rerun/cancel, PR merge, release, userscript publication, or branch-protection change occurred. No QA branch or QA file was modified.
+
+
+## Engineering checkpoint — 2026-11-07 live revalidation and signed-upload contract hardening
+
+This checkpoint supersedes the earlier 13:56 BRT snapshot for current refs, CI, and database observations below. PR #82's latest QA report (18:26 UTC) was read; the QA branch and its release-readiness files were not modified.
+
+### Exact PR refs and comparisons
+
+| PR | Current HEAD | Base | Ahead / behind | Exact-head CI |
+|---|---|---|---:|---|
+| #74 Normal | `4e192fe77c7fbc3b60c6aa20aea4fb957d232aa8` | `master` | 844 / 0 | Validate [42404360046](https://github.com/Reekyi/UpStatus/actions/runs/42404360046) FAILURE at stale build-target assertion; Signaling Smoke [42404359973](https://github.com/Reekyi/UpStatus/actions/runs/42404359973) PENDING |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | `team-lite-official` | 59 / 0 | Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) historical SUCCESS |
+| #76 Team Lite | `2e0ff69419cdd2a06c68c5d58cf221ccfc6738c7` | `team-lite-official` | 313 / 0 | Candidate Checks [42386904302](https://github.com/Reekyi/UpStatus/actions/runs/42386904302) SUCCESS |
+| #80 continuity | `11fab9f0374323b63d3950d0682b31203187fc4b` | `develop` | 197 / 0 | Validate [42394419231](https://github.com/Reekyi/UpStatus/actions/runs/42394419231) FAILURE: inherited `client signed upload helper missing` |
+| #82 independent QA | `31072bf55dbd6dc58079641e35891491c6e3a2c6` | `master` | 106 / 0 | Validate [42401762317](https://github.com/Reekyi/UpStatus/actions/runs/42401762317) FAILURE: inherited `production updateURL mismatch` |
+| #84 TEST isolation | `21341f331270e142bdf7584c1cdf16e6011e41b3` | `develop` | 30 / 0 | Validate [42387042361](https://github.com/Reekyi/UpStatus/actions/runs/42387042361) SUCCESS |
+| #85 master stabilization | `17554523ef51bafd503e74b3f1271d55f43a6eda` | `master` | 21 / 0 | Validate [42386047749](https://github.com/Reekyi/UpStatus/actions/runs/42386047749) SUCCESS |
+
+#76 is 254 commits ahead of #75 and zero behind; #75 remains the historical baseline, not a second independent release candidate. All seven PRs remain OPEN, Draft, unmerged, and have zero submitted human reviews.
+
+The #74 candidate is 844 commits ahead of master. #80 is documentation-only and remains blocked by the develop-base validator. #82 is QA-documentation-only; its current failure is the master-base updater assertion, not a reason to weaken validation.
+
+### New Normal signed-upload findings and candidate changes
+
+Reviewing the exact #74 source against the #85 hardening tests found a real client/server contract gap:
+
+- The Normal client already called `/api/chat/upload-url` and `/api/profile/avatar-upload-url`, but its helper did not bind the route to the expected bucket, verify ticket MIME/size, validate project origin/object path/public URL/token consistency, or omit browser credentials and redirects on the Storage PUT.
+- The Normal server's `profileRoute` ignored `avatarUrl` and always attempted the legacy base64 `dataUrl` path, even though the UI sent the public URL returned by the signed upload. Profile avatar updates through the signed flow could therefore fail.
+- The Normal server's signed-upload route returned Storage URLs without the same origin/path/token/public-URL validation already present in the #85 candidate.
+
+The existing Draft #74 branch was updated incrementally (no QA branch touched):
+- Server: validate the signed upload URL origin, bucket route, decoded object path, query token, and public URL; accept only same-project `profile-images` avatar URLs while preserving the legacy data-URL fallback.
+- Client: validate allowed route, expected bucket, MIME, size, HTTPS project origin, upload/public paths, token equality, and use `credentials: "omit"` plus `redirect: "error"`.
+- Added `scripts/test-signed-upload-client.mjs` and `scripts/test-signed-upload-server.mjs`, both VM/mocked tests; wired them into `scripts/validate.mjs`.
+
+The current #74 HEAD is `4e192fe77c7fbc3b60c6aa20aea4fb957d232aa8`. Validate currently stops before those new suites at `scripts/test-build-target-guard.mjs:73`: its assertion still requires the old literal fallback `new URL(UP_REALTIME_URL+'/storage/v1/object/upload/sign/'...)`. The hardened helper instead resolves `new URL(rawUploadUrl, base)` where `base = new URL(UP_REALTIME_URL)`, then requires both upload and public URL origins to equal `base.origin`. This is a stale implementation-specific assertion, not evidence of a wrong TEST target. Update the guard to assert the stronger origin-binding contract; do not remove the TEST-origin check.
+
+The Signaling Smoke concurrency group serializes fixture-mutating suites. For this candidate, run 42404314379 (head `9293bbf`) was in progress at the last query, while runs 42404353806 (head `f205524`) and 42404359973 (head `4e192fe`) were pending. Do not start manual fixture tests or another mutating suite until the queue drains and fresh SELECT counts confirm cleanup.
+
+### Latest QA report and issue coordination
+
+The latest QA report file is `docs/audits/2026-11-07-upstatus-qa-audit-1826-utc.md` (blob `5ae306af922ed1295e7e595a5adc6bf4c02f3991`). It confirms Normal 129/129 authenticated checks and Team Lite 103/103, with both workflows' cleanup. Its recorded PR #82 head predates the report commit; the live branch HEAD is now `31072bf`, and the live Validate run is `42401762317`. The main `RELEASE_READINESS.md` still contains the earlier 02:35 UTC active-fixture snapshot; current SELECT-only counts below show zero, so QA should refresh its own branch when next running.
+
+Issue #78 remains OPEN with 0/8 physical acceptance criteria. Real Tampermonkey network-loss/no-F5 recovery, browser termination while offline, physical microphone/display capture, and installed Normal ↔ Team Lite acceptance remain MANUAL PENDING.
+
+### Current Supabase observations — read-only
+
+- Organization inventory still contains only production `dlfvkawaiqduhlazsszm` and the isolated signaling/auth lab `bfpjtfqlnypisxljoxkb`; there is no full-product TEST project.
+- Production: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations, 38 Edge Functions. Core functions remain Normal `upstatus` v480, TEST `upstatus-test` v281, Team Lite `upstatus-team-lite` v15, legacy screen-share v6.
+- Isolated lab: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 34 migrations (latest `20261107165942 pin_empty_search_path_trigger_broadcasts_test`), two functions (`upstatus-signal-test` v32 and `upstatus-signal-e2e-once` v3).
+- Latest SELECT-only lab fixture counts: zero rows in users, sessions, messages, chat reads, rooms, memberships, bindings, events, call attempts, voice attempts, rate-limit buckets, and `realtime.messages`.
+- `realtime.messages` has seven leaf partitions and 50 rows in production, but zero leaf partitions and zero rows in the isolated lab. Do not create partitions manually in Supabase-managed schemas. Trigger delivery remains NOT VERIFIED in the lab.
+- Lab broadcast functions retain SECURITY DEFINER with empty `search_path`, deny EXECUTE to anon/authenticated, and allow service_role. Production functions still use `search_path=public` and have EXECUTE effective for anon/authenticated/service_role.
+- Production Security Advisor: three SECURITY DEFINER WARN for anon, three for authenticated, and ten RLS-without-policy INFO; Performance and Health have no findings. Lab Security Advisor: zero SECURITY DEFINER WARN, 17 RLS INFO; Performance has four unused-index INFO; Health has no findings.
+
+### Active TEST deploy workflow and governance
+
+The live `develop/.github/workflows/deploy-test.yml` blob `d4d44fd3ae78bc1ebe885bd1d5e91fe5b8607839` still has a push trigger, shared `SUPABASE_PROJECT_ID`, job-wide access token, and no project-identity preflight. The safer manual-only, TEST-specific, exact-dispatch-SHA and Management-API-verified workflow remains candidate-only in Draft #84. Do not dispatch the old workflow.
+
+The direct branch-protection API read returned HTTP 403 in this pass. A previous snapshot reported `protected=false` for master/develop, but current protection state could not be independently re-read with this connection; require an administrator to verify rulesets/required checks before integration.
+
+### Release gates and safety
+
+- Resolve the Normal signed-upload guard assertion, then require the new client/server VM suites and exact-head Validate to pass.
+- Wait for the serialized Signaling Smoke queue; verify zero fixtures after it drains.
+- Provision a supported full-product TEST project and a separate Team Lite TEST runtime/workflow.
+- Complete RT-01 authenticated/private or server-mediated Realtime cutover; production still sends public broadcasts and full-row chat payloads.
+- Complete AUTH-03 HTTP route/denial/token-delivery coverage, distributed fail-closed auth rate limiting, grant/default-ACL remediation, and real Storage policy decisions/tests.
+- Obtain human reviews and complete physical #78 acceptance before any release decision.
+
+No production SQL write, migration, Edge Function deployment, secret/role/grant/policy/ACL/flag change, workflow dispatch/cancel/rerun, PR merge, release, userscript publication, or destructive operation occurred. All production SQL was SELECT/catalog-only; the isolated project was also queried read-only in this pass. No QA branch or QA file was modified.
