@@ -64,6 +64,15 @@ assert.ok(!testUser.includes("https://" + productionProject + ".supabase.co"),
   "default TEST artifact must never contain the production project origin");
 assert.ok(testUser.includes("var UP_REALTIME_URL='https://" + sentinelProject + ".supabase.co';"),
   "default TEST Realtime URL must use the inert sentinel project");
+assert.ok(testUser.includes("var UPSTATUS_TEST_CHANNEL=true;") &&
+  testUser.includes("var RELEASE_MANIFEST_URL='';"),
+  "default TEST artifact must disable production updater and release feed");
+assert.ok(testUser.includes("var UPDATE_URL='https://" + sentinelProject + ".supabase.co/functions/v1/upstatus-test/upstatus.user.js';"),
+  "default TEST manual update URL must use the inert sentinel project");
+assert.ok(testUser.includes("new URL(UP_REALTIME_URL+'/storage/v1/object/upload/sign/'"),
+  "TEST Storage fallback must use the TEST Realtime origin");
+assert.ok(!testUser.includes("https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),
+  "TEST artifact must not contain the production release manifest");
 
 result = runBuild(sampleProject);
 assert.equal(result.status, 0, "an explicit non-production TEST project must build: " + output(result).slice(-2000));
@@ -74,6 +83,8 @@ assert.equal(header(testUser, "updateURL"),
   "https://" + sampleProject + ".supabase.co/functions/v1/upstatus-test/upstatus.user.js");
 assert.ok(testUser.includes("var UP_REALTIME_URL='https://" + sampleProject + ".supabase.co';"),
   "configured TEST Realtime URL must use the same project as its API");
+assert.ok(testUser.includes("var UPDATE_URL='https://" + sampleProject + ".supabase.co/functions/v1/upstatus-test/upstatus.user.js';"),
+  "configured TEST manual update URL must use the same project as its API");
 
 for (const [projectId, expectedMessage] of [
   [productionProject, /Refusing to build TEST artifacts against the production Supabase project/],
