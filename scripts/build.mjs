@@ -20,6 +20,12 @@ const ycaroHtml=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
 
 
 const PROJECT="dlfvkawaiqduhlazsszm";
+const ISOLATED_SIGNALING_PROJECT="bfpjtfqlnypisxljoxkb";
+const configuredTestProject=String(process.env.UPSTATUS_TEST_PROJECT_ID||"").trim();
+const TEST_PROJECT=configuredTestProject||"00000000000000000000";
+if(!/^[a-z0-9]{20}$/.test(TEST_PROJECT))throw new Error("UPSTATUS_TEST_PROJECT_ID must be a 20-character lowercase Supabase project reference.");
+if(TEST_PROJECT===PROJECT)throw new Error("Refusing to build TEST artifacts against the production Supabase project.");
+if(TEST_PROJECT===ISOLATED_SIGNALING_PROJECT)throw new Error("Refusing to build full TEST artifacts against the isolated signaling/auth project.");
 const PROD_FUNCTION="upstatus";
 const TEST_FUNCTION="upstatus-test";
 const PROD_TOPIC="upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0";
@@ -44,7 +50,7 @@ function renderUser({version,test}){
   const topic=test?TEST_TOPIC:PROD_TOPIC;
   const ringtoneChannel=test?TEST_RINGTONE_CHANNEL:PROD_RINGTONE_CHANNEL;
   const ringtoneStorage=test?TEST_RINGTONE_STORAGE:PROD_RINGTONE_STORAGE;
-  const cloud="https://"+PROJECT+".supabase.co/functions/v1/"+fn;
+  const cloud="https://"+(test?TEST_PROJECT:PROJECT)+".supabase.co/functions/v1/"+fn;
   const updateUrl=cloud+"/upstatus.user.js";
   return render(userTemplate,{
     "__UPSTATUS_NAME__":name,
@@ -96,6 +102,7 @@ fs.writeFileSync(path.join(dist,"upstatus-test.user.js"),testUser,"utf8");
 fs.writeFileSync(path.join(dist,"build-manifest.json"),JSON.stringify({
   baseVersion,testVersion:fullVersion,channel:preRelease?"pre-release":"stable",
   productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION,
+  testProjectId:TEST_PROJECT,testTargetConfigured:Boolean(configuredTestProject),
   teamLiteVersion:String(teamLiteRelease.buildVersion||""),teamLiteFunction:"upstatus-team-lite"
 },null,2)+"\n","utf8");
-console.log("Built UpStatus "+baseVersion+" / TEST "+fullVersion+" / Team Lite "+teamLiteRelease.buildVersion);
+console.log("Built UpStatus "+baseVersion+" / TEST "+fullVersion+" / Team Lite "+teamLiteRelease.buildVersion+" / TEST target "+(configuredTestProject?TEST_PROJECT:"inert sentinel (not deployable)"));
