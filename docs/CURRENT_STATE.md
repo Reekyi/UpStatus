@@ -1152,3 +1152,61 @@ Isolated `bfpjtfqlnypisxljoxkb`:
 Latest coordination comments: [Issue #79](https://github.com/Reekyi/UpStatus/issues/79#issuecomment-6701433511) and [QA PR #82](https://github.com/Reekyi/UpStatus/pull/82#issuecomment-6701433866).
 
 No production SQL write, migration, function deployment, secret/role/flag change, userscript publication, PR merge, release, or destructive operation was performed in this checkpoint. The only database migration remains the additive AUTH-03 candidate migration on the allowlisted isolated project.
+
+
+### Engineering checkpoint — 2026-11-07 04:02 UTC
+
+This section supersedes earlier AUTH-03 and candidate-head snapshots above.
+
+#### Exact current candidate heads
+
+- **Normal PR #74:** branch `chore/continuity-foundation`, head `4c0eb56bc218729da52891daed39afe31f6b3307`, open Draft. The preceding implementation commit `8f94b5a1ca29188fc4a65aae4595d4e8ae3e067d` changes the Normal login validator to accept four characters for existing shared-store logins while retaining six characters for new first-access setup. Static regression commit `4c0eb56` verifies the policy using string-based extraction.
+  - Validate [42336501535](https://github.com/Reekyi/UpStatus/actions/runs/42336501535) passed on the exact head.
+  - Signaling Smoke [42336501795](https://github.com/Reekyi/UpStatus/actions/runs/42336501795) is currently in authenticated isolated integration/browser testing.
+- **Team Lite PR #76:** branch `team-lite/signaling-transport-candidate`, head `87ede473bd9baefe96d9388ed1508f3d52d54679`, open Draft. Server commit `017f0c9` makes the four-character minimum explicit for both login and setup; static regression commit `87ede47` verifies it. Candidate Checks [42336506037](https://github.com/Reekyi/UpStatus/actions/runs/42336506037) is pending.
+- **Team Lite baseline PR #75:** head `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, open Draft; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed.
+- **Continuity PR #80:** head `a3e2d94ff667bc30c27a3fc8773f5ca5903a7258`; Validate [42332548026](https://github.com/Reekyi/UpStatus/actions/runs/42332548026) fails at the inherited `client signed upload helper missing` assertion.
+- **Independent QA PR #82:** head `f260899a8671e76f424fa85868c39f90b9b5d724`; Validate [42334935903](https://github.com/Reekyi/UpStatus/actions/runs/42334935903) fails at the inherited `production updateURL mismatch` assertion.
+- All five PRs remain open and Draft; latest review query returned zero submitted human reviews.
+
+The first password-policy test commit on each engineering branch used an over-escaped regular expression and failed before any database mutation (Normal runs `42336445374` / `42336445356`; Team Lite run `42336440931`). The assertion was replaced with direct source-string extraction. The exact current Normal Validate passes; the current Smoke and Team Lite workflow are not yet complete.
+
+#### Shared-account password compatibility decision (candidate only)
+
+- Normal first-access setup remains minimum 6 characters.
+- Team Lite first-access setup remains minimum 4 characters for backward compatibility.
+- Both products accept minimum 4 characters on existing-account login. This allows a 4–5-character Team Lite account to authenticate in Normal because both products share `public.users`; it does not allow Normal to create a new 4–5-character password.
+- This is a candidate behavior change only. Production functions remain unchanged.
+
+#### AUTH-03 exact-head integration evidence
+
+Before the password-policy follow-up, Normal head `7a8c407` passed Validate [42332394502](https://github.com/Reekyi/UpStatus/actions/runs/42332394502) and Smoke [42332394510](https://github.com/Reekyi/UpStatus/actions/runs/42332394510). Team Lite head `c87e4da` passed Candidate Checks [42332429169](https://github.com/Reekyi/UpStatus/actions/runs/42332429169). Both job logs explicitly report the isolated setup-enrollment integration passing: NULL/empty eligibility, configured-account denial, malformed/wrong/expired/replayed tokens, exactly one winner under concurrent consumption, non-admin role fallback, metadata clearing, and fixture cleanup.
+
+**Remaining AUTH-03 test gap:** `scripts/test-auth-enrollment.mjs` creates fixtures and writes invite metadata directly through PostgREST using the service-role key, then exercises the atomic RPC. It does not invoke the actual `POST /api/setup-invite` HTTP route. Therefore it does not yet prove runtime admin-session enforcement, non-admin denial, one-time raw-token response handling, or absence of raw-token logging. The static test checks the source shape, but HTTP-route coverage remains required.
+
+#### Supabase snapshots
+
+Production `dlfvkawaiqduhlazsszm` was rechecked read-only:
+- `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, seven migrations through `20261027155438`, 38 ACTIVE Edge Functions.
+- Normal `upstatus` v480, Normal legacy client endpoint `upstatus-screen-share-3-1-1-beta10` v6, and Team Lite `upstatus-team-lite` v15 remain deployed.
+- Current deployed sources for all three still contain the legacy public first-caller `POST /api/setup`, account-state disclosure in `GET /api/account?name=...`, and name-based admin fallback. Production `public.users` aggregate: 5 accounts, 0 NULL/empty password hashes, 0 missing roles.
+- Production has no setup-token columns/RPC, auth rate-limit table/RPC, signaling rate-limit table/RPC, or dedicated `upstatus-signal` function.
+- Security Advisor still reports 3 SECURITY DEFINER warnings for `anon`, 3 for `authenticated`, and 10 RLS-enabled/no-policy INFO findings. Performance and Health advisors returned no findings.
+- Full-row public chat broadcast, public remote-state/user metadata broadcasts, and broad trigger-function/table grants remain release blockers.
+
+Isolated `bfpjtfqlnypisxljoxkb`:
+- `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003, 29 migration records through `20261107020949_upstatus_setup_invites_isolated_test`; signaling test endpoint v32 and E2E helper v3.
+- A SELECT-only snapshot after the previous completed integration workflows and before the current Normal Smoke began showed zero reserved-prefix test users, sessions, rooms, memberships, events, call attempts, voice attempts, rate-limit buckets, and read receipts.
+- The current Normal Smoke is now exercising the isolated project. Do not query or mutate fixture state until it finishes; then take a fresh SELECT-only snapshot before another fixture-mutating run.
+
+#### Auth rate-limit design constraint
+
+Supabase documentation describes `Sb-Forwarded-For` for Supabase Auth rate limiting only when IP forwarding is explicitly enabled and a supported `sb_secret` key is used. That documentation does not establish a trusted client-IP header contract for this custom UpStatus Edge Function/password store. Do not trust `X-Forwarded-For` or `CF-Connecting-IP` in the custom login route without gateway provenance evidence. Distributed fail-closed login/setup throttling remains open.
+
+#### Manual and release gates
+
+- Issue [#78](https://github.com/Reekyi/UpStatus/issues/78) remains open with all 8 physical acceptance criteria unchecked.
+- Issue [#79](https://github.com/Reekyi/UpStatus/issues/79) remains open; its body is a stale 2026-11-03 snapshot and must not be used as the current state.
+- Actual HTTP tests for setup-invite issuance/non-admin denial, distributed auth rate limiting, official TEST cutover/rollback, public Realtime replacement, physical Tampermonkey/network recovery, and human reviews remain pending.
+
+No production SQL write, migration, function deployment, secret/role/flag change, userscript publication, PR merge, release, or destructive operation occurred in this checkpoint. Candidate-only commits were added to #74 and #76; the only database changes remain the previously validated additive AUTH-03 migration in the allowlisted isolated project.
