@@ -1045,3 +1045,45 @@ No production or isolated SQL writes, migrations, function deployments, secret/r
 ### Documentation validation follow-up — 2026-11-06 22:01 BRT
 
 The new documentation-only commit `debbf1d80bc9cc93f97557ba600b69d610f57610` triggered Validate [42321805816](https://github.com/Reekyi/UpStatus/actions/runs/42321805816). It reproduces the same inherited `client signed upload helper missing` failure in `scripts/validate.mjs`; no new documentation regression was identified. Do not weaken the validator. PR #80 remains Draft and the baseline mismatch requires a separate source-level reconciliation with `develop`.
+
+## Engineering checkpoint — 2026-11-07 02:15 UTC (23:15 BRT)
+
+### AUTH-03 candidate implementation
+
+The first-access claimability issue is now addressed in the two candidate branches, not in production.
+
+- Normal #74 head: `9d7977949a0afe7d0e9db770c1bb7b14bc5aefb5`.
+- Team Lite #76 head: `58a3f7b04233733fb4a5bd198ad9e7c02151f2c3`.
+- Both templates add authenticated admin-only `POST /api/setup-invite`, generate a 256-bit random token, store only SHA-256, and expire it after 15 minutes.
+- `POST /api/setup` now calls `consume_upstatus_setup_invite`; the RPC atomically sets the password and clears the token metadata, so only one concurrent request can win.
+- The RPC is SECURITY INVOKER, pins an empty search_path, and grants EXECUTE only to service_role.
+- Public `GET /api/account?name=...` returns a generic `needsSetup:false`; the new clients use an optional token field and no longer query account setup state. Raw tokens are not stored in GM storage/sessionStorage.
+- Normal keeps its 6-character minimum; Team Lite keeps 4 pending a deliberate compatibility decision. A dedicated distributed auth rate limiter is not included yet.
+
+### Isolated database evidence
+
+Migration `20261107010000_setup_invites.sql` was applied only to `bfpjtfqlnypisxljoxkb`, recorded as `20261107020949_upstatus_setup_invites_isolated_test`. The catalog assertion passed: columns/index exist, function is SECURITY INVOKER with pinned search_path, service_role can execute, anon/authenticated cannot.
+
+The integration script `scripts/test-auth-enrollment.mjs` is now wired into both candidate workflows to test two concurrent consumers (exactly one winner), role fallback, token clearing, and expiry. It has not yet reported a completed CI result in this checkpoint.
+
+### Exact-head CI
+
+- Normal Validate [42327981889](https://github.com/Reekyi/UpStatus/actions/runs/42327981889): SUCCESS on #74 head above.
+- Normal Signaling Smoke [42327981844](https://github.com/Reekyi/UpStatus/actions/runs/42327981844): pending in the shared isolated-project queue.
+- Team Lite Candidate Checks [42327988659](https://github.com/Reekyi/UpStatus/actions/runs/42327988659): pending in the same queue.
+- #75 remains historical baseline PASS at `7bbf9b90`.
+- #80 head `7d615617` still fails inherited Validate [42321866840](https://github.com/Reekyi/UpStatus/actions/runs/42321866840) at `client signed upload helper missing`.
+- #82 QA head `c6d67417` still fails inherited Validate [42324832647](https://github.com/Reekyi/UpStatus/actions/runs/42324832647) at `production updateURL mismatch`. QA branch was not edited.
+
+The first two Normal validation attempts exposed test-maintenance mistakes: a malformed static regex, then an old assertion that expected the previous setup implementation. Both were corrected; the latest exact-head Validate passed. Do not use the failed intermediate runs as current status.
+
+### Remaining auth and release gates
+
+- Complete the exact-head Normal Smoke and Team Lite Candidate Checks, then verify zero reserved-prefix fixtures after the shared queue drains.
+- The admin invite route currently has no dedicated UI; a controlled internal API client is required to issue a token.
+- Distributed, fail-closed auth rate limiting for login/setup remains absent in both products and both Supabase projects.
+- Production Normal v480 and Team Lite v15 still contain name-based admin fallback and public first-caller setup. Production has 5 accounts, 0 uninitialized password hashes, 0 missing roles, 3 admin roles; this is a read-only snapshot, not proof that future onboarding is safe.
+- Production has no setup-invite columns/RPC, no auth or signaling rate-limit table/RPC, and still has the public Realtime and SECURITY DEFINER broadcast blockers.
+- Password minima remain divergent (6 Normal / 4 Team Lite). Physical #78 acceptance and human PR reviews remain pending.
+
+No production SQL write, migration, Edge Function deployment, secret/role/flag change, userscript publication, PR merge, release, or destructive operation occurred. The only database mutation was the additive setup-invite migration on the allowlisted isolated project. The isolated integration workflow is the next validation gate.
