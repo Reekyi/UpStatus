@@ -30,6 +30,12 @@ assert.ok(backend.includes("const SESSION_CACHE_TTL_MS=5000;")&&backend.includes
 assert.equal(extractSessionContract(backend,"async function createSession(","async function login("),extractSessionContract(normalBackend,"async function createSession(","async function login("),"normal and Team Lite must issue compatible shared session tokens");
 
 const build = read("scripts/build.mjs");
+assert.ok(build.includes("UPSTATUS_TEST_PROJECT_ID") &&
+  build.includes('TEST_PROJECT=configuredTestProject||"00000000000000000000"') &&
+  build.includes("TEST_PROJECT===PROJECT") &&
+  build.includes("TEST_PROJECT===ISOLATED_SIGNALING_PROJECT") &&
+  build.includes('(test?TEST_PROJECT:PROJECT)'),
+  "TEST build must use a dedicated project reference and reject production/fixture targets before writes");
 
 function header(name) {
   const match = script.match(new RegExp("^// @" + name + "\\s+([^\\r\\n]+)$", "m"));
@@ -1327,3 +1333,18 @@ assert.deepEqual(liteAcceptEvents.filter(x=>x==="persist"||x==="accept"||x==="cl
 assert.ok(liteAcceptEvents.some(x=>x.includes("armazenamento do userscript")),
   "Team Lite must explain that recipient call acceptance was blocked by storage failure");
 console.log("Team Lite recipient call acceptance now fails closed without durable leave storage.");
+
+const testDeployWorkflow = read(".github/workflows/deploy-test.yml");
+assert.ok(testDeployWorkflow.includes("workflow_dispatch:") && !/^\\s+push:/m.test(testDeployWorkflow),
+  "TEST deployment must be manual-only; pushes must never deploy automatically");
+assert.ok(testDeployWorkflow.includes("vars.SUPABASE_TEST_PROJECT_ID") &&
+  !testDeployWorkflow.includes("secrets.SUPABASE_PROJECT_ID"),
+  "TEST deployment must use a dedicated TEST project variable, not the shared project secret");
+assert.ok(testDeployWorkflow.includes('if [ "$GITHUB_REF" != "refs/heads/develop" ]') &&
+  testDeployWorkflow.includes('if [ "$SUPABASE_TEST_PROJECT_ID" = "$EXPECTED_PRODUCTION_PROJECT_ID" ]') &&
+  testDeployWorkflow.includes('if [ "$SUPABASE_TEST_PROJECT_ID" = "$EXPECTED_ISOLATED_SIGNALING_PROJECT_ID" ]'),
+  "TEST deployment must be restricted to develop and reject production/fixture projects");
+assert.ok(testDeployWorkflow.includes("node scripts/test-build-target-guard.mjs") &&
+  testDeployWorkflow.includes("version: 2.122.1") &&
+  testDeployWorkflow.includes('--project-ref "$SUPABASE_TEST_PROJECT_ID"'),
+  "TEST deployment must run the target guard, use a pinned CLI, and deploy only to the dedicated TEST project");
