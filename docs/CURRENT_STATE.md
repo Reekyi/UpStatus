@@ -1729,3 +1729,69 @@ Production SQL/catalog snapshot at approximately 2026-11-07 13:59:49 UTC:
 7. Obtain human PR reviews and explicit release authorization.
 
 No production SQL write, migration, Edge Function deployment, secret/role/flag change, userscript publication, merge, release, fixture cleanup or destructive action occurred. No workflow_dispatch or deployment was executed. All production SQL in this checkpoint was SELECT-only.
+
+
+## Engineering checkpoint — 2026-11-07 12:16 BRT (live revalidation)
+
+This checkpoint supersedes earlier HEAD/status snapshots in this document. All refs below were fetched again from GitHub immediately before this update.
+
+### GitHub branches and PRs
+
+- `master`: `a9288ccfcb0f308d3a587bfca624418a395be07b`.
+- `develop`: `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`.
+- #74 Normal, HEAD `7475a82`: Validate [42354944089](https://github.com/Reekyi/UpStatus/actions/runs/42354944089) and Signaling Smoke [42354944038](https://github.com/Reekyi/UpStatus/actions/runs/42354944038) SUCCESS.
+- #75 Team Lite baseline, HEAD `7bbf9b9`: Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) historical SUCCESS; #76 is the active Team Lite candidate.
+- #76 Team Lite signaling, HEAD `87bbb2f`: Candidate Checks [42354761800](https://github.com/Reekyi/UpStatus/actions/runs/42354761800) SUCCESS, including 103/103 authenticated checks, WebRTC call/voice/screen, three-member mesh, 429/Retry-After, rate-limit and receipt concurrency, AUTH-03 and cleanup.
+- #80 continuity, HEAD `6ece088`: Validate [42379955017](https://github.com/Reekyi/UpStatus/actions/runs/42379955017) FAILURE at the inherited develop contract `client signed upload helper missing`. This remains a documentation-only branch.
+- #82 independent QA, HEAD `64fe827`: Validate [42382198198](https://github.com/Reekyi/UpStatus/actions/runs/42382198198) FAILURE at the inherited master contract `production updateURL mismatch`. QA branch and `docs/RELEASE_READINESS.md` were not edited.
+- #84 TEST isolation, HEAD `66ccc65`: Validate [42366213144](https://github.com/Reekyi/UpStatus/actions/runs/42366213144) SUCCESS. The candidate is still Draft; the live develop workflow has not been replaced.
+- #85 master stabilization, HEAD `648877e`: Validate [42385553282](https://github.com/Reekyi/UpStatus/actions/runs/42385553282) SUCCESS. PR remains Draft and has no human review.
+
+All seven PRs remain open/Draft with zero submitted reviews. No merge, deployment, release or userscript publication occurred.
+
+### PR #85 — master chat/upload and authorization completion
+
+The master-based candidate now contains the missing signed-upload/staging contract:
+
+- Client selection and paste stage attachments instead of uploading immediately; the composer renders a removable pending preview and link preview.
+- Send preserves caption and reply context; document filename is normalized separately from the caption, displayed separately in chat, and used by the shared document library.
+- Client signed-upload helper binds chat/avatar routes to their expected buckets, checks HTTPS project origin, bucket, MIME, size, object path, token and public URL, rejects URL userinfo/fragments, omits credentials and rejects redirects.
+- Server exposes authenticated `/api/chat/upload-url` and `/api/profile/avatar-upload-url`; validates allowed MIME/20 MB size, signed/public URL origin, bucket, object path and token.
+- Profile update accepts only a same-project `profile-images` public object URL; legacy data-URL profile clients remain supported.
+- Health UI and first-access/admin paths use the stored role; no name-only admin fallback remains in this candidate.
+- Client `chat_fast` refresh events no longer carry the full message object. This is only a client-side reduction; the deployed database trigger still publishes full message rows publicly, so RT-01 remains open.
+
+Exact Validate log for HEAD `648877e` reports:
+- Build: `Built UpStatus 3.4.7 / TEST 3.4.7`.
+- Signed-upload client regression PASS: route, bucket, MIME, size, project origin, object path, one-time token, PUT contract and UI wiring.
+- Chat regression PASS: staged attachments, signed uploads, filename/caption separation, role gates, link previews, screen sharing, notifications and unread indicators.
+- `Validation OK: PROD 3.4.7 / TEST 3.4.7`.
+
+The Storage test is mocked in CI. No real Storage upload was attempted: the isolated lab has no `chat-images` or `profile-images` buckets, and production writes are prohibited. The production buckets were only inspected read-only and are public, 20 MB, with the expected chat/document and image MIME allowlists. Production schema already has `messages.file_name`.
+
+### Supabase read-only snapshot — 2026-11-07 15:14:53 UTC
+
+Organization inventory still contains exactly two projects:
+
+- Production `dlfvkawaiqduhlazsszm`: `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, 38 Edge Functions. Normal `upstatus` v480, `upstatus-test` v281, Team Lite `upstatus-team-lite` v15, legacy screen-share beta10 v6. The TEST function remains inside production; there is no dedicated full-product TEST project.
+- Isolated lab `bfpjtfqlnypisxljoxkb`: `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003, 33 migrations, `upstatus-signal-test` v32 and `upstatus-signal-e2e-once` v3. Read-only counts: zero users, sessions, messages, chat reads, rooms, room members, bindings, events, rate-limit buckets, call attempts and voice-room attempts. The lab has no chat/profile Storage buckets.
+
+Production catalog/data checks:
+- 5 users, 0 NULL/empty password hashes, 0 blank roles; 262 messages.
+- `public.messages.file_name` exists.
+- `chat-images` and `profile-images` are public with 20 MB limits and expected MIME allowlists.
+- Setup-invite RPC/table, dedicated auth rate limiter, signaling rate limiter and dedicated `upstatus-signal` function remain absent.
+- Three broadcast functions remain SECURITY DEFINER with `search_path=public` and EXECUTE for anon/authenticated. `upstatus_broadcast_messages()` sends the complete OLD/NEW row via `to_jsonb` to a public Realtime topic (`private=false`); remote-state and user-status also publish metadata publicly.
+- Nine backend-owned public tables retain broad anon/authenticated grants including TRUNCATE. Default ACLs remain broad for objects created by `postgres` and `supabase_admin`.
+- Security Advisor: 3 SECURITY DEFINER WARN for anon, 3 for authenticated, 10 RLS-without-policy INFO. Performance and Health have no findings.
+
+### Remaining release gates
+
+1. Resolve RT-01: replace public full-row/message and metadata broadcasts with authenticated/private Realtime and validate authorization.
+2. Provision a complete, independent TEST project; do not use production or the signaling-only lab as the product TEST target. The develop deploy workflow still has a push trigger and uses shared `SUPABASE_PROJECT_ID`; the manual-only/TEST-specific/SHA-pinned correction exists only in Draft #84.
+3. Complete production-safe AUTH-03 rollout planning, route-level admin/non-admin HTTP tests and distributed auth throttling. Candidate code is not deployed.
+4. Review/reduce table grants and default ACLs for both `postgres` and `supabase_admin` through a separately approved plan.
+5. Complete physical Issue #78 acceptance: it remains OPEN at 0/8. No real Tampermonkey network-loss/no-F5 recovery, browser close/offline recovery, physical microphone/display capture or installed Normal ↔ Team Lite interoperability was executed in this run.
+6. Obtain human reviews and explicit release authorization. CI success is not approval to merge, deploy or publish.
+
+No production SQL write, migration, Edge Function deployment, secret/role/feature-flag change, fixture cleanup, destructive action, merge, release or userscript publication occurred. Production queries in this checkpoint were SELECT/catalog reads only.
