@@ -23,12 +23,20 @@ assert(headerValue(prodUser,"version")===baseVersion,"production userscript vers
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
 assert(headerValue(testUser,"namespace")==="upseller-test","test namespace mismatch");
-assert(headerValue(prodUser,"updateURL").includes("/upstatus/upstatus.user.js"),"production updateURL mismatch");
+const expectedProductionUpdateUrl=String(release.scriptUrl||"https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js").trim();
+assert(headerValue(prodUser,"updateURL")===expectedProductionUpdateUrl,"production updateURL must match release.json scriptUrl");
+assert(headerValue(prodUser,"downloadURL")===expectedProductionUpdateUrl,"production downloadURL must match release.json scriptUrl");
 assert(headerValue(testUser,"updateURL").includes("/upstatus-test/upstatus.user.js"),"test updateURL mismatch");
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
+assert(prodUser.includes("var UPDATE_URL='"+expectedProductionUpdateUrl+"';"),"production manual update URL must match release.json scriptUrl");
+assert(testUser.includes("var RELEASE_MANIFEST_URL='';")&&testUser.includes("Atualizador desabilitado neste canal."),"TEST updater must be disabled without a dedicated release manifest");
+assert(testUser.includes("/functions/v1/upstatus-test/upstatus.user.js"),"TEST manual update URL must use the TEST function path");
+assert(!testUser.includes("https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),"TEST userscript must not fetch the production release manifest");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
 assert(prodUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';"),"production realtime topic compatibility check");
+assert(prodUser.includes("var UP_REALTIME_URL=(function(){try{return new URL(CLOUD_SERVER).origin;}catch(e){return '';}})();"),"production Realtime and Storage origin must derive from the selected API endpoint");
+assert(testUser.includes("var UP_REALTIME_URL=(function(){try{return new URL(CLOUD_SERVER).origin;}catch(e){return '';}})();"),"TEST Realtime and Storage origin must derive from the selected API endpoint");
 assert(testUser.includes("var UP_REALTIME_TOPIC='upstatus-test-live-"),"test realtime topic missing");
 assert(prodUser.includes("var UP_RINGTONE_CHANNEL='upstatus-screen-share-3-1-1-beta9-2-ringtone-stop-v1';"),"production ringtone channel mismatch");
 assert(testUser.includes("var UP_RINGTONE_CHANNEL='upstatus-test-call-ringtone-stop-v1';"),"test ringtone channel mismatch");
@@ -86,5 +94,6 @@ assert(prodUser.includes("M19 12H5M12 19l-7-7 7-7"),"production button must use 
 assert(prodUser.includes("button.style.background='#2563eb'"),"production back-arrow button must use the blue theme color");
 assert(prodUser.includes("button.style.margin='0 8px 0 0'"),"production back-arrow button must have spacing before native end-session control");
 assert(prodUser.includes("endButton.parentElement.insertBefore(button,endButton)"),"production back-arrow must sit immediately before native end-session control");
+execFileSync(process.execPath,[path.join(ROOT,"scripts/test-signed-upload-client.mjs")],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/chat-regression.test.mjs")],{stdio:"inherit"});
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);

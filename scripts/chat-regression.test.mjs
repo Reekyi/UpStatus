@@ -66,7 +66,7 @@ assert(source.includes("function setChatNewMessageIndicator(show)"),"chat must e
 assert(source.includes("btn.appendChild(dot)"),"new-message indicator must create a visible dot element on the latest-message arrow");
 assert(source.includes("hasNewExternalMessage=nextMessages.some"),"polling must detect incoming messages when realtime events are missed");
 assert(source.includes("chatPendingInitialScroll=true;chatOpenScrollUntil=Date.now()+2400;chatForceScrollBottom=true;"),"reopening chat must request scrolling to the latest message");
-assert(source.includes("var currentMenu=document.querySelector('.up-chat-emoji-menu'),currentBtn=document.querySelector('.up-chat-emoji-btn')"),"emoji picker outside-click handler must use the current menu and button");
+assert(source.includes("var b=m.__upstatusEmojiButton;if(!m.contains(ev.target)&&(!b||!b.contains(ev.target)))"),"emoji picker outside-click handler must use each menu and its owning button");
 assert(source.includes("document.body.appendChild(box)"),"image lightbox must be mounted at page level");
 assert(serverTemplate.includes('.in("state_key",["remote-status"])'),"health state query must use the correct Supabase in-filter arguments");
 
@@ -79,7 +79,7 @@ assert(source.includes("!list._upstatusUserScrolling&&(chatPendingInitialScroll|
 assert(source.includes("if(Date.now()<chatUserScrollInterruptedUntil&&!chatForceScrollBottom)"),"non-forced scrolling must respect the user-scroll interruption window");
 assert(source.includes("function openChat(){")&&source.includes("chatUserScrollInterruptedUntil=0;"),"opening the chat must reset an older scroll-interruption window");
 
-assert(source.includes("(member==='Ricardo'?'<button class=\"up-chat-clear\" type=\"button\" title=\"Limpar chat\">'+iconSvg('trash')+'</button>':'')+'<button class=\"up-chat-library\""),"Ricardo must see the clear-chat action before the media library; other members must not see the clear action");
+assert(source.includes("(member==='Ricardo'&&role==='implementation_admin'?'<button class=\"up-chat-clear\" type=\"button\" title=\"Limpar chat\">'+iconSvg('trash')+'</button>':'')+'<button class=\"up-chat-library\""),"only Ricardo with the stored admin role sees the clear-chat action before the media library");
 assert(source.includes(".up-chat-photo{display:block;box-sizing:border-box;min-width:0;max-width:min(260px,100%);max-height:210px;width:auto;height:auto;"),"chat images must shrink to fit narrow bubbles without forcing horizontal overflow");
 assert(source.includes(".up-chat-media{display:block;box-sizing:border-box;min-width:0;width:auto;height:auto;max-width:min(220px,100%);max-height:150px;"),"chat media must stay within the available bubble width while preserving intrinsic proportions");
 assert(source.includes(".up-chat-media-video{width:min(220px,100%);height:auto;aspect-ratio:4/3;max-height:150px}"),"chat videos must use responsive width and preserve a stable aspect ratio");
@@ -102,13 +102,18 @@ assert(source.includes("if(p.type==='presence'){callReceivePresence(p);return;}"
 assert(serverTemplate.includes("const isAdmin=await admin(name);"),"server delete is authorized by the authenticated admin role");
 assert(!serverTemplate.includes('const isAdmin=name==="Ricardo"'),"no name-only administrator bypass");
 assert(source.includes("var canDelete=m.user===member||role==='implementation_admin';"),"admin UI uses stored role");
+assert(source.includes("function clearChatRicardo(){if(member!=='Ricardo'||role!=='implementation_admin')return;"),"clear-chat handler requires the stored admin role");
+assert(serverTemplate.includes("const existingRole=String(a.role||\"\");\n    const role=existingRole.trim()?existingRole:\"implementation_user\";"),"blank first-access roles default to user and non-empty roles remain verbatim");
+assert(!serverTemplate.includes('["Ricardo","Lohan","Guilherme"].includes(name)'),"first access never grants administrator by account name");
+assert(serverTemplate.includes('if(!await admin(name))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);'),"health endpoint requires the stored admin role");
+assert(serverTemplate.includes('if(name!=="Ricardo"||!await admin(name))return response({error:"Somente Ricardo, com papel de administrador, pode limpar o chat."},403);'),"chat clear requires Ricardo and the stored admin role");
 assert(source.includes("function setPendingAttachment(file)"),"files are staged instead of uploaded immediately");
 assert(source.includes("function updateLinkPreview(text)"),"links get a removable preview");
 assert(source.includes("e.preventDefault();setPendingAttachment(file)"),"pasted images stay pending");
 assert(source.includes("fileName:String(record.file_name"),"filename is separate from caption");
 assert(serverTemplate.includes('file_name:type==="document"&&fileName?fileName:null'),"file name is saved to separate database column");
 assert(source.includes("var incomingTime=!own?"),"received messages show per-message timestamps");
-assert(source.includes("var ownMeta=own?'<span class=\"up-chat-own-meta\"><span class=\"up-chat-own-time\">"),"sent time appears with ticks");
+assert(source.includes("var ownMeta=own?'<div class=\"up-chat-own-meta\"><span class=\"up-chat-own-time\">"),"sent time appears with ticks");
 assert(source.includes("function screenShareStart()"),"screen-sharing start handler missing");
 assert(source.includes("function screenShareReceive(p)"),"screen-sharing signal handler missing");
 assert(source.includes("SCREEN_ROOM_EVENT"),"screen-sharing realtime event missing");
@@ -118,5 +123,35 @@ assert(source.includes("data-sender-color"),"per-sender chat color rendering mis
 assert(source.includes("function requestPublicChatLinkTitle(url,callback)"),"stable Google Docs link-title hydration helper missing");
 assert(source.includes('class="up-chat-link-card"'),"stable chat link-card renderer missing");
 assert(source.includes("hydrateChatLinkTitles(list);"),"chat link-card hydration hook missing");
-assert(source.includes("upstatus-340-chat-link-card-compat"),"chat link-card compatibility styles missing");
-console.log("Chat regression tests passed: composer, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");
+assert(source.includes("'.up-chat-bubble:has(.up-chat-link-card){padding:4px!important;border-width:1px!important;box-shadow:none!important}'"),"chat link-card bubble compatibility styles missing");
+assert(source.includes("'.up-chat-link-card{padding:7px!important;gap:8px!important;border-width:1px!important;border-radius:9px!important}'"),"chat link-card compact styles missing");
+
+assert(source.includes("var chatPendingAttachment=null;"),"chat attachment state must be transient and explicit");
+assert(source.includes("var chatLinkPreviewDismissed=false,chatLinkPreviewDismissedUrl='';"),"link preview dismissal state must be explicit");
+assert(source.includes("photoFile.addEventListener('change',function(){if(photoFile.files&&photoFile.files[0])setPendingAttachment(photoFile.files[0]);photoFile.value='';});"),"selected files must remain staged and the input must reset");
+assert(source.includes("updateLinkPreview(input.value||'')"),"typing must update the removable link preview");
+assert(source.includes("if(!input||(!text&&!chatPendingAttachment))return;"),"send action must accept either text or a staged attachment");
+assert(source.includes("sendChatMedia(pending,text,reply)"),"staged attachments must preserve caption and reply context");
+assert(source.includes("function sendChatMedia(file,caption,replyOverride){"),"attachment send must support caption and reply context");
+assert(source.includes("fileName:isDocument?String(file.name||'Documento'):'',"),"document filename must be stored separately from the caption");
+assert(source.includes("var expectedBucket=route==='/api/chat/upload-url'?'chat-images':route==='/api/profile/avatar-upload-url'?'profile-images':'';"),"signed uploads must bind each API route to one bucket");
+assert(source.includes("credentials:'omit',redirect:'error'"),"signed Storage PUT must omit credentials and reject redirects");
+assert(source.includes("function canViewHealth(){return role==='implementation_admin';}"),"health UI must use the stored administrator role");
+assert(!source.includes("sendRealtimeEvent('chat_fast',{message:created})"),"chat refresh broadcasts must not include full message rows");
+assert(serverTemplate.includes("async function signedUploadRoute(req:Request,kind:\"chat\"|\"avatar\")"),"server signed-upload route is missing");
+assert(serverTemplate.includes('const uploadPrefix="/storage/v1/object/upload/sign/"+bucket+"/";'),"server must validate signed upload bucket and path");
+assert(serverTemplate.includes('const publicPrefix="/storage/v1/object/public/"+bucket+"/";'),"server must validate public object bucket and path");
+assert(serverTemplate.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");'),"chat upload-url route must be authenticated and wired");
+assert(serverTemplate.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");'),"avatar upload-url route must be authenticated and wired");
+assert(serverTemplate.includes("const avatarUrl=String(p.avatarUrl||\"\").trim();"),"profile route must accept the signed-upload result");
+assert(serverTemplate.includes("Backward compatibility for already-installed clients"),"legacy base64 avatar clients must remain compatible");
+
+assert(source.includes('<div class="up-chat-pending-preview hidden" aria-live="polite"></div>'),"composer must render a valid pending-attachment preview node");
+assert(source.includes("restoreChatDraft(input);updateLinkPreview(input.value||'');"),"restored drafts must rebuild their link preview");
+assert(source.includes("if(base.protocol!=='https:')throw new Error('URL de upload inválida.');"),"client must reject non-HTTPS Storage origins");
+assert(serverTemplate.includes('if(uploadUrl.origin!==projectOrigin||uploadUrl.username||uploadUrl.password||uploadUrl.hash||!uploadUrl.pathname.startsWith(uploadPrefix))'),"server must reject signed URLs with fragments or foreign origins");
+assert(source.includes("fileName:String(record.file_name!=null?record.file_name:(record.fileName||''))"),"filename must survive chat normalization separately from the caption");
+assert(source.includes("var docName=String(m.fileName||m.message||'Documento')"),"document cards must display the actual filename");
+assert(source.includes("up-chat-document-caption"),"document captions must render separately from filenames");
+assert(source.includes("var name=String(item.fileName||item.message||'Documento')"),"shared library search and download must use the actual filename");
+console.log("Chat regression tests passed: staged attachments, signed uploads, filename/caption separation, role gates, link previews, screen sharing, notifications, and unread indicators.");
