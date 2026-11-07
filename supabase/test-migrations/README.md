@@ -16,3 +16,8 @@ Production migrations must be separately authored, reviewed, validated against t
 ## Setup invite regression
 
 `20261107010000_setup_invites_test.sql` checks the setup-invite columns, unique token-hash index, SECURITY INVOKER setting, pinned empty search_path, and service_role-only RPC execution. The companion `scripts/test-auth-enrollment.mjs` uses unique `__auth_test_` users in the allowlisted isolated project and verifies concurrent one-time consumption and expiry, then removes only its exact fixtures. It is not a production migration.
+## Broadcast trigger search-path hardening
+
+`20261107170000_pin_empty_search_path_trigger_broadcasts_test.sql` is an isolated-only counterpart to `supabase/migrations/20261107170000_pin_empty_search_path_trigger_broadcasts.sql`. It pins the three trigger-only SECURITY DEFINER broadcast functions to an empty function `search_path`, then verifies that they remain attached to triggers, keep schema-qualified `realtime.send`, deny direct execution to `anon`/`authenticated`, and preserve `service_role` execution.
+
+Apply it only to the allowlisted isolated project after checking that no fixture workflow is active. It is not a production migration and does not make the legacy public Realtime topic private.
