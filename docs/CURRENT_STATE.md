@@ -2191,3 +2191,21 @@ GitHub branch API currently reports `master.protected=false` and `develop.protec
 RT-01/public Realtime and private-channel JWT architecture; auth-specific distributed rate limiting and product endpoint integration; production migration/cutover/rollback; official full-product TEST; real Storage E2E; table/default ACL remediation; human reviews; and physical Issue #78 acceptance (still 0/8). No real Tampermonkey/network-loss/microphone/display-capture/cross-product manual test was performed.
 
 Production remained read-only. No production SQL write, migration, Edge deployment, secret/role/grant/ACL/policy/flag change, merge, release, userscript publication, or destructive operation occurred.
+
+
+## 2026-11-07 22:11 UTC — Team Lite AUTH-03 route regression completed
+
+PR #76 exact HEAD `fc49eb804457a159a1c066faf6203dbc6fb5a9da` completed Candidate Checks [42419070366](https://github.com/Reekyi/UpStatus/actions/runs/42419070366) **SUCCESS**. The new dynamic setup-invite route test passed in the Team Lite template. Full workflow evidence:
+- 16/16 unauthenticated checks and 103/103 authenticated integration checks passed.
+- Chromium WebRTC call, voice and screen negotiation; remote tracks; three-member mesh and teardown passed.
+- Distributed endpoint limiter: 90 accepted, one HTTP 429 with `Retry-After: 60s`; concurrency and reset checks passed.
+- Atomic chat-read receipt concurrency passed.
+- Setup invite wrong/expired/replay/malformed-token cases, one-winner concurrency, NULL/empty/whitespace role fallback, explicit-role preservation, padded-admin non-escalation and cleanup passed.
+- Durable voice-room active-leave/confirmation/retry, pagehide/reload recovery, screen-share recovery, Team Lite portal/session isolation, updater and version checks passed.
+- Workflow cleanup verified temporary users, sessions, rooms, memberships and events.
+
+The shared isolated project was not queried or modified after the workflow while Normal Smoke started. The Normal #74 exact-head Signaling Smoke [42419107700](https://github.com/Reekyi/UpStatus/actions/runs/42419107700) is still in progress: static harness and unauthenticated endpoint checks passed; authenticated browser/integration and subsequent steps remain pending. Do not claim current Normal head fully smoke-approved until that run completes.
+
+The three earlier failed Team Lite attempts were confined to defects in the new test harness itself (regex escaping, VM script joining, and a fake hash that included the raw token); the corrected exact HEAD above is the successful run. No product runtime code changed in this test-only work.
+
+No production write, migration, deploy, merge, release, flag/secret/role/ACL change or userscript publication occurred.
