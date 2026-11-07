@@ -4721,7 +4721,7 @@ function chatAvatarPresence(name){
     if(quickChatBubble)quickChatBubble.disabled=true;
     chatLoading=false;chatForceFullQueued=false;typingPolling=false;refreshing=false;remotePolling=false;
     img.src=profileFallback();
-    var loginMember=GM_getValue(key+'last_member','Lucca')||'Lucca';lastMember=loginMember;card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><button id="up-enter">Entrar</button></div><div class="up-update up-login-update"><div><span>Versão v'+CURRENT_VERSION+'</span><a href="#" class="up-patch-link">O que há de novo?</a></div><div><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div><span class="up-update-status"></span></div><div class="up-message"></div>';
+    var loginMember=GM_getValue(key+'last_member','Lucca')||'Lucca';lastMember=loginMember;card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><label>Código de primeiro acesso (novas contas)</label><input class="up-input" id="up-setup-token" type="password" autocomplete="off" placeholder="Código fornecido pelo administrador"><button id="up-enter">Entrar</button></div><div class="up-update up-login-update"><div><span>Versão v'+CURRENT_VERSION+'</span><a href="#" class="up-patch-link">O que há de novo?</a></div><div><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div><span class="up-update-status"></span></div><div class="up-message"></div>';
     var nameSelect=card.querySelector('#up-name');
     function setLoginMembers(names){
       var list=(names||[]).filter(function(n){return n==='Lucca'||n==='Ycaro';});
@@ -4733,7 +4733,7 @@ function chatAvatarPresence(name){
     function passwordKey(name){return key+'password_'+String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'_');}
     function loadSavedPassword(){var saved='';try{saved=sessionStorage.getItem(passwordKey(loginMember))||'';}catch(e){}var input=card.querySelector('#up-password');if(input)input.value=saved;}
     setLoginMembers(['Lucca','Ycaro']);
-    nameSelect.onchange=function(){loginMember=nameSelect.value;lastMember=loginMember;GM_setValue(key+'last_member',loginMember);loadSavedPassword();};
+    nameSelect.onchange=function(){loginMember=nameSelect.value;lastMember=loginMember;GM_setValue(key+'last_member',loginMember);var setupInput=card.querySelector('#up-setup-token');if(setupInput)setupInput.value='';loadSavedPassword();};
     loadSavedPassword();
     api('GET','/api/members').then(function(r){setLoginMembers((r.members||[]).map(function(x){return x.name;}));}).catch(function(){});
     card.querySelector('#up-enter').onclick=async function(){
@@ -4743,10 +4743,12 @@ function chatAvatarPresence(name){
       authenticated=false;
       if(quickChatBubble)quickChatBubble.disabled=true;
       var passwordInput=card.querySelector('#up-password');
+      var setupTokenInput=card.querySelector('#up-setup-token');
       var nameInput=card.querySelector('#up-name');
       var originalLabel=button?button.textContent:'Entrar';
       if(button){button.disabled=true;button.setAttribute('aria-busy','true');button.innerHTML='<span class="up-login-spinner" aria-hidden="true"></span> Entrando…';button.style.opacity='.85';button.style.cursor='wait';}
       if(passwordInput)passwordInput.disabled=true;
+      if(setupTokenInput)setupTokenInput.disabled=true;
       if(nameInput)nameInput.disabled=true;
       var loginStarted=Date.now();
       try{
@@ -4754,9 +4756,12 @@ function chatAvatarPresence(name){
         var name=loginMember;
         var password=passwordInput?passwordInput.value:'';
         if(!password)throw new Error('Digite sua senha para entrar.');
-        var account=await api('GET','/api/account?name='+encodeURIComponent(name));
+        var setupToken=String(setupTokenInput?setupTokenInput.value:'').trim();
+        var endpoint=setupToken?'/api/setup':'/api/login';
+        var payload={name:name,password:password};
+        if(setupToken)payload.setupToken=setupToken;
         if(attempt!==authGeneration)return;
-        var r=await api('POST',account.needsSetup?'/api/setup':'/api/login',{name:name,password:password});
+        var r=await api('POST',endpoint,payload);
         if(attempt!==authGeneration)return;
         if(!r||!r.token||!r.name||String(r.name)!==String(name))throw new Error('Resposta de autenticação inválida. Verifique o usuário e tente novamente.');
         token=r.token;member=r.name;role=r.role||'implementation_user';lastMember=member;
@@ -4772,11 +4777,13 @@ function chatAvatarPresence(name){
         if(attempt===authGeneration||!authenticated){
           if(button&&button.isConnected){button.disabled=false;button.removeAttribute('aria-busy');button.textContent=originalLabel;button.style.opacity='';button.style.cursor='pointer';}
           if(passwordInput&&passwordInput.isConnected)passwordInput.disabled=false;
+          if(setupTokenInput&&setupTokenInput.isConnected)setupTokenInput.disabled=false;
           if(nameInput&&nameInput.isConnected)nameInput.disabled=false;
         }
       }
     };
     card.querySelector('#up-password').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();card.querySelector('#up-enter').click();}});
+    card.querySelector('#up-setup-token').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();card.querySelector('#up-enter').click();}});
     card.querySelector('.up-update-check').onclick=checkUpdate;
     card.querySelector('.up-patch-link').onclick=function(e){e.preventDefault();openPatchNotes();};
     checkUpdate();
