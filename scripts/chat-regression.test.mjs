@@ -102,6 +102,12 @@ assert(source.includes("if(p.type==='presence'){callReceivePresence(p);return;}"
 assert(serverTemplate.includes("const isAdmin=await admin(name);"),"server delete is authorized by the authenticated admin role");
 assert(!serverTemplate.includes('const isAdmin=name==="Ricardo"'),"no name-only administrator bypass");
 assert(source.includes("var canDelete=m.user===member||role==='implementation_admin';"),"admin UI uses stored role");
+assert(source.includes("(member==='Ricardo'&&role==='implementation_admin'?'<button class=\"up-chat-clear\" type=\"button\" title=\"Limpar chat\">'+iconSvg('trash')+'</button>':'')"),"clear-chat UI requires Ricardo and the stored admin role");
+assert(source.includes("function clearChatRicardo(){if(member!=='Ricardo'||role!=='implementation_admin')return;"),"clear-chat handler requires the stored admin role");
+assert(serverTemplate.includes("const existingRole=String(a.role||\"\");\n    const role=existingRole.trim()?existingRole:\"implementation_user\";"),"blank first-access roles default to user and non-empty roles remain verbatim");
+assert(!serverTemplate.includes('["Ricardo","Lohan","Guilherme"].includes(name)'),"first access never grants administrator by account name");
+assert(serverTemplate.includes('if(!await admin(name))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);'),"health endpoint requires the stored admin role");
+assert(serverTemplate.includes('if(name!=="Ricardo"||!await admin(name))return response({error:"Somente Ricardo, com papel de administrador, pode limpar o chat."},403);'),"chat clear requires Ricardo and the stored admin role");
 assert(source.includes("function setPendingAttachment(file)"),"files are staged instead of uploaded immediately");
 assert(source.includes("function updateLinkPreview(text)"),"links get a removable preview");
 assert(source.includes("e.preventDefault();setPendingAttachment(file)"),"pasted images stay pending");
