@@ -28,6 +28,10 @@ assert(headerValue(prodUser,"updateURL")===expectedProductionUpdateUrl,"producti
 assert(headerValue(prodUser,"downloadURL")===expectedProductionUpdateUrl,"production downloadURL must match release.json scriptUrl");
 assert(headerValue(testUser,"updateURL").includes("/upstatus-test/upstatus.user.js"),"test updateURL mismatch");
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
+assert(prodUser.includes("var UPDATE_URL='"+expectedProductionUpdateUrl+"';"),"production manual update URL must match release.json scriptUrl");
+assert(testUser.includes("var RELEASE_MANIFEST_URL='';")&&testUser.includes("Atualizador desabilitado neste canal."),"TEST updater must be disabled without a dedicated release manifest");
+assert(testUser.includes("/functions/v1/upstatus-test/upstatus.user.js"),"TEST manual update URL must use the TEST function path");
+assert(!testUser.includes("https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),"TEST userscript must not fetch the production release manifest");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
 assert(prodUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';"),"production realtime topic compatibility check");
