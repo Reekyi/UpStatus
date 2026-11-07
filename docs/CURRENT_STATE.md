@@ -910,3 +910,74 @@ The isolated project `bfpjtfqlnypisxljoxkb` was SELECT-only checked before the n
 The independent QA automation was left untouched. QA was informed of the Team Lite fix in a comment on PR #82; issue #79 also received a concise engineering checkpoint.
 
 No production writes, migrations, deployments, merges, releases, secret/role/feature-flag changes, or userscript publication occurred.
+
+
+## 2026-11-06 — exact-head CI closure, production security refresh, and deployment guard
+
+### Live PR refs and exact-head CI
+
+All five tracked PRs remain open, Draft, and unmerged. No submitted review records exist on #74, #75, #76, #80, or #82.
+
+| PR | Exact HEAD | Base | Ahead / behind | Exact-head result |
+|---|---|---|---:|---|
+| #74 Normal | `afda7f521a8f822fad69a3429de3369d294d6f99` | `master` | 770 / 0 | Validate + Signaling Smoke PASS |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | `team-lite-official` | 59 / 0 | Historical Candidate Checks PASS |
+| #76 Team Lite signaling | `9f8596586f7fde9cc7f74efd9e969e49e78e3ca8` | `team-lite-official` | 263 / 0 | Candidate Checks PASS |
+| #80 Continuity | `7abf2a58135fb33554c3625900e544bffc6a0066` | `develop` | 166 / 0 | Validate reproduces inherited signed-upload assertion |
+| #82 Independent QA | `fc50ac078a900ef6bf5d9885bf60dd44afcb31c3` | `master` | 76 / 0 | Validate reproduces inherited updateURL assertion |
+
+Exact workflow evidence:
+- Normal #74 Validate [42302685481](https://github.com/Reekyi/UpStatus/actions/runs/42302685481) and Signaling Smoke [42302685470](https://github.com/Reekyi/UpStatus/actions/runs/42302685470) both completed SUCCESS on the exact head. Smoke job [128187319496](https://github.com/Reekyi/UpStatus/actions/runs/42302685470/job/128187319496) passed 19/19 unauthenticated and 129/129 authenticated checks, Chromium call/voice/screen media delivery, three-member mesh, open voice-room late join across Normal/Team Lite aliases, voice-attempt recovery, 90+1 rate limit with Retry-After 60 seconds, concurrency, atomic read receipts, and cleanup.
+- Team Lite #76 Candidate Checks [42308602405](https://github.com/Reekyi/UpStatus/actions/runs/42308602405) completed SUCCESS. Job [128204180146](https://github.com/Reekyi/UpStatus/actions/runs/42308602405/job/128204180146) passed 16/16 unauthenticated and 103/103 authenticated checks, browser call/voice/screen media, open voice-room late join/idempotency/owner handoff/capacity, rate limit 90+1 with Retry-After, atomic receipts, durable recovery, version 3.4.31, portals/updater, migration layout, and cleanup.
+- #75 remains historical baseline evidence only; #76 is the current Team Lite release candidate.
+- #80 Validate [42308797247](https://github.com/Reekyi/UpStatus/actions/runs/42308797247) fails at `client signed upload helper missing`, inherited from the `develop` baseline.
+- #82 Validate [42313228043](https://github.com/Reekyi/UpStatus/actions/runs/42313228043) fails at `production updateURL mismatch`, inherited from the `master` baseline. Neither validator was weakened.
+
+### Deployment workflow safety guard — candidate resolved, master not yet updated
+
+PR #74's `.github/workflows/deploy-production.yml` now:
+- allows only manual `workflow_dispatch` from `refs/heads/master`;
+- checks the checked-out SHA equals `GITHUB_SHA`;
+- requires `SUPABASE_PROJECT_ID=dlfvkawaiqduhlazsszm` and a non-empty access token;
+- locks the stable release to version `3.4.7`;
+- uses a pinned Supabase CLI version `2.122.1` and pinned setup action.
+
+The existing `scripts/signaling-static.test.mjs` asserts these guards and the Normal Smoke log explicitly reports: “PASS production deploy ref, project, credential, release, and CLI-version guards”. This closes the earlier deployment-workflow inspection gap **on the #74 candidate branch only**. The base `master` workflow remains unchanged until an authorized merge; no deployment was run.
+
+### Production Supabase — fresh read-only verification
+
+Project `dlfvkawaiqduhlazsszm` is `ACTIVE_HEALTHY`, PostgreSQL `17.11.0.002), with seven migrations through `20261027155438` and 38 ACTIVE Edge Functions. Core versions remain Normal `upstatus` v480, TEST `upstatus-test` v281, Team Lite `upstatus-team-lite` v15, and legacy screen-share beta10 v6.
+
+Production still has no:
+- dedicated `upstatus-signal` Edge Function;
+- `upstatus_signal_rate_limits` table or `consume_upstatus_signal_rate_limit` RPC;
+- `merge_chat_read_receipts` RPC;
+- voice-room open/leave RPCs.
+
+Read-only catalog results reconfirm:
+- all three broadcast functions remain SECURITY DEFINER with `search_path=public` and EXECUTE available to `anon` and `authenticated`;
+- `upstatus_broadcast_messages()` serializes the complete OLD/NEW row and publishes it to the public topic with `private=false`;
+- remote-state command/result metadata and user status metadata are also broadcast publicly;
+- the nine backend-owned tables retain broad client grants including SELECT/INSERT/UPDATE/DELETE/TRUNCATE despite RLS enabled and zero policies;
+- `realtime.messages` retains anon/authenticated SELECT/INSERT/UPDATE grants with RLS enabled and zero policies;
+- default ACLs remain broad for postgres-owned public/storage objects and supabase_admin-owned public/graphql/graphql_public objects.
+
+Security Advisor: 3 WARN for anon-executable SECURITY DEFINER functions, 3 WARN for authenticated, and 10 INFO for RLS without policies. Performance and Health advisors returned no findings. The 38-function inventory still reports `verify_jwt=false`; this does not establish missing application authentication, but route-by-route auth/ownership review remains open.
+
+No production write, migration, deploy, role/secret/flag change, userscript publication, merge, or destructive action was performed.
+
+### Isolated project after exact-head workflows
+
+Project `bfpjtfqlnypisxljoxkb` remains `ACTIVE_HEALTHY`, PostgreSQL `17.11.0.003`, with 28 migration records. `upstatus-signal-test` is ACTIVE v32 and `upstatus-signal-e2e-once` is ACTIVE v3.
+
+A fresh SELECT-only post-run query returned zero prefixed users/sessions, rooms, memberships, bindings, events, call attempts, voice attempts, rate-limit buckets, and expired rate-limit buckets. No manual cleanup was performed.
+
+### Remaining release gates
+
+- Issue #78 remains OPEN with 0/8 physical acceptance criteria. Real Tampermonkey no-F5 recovery, browser termination/reload while offline, real microphone/display permissions, and installed Normal ↔ Team Lite acceptance remain MANUAL PENDING.
+- Issue #79's body still reports 16/35 checked and is stale; that checklist count is not an overall progress percentage.
+- The authenticated transport remains default-off. Production still uses legacy public Realtime by default; do not flip the flag until the dedicated endpoint, migrations, auth model, compatibility, and rollback are reviewed.
+- Product-facing rate-limit integration and production receipt RPC are absent. The candidate server templates depend on the receipt RPC, so production deployment before the reviewed migration would break read receipts.
+- Public broadcast payload minimization/cutover, ACL/default-ACL hardening, official TEST migration/rollback rehearsal, 38-function route auth inventory, human reviews, and scope decisions remain open.
+
+Next safe engineering work is to finish the product-facing signaling endpoint/rate-limit cutover plan and validate its dependency order in official TEST, while keeping production untouched. Do not treat isolated CI as production approval.
