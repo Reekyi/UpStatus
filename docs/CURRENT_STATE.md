@@ -1293,3 +1293,69 @@ Exact-head CI as of 05:08 UTC:
 - Team Lite Candidate Checks [42341115265](https://github.com/Reekyi/UpStatus/actions/runs/42341115265): pending, no jobs created.
 
 The Team Lite candidate's missing `key` declaration was restored as `var key='upstatus_team_lite_'` before any storage access. The new test asserts that declaration. No physical Tampermonkey test has been performed; Issue #78 remains 0/8.
+
+
+## 2026-11-07 04:05 BRT — live engineering checkpoint
+
+This entry supersedes earlier SHA/status snapshots above. Re-fetched GitHub PR refs, exact-head workflow runs, review submissions, production Supabase metadata/catalog, and the current isolated-test queue before recording it.
+
+### Exact PR refs and CI
+
+| PR | Branch / base | Exact head | Ahead / behind | Current state |
+|---|---|---|---:|---|
+| #74 Normal | `chore/continuity-foundation` → `master` | `edd7574af6714ece71910d0153af71ad569eee23` | 818 / 0 | Open, Draft |
+| #75 Team Lite baseline | `team-lite/3.4.31-guest-fixes` → `team-lite-official` | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | 59 / 0 | Open, Draft |
+| #76 Team Lite signaling | `team-lite/signaling-transport-candidate` → `team-lite-official` | `c6b74ee39a4246f3af85e112fbb4f08986b445ae` | 298 / 0 | Open, Draft |
+| #80 continuity | `docs/continuity-handoff-2026-11-04` → `develop` | `4f689fd30d90f0299fddc2b00aec7794cec59eeb` | 176 / 0 | Open, Draft |
+| #82 independent QA | `qa/release-readiness-2026-11-04-master` → `master` | `1693410699346c988976c679f3ad8b1be00a5d28` | 85 / 0 | Open, Draft |
+
+No submitted human reviews were found on any of the five PRs.
+
+- #74 exact-head Validate [42346234567](https://github.com/Reekyi/UpStatus/actions/runs/42346234567): SUCCESS.
+- #74 exact-head Signaling Smoke [42346234562](https://github.com/Reekyi/UpStatus/actions/runs/42346234562): SUCCESS.
+- #75 historical baseline Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127): SUCCESS; this does not replace current #76 validation.
+- #76 Candidate Checks [42346239383](https://github.com/Reekyi/UpStatus/actions/runs/42346239383), attempt 1: FAILURE. The unauthenticated endpoint matrix reached 15/16; one POST to `/room/request-invite` timed out at the harness's 20-second deadline. The isolated endpoint's source performs the no-token check before body parsing or database access, so the timeout is consistent with a gateway/cold-start transient rather than the route's expected auth path. The same run's later authenticated integration/browser suite completed 129/129 checks, WebRTC call/voice/screen, rate-limit and receipt concurrency, setup-invite atomic consumption and cleanup.
+- Reran only failed jobs for #76 (attempt 2). At this checkpoint the isolation guard, adapter, AUTH-03 static contract, durable voice-room recovery, screen-share recovery, and unauthenticated endpoint-authentication step all passed; authenticated integration/browser is still running. Do not claim #76 green until the complete rerun and post-run cleanup verification finish.
+- #80 Validate [42341198223](https://github.com/Reekyi/UpStatus/actions/runs/42341198223) reproduces the inherited `client signed upload helper missing` assertion from `develop`.
+- #82 Validate [42347949781](https://github.com/Reekyi/UpStatus/actions/runs/42347949781) reproduces the inherited `production updateURL mismatch` assertion from `master`.
+- Neither validator was weakened. All five PRs remain Draft and unmerged.
+
+### AUTH-03 candidate status
+
+The current Normal/Team Lite candidate trees include the one-time setup-invite flow and literal role-preservation fix:
+
+- 256-bit one-time token; only SHA-256 stored; 15-minute expiry.
+- `POST /api/setup-invite` checks the authenticated administrator and only targets an existing row with NULL/empty password.
+- `POST /api/setup` consumes the service-role-only SECURITY INVOKER RPC atomically.
+- NULL, empty and ASCII-whitespace-only roles become `implementation_user`; non-empty roles are preserved literally. In particular, `" implementation_admin "` must remain invalid and must not be canonicalized into admin.
+- Existing Team Lite 4-character passwords remain usable in Normal login; Normal setup still requires 6 characters.
+- Plaintext password persistence was removed from both candidate userscripts; legacy namespaced password values are purged and session tokens/preferences are preserved.
+
+The #76 rerun still needs to finish its database/browser stages. HTTP-level tests for the real admin invite route (admin session, non-admin denial, token response/log handling) and a rate limiter for login/setup remain incomplete.
+
+### Supabase production — read-only
+
+Project `dlfvkawaiqduhlazsszm` is `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, with 7 migrations and 38 ACTIVE Edge Functions. Relevant deployed versions: Normal `upstatus` v480, `upstatus-test` v281 (same production project/database, not isolation), Team Lite v15, legacy Normal screen-share beta10 v6.
+
+Catalog and source reads confirm:
+
+- No setup-invite columns/RPC, auth rate-limit table/RPC, distributed signaling rate-limit table/RPC, voice-attempt table, atomic read-receipt RPC, or dedicated `upstatus-signal` function is installed in production.
+- The three broadcast trigger functions remain SECURITY DEFINER with `search_path=public`; both `anon` and `authenticated` can EXECUTE them.
+- The message trigger serializes the complete OLD/NEW row with `to_jsonb` and sends it to the shared Realtime topic with `private=false`. Remote-state and user-status triggers also publish metadata to the same public topic.
+- Each of nine backend-owned public tables (`chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing`, `users`) still grants anon/authenticated DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE and UPDATE. `realtime.messages` still grants SELECT/INSERT/UPDATE to both roles. RLS/no-policy does not constrain TRUNCATE.
+- Default ACLs remain broad: postgres defaults in public/storage and supabase_admin defaults in public/graphql/graphql_public grant anon/authenticated table, sequence and function privileges. The candidate postgres-only default-ACL migration does not address supabase_admin ownership; that needs a supported administrative path, not an assumed postgres migration.
+- Security Advisor: 3 SECURITY DEFINER WARN for anon, 3 for authenticated, 10 RLS/no-policy INFO. Performance and Health advisors returned no findings.
+
+Production account aggregate remains 5 users, 0 NULL/empty password hashes, 0 missing roles. Deployed Normal v480, Team Lite v15 and legacy v6 still expose public `GET /api/account?name=...` setup-state and `POST /api/setup`; the name-based admin fallback remains in deployed sources. Candidate AUTH-03 is not a production fix until an approved cutover.
+
+### Isolated project
+
+Project `bfpjtfqlnypisxljoxkb` is the only isolated Supabase project found; the last pre-rerun SELECT-only snapshot returned zero reserved test fixtures. The #76 attempt-2 workflow is currently using it. Do not run another fixture-mutating suite or manual cleanup until the workflow completes; then perform a SELECT-only zero-count check.
+
+### Remaining release gates
+
+- Issue #78 remains 0/8 physical acceptance criteria. Real Tampermonkey offline/reload/no-F5, real microphone/display permissions, and installed Normal ↔ Team Lite acceptance have not been performed by automation.
+- RT-01 public Realtime disclosure, ACL/default-ACL remediation, auth rate limiting, official TEST project/rehearsal, route-by-route 38-function auth inventory, HTTP admin-invite tests, human review, and explicit release approval remain open.
+- Do not trust `X-Forwarded-For` or `CF-Connecting-IP` for auth buckets until gateway provenance is proven. Do not reuse the divergent rate-limit candidate with unbounded request-path cleanup.
+
+No production SQL write/migration, function deployment, secret/role/flag change, merge, release, userscript publication, destructive operation, or manual fixture cleanup occurred in this checkpoint.
