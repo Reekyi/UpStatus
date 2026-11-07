@@ -589,3 +589,109 @@ assert.equal(failedRecoveryOffers, 1,
   "a peer that remains disconnected must still enter the bounded recovery path");
 
 console.log("Team Lite voice signaling retransmission and recovery-timer tests passed.");
+
+
+// Authenticated active voice-room leave must call the server membership RPC.
+// The older active-leave regression used signalTransport=null and only exercised
+// the legacy leave signal; this covers the authenticated /room/leave branch.
+const authenticatedLeaveStart = template.indexOf("var voiceRoomLeavePromise=null;");
+const authenticatedLeaveEnd = template.indexOf("\nwindow.addEventListener('pagehide'", authenticatedLeaveStart);
+assert.ok(authenticatedLeaveStart >= 0 && authenticatedLeaveEnd > authenticatedLeaveStart,
+  "authenticated voice leave function boundaries must exist");
+const authenticatedLeaveSource = template.slice(authenticatedLeaveStart, authenticatedLeaveEnd) +
+  "\nthis.__candidateAuthenticatedVoiceRoomLeave=voiceRoomLeave;";
+
+function makeAuthenticatedLeaveContext(roomId, transport, events) {
+  return {
+    voiceRoom: {
+      joinGeneration: 0, active: true, joining: false, recoveryTimers: {}, recoveryAttempts: {},
+      timer: null, levelTimer: null, pingTimer: null, pingMs: null, peers: {}, stream: null,
+      muted: false, participants: {}
+    },
+    signalVoiceRoomRoomId: roomId,
+    signalVoiceRoomAttemptId: "",
+    signalPendingVoiceRoomAttempts: Object.create(null),
+    signalTransport: transport,
+    signalVoiceRoomCreator: true,
+    signalVoiceRoomPrepared: true,
+    signalRosterCache: { [roomId]: { members: ["Team Lite Tester"] } },
+    screenShareStop: () => { events.push("screen-stop"); return Promise.resolve(true); },
+    signalStopCallPolling: room => events.push("poll-stop:" + room),
+    voiceRoomPlayCue: () => events.push("leave-cue"),
+    voiceRoomSend: () => { events.push("final-leave-signal"); return Promise.resolve({ ok: true }); },
+    clearTimeout: () => {},
+    clearInterval: () => {},
+    voiceRoomDrop: () => {},
+    voiceRoomRender: () => {},
+    voiceRoomMessage: () => {},
+    member: "Team Lite Tester"
+  };
+}
+
+const authenticatedRoomId = "team-lite-authenticated-voice-room";
+const authenticatedLeaveEvents = [];
+let finishAuthenticatedServerLeave;
+const pendingAuthenticatedServerLeave = new Promise(resolve => {
+  finishAuthenticatedServerLeave = resolve;
+});
+const authenticatedTransport = {
+  leave: async room => {
+    authenticatedLeaveEvents.push("server-leave:" + room);
+    return pendingAuthenticatedServerLeave;
+  }
+};
+const authenticatedLeaveContext = makeAuthenticatedLeaveContext(
+  authenticatedRoomId, authenticatedTransport, authenticatedLeaveEvents
+);
+vm.runInNewContext(authenticatedLeaveSource, authenticatedLeaveContext, { timeout: 1000 });
+const authenticatedLeave = authenticatedLeaveContext.__candidateAuthenticatedVoiceRoomLeave();
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.ok(authenticatedLeaveEvents.includes("poll-stop:" + authenticatedRoomId),
+  "active authenticated leave must stop the room poller before server cleanup");
+assert.ok(authenticatedLeaveEvents.indexOf("final-leave-signal") <
+  authenticatedLeaveEvents.indexOf("server-leave:" + authenticatedRoomId),
+  "the final authenticated leave signal must settle before the membership leave RPC");
+assert.equal(authenticatedLeaveContext.signalVoiceRoomRoomId, authenticatedRoomId,
+  "the room ID must remain available until the server confirms membership cleanup");
+let authenticatedLeaveSettled = false;
+authenticatedLeave.then(() => { authenticatedLeaveSettled = true; });
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(authenticatedLeaveSettled, false,
+  "active authenticated leave must await the server membership RPC");
+finishAuthenticatedServerLeave({ ok: true });
+assert.equal(await authenticatedLeave, true);
+assert.equal(authenticatedLeaveContext.signalVoiceRoomRoomId, "",
+  "confirmed authenticated leave must clear the local room ID");
+assert.equal(authenticatedLeaveContext.signalVoiceRoomCreator, false);
+assert.equal(authenticatedLeaveContext.signalVoiceRoomPrepared, false);
+assert.equal(Object.hasOwn(authenticatedLeaveContext.signalRosterCache, authenticatedRoomId), false,
+  "confirmed authenticated leave must clear the cached room roster");
+
+const retryLeaveEvents = [];
+let retryLeaveCalls = 0;
+const retryTransport = {
+  leave: async room => {
+    retryLeaveCalls++;
+    retryLeaveEvents.push("server-leave:" + room);
+    return retryLeaveCalls === 1 ? false : { ok: true };
+  }
+};
+const retryLeaveContext = makeAuthenticatedLeaveContext(
+  authenticatedRoomId, retryTransport, retryLeaveEvents
+);
+vm.runInNewContext(authenticatedLeaveSource, retryLeaveContext, { timeout: 1000 });
+assert.equal(await retryLeaveContext.__candidateAuthenticatedVoiceRoomLeave(), false,
+  "a rejected server leave must remain unconfirmed");
+assert.equal(retryLeaveContext.signalVoiceRoomRoomId, authenticatedRoomId,
+  "failed server leave must retain the room ID for retry");
+assert.equal(retryLeaveContext.signalVoiceRoomCreator, true,
+  "failed server leave must retain owner state until confirmation");
+assert.equal(retryLeaveContext.signalVoiceRoomPrepared, true,
+  "failed server leave must retain prepared membership state until confirmation");
+assert.equal(await retryLeaveContext.__candidateAuthenticatedVoiceRoomLeave(), true,
+  "a later confirmed server leave must complete the same membership cleanup");
+assert.equal(retryLeaveCalls, 2, "retry must call the server leave endpoint again");
+assert.equal(retryLeaveContext.signalVoiceRoomRoomId, "",
+  "successful retry must finally clear the room ID");
+
+console.log("Team Lite authenticated active voice leave, server confirmation, and retry tests passed.");
