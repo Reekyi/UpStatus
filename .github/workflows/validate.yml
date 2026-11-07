@@ -21,5 +21,7 @@ jobs:
         run: node scripts/test-build-target-guard.mjs
       - name: Test dedicated TEST project metadata guard
         run: node scripts/test-test-project-preflight.mjs
+      - name: Test TEST deploy workflow secret scope
+        run: node scripts/test-deploy-workflow-guard.mjs
       - name: Validate build
         run: node scripts/validate.mjs
