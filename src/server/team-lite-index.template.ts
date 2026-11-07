@@ -119,7 +119,7 @@ async function issueSetupInvite(req:Request,adminName:string){
     setup_token_expires_at:expiresAt,
     setup_token_issued_by:adminName,
     setup_token_issued_at:issuedAt
-  }).eq("name",target).is("password_hash",null).select("name").maybeSingle();
+  }).eq("name",target).or('password_hash.is.null,password_hash.eq.""').select("name").maybeSingle();
   if(error)throw error;
   if(!data)return response({error:"Conta indisponível para primeiro acesso."},409);
   return response({name:target,setupToken:raw,expiresAt});
