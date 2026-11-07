@@ -24,5 +24,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Test TEST build target guard
+        run: node scripts/test-build-target-guard.mjs
       - name: Validate build
         run: node scripts/validate.mjs
