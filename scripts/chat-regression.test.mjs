@@ -149,4 +149,8 @@ assert(source.includes('<div class="up-chat-pending-preview hidden" aria-live="p
 assert(source.includes("restoreChatDraft(input);updateLinkPreview(input.value||'');"),"restored drafts must rebuild their link preview");
 assert(source.includes("if(base.protocol!=='https:')throw new Error('URL de upload inválida.');"),"client must reject non-HTTPS Storage origins");
 assert(serverTemplate.includes('if(uploadUrl.origin!==projectOrigin||uploadUrl.username||uploadUrl.password||uploadUrl.hash||!uploadUrl.pathname.startsWith(uploadPrefix))'),"server must reject signed URLs with fragments or foreign origins");
-console.log("Chat regression tests passed: staged attachments, signed uploads, role gates, link previews, screen sharing, notifications, and unread indicators.");
+assert(source.includes("fileName:String(record.file_name!=null?record.file_name:(record.fileName||''))"),"filename must survive chat normalization separately from the caption");
+assert(source.includes("var docName=String(m.fileName||m.message||'Documento')"),"document cards must display the actual filename");
+assert(source.includes("up-chat-document-caption"),"document captions must render separately from filenames");
+assert(source.includes("var name=String(item.fileName||item.message||'Documento')"),"shared library search and download must use the actual filename");
+console.log("Chat regression tests passed: staged attachments, signed uploads, filename/caption separation, role gates, link previews, screen sharing, notifications, and unread indicators.");
