@@ -1371,3 +1371,70 @@ No production SQL write/migration, function deployment, secret/role/flag change,
 - #80's previous documentation commit [59af6b9](https://github.com/Reekyi/UpStatus/commit/59af6b97a2ab72fa47b7cbf40b8b1755d8cacac6) triggered Validate [42349839778](https://github.com/Reekyi/UpStatus/actions/runs/42349839778), which failed at the same inherited `client signed upload helper missing` assertion. No validator was weakened.
 
 No production changes or release actions occurred in this follow-up.
+
+
+## 2026-11-07 live follow-up — TEST project target verification
+
+This checkpoint supersedes the earlier #84 head/status recorded above.
+
+### Exact candidate refs and workflows
+
+| PR | Exact head | Latest exact-head workflow state |
+|---|---|---|
+| #74 Normal | `7475a82e421c9286e6944ea17ee73afd39ed73d9` | Validate [42354944089](https://github.com/Reekyi/UpStatus/actions/runs/42354944089) SUCCESS; Signaling Smoke [42354944038](https://github.com/Reekyi/UpStatus/actions/runs/42354944038) pending with no jobs returned |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) SUCCESS |
+| #76 Team Lite signaling | `87bbb2f91ac21477d69f7945ec62598e2bc6dce7` | Candidate Checks [42354761800](https://github.com/Reekyi/UpStatus/actions/runs/42354761800) pending with no jobs returned |
+| #80 continuity | `ac85e533e652d027b266a05a6cb54f0b44e64a81` | Validate [42349987439](https://github.com/Reekyi/UpStatus/actions/runs/42349987439) fails inherited `client signed upload helper missing` |
+| #82 independent QA | `f09b34ec17b5d17301fe20d7184ec038a118d46d` | Validate [42356336014](https://github.com/Reekyi/UpStatus/actions/runs/42356336014) fails inherited `production updateURL mismatch` |
+| #84 TEST target guard | `cdd3e67e4aa16193384e7172f25faffcee82147f` | Validate [42358193284](https://github.com/Reekyi/UpStatus/actions/runs/42358193284): build-target and metadata-preflight unit tests PASS; then fails inherited `client signed upload helper missing` |
+
+All PRs remain open and Draft. No merge, deploy, release, or publication was performed.
+
+### PR #84 — stronger project identity preflight
+
+The existing TEST guard rejected the production and isolated fixture project refs, but a syntactically valid third ref could still identify an unrelated or unhealthy project. Added a read-only Supabase Management API preflight on the existing candidate branch:
+
+- `scripts/test-project-metadata.mjs` validates exact project ref, UpStatus organization ID `bcjtvojfkfoxvsitzmkl`, `ACTIVE_HEALTHY` status, and matching database host.
+- `scripts/test-test-project-preflight.mjs` covers valid metadata plus wrong ref, wrong organization, inactive status, and wrong/missing database host.
+- `scripts/verify-test-project.mjs` performs GET `/v1/projects/{ref}` with the existing `SUPABASE_ACCESS_TOKEN`; it does not read database contents or mutate project configuration.
+- `deploy-test.yml` invokes the metadata check before the deploy command; `validate.yml` runs the pure metadata regression.
+- The Management API token must have project-metadata read permission (`projects:read` / `projects_read` for fine-grained tokens). Missing scope/API error fails closed.
+- The existing deployment remains manual-only, develop-only, and deploys only `upstatus-test`.
+
+Commits on PR #84:
+- `230da9a` metadata contract;
+- `40f24c1` read-only Management API verifier;
+- `f2cd14f` metadata regression tests;
+- `1513e39` deploy workflow preflight;
+- `e74c9f5` Validate workflow regression;
+- `cdd3e67` documentation.
+
+Exact-head Validate [42358193284](https://github.com/Reekyi/UpStatus/actions/runs/42358193284) confirms both `Test TEST build target guard` and `Test dedicated TEST project metadata guard` passed. The subsequent repository Validate fails at the pre-existing develop-base assertion `client signed upload helper missing`; no validator was weakened. The actual Management API preflight was not executed because no dedicated full-product TEST project exists in the organization inventory.
+
+### Supabase organization inventory and isolated fixture state
+
+A fresh project inventory still contains only:
+- Production `dlfvkawaiqduhlazsszm`, organization `bcjtvojfkfoxvsitzmkl`, ACTIVE_HEALTHY.
+- Isolated signaling/auth `bfpjtfqlnypisxljoxkb`, same organization, ACTIVE_HEALTHY.
+
+No dedicated full-product TEST project exists. The isolated project must not be repurposed as the full product TEST target.
+
+Production was queried read-only:
+- PostgreSQL 17.11.0.002; 7 migrations; 38 ACTIVE Edge Functions.
+- Normal `upstatus` v480; `upstatus-test` v281 remains inside the production project/database; Team Lite v15; legacy screen-share v6.
+- Five users; zero NULL/blank password hashes; zero NULL/blank roles.
+- Nine backend-owned public tables still grant anon/authenticated table privileges including TRUNCATE; the three broadcast SECURITY DEFINER functions remain executable by anon/authenticated.
+- Security Advisor: 3 SECURITY DEFINER WARN for anon, 3 for authenticated, 10 RLS/no-policy INFO. Performance and Health have no findings.
+- No production schema, function, role, secret, flag, or data was changed.
+
+The isolated project has 33 migration records, `upstatus-signal-test` v32, and `upstatus-signal-e2e-once` v3. A SELECT-only fixture snapshot currently shows 4 users, 4 sessions, 3 rooms, 7 memberships, 1 event, and 6 rate-limit buckets; bindings, call attempts, voice attempts, chat reads, and messages are zero. The fixture owner is not attributed. No mutating test, cleanup, or deletion was run; wait for the shared workflow owner and verify zero counts before starting another fixture suite.
+
+### Remaining release gates
+
+- #74 Smoke and #76 Candidate Checks remain pending with no jobs; do not claim exact-head completion or start overlapping fixture-mutating suites.
+- #78 remains 0/8 physical acceptance criteria. Real Tampermonkey network loss/recovery without F5, microphone/display permissions, and installed Normal ↔ Team Lite tests remain manual.
+- #84's Management API preflight has unit-test evidence only; no real TEST project exists to exercise the live read-only check.
+- RT-01 public Realtime payload disclosure, table/function/default ACL remediation, distributed auth rate limiting, route-by-route Edge Function auth inventory, official TEST project/migration/rollback rehearsal, human reviews, and explicit release approval remain open.
+- #80 and #82 inherited validators remain failing; do not weaken them to obtain green status.
+
+No production or isolated SQL write/migration, Edge Function deployment, secret/role/flag change, userscript publication, merge, release, destructive operation, or manual fixture cleanup occurred in this checkpoint.
