@@ -41,6 +41,22 @@ assert.match(client, /id="up-setup-token"/, "client must provide an explicit fir
 assert.match(client, /setupToken/, "client must submit the one-time setup token");
 assert.doesNotMatch(client, /\/api\/account\?name=/, "client must not enumerate account setup state");
 
+assert.match(client, /function clearLegacyPasswordStorage\(\)/, "client must clear legacy plaintext password entries on upgrade");
+assert.doesNotMatch(client, /function passwordKey\(name\)/, "client must not retain a per-account plaintext password key");
+assert.doesNotMatch(client, /GM_setValue\(passwordKey\(name\),password\)|sessionStorage\.setItem\(passwordKey\(name\),password\)/, "client must not persist submitted passwords");
+assert.match(client, /passwordInput\.value=''/, "successful authentication must clear the password input");
+assert.match(client, /setupTokenInput\.value=''/, "successful first access must clear the one-time token input");
+if (product === "normal") {
+  assert.match(client, /@grant\s+GM_listValues/, "Normal must request GM_listValues to purge legacy credentials");
+  assert.match(client, /@grant\s+GM_deleteValue/, "Normal must request GM_deleteValue to purge legacy credentials");
+  assert.match(client, /GM_listValues\(\)/, "Normal must enumerate its legacy credential keys");
+  assert.match(client, /GM_deleteValue\(storageKey\)/, "Normal must delete legacy plaintext credential values");
+} else {
+  assert.match(client, /sessionStorage\.key\(i\)/, "Team Lite must enumerate legacy session credential keys");
+  assert.match(client, /sessionStorage\.removeItem\(storageKey\)/, "Team Lite must delete legacy plaintext credential values");
+}
+
+
 assert.match(migration, /add column if not exists setup_token_hash/i);
 assert.match(migration, /create unique index if not exists users_setup_token_hash_uidx/i);
 assert.match(migration, /u\.password_hash is null or u\.password_hash = ''/i, "atomic invite consumption must accept NULL and legacy empty-string hashes");
