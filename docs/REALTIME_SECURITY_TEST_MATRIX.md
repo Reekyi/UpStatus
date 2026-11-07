@@ -198,3 +198,18 @@ The earlier notes above stating that the isolated 429 response lacked `Retry-Aft
 - Regression tests cover case-insensitive raw response headers, HTTP-date conversion, and the exact 60-second poll schedule.
 
 **RT-09 remains PARTIAL.** The client now understands the isolated endpoint's retry contract, but the distributed limiter is still not integrated into the product-facing Normal/Team Lite backend endpoints or production. The authenticated signaling transport remains opt-in/default-off. Exact-head Normal Smoke and Team Lite Candidate Checks are still required, followed by official TEST and physical/manual acceptance.
+
+
+## 2026-11-07 — empty search_path migration and Realtime delivery limitation
+
+**Evidence time:** 2026-11-07 17:57 UTC. This section records a lab-only catalog verification and the limit of the trigger-delivery probe; it does not change RT-01 status.
+
+- The isolated project `bfpjtfqlnypisxljoxkb` records migration `20261107165942 pin_empty_search_path_trigger_broadcasts_test` (34 migration records total).
+- Direct read-only catalog verification confirms all three trigger functions remain `SECURITY DEFINER`, each has `proconfig = ['search_path=""']`, each remains attached to its original public-table trigger, and each retains schema-qualified `realtime.send`.
+- Effective direct EXECUTE is false for `anon` and `authenticated`, and true for `service_role`, for all three functions.
+- The lab's partitioned `realtime.messages` parent currently has **0 child partitions** and 0 rows. The production parent has 7 child partitions. The earlier rolled-back trigger probe therefore could not establish delivery: `realtime.send` logged/swallowed the missing-partition warning and inserted no row.
+- Supabase documents `realtime.messages` as a day-partitioned table and states that `realtime.send` inserts into it; the function captures errors so a broadcast failure does not abort the caller. See [Realtime architecture](https://supabase.com/docs/guides/realtime/architecture#broadcast-from-postgres) and [Realtime concepts](https://supabase.com/docs/guides/realtime/concepts#schema-and-tables).
+- Do not create partitions manually in the Supabase-managed `realtime` schema. A supported Realtime-enabled lab/project is required before claiming trigger-to-WebSocket delivery.
+- Production remains unchanged: its three functions still have `search_path=public` and direct EXECUTE effective for anon/authenticated. The production migration in this PR is candidate-only.
+
+**Classification:** empty-search-path function configuration and trigger/grant bindings are verified in the isolated database; end-to-end Realtime delivery is **NOT VERIFIED** in the lab. RT-01 remains blocked because public channels/full-row production broadcasts and the coordinated client cutover are still unresolved.
