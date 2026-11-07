@@ -9,16 +9,18 @@ if (!base) {
   console.error("Set UPSTATUS_SIGNAL_URL to the isolated test function URL.");
   process.exit(2);
 }
+
+const request = (url, options = {}) => fetch(url, { ...options, signal: AbortSignal.timeout(20000) });
 const cases = [
   {
     name: "health endpoint is available",
-    run: () => fetch(base + "/health"),
+    run: () => request(base + "/health"),
     expected: 200,
     body: body => body.ok === true && body.service === "upstatus-signal-test",
   },
   {
     name: "room creation requires a valid UpStatus session",
-    run: () => fetch(base + "/room/create", {
+    run: () => request(base + "/room/create", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ participants: [] }),
     }),
@@ -26,7 +28,7 @@ const cases = [
   },
   {
     name: "atomic call preparation requires a valid UpStatus session",
-    run: () => fetch(base + "/room/prepare-call", {
+    run: () => request(base + "/room/prepare-call", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ logicalId: "forged-call", recipient: "someone" }),
     }),
@@ -34,7 +36,7 @@ const cases = [
   },
   {
     name: "call cancellation by logical ID requires a valid UpStatus session",
-    run: () => fetch(base + "/room/cancel-call", {
+    run: () => request(base + "/room/cancel-call", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ logicalId: "forged-call" }),
     }),
@@ -42,12 +44,12 @@ const cases = [
   },
   {
     name: "open voice room requires a valid UpStatus session",
-    run: () => fetch(base + "/room/open", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logicalId: "upstatus-team-room-v1" }) }),
+    run: () => request(base + "/room/open", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logicalId: "upstatus-team-room-v1" }) }),
     expected: 401,
   },
   {
     name: "voice room attempt cancellation requires a valid UpStatus session",
-    run: () => fetch(base + "/room/cancel-open", {
+    run: () => request(base + "/room/cancel-open", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ logicalId: "upstatus-team-room-v1", attemptId: "forged-voice-attempt" }),
     }),
@@ -55,7 +57,7 @@ const cases = [
   },
   {
     name: "signal submission requires a valid UpStatus session",
-    run: () => fetch(base + "/signal", {
+    run: () => request(base + "/signal", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ roomId: "forged", recipient: "someone", eventType: "offer", payload: {}, sender: "admin" }),
     }),
@@ -63,7 +65,7 @@ const cases = [
   },
   {
     name: "polling requires a valid UpStatus session",
-    run: () => fetch(base + "/poll", {
+    run: () => request(base + "/poll", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ roomId: "forged" }),
     }),
@@ -71,7 +73,7 @@ const cases = [
   },
   {
     name: "requesting an invitation to a call requires a valid UpStatus session",
-    run: () => fetch(base + "/room/request-invite", {
+    run: () => request(base + "/room/request-invite", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ bindingType: "call", logicalId: "forged" }),
     }),
@@ -79,7 +81,7 @@ const cases = [
   },
   {
     name: "room broadcast requires a valid UpStatus session",
-    run: () => fetch(base + "/broadcast", {
+    run: () => request(base + "/broadcast", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ roomId: "forged", eventType: "call_signal", payload: { type: "presence" } }),
     }),
@@ -87,7 +89,7 @@ const cases = [
   },
   {
     name: "accepted room member listing requires a valid UpStatus session",
-    run: () => fetch(base + "/room/members", {
+    run: () => request(base + "/room/members", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ roomId: "forged" }),
     }),
@@ -95,7 +97,7 @@ const cases = [
   },
   {
     name: "room invitation status requires a valid UpStatus session",
-    run: () => fetch(base + "/room/status", {
+    run: () => request(base + "/room/status", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ roomId: "forged" }),
     }),
@@ -103,7 +105,7 @@ const cases = [
   },
   {
     name: "listing room invitations requires a valid UpStatus session",
-    run: () => fetch(base + "/room/invitations", {
+    run: () => request(base + "/room/invitations", {
       method: "POST", headers: { "content-type": "application/json" },
       body: "{}",
     }),
@@ -111,7 +113,7 @@ const cases = [
   },
   {
     name: "accepting a room invitation requires a valid UpStatus session",
-    run: () => fetch(base + "/room/accept", {
+    run: () => request(base + "/room/accept", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ roomId: "forged" }),
     }),
@@ -119,7 +121,7 @@ const cases = [
   },
   {
     name: "declining a room invitation requires a valid UpStatus session",
-    run: () => fetch(base + "/room/decline", {
+    run: () => request(base + "/room/decline", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ roomId: "forged" }),
     }),
@@ -127,7 +129,7 @@ const cases = [
   },
   {
     name: "closing a room requires a valid UpStatus session",
-    run: () => fetch(base + "/room/close", {
+    run: () => request(base + "/room/close", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ roomId: "forged" }),
     }),
@@ -135,7 +137,7 @@ const cases = [
   },
   {
     name: "invalid tokens are rejected before route processing",
-    run: () => fetch(base + "/not-a-route", {
+    run: () => request(base + "/not-a-route", {
       method: "POST", headers: { "content-type": "application/json", "x-upstatus-token": "invalid-test-token" },
       body: "{}",
     }),
@@ -143,7 +145,7 @@ const cases = [
   },
   {
     name: "unsupported methods are rejected",
-    run: () => fetch(base + "/signal", { method: "PUT" }),
+    run: () => request(base + "/signal", { method: "PUT" }),
     expected: 405,
   },
 ];
@@ -172,7 +174,7 @@ for (const test of cases) {
   }
 }
 try {
-  const preflight = await fetch(base + "/health", { method: "OPTIONS" });
+  const preflight = await request(base + "/health", { method: "OPTIONS" });
   const exposed = (preflight.headers.get("access-control-expose-headers") || "")
     .split(",").map(value => value.trim().toLowerCase()).filter(Boolean);
   const ok = preflight.status === 200 && exposed.includes("retry-after");
