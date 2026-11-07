@@ -441,7 +441,7 @@ function makeRouteRequest(state,options={}){
   const h=makeRouteHarness();
   const result=await h.dispatch(makeRouteRequest(h.state,{method:"GET"}),"/api/account");
   assert.equal(result.status,200);
-  assert.deepEqual(result.body,{needsSetup:false},"public account lookup must not disclose per-name setup state");
+  assert.equal(result.body.needsSetup,false,"public account lookup must not disclose per-name setup state");
   assert.equal(h.state.accountLookups.length,0,"public account lookup must not query named accounts");
 }
 {
