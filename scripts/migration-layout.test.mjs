@@ -34,6 +34,7 @@ for (const name of [
   "20261106080200_call_room_attempt_recovery_test.sql",
   "20261106111000_call_attempt_foreign_key_indexes_test.sql",
   "20261106120500_voice_room_attempt_recovery_test.sql",
+  "20261107010000_setup_invites_test.sql",
 ]) {
   const testPath = path.join(testMigrationsRoot, name);
   const migrationPath = path.join(migrationsRoot, name);
