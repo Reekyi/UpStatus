@@ -26,6 +26,8 @@ const migration = fs.readFileSync(path.join(ROOT, "supabase/migrations/202611070
 const testMigration = fs.readFileSync(path.join(ROOT, "supabase/test-migrations/20261107010000_setup_invites_test.sql"), "utf8");
 const roleMigration = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261107060000_normalize_setup_invite_role.sql"), "utf8");
 const roleTestMigration = fs.readFileSync(path.join(ROOT, "supabase/test-migrations/20261107060000_setup_invite_role_normalization_test.sql"), "utf8");
+const rolePreservationMigration = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261107062000_preserve_setup_invite_roles_verbatim.sql"), "utf8");
+const rolePreservationTestMigration = fs.readFileSync(path.join(ROOT, "supabase/test-migrations/20261107062000_setup_invite_role_preservation_test.sql"), "utf8");
 
 assert.match(server, /async function issueSetupInvite\(req:Request,adminName:string\)/, "admin setup-invite handler missing");
 assert.match(server, /if\(!await admin\(adminName\)\)/, "setup invite issuance must require an authenticated admin");
@@ -34,7 +36,7 @@ assert.match(server, /setup_token_hash:tokenHash\(raw\)/, "only the setup-token 
 assert.ok(server.includes('password_hash.is.null,password_hash.eq.""'), "admin may invite NULL or legacy empty-string password rows only");
 assert.doesNotMatch(server, /\.is\("password_hash",null\)/, "invite issuance must not exclude legacy empty-string password rows");
 assert.match(server, /consume_upstatus_setup_invite/, "first setup must consume the invite through the atomic RPC");
-assert.ok(server.includes('const enrolledRole=String(enrolled.role||"").trim()||"implementation_user";'), "server session role must normalize blank RPC values");
+assert.ok(server.includes('const enrolledRole=String(enrolled.role||"");')&&server.includes('const sessionRole=enrolledRole.trim()?enrolledRole:"implementation_user";'), "server must default blank roles without trimming non-empty explicit roles");
 assert.match(server, /p_setup_token_hash:tokenHash\(setupToken\)/, "first setup must send only the token hash to the database");
 assert.match(server, /if\(path==="\/api\/setup-invite"&&req\.method==="POST"\)/, "admin invite route missing");
 assert.match(server, /if\(path==="\/api\/account"&&req\.method==="GET"\)return response\(\{needsSetup:false\}\);/, "public account endpoint must not disclose setup state");
@@ -67,7 +69,9 @@ assert.match(testMigration, /has_function_privilege\('anon'/i);
 assert.match(testMigration, /has_function_privilege\('authenticated'/i);
 assert.match(testMigration, /has_function_privilege\('service_role'/i);
 assert.ok(roleMigration.includes(String.raw`nullif(btrim(u.role, E' \t\n\r'), '')`), "follow-up migration must normalize whitespace-only roles");
-assert.ok(roleTestMigration.includes(String.raw`nullif(btrim(u.role, E' \t\n\r'), '')`), "isolated assertion migration must verify role normalization");
+assert.ok(roleTestMigration.includes(String.raw`nullif(btrim(u.role, E' \t\n\r'), '')`), "isolated assertion migration must verify the initial blank-role fallback");
+assert.ok(rolePreservationMigration.includes(String.raw`case when u.role is null or btrim(u.role, E' \t\n\r') = '' then 'implementation_user' else u.role end`), "final migration must preserve non-empty roles verbatim");
+assert.ok(rolePreservationTestMigration.includes(String.raw`case when u.role is null or btrim(u.role, E' \t\n\r') = '' then 'implementation_user' else u.role end`), "final isolated assertion must verify verbatim role preservation");
 
 
 function extractFunction(source,name){
