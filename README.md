@@ -8,7 +8,7 @@ GitHub is the source of truth. Supabase is the runtime. Tampermonkey consumes th
 - `develop`: integration and TEST line.
 - Feature branches start from `develop`.
 - Production deployment is manual only.
-- TEST deployment can be automatic from `develop`.
+- TEST deployment is manual-only and restricted to `develop`; it requires a dedicated, verified TEST project.
 
 ## Versioning
 
@@ -48,7 +48,7 @@ PR → develop
    ↓
 validate
    ↓
-TEST deploy
+manual TEST deploy
    ↓
 manual tests
    ↓
@@ -59,14 +59,15 @@ explicit approval
 manual production workflow
 ```
 
-The TEST workflow deploys only `upstatus-test` and is manual until the required Supabase Actions secrets are configured. After adding the secrets, the push trigger to `develop` can be enabled. The production workflow deploys only `upstatus`.
+The TEST workflow is manual-only, restricted to `develop`, checks out the exact dispatch SHA, verifies the dedicated project through the Supabase Management API, and deploys only `upstatus-test`. Do not enable a push trigger. The production workflow remains manual and deploys only `upstatus`.
 
 ## Required GitHub Actions secrets
 
-- `SUPABASE_ACCESS_TOKEN`
-- `SUPABASE_PROJECT_ID` = `dlfvkawaiqduhlazsszm`
+- `SUPABASE_ACCESS_TOKEN` (scoped to required deployment steps)
+- `SUPABASE_PROJECT_ID` = `dlfvkawaiqduhlazsszm` (production workflow only)
+- `SUPABASE_TEST_PROJECT_ID` repository variable (TEST workflow only; dedicated full-product TEST project in the UpStatus organization)
 
-The production workflow also targets the `production` GitHub Environment. Configure required reviewers there for an additional approval gate. The repository connector cannot create Actions secrets, so `SUPABASE_ACCESS_TOKEN` must be added in GitHub before CI deployment is enabled.
+The production workflow also targets the `production` GitHub Environment. Configure required reviewers there for an additional approval gate. The TEST workflow requires `SUPABASE_TEST_PROJECT_ID`; never point it at production or the signaling/auth fixture project. GitHub secrets and variables must be configured by an authorized maintainer before deployment.
 
 ## TEST isolation
 
