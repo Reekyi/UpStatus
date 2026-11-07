@@ -14,7 +14,8 @@ The full product TEST project must be provisioned separately and its schema/migr
 ## Build behavior
 
 - Production remains pinned to dlfvkawaiqduhlazsszm.
-- TEST builds use UPSTATUS_TEST_PROJECT_ID for both the Edge Function API origin and the Realtime origin.
+- TEST builds use UPSTATUS_TEST_PROJECT_ID for the Edge Function API, Realtime, updater URL, and Storage fallback.
+- TEST updater is disabled and contains no production release-manifest URL until a dedicated TEST release feed exists.
 - If no TEST project is configured, the build uses the inert sentinel 00000000000000000000; this artifact is intentionally non-functional and must not be deployed.
 - The build rejects production and the isolated signaling/auth project before writing generated function or distribution files.
 - The build manifest records the TEST project reference and whether it was explicitly configured.
