@@ -1454,3 +1454,65 @@ Exact-head Validate [42358463945](https://github.com/Reekyi/UpStatus/actions/run
 - The real Management API request was not run because no dedicated full-product TEST project exists; no project/secret was created or changed.
 
 The documentation update immediately before this follow-up created #80 head `15dee4322fc44ff90fa97d08c5c9563eba4d8528`; its Validate [42358326607](https://github.com/Reekyi/UpStatus/actions/runs/42358326607) also fails at the same inherited helper assertion. This new documentation commit will itself trigger the same base validator; re-fetch the exact #80 head before any later action.
+
+
+## 2026-11-07 07:00 BRT — exact-head CI and environment recheck
+
+This checkpoint supersedes the pending CI statuses in the earlier TEST-project follow-ups above.
+
+### Exact candidate refs and CI
+
+| PR | Exact head | Latest exact-head workflow |
+|---|---|---|
+| #74 Normal | 7475a82e421c9286e6944ea17ee73afd39ed73d9 | Validate [42354944089](https://github.com/Reekyi/UpStatus/actions/runs/42354944089) SUCCESS; Signaling Smoke [42354944038](https://github.com/Reekyi/UpStatus/actions/runs/42354944038) SUCCESS |
+| #75 Team Lite baseline | 7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309 | Historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) SUCCESS |
+| #76 Team Lite signaling | 87bbb2f91ac21477d69f7945ec62598e2bc6dce7 | Candidate Checks [42354761800](https://github.com/Reekyi/UpStatus/actions/runs/42354761800) SUCCESS |
+| #80 continuity | 13d49a3af9fc4fcbed665a7a0891f3ed4ee9ef18 | Validate [42358547006](https://github.com/Reekyi/UpStatus/actions/runs/42358547006) fails inherited develop-base assertion: client signed upload helper missing |
+| #82 independent QA | 6ca946f7520610b9d96bce296c74cfd0a7696748 | Validate [42360361232](https://github.com/Reekyi/UpStatus/actions/runs/42360361232) fails inherited master-base assertion: production updateURL mismatch |
+| #84 TEST target guard | 773cf5e1af2774568c5705cd0d108acdf5d417e0 | Validate [42362618413](https://github.com/Reekyi/UpStatus/actions/runs/42362618413) SUCCESS |
+
+All six PRs remain open and Draft. No human approval was recorded in the latest review-list queries.
+
+### #74 / #76 runtime evidence
+
+- Normal #74 Validate completed on its exact head and reported Validation OK: PROD 3.4.7 / TEST 3.4.7.
+- Normal #74 Signaling Smoke completed successfully. Its authenticated browser checks covered call audio, voice audio, remote screen video, three-member mesh, voice attempt cancel/open races, and cleanup.
+- Team Lite #76 Candidate Checks completed successfully on exact head 87bbb2f. The log reports 103/103 authenticated integration checks, browser WebRTC call/voice/screen, three-member mesh, 90 accepted + 1 HTTP 429 with Retry-After 60s, distributed rate-limit concurrency, atomic chat receipts, AUTH-03 setup enrollment (including malformed/wrong/expired/replayed tokens, one-winner concurrency, role fallback/preservation and padded-admin non-escalation), migration layout, and fixture cleanup. Team Lite bundle reported 3.4.31.
+- These are automated candidate/isolated-project results. They do not replace the physical Tampermonkey acceptance in #78.
+
+### #84 — signed-upload client contract completed in the safety candidate
+
+The develop base already had authenticated /api/chat/upload-url and /api/profile/avatar-upload-url ticket routes, but its userscript still posted base64 payloads. The inherited validator expected the client helper and also expected a bearer Authorization header, which did not match the server's scoped signed-URL token contract.
+
+Extended only the existing #84 safety candidate:
+- Chat and avatar UI now request the corresponding signed-upload ticket and PUT directly to Storage.
+- The client pins upload and public URL origins to the configured Supabase project, validates route/bucket, MIME, size, object path and token consistency, omits browser credentials, rejects redirects, and returns only public metadata (not the upload token).
+- The token is carried only in the one-time signed URL query, not as a bearer Authorization header.
+- Added scripts/test-signed-upload-client.mjs, a VM-backed regression for valid chat/avatar flows and rejection of cross-origin, wrong bucket/path/token, unsupported MIME, oversized files, invalid routes and Storage errors.
+- Wired that regression into Validate and the manual-only TEST deploy workflow.
+- Updated the validator to assert the actual signed-URL token contract instead of the stale bearer-header expectation.
+
+Exact-head #84 Validate [42362618413](https://github.com/Reekyi/UpStatus/actions/runs/42362618413) passed the TEST build-target guard, project metadata contract, deploy workflow secret-scope regression, signed-upload client regression, and full repository Validate (Validation OK: PROD 3.0.40 / TEST 3.0.40-beta.22). This is CI evidence only; the manual deploy workflow was not run.
+
+### Supabase — current read-only snapshot
+
+Production dlfvkawaiqduhlazsszm remains ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations and 38 ACTIVE Edge Functions:
+- Normal upstatus v480; upstatus-test v281 remains in the production project; Team Lite v15; legacy screen-share v6.
+- Five users; zero NULL/empty password hashes; zero NULL/blank roles.
+- No setup-invite table/RPC, auth-specific rate-limit table/RPC, or dedicated upstatus-signal endpoint is deployed.
+- The three public broadcast SECURITY DEFINER functions remain executable by client roles and publish public Realtime events; the messages broadcast still serializes the full row. Nine backend-owned public tables retain broad client grants including TRUNCATE. realtime.messages still has client grants.
+- Security Advisor remains 3 SECURITY DEFINER WARN for anon, 3 for authenticated, and 10 RLS/no-policy INFO. Performance and Health returned no findings.
+
+The organization still has only two Supabase projects: production and the isolated signaling/auth lab. There is no dedicated full-product TEST project. The isolated lab remains ACTIVE_HEALTHY with 33 migration records, upstatus-signal-test v32 and E2E helper v3.
+
+After #76 completed, an exact SELECT count on the isolated project returned zero rows in users, sessions, messages, chat reads, signal rooms, room members, room bindings, signal events, rate-limit buckets, call attempts and voice-room attempts. No cleanup write was performed.
+
+### Remaining release gates
+
+- #78 remains 0/8 physical acceptance criteria. Real Tampermonkey network loss/recovery without F5, browser termination/reopen, microphone/display permissions and installed Normal ↔ Team Lite acceptance remain manual.
+- #80 remains blocked by the develop base validator until the signed-upload client fix from #84 is reviewed/integrated; do not copy product code into the docs branch or weaken the validator.
+- #82 remains blocked by the master-base production updateURL mismatch; resolve the actual source/manifest contract, not the assertion alone.
+- #84's live Management API preflight remains untested because there is no dedicated full-product TEST project and no TEST project variable configured. Do not repurpose the signaling/auth lab.
+- RT-01 public Realtime payload disclosure, table/function/default ACL remediation, distributed auth rate limiting, route-by-route Edge Function auth inventory, official TEST project/migration/rollback rehearsal, human reviews and explicit release approval remain open.
+
+No production or isolated SQL write/migration, Edge Function deployment, secret/role/flag change, userscript publication, merge, release, destructive operation or manual fixture cleanup occurred in this checkpoint.
