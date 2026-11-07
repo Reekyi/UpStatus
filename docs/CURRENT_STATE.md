@@ -1040,3 +1040,8 @@ Isolated `bfpjtfqlnypisxljoxkb`:
 5. Continue RT-01 public Realtime and ACL/default-privilege hardening, official TEST migration/rollback, physical #78 acceptance, and human PR reviews.
 
 No production or isolated SQL writes, migrations, function deployments, secret/role/flag changes, userscript publication, PR merge, release, or destructive operations occurred in this revalidation. All Supabase SQL was SELECT-only. No runtime code was changed in this checkpoint.
+
+
+### Documentation validation follow-up — 2026-11-06 22:01 BRT
+
+The new documentation-only commit `debbf1d80bc9cc93f97557ba600b69d610f57610` triggered Validate [42321805816](https://github.com/Reekyi/UpStatus/actions/runs/42321805816). It reproduces the same inherited `client signed upload helper missing` failure in `scripts/validate.mjs`; no new documentation regression was identified. Do not weaken the validator. PR #80 remains Draft and the baseline mismatch requires a separate source-level reconciliation with `develop`.
