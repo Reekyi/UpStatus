@@ -1858,3 +1858,41 @@ The Normal candidate #74 already separates the policies as `setup ? 6 : 4`. Engi
 - Issue #78 remains OPEN at 0/8 physical acceptance criteria. Real Tampermonkey offline/no-F5 recovery, browser-close recovery, physical microphone/display capture and installed Normal ↔ Team Lite compatibility remain MANUAL PENDING.
 - Issue #79 remains OPEN. CI success is not human review or release approval.
 - No production SQL write, migration, Edge Function deployment, secret/role/feature-flag change, fixture cleanup, PR merge, release or userscript publication occurred. Production queries were SELECT/catalog reads only. The only active fixture-mutating work is the explicitly allowlisted Team Lite candidate workflow above.
+
+## Engineering checkpoint — 2026-11-07 live revalidation
+
+This checkpoint supersedes the earlier 12:35 BRT snapshot for the refs and runtime observations below. The QA branch and `docs/RELEASE_READINESS.md` were read but not modified.
+
+### GitHub candidates and exact-head CI
+
+- **#74 Normal**: branch `chore/continuity-foundation`, base `master` `a9288ccfcb0f308d3a587bfca624418a395be07b`, current HEAD `27e8fdc4986f583a37fb6b0c5d2cf8df1bac3e02`, OPEN/Draft. Previous HEAD `7475a82` had Validate `42354944089` and Signaling Smoke `42354944038` SUCCESS. The new migration/test commits triggered Validate `42389921918` (IN_PROGRESS) and Signaling Smoke `42389921913` (PENDING at the last query); do not attribute the old PASS to the new HEAD.
+- **#75 Team Lite baseline**: HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, OPEN/Draft; Candidate Checks `41674353127` is historical PASS. Current Team Lite work is #76.
+- **#76 Team Lite**: HEAD `2e0ff69419cdd2a06c68c5d58cf221ccfc6738c7`, OPEN/Draft; Candidate Checks `42386904302` SUCCESS on the exact HEAD. Logs confirm 16/16 unauthenticated and 103/103 authenticated checks, call/voice/screen WebRTC with remote tracks, three-member mesh/teardown, 90 accepted + 1 HTTP 429 with `Retry-After: 60`, voice-room recovery/leave/rejoin tests, AUTH-03 edge cases, and fixture cleanup.
+- **#80 continuity**: HEAD `cae135dc440a242588124fa97f388fd02fdbfb5f`, OPEN/Draft; Validate `42387127638` fails at `client signed upload helper missing`. This is an inherited develop-base contract: #80 changes only `UPSTATUS_HANDOFF.md` and `docs/CURRENT_STATE.md`; the helper is in candidate #84 and is not integrated into develop.
+- **#82 independent QA**: HEAD `e57177325be8294533d5c2beb332124bff063a4e`, OPEN/Draft; Validate `42387782891` fails at `production updateURL mismatch` inherited from master. Candidate #85 corrects the builder/validator contract but is not integrated into master. QA branch and release-readiness document remain untouched.
+- **#84 TEST isolation**: HEAD `21341f331270e142bdf7584c1cdf16e6011e41b3`, OPEN/Draft; Validate `42387042361` SUCCESS. This proves static/preflight guards only; no manual dispatch or real Management API call occurred.
+- **#85 master stabilization**: HEAD `17554523ef51bafd503e74b3f1271d55f43a6eda`, OPEN/Draft; Validate `42386047749` SUCCESS. Signed-upload client/server VM and chat regressions passed; no real Storage upload occurred.
+
+All seven PRs remain open and Draft, with no submitted human reviews. CI PASS is not merge/release approval.
+
+### New broadcast-trigger hardening candidate in #74
+
+- Added `supabase/migrations/20261107170000_pin_empty_search_path_trigger_broadcasts.sql`, which changes only the function-level `search_path` of the three trigger-only SECURITY DEFINER broadcast functions to empty. Their bodies remain unchanged; `realtime.send` is schema-qualified, built-ins resolve through `pg_catalog`, trigger bindings and grants are not modified.
+- Added isolated counterpart `supabase/test-migrations/20261107170000_pin_empty_search_path_trigger_broadcasts_test.sql`. It asserts SECURITY DEFINER remains set, the function search path is empty, `anon`/`authenticated` cannot directly EXECUTE, `service_role` retains EXECUTE, `realtime.send` stays schema-qualified, and each function remains attached to a trigger.
+- Added a migration-layout regression and documented the test migration's strict lab-only target. Commits: `f74b3bd` (production candidate), `0f7e05d` (isolated test), `81b09c3` (regression), `27e8fdc` (test-migration safety note).
+- The isolated project `bfpjtfqlnypisxljoxkb` is `ACTIVE_HEALTHY`; a SELECT-only preflight found zero rows in all 11 fixture categories. However, the new #74 Signaling Smoke run `42389921913` is queued and shares this project. No manual migration or trigger probe was run while that workflow could own the lab. After it finishes, recheck the exact project and fixture counts before applying the test-only migration.
+
+### Supabase production — read-only snapshot
+
+- Production `dlfvkawaiqduhlazsszm` is `ACTIVE_HEALTHY`, PostgreSQL `17.11.0.002`, seven migrations, 38 Edge Functions. Deployed core functions: Normal `upstatus` v480, TEST `upstatus-test` v281, Team Lite `upstatus-team-lite` v15, legacy screen-share v6. The organization still has only production and the signaling/auth lab; there is no full-product TEST project.
+- The live production broadcast functions were queried directly: all three remain SECURITY DEFINER with `search_path=public`, EXECUTE effective for `anon` and `authenticated`, and public `realtime.send(..., false)`. `upstatus_broadcast_messages()` still publishes `to_jsonb(OLD/NEW)` including message content/metadata. The new empty-search-path migration is candidate-only and does not address the public payload/channel blocker by itself.
+- Nine backend-owned tables still show RLS enabled plus broad `anon`/`authenticated` SELECT/INSERT/UPDATE/DELETE/TRUNCATE privileges. RLS currently has no policies on those tables; grants are unnecessary privilege surface, not proof of direct row access. Default ACL rows remain broad for both `postgres` and `supabase_admin`.
+- Production aggregate remains five users, zero empty password hashes, zero empty roles. `chat-images` and `profile-images` are public buckets with 20 MB limits and MIME allowlists. Signed-upload tests are still mocks; public bucket configuration means signed upload does not make object reads private.
+- Security Advisor: three WARN for `anon` EXECUTE, three WARN for `authenticated` EXECUTE, and ten INFO for RLS-enabled/no-policy tables. Performance/Health had no findings in the latest read.
+
+### Release gates and safety
+
+- RT-01 remains BLOCKED: production still broadcasts full message rows and metadata on a public topic. The candidate payload-minimization migrations have not been applied to production; private Realtime still needs a trusted JWT or server-mediated replacement for remaining event families.
+- Full-product TEST remains absent. AUTH-03 production cutover, distributed auth throttling, production migration/rollback, `supabase_admin` default ACL remediation, and real Storage integration remain open.
+- Issue #78 remains OPEN with 0/8 physical criteria approved. The latest Team Lite CI includes offline/online recovery tests, but it does not replace real Tampermonkey/network-loss acceptance or physical microphone/display capture.
+- No production SQL write, migration, Edge Function deployment, secret/role/grant/policy/ACL/flag change, PR merge, release, fixture cleanup, or userscript publication occurred. Production access was read-only. The lab was queried read-only and is currently reserved by the queued #74 smoke workflow.
