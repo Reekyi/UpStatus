@@ -145,4 +145,8 @@ assert(serverTemplate.includes('if(path==="/api/profile/avatar-upload-url"&&req.
 assert(serverTemplate.includes("const avatarUrl=String(p.avatarUrl||\"\").trim();"),"profile route must accept the signed-upload result");
 assert(serverTemplate.includes("Backward compatibility for already-installed clients"),"legacy base64 avatar clients must remain compatible");
 
+assert(source.includes('<div class="up-chat-pending-preview hidden" aria-live="polite"></div>'),"composer must render a valid pending-attachment preview node");
+assert(source.includes("restoreChatDraft(input);updateLinkPreview(input.value||'');"),"restored drafts must rebuild their link preview");
+assert(source.includes("if(base.protocol!=='https:')throw new Error('URL de upload inválida.');"),"client must reject non-HTTPS Storage origins");
+assert(serverTemplate.includes('if(uploadUrl.origin!==projectOrigin||uploadUrl.username||uploadUrl.password||uploadUrl.hash||!uploadUrl.pathname.startsWith(uploadPrefix))'),"server must reject signed URLs with fragments or foreign origins");
 console.log("Chat regression tests passed: staged attachments, signed uploads, role gates, link previews, screen sharing, notifications, and unread indicators.");

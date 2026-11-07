@@ -519,10 +519,12 @@ async function signedUploadRoute(req:Request,kind:"chat"|"avatar") {
   const signedPath=String(data?.path||path);
   const signedUrl=String(data?.signedUrl||"");
   if(!uploadToken||!signedUrl||signedPath!==path)throw new Error("O Storage não retornou uma URL assinada válida.");
-  const projectOrigin=new URL(PROJECT_URL).origin;
+  const projectBase=new URL(PROJECT_URL);
+  if(projectBase.protocol!=="https:")throw new Error("O projeto retornou uma origem de Storage inválida.");
+  const projectOrigin=projectBase.origin;
   const uploadUrl=new URL(signedUrl,projectOrigin+"/storage/v1/");
   const uploadPrefix="/storage/v1/object/upload/sign/"+bucket+"/";
-  if(uploadUrl.origin!==projectOrigin||uploadUrl.username||uploadUrl.password||!uploadUrl.pathname.startsWith(uploadPrefix))throw new Error("O Storage retornou uma origem ou rota de upload inesperada.");
+  if(uploadUrl.origin!==projectOrigin||uploadUrl.username||uploadUrl.password||uploadUrl.hash||!uploadUrl.pathname.startsWith(uploadPrefix))throw new Error("O Storage retornou uma origem ou rota de upload inesperada.");
   let uploadedPath="";
   try{uploadedPath=decodeURIComponent(uploadUrl.pathname.slice(uploadPrefix.length));}catch(e){throw new Error("Caminho de upload inválido.");}
   if(uploadedPath!==path)throw new Error("O caminho assinado não corresponde ao objeto solicitado.");

@@ -22,10 +22,10 @@ function ticketFor({bucket="chat-images",path="20261107-file.png",mime="image/pn
     token,path,bucket,mime,size
   };
 }
-function harness(ticket,fetchResponse={ok:true,status:200}){
+function harness(ticket,fetchResponse={ok:true,status:200},baseOrigin=origin){
   const calls={api:[],fetch:[]};
   const context=vm.createContext({
-    UP_REALTIME_URL:origin,
+    UP_REALTIME_URL:baseOrigin,
     api:(method,route,payload)=>{calls.api.push({method,route,payload});return Promise.resolve(typeof ticket==="function"?ticket(method,route,payload):ticket);},
     fetch:(url,options)=>{calls.fetch.push({url:String(url),options});return Promise.resolve(fetchResponse);},
     URL,Promise,Error,String,Number,RegExp,Math,decodeURIComponent
@@ -102,6 +102,11 @@ const validTicket=ticketFor();
   badFragment.uploadUrl+="#fragment";
   const h=harness(badFragment);
   await assert.rejects(()=>h.uploadFileDirect(imageFile,"/api/chat/upload-url"),/origem inesperada/);
+  assert.equal(h.calls.fetch.length,0);
+}
+{
+  const h=harness(validTicket,{ok:true,status:200},"http://test-project.supabase.co");
+  await assert.rejects(()=>h.uploadFileDirect(imageFile,"/api/chat/upload-url"),/URL de upload inválida/);
   assert.equal(h.calls.fetch.length,0);
 }
 {
