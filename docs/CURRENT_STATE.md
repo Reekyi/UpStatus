@@ -1769,7 +1769,7 @@ Exact Validate log for HEAD `648877e` reports:
 
 The Storage test is mocked in CI. No real Storage upload was attempted: the isolated lab has no `chat-images` or `profile-images` buckets, and production writes are prohibited. The production buckets were only inspected read-only and are public, 20 MB, with the expected chat/document and image MIME allowlists. Production schema already has `messages.file_name`.
 
-### Supabase read-only snapshot — 2026-11-07 15:14:53 UTC
+### Supabase read-only snapshot — 2026-11-07 (read-only checks during this run)
 
 Organization inventory still contains exactly two projects:
 
