@@ -16,6 +16,7 @@ jobs:
       UPSTATUS_TEST_PROJECT_ID: ${{ vars.SUPABASE_TEST_PROJECT_ID }}
       EXPECTED_PRODUCTION_PROJECT_ID: dlfvkawaiqduhlazsszm
       EXPECTED_ISOLATED_SIGNALING_PROJECT_ID: bfpjtfqlnypisxljoxkb
+      EXPECTED_SUPABASE_ORGANIZATION_ID: bcjtvojfkfoxvsitzmkl
     steps:
       - name: Checkout develop
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -54,8 +55,12 @@ jobs:
           fi
       - name: Test TEST build target guard
         run: node scripts/test-build-target-guard.mjs
+      - name: Test dedicated TEST project metadata guard
+        run: node scripts/test-test-project-preflight.mjs
       - name: Validate build
         run: node scripts/validate.mjs
+      - name: Verify dedicated TEST project with Supabase Management API
+        run: node scripts/verify-test-project.mjs
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
         with:
