@@ -34,8 +34,12 @@ assert.ok(build.includes("UPSTATUS_TEST_PROJECT_ID") &&
   build.includes('TEST_PROJECT=configuredTestProject||"00000000000000000000"') &&
   build.includes("TEST_PROJECT===PROJECT") &&
   build.includes("TEST_PROJECT===ISOLATED_SIGNALING_PROJECT") &&
-  build.includes('(test?TEST_PROJECT:PROJECT)'),
-  "TEST build must use a dedicated project reference and reject production/fixture targets before writes");
+  build.includes('(test?TEST_PROJECT:PROJECT)') &&
+  build.includes('"__UPSTATUS_REALTIME_URL__":"https://"+(test?TEST_PROJECT:PROJECT)+".supabase.co"'),
+  "TEST build must use a dedicated project reference for API and Realtime and reject production/fixture targets before writes");
+const normalUserTemplate = read("src/userscript/upstatus.user.template.js");
+assert.ok(normalUserTemplate.includes("var UP_REALTIME_URL='__UPSTATUS_REALTIME_URL__';"),
+  "Normal TEST template must not hardcode the production Realtime origin");
 
 function header(name) {
   const match = script.match(new RegExp("^// @" + name + "\\s+([^\\r\\n]+)$", "m"));
