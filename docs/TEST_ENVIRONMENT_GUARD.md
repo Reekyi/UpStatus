@@ -37,3 +37,10 @@ The existing `SUPABASE_ACCESS_TOKEN` must have read access to project metadata (
 - The CLI version is pinned. The workflow deploys only `upstatus-test` to the verified TEST project.
 
 No project was created, no migration was applied, no secret was changed, and no Edge Function was deployed as part of this change. A full TEST project and its migration/rollback rehearsal remain release gates.
+
+
+## Signed Storage uploads
+
+The client requests a short-lived upload ticket from the authenticated Edge Function, then uploads directly to the configured project's Storage origin. The client validates the expected bucket, object path, MIME/size contract, public URL, and signed upload token before issuing the PUT. The one-time token stays in the signed URL query; it is not sent as a bearer service credential or persisted by the userscript.
+
+The regression script scripts/test-signed-upload-client.mjs exercises the client helper with mocked API/Storage responses, including cross-origin rejection, bucket/path mismatch, missing or mismatched token, invalid MIME/size, avatar-vs-chat route constraints, and failed Storage responses. The same regression runs in Validate and before any manual TEST deploy.
