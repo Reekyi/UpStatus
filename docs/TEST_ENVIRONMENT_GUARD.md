@@ -30,17 +30,18 @@ The existing `SUPABASE_ACCESS_TOKEN` must have read access to project metadata (
 ## Deployment behavior
 
 - TEST deployment is manual-only and restricted to the `develop` ref.
+- The workflow checks out the exact `github.sha` captured by the dispatch event, then verifies `git rev-parse HEAD` equals `GITHUB_SHA`. It does not resolve the moving `develop` branch after dispatch, so a concurrent push cannot silently change which commit the run deploys.
 - It uses `vars.SUPABASE_TEST_PROJECT_ID`, not the shared production project secret.
 - The workflow runs build-target and project-metadata regressions plus full repository validation before invoking the Management API preflight.
 - The Management API preflight is read-only and confirms that the target is an active project in the UpStatus organization.
 - The access token is scoped to only the credential-check, metadata-verification, and deploy steps; build and test scripts do not inherit it.
 - The CLI version is pinned. The workflow deploys only `upstatus-test` to the verified TEST project.
+- The workflow regression asserts manual-only triggering, exact dispatch-SHA checkout, the `develop` ref guard, SHA equality, TEST-only target, and step-scoped token access.
 
 No project was created, no migration was applied, no secret was changed, and no Edge Function was deployed as part of this change. A full TEST project and its migration/rollback rehearsal remain release gates.
-
 
 ## Signed Storage uploads
 
 The client requests a short-lived upload ticket from the authenticated Edge Function, then uploads directly to the configured project's Storage origin. The client validates the expected bucket, object path, MIME/size contract, public URL, and signed upload token before issuing the PUT. The one-time token stays in the signed URL query; it is not sent as a bearer service credential or persisted by the userscript.
 
-The regression script scripts/test-signed-upload-client.mjs exercises the client helper with mocked API/Storage responses, including cross-origin rejection, bucket/path mismatch, missing or mismatched token, invalid MIME/size, avatar-vs-chat route constraints, and failed Storage responses. The same regression runs in Validate and before any manual TEST deploy.
+The regression script `scripts/test-signed-upload-client.mjs` exercises the client helper with mocked API/Storage responses, including cross-origin rejection, bucket/path mismatch, missing or mismatched token, invalid MIME/size, avatar-vs-chat route constraints, and failed Storage responses. The same regression runs in Validate and before any manual TEST deploy.
