@@ -88,7 +88,8 @@ async function login(req:Request,setup:boolean){
   const p:any=await readBody(req);
   const name=String(p.name||"").trim();
   const password=String(p.password||"");
-  if(!name||password.length<4)return response({error:"Use um usuário válido e uma senha de pelo menos 4 caracteres."},400);
+  const minPasswordLength=4;
+  if(!name||password.length<minPasswordLength)return response({error:`Use um usuário válido e uma senha de pelo menos ${minPasswordLength} caracteres.`},400);
   if(setup){
     const setupToken=String(p.setupToken||"").trim().toLowerCase();
     if(!/^[0-9a-f]{64}$/.test(setupToken))return response({error:"Código de primeiro acesso inválido ou expirado."},403);
