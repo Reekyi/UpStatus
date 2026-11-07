@@ -62,6 +62,8 @@ assert.equal(header(testUser, "downloadURL"),
   "https://" + sentinelProject + ".supabase.co/functions/v1/upstatus-test/upstatus.user.js");
 assert.ok(!testUser.includes("https://" + productionProject + ".supabase.co"),
   "default TEST artifact must never contain the production project origin");
+assert.ok(testUser.includes("var UP_REALTIME_URL='https://" + sentinelProject + ".supabase.co';"),
+  "default TEST Realtime URL must use the inert sentinel project");
 
 result = runBuild(sampleProject);
 assert.equal(result.status, 0, "an explicit non-production TEST project must build: " + output(result).slice(-2000));
@@ -70,6 +72,8 @@ assert.equal(manifest.testProjectId, sampleProject);
 assert.equal(manifest.testTargetConfigured, true);
 assert.equal(header(testUser, "updateURL"),
   "https://" + sampleProject + ".supabase.co/functions/v1/upstatus-test/upstatus.user.js");
+assert.ok(testUser.includes("var UP_REALTIME_URL='https://" + sampleProject + ".supabase.co';"),
+  "configured TEST Realtime URL must use the same project as its API");
 
 for (const [projectId, expectedMessage] of [
   [productionProject, /Refusing to build TEST artifacts against the production Supabase project/],
