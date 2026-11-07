@@ -88,7 +88,7 @@ async function login(req:Request,setup:boolean){
   const p:any=await readBody(req);
   const name=String(p.name||"").trim();
   const password=String(p.password||"");
-  const minPasswordLength=4;
+  const minPasswordLength=setup?6:4;
   if(!name||password.length<minPasswordLength)return response({error:`Use um usuário válido e uma senha de pelo menos ${minPasswordLength} caracteres.`},400);
   if(setup){
     const setupToken=String(p.setupToken||"").trim().toLowerCase();
