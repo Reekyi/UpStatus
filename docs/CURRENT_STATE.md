@@ -2149,3 +2149,45 @@ PR #76 exact HEAD `26122c55fd453882f92094e12c09914d77b11b07` completed Candidate
 A SELECT-only post-run snapshot on isolated project `bfpjtfqlnypisxljoxkb` confirmed zero rows in all 11 fixture categories (users, sessions, rooms, memberships, events, bindings, rate limits, call attempts, voice attempts, chat reads and messages), plus zero rows/child partitions in `realtime.messages`. No manual cleanup was performed.
 
 This is exact-head isolated CI evidence, not physical Tampermonkey acceptance. Issue #78 remains OPEN at 0/8 physical criteria; no real network outage/no-F5, hardware microphone/display permission or installed cross-product test was performed. Production remains unchanged.
+
+
+## 2026-11-07 22:08 UTC — AUTH-03 route-level regression and live revalidation
+
+### Candidate heads and exact CI
+- **#74 Normal** HEAD `18dd3e7dd64f57fe81cab03b9aa59158188d8772`: Validate [42419107639](https://github.com/Reekyi/UpStatus/actions/runs/42419107639) SUCCESS. The shared-lab Signaling Smoke [42419107700](https://github.com/Reekyi/UpStatus/actions/runs/42419107700) is pending behind Team Lite's serialized Candidate Checks. Its preceding runtime head `d949c4b` passed full Smoke [42404668009](https://github.com/Reekyi/UpStatus/actions/runs/42404668009); the current commit changes the auth test harness only.
+- **#76 Team Lite** HEAD `fc49eb804457a159a1c066faf6203dbc6fb5a9da`: Candidate Checks [42419070366](https://github.com/Reekyi/UpStatus/actions/runs/42419070366) is in progress. The new first-access route test step passed; authenticated integration/browser, rate-limit, receipt, invite-consumption and cleanup steps have not yet completed.
+- **#75 baseline** remains historical PASS on `7bbf9b9`.
+- **#80 continuity** HEAD `f6aa0c6`: Validate [42414693267](https://github.com/Reekyi/UpStatus/actions/runs/42414693267) FAIL at inherited develop assertion `client signed upload helper missing`.
+- **#82 QA** HEAD `9d37db7`: Validate [42416350842](https://github.com/Reekyi/UpStatus/actions/runs/42416350842) FAIL at inherited master assertion `production updateURL mismatch`.
+- **#84 TEST isolation** HEAD `21341f3`: Validate remains PASS [42387042361](https://github.com/Reekyi/UpStatus/actions/runs/42387042361).
+- **#85 master stabilization** HEAD `1755452`: Validate remains PASS [42386047749](https://github.com/Reekyi/UpStatus/actions/runs/42386047749).
+
+All seven PRs remain open, Draft, unmerged, and have zero submitted human reviews.
+
+### AUTH-03 route-level test added
+The shared `scripts/auth-enrollment.test.mjs` now extracts and executes the actual `admin()` and `issueSetupInvite()` handlers from each product server template in a Node VM with a deterministic database mock. It verifies:
+- the route is behind the active-session guard and uses the session-derived caller name;
+- missing, ordinary-user, and whitespace-padded admin roles are denied;
+- denial occurs before request-body parsing or database updates;
+- invalid and oversized target names are rejected;
+- issuance generates a 256-bit token with a 15-minute expiry and only persists its one-way hash plus issuer/timestamps;
+- only NULL/legacy-empty password rows are eligible; configured/missing targets return a generic 409 without a token;
+- the handler does not log the raw token.
+
+The test passed in Normal Validate [42419107639]. Team Lite's exact-head Candidate Checks has also passed its static enrollment-test step; its full run is still in progress. Three earlier Team Lite attempts failed only in the newly added test harness (regex escaping, VM source joining, then a deliberately weak mock hash that contained the raw token); those harness defects were corrected. The current exact-head run is the first one using the corrected one-way-hash mock.
+
+### Current production and isolated-project evidence (read-only)
+- Supabase organization currently has exactly two projects: production `dlfvkawaiqduhlazsszm` (ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations, 38 Edge Functions) and isolated `bfpjtfqlnypisxljoxkb` (ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 34 migrations, 2 Edge Functions).
+- Deployed Normal v480 and Team Lite v15 sources do **not** contain `/api/setup-invite`, `consume_upstatus_setup_invite`, or an auth-specific rate limiter. Their name-based initial-admin fallback remains in both live sources. Normal currently requires six characters for login/setup; Team Lite uses four for both. Five production users are initialized, with zero blank roles and three explicit admins; this is a latent onboarding/compatibility risk, not evidence of a currently claimable account.
+- Production still has three SECURITY DEFINER broadcasts with `search_path=public` and EXECUTE for anon/authenticated/service_role; 7 child partitions and 50 rows in `realtime.messages`; nine backend-owned tables retain anon/authenticated grants including TRUNCATE; broad default ACLs remain. Security Advisor: 3 anon WARN + 3 authenticated WARN + 10 RLS INFO; Performance and Health are empty.
+- The isolated project contains the candidate setup-invite, signaling-rate-limit, receipt-merge and voice-room RPCs, all with EXECUTE only for service_role. It still has zero `realtime.messages` partitions and zero rows. Its Security Advisor has 17 RLS INFO and no SECURITY DEFINER WARN.
+- No third full-product TEST project exists.
+
+### Workflow and governance
+The live `develop` `.github/workflows/deploy-test.yml` still has both `workflow_dispatch` and `push`, uses shared `SUPABASE_PROJECT_ID`, and deploys `upstatus-test` without destination identity preflight. PR #84's candidate is manual-only, uses `SUPABASE_TEST_PROJECT_ID`, pins the dispatch SHA and validates the project via Management API. Neither workflow was dispatched.
+GitHub branch API currently reports `master.protected=false` and `develop.protected=false`, with required checks disabled.
+
+### Remaining gates
+RT-01/public Realtime and private-channel JWT architecture; auth-specific distributed rate limiting and product endpoint integration; production migration/cutover/rollback; official full-product TEST; real Storage E2E; table/default ACL remediation; human reviews; and physical Issue #78 acceptance (still 0/8). No real Tampermonkey/network-loss/microphone/display-capture/cross-product manual test was performed.
+
+Production remained read-only. No production SQL write, migration, Edge deployment, secret/role/grant/ACL/policy/flag change, merge, release, userscript publication, or destructive operation occurred.
