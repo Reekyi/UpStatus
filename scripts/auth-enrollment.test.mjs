@@ -231,3 +231,270 @@ assert.equal(unavailableHarness.state.updates.length,1,"the database must receiv
 console.log(product+" setup-invite route authorization and token-handling checks passed.");
 
 console.log(product + " one-time setup enrollment static checks passed.");
+
+
+// Execute the exact candidate router slice together with its real auth/session,
+// admin, invite-issuance and first-setup handlers. Only external DB/runtime
+// boundaries are mocked; this is not a live Deno HTTP or Supabase test.
+const routeStart = server.indexOf('if(path==="/api/account"&&req.method==="GET")');
+const routeEnd = server.indexOf('\n\n    if(path==="/api/logout"', routeStart);
+assert.ok(routeStart >= 0 && routeEnd > routeStart, "account/setup/login/authenticated route block must remain extractable");
+const routeSource = server.slice(routeStart, routeEnd);
+
+const routeReadBody = extractBlock(server, "async function readBody(req:Request) {")
+  .replace("async function readBody(req:Request) {", "async function readBody(req) {");
+const routeToken = extractBlock(server, "function token(req:Request){")
+  .replace("function token(req:Request){", "function token(req){");
+const routeUserFromToken = extractBlock(server, "async function userFromToken(req:Request){")
+  .replace("async function userFromToken(req:Request){", "async function userFromToken(req){");
+const routeAccount = extractBlock(server, "async function account(name:string){")
+  .replace("async function account(name:string){", "async function account(name){");
+const routeAdmin = extractBlock(server, "async function admin(name:string|null){")
+  .replace("async function admin(name:string|null){", "async function admin(name){");
+const routeInvite = extractBlock(server, "async function issueSetupInvite(req:Request,adminName:string){")
+  .replace("async function issueSetupInvite(req:Request,adminName:string){", "async function issueSetupInvite(req,adminName){")
+  .replace("const p:any=await readBody(req);", "const p=await readBody(req);");
+const routeLogin = extractBlock(server, "async function login(req:Request,setup:boolean){")
+  .replace("async function login(req:Request,setup:boolean){", "async function login(req,setup){")
+  .replace("const p:any=await readBody(req);", "const p=await readBody(req);");
+const routeContext = extractBlock(server, "async function contextName(req:Request) {")
+  .replace("async function contextName(req:Request) {", "async function contextName(req) {")
+  .replace("const s:any=", "const s=")
+  .replace("const ys:any=", "const ys=");
+
+function makeRouteHarness(options={}){
+  const state={
+    readBodyCalls:0,updates:[],accountLookups:[],sessionLookups:[],
+    rpcCalls:[],createdSessions:[],updateTarget:null,eligibilityFilter:null,
+    rpcAccept:options.rpcAccept===true,rpcRole:options.rpcRole??null,
+    targetAvailable:options.targetAvailable!==false,guestOnline:false
+  };
+  const roles=new Map([
+    ["Admin","implementation_admin"],
+    ["User","implementation_user"],
+    ["PaddedAdmin"," implementation_admin "],
+    ["Lucca","implementation_user"],
+    ["Target",null]
+  ]);
+  const sessions=new Map();
+  for(const [raw,name] of [["admin-session","Admin"],["user-session","User"],["padded-admin-session","PaddedAdmin"]]){
+    sessions.set("sha256:"+raw,{
+      user_name:name,
+      expires_at:new Date(Date.now()+60000).toISOString()
+    });
+  }
+  const db={
+    from(table){
+      if(table==="upstatus_sessions"){
+        return {
+          select(){
+            return {
+              eq(column,value){
+                state.sessionLookups.push({column,value});
+                return {maybeSingle:async()=>({data:sessions.get(value)||null,error:null})};
+              }
+            };
+          },
+          delete(){
+            return {eq:async()=>({error:null})};
+          }
+        };
+      }
+      if(table==="users"){
+        return {
+          select(){
+            return {
+              eq(column,value){
+                state.accountLookups.push(value);
+                return {
+                  maybeSingle:async()=>({
+                    data:roles.has(value)?{name:value,role:roles.get(value),password_hash:"configured"}:null,
+                    error:null
+                  })
+                };
+              }
+            };
+          },
+          update(payload){
+            state.updates.push(payload);
+            return {
+              eq(column,value){
+                state.updateTarget=value;
+                return {
+                  or(filter){
+                    state.eligibilityFilter=filter;
+                    return {
+                      select(){
+                        return {
+                          maybeSingle:async()=>({
+                            data:state.targetAvailable?{name:state.updateTarget}:null,
+                            error:null
+                          })
+                        };
+                      }
+                    };
+                  }
+                };
+              }
+            };
+          }
+        };
+      }
+      throw new Error("Unexpected table in AUTH-03 route harness: "+table);
+    },
+    async rpc(name,args){
+      state.rpcCalls.push({name,args});
+      if(name!=="consume_upstatus_setup_invite")throw new Error("Unexpected RPC: "+name);
+      return {
+        data:state.rpcAccept?[{name:args.p_user_name,role:state.rpcRole}]:[],
+        error:null
+      };
+    }
+  };
+  const sandbox={
+    db,
+    sessionCache:new Map(),
+    SESSION_CACHE_TTL_MS:5000,
+    tokenHash:raw=>"sha256:"+raw,
+    randomBytes:n=>({toString:encoding=>{assert.equal(encoding,"hex");return "ab".repeat(n);}}),
+    passwordHash:password=>"password-hash:"+password,
+    checkPassword:()=>false,
+    response:(body,status=200)=>({body,status}),
+    createSession:async(name,knownAccount)=>{
+      state.createdSessions.push({name,role:knownAccount?.role});
+      return {body:{name,role:knownAccount?.role,token:"session-token"},status:200};
+    },
+    expireLucca:async()=>state.guestOnline
+      ?{online:true,session:"guest-session",joinedAt:new Date().toISOString()}
+      :{online:false,session:""},
+    luccaToken:req=>req.headers.get("x-test-guest")||"",
+    expireYcaro:async()=>({online:false,session:""}),
+    ycaroToken:()=>"",
+    readBody:undefined
+  };
+  const factorySource="(async function(req,path){\n"+routeSource+"\nreturn response({error:\"Não encontrado.\"},404);\n})";
+  const dispatch=vm.runInNewContext([
+    routeReadBody,routeToken,routeUserFromToken,routeAccount,routeAdmin,
+    routeInvite,routeLogin,routeContext,factorySource
+  ].join("\n"),sandbox);
+  return {dispatch,state};
+}
+function makeRouteRequest(state,options={}){
+  const headers=new Map([
+    ["x-upstatus-token",options.token||""],
+    ["x-test-guest",options.guest||""]
+  ]);
+  return {
+    method:options.method||"POST",
+    headers:{get:name=>headers.get(String(name).toLowerCase())||null},
+    text:async()=>{
+      state.readBodyCalls++;
+      if(options.bodyText!==undefined)return options.bodyText;
+      return options.body===undefined?"":JSON.stringify(options.body);
+    }
+  };
+}
+
+{
+  const h=makeRouteHarness();
+  const result=await h.dispatch(makeRouteRequest(h.state,{body:{name:"Target"}}),"/api/setup-invite");
+  assert.equal(result.status,401,"unauthenticated setup-invite requests must be rejected by the actual route block");
+  assert.equal(h.state.readBodyCalls,0,"unauthenticated requests must be rejected before parsing the body");
+  assert.equal(h.state.updates.length,0,"unauthenticated requests must not update users");
+}
+{
+  const h=makeRouteHarness();
+  const result=await h.dispatch(makeRouteRequest(h.state,{token:"user-session",body:{name:"Target"}}),"/api/setup-invite");
+  assert.equal(result.status,403,"authenticated non-admin setup-invite requests must be denied");
+  assert.equal(h.state.readBodyCalls,0,"non-admin requests must be denied before parsing target data");
+  assert.equal(h.state.updates.length,0,"non-admin requests must not update users");
+  assert.equal(result.body.setupToken,undefined,"non-admin responses must not disclose a setup token");
+}
+{
+  const h=makeRouteHarness();
+  const result=await h.dispatch(makeRouteRequest(h.state,{token:"padded-admin-session",body:{name:"Target"}}),"/api/setup-invite");
+  assert.equal(result.status,403,"whitespace-padded admin roles must not authorize the route");
+  assert.equal(h.state.updates.length,0,"padded roles must not update users");
+}
+{
+  const h=makeRouteHarness();
+  const result=await h.dispatch(makeRouteRequest(h.state,{guest:"guest-session",body:{name:"Target"}}),"/api/setup-invite");
+  assert.equal(result.status,403,"a guest portal context must not authorize admin invite issuance");
+  assert.equal(h.state.updates.length,0,"guest contexts must not update users");
+}
+{
+  const h=makeRouteHarness();
+  const result=await h.dispatch(makeRouteRequest(h.state,{
+    token:"admin-session",
+    body:{name:"Target",adminName:"Spoofed"}
+  }),"/api/setup-invite");
+  assert.equal(result.status,200,"an authenticated stored admin must be able to issue an invite");
+  assert.equal(result.body.name,"Target");
+  assert.match(result.body.setupToken,/^[0-9a-f]{64}$/);
+  assert.equal(h.state.updates.length,1);
+  assert.equal(h.state.updates[0].setup_token_issued_by,"Admin","issuer identity must come from the validated session, not request JSON");
+  assert.equal(h.state.updates[0].setup_token_hash,"sha256:"+result.body.setupToken,"only the token hash may be persisted");
+  assert.equal(JSON.stringify(h.state.updates[0]).includes(result.body.setupToken),false,"the raw invite token must not be persisted");
+  assert.equal(h.state.eligibilityFilter,'password_hash.is.null,password_hash.eq.""');
+}
+{
+  const h=makeRouteHarness();
+  const result=await h.dispatch(makeRouteRequest(h.state,{method:"GET"}),"/api/account");
+  assert.equal(result.status,200);
+  assert.deepEqual(result.body,{needsSetup:false},"public account lookup must not disclose per-name setup state");
+  assert.equal(h.state.accountLookups.length,0,"public account lookup must not query named accounts");
+}
+{
+  const h=makeRouteHarness();
+  const result=await h.dispatch(makeRouteRequest(h.state,{
+    body:{name:"Target",password:"12345",setupToken:"cd".repeat(32)}
+  }),"/api/setup");
+  assert.equal(result.status,400,"first setup must enforce the six-character password minimum");
+  assert.equal(h.state.rpcCalls.length,0,"short passwords must be rejected before invite consumption");
+}
+{
+  const h=makeRouteHarness();
+  const result=await h.dispatch(makeRouteRequest(h.state,{
+    body:{name:"Target",password:"abcdef",setupToken:"malformed"}
+  }),"/api/setup");
+  assert.equal(result.status,403,"malformed setup tokens must receive the generic denial");
+  assert.equal(result.body.error,"Código de primeiro acesso inválido ou expirado.");
+  assert.equal(h.state.rpcCalls.length,0,"malformed tokens must not reach the consume RPC");
+  assert.equal(h.state.createdSessions.length,0,"malformed tokens must not create sessions");
+}
+{
+  const h=makeRouteHarness({rpcAccept:false});
+  const rawToken="cd".repeat(32);
+  const result=await h.dispatch(makeRouteRequest(h.state,{
+    body:{name:"Target",password:"abcdef",setupToken:rawToken}
+  }),"/api/setup");
+  assert.equal(result.status,403,"wrong, expired or replayed invite consumption must be denied");
+  assert.equal(result.body.error,"Código de primeiro acesso inválido ou expirado.");
+  assert.equal(h.state.rpcCalls.length,1);
+  assert.equal(h.state.rpcCalls[0].name,"consume_upstatus_setup_invite");
+  assert.equal(h.state.rpcCalls[0].args.p_setup_token_hash,"sha256:"+rawToken,"only the token hash may reach the consume RPC");
+  assert.equal(JSON.stringify(h.state.rpcCalls[0].args).includes(rawToken),false,"raw setup tokens must not reach the RPC");
+  assert.equal(h.state.createdSessions.length,0,"failed invite consumption must not create a session");
+}
+{
+  const h=makeRouteHarness({rpcAccept:true,rpcRole:null});
+  const rawToken="ef".repeat(32);
+  const result=await h.dispatch(makeRouteRequest(h.state,{
+    body:{name:"Target",password:"abcdef",setupToken:rawToken}
+  }),"/api/setup");
+  assert.equal(result.status,200,"a valid one-time invite must complete the actual first-setup route");
+  assert.equal(h.state.rpcCalls.length,1);
+  assert.equal(h.state.rpcCalls[0].args.p_setup_token_hash,"sha256:"+rawToken);
+  assert.equal(h.state.rpcCalls[0].args.p_password_hash,"password-hash:abcdef");
+  assert.deepEqual(h.state.createdSessions,[{name:"Target",role:"implementation_user"}],"blank enrolled roles must default to implementation_user");
+}
+{
+  const h=makeRouteHarness({rpcAccept:true,rpcRole:" implementation_admin "});
+  const result=await h.dispatch(makeRouteRequest(h.state,{
+    body:{name:"Target",password:"abcdef",setupToken:"ef".repeat(32)}
+  }),"/api/setup");
+  assert.equal(result.status,200);
+  assert.deepEqual(h.state.createdSessions,[{name:"Target",role:" implementation_admin "}],"non-empty explicit roles must be preserved verbatim, not silently normalized");
+}
+
+console.log(product+" setup-invite and first-setup route-dispatch checks passed.");
