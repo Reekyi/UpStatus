@@ -26,7 +26,8 @@ const misplaced = listFiles(migrationsRoot)
 assert.deepEqual(misplaced, [], "test-only SQL must stay outside supabase/migrations (the Supabase CLI discovery path)");
 
 for (const name of ["20261104152847_atomic_chat_read_receipts_and_visual_config_grants_test.sql","20261104154623_distributed_signaling_rate_limit_test.sql",
-  "20261106191000_bounded_rate_limit_cleanup_test.sql", "20261107010000_setup_invites_test.sql", "20261108010000_voice_attempt_singleton_test.sql"]) {
+  "20261106191000_bounded_rate_limit_cleanup_test.sql", "20261107010000_setup_invites_test.sql", "20261108010000_voice_attempt_singleton_test.sql",
+  "20261108020000_voice_attempt_account_scoped_lock_test.sql"]) {
   const testPath = path.join(testMigrationsRoot, name);
   const migrationPath = path.join(migrationsRoot, name);
   assert.equal(existsSync(testPath), true, "isolated test migration missing: " + name);
@@ -53,6 +54,16 @@ assert.ok(
   boundedRateLimitCleanupTest.includes("v_preexisting_stale <> 0") &&
   boundedRateLimitCleanupTest.includes("zero pre-existing stale buckets"),
   "isolated SQL regression must reject pre-existing stale rows so its 150-to-50 assertion is deterministic"
+);
+
+const voiceAttemptLockOrderTest = readFileSync(
+  path.join(testMigrationsRoot, "20261108020000_voice_attempt_account_scoped_lock_test.sql"), "utf8"
+);
+assert.ok(
+  voiceAttemptLockOrderTest.includes("upstatus-voice-account:") &&
+  voiceAttemptLockOrderTest.includes("upstatus-open-voice:") &&
+  voiceAttemptLockOrderTest.includes("FOR v_existing_attempt IN"),
+  "isolated voice-attempt lock-order test must verify account scan and retained shared-room lock"
 );
 
 console.log("Test migration layout guard passed.");
