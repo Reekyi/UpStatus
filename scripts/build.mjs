@@ -59,13 +59,12 @@ function renderUser({version,test}){
     "__UPSTATUS_RINGTONE_STORAGE_KEY__":ringtoneStorage
   });
 }
-function renderFunction({version,test}){
-  const fn=test?TEST_FUNCTION:PROD_FUNCTION;
+function renderFunction({version,test,functionName=test?TEST_FUNCTION:PROD_FUNCTION}){
   const userscript=renderUser({version,test});
   return render(serverTemplate,{
     "__UPSTATUS_VERSION__":version,
     "__UPSTATUS_USERSCRIPT_HEX__":hexEncode(userscript),
-    "__UPSTATUS_PATH_MARKER__":"/"+fn,
+    "__UPSTATUS_PATH_MARKER__":"/"+functionName,
     "__UPSTATUS_YCARO_HTML_EXPR__":JSON.stringify(ycaroPage)
   });
 }
@@ -77,8 +76,10 @@ function writeFunction(fn,source){
 }
 const prodUser=renderUser({version:baseVersion,test:false});
 const testUser=renderUser({version:fullVersion,test:true});
-writeFunction(PROD_FUNCTION,renderFunction({version:baseVersion,test:false}));
-writeFunction(TEST_FUNCTION,renderFunction({version:fullVersion,test:true}));
+// The distribution function and its API runtime share one reviewed server template and userscript artifact.
+writeFunction(PROD_FUNCTION,renderFunction({version:baseVersion,test:false,functionName:PROD_FUNCTION}));
+writeFunction(PROD_API_FUNCTION,renderFunction({version:baseVersion,test:false,functionName:PROD_API_FUNCTION}));
+writeFunction(TEST_FUNCTION,renderFunction({version:fullVersion,test:true,functionName:TEST_FUNCTION}));
 const dist=path.join(ROOT,"dist");
 fs.rmSync(dist,{recursive:true,force:true});
 fs.mkdirSync(dist,{recursive:true});
