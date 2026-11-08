@@ -1,0 +1,38 @@
+name: Normal Public Realtime Command Guard
+
+on:
+  push:
+    branches:
+      - fix/normal-public-realtime-command-wakeup-20261108
+    paths:
+      - "src/userscript/upstatus.user.template.js"
+      - "scripts/test-public-realtime-command-guard.mjs"
+      - "scripts/validate.mjs"
+      - ".github/workflows/normal-public-realtime-command-guard.yml"
+  pull_request:
+    branches:
+      - fix/normal-setup-invite-admin-ui-20261108
+    paths:
+      - "src/userscript/upstatus.user.template.js"
+      - "scripts/test-public-realtime-command-guard.mjs"
+      - "scripts/validate.mjs"
+      - ".github/workflows/normal-public-realtime-command-guard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Run public command wake-up regression and full offline Validate
+        run: |
+          node --version
+          node --check scripts/test-public-realtime-command-guard.mjs
+          node scripts/test-public-realtime-command-guard.mjs src/userscript/upstatus.user.template.js
+          node scripts/validate.mjs
