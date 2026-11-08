@@ -163,3 +163,14 @@ The isolated project `bfpjtfqlnypisxljoxkb` remains `ACTIVE_HEALTHY`, PostgreSQL
 Issue #78 remains open at 0/8 physical acceptance criteria. Issue #79's body still carries the historical 16/35 checklist and requires a deliberate reconciliation; automated CI is not physical Tampermonkey/network/media acceptance.
 
 No attack was sent, no public-access setting was changed, and no physical microphone/display capture was attempted. All production database calls in this refresh were SELECT/catalog reads. No migration, SQL write, deploy, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change or function deactivation occurred.
+
+
+### Isolated signaling helper source parity
+
+A read-only byte comparison between the deployed lab `upstatus-signal-test` v32 source and the GitHub #74 candidate source found one functional difference in `index.ts`:
+
+- The deployed v32 maps `VOICE_ATTEMPT_CONFLICT` and `ROOM_FULL` to HTTP 409, but not `VOICE_ATTEMPT_ALREADY_ACTIVE`.
+- The candidate source additionally maps `VOICE_ATTEMPT_ALREADY_ACTIVE` to HTTP 409.
+- `body.mjs` and `legacy-envelope.mjs` match byte-for-byte.
+
+This confirms the known HTTP 500/409 discrepancy at source level; it is not a new live HTTP test. No function was deployed or changed. The lab v32 remains unchanged until an explicitly authorized deployment.
