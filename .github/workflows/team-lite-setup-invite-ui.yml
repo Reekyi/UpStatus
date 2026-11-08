@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/team-lite-setup-invite-admin-ui-20261108
+      - test/team-lite-setup-invite-nonadmin-browser-20261108
     paths:
       - "team-lite/upstatus-team-lite.user.js"
       - "scripts/test-setup-invite-ui.mjs"
@@ -15,6 +16,7 @@ on:
   pull_request:
     branches:
       - fix/team-lite-deploy-jwt-config-guard-20261108
+      - fix/team-lite-setup-invite-admin-ui-20261108
     paths:
       - "team-lite/upstatus-team-lite.user.js"
       - "scripts/test-setup-invite-ui.mjs"
