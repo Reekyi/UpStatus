@@ -92,6 +92,7 @@ let parallelRoomTwoId = "";
 let voiceRoomId = "";
 let raceRoomId = "";
 let capacityRoomId = "";
+let crossAccountRoomId = "";
 const voiceAttemptCleanup = [];
 function check(name, ok, detail = "") {
   results.push({ name, ok });
@@ -762,8 +763,11 @@ try {
     ]) check(name, false, "leave room creation failed");
   }
 
-  const voiceAttemptPrefix = users.A.name.replace(/[^A-Za-z0-9._:-]/g, "_").slice(0, 80) + "-voice-";
-  const makeVoiceAttemptId = label => voiceAttemptPrefix + label + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  const makeVoiceAttemptIdFor = (user, label) => {
+    const prefix = user.name.replace(/[^A-Za-z0-9._:-]/g, "_").slice(0, 80) + "-voice-";
+    return prefix + label + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  };
+  const makeVoiceAttemptId = label => makeVoiceAttemptIdFor(users.A, label);
 
   const cancelledVoiceAttemptId = makeVoiceAttemptId("cancel");
   const cancelBeforeOpen = await request(users.A, "/room/cancel-open", {
@@ -916,6 +920,40 @@ try {
         retryCancelled.json?.cancelled === true, JSON.stringify(retryCancelled.json));
     }
   }
+  const crossAccountAttempts = [
+    { user: users.B, attemptId: makeVoiceAttemptIdFor(users.B, "parallel-b"), logicalId: "upstatus-team-room-v1" },
+    { user: users.C, attemptId: makeVoiceAttemptIdFor(users.C, "parallel-c"), logicalId: "upstatus-team-lite-room-v1" },
+  ];
+  const crossAccountOpens = await Promise.all(crossAccountAttempts.map(attempt =>
+    serviceRpc("open_upstatus_signal_voice_room_attempt", {
+      p_attempt_id: attempt.attemptId, p_logical_id: attempt.logicalId,
+      p_user_name: attempt.user.name, p_max_members: 32,
+    })
+  ));
+  crossAccountOpens.forEach((result, index) => {
+    if (result.json?.ok === true) voiceAttemptCleanup.push({
+      attemptId: crossAccountAttempts[index].attemptId,
+      logicalId: crossAccountAttempts[index].logicalId,
+      userName: crossAccountAttempts[index].user.name,
+    });
+  });
+  crossAccountRoomId = crossAccountOpens.find(result => result.json?.ok === true)?.json?.roomId || "";
+  check("different accounts can open voice attempts concurrently while sharing the logical room",
+    crossAccountOpens.every(result => result.status === 200 && result.json?.ok === true) &&
+      crossAccountOpens[0].json?.roomId === crossAccountOpens[1].json?.roomId,
+    "B=" + JSON.stringify(crossAccountOpens[0].json) + ", C=" + JSON.stringify(crossAccountOpens[1].json));
+  if (crossAccountOpens.every(result => result.json?.ok === true)) {
+    const crossAccountCancels = await Promise.all(crossAccountAttempts.map(attempt =>
+      serviceRpc("cancel_upstatus_signal_voice_room_attempt", {
+        p_attempt_id: attempt.attemptId, p_logical_id: attempt.logicalId, p_user_name: attempt.user.name,
+      })
+    ));
+    check("different accounts can cancel concurrent voice attempts without deadlock",
+      crossAccountCancels.every(result => result.status === 200 && result.json?.cancelled === true),
+      "B=" + JSON.stringify(crossAccountCancels[0].json) + ", C=" + JSON.stringify(crossAccountCancels[1].json));
+  }
+
+
 
 } catch (error) {
   console.error("Integration request failed:", String(error));
@@ -924,7 +962,7 @@ try {
   for (const attempt of voiceAttemptCleanup) {
     try {
       await serviceRpc("cancel_upstatus_signal_voice_room_attempt", {
-        p_attempt_id: attempt.attemptId, p_logical_id: attempt.logicalId, p_user_name: users.A.name,
+        p_attempt_id: attempt.attemptId, p_logical_id: attempt.logicalId, p_user_name: attempt.userName || users.A.name,
       });
     } catch {}
   }
@@ -947,7 +985,7 @@ try {
   if (parallelRoomTwoId) {
     try { await request(users.A, "/room/close", { roomId: parallelRoomTwoId }); } catch {}
   }
-  for (const id of [voiceRoomId, raceRoomId, capacityRoomId].filter(Boolean)) {
+  for (const id of [voiceRoomId, raceRoomId, capacityRoomId, crossAccountRoomId].filter(Boolean)) {
     for (const user of [users.A, users.B, users.C]) { try { await request(user, "/room/leave", { roomId: id }); } catch {} }
   }
 }
