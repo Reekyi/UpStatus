@@ -1,4 +1,4 @@
-# Engineering checkpoint — 2026-11-08 01:24 BRT
+# Engineering checkpoint — 2026-11-08 (refreshed after 04:30 UTC)
 
 This checkpoint supersedes older snapshots below where exact refs differ. It is documentation-only and does not authorize integration or deployment.
 
@@ -14,7 +14,7 @@ This checkpoint supersedes older snapshots below where exact refs differ. It is 
 | [#84 TEST isolation](https://github.com/Reekyi/UpStatus/pull/84) | `21341f331270e142bdf7584c1cdf16e6011e41b3` | `develop` | Open, Draft | Validate [42387042361](https://github.com/Reekyi/UpStatus/actions/runs/42387042361) PASS |
 | [#85 master stabilization](https://github.com/Reekyi/UpStatus/pull/85) | `36c19ab87d883fe5252715fcbbc0fbef2e35ec9f` | `master` | Open, Draft | Validate [42440947791](https://github.com/Reekyi/UpStatus/actions/runs/42440947791) PASS |
 
-All seven PRs remain open/Draft and unmerged. The review API has returned no human review submissions. Ancestry comparisons remain large: #74 is 870 ahead/0 behind master; #76 is 354 ahead/0 behind team-lite-official and 295 ahead/0 behind #75; #80 is 218 ahead/0 behind develop; #82 is 117 ahead/0 behind master; #84 is 30 ahead/0 behind develop; #85 is 25 ahead/0 behind master. #76 is a continuation of the #75 baseline, not an independent payload.
+All seven PRs remain open/Draft and unmerged. The review API has returned no human review submissions. The #80 row records the parent ref before this checkpoint was first added; the initial checkpoint commit advanced #80 to `931cd84964fc19897be2b68d1666d538ad84c6f2`, whose Validate [42447123047](https://github.com/Reekyi/UpStatus/actions/runs/42447123047) failed at the inherited develop assertion `client signed upload helper missing`. The current issue #79 engineering comment records the latest #80 head after this refresh. Ancestry comparisons remain large: #74 is 870 ahead/0 behind master; #76 is 362 ahead/0 behind team-lite-official and 303 ahead/0 behind #75; #80 was 219 ahead/0 behind develop before this documentation refresh; #82 is 117 ahead/0 behind master; #84 is 30 ahead/0 behind develop; #85 is 25 ahead/0 behind master. #76 is a continuation of the #75 baseline, not an independent payload.
 
 ## Team Lite full-IIFE QA finding reconciled
 
