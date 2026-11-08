@@ -87,8 +87,8 @@ try {
 
   await page.goto("https://www.salesmartly.com/", { waitUntil: "domcontentloaded" });
   await page.addScriptTag({ content: smokeSource });
-  await page.waitForSelector("#upstatus-team-lite-root", { timeout: 5000 });
-  await page.waitForSelector("#upstatus-card #up-enter", { timeout: 5000 });
+  await page.waitForSelector("#upstatus-team-lite-root", { state: "attached", timeout: 5000 });
+  await page.waitForSelector("#upstatus-card #up-enter", { state: "attached", timeout: 5000 });
   await page.waitForTimeout(100);
 
   const state = await page.evaluate(() => {
