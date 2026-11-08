@@ -331,7 +331,7 @@ assert(missingSignalSource.issues.some(issue => issue.includes('source "supabase
 
 const signalAfterApi = evaluateWithNextVersion({
   manifest,
-  workflow: workflow.replace(signalDeploy + "\\n" + apiDeploy, apiDeploy + "\\n" + signalDeploy),
+  workflow: workflow.replace(signalDeploy + "\n" + apiDeploy, apiDeploy + "\n" + signalDeploy),
   availableSources: availableProductionSources,
   serverSource: secureServerSource,
   availableMigrations: REQUIRED_PRODUCTION_MIGRATIONS,
