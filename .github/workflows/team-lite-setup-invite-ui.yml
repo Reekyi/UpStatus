@@ -1,0 +1,52 @@
+name: Team Lite Setup Invite UI Contract
+
+on:
+  push:
+    branches:
+      - fix/team-lite-setup-invite-admin-ui-20261108
+    paths:
+      - "team-lite/upstatus-team-lite.user.js"
+      - "scripts/test-setup-invite-ui.mjs"
+      - "scripts/build.mjs"
+      - "scripts/test-team-lite-build-artifact.mjs"
+      - "scripts/test-team-lite-setup-invite-browser.mjs"
+      - ".github/workflows/team-lite-setup-invite-ui.yml"
+      - ".github/workflows/team-lite-candidate.yml"
+  pull_request:
+    branches:
+      - fix/team-lite-deploy-jwt-config-guard-20261108
+    paths:
+      - "team-lite/upstatus-team-lite.user.js"
+      - "scripts/test-setup-invite-ui.mjs"
+      - "scripts/build.mjs"
+      - "scripts/test-team-lite-build-artifact.mjs"
+      - "scripts/test-team-lite-setup-invite-browser.mjs"
+      - ".github/workflows/team-lite-setup-invite-ui.yml"
+      - ".github/workflows/team-lite-candidate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Install Playwright Chromium for authenticated invite UI smoke
+        run: |
+          npm install --no-save --package-lock=false playwright@1.64.1
+          npx playwright install --with-deps chromium
+      - name: Check UI contract, authenticated browser flow, and generated Team Lite API artifact
+        run: |
+          node --version
+          node --check scripts/test-setup-invite-ui.mjs
+          node scripts/test-setup-invite-ui.mjs team-lite/upstatus-team-lite.user.js
+          node --check scripts/test-team-lite-setup-invite-browser.mjs
+          node scripts/test-team-lite-setup-invite-browser.mjs
+          node --check team-lite/upstatus-team-lite.user.js
+          node scripts/build.mjs
+          node scripts/test-team-lite-build-artifact.mjs
