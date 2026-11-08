@@ -2818,7 +2818,7 @@ Checkpoint: [production signaling function candidate](checkpoints/2026-11-08-pro
 Checkpoint: [authenticated call-source provenance](checkpoints/2026-11-08-authenticated-call-source-provenance.md).
 
 - Draft [PR #102](https://github.com/Reekyi/UpStatus/pull/102), Normal, exact HEAD `c4a5cae1271147204ab3b0c79b8916235f0799aa`; [full offline Validate 42519210669](https://github.com/Reekyi/UpStatus/actions/runs/42519210669) SUCCESS.
-- Draft [PR #103](https://github.com/Reekyi/UpStatus/pull/103), Team Lite, exact HEAD `5fd4f684f7bb0b61d8a4788eef0dac2fc9d69419`; focused offline push 42519344545 and PR 42519349472 SUCCESS.
+- Draft [PR #103](https://github.com/Reekyi/UpStatus/pull/103), Team Lite, exact HEAD `b3fb66429851024ee513bccb4700c944e50ff0cb`; focused offline push 42519559614 and PR 42519564405 SUCCESS.
 - Both clients previously trusted a client-supplied `_authenticatedTransport: true` payload property. A public Realtime sender could forge it. The candidate now passes source provenance as an explicit `receiveCallSignal(payload, authenticatedSource)` argument: authenticated polling/invitations pass true; public Realtime always passes false.
 - The shared discovery allowlist accepts only own-property `presence` and `ended` hints with `discoveryOnly: true`. The public `ended` handler only removes a directory entry. Public `join_declined`, offer, answer and ICE messages are not discovery hints.
 - The first exact-head attempts exposed stale test assumptions (Normal chat regression and Team Lite bundled adapter parity). Both were corrected without changing production behavior; subsequent exact-head workflows passed.
