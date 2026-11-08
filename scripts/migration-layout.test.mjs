@@ -37,7 +37,7 @@ for (const name of [
   "20261107010000_setup_invites_test.sql",
   "20261107170000_pin_empty_search_path_trigger_broadcasts_test.sql",
   "20261108010000_voice_attempt_singleton_test.sql",
-  "20261108020000_voice_attempt_account_scoped_lock_test.sql",
+  "20261108050802_voice_attempt_account_scoped_lock_test.sql",
 ]) {
   const testPath = path.join(testMigrationsRoot, name);
   const migrationPath = path.join(migrationsRoot, name);
@@ -104,7 +104,7 @@ assert.ok(broadcastSearchPathTest.includes("has_function_privilege") &&
   "isolated broadcast test must preserve client-role denial, qualified realtime.send, and trigger bindings");
 
 const voiceAttemptLockOrderTest = readFileSync(
-  path.join(testMigrationsRoot, "20261108020000_voice_attempt_account_scoped_lock_test.sql"), "utf8"
+  path.join(testMigrationsRoot, "20261108050802_voice_attempt_account_scoped_lock_test.sql"), "utf8"
 );
 assert.ok(
   voiceAttemptLockOrderTest.includes("upstatus-voice-account:") &&
