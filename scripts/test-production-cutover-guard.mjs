@@ -9,7 +9,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const secureMediaSource = [
   "var signalTransportFlag=true;",
-  "var signalTransportEndpoint=server.replace(/\\\\/functions\\\\/v1\\\\/[^/]+$/,'/functions/v1/upstatus-signal');",
+  "var signalTransportEndpoint=server.replace(/\\/functions\\/v1\\/[^/]+$/,'/functions/v1/upstatus-signal');",
   "export function isAllowedPublicCallDiscoverySignal(signal){\n  return !!signal&&typeof signal==='object'&&!Array.isArray(signal)&&Object.prototype.hasOwnProperty.call(signal,'type')&&Object.prototype.hasOwnProperty.call(signal,'discoveryOnly')&&(signal.type==='presence'||signal.type==='ended')&&signal.discoveryOnly===true;\n}",
   "function callSendTo(){if(signalTransportFlag)return signalTransport.sendSignal({});}",
   "function callSendAll(){if(signalTransportFlag)return signalTransport.sendToRoom({});}",
