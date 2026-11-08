@@ -8115,3 +8115,78 @@ Logs:
 ### Limites e segurança desta rodada
 
 Todas as consultas SQL desta rodada foram SELECT-only. Management API, fontes, PRs, workflows, logs e advisors foram consultados em leitura. Nenhum script de fixture foi executado pela auditoria. Nenhuma migration, DDL, escrita SQL, deploy, merge, release, publicação de userscript, alteração de secret, flag, role, grant, policy, ACL ou fixture foi realizada. Nenhuma branch de engenharia ou issue foi modificada. A única escrita desta rodada é este append na branch QA.
+
+
+## Revalidação crítica de Realtime e correção da classificação SECURITY DEFINER — 2026-11-08 13:42 BRT
+
+### Bloqueador crítico: broadcast público aceita comandos e sinalização sem identidade verificável
+
+A inspeção das fontes efetivamente implantadas confirmou:
+- Normal: Edge Function `upstatus` v480, fonte SHA `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`, userscript embutido 3.4.7.
+- Team Lite: `upstatus-team-lite` v15, fonte SHA `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`, userscript embutido 3.4.30.
+- Ambos expõem no userscript o publishable key e o tópico global `upstatus-screen-share-live-3-1-1-beta10`.
+- Ambos inicializam `supabase.createClient(..., {auth:{persistSession:false}})`, fazem `channel(UP_REALTIME_TOPIC)` sem `config.private=true` e não chamam `realtime.setAuth()`.
+- O canal global recebe eventos de chat/presença, `remote_command`, `call_signal`, voz e compartilhamento de tela; os clientes também enviam eventos nesse canal.
+
+A documentação oficial do Supabase informa que Broadcast/Presence são autorizados por policies em `realtime.messages`; para impor canais privados é necessário desabilitar “Allow public access”, criar policies e instanciar o canal com `config.private=true`. Referência: [Realtime Authorization](https://supabase.com/docs/guides/realtime/authorization). O publishable key é deliberadamente público; não é segredo e sua rotação isolada não corrige o problema.
+
+A configuração do Dashboard “Allow public access” não está exposta pelos conectores consultados, e a auditoria não tentou conexão externa nem enviou broadcast de prova. Portanto, exploração ao vivo não foi reproduzida. Ainda assim, o código pede canal público e a função de banco também envia com `private=false`; tratar como **bloqueador crítico até verificar e fechar**. Se o projeto já desabilitou public access, o efeito alternativo é que o Realtime atual não funciona como foi escrito.
+
+#### Caminhos de abuso confirmados por inspeção estática
+
+1. **Injeção de remote command / alteração de presença.** O handler de `remote_command` verifica autenticação local e `command.target === member`, mas não valida remetente, assinatura ou existência do comando na fila autenticada. Ele chama `executeRemoteCommand(c)`, que executa `syncSaleSmartly(c.status)` e depois `POST /api/status` usando a sessão do próprio usuário-alvo. O `statusRoute` de produção aceita que o usuário autenticado altere o próprio status para online/busy/away. Assim, se um emissor não autorizado conseguir publicar no canal, pode induzir o navegador da vítima a alterar seu status no Sale Smartly e persistir a mudança como se fosse ação própria; o campo actor é normalizado para o próprio usuário quando não há papel admin. A fila HTTP `remoteRoute` exige admin, mas o handler Realtime contorna essa validação. O cliente já possui `pollRemoteStatus()` com GET autenticado; o broadcast deve ser apenas um sinal para consultar essa fila, nunca a fonte do comando.
+
+2. **Possível exposição de áudio em sala ativa.** `voiceRoomReceive` valida `roomId`, `from`, `to` e ordem temporal/sessionId fornecidos no próprio payload, mas `voiceRoomApplyParticipantSignal` não verifica que `from` é membro autenticado da sala nem que o sinal foi emitido pelo servidor. Quando a sala está ativa, um `presence` forjado pode criar participante e disparar `voiceRoomOffer`; ofertas recebidas podem ser aceitas automaticamente. `voiceRoomMakePeer` adiciona os tracks do microfone local ao peer. Um emissor capaz de publicar no canal pode, portanto, tentar se passar por participante e negociar áudio sem confirmação adicional do usuário.
+
+3. **Possível exposição de tela compartilhada.** `screenShareReceive` aceita oferta com `roomId` correto e campos `from/to` controlados pelo remetente, sem validar associação à sala ou identidade. `screenShareMakePeer` adiciona os tracks locais quando `screenShare.active`. Se a vítima estiver compartilhando a tela e aceitar uma oferta forjada no canal, o código cria resposta WebRTC e pode enviar o stream de tela ao peer não autenticado. Não houve captura nem teste ao vivo; é um caminho de código de alto impacto que precisa ser fechado antes do release.
+
+4. **Sinais adicionais falsificáveis.** `call_signal`, presença, `chat_read`, health ping/pong e `db_change` também são tratados a partir do mesmo canal global. Os filtros de nome/target/room/session são campos controlados pelo emissor, não prova criptográfica de identidade. O handler de `remote_result` já comenta que Realtime público é apenas um hint não confiável, mas o handler de `remote_command` ainda executa o payload diretamente.
+
+**Escopo de impacto:** os dois userscripts instalados em produção (3.4.7 e 3.4.30) possuem esse desenho. O candidato Team Lite tem `signalTransportFlag=GM_getValue(..., false)`, portanto o transporte alternativo permanece opt-in; além disso, o listener público de eventos continua registrado. Normal não possui equivalente de transporte autenticado no userscript implantado. Ativar apenas a flag Team Lite não fecha o caminho se os listeners públicos continuarem aceitando esses eventos.
+
+**Classificação:** P0 de release / incidente de segurança a investigar. Remover a confiança em broadcast público para comandos e sinais de mídia, não apenas esconder botões ou trocar a chave. Para `remote_command`, usar Realtime somente como wake-up e buscar o comando pela rota HTTP autenticada/admin-only. Para voz/tela, usar transporte server-mediated com validação de sessão e membership, ou canais privados com identidade JWT apropriada e policies de RLS. O token atual do UpStatus é customizado e não é um Supabase Auth JWT; não basta marcar `private:true` sem implementar autenticação/policies correspondentes. Verificar o setting de public access em Dashboard antes de qualquer mudança, pois desligá-lo sem cutover pode interromper o Realtime atual.
+
+### Divergência de tópico: broadcasts do banco não chegam ao tópico atual dos clientes
+
+O build Normal define `PROD_TOPIC="upstatus-screen-share-live-3-1-1-beta10"`; os dois userscripts implantados assinam esse tópico. Porém, as três funções de trigger no banco usam `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`:
+- `upstatus_broadcast_messages` (AFTER INSERT/DELETE/UPDATE em public.messages);
+- `upstatus_broadcast_remote_state` (upstatus_state);
+- `upstatus_broadcast_users` (users).
+
+A função de mensagens envia `to_jsonb(OLD/NEW)` completo no evento `db_change`, com `private=false`. Como o tópico não coincide com o tópico assinado pelos clientes atuais, os broadcasts de banco não chegam ao listener atual; o cliente depende de polling/rotas HTTP para refletir essas mudanças. Alinhar o tópico e reduzir o payload a metadados mínimos, sem reintroduzir dados de mensagem em canal público.
+
+### Correção importante sobre os WARNs SECURITY DEFINER anteriores
+
+O Security Advisor desta consulta retorna produção 6 WARN / 10 INFO e laboratório 0 WARN / 17 INFO. Os seis WARNs de produção são três findings `anon_security_definer_function_executable` e três `authenticated_security_definer_function_executable` para as funções `upstatus_broadcast_*`.
+
+A inspeção de `pg_proc` e `pg_trigger` confirma que as três funções retornam `trigger` e estão anexadas a triggers de tabela. PostgreSQL não permite invocar diretamente uma função que retorna trigger como RPC comum; portanto, o texto do Advisor que sugere chamada direta via `/rest/v1/rpc/...` é um falso positivo quanto à exploração direta por RPC. **Corrigir a classificação anterior:** EXECUTE concedido a anon/authenticated continua desnecessário e deve ser revogado por higiene, mas não há evidência de que essas funções trigger possam ser chamadas diretamente como RPC.
+
+Também foi verificado que anon/authenticated não possuem CREATE no schema public, então não foi demonstrado caminho de object-shadowing por `search_path=public`. Ainda é preferível fixar search_path vazio/pinado e qualificar objetos. O risco concreto das funções permanece o broadcast trigger com payload completo e `private=false`, além do desenho público de eventos client-to-client descrito acima.
+
+### Realtime e banco: valores atuais
+
+- Produção `realtime.messages`: RLS habilitado, zero policies, 50 linhas, 7 partições diretas; anon e authenticated têm SELECT/INSERT/UPDATE.
+- Laboratório `realtime.messages`: zero linhas e partições, zero policies, mas mantém SELECT/INSERT/UPDATE para anon/authenticated.
+- Nove tabelas backend-owned em produção: RLS habilitado, zero policies; anon e authenticated possuem SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER e MAINTAIN nas nove. RLS sem policies bloqueia acesso normal às linhas; TRUNCATE não é protegido por RLS. A auditoria não demonstrou execução de TRUNCATE via API.
+- Default ACLs continuam amplas nos schemas indicados no checkpoint anterior; a sessão não possui superuser nem associação a supabase_admin.
+
+### CI e estado pós-append anterior
+
+- #94 Normal UI: [42498502349](https://github.com/Reekyi/UpStatus/actions/runs/42498502349) SUCCESS no HEAD `00462a202661fe3502d015dd2dd0ef1da239059d`.
+- #95 Team Lite UI: [42499560082](https://github.com/Reekyi/UpStatus/actions/runs/42499560082) e [42499554010](https://github.com/Reekyi/UpStatus/actions/runs/42499554010) SUCCESS no HEAD `3dc309ce17470eb706d3cd2223e99e33a94a8bd6`.
+- #82 QA: o commit documental anterior `d67adaf1b0f2e8c31593dd972ec34170e94c6405` disparou [Validate 42501222864](https://github.com/Reekyi/UpStatus/actions/runs/42501222864), FAILURE em `scripts/validate.mjs:26`, `production updateURL mismatch` herdado da base master. Nenhum rerun manual foi feito.
+
+### Próximos gates críticos
+
+1. Tratar o Realtime público como bloqueador: verificar o setting “Allow public access” e remover a execução direta de `remote_command` a partir de payload público.
+2. Mover voz e compartilhamento de tela para transporte autenticado; rejeitar mensagens sem identidade/membership verificada e remover os listeners públicos de oferta/ICE.
+3. Adicionar testes negativos para emissor não membro, comando forjado, presença forjada, oferta de voz/tela e payload `db_change` injetado. Fazer isso apenas no ambiente isolado autorizado; não testar broadcast malicioso em produção.
+4. Alinhar tópico dos triggers com o canal de cliente e não transmitir a linha completa de messages.
+5. Só depois definir policies/identidade para canais privados; RLS atual em realtime.messages não tem policies e o cliente não envia Supabase Auth JWT.
+6. Corrigir workflow de produção Team Lite que ainda implanta `upstatus`, não `upstatus-team-lite`.
+7. Alinhar limites Storage (25 MB/2 MB no config candidato versus 20 MiB no cliente/servidor e buckets atuais).
+8. Continuar gates AUTH-03, versão Normal superior a 3.4.7, TEST full-product, HTTP 409, grants/ACLs, Storage privado, branch MIGRATIONS_FAILED e testes físicos #78.
+
+### Limites desta verificação
+
+A conclusão sobre Realtime é inspeção estática das fontes implantadas, handlers, grants, policies e função de trigger; nenhum cliente externo foi conectado, nenhum broadcast foi enviado, nenhum áudio/tela foi capturado e nenhuma alteração de projeto foi feita. A configuração de Dashboard que permite public channels não foi exposta pelo conector e permanece pendente de confirmação. Todas as consultas SQL foram SELECT-only. Nenhuma migration, deploy, merge, release, alteração de secret/flag, role, grant, policy, ACL, fixture, branch de engenharia ou issue foi modificada nesta rodada.
