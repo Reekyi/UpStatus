@@ -2576,3 +2576,14 @@ The full source/route inventory, 24-hour invocation evidence, DB catalog snapsho
 - The isolated signal-test helper remains v32; deployed HTTP 409 for `VOICE_ATTEMPT_ALREADY_ACTIVE` remains unverified. Full-product TEST, RT-01, AUTH-02/AUTH-03, ACL/default-ACL remediation, coordinated endpoint/version cutover, human review, and physical Issue #78 acceptance remain open (0/8).
 
 No production write, migration, deployment, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change, function deactivation, or destructive operation occurred.
+
+
+## 2026-11-08 08:01 BRT — generated Normal API runtime and API-first deploy guard
+
+The prior cutover checkpoint is superseded by [the API runtime generation checkpoint](checkpoints/2026-11-08-api-runtime-generation.md). PR #85 HEAD `26e234d93532615457f76deb525fef6d0b042672` now generates both the Normal distribution runtime (`upstatus`) and its API runtime (beta10) from the same reviewed server template and 3.4.7 userscript artifact, with distinct path markers. Validate checks identical embedded artifacts and source parity after marker normalization.
+
+The candidate manual-only production workflow deploys beta10 before `upstatus`. Its guard rejects missing API deploy/source, reversed order, unexpected production functions (including TEST), wrong project host and incomplete manifest. Exact-head Validate [42474461521](https://github.com/Reekyi/UpStatus/actions/runs/42474461521) passed. This is candidate build/workflow evidence only: no workflow_dispatch or deploy occurred, and beta10 remains live at v6.
+
+The stable 3.4.7 #85 line remains distinct from the larger Normal signaling candidate #74. Production still has name-only chat-clear authorization, three exposed SECURITY DEFINER broadcasts, broad table/default ACLs, and no full-product TEST project. #78 remains 0/8 physical acceptance. #80/#82 retain their inherited base-validator failures.
+
+No production write, migration, deploy, merge, release, publication, secret/role/grant/ACL/policy/flag change or destructive action occurred. QA-owned files and `docs/RELEASE_READINESS.md` were not modified.
