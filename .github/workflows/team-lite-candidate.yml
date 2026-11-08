@@ -24,6 +24,8 @@ on:
       - "scripts/test-signal-rate-limit.mjs"
       - "supabase/migrations/**"
       - "supabase/test-migrations/**"
+      - "supabase/test-functions/**"
+      - "scripts/test-signal-test-helper-http-contract.mjs"
       - "src/server/index.template.ts"
       - "src/server/team-lite-index.template.ts"
       - "supabase/migrations/**"
@@ -76,6 +78,10 @@ jobs:
         run: |
           node --check scripts/screen-share-recovery.test.mjs
           node scripts/screen-share-recovery.test.mjs team-lite/upstatus-team-lite.user.js
+      - name: Test isolated signaling helper HTTP status contract
+        run: |
+          node --check scripts/test-signal-test-helper-http-contract.mjs
+          node scripts/test-signal-test-helper-http-contract.mjs
       - name: Test isolated signaling endpoint authentication
         env:
           UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
