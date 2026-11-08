@@ -31,6 +31,7 @@ export const REQUIRED_RT01_MIGRATIONS = [
   "20261107170000_pin_empty_search_path_trigger_broadcasts.sql",
   "20261108010000_voice_attempt_singleton.sql",
   "20261108050751_voice_attempt_account_scoped_lock.sql",
+  "20261108190000_distributed_signaling_rate_limit.sql",
 ];
 export const REQUIRED_PRODUCTION_MIGRATIONS = [...REQUIRED_SETUP_MIGRATIONS, ...REQUIRED_RT01_MIGRATIONS];
 export const REQUIRED_SIGNALING_FUNCTION = "upstatus-signal";
@@ -84,15 +85,60 @@ export function inspectAuthenticatedMediaSignaling(userscriptSource) {
   if (!["signalTransport.sendSignal", "signalTransport.sendToRoom", "signalTransport.startPolling"].every(marker => source.includes(marker))) {
     issues.push("RT-01 is not release-ready: calls, voice rooms, and screen sharing must use the authenticated server-mediated transport.");
   }
-  if (!source.includes("if(signalTransportFlag&&!p._authenticatedTransport") || !source.includes("p.discoveryOnly===true")) {
-    issues.push("RT-01 is not release-ready: public call_signal payloads must be rejected except narrowly scoped discovery-only hints.");
+
+  const receiverPresent = /(?:async\s+)?function\s+receiveCallSignal\s*\(\s*p\s*,\s*authenticatedSource\s*\)/.test(source);
+  const outOfBandGate = /signalTransportFlag\s*&&\s*!authenticatedSource\s*&&\s*!isAllowedPublicCallDiscoverySignal\s*\(\s*p\s*\)/.test(source);
+  if (!receiverPresent || !outOfBandGate) {
+    issues.push("RT-01 is not release-ready: call-signal provenance must be passed out-of-band and checked separately from the payload.");
   }
+  if (source.includes("_authenticatedTransport")) {
+    issues.push("RT-01 is not release-ready: payload-controlled _authenticatedTransport markers must not be trusted or present.");
+  }
+
+  const allowlistMatch = /(?:export\s+)?function\s+isAllowedPublicCallDiscoverySignal\s*\(\s*signal\s*\)\s*\{([\s\S]*?)\n\s*\}/.exec(source);
+  if (!allowlistMatch) {
+    issues.push("RT-01 is not release-ready: the public call-discovery allowlist is missing.");
+  } else {
+    const body = allowlistMatch[1];
+    const ownType = /Object\.prototype\.hasOwnProperty\.call\(signal,\s*["']type["']\)/.test(body);
+    const ownDiscovery = /Object\.prototype\.hasOwnProperty\.call\(signal,\s*["']discoveryOnly["']\)/.test(body);
+    const allowedTypes = /\(\s*signal\.type\s*===\s*["']presence["']\s*\|\|\s*signal\.type\s*===\s*["']ended["']\s*\)/.test(body);
+    const discoveryOnly = /signal\.discoveryOnly\s*===\s*true/.test(body);
+    if (!ownType || !ownDiscovery || !allowedTypes || !discoveryOnly || /join_declined/.test(body)) {
+      issues.push("RT-01 is not release-ready: public call discovery must allow only own-property presence/ended hints with discoveryOnly=true.");
+    }
+  }
+
+  if (!source.includes("await receiveCallSignal(p,true);")) {
+    issues.push("RT-01 is not release-ready: authenticated room polling must mark provenance out-of-band.");
+  }
+  if (!/receiveCallSignal\(\s*\{[^;]{0,1200}\}\s*,\s*true\s*\)/.test(source)) {
+    issues.push("RT-01 is not release-ready: authenticated invitations must mark provenance out-of-band.");
+  }
+  if (!source.includes("receiveCallSignal(payload&&payload.payload||{},false);")) {
+    issues.push("RT-01 is not release-ready: public Realtime call signals must always enter the untrusted receive path.");
+  }
+
+  const discoveryTypes = [...source.matchAll(/sendRealtimeEvent\s*\(\s*["']call_signal["']\s*,\s*\{\s*type\s*:\s*["']([^"']+)["'][^}]*?discoveryOnly\s*:\s*true[^}]*\}\s*\)/g)]
+    .map(match => match[1])
+    .sort();
+  if (discoveryTypes.join(",") !== "ended,presence") {
+    issues.push("RT-01 is not release-ready: public call-signal publishers must emit only presence and ended discovery hints.");
+  }
+
+  const endedHandler = /if\s*\(\s*p\.type\s*===\s*["']ended["']\s*\)\s*\{([^}]*)\}/.exec(source);
+  if (!endedHandler || !/delete\s+upCallDirectory\[p\.callId\]\s*;/.test(endedHandler[1]) ||
+      /callCleanup|upCall\.active|voiceRoomLeave|screenShare/i.test(endedHandler[1])) {
+    issues.push("RT-01 is not release-ready: public ended hints may only remove a call-directory entry, never control an active call.");
+  }
+
   if (!source.includes("if(!signalTransportFlag)voiceRoomReceive(")) {
     issues.push("RT-01 is not release-ready: public voice-room broadcasts must never be consumed as media signaling.");
   }
   if (!source.includes("if(!signalTransportFlag)screenShareReceive(")) {
     issues.push("RT-01 is not release-ready: public screen-share broadcasts must never be consumed as media signaling.");
   }
+
   const callSend = functionWindow(source, "callSendTo");
   const callSendAll = functionWindow(source, "callSendAll");
   const voiceSend = functionWindow(source, "voiceRoomSend");
@@ -108,7 +154,6 @@ export function inspectAuthenticatedMediaSignaling(userscriptSource) {
   }
   return { ready: issues.length === 0, issues };
 }
-
 export function evaluateProductionCutover({
   manifest,
   workflow,
@@ -254,6 +299,7 @@ function main() {
   const workflowPath = path.join(ROOT, ".github", "workflows", "deploy-production.yml");
   const serverTemplatePath = path.join(ROOT, "src", "server", "index.template.ts");
   const userscriptTemplatePath = path.join(ROOT, "src", "userscript", "upstatus.user.template.js");
+  const signalingAdapterPath = path.join(ROOT, "src", "userscript", "signaling-transport.mjs");
   const validateScriptPath = path.join(ROOT, "scripts", "validate.mjs");
   const authTestPath = path.join(ROOT, "scripts", "auth-enrollment.test.mjs");
   const migrationsPath = path.join(ROOT, "supabase", "migrations");
@@ -268,6 +314,7 @@ function main() {
   const workflow = fs.readFileSync(workflowPath, "utf8");
   const serverSource = fs.readFileSync(serverTemplatePath, "utf8");
   const userscriptSource = fs.readFileSync(userscriptTemplatePath, "utf8");
+  const signalingAdapterSource = fs.existsSync(signalingAdapterPath) ? fs.readFileSync(signalingAdapterPath, "utf8") : "";
   const validateScript = fs.readFileSync(validateScriptPath, "utf8");
   const authEnrollmentTestPresent =
     fs.existsSync(authTestPath) && hasAuthEnrollmentTestInvocation(validateScript);
@@ -287,7 +334,7 @@ function main() {
     releasePreRelease: release.preRelease,
     availableSources,
     serverSource,
-    userscriptSource,
+    userscriptSource: userscriptSource + "\n" + signalingAdapterSource,
     availableMigrations,
     authEnrollmentTestPresent,
   });
