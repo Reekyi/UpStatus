@@ -2604,3 +2604,30 @@ The [API runtime checkpoint](checkpoints/2026-11-08-api-runtime-generation.md) n
 ## 2026-11-08 08:22 BRT — refreshed SQL privilege evidence
 
 The [API runtime checkpoint](checkpoints/2026-11-08-api-runtime-generation.md) now records the latest SELECT-only grant/default-ACL snapshot: 9 of 10 backend tables checked grant all eight table privileges to anon and authenticated; `upstatus_visual_config` grants none. Three broadcasts remain SECURITY DEFINER/executable by both roles; ten RLS-enabled/no-policy findings remain. Default ACLs are broad for postgres and supabase_admin. The session cannot assume supabase_admin and no privilege changes were attempted.
+
+
+## 2026-11-08 09:04 BRT / 12:04 UTC — cutover authorization guard and live AUTH-03 recheck
+
+QA's latest release-readiness review identified two gaps in PR #85's fail-closed cutover guard: it checked stored-role authorization for chat clear but not the individual-message delete path, and it accepted a substring mentioning `auth-enrollment.test.mjs` rather than proving that Validate executes the Normal test.
+
+- Created stacked Draft PR [#88](https://github.com/Reekyi/UpStatus/pull/88), based on PR #85's exact HEAD `b75707b6eaf678d87863144748b9aed8e2866455`. Candidate branch: `fix/production-cutover-guard-auth-delete-wiring-20261108`, current HEAD `1e865447f1f6fb1c6d42d4907fa220abbbec4c27`.
+- The guard now requires `admin(name)` to read the account's persisted `implementation_admin` role; requires `deleteRoute` to call that helper and allow owner deletion while denying non-owner deletion without the stored admin role; and requires a standalone `execFileSync(...auth-enrollment.test.mjs, "normal"...)` statement in `scripts/validate.mjs`. Full-line/block comments and Team Lite-only invocation do not satisfy the test gate.
+- Added negative regressions for name-only delete authorization, name-based admin fallback, comment-only test references, inline-comment references, and Team Lite-only invocation. The regression suite also checks the actual Normal server template in the candidate checkout.
+- Candidate-only push workflow [run 42478488655](https://github.com/Reekyi/UpStatus/actions/runs/42478488655) **SUCCESS** on exact HEAD `1e865447`; Node v24.22.2, both `node --check` checks, and the offline cutover guard suite passed. It does not access Supabase or create fixtures. PR #88 remains Draft/unmerged and has no human review.
+- PR #85 remains at HEAD `b75707b6eaf678d87863144748b9aed8e2866455`; Validate [42475230911](https://github.com/Reekyi/UpStatus/actions/runs/42475230911) is SUCCESS, but its cutover diagnostic intentionally remains BLOCKED on the missing AUTH-03 invite flow, executable enrollment regression, and three production migration sources. The new guard hardening does not claim AUTH-03 is implemented.
+
+### Production runtime AUTH-03 recheck — SELECT/read-only
+
+Supabase Management API source retrieval and SQL SELECT confirmed the four operational runtimes remain:
+- `upstatus` v480, source SHA `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`;
+- `upstatus-screen-share-3-1-1-beta10` v6, source SHA `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29`;
+- `upstatus-team-lite` v15, source SHA `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`;
+- `upstatus-test` v281, source SHA `7b5dfb1279f388d20a72ecf30f2c1e1f6104c7942017f81362e7857d6a16cb0a`.
+
+All four live sources still permit first-caller setup for an uninitialized account and derive the initial admin fallback from the names Ricardo/Lohan/Guilherme. All four `/api/chat/clear` routes check only the session name Ricardo. All four individual-message delete handlers use `name === "Ricardo" || await admin(name)`, so the name bypass remains even though `admin(name)` itself reads the stored role. None of the four sources contains the setup-invite handler/RPC or setup-token columns.
+
+Production SELECT returned 5 users, 3 explicit admins, zero uninitialized passwords, zero blank roles, zero setup-invite columns, no `consume_upstatus_setup_invite` RPC, and no product rate-limit table. This confirms a latent first-access and privilege-revocation weakness, not an existing uninitialized account. Production has 38 ACTIVE functions; the organization still has only production plus the isolated signaling/auth lab, with no full-product TEST project.
+
+The previous shorthand that only the beta10/Team Lite/test runtimes had the individual-delete name fallback is superseded: the current `upstatus` v480 source has it too.
+
+All SQL in this recheck was SELECT-only. No production write, migration, deployment, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change, function deactivation, or destructive action occurred. QA-owned `docs/RELEASE_READINESS.md` and branch #82 were not modified.
