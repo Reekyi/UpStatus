@@ -2262,3 +2262,40 @@ At this point #76 exact-head Candidate Checks [42419070366](https://github.com/R
 - The exact route-dispatch regression passed on Normal in Validate [42424257590](https://github.com/Reekyi/UpStatus/actions/runs/42424257590). It is a Node VM execution of the actual route block and handlers with DB/session mocks, not a live Deno HTTP or Supabase E2E test.
 - The previous continuity Validate [42424114417](https://github.com/Reekyi/UpStatus/actions/runs/42424114417) failed on the unchanged inherited `develop` assertion `client signed upload helper missing` at `scripts/validate.mjs:55`. QA #82 remains HEAD `a2b9e5c`, with inherited `master` assertion `production updateURL mismatch` in Validate [42421624574](https://github.com/Reekyi/UpStatus/actions/runs/42421624574).
 - The current serialized Smoke has not reached any fixture-mutating step. The last lab fixture SELECT before this run was zero across 12 categories; do not claim post-run cleanup until the queue drains. Production remains SELECT/catalog/source-only.
+
+
+## Engineering checkpoint 2026-11-08 01:22 UTC — voice-attempt singleton and isolated migration
+
+### Candidate heads and exact CI
+
+- Normal #74 is now at `d6b467ff0d6bbf9c3f90e8397211cc9ec7807aa4`. Validate [42433643638](https://github.com/Reekyi/UpStatus/actions/runs/42433643638) passed. Signaling Smoke [42433643630](https://github.com/Reekyi/UpStatus/actions/runs/42433643630) is still in progress at the authenticated integration/browser step; the new concurrent-attempt regression has not yet produced a final result.
+- Team Lite #76 is now at `f45495fd935ee1fee10f693211f170f5c3a7d03a`. Candidate Checks [42433646521](https://github.com/Reekyi/UpStatus/actions/runs/42433646521) is queued behind the shared isolated-test concurrency group and has no jobs yet.
+- #75 remains historical PASS at `7bbf9b9`. #80 remains at `f408eb2` with inherited `client signed upload helper missing` in Validate [42428242680](https://github.com/Reekyi/UpStatus/actions/runs/42428242680). #82 remains at `e7224e0` with inherited `production updateURL mismatch` in Validate [42431312702](https://github.com/Reekyi/UpStatus/actions/runs/42431312702). #84 Validate [42387042361](https://github.com/Reekyi/UpStatus/actions/runs/42387042361) and #85 Validate [42386047749](https://github.com/Reekyi/UpStatus/actions/runs/42386047749) remain PASS. All PRs remain Draft; no human approvals or merges.
+
+### New voice-attempt concurrency finding
+
+Team Lite stores durable voice-attempt IDs in per-tab `sessionStorage`. Two tabs can therefore generate different attempt IDs for the same account even though the server maintains one voice-room membership per username and the Normal/Team Lite aliases resolve to the same logical room. The previous RPC allowed both attempt rows to become active; cancelling one could remove the shared membership while another tab still held an active attempt record.
+
+A candidate migration now serializes on the existing shared logical-room advisory lock, locks active attempt rows for the authenticated username, rejects a second live membership with `VOICE_ATTEMPT_ALREADY_ACTIVE`, and tombstones expired/departed attempts before accepting a new ID. The candidate test endpoint maps that code to HTTP 409, and both clients provide a Portuguese explanation to close the other tab. This is a consistency guard, not a physical multi-tab acceptance result.
+
+- Production candidate migration: `supabase/migrations/20261108010000_voice_attempt_singleton.sql`.
+- Isolated contract test: `supabase/test-migrations/20261108010000_voice_attempt_singleton_test.sql`.
+- Both Normal and Team Lite integration harnesses now race two distinct IDs across the Normal/Team Lite aliases, require exactly one winner and a deterministic conflict, then cancel and retry. Cleanup is registered for both IDs.
+- The Normal static test also checks the HTTP 409 mapping; transport unit tests check the user-facing conflict message.
+
+### Isolated Supabase evidence
+
+Only `bfpjtfqlnypisxljoxkb` (`upstatus-security-test`, ACTIVE_HEALTHY) was modified. Preflight confirmed the allowlisted project identity, existing attempt table/RPC, zero test users/rooms/attempts/Realtime rows, and no active signaling workflow. Applied migrations `voice_attempt_singleton_20261108` and `voice_attempt_singleton_contract_test_20261108`; the lab ledger now has 36 records, including these two.
+
+The contract test and catalog recheck passed: RPC remains SECURITY INVOKER, `search_path=""`, EXECUTE denied to anon/authenticated and allowed to service_role, and the singleton guard is present. Lab Security Advisor remains at 17 RLS-without-policy INFO and no SECURITY DEFINER WARN; four unused-index INFO remain. The currently running Normal Smoke uses this lab, so post-run fixture cleanup is NOT YET VERIFIED. Do not start another mutating suite until the serialized queue drains.
+
+The lab Edge Function `upstatus-signal-test` remains v32; no Edge Function was deployed. The new HTTP 409 mapping is candidate source/unit-test evidence only; the new DB concurrency regression calls the isolated RPC directly. No claim of live HTTP behavior for the new code is made.
+
+### Remaining release gates and safety
+
+- Production remains unchanged: PostgreSQL 17.11.0.002, seven migrations, 38 Edge Functions, Normal v480, Team Lite v15. The three public SECURITY DEFINER broadcasts, full-row chat payload, broad client grants/default ACLs and Security Advisor findings remain open. RT-01 is not addressed by this voice-attempt patch.
+- AUTH-02 remains open. Do not trust `X-Forwarded-For` or `cf-connecting-ip` for managed Edge Functions until Supabase documents a hosted-proxy contract; the available Envoy guidance is for self-hosted deployments. A username-only throttle would be incomplete and can create account-lockout DoS, so no partial limiter was shipped.
+- No independent full-product TEST project exists. #78 remains OPEN at 0/8 physical criteria; no installed Tampermonkey offline/no-F5, physical microphone/display, or installed Normal ↔ Team Lite acceptance was performed.
+- #80/#82 inherited validator mismatches remain; do not weaken validators. The QA branch and `docs/RELEASE_READINESS.md` were not modified.
+
+No production SQL write, migration, Edge Function deployment, merge, release, userscript publication, secret/role/grant/ACL/policy/flag change, or destructive operation occurred. The only database writes were the two reviewed candidate migrations on the allowlisted isolated lab.
