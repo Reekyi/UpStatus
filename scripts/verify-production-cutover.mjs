@@ -5,21 +5,33 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const EXPECTED_PRODUCTION_HOST = "dlfvkawaiqduhlazsszm.supabase.co";
+export const REQUIRED_SETUP_MIGRATIONS = [
+  "20261107010000_setup_invites.sql",
+  "20261107060000_normalize_setup_invite_role.sql",
+  "20261107062000_preserve_setup_invite_roles_verbatim.sql",
+];
 
 export function parseDeployedFunctions(workflow) {
   const matches = [...String(workflow || "").matchAll(
-    /^\s*(?:run:\s*)?supabase\s+functions\s+deploy\s+([a-z0-9-]+)\b/gm
+    /^\\s*(?:run:\\s*)?supabase\\s+functions\\s+deploy\\s+([a-z0-9-]+)\\b/gm
   )];
   return [...new Set(matches.map(match => match[1]))];
 }
 
-export function evaluateProductionCutover({ manifest, workflow, availableSources = [] }) {
+export function evaluateProductionCutover({
+  manifest,
+  workflow,
+  availableSources = [],
+  serverSource = "",
+  availableMigrations = [],
+}) {
   const issues = [];
   const distributionFunction = String(manifest?.productionFunction || "").trim();
   const apiFunction = String(manifest?.productionApiFunction || "").trim();
   const apiBase = String(manifest?.productionApiBase || "").trim();
   const deployedFunctions = parseDeployedFunctions(workflow);
   const sourceSet = new Set(availableSources);
+  const migrationSet = new Set(availableMigrations);
 
   const validSlug = value => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value);
   if (!validSlug(distributionFunction)) issues.push("productionFunction is missing or invalid.");
@@ -47,6 +59,37 @@ export function evaluateProductionCutover({ manifest, workflow, availableSources
     }
   }
 
+  const setupInviteReady =
+    serverSource.includes("async function issueSetupInvite(req:Request,adminName:string)") &&
+    serverSource.includes("consume_upstatus_setup_invite") &&
+    serverSource.includes("p_setup_token_hash:tokenHash(setupToken)") &&
+    serverSource.includes('const enrolledRole=String(enrolled.role||"");') &&
+    serverSource.includes('const sessionRole=enrolledRole.trim()?enrolledRole:"implementation_user";');
+  if (!setupInviteReady) {
+    issues.push("AUTH-03 is not release-ready: first-access setup must use an admin-issued one-time invite and atomic consumption.");
+  }
+
+  const clearStart = serverSource.indexOf('if(path==="/api/chat/clear"&&req.method==="POST"){');
+  const clearBlock = clearStart >= 0 ? serverSource.slice(clearStart, clearStart + 700) : "";
+  const storedRoleClear = /if\\s*\\(\\s*name\\s*!==\\s*["']Ricardo["']\\s*\\|\\|\\s*!\\s*\\(?\\s*await\\s+admin\\(name\\)\\s*\\)?\\s*\\)/.test(clearBlock);
+  if (!storedRoleClear) {
+    issues.push("Chat clear must require Ricardo and the persisted implementation_admin role.");
+  }
+
+  if (/\\["Ricardo","Lohan","Guilherme"\\]\\.includes\\(name\\)\\s*\\?\\s*["']implementation_admin["']/.test(serverSource)) {
+    issues.push("Setup must not grant implementation_admin by hard-coded account name.");
+  }
+
+  for (const migration of REQUIRED_SETUP_MIGRATIONS) {
+    if (!migrationSet.has(migration)) {
+      issues.push("Required AUTH-03 migration source is missing: supabase/migrations/" + migration);
+    }
+  }
+
+  if (/\\bsupabase\\s+(?:db\\s+push|migration\\s+up)\\b/.test(String(workflow || ""))) {
+    issues.push("Production workflow must not apply database migrations automatically.");
+  }
+
   try {
     const url = new URL(apiBase);
     if (url.protocol !== "https:" || url.hostname !== EXPECTED_PRODUCTION_HOST ||
@@ -70,12 +113,16 @@ function main() {
   const enforce = process.argv.includes("--enforce");
   const manifestPath = path.join(ROOT, "dist", "build-manifest.json");
   const workflowPath = path.join(ROOT, ".github", "workflows", "deploy-production.yml");
-  if (!fs.existsSync(manifestPath) || !fs.existsSync(workflowPath)) {
-    throw new Error("Build manifest or production workflow is missing; refusing to assume cutover readiness.");
+  const serverTemplatePath = path.join(ROOT, "src", "server", "index.template.ts");
+  const migrationsPath = path.join(ROOT, "supabase", "migrations");
+  if (!fs.existsSync(manifestPath) || !fs.existsSync(workflowPath) ||
+      !fs.existsSync(serverTemplatePath) || !fs.existsSync(migrationsPath)) {
+    throw new Error("Build manifest, production workflow, server template or migration directory is missing; refusing to assume cutover readiness.");
   }
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   const workflow = fs.readFileSync(workflowPath, "utf8");
+  const serverSource = fs.readFileSync(serverTemplatePath, "utf8");
   const required = [...new Set([
     String(manifest.productionFunction || ""),
     String(manifest.productionApiFunction || ""),
@@ -83,14 +130,21 @@ function main() {
   const availableSources = required.filter(fn =>
     fs.existsSync(path.join(ROOT, "supabase", "functions", fn, "index.ts"))
   );
-  const result = evaluateProductionCutover({ manifest, workflow, availableSources });
+  const availableMigrations = fs.readdirSync(migrationsPath);
+  const result = evaluateProductionCutover({
+    manifest,
+    workflow,
+    availableSources,
+    serverSource,
+    availableMigrations,
+  });
 
   if (result.ready) {
-    console.log("PASS production distribution and API runtimes are both included in the deploy workflow and have versioned sources.");
+    console.log("PASS production distribution/API alignment, AUTH-03 setup enrollment, stored-role chat clear, and required migration sources are present.");
     return;
   }
 
-  console.error("PRODUCTION CUTOVER BLOCKED: artifact and API runtime are not deployable as one coordinated release.");
+  console.error("PRODUCTION CUTOVER BLOCKED: runtime alignment or release security gates are incomplete.");
   for (const issue of result.issues) console.error("- " + issue);
   if (enforce) process.exitCode = 1;
 }
