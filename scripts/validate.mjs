@@ -10,6 +10,7 @@ execFileSync(process.execPath,[path.join(ROOT,"scripts/auth-enrollment.test.mjs"
 execFileSync(process.execPath,[path.join(ROOT,"scripts/build.mjs")],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/test-build-sidecar-preservation.mjs")],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/test-function-jwt-config.mjs"),"upstatus","upstatus-screen-share-3-1-1-beta10","upstatus-test"],{stdio:"inherit"});
+execFileSync(process.execPath,[path.join(ROOT,"scripts/test-setup-invite-ui.mjs"),"src/userscript/upstatus.user.template.js"],{stdio:"inherit"});
 const release=JSON.parse(fs.readFileSync(path.join(ROOT,"release.json"),"utf8"));
 const baseVersion=String(release.version).trim();
 const preRelease=String(release.preRelease||"").trim();
