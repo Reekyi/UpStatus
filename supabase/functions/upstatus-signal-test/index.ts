@@ -260,7 +260,7 @@ Deno.serve(async (req: Request) => {
         const status = code === "INVALID_LOGICAL_ID" || code === "INVALID_ARGUMENT" || code === "INVALID_ATTEMPT_ID" ? 400 :
           code === "UNKNOWN_USER" ? 404 :
           code === "VOICE_ROOM_OPEN_CANCELLED" || code === "VOICE_ROOM_UNAVAILABLE" || code === "VOICE_ROOM_MEMBERSHIP_ENDED" ? 410 :
-          code === "VOICE_ATTEMPT_CONFLICT" || code === "ROOM_FULL" ? 409 : 500;
+          code === "VOICE_ATTEMPT_CONFLICT" || code === "VOICE_ATTEMPT_ALREADY_ACTIVE" || code === "ROOM_FULL" ? 409 : 500;
         return response({ error: code, memberCount: result.memberCount }, status);
       }
       return response(result, result.created === true ? 201 : 200);
