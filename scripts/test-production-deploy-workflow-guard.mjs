@@ -9,6 +9,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const workflow = fs.readFileSync(path.join(ROOT, ".github/workflows/deploy-production.yml"), "utf8");
 const release = JSON.parse(fs.readFileSync(path.join(ROOT, "release.json"), "utf8"));
 const verifier = fs.readFileSync(path.join(ROOT, "scripts/verify-production-project.mjs"), "utf8");
+const build = fs.readFileSync(path.join(ROOT, "scripts/build.mjs"), "utf8");
 
 assert.match(workflow, /^on:\n  workflow_dispatch:\s*$/m,
   "production deployment must remain manual-only");
@@ -35,9 +36,16 @@ assert.match(workflow, /version: 2\.122\.1/,
   "Supabase CLI must be pinned to the validated version");
 assert.doesNotMatch(workflow, /version:\s*latest/,
   "production deployment must not float to an unreviewed CLI version");
-assert.match(workflow,
-  /supabase functions deploy upstatus --project-ref "\$SUPABASE_PROJECT_ID" --use-api/,
-  "workflow must deploy only the production upstatus function");
+const apiDeployCommand = 'supabase functions deploy upstatus-screen-share-3-1-1-beta10 --project-ref "$SUPABASE_PROJECT_ID" --use-api';
+const distributionDeployCommand = 'supabase functions deploy upstatus --project-ref "$SUPABASE_PROJECT_ID" --use-api';
+const apiDeployIndex = workflow.indexOf(apiDeployCommand);
+const distributionDeployIndex = workflow.indexOf(distributionDeployCommand);
+assert(apiDeployIndex >= 0, "workflow must deploy the production API runtime");
+assert(distributionDeployIndex > apiDeployIndex, "workflow must deploy the API runtime before the userscript distribution function");
+assert.equal((workflow.match(/supabase functions deploy [a-z0-9-]+/g) || []).length, 2,
+  "production workflow must deploy exactly the API and distribution runtimes");
+assert.match(build, /const PROD_API_FUNCTION="upstatus-screen-share-3-1-1-beta10"/,
+  "build must generate the same production API runtime that the workflow deploys");
 assert.doesNotMatch(workflow, /supabase functions deploy upstatus-test/,
   "production workflow must never deploy the TEST function");
 assert.match(workflow, /group: upstatus-production-deploy[\s\S]*?cancel-in-progress: false/,
