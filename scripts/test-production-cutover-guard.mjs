@@ -49,8 +49,10 @@ const secureServerSource = [
 
 assert.deepEqual(parseDeployedFunctions(workflow), [apiFunction, distributionFunction]);
 
-const validateInvocation = 'execFileSync(process.execPath,[path.join(ROOT,"scripts","auth-enrollment.test.mjs"),"normal"],{stdio:"inherit"});';
+const validateInvocation = 'execFileSync(process.execPath,[path.join(ROOT,"scripts/auth-enrollment.test.mjs"),"normal"],{stdio:"inherit"});';
+const validateInvocationSplit = 'execFileSync(process.execPath,[path.join(ROOT,"scripts","auth-enrollment.test.mjs"),"normal"],{stdio:"inherit"});';
 assert.equal(hasAuthEnrollmentTestInvocation(validateInvocation), true, "the normal enrollment test must be invoked by Validate");
+assert.equal(hasAuthEnrollmentTestInvocation(validateInvocationSplit), true, "split path.join arguments must also be recognized");
 assert.equal(hasAuthEnrollmentTestInvocation("// " + validateInvocation), false, "a comment mentioning the test must not satisfy the release gate");
 assert.equal(hasAuthEnrollmentTestInvocation("const marker = 1; // " + validateInvocation), false, "an inline comment mentioning the test must not satisfy the release gate");
 assert.equal(hasAuthEnrollmentTestInvocation(validateInvocation.replace('"normal"', '"team-lite"')), false, "Team Lite-only execution must not satisfy the Normal release gate");
