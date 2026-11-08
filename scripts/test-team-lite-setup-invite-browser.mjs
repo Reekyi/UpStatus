@@ -34,6 +34,7 @@ try{
     window.__upstatusGmWrites=[];
     window.__upstatusGmRequests=[];
     window.__upstatusGmReads=[];
+    window.__upstatusGmResponses=[];
     window.__upstatusClipboard=null;
     window.__upstatusRealtimeCreateClientCalls=0;
     window.GM_getValue=(key,fallback)=>{const value=values.has(key)?values.get(key):fallback;window.__upstatusGmReads.push([key,value]);return value;};
@@ -68,6 +69,7 @@ try{
         body={pending:false};
       }
       const response={status:200,responseText:JSON.stringify(body),responseHeaders:"Content-Type: application/json\\r\\n",finalUrl:url};
+      window.__upstatusGmResponses.push({url,status:response.status,body});
       queueMicrotask(()=>{if(typeof options.onload==="function")options.onload(response);});
       return {abort(){if(typeof options.onabort==="function")options.onabort();}};
     };
@@ -96,7 +98,7 @@ try{
   await page.goto("https://www.salesmartly.com/",{waitUntil:"domcontentloaded"});
   await page.addScriptTag({content:smokeSource});
   await page.waitForTimeout(500);
-  const initial=await page.evaluate(()=>({rootPresent:!!document.querySelector("#upstatus-team-lite-root"),cardPresent:!!document.querySelector("#upstatus-card"),settingsButtonPresent:!!document.querySelector("#upstatus-card .up-settings-btn"),requests:window.__upstatusGmRequests,reads:window.__upstatusGmReads}));
+  const initial=await page.evaluate(()=>({rootPresent:!!document.querySelector("#upstatus-team-lite-root"),cardPresent:!!document.querySelector("#upstatus-card"),settingsButtonPresent:!!document.querySelector("#upstatus-card .up-settings-btn"),loginButtonPresent:!!document.querySelector("#upstatus-card #up-enter"),cardText:document.querySelector("#upstatus-card")?.innerText?.slice(0,500)||"",requests:window.__upstatusGmRequests,reads:window.__upstatusGmReads,responses:window.__upstatusGmResponses}));
   assert.ok(initial.requests.some(r=>r.url.endsWith("/api/me")),"restored admin session must call /api/me: "+JSON.stringify(initial)+" pageErrors="+pageErrors.join("\\n"));
   assert.ok(initial.settingsButtonPresent,"restored admin session must render settings: "+JSON.stringify(initial)+" pageErrors="+pageErrors.join("\\n"));
   await page.locator("#upstatus-bubble").click();
