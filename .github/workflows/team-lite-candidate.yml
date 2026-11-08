@@ -10,6 +10,8 @@ on:
       - "ycaro.html"
       - "scripts/team-lite-candidate-check.mjs"
       - "scripts/test-team-lite-build-artifact.mjs"
+      - "scripts/test-function-jwt-config.mjs"
+      - "supabase/config.toml"
       - "scripts/test-team-lite-full-iife.mjs"
       - "scripts/build.mjs"
       - "scripts/test-build-target-guard.mjs"
@@ -64,6 +66,10 @@ jobs:
           node scripts/build.mjs
           node --check scripts/test-team-lite-build-artifact.mjs
           node scripts/test-team-lite-build-artifact.mjs
+      - name: Verify Team Lite keeps custom handler authentication
+        run: |
+          node --check scripts/test-function-jwt-config.mjs
+          node scripts/test-function-jwt-config.mjs upstatus-team-lite
       - name: Verify isolated Supabase mutation guard
         run: |
           node --check scripts/assert-isolated-supabase.mjs
