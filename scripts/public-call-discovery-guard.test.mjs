@@ -39,7 +39,7 @@ for (const name of names) {
   assert.ok(source.slice(realtimeCallListener, realtimeCallListener + 300).includes("receiveCallSignal(payload&&payload.payload||{},false);"),
     label + " public Realtime events must always be marked untrusted");
 
-  const discoveryEvents = [...source.matchAll(/sendRealtimeEvent\\('call_signal',\\{type:'([^']+)'[^}]*discoveryOnly:true\\}\\)/g)]
+  const discoveryEvents = [...source.matchAll(/sendRealtimeEvent\('call_signal',\{type:'([^']+)'[^}]*discoveryOnly:true\}\)/g)]
     .map(match => match[1]).sort();
   assert.deepEqual(discoveryEvents, ["ended", "presence"],
     label + " may publish only presence and ended as public discovery hints");
