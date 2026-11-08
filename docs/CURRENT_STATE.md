@@ -2493,3 +2493,64 @@ All production queries were SELECT-only. No production SQL write/migration, Edge
 - Remaining gates: RT-01/private or server-mediated Realtime cutover; AUTH-02 trusted-ingress rate limiting; live Deno HTTP AUTH-03; actual deployed HTTP 409 test for `VOICE_ATTEMPT_ALREADY_ACTIVE` (lab helper remains v32); real Storage E2E; full-product TEST; ACL/default-ACL remediation through an authorized owner; coordinated Normal/Team Lite endpoint/version cutover and rollback; human review; physical Issue #78 acceptance (0/8).
 
 Production checks in this follow-up were SELECT/catalog-only. No migration, SQL write, Edge Function deployment, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change or destructive operation was performed. The independent QA branch and `docs/RELEASE_READINESS.md` were not modified.
+
+
+## Engineering checkpoint — 2026-11-08 06:59 UTC
+
+This checkpoint supersedes earlier PR/CI snapshots in this file. All repository and production database observations below were re-fetched read-only at this checkpoint.
+
+### Exact GitHub refs and CI
+
+| PR | Branch → base | Exact HEAD | Ahead / behind | Current evidence |
+|---|---|---|---:|---|
+| [#74 Normal](https://github.com/Reekyi/UpStatus/pull/74) | `chore/continuity-foundation` → `master` | `9c0133e8cf6bd85ac8993888718a408db2f24a3e` | 877 / 0 | Validate [42451736696](https://github.com/Reekyi/UpStatus/actions/runs/42451736696) PASS; exact-head Smoke [42451736729](https://github.com/Reekyi/UpStatus/actions/runs/42451736729) PASS |
+| [#75 Team Lite baseline](https://github.com/Reekyi/UpStatus/pull/75) | `team-lite/3.4.31-guest-fixes` → `team-lite-official` | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | 59 / 0 | Historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) PASS |
+| [#76 Team Lite candidate](https://github.com/Reekyi/UpStatus/pull/76) | `team-lite/signaling-transport-candidate` → `team-lite-official` | `eb28e88325d7e8a6236d9050bebabf794d64a8c4` | 305 / 0 vs #75 | Candidate Checks [42450476433](https://github.com/Reekyi/UpStatus/actions/runs/42450476433) PASS |
+| [#80 Continuity](https://github.com/Reekyi/UpStatus/pull/80) | `docs/continuity-handoff-2026-11-04` → `develop` | `e1e0b5738ac2f37819fddc7623cfbec38a25bbd4` | 224 / 0 | Validate [42453425362](https://github.com/Reekyi/UpStatus/actions/runs/42453425362) FAIL at inherited `client signed upload helper missing`, `scripts/validate.mjs:55` |
+| [#82 Independent QA](https://github.com/Reekyi/UpStatus/pull/82) | `qa/release-readiness-2026-11-04-master` → `master` | `e31cfe1be1803c44a50233883cafab574afb7cda` | 120 / 0 | Validate [42455268252](https://github.com/Reekyi/UpStatus/actions/runs/42455268252) FAIL at inherited `production updateURL mismatch`, `scripts/validate.mjs:26` |
+| [#84 TEST isolation](https://github.com/Reekyi/UpStatus/pull/84) | `safety/test-deploy-target-guard-20261107` → `develop` | `21341f331270e142bdf7584c1cdf16e6011e41b3` | 30 / 0 | Validate [42387042361](https://github.com/Reekyi/UpStatus/actions/runs/42387042361) PASS |
+| [#85 Master stabilization](https://github.com/Reekyi/UpStatus/pull/85) | `fix/master-release-script-url-20261107` → `master` | `36c19ab87d883fe5252715fcbbc0fbef2e35ec9f` | 25 / 0 | Validate [42440947791](https://github.com/Reekyi/UpStatus/actions/runs/42440947791) PASS |
+
+The Normal Smoke job log was inspected: 19/19 unauthenticated checks and 136/136 authenticated integration checks passed. Chromium delivered remote audio for calls and voice rooms, remote video for screen sharing, all three links in the authenticated three-member mesh, and complete peer/media teardown. The run also passed same-account voice singleton/retry, concurrent different-account open/cancel, 90 accepted + 1 HTTP 429 with `Retry-After: 60s`, atomic receipt/invite concurrency, and fixture cleanup.
+
+The Team Lite job log was inspected: 16/16 unauthenticated and 110/110 authenticated checks passed. Its 11/11 HTTP mapper checks are offline contract tests; the full-IIFE Playwright smoke uses inert `.invalid` endpoints, stubbed GM/Supabase and blocked page-world network. WebRTC call/voice/screen, three-member mesh, voice singleton/retry, concurrent different-account operations, rate limit, receipts, setup invites and workflow cleanup passed.
+
+All seven tracked PRs remain OPEN, Draft and unmerged. Review submissions are empty for all seven. #76 contains the #75 baseline and is not an independent payload. The previously documented PR #86 candidate-branch merge remains a governance exception: it advanced only the #76 candidate branch, not `team-lite-official`, `master`, `develop` or production. No new merge or history rewrite occurred in this checkpoint.
+
+### Supabase production — read-only snapshot
+
+The organization still contains exactly two ACTIVE_HEALTHY projects:
+
+- Production `dlfvkawaiqduhlazsszm`: PostgreSQL 17.11.0.002, 7 migrations, 38 ACTIVE Edge Functions.
+- Isolated lab `bfpjtfqlnypisxljoxkb`: PostgreSQL 17.11.0.003, 38 migrations, two ACTIVE test functions.
+- No independent full-product TEST project exists.
+
+All 38 production Edge Function metadata records currently report `verify_jwt=false`. This metadata alone does **not** prove unauthenticated access: the current functions and five sampled legacy functions contain the custom `x-upstatus-token` authentication path. It does mean the 36 active `test`/`beta`/`backup` functions require a route-by-route authentication and reachability inventory before any deactivation. The inventory includes `upstatus-test`, `upstatus-test-backup-032`, `upstatus-test-beta11`, the 3.0.51/3.0.52 test beta series, the screen-share beta1–beta10 series, and the dated/prepatch backup series. No function was disabled.
+
+Source retrieval reconfirmed that the four current product/compatibility runtimes (`upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15, and `upstatus-screen-share-3-1-1-beta10` v6) still gate `/api/chat/clear` by session name `Ricardo` only. Five sampled legacy functions also contained the custom token path and name-only chat-clear check. Their individual delete handlers are not uniform: one sampled backup retains `name === "Ricardo" || await admin(name)`, while other sampled legacy versions restrict deletion to the message owner. This drift reinforces the need for the full route inventory; it is not a basis for deleting or disabling old functions.
+
+A production SQL SELECT executed as `postgres` on PostgreSQL 17.11 confirmed:
+
+- 5 users, 3 explicit administrators, 0 blank roles and 0 blank password hashes.
+- The three `upstatus_broadcast_*` functions remain SECURITY DEFINER, `search_path=public`, and EXECUTE is effective for anon, authenticated and service_role.
+- Nine backend-owned tables grant all seven table privileges (SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER) to anon and authenticated.
+- `realtime.messages` grants SELECT, INSERT and UPDATE to anon and authenticated.
+- Seven Realtime partitions contain 50 rows.
+- Default ACLs remain broad for postgres in public/storage and supabase_admin in public/graphql/graphql_public. The SQL session is postgres, not superuser and not a member of supabase_admin; do not attempt to alter supabase_admin defaults through a normal migration.
+
+Security Advisor: 3 SECURITY DEFINER WARN for anon, 3 for authenticated, and 10 RLS-enabled/no-policy INFO findings. Performance and Health advisors are empty.
+
+The isolated `upstatus-signal-test` remains v32. Its deployed mapper still omits `VOICE_ATTEMPT_ALREADY_ACTIVE` from HTTP 409 and therefore falls through to 500 for that conflict. Candidate #76 has an 11/11 offline mapper contract test, but this does not validate the deployed function. No deploy was performed.
+
+### Remaining release gates
+
+- RT-01: private or server-mediated Realtime with a compatible authentication model, safe payloads, delivery proof and rollback.
+- AUTH-02 trusted-ingress rate limiting; live Deno HTTP validation for AUTH-03.
+- Authorized isolated deployment and real HTTP 409 verification for the signal-test helper.
+- Full-product TEST independent of both production and the signaling fixture lab.
+- Real Storage upload/download E2E and a reviewed bucket-privacy decision.
+- Coordinated Normal API cutover (`beta10` API versus `upstatus` updater) and Team Lite artifact/runtime alignment (candidate 3.4.31 versus deployed v15), including a version bump and rollback.
+- Route-by-route audit of all 36 legacy/test/beta/backup functions before any deactivation.
+- Human reviews and physical Issue #78 acceptance; #78 remains OPEN at 0/8 physical criteria.
+
+All production SQL in this checkpoint was SELECT/catalog-only. No production write, migration, Edge Function deployment, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change or destructive action occurred. The independent QA branch and `docs/RELEASE_READINESS.md` were not modified.
