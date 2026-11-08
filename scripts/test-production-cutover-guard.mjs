@@ -209,7 +209,7 @@ const missingMigration = evaluateWithNextVersion({
   workflow,
   availableSources: availableProductionSources,
   serverSource: secureServerSource,
-  availableMigrations: REQUIRED_SETUP_MIGRATIONS.slice(1),
+  availableMigrations: REQUIRED_PRODUCTION_MIGRATIONS.filter(file => file !== "20261107060000_normalize_setup_invite_role.sql"),
   authEnrollmentTestPresent: true,
 });
 assert.equal(missingMigration.ready, false);
