@@ -69,7 +69,7 @@ const requiredRuntimeGlobals = [
   "UP_REALTIME_KEY", "UP_REALTIME_TOPIC", "realtimeClient",
   "realtimeChannel", "realtimeActive", "realtimeRetryTimer",
   "voiceControlBubble", "voiceControlAvatar", "voiceControlWave",
-  "voiceControlSpeakerName", "voiceRoom"
+  "voiceControlSpeakerName", "voiceControlSyncVisibility", "voiceRoom"
 ];
 for (const name of requiredRuntimeGlobals) {
   const declaration = new RegExp("\\bvar\\s+[^;]*\\b" + name + "\\s*=");
