@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertProductionProject } from "./verify-production-project.mjs";
+import { isStableReleaseVersion } from "./verify-production-cutover.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const workflow = fs.readFileSync(path.join(ROOT, ".github/workflows/deploy-production.yml"), "utf8");
@@ -54,8 +55,13 @@ assert.match(workflow, /group: upstatus-production-deploy[\s\S]*?cancel-in-progr
   "production deployments must be serialized without cancelling an active deployment");
 assert.match(workflow, /timeout-minutes: 15/,
   "production deployment must have a bounded job timeout");
-assert.equal(release.version, "3.4.7", "release candidate version changed");
-assert.equal(String(release.preRelease || ""), "", "production release must not be a prerelease");
+assert.equal(release.version, "3.4.7", "candidate must retain the currently deployed version until a release version is explicitly selected");
+assert.equal(String(release.preRelease || ""), "", "production release candidate must not carry a prerelease label");
+assert.equal(isStableReleaseVersion(release.version, release.preRelease), false, "the current release.json must remain blocked from production");
+assert.equal(isStableReleaseVersion("3.4.8", ""), true, "a new stable patch version must be eligible");
+assert.equal(isStableReleaseVersion("3.4.7", ""), false, "the deployed version must not be reused");
+assert.equal(isStableReleaseVersion("3.4.8", "rc.1"), false, "a prerelease must not be eligible");
+assert.equal(workflow.includes("version !== '3.4.7'"), false, "workflow must delegate version readiness to the cutover guard");
 
 const accessTokenBindings = workflow.match(/^\s{10}SUPABASE_ACCESS_TOKEN: \$\{\{ secrets\.SUPABASE_ACCESS_TOKEN \}\}$/gm) || [];
 const projectIdBindings = workflow.match(/^\s{10}SUPABASE_PROJECT_ID: \$\{\{ secrets\.SUPABASE_PROJECT_ID \}\}$/gm) || [];
