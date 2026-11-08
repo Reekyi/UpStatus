@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - test/normal-signal-room-open-409-route-20261108
+      - test/normal-signal-http-contract-20261108
     paths:
       - "supabase/functions/upstatus-signal/index.ts"
       - "supabase/functions/upstatus-signal-test/index.ts"
@@ -21,6 +22,7 @@ on:
   pull_request:
     branches:
       - fix/normal-authenticated-call-source-guard-20261108
+      - test/normal-signal-room-open-409-route-20261108
     paths:
       - "supabase/functions/upstatus-signal/index.ts"
       - "supabase/functions/upstatus-signal-test/index.ts"
