@@ -256,10 +256,7 @@ Deno.serve(async (req: Request) => {
         throw error;
       }
       const result = data as Record<string, unknown> | null;
-      if (!result || typeof result !== "object") return response({ error: "Open voice room failed" }, 500);
-      if (result.error) {
-        const code = String(result.error);
-        return mapOpenVoiceRoomResult(result, response);
+      return mapOpenVoiceRoomResult(result, response);
     }
 
     if (path.endsWith("/room/cancel-open")) {
