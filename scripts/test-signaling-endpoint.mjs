@@ -10,7 +10,17 @@ if (!base) {
   process.exit(2);
 }
 
-const request = (url, options = {}) => fetch(url, { ...options, signal: AbortSignal.timeout(20000) });
+const request = async (url, options = {}) => {
+  const attempt = () => fetch(url, { ...options, signal: AbortSignal.timeout(20000) });
+  try {
+    return await attempt();
+  } catch (error) {
+    if (!["TimeoutError", "AbortError"].includes(error?.name)) throw error;
+    console.warn("Transient transport timeout; retrying once:", new URL(url).pathname);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return await attempt();
+  }
+};
 const cases = [
   {
     name: "health endpoint is available",
