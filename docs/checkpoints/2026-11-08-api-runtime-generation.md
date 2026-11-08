@@ -94,3 +94,12 @@ The cutover gate now also requires `scripts/auth-enrollment.test.mjs` to exist a
 PR #85 exact HEAD: `b75707b6eaf678d87863144748b9aed8e2866455`. Validate [42475230911](https://github.com/Reekyi/UpStatus/actions/runs/42475230911) **SUCCESS**. The guard intentionally blocks the current #85 candidate on five missing AUTH-03 items: setup flow, wired regression test, and the three migration sources. This is an expected release gate, not a CI failure. The #74 branch contains the complete auth-enrollment test and migration sources, but they have not been ported to #85.
 
 No production migration/deploy/dispatch occurred; production remains at seven applied migrations with no setup-invite table or RPC. The workflow does not and must not run `db push`.
+
+
+## 2026-11-08 08:22 BRT — refreshed production privilege snapshot
+
+A fresh SELECT-only audit and Security Advisor observation at `2026-11-08T11:20:52Z` confirm three anon-executable and three authenticated-executable SECURITY DEFINER broadcast functions, plus ten `rls_enabled_no_policy` INFO findings; Health advisor is empty. On the ten RLS-enabled backend tables checked, nine grant all eight table privileges (SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN) to both `anon` and `authenticated`; `upstatus_visual_config` has no such grants. This is an excessive privilege surface, not proof of row access: the tables still have no RLS policies.
+
+Default ACLs remain broad for `postgres` and `supabase_admin`, including sequence/function/table defaults for client roles. The SQL session is `postgres`, not superuser and not a member of `supabase_admin`; no role escalation or ACL change was attempted. A separate SELECT snapshot still shows 5 users (3 admins, 2 users), no blank roles/passwords, no setup-invite table/RPC, seven migrations, 50 Realtime rows and seven partitions.
+
+No production write or privilege change occurred.
