@@ -24,13 +24,14 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - name: Verify Normal custom-auth function configuration
+      - name: Verify custom-auth config and run full offline Validate
         run: |
           node --check scripts/test-function-jwt-config.mjs
           node scripts/test-function-jwt-config.mjs upstatus upstatus-screen-share-3-1-1-beta10 upstatus-test
+          node scripts/validate.mjs
