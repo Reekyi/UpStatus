@@ -51,7 +51,7 @@ Created Draft test-only follow-up [PR #100](https://github.com/Reekyi/UpStatus/p
 - Removes duplicate bubble clicks from admin and ordinary-user scenarios.
 - Adds page-error, console and UI-snapshot diagnostics if the control remains hidden.
 
-Exact HEAD: f8716a047328891eeaf4ff6729b8e936d45aeeed. Workflow was in progress at the time of this checkpoint; no PASS is claimed yet.
+Exact HEAD: f8716a047328891eeaf4ff6729b8e936d45aeeed. Push workflow [42503432784](https://github.com/Reekyi/UpStatus/actions/runs/42503432784) SUCCESS: both administrator and ordinary-user Full-IIFE scenarios passed, followed by full offline Validate. This uses inert .invalid endpoints and stubbed GM/API/Realtime, not real Tampermonkey or live Edge Function HTTP.
 
 ### Related setup-invite UI/test candidates
 
