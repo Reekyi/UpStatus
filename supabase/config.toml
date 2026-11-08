@@ -1,6 +1,9 @@
 [functions.upstatus]
 verify_jwt = false
 
+[functions.upstatus-signal]
+verify_jwt = false
+
 [storage.buckets.chat-images]
 public = true
 file_size_limit = "25MB"
