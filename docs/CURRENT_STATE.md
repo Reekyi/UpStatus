@@ -2474,3 +2474,9 @@ No merge, deploy, release, workflow dispatch, userscript publication, secret/rol
 RT-01/public Realtime, AUTH-02, live Deno HTTP AUTH-03, real Storage E2E, full-product TEST, ACL/default-ACL remediation via an authorized owner, Normal API cutover/rollback, Team Lite runtime/version cutover, human reviews and physical acceptance remain open. Issue #78 remains **0/8 physical criteria**. The Normal userscript API base still points to beta10 while the update URL points to `upstatus`; #85 deploys only `upstatus`, so the cutover needs an explicit decision.
 
 All production queries were SELECT-only. No production SQL write/migration, Edge Function deploy, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change or destructive action occurred. `docs/RELEASE_READINESS.md` and the independent QA branch were not modified.
+
+
+### Follow-up — Normal Smoke progress (2026-11-08 05:48 UTC)
+
+- Smoke [42451731430](https://github.com/Reekyi/UpStatus/actions/runs/42451731430) completed **SUCCESS** on intermediate HEAD `8953f50d14c803394d69203db43e439761e53ae6`. It passed the unauthenticated endpoint stage, 136/136 authenticated integration checks, browser WebRTC call/voice/screen with remote tracks, three-member mesh/teardown, distributed rate limit (90 accepted + 1 HTTP 429 with Retry-After 60s), receipt/invite concurrency and fixture cleanup.
+- Exact candidate HEAD `9c0133e8cf6bd85ac8993888718a408db2f24a3e` Validate remains **SUCCESS**. Its exact-head Smoke [42451736729](https://github.com/Reekyi/UpStatus/actions/runs/42451736729) has passed syntax/static and unauthenticated endpoint checks; authenticated integration/browser checks are still running. Do not transfer the intermediate Smoke PASS to the exact HEAD until run 42451736729 and post-run cleanup complete.
