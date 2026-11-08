@@ -2666,3 +2666,14 @@ Production still has only seven applied migrations (through `20261027155438`), n
 Security snapshot 2026-11-08 13:46 UTC: 3 public SECURITY DEFINER broadcasts, 9/10 audited backend-owned tables with excessive client grants (including TRUNCATE), 10 RLS/no-policy INFO findings, two public Storage buckets with zero object policies. #80 Validate [42485867651](https://github.com/Reekyi/UpStatus/actions/runs/42485867651) still fails inherited `client signed upload helper missing`; #82 Validate [42486103438](https://github.com/Reekyi/UpStatus/actions/runs/42486103438) still fails inherited `production updateURL mismatch`. #78 remains 0/8 physical. QA branch and `docs/RELEASE_READINESS.md` unchanged.
 
 Detailed evidence: [read-only production AUTH-03 migration-history preflight](checkpoints/2026-11-08-production-migration-history-preflight.md). Production remained read-only: no migration, SQL write, deploy, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/flag change, or function deactivation.
+
+
+## 2026-11-08 — Team Lite AUTH-03 fixture-runner redirect hardening
+
+A small safety-only candidate is open as [PR #90](https://github.com/Reekyi/UpStatus/pull/90), stacked on #76. It adds `redirect: "error"` to the AUTH-03 PostgREST fixture runner, makes the shared mutation-opt-in diagnostic runner-neutral, and extends offline assertions for exact lab origin, explicit opt-in, and redirect rejection. Its push-only workflow contains no Supabase secret and makes no network or fixture calls.
+
+Exact HEAD `47e0b8760587e52448cf5954d823b00131b941fa` (4 commits ahead / 0 behind #76, four files). Offline workflow [42487717033](https://github.com/Reekyi/UpStatus/actions/runs/42487717033) **SUCCESS** on the exact SHA with Node v24.22.2: syntax checks, isolation/redirect guard, and `auth-enrollment.test.mjs team-lite` passed. The earlier #76 Candidate Checks [42450476433](https://github.com/Reekyi/UpStatus/actions/runs/42450476433) remains the live-lab AUTH-03 evidence; #90 did not rerun fixtures.
+
+Fresh read-only checks: production remains ACTIVE_HEALTHY with seven migrations, five users (three admins), no AUTH-03 columns/RPC, and four operational runtimes unchanged; the isolated lab remains clean with AUTH-03 schema/RPC present. The managed Supabase branch `main` still reports `MIGRATIONS_FAILED` while project/preview are healthy; root cause remains unavailable without Dashboard branch logs. Production release remains blocked at version 3.4.7 and missing AUTH-03 migrations. #78 remains 0/8 physical. Detailed checkpoint: [Team Lite AUTH-03 runner safety](checkpoints/2026-11-08-team-lite-auth-runner-safety.md).
+
+No production write, migration, deploy, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/flag change, or function deactivation occurred.
