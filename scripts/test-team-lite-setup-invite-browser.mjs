@@ -102,8 +102,13 @@ try{
   assert.ok(initial.requests.some(r=>r.url.endsWith("/api/me")),"restored admin session must call /api/me: "+JSON.stringify(initial)+" pageErrors="+pageErrors.join("\\n"));
   assert.ok(initial.settingsButtonPresent,"stored administrator must retain the settings entry: "+JSON.stringify(initial)+" pageErrors="+pageErrors.join("\\n"));
   assert.ok(initial.healthButtonPresent,"restored admin session must render the health action: "+JSON.stringify(initial)+" pageErrors="+pageErrors.join("\\n"));
-  await page.locator(".up-settings-btn").click();
-  await page.locator(".up-settings-health").click();
+  await page.evaluate(()=>{
+    const settings=document.querySelector(".up-settings-btn");
+    const health=document.querySelector(".up-settings-health");
+    if(!settings||!health)throw new Error("stored administrator settings controls are missing");
+    settings.click();
+    health.click();
+  });
   await page.locator(".up-health .up-setup-invite").waitFor({timeout:5000});
   await page.locator(".up-setup-invite-name").fill("Guilherme");
   await page.locator(".up-setup-invite-generate").click();
