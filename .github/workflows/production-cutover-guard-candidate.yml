@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/production-cutover-guard-auth-delete-wiring-20261108
+      - fix/master-release-script-url-20261107
 
 permissions:
   contents: read
