@@ -98,12 +98,12 @@ try{
   await page.goto("https://www.salesmartly.com/",{waitUntil:"domcontentloaded"});
   await page.addScriptTag({content:smokeSource});
   await page.waitForTimeout(500);
-  const initial=await page.evaluate(()=>({rootPresent:!!document.querySelector("#upstatus-team-lite-root"),cardPresent:!!document.querySelector("#upstatus-card"),settingsButtonPresent:!!document.querySelector("#upstatus-card .up-settings-btn"),loginButtonPresent:!!document.querySelector("#upstatus-card #up-enter"),cardText:document.querySelector("#upstatus-card")?.innerText?.slice(0,500)||"",requests:window.__upstatusGmRequests,reads:window.__upstatusGmReads,responses:window.__upstatusGmResponses}));
+  const initial=await page.evaluate(()=>({rootPresent:!!document.querySelector("#upstatus-team-lite-root"),cardPresent:!!document.querySelector("#upstatus-card"),settingsButtonPresent:!!document.querySelector(".up-settings-btn"),settingsButtonCount:document.querySelectorAll(".up-settings-btn").length,settingsButtons:Array.from(document.querySelectorAll("button")).filter(b=>String(b.className).includes("settings")).map(b=>({className:b.className,title:b.title,text:b.textContent})),loginButtonPresent:!!document.querySelector("#upstatus-card #up-enter"),cardText:document.querySelector("#upstatus-card")?.innerText?.slice(0,500)||"",requests:window.__upstatusGmRequests,reads:window.__upstatusGmReads,responses:window.__upstatusGmResponses}));
   assert.ok(initial.requests.some(r=>r.url.endsWith("/api/me")),"restored admin session must call /api/me: "+JSON.stringify(initial)+" pageErrors="+pageErrors.join("\\n"));
   assert.ok(initial.settingsButtonPresent,"restored admin session must render settings: "+JSON.stringify(initial)+" pageErrors="+pageErrors.join("\\n"));
   await page.locator("#upstatus-bubble").click();
-  await page.locator("#upstatus-card .up-settings-btn").click();
-  await page.locator("#upstatus-card .up-settings-health").click();
+  await page.locator(".up-settings-btn").click();
+  await page.locator(".up-settings-health").click();
   await page.locator(".up-health .up-setup-invite").waitFor({timeout:5000});
   await page.locator(".up-setup-invite-name").fill("Guilherme");
   await page.locator(".up-setup-invite-generate").click();
