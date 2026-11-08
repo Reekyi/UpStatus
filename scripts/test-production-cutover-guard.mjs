@@ -236,4 +236,4 @@ const missingManifestField = evaluateProductionCutover({
 assert.equal(missingManifestField.ready, false);
 assert(missingManifestField.issues.some(issue => issue.includes("productionApiFunction is missing or invalid")));
 
-console.log("PASS production cutover guard: API-first alignment, AUTH-03 invite/atomic consumption and regression, stored-role chat clear, required migrations, no automatic db push; missing deploy/source/test, reversed order, TEST deploy, first-caller setup, name fallback, name-only chat clear, missing migrations, wrong host and incomplete manifest blocked.");
+console.log("PASS production cutover guard: API-first alignment, AUTH-03 invite/atomic consumption and executable regression wiring, stored-role chat clear and individual-message deletion, required migrations, no automatic db push; missing deploy/source/test, reversed order, TEST deploy, first-caller setup, name-based admin/delete fallback, comment-only test reference, name-only chat clear, missing migrations, wrong host and incomplete manifest blocked.");
