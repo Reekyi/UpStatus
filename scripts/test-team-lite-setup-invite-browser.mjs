@@ -236,6 +236,7 @@ try{
   }));
   assert.ok(ordinary.rootPresent&&ordinary.cardPresent,"ordinary Team Lite user must retain the minimal authenticated panel: "+JSON.stringify(ordinary)+" pageErrors="+userPageErrors.join("\\n"));
   assert.equal(ordinary.loginButtonPresent,false,"ordinary user session must remain authenticated");
+  assert.ok(ordinary.requests.some(r=>r.url.endsWith("/api/me")),"ordinary-user Full-IIFE must validate its restored session");
   assert.equal(ordinary.settingsButtonPresent,false,"ordinary Team Lite user must not receive the admin settings entry");
   assert.equal(ordinary.settingsMenuVisible,false,"ordinary Team Lite user must not open the settings menu");
   assert.equal(ordinary.healthPanelVisible,false,"ordinary Team Lite user must not open system health");
@@ -243,7 +244,7 @@ try{
   assert.ok(!ordinary.requests.some(r=>r.url.endsWith("/api/setup-invite")),"ordinary user must not call setup-invite");
   assert.ok(!ordinary.requests.some(r=>r.url.endsWith("/api/health")),"ordinary user must not call admin health");
   assert.equal(ordinary.clipboard,null,"ordinary user must not write an invite token to clipboard");
-  assert.ok(ordinary.realtimeCalls>=0,"Realtime stub must remain inert");
+
   assert.ok(ordinary.requests.every(r=>new URL(r.url).hostname==="team-lite-invite-smoke.invalid"),"ordinary user's GM traffic must remain on the inert test host");
   assert.ok(userBlockedPageRequests.every(url=>!url.includes("dlfvkawaiqduhlazsszm")),"ordinary-user browser smoke must not send page-world requests to production Supabase");
   assert.equal(userPageErrors.length,0,"ordinary Team Lite IIFE must not throw: "+userPageErrors.join("\\n"));
