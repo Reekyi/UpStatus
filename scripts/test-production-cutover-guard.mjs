@@ -2,68 +2,81 @@
 import assert from "node:assert/strict";
 import { evaluateProductionCutover, parseDeployedFunctions } from "./verify-production-cutover.mjs";
 
+const apiFunction = "upstatus-screen-share-3-1-1-beta10";
+const distributionFunction = "upstatus";
+const apiDeploy = `          supabase functions deploy ${apiFunction} --project-ref "$SUPABASE_PROJECT_ID" --use-api`;
+const distributionDeploy = `          supabase functions deploy ${distributionFunction} --project-ref "$SUPABASE_PROJECT_ID" --use-api`;
 const workflow = [
-  "      - name: Deploy PRODUCTION only",
-  "        run: supabase functions deploy upstatus --project-ref \\\"$SUPABASE_PROJECT_ID\\\" --use-api",
+  "      - name: Deploy production API before userscript distribution",
+  "        run: |",
+  apiDeploy,
+  distributionDeploy,
 ].join("\n");
 
-assert.deepEqual(parseDeployedFunctions(workflow), ["upstatus"]);
+assert.deepEqual(parseDeployedFunctions(workflow), [apiFunction, distributionFunction]);
 
+const manifest = {
+  productionFunction: distributionFunction,
+  productionApiFunction: apiFunction,
+  productionApiBase: "https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/" + apiFunction,
+};
 const aligned = evaluateProductionCutover({
-  manifest: {
-    productionFunction: "upstatus",
-    productionApiFunction: "upstatus",
-    productionApiBase: "https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus",
-  },
+  manifest,
   workflow,
-  availableSources: ["upstatus"],
+  availableSources: [distributionFunction, apiFunction],
 });
 assert.equal(aligned.ready, true);
 assert.deepEqual(aligned.issues, []);
 
-const currentMismatch = evaluateProductionCutover({
-  manifest: {
-    productionFunction: "upstatus",
-    productionApiFunction: "upstatus-screen-share-3-1-1-beta10",
-    productionApiBase: "https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-screen-share-3-1-1-beta10",
-  },
-  workflow,
-  availableSources: ["upstatus"],
+const apiNotDeployed = evaluateProductionCutover({
+  manifest,
+  workflow: workflow.replace(apiDeploy, "# API deployment omitted"),
+  availableSources: [distributionFunction, apiFunction],
 });
-assert.equal(currentMismatch.ready, false);
-assert(currentMismatch.issues.some(issue => issue.includes('runtime "upstatus-screen-share-3-1-1-beta10" is not deployed')));
-assert(currentMismatch.issues.some(issue => issue.includes('source "supabase/functions/upstatus-screen-share-3-1-1-beta10/index.ts" is not versioned/generated')));
+assert.equal(apiNotDeployed.ready, false);
+assert(apiNotDeployed.issues.some(issue => issue.includes('runtime "' + apiFunction + '" is not deployed')));
 
-const deployedWithoutSource = evaluateProductionCutover({
-  manifest: {
-    productionFunction: "upstatus",
-    productionApiFunction: "upstatus-screen-share-3-1-1-beta10",
-    productionApiBase: "https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-screen-share-3-1-1-beta10",
-  },
-  workflow: workflow.replace("deploy upstatus ", "deploy upstatus-screen-share-3-1-1-beta10 "),
-  availableSources: ["upstatus"],
+const apiSourceMissing = evaluateProductionCutover({
+  manifest,
+  workflow,
+  availableSources: [distributionFunction],
 });
-assert.equal(deployedWithoutSource.ready, false);
-assert(deployedWithoutSource.issues.some(issue => issue.includes("is not versioned/generated")));
+assert.equal(apiSourceMissing.ready, false);
+assert(apiSourceMissing.issues.some(issue => issue.includes("source \"supabase/functions/" + apiFunction + "/index.ts\" is not versioned/generated")));
+
+const reversed = evaluateProductionCutover({
+  manifest,
+  workflow: workflow.replace(apiDeploy + "\n" + distributionDeploy, distributionDeploy + "\n" + apiDeploy),
+  availableSources: [distributionFunction, apiFunction],
+});
+assert.equal(reversed.ready, false);
+assert(reversed.issues.some(issue => issue.includes("API runtime must be deployed before the userscript distribution")));
+
+const unexpected = evaluateProductionCutover({
+  manifest,
+  workflow: workflow.replace(distributionDeploy, distributionDeploy + "\n          supabase functions deploy upstatus-test --project-ref \"$SUPABASE_PROJECT_ID\" --use-api"),
+  availableSources: [distributionFunction, apiFunction, "upstatus-test"],
+});
+assert.equal(unexpected.ready, false);
+assert(unexpected.issues.some(issue => issue.includes('Unexpected production runtime "upstatus-test"')));
 
 const wrongTarget = evaluateProductionCutover({
   manifest: {
-    productionFunction: "upstatus",
-    productionApiFunction: "upstatus",
-    productionApiBase: "https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus",
+    ...manifest,
+    productionApiBase: "https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/" + apiFunction,
   },
   workflow,
-  availableSources: ["upstatus"],
+  availableSources: [distributionFunction, apiFunction],
 });
 assert.equal(wrongTarget.ready, false);
 assert(wrongTarget.issues.some(issue => issue.includes("approved production API function")));
 
 const missingManifestField = evaluateProductionCutover({
-  manifest: { productionFunction: "upstatus" },
+  manifest: { productionFunction: distributionFunction },
   workflow,
-  availableSources: ["upstatus"],
+  availableSources: [distributionFunction],
 });
 assert.equal(missingManifestField.ready, false);
 assert(missingManifestField.issues.some(issue => issue.includes("productionApiFunction is missing or invalid")));
 
-console.log("PASS production cutover guard: aligned release accepted; API mismatch, missing source, wrong project host, and incomplete manifest blocked.");
+console.log("PASS production cutover guard: aligned API-first release accepted; missing API deploy/source, reversed order, unexpected TEST deploy, wrong project host, and incomplete manifest blocked.");
