@@ -484,7 +484,7 @@ const publicDiscoveryCases = [
   [{ type: "presence", discoveryOnly: true }, true, "explicit public presence hint is allowed"],
   [{ type: "presence", discoveryOnly: false }, false, "presence without the discovery marker is rejected"],
   [{ type: "presence" }, false, "ordinary presence is not implicitly public"],
-  [{ type: "ended", discoveryOnly: true }, false, "public ended cannot erase a call directory entry"],
+  [{ type: "ended", discoveryOnly: true }, true, "public ended is accepted only as a directory-discovery hint"],
   [{ type: "join_declined", discoveryOnly: true }, false, "public join_declined cannot spoof a refusal"],
   [{ type: "offer", discoveryOnly: true }, false, "public offers are never discovery hints"],
   [{ type: "answer", discoveryOnly: true }, false, "public answers are never discovery hints"],
