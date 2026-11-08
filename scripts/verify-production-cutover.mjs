@@ -24,6 +24,7 @@ export function evaluateProductionCutover({
   availableSources = [],
   serverSource = "",
   availableMigrations = [],
+  authEnrollmentTestPresent = false,
 }) {
   const issues = [];
   const distributionFunction = String(manifest?.productionFunction || "").trim();
@@ -61,12 +62,19 @@ export function evaluateProductionCutover({
 
   const setupInviteReady =
     serverSource.includes("async function issueSetupInvite(req:Request,adminName:string)") &&
+    serverSource.includes("if(!await admin(adminName))") &&
+    serverSource.includes('randomBytes(32).toString("hex")') &&
+    serverSource.includes("setup_token_hash:tokenHash(raw)") &&
     serverSource.includes("consume_upstatus_setup_invite") &&
     serverSource.includes("p_setup_token_hash:tokenHash(setupToken)") &&
     serverSource.includes('const enrolledRole=String(enrolled.role||"");') &&
-    serverSource.includes('const sessionRole=enrolledRole.trim()?enrolledRole:"implementation_user";');
+    serverSource.includes('const sessionRole=enrolledRole.trim()?enrolledRole:"implementation_user";') &&
+    !/if\s*\(\s*setup\s*\)\s*\{\s*if\s*\(\s*a\.password_hash/.test(serverSource);
   if (!setupInviteReady) {
-    issues.push("AUTH-03 is not release-ready: first-access setup must use an admin-issued one-time invite and atomic consumption.");
+    issues.push("AUTH-03 is not release-ready: first-access setup must use an admin-issued 256-bit invite, atomic consumption, stored-role preservation, and no first-caller claim.");
+  }
+  if (!authEnrollmentTestPresent) {
+    issues.push("AUTH-03 regression test is missing or is not wired into scripts/validate.mjs.");
   }
 
   const clearStart = serverSource.indexOf('if(path==="/api/chat/clear"&&req.method==="POST"){');
@@ -114,15 +122,21 @@ function main() {
   const manifestPath = path.join(ROOT, "dist", "build-manifest.json");
   const workflowPath = path.join(ROOT, ".github", "workflows", "deploy-production.yml");
   const serverTemplatePath = path.join(ROOT, "src", "server", "index.template.ts");
+  const validateScriptPath = path.join(ROOT, "scripts", "validate.mjs");
+  const authTestPath = path.join(ROOT, "scripts", "auth-enrollment.test.mjs");
   const migrationsPath = path.join(ROOT, "supabase", "migrations");
   if (!fs.existsSync(manifestPath) || !fs.existsSync(workflowPath) ||
-      !fs.existsSync(serverTemplatePath) || !fs.existsSync(migrationsPath)) {
-    throw new Error("Build manifest, production workflow, server template or migration directory is missing; refusing to assume cutover readiness.");
+      !fs.existsSync(serverTemplatePath) || !fs.existsSync(validateScriptPath) ||
+      !fs.existsSync(migrationsPath)) {
+    throw new Error("Build manifest, production workflow, server template, validate script or migration directory is missing; refusing to assume cutover readiness.");
   }
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   const workflow = fs.readFileSync(workflowPath, "utf8");
   const serverSource = fs.readFileSync(serverTemplatePath, "utf8");
+  const validateScript = fs.readFileSync(validateScriptPath, "utf8");
+  const authEnrollmentTestPresent =
+    fs.existsSync(authTestPath) && validateScript.includes("auth-enrollment.test.mjs");
   const required = [...new Set([
     String(manifest.productionFunction || ""),
     String(manifest.productionApiFunction || ""),
@@ -137,10 +151,11 @@ function main() {
     availableSources,
     serverSource,
     availableMigrations,
+    authEnrollmentTestPresent,
   });
 
   if (result.ready) {
-    console.log("PASS production distribution/API alignment, AUTH-03 setup enrollment, stored-role chat clear, and required migration sources are present.");
+    console.log("PASS production distribution/API alignment, AUTH-03 setup enrollment regression, stored-role chat clear, and required migration sources are present.");
     return;
   }
 
