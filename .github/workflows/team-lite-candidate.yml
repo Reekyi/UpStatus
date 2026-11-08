@@ -11,6 +11,7 @@ on:
       - "scripts/team-lite-candidate-check.mjs"
       - "scripts/test-team-lite-build-artifact.mjs"
       - "scripts/test-function-jwt-config.mjs"
+      - "scripts/test-setup-invite-ui.mjs"
       - "supabase/config.toml"
       - "scripts/test-team-lite-full-iife.mjs"
       - "scripts/build.mjs"
@@ -70,6 +71,10 @@ jobs:
         run: |
           node --check scripts/test-function-jwt-config.mjs
           node scripts/test-function-jwt-config.mjs upstatus-team-lite
+      - name: Test administrator setup-invite UI contract
+        run: |
+          node --check scripts/test-setup-invite-ui.mjs
+          node scripts/test-setup-invite-ui.mjs team-lite/upstatus-team-lite.user.js
       - name: Verify isolated Supabase mutation guard
         run: |
           node --check scripts/assert-isolated-supabase.mjs
