@@ -8190,3 +8190,133 @@ Também foi verificado que anon/authenticated não possuem CREATE no schema publ
 ### Limites desta verificação
 
 A conclusão sobre Realtime é inspeção estática das fontes implantadas, handlers, grants, policies e função de trigger; nenhum cliente externo foi conectado, nenhum broadcast foi enviado, nenhum áudio/tela foi capturado e nenhuma alteração de projeto foi feita. A configuração de Dashboard que permite public channels não foi exposta pelo conector e permanece pendente de confirmação. Todas as consultas SQL foram SELECT-only. Nenhuma migration, deploy, merge, release, alteração de secret/flag, role, grant, policy, ACL, fixture, branch de engenharia ou issue foi modificada nesta rodada.
+
+
+---
+
+## Revalidação independente — 2026-11-08 (execução 11)
+
+Esta seção acrescenta evidências obtidas por GitHub e Supabase em modo somente leitura. Não substitui nem apaga os checkpoints anteriores. O HEAD QA e o blob foram conferidos imediatamente antes deste append.
+
+### Heads reais e divergência das branches
+
+- `master`: `9d40461babcec8eb8686c2a04be9c675df7da381`.
+- `team-lite-official`: `9065bc1536fde64f437f6f12b7abb9b072cb8281`.
+- `qa/release-readiness-2026-11-04-master`: `d05e175ac7467c9923c743d0d2c36e33f16f3896`.
+- PR #74 / `chore/continuity-foundation`: `9c0133e8cf6bd85ac8993888718a408db2f24a3e`.
+- PR #75 / `team-lite/3.4.31-guest-fixes`: `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`.
+- PR #76 / `team-lite/signaling-transport-candidate`: `eb28e88325d7e8a6236d9050bebabf794d64a8c4).
+
+Comparação contra as refs consultadas:
+- #74: 877 commits à frente de master e 1 atrás.
+- #82/QA: 133 à frente de master e 1 atrás.
+- #76: 364 à frente de `team-lite-official`, 0 atrás.
+- O único commit de master após o merge-base `a9288ccfcb0f308d3a587bfca624418a395be07b` é `9d40461`, uma adição documental sobre preflight de histórico de migrations. Não é mudança de runtime. Não fiz rebase nem atualização de refs; o atraso foi registrado para reconciliação posterior.
+
+As PRs consultadas permanecem abertas e Draft. A API de reviews retornou zero submissões humanas para #74, #76, #82, #89, #94, #95, #99 e #100.
+
+### CI por HEAD exato
+
+| PR / escopo | HEAD | Evidência | Resultado |
+|---|---|---|---|
+| [#74 Normal](https://github.com/Reekyi/UpStatus/pull/74) | `9c0133e8` | [Validate 42451736696](https://github.com/Reekyi/UpStatus/actions/runs/42451736696), [Smoke 42451736729](https://github.com/Reekyi/UpStatus/actions/runs/42451736729) | PASS / PASS |
+| [#75 baseline](https://github.com/Reekyi/UpStatus/pull/75) | `7bbf9b90` | [Candidate Checks 41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) | PASS histórico; não é a candidata Team Lite atual |
+| [#76 Team Lite](https://github.com/Reekyi/UpStatus/pull/76) | `eb28e883` | [Candidate Checks 42450476433](https://github.com/Reekyi/UpStatus/actions/runs/42450476433) | PASS |
+| [#82 QA](https://github.com/Reekyi/UpStatus/pull/82) | `d05e175a` | [Validate 42501879440](https://github.com/Reekyi/UpStatus/actions/runs/42501879440) | FAIL: `production updateURL mismatch` em `scripts/validate.mjs:26` |
+| [#89 AUTH-03](https://github.com/Reekyi/UpStatus/pull/89) | `4224dc31` | [Production Cutover Guard Candidate 42486397701](https://github.com/Reekyi/UpStatus/actions/runs/42486397701) | PASS no push do HEAD exato; execução de integração foi da pipeline de engenharia no laboratório |
+| [#92 Team Lite JWT](https://github.com/Reekyi/UpStatus/pull/92) | `2a1b8c74` | [PR 42493689393](https://github.com/Reekyi/UpStatus/actions/runs/42493689393) | PASS |
+| [#93 Normal JWT](https://github.com/Reekyi/UpStatus/pull/93) | `fb9ccd9b` | [PR 42493690393](https://github.com/Reekyi/UpStatus/actions/runs/42493690393) | PASS |
+| [#94 Normal UI](https://github.com/Reekyi/UpStatus/pull/94) | `00462a20` | [42498502349](https://github.com/Reekyi/UpStatus/actions/runs/42498502349) | PASS |
+| [#95 Team Lite UI](https://github.com/Reekyi/UpStatus/pull/95) | `3dc309ce` | [42499560082](https://github.com/Reekyi/UpStatus/actions/runs/42499560082) | PASS |
+| [#96 issuance contract](https://github.com/Reekyi/UpStatus/pull/96) | `f4ee025d` | [42501260634](https://github.com/Reekyi/UpStatus/actions/runs/42501260634) | PASS offline/VM |
+| [#97 Team Lite non-admin](https://github.com/Reekyi/UpStatus/pull/97) | `ba318f72` | [42501696875](https://github.com/Reekyi/UpStatus/actions/runs/42501696875) | PASS Full-IIFE |
+| [#98 Normal Full-IIFE](https://github.com/Reekyi/UpStatus/pull/98) | `76753b11` | [42502183259](https://github.com/Reekyi/UpStatus/actions/runs/42502183259) | FAIL: botão de configurações permaneceu hidden enquanto o card estava recolhido |
+| [#99 remote-command guard](https://github.com/Reekyi/UpStatus/pull/99) | `bdce3962` | [42503227603](https://github.com/Reekyi/UpStatus/actions/runs/42503227603) | PASS offline |
+| [#100 Full-IIFE fix](https://github.com/Reekyi/UpStatus/pull/100) | `f8716a04` | [42503432784](https://github.com/Reekyi/UpStatus/actions/runs/42503432784) | PASS em evento push; admin e usuário comum |
+
+O #100 corrige a ordem do teste: abre o card antes de esperar o botão de configurações. O run exato passou nos cenários Full-IIFE Normal de administrador e usuário comum. Porém, o workflow não inclui a branch-base `test/normal-setup-invite-full-iife-20261108` no filtro `pull_request.branches`; o sucesso observado foi somente no evento `push`. A lista de branches de push também contém uma entrada duplicada. O PR #98 pai continua com check vermelho até incorporar o fix do #100 e executar novamente o fluxo de PR.
+
+O #99 é filho de #94 e muda somente o tratamento de `remote_command` no stack Normal: o broadcast passa a ser wake-up com debounce e o comando é obtido por `GET /api/remote-status` autenticado. O teste ignora payload forjado e verifica vínculo ao token/member atual. Isso não corrige `call_signal`, voice-room ou screen-share. O #94 pai ainda precisa receber o fix antes de ser considerado corrigido.
+
+O teste #96 executa o handler de emissão em VM com builder de banco simulado; não é chamada HTTP real ao Edge Function nem PostgREST real. Os testes Full-IIFE #97/#100 substituem a API por host inerte e mockam GM/clipboard. São boas evidências de UI e autorização de cliente, mas não comprovam o endpoint HTTP implantado. A integração #89 exercitou a RPC real no projeto isolado; não percorreu o handler HTTP de emissão.
+
+### Realtime — refinamento do bloqueador de segurança
+
+A inspeção dos quatro runtimes operacionais implantados confirmou:
+
+| Função | Versão Edge | Userscript embutido | SHA da fonte |
+|---|---:|---:|---|
+| `upstatus` | v480 | 3.4.7 | `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd` |
+| `upstatus-team-lite` | v15 | 3.4.30 | `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb` |
+| `upstatus-screen-share-3-1-1-beta10` | v6 | API Normal | `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29` |
+| `upstatus-test` | v281 | 3.3.28 | `7b5dfb1279f388d20a72ecf30f2c1e1f6104c7942017f81362e7857d6a16cb0a` |
+
+Nos userscripts Normal, Team Lite e TEST implantados:
+- o canal é criado sem `private:true`;
+- não há `realtime.setAuth()`;
+- não há `signalTransportFlag`;
+- `remote_command` executa diretamente o comando recebido quando `command.target===member`;
+- `call_signal`, voice-room e screen-share entregam payloads recebidos aos handlers sem identidade autenticada do emissor.
+
+Isso mantém um caminho de *confused deputy*: se um emissor conseguir publicar no canal público, o browser pode usar a própria sessão para executar o comando de status. Os handlers de voz/tela também aceitam identidade `from` e sala vindas do payload; uma oferta/ICE não autenticada pode iniciar negociação. **Nenhum ataque, chamada externa, áudio ou tela foi reproduzido.** A exposição externa depende do setting “Allow public access”, que não é exposto pelo conector Supabase e continua sem confirmação. Classificação permanece bloqueador P0 de release por desenho não autenticado, não incidente explorado comprovado.
+
+Nos candidatos #74 e #76:
+- `remote_command` já é wake-up-only;
+- `signalTransportFlag` continua default `false`;
+- com flag falsa, voice-room e screen-share continuam aceitando o caminho público;
+- `call_signal` só rejeita payload sem marca autenticada quando a flag está ligada; por padrão, a flag está desligada;
+- o canal continua sem `private:true`/JWT de Realtime.
+O #99 leva a correção de wake-up ao stack #94, mas não fecha mídia. O candidato Team Lite #76 já tem wake-up-only, mas o runtime v15 instalado não.
+
+No banco de produção, `realtime.messages` tem 50 linhas, 7 partições, zero policies e grants SELECT/INSERT/UPDATE para anon e authenticated. Todas as 50 linhas consultadas são `private=false`, no tópico antigo `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`: 42 eventos `user_status` e 8 `db_change`, com última linha em 06/11. Os clientes assinam `upstatus-screen-share-live-3-1-1-beta10`. O tópico dos triggers não coincide com o dos clientes atuais. O trigger de mensagens envia `to_jsonb(OLD/NEW)` completo em broadcast público; não alinhar tópicos sem antes minimizar payload.
+
+No laboratório: zero linhas e zero partições Realtime, zero policies e os mesmos grants SELECT/INSERT/UPDATE para anon/authenticated. As três funções de broadcast têm `search_path` vazio, EXECUTE somente para service_role e payload minimizado para operação; ainda usam `private=false`.
+
+### RLS, grants, SECURITY DEFINER e Storage
+
+- Produção: 10 tabelas públicas com RLS e zero policies. Nove concedem a anon e authenticated SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES e TRIGGER; `upstatus_visual_config` não concede esses privilégios. RLS sem policies bloqueia DML por linha, mas não protege TRUNCATE. A auditoria não tentou executar TRUNCATE.
+- Laboratório: 17 tabelas públicas com RLS e zero policies, sem privilégios diretos de tabela para anon/authenticated nas tabelas consultadas.
+- Security Advisor: produção 6 WARN / 10 INFO; laboratório 0 WARN / 17 INFO. Performance e Health Advisors retornaram listas vazias.
+- Os seis WARNs de produção correspondem às três funções `upstatus_broadcast_*` com EXECUTE para anon/authenticated. A consulta de catálogo confirma que retornam `trigger`, então não são invocáveis como RPC PostgreSQL comum. O grant amplo continua desnecessário; o `search_path=public` também deve ser endurecido. No laboratório essas funções usam `search_path` vazio e não concedem EXECUTE aos clientes.
+- Default ACLs de produção permanecem amplas para objetos criados por postgres em public/storage e por supabase_admin em public/graphql/graphql_public. No laboratório, defaults de postgres em public estão restritos a service_role, mas storage continua amplo e supabase_admin mantém defaults amplos nos schemas citados.
+- `chat-images` e `profile-images` seguem públicos, 20 MiB cada, sem policies em `storage.objects`. O bucket de chat permite também documentos. A configuração candidata declara 25 MB para chat e 2 MB para perfil, divergindo dos 20 MiB implantados. A leitura de objetos em bucket público depende da posse da URL; não há isolamento por usuário comprovado.
+
+### Supabase, AUTH-03 e Edge Functions
+
+Produção `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations, 38/38 Edge Functions ACTIVE, todas `verify_jwt=false`. As quatro versões operacionais e SHAs estão na tabela acima. A organização continua com apenas produção e laboratório; não existe TEST full-product. A branch gerenciada `main` ainda reporta MIGRATIONS_FAILED, embora o projeto e preview estejam ACTIVE_HEALTHY; causa não identificada.
+
+Produção tem 5 usuários, zero password hashes vazios e zero papéis vazios, mas não tem nenhuma coluna `setup_token_*` nem RPC `consume_upstatus_setup_invite`. Nenhuma migration AUTH-03 foi aplicada.
+
+Laboratório `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 38 migrations, duas funções de teste (`upstatus-signal-test` v32 e `upstatus-signal-e2e-once` v3). Tem as quatro colunas de setup-invite e RPC `consume_upstatus_setup_invite`, SECURITY INVOKER, `search_path` vazio, EXECUTE apenas para service_role. O snapshot pós-teste encontrou zero usuários, mensagens, objetos Storage e linhas/partições Realtime.
+
+A função isolada `upstatus-signal-test` v32 (SHA `f893360a4e0021a0d608e6cb58b8644c68f7389bce685c3177c025eb376b8712`) ainda não contém o marcador `VOICE_ATTEMPT_ALREADY_ACTIVE`; o mapeamento HTTP 409 do candidato não está implantado nem validado por HTTP real.
+
+### Deploy e versão
+
+- O workflow Normal no stack #89 é manual-only, faz checkout do SHA dispatchado, verifica master, organização/projeto, fixa Supabase CLI 2.122.1, executa preflight read-only do histórico de migrations e publica beta10 antes de `upstatus`. Não aplica migrations automaticamente.
+- `release.json` no stack #89 continua em 3.4.7. O guard exige versão semântica estável superior a 3.4.7; portanto o cutover permanece bloqueado até escolher e validar uma nova versão. O workflow de #89 já não contém o pin rígido 3.4.7 que existia na versão anterior de #85.
+- O workflow de produção na base `team-lite-official` ainda executa `supabase functions deploy upstatus`, não `upstatus-team-lite`; usa CLI `latest` e não tem a sequência de verificação de projeto/SHA/migrations do Normal. **Não despachar esse workflow.** #92 corrige JWT config, não o alvo do deploy.
+- Os guards #92/#93 passaram e mantêm `verify_jwt=false` nas funções custom-token corretas. Isso é necessário para o handler customizado, mas não substitui autenticação e autorização dentro da aplicação.
+
+### Logs, issues e limites
+
+Na janela de 24h consultada, logs retornaram 1.295 edge_logs, 370 function_edge_logs, 266 function_logs, 77 pgbouncer_logs e 48 postgres_logs. Os function_edge_logs cobrem apenas 17:29–18:31 UTC de 07/11; o campo consultado para nome da função veio vazio. Não é amostra completa de 24h nem permite atribuição confiável por runtime.
+
+- Issue [#78](https://github.com/Reekyi/UpStatus/issues/78): aberta, 0/8 critérios físicos marcados. Nenhum teste manual Tampermonkey, queda real de rede, microfone/tela com permissões reais ou interoperabilidade instalada foi executado nesta auditoria.
+- Issue [#79](https://github.com/Reekyi/UpStatus/issues/79): aberta, 16 itens marcados e 19 pendentes no corpo atual.
+
+Nenhuma conexão externa foi usada para publicar broadcasts; nenhuma oferta/ICE foi injetada; nenhum áudio/tela foi capturado. A configuração de public access do Realtime não está disponível no conector. Nenhum teste físico foi realizado. Nenhum workflow foi iniciado ou repetido manualmente pela auditoria.
+
+### Veredito e gates
+
+**NÃO LIBERAR.** Bloqueadores prioritários:
+1. Remover a aceitação pública de `call_signal`, voice-room e screen-share; transporte autenticado deve ser default seguro em Normal e Team Lite, com sessão e membership validadas. O #99 fecha apenas remote-command no stack Normal.
+2. Integrar os fixes empilhados #99 e #100 nas respectivas linhas-pai e garantir check de PR, não apenas push.
+3. Corrigir o deploy Team Lite para o slug correto e copiar as proteções do workflow Normal.
+4. Escolher versão Normal superior a 3.4.7 e manter o guard consistente.
+5. Planejar, revisar e autorizar separadamente a aplicação das três migrations AUTH-03 em produção; depois validar emissão/consumo por HTTP real.
+6. Corrigir grants/default ACLs com owner autorizado; migrar Realtime para canais privados/server-mediated e reduzir payloads.
+7. Definir política de privacidade de Storage e alinhar limites/config.
+8. Diagnosticar MIGRATIONS_FAILED, validar HTTP 409 e concluir os 8 testes físicos da #78.
+
+Nenhuma migration, escrita SQL, deploy, merge, release, publicação de userscript, alteração de secret, flag, role, grant, policy, ACL ou fixture foi realizada pela auditoria. Todas as consultas SQL foram SELECT-only. A única escrita desta execução é este append documental na branch QA; nenhuma branch de engenharia ou issue foi modificada.
