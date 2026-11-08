@@ -57,6 +57,9 @@ jobs:
       - name: Syntax-check signaling test harnesses
         run: |
           node --check scripts/test-signaling-endpoint.mjs
+          node --check scripts/signaling-test-request.mjs
+          node --check scripts/signaling-test-request.test.mjs
+          node scripts/signaling-test-request.test.mjs
           node --check scripts/test-signaling-authenticated.mjs
           node --check scripts/run-signaling-authenticated.mjs
           node --check scripts/test-signaling-browser.mjs
