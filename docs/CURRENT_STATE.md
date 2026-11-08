@@ -2878,3 +2878,50 @@ No Supabase operation or production change occurred. QA release-readiness branch
 - AUTH-03, AUTH-02, Team Lite deploy target, post-migration catalog verification, rollback sequencing, Storage policy, grants/default ACLs, HTTP 409 live proof, human reviews, and full TEST project remain open.
 
 No production or laboratory writes, migrations, deploys, workflow dispatches, merges, releases, userscript publication, secrets/roles/grants/ACL/policy/flag changes, or destructive operations occurred. All Supabase SQL was SELECT-only.
+
+## Engineering checkpoint — 2026-11-08 20:03 BRT / 23:03 UTC
+
+### Voice-room open HTTP contract
+
+- PR #105 now points at HEAD `d6f719ef4f32627b77622368d4c108c8afd20e21`. Its workflow trigger was extended to validate child route-contract PRs. Exact-head Validate checks [42533174777](https://github.com/Reekyi/UpStatus/actions/runs/42533174777) and [42533180658](https://github.com/Reekyi/UpStatus/actions/runs/42533180658) both passed.
+- New Draft child [PR #106](https://github.com/Reekyi/UpStatus/pull/106), HEAD `e510731f817b8d6a77ed86a6352d38b0f9e1512d`, extracts the existing `/room/open` RPC-result status mapping into byte-identical `http-contract.mjs` helpers for production and isolated handlers.
+- The source-parity test now imports and executes the actual helper modules. It covers 400/404/410/409/500 mappings, `VOICE_ATTEMPT_ALREADY_ACTIVE`, malformed results, and prototype-like keys (`constructor`, `toString`, `__proto__`). It also verifies that both route blocks call the helper.
+- Workflow path filters now include every helper/source/config/migration input consumed by the parity test. Exact-head push validation [42533249030](https://github.com/Reekyi/UpStatus/actions/runs/42533249030) and PR validation [42533254905](https://github.com/Reekyi/UpStatus/actions/runs/42533254905) both passed on HEAD `e510731f`. Node v24.22.2; source-parity contract and full offline Normal Validate passed.
+- Supabase Preview was skipped because this candidate branch is not associated with a Supabase branch. No Supabase call, fixture, migration, HTTP request to a deployed function, or deployment occurred. This is executable source-level status mapping, not live HTTP proof.
+- PR #106 remains Draft with zero human reviews. Its parent branch advanced after the child fork; comparison is 9 ahead / 1 behind and GitHub currently reports mergeable. Reconcile ancestry before any future integration.
+
+### Current required PRs and CI
+
+| PR | Exact HEAD | Current exact-head check evidence |
+|---|---|---|
+| #74 Normal | `9c0133e8cf6bd85ac8993888718a408db2f24a3e` | Validate [42451736696](https://github.com/Reekyi/UpStatus/actions/runs/42451736696) PASS; Smoke [42451736729](https://github.com/Reekyi/UpStatus/actions/runs/42451736729) PASS |
+| #75 Baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Candidate checks [41674344881](https://github.com/Reekyi/UpStatus/actions/runs/41674344881) and [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) PASS |
+| #76 Team Lite | `eb28e88325d7e8a6236d9050bebabf794d64a8c4` | Candidate checks [42450476433](https://github.com/Reekyi/UpStatus/actions/runs/42450476433) PASS |
+| #80 Continuity | `c7deca803e4a19dbba3017d640daa8e7e6c93522` | Validate [42529056916](https://github.com/Reekyi/UpStatus/actions/runs/42529056916) FAIL: inherited `client signed upload helper missing` at `scripts/validate.mjs:55` |
+| #82 QA | `4807f1212587e036390097c878e41ebec5846d90` | Validate [42530636037](https://github.com/Reekyi/UpStatus/actions/runs/42530636037) FAIL: inherited `production updateURL mismatch` at `scripts/validate.mjs:26` |
+| #101 Production signaling | `2ef7c3324d2eb5443d31a45bd071d154ebeb4aa7` | Validate [42513317464](https://github.com/Reekyi/UpStatus/actions/runs/42513317464) PASS |
+| #102 Normal provenance | `c4a5cae1271147204ab3b0c79b8916235f0799aa` | Validate [42519210669](https://github.com/Reekyi/UpStatus/actions/runs/42519210669) PASS |
+| #103 Team Lite provenance | `b3fb66429851024ee513bccb4700c944e50ff0cb` | Offline push [42519559614](https://github.com/Reekyi/UpStatus/actions/runs/42519559614) and PR [42519564405](https://github.com/Reekyi/UpStatus/actions/runs/42519564405) PASS |
+| #104 RT-01 guard | `da45e7418a9d9c7719ca447a25024aeb4a553bfc` | Guard [42524476674](https://github.com/Reekyi/UpStatus/actions/runs/42524476674) PASS |
+| #105 Route 409 guard | `d6f719ef4f32627b77622368d4c108c8afd20e21` | Validate [42533174777](https://github.com/Reekyi/UpStatus/actions/runs/42533174777) and [42533180658](https://github.com/Reekyi/UpStatus/actions/runs/42533180658) PASS |
+| #106 Executable status mapper | `e510731f817b8d6a77ed86a6352d38b0f9e1512d` | Exact-head push [42533249030](https://github.com/Reekyi/UpStatus/actions/runs/42533249030) and PR [42533254905](https://github.com/Reekyi/UpStatus/actions/runs/42533254905) PASS |
+
+All listed PRs remain open and Draft. No human review has been submitted for #106. #80/#82 validators were not weakened.
+
+### Fresh Supabase read-only snapshot
+
+- Production `dlfvkawaiqduhlazsszm`: `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, 7 migrations through `20261027155438`, 38/38 Edge Functions ACTIVE. Operational versions remain `upstatus` v480, beta10 v6, Team Lite v15, TEST v281; all report `verify_jwt=false`.
+- Production still has no `upstatus-signal`, no signal room/member/event/rate-limit tables or rate-limit RPC, and no AUTH-03 setup-token columns/RPC. Five users, three `implementation_admin`, zero empty password hashes, zero blank roles.
+- Production `realtime.messages`: 50 rows, all `private=false`, seven partitions. The three `upstatus_broadcast_*` functions remain SECURITY DEFINER with `search_path=public`, trigger return type, and effective EXECUTE for anon/authenticated. Ten public tables have RLS and zero policies; nine still grant TRUNCATE to anon/authenticated. Security Advisor: 6 WARN / 10 INFO.
+- Production buckets `chat-images` and `profile-images` remain public at 20 MiB each; `storage.objects` has zero policies. Candidate size/MIME settings still differ.
+- Laboratory `bfpjtfqlnypisxljoxkb`: `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003, 38 migrations, two functions (`upstatus-signal-test` v32 and `upstatus-signal-e2e-once` v3). Signal schema/rate-limit RPC and four setup-token columns exist; users, messages, rooms, memberships, events, attempts, rate-limit rows, and Realtime rows are zero. No lab function was deployed.
+- Supabase managed branch `main` remains `MIGRATIONS_FAILED` while project and preview are healthy; diagnosis still requires the branch logs in Dashboard.
+
+### Issues and remaining gates
+
+- Issue #78 remains OPEN with 0/8 physical acceptance criteria. No real Tampermonkey network-loss/no-F5, microphone/display permission, or installed Normal ↔ Team Lite test was performed.
+- Issue #79 remains OPEN; its body still contains the historical 16/35 checklist and requires formal reconciliation with QA.
+- RT-01 remains P0: production has no signaling backend/schema, client transport is default-off, and public Realtime discovery/control fallback remains in the deployed clients. The new #106 helper does not close this cutover.
+- AUTH-03, AUTH-02, Team Lite deploy target, post-migration catalog verification, rollback sequencing, Storage policy/limits, grants/default ACLs, public broadcast payloads, live HTTP 409 proof, human reviews, and a full TEST project remain open.
+
+No production or laboratory writes, migrations, deployments, workflow dispatches, merges, releases, userscript publication, secret/role/grant/ACL/policy/flag changes, or destructive operations occurred. All Supabase SQL in this checkpoint was SELECT-only.
