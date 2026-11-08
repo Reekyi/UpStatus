@@ -93,6 +93,9 @@ const voiceRoomOpenStatusCases = [
   ["VOICE_ATTEMPT_ALREADY_ACTIVE", 409],
   ["ROOM_FULL", 409],
   ["UNEXPECTED_RPC_ERROR", 500],
+  ["constructor", 500],
+  ["toString", 500],
+  ["__proto__", 500],
 ];
 for (const [code, expected] of voiceRoomOpenStatusCases) {
   assert.equal(productionVoiceRoomOpenResultStatus({ error: code }), expected, "production mapper status for " + code);
