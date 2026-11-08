@@ -44,6 +44,8 @@ const openVoiceMigration = readFileSync("supabase/migrations/20261105190000_open
 const callAttemptMigration = readFileSync("supabase/migrations/20261106080200_call_room_attempt_recovery.sql", "utf8");
 const voiceAttemptMigration = readFileSync("supabase/migrations/20261106120500_voice_room_attempt_recovery.sql", "utf8");
 const voiceAttemptTest = readFileSync("supabase/test-migrations/20261106120500_voice_room_attempt_recovery_test.sql", "utf8");
+const voiceAttemptSingletonMigration = readFileSync("supabase/migrations/20261108010000_voice_attempt_singleton.sql", "utf8");
+const voiceAttemptSingletonTest = readFileSync("supabase/test-migrations/20261108010000_voice_attempt_singleton_test.sql", "utf8");
 const rateLimitMigration = readFileSync(
   "supabase/test-migrations/20261104154623_distributed_signaling_rate_limit_test.sql", "utf8",
 );
@@ -133,6 +135,14 @@ assert.ok(voiceAttemptTest.includes("has_table_privilege") &&
   voiceAttemptTest.includes("relrowsecurity") &&
   voiceAttemptTest.includes("search_path"),
   "isolated voice-room attempt test must verify RLS, grants, and pinned function search paths");
+assert.ok(voiceAttemptSingletonMigration.includes("VOICE_ATTEMPT_ALREADY_ACTIVE") &&
+  voiceAttemptSingletonMigration.includes("v_existing_attempt") &&
+  voiceAttemptSingletonMigration.includes("FOR UPDATE") &&
+  voiceAttemptSingletonTest.includes("pg_get_functiondef") &&
+  voiceAttemptSingletonTest.includes("has_function_privilege") &&
+  functionSource.includes('code === "VOICE_ATTEMPT_ALREADY_ACTIVE"') &&
+  authenticatedHarness.includes("same user cannot create concurrent voice attempts across Normal and Team Lite aliases"),
+  "voice attempt RPC must enforce one active account membership across tab-local IDs and return a mapped conflict");
 assert.ok(functionSource.includes('path.endsWith("/room/cancel-open")') &&
   functionSource.includes('db.rpc("open_upstatus_signal_voice_room_attempt"') &&
   functionSource.includes('db.rpc("cancel_upstatus_signal_voice_room_attempt"') &&
