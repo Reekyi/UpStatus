@@ -97,4 +97,4 @@ assert.throws(
   /database host does not match/,
 );
 
-console.log("PASS production deploy is manual-only, master/SHA-pinned, organization/project-verified, CLI-pinned, serialized, and limited to the production function.");
+console.log("PASS production deploy is manual-only, master/SHA-pinned, organization/project-verified, CLI-pinned, serialized, and limited to the two approved production runtimes.");
