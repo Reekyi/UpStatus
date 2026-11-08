@@ -3,9 +3,18 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { evaluateProductionCutover, hasAuthEnrollmentTestInvocation, parseDeployedFunctions, REQUIRED_SETUP_MIGRATIONS } from "./verify-production-cutover.mjs";
+import { evaluateProductionCutover, hasAuthEnrollmentTestInvocation, isStableReleaseVersion, parseDeployedFunctions, REQUIRED_SETUP_MIGRATIONS } from "./verify-production-cutover.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+function evaluateWithNextVersion(options) {
+  return evaluateProductionCutover({
+    releaseVersion: "3.4.8",
+    releasePreRelease: "",
+    ...options,
+  });
+}
+
 
 const apiFunction = "upstatus-screen-share-3-1-1-beta10";
 const distributionFunction = "upstatus";
@@ -58,7 +67,7 @@ assert.equal(hasAuthEnrollmentTestInvocation("const marker = 1; // " + validateI
 assert.equal(hasAuthEnrollmentTestInvocation(validateInvocation.replace('"normal"', '"team-lite"')), false, "Team Lite-only execution must not satisfy the Normal release gate");
 
 const actualServerSource = fs.readFileSync(path.join(ROOT, "src/server/index.template.ts"), "utf8");
-const actualSourceResult = evaluateProductionCutover({
+const actualSourceResult = evaluateWithNextVersion({
   manifest,
   workflow,
   availableSources: [distributionFunction, apiFunction],
@@ -70,7 +79,7 @@ assert(!actualSourceResult.issues.some(issue => issue.includes("Administrative a
 assert(!actualSourceResult.issues.some(issue => issue.includes("Message deletion must allow the owner")), "the current production candidate deleteRoute must use stored-role admin authorization");
 assert(!actualSourceResult.issues.some(issue => issue.includes("Chat clear must require Ricardo")), "the current production candidate chat clear must use stored-role authorization");
 
-const aligned = evaluateProductionCutover({
+const aligned = evaluateWithNextVersion({
   manifest,
   workflow,
   availableSources: [distributionFunction, apiFunction],
@@ -81,7 +90,26 @@ const aligned = evaluateProductionCutover({
 assert.equal(aligned.ready, true);
 assert.deepEqual(aligned.issues, []);
 
-const apiNotDeployed = evaluateProductionCutover({
+assert.equal(isStableReleaseVersion("3.4.8", ""), true, "a stable patch version above the deployed version may proceed");
+assert.equal(isStableReleaseVersion("3.5.0", ""), true, "a stable minor version above the deployed version may proceed");
+assert.equal(isStableReleaseVersion("3.4.7", ""), false, "the currently deployed userscript version must not be reused");
+assert.equal(isStableReleaseVersion("3.4.8", "rc.1"), false, "prereleases must remain blocked");
+assert.equal(isStableReleaseVersion("3.4", ""), false, "incomplete semantic versions must remain blocked");
+const sameVersion = evaluateProductionCutover({
+  manifest,
+  workflow,
+  availableSources: [distributionFunction, apiFunction],
+  serverSource: secureServerSource,
+  availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
+  releaseVersion: "3.4.7",
+  releasePreRelease: "",
+});
+assert.equal(sameVersion.ready, false, "release guard must block republishing code under the currently deployed userscript version");
+assert(sameVersion.issues.some(issue => issue.includes("greater than deployed 3.4.7")));
+
+
+const apiNotDeployed = evaluateWithNextVersion({
   manifest,
   workflow: workflow.replace(apiDeploy, "# API deployment omitted"),
   availableSources: [distributionFunction, apiFunction],
@@ -92,7 +120,7 @@ const apiNotDeployed = evaluateProductionCutover({
 assert.equal(apiNotDeployed.ready, false);
 assert(apiNotDeployed.issues.some(issue => issue.includes('runtime "' + apiFunction + '" is not deployed')));
 
-const apiSourceMissing = evaluateProductionCutover({
+const apiSourceMissing = evaluateWithNextVersion({
   manifest,
   workflow,
   availableSources: [distributionFunction],
@@ -103,7 +131,7 @@ const apiSourceMissing = evaluateProductionCutover({
 assert.equal(apiSourceMissing.ready, false);
 assert(apiSourceMissing.issues.some(issue => issue.includes("source \"supabase/functions/" + apiFunction + "/index.ts\" is not versioned/generated")));
 
-const reversed = evaluateProductionCutover({
+const reversed = evaluateWithNextVersion({
   manifest,
   workflow: workflow.replace(apiDeploy + "\n" + distributionDeploy, distributionDeploy + "\n" + apiDeploy),
   availableSources: [distributionFunction, apiFunction],
@@ -114,7 +142,7 @@ const reversed = evaluateProductionCutover({
 assert.equal(reversed.ready, false);
 assert(reversed.issues.some(issue => issue.includes("API runtime must be deployed before the userscript distribution")));
 
-const unexpected = evaluateProductionCutover({
+const unexpected = evaluateWithNextVersion({
   manifest,
   workflow: workflow.replace(distributionDeploy, distributionDeploy + "\n          supabase functions deploy upstatus-test --project-ref \"$SUPABASE_PROJECT_ID\" --use-api"),
   availableSources: [distributionFunction, apiFunction, "upstatus-test"],
@@ -125,7 +153,7 @@ const unexpected = evaluateProductionCutover({
 assert.equal(unexpected.ready, false);
 assert(unexpected.issues.some(issue => issue.includes('Unexpected production runtime "upstatus-test"')));
 
-const noInvite = evaluateProductionCutover({
+const noInvite = evaluateWithNextVersion({
   manifest,
   workflow,
   availableSources: [distributionFunction, apiFunction],
@@ -136,7 +164,7 @@ const noInvite = evaluateProductionCutover({
 assert.equal(noInvite.ready, false);
 assert(noInvite.issues.some(issue => issue.includes("AUTH-03 is not release-ready")));
 
-const missingAuthTest = evaluateProductionCutover({
+const missingAuthTest = evaluateWithNextVersion({
   manifest,
   workflow,
   availableSources: [distributionFunction, apiFunction],
@@ -147,7 +175,7 @@ const missingAuthTest = evaluateProductionCutover({
 assert.equal(missingAuthTest.ready, false);
 assert(missingAuthTest.issues.some(issue => issue.includes("AUTH-03 regression test is missing")));
 
-const missingMigration = evaluateProductionCutover({
+const missingMigration = evaluateWithNextVersion({
   manifest,
   workflow,
   availableSources: [distributionFunction, apiFunction],
@@ -158,7 +186,7 @@ const missingMigration = evaluateProductionCutover({
 assert.equal(missingMigration.ready, false);
 assert(missingMigration.issues.some(issue => issue.includes("Required AUTH-03 migration source is missing")));
 
-const nameFallback = evaluateProductionCutover({
+const nameFallback = evaluateWithNextVersion({
   manifest,
   workflow,
   availableSources: [distributionFunction, apiFunction],
@@ -169,7 +197,7 @@ const nameFallback = evaluateProductionCutover({
 assert.equal(nameFallback.ready, false);
 assert(nameFallback.issues.some(issue => issue.includes("must not grant implementation_admin by hard-coded account name")));
 
-const nameOnlyChatClear = evaluateProductionCutover({
+const nameOnlyChatClear = evaluateWithNextVersion({
   manifest,
   workflow,
   availableSources: [distributionFunction, apiFunction],
@@ -180,7 +208,7 @@ const nameOnlyChatClear = evaluateProductionCutover({
 assert.equal(nameOnlyChatClear.ready, false);
 assert(nameOnlyChatClear.issues.some(issue => issue.includes("Chat clear must require Ricardo")));
 
-const nameOnlyMessageDelete = evaluateProductionCutover({
+const nameOnlyMessageDelete = evaluateWithNextVersion({
   manifest,
   workflow,
   availableSources: [distributionFunction, apiFunction],
@@ -191,7 +219,7 @@ const nameOnlyMessageDelete = evaluateProductionCutover({
 assert.equal(nameOnlyMessageDelete.ready, false);
 assert(nameOnlyMessageDelete.issues.some(issue => issue.includes("Message deletion must allow the owner")));
 
-const nameFallbackAdmin = evaluateProductionCutover({
+const nameFallbackAdmin = evaluateWithNextVersion({
   manifest,
   workflow,
   availableSources: [distributionFunction, apiFunction],
@@ -202,7 +230,7 @@ const nameFallbackAdmin = evaluateProductionCutover({
 assert.equal(nameFallbackAdmin.ready, false);
 assert(nameFallbackAdmin.issues.some(issue => issue.includes("Administrative authorization must derive only from the persisted")));
 
-const unsafeWorkflow = evaluateProductionCutover({
+const unsafeWorkflow = evaluateWithNextVersion({
   manifest,
   workflow: workflow + "\nsupabase db push",
   availableSources: [distributionFunction, apiFunction],
@@ -213,7 +241,7 @@ const unsafeWorkflow = evaluateProductionCutover({
 assert.equal(unsafeWorkflow.ready, false);
 assert(unsafeWorkflow.issues.some(issue => issue.includes("must not apply database migrations automatically")));
 
-const wrongTarget = evaluateProductionCutover({
+const wrongTarget = evaluateWithNextVersion({
   manifest: {
     ...manifest,
     productionApiBase: "https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/" + apiFunction,
@@ -227,7 +255,7 @@ const wrongTarget = evaluateProductionCutover({
 assert.equal(wrongTarget.ready, false);
 assert(wrongTarget.issues.some(issue => issue.includes("approved production API function")));
 
-const missingManifestField = evaluateProductionCutover({
+const missingManifestField = evaluateWithNextVersion({
   manifest: { productionFunction: distributionFunction },
   workflow,
   availableSources: [distributionFunction],
