@@ -70,3 +70,18 @@ Team Lite remains a separate release line: candidate userscript 3.4.31 versus de
 ## Safety record
 
 No production SQL write, migration, Edge Function deployment, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change, function deactivation, fixture mutation, or destructive operation was performed. The production project was read-only. The PR #85 workflow was edited but not dispatched.
+
+
+## 2026-11-08 08:18 BRT — AUTH-03 is now an explicit production cutover gate
+
+A read-only comparison of live beta10 v6 with the PR #85 server template found the same extracted route paths, path prefixes, table identifiers and RPC identifiers. That does not prove semantic parity: the live beta10 setup handler still permits first-caller setup for an account with an empty password and assigns admin by a hard-coded name list. The #85 template removes that name-based role assignment, but still has no one-time setup token, no admin-issued invite route, and no atomic invite-consumption RPC. This remains an onboarding takeover risk for future uninitialized accounts.
+
+Production SELECT confirms five users, zero uninitialized passwords, zero blank roles, three explicit admins and two implementation users. The setup-invite table and RPC are absent; production has only seven migrations (through `20261027155438`). The current accounts are initialized, but this does not make the first-caller setup design safe for future enrollment.
+
+PR #85 was hardened so `verify-production-cutover.mjs --enforce` now requires the AUTH-03 invite flow, stored-role chat-clear authorization, and the three versioned migration sources (`20261107010000`, `20261107060000`, `20261107062000`). It also rejects name-based admin assignment and any automatic `supabase db push` / migration-up command in the production workflow. The workflow remains API-first and manual-only.
+
+Exact PR #85 HEAD: `7e84c31772b82437529addd96bf11490e1286e31`. Validate [42475050634](https://github.com/Reekyi/UpStatus/actions/runs/42475050634) **SUCCESS**. The log intentionally reports `PRODUCTION CUTOVER BLOCKED` because the #85 template lacks AUTH-03 and the three migration sources. This is an expected release gate, not a CI failure. The synthetic regression verifies the aligned secure case and all negative cases.
+
+The full AUTH-03 implementation and `auth-enrollment.test.mjs` exist on the larger Normal candidate #74, but have not been ported into the stable 3.4.7 #85 line. Do not merge the two lines casually. Porting AUTH-03 requires a reviewed client/server change and separately authorized production migrations; the deploy workflow must not apply migrations itself.
+
+No production write, migration, deploy, workflow dispatch, merge, release, publication, secret/role/grant/ACL/policy/feature-flag change or destructive operation occurred. QA-owned files and `docs/RELEASE_READINESS.md` remain untouched.
