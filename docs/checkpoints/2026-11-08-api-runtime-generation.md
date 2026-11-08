@@ -85,3 +85,12 @@ Exact PR #85 HEAD: `7e84c31772b82437529addd96bf11490e1286e31`. Validate [4247505
 The full AUTH-03 implementation and `auth-enrollment.test.mjs` exist on the larger Normal candidate #74, but have not been ported into the stable 3.4.7 #85 line. Do not merge the two lines casually. Porting AUTH-03 requires a reviewed client/server change and separately authorized production migrations; the deploy workflow must not apply migrations itself.
 
 No production write, migration, deploy, workflow dispatch, merge, release, publication, secret/role/grant/ACL/policy/feature-flag change or destructive operation occurred. QA-owned files and `docs/RELEASE_READINESS.md` remain untouched.
+
+
+## Follow-up — AUTH-03 test wiring is also required (2026-11-08 08:20 BRT)
+
+The cutover gate now also requires `scripts/auth-enrollment.test.mjs` to exist and be invoked by `scripts/validate.mjs`, in addition to the admin-issued 256-bit invite, atomic RPC consumption, stored-role preservation, no first-caller claim, stored-role chat-clear, and all three migration source files. It rejects a production workflow that tries to apply migrations automatically.
+
+PR #85 exact HEAD: `b75707b6eaf678d87863144748b9aed8e2866455`. Validate [42475230911](https://github.com/Reekyi/UpStatus/actions/runs/42475230911) **SUCCESS**. The guard intentionally blocks the current #85 candidate on five missing AUTH-03 items: setup flow, wired regression test, and the three migration sources. This is an expected release gate, not a CI failure. The #74 branch contains the complete auth-enrollment test and migration sources, but they have not been ported to #85.
+
+No production migration/deploy/dispatch occurred; production remains at seven applied migrations with no setup-invite table or RPC. The workflow does not and must not run `db push`.
