@@ -63,6 +63,26 @@ assert.equal(header("updateURL"), manifest.scriptUrl, "@updateURL must match man
 assert.equal(header("downloadURL"), manifest.scriptUrl, "@downloadURL must match manifest scriptUrl");
 assert.ok(script.includes("var UPDATE_URL='" + manifest.scriptUrl + "'"), "internal UPDATE_URL must match manifest scriptUrl");
 new vm.Script(script, { filename: "team-lite/upstatus-team-lite.user.js" });
+
+const requiredRuntimeGlobals = [
+  "faviconState", "CLOUD_SERVER", "server", "UP_REALTIME_URL",
+  "UP_REALTIME_KEY", "UP_REALTIME_TOPIC", "realtimeClient",
+  "realtimeChannel", "realtimeActive", "realtimeRetryTimer"
+];
+for (const name of requiredRuntimeGlobals) {
+  const declaration = new RegExp("\\bvar\\s+[^;]*\\b" + name + "\\s*=");
+  assert.match(script, declaration, "Team Lite full-IIFE runtime configuration must declare " + name);
+}
+assert.match(script, /var CLOUD_SERVER='https:\\/\\/[^']+\\.supabase\\.co\\/functions\\/v1\\/upstatus-team-lite';/,
+  "Team Lite API base must be an explicit Supabase Edge Function URL");
+assert.match(script, /var UP_REALTIME_URL='https:\\/\\/[^']+\\.supabase\\.co';/,
+  "Team Lite Realtime origin must be explicit");
+assert.match(script, /var UP_REALTIME_KEY='sb_publishable_[^']+';/,
+  "Team Lite must declare its public Realtime key explicitly");
+assert.match(script, /var UP_REALTIME_TOPIC='[^']+';/,
+  "Team Lite must declare its Realtime topic explicitly");
+assert.ok(script.includes("var server=CLOUD_SERVER;"),
+  "Team Lite API server must initialize from the declared cloud endpoint");
 assert.ok(script.includes("if(served!==remote)throw new Error"), "manifest/script version mismatch must block updates");
 assert.ok(script.includes("if(cmp>0){setUpdateAvailable(true,served)"), "only a newer remote version may show the update prompt");
 assert.ok(script.includes("try{checkUpdate();}catch(_){}"), "updater must be invoked");
