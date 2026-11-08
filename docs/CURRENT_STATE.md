@@ -2599,3 +2599,8 @@ PR #85 HEAD `7e84c31772b82437529addd96bf11490e1286e31` Validate [42475050634](ht
 ## 2026-11-08 08:20 BRT — AUTH-03 test wiring is a release gate
 
 The [API runtime checkpoint](checkpoints/2026-11-08-api-runtime-generation.md) now records that production cutover also requires `scripts/auth-enrollment.test.mjs` to be wired into `scripts/validate.mjs`. PR #85 HEAD `b75707b6eaf678d87863144748b9aed8e2866455` Validate [42475230911](https://github.com/Reekyi/UpStatus/actions/runs/42475230911) **SUCCESS**; the guard intentionally blocks on missing AUTH-03 server flow, missing wired regression test and three migration sources. This is an expected release gate. No migration/deploy/dispatch occurred.
+
+
+## 2026-11-08 08:22 BRT — refreshed SQL privilege evidence
+
+The [API runtime checkpoint](checkpoints/2026-11-08-api-runtime-generation.md) now records the latest SELECT-only grant/default-ACL snapshot: 9 of 10 backend tables checked grant all eight table privileges to anon and authenticated; `upstatus_visual_config` grants none. Three broadcasts remain SECURITY DEFINER/executable by both roles; ten RLS-enabled/no-policy findings remain. Default ACLs are broad for postgres and supabase_admin. The session cannot assume supabase_admin and no privilege changes were attempted.
