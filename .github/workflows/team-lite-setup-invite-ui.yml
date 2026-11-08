@@ -11,6 +11,7 @@ on:
       - "scripts/test-team-lite-build-artifact.mjs"
       - "scripts/test-team-lite-setup-invite-browser.mjs"
       - ".github/workflows/team-lite-setup-invite-ui.yml"
+      - ".github/workflows/team-lite-candidate.yml"
   pull_request:
     branches:
       - fix/team-lite-deploy-jwt-config-guard-20261108
@@ -21,6 +22,7 @@ on:
       - "scripts/test-team-lite-build-artifact.mjs"
       - "scripts/test-team-lite-setup-invite-browser.mjs"
       - ".github/workflows/team-lite-setup-invite-ui.yml"
+      - ".github/workflows/team-lite-candidate.yml"
 
 permissions:
   contents: read
