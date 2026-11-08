@@ -67,7 +67,9 @@ new vm.Script(script, { filename: "team-lite/upstatus-team-lite.user.js" });
 const requiredRuntimeGlobals = [
   "faviconState", "CLOUD_SERVER", "server", "UP_REALTIME_URL",
   "UP_REALTIME_KEY", "UP_REALTIME_TOPIC", "realtimeClient",
-  "realtimeChannel", "realtimeActive", "realtimeRetryTimer"
+  "realtimeChannel", "realtimeActive", "realtimeRetryTimer",
+  "voiceControlBubble", "voiceControlAvatar", "voiceControlWave",
+  "voiceControlSpeakerName", "voiceRoom"
 ];
 for (const name of requiredRuntimeGlobals) {
   const declaration = new RegExp("\\bvar\\s+[^;]*\\b" + name + "\\s*=");
