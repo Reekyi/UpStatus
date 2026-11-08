@@ -22,7 +22,7 @@ export function hasAuthEnrollmentTestInvocation(validateScript) {
   const source = String(validateScript || "")
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/^\s*\/\/.*$/gm, "");
-  const normalInvocation = /^[ \t]*execFileSync\s*\(\s*process\.execPath\s*,\s*\[\s*path\.join\s*\(\s*ROOT\s*,\s*["']scripts["']\s*,\s*["']auth-enrollment\.test\.mjs["']\s*\)\s*,\s*["']normal["']\s*\]\s*,\s*\{\s*stdio\s*:\s*["']inherit["']\s*\}\s*\)\s*;[ \t]*$/m;
+  const normalInvocation = /^[ \t]*execFileSync\s*\(\s*process\.execPath\s*,\s*\[\s*path\.join\s*\(\s*ROOT\s*,\s*(?:["']scripts\/auth-enrollment\.test\.mjs["']|["']scripts["']\s*,\s*["']auth-enrollment\.test\.mjs["'])\s*\)\s*,\s*["']normal["']\s*\]\s*,\s*\{\s*stdio\s*:\s*["']inherit["']\s*\}\s*\)\s*;[ \t]*$/m;
   return normalInvocation.test(source);
 }
 
