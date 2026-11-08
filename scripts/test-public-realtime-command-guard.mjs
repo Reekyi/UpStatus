@@ -11,11 +11,11 @@ const sourcePath=path.resolve(ROOT,relative);
 if(!sourcePath.startsWith(ROOT+path.sep))throw new Error("Userscript source path must remain inside the repository.");
 const source=fs.readFileSync(sourcePath,"utf8");
 
-const handlerMatch=source.match(/\\.on\\('broadcast',\\s*\\{\\s*event:\\s*'remote_command'\\s*\\},\\s*(function\\s*\\(\\s*\\)\\s*\\{[\\s\\S]*?\\})\\s*\\)/);
+const handlerMatch=source.match(/\.on\('broadcast',\s*\{\s*event:\s*'remote_command'\s*\},\s*(function\s*\(\s*\)\s*\{[\s\S]*?\})\s*\)/);
 assert.ok(handlerMatch,"public remote_command handler must exist and accept no payload argument");
 const handlerSource=handlerMatch[1];
-assert.match(handlerSource,/scheduleRemoteStatusPoll\\(\\)/,"public remote_command may only schedule an authenticated queue poll");
-assert.doesNotMatch(handlerSource,/\\bpayload\\b|executeRemoteCommand|syncSaleSmartly|api\\(/,"public broadcast payload must never be executed or passed to an API");
+assert.match(handlerSource,/scheduleRemoteStatusPoll\(\)/,"public remote_command may only schedule an authenticated queue poll");
+assert.doesNotMatch(handlerSource,/\bpayload\b|executeRemoteCommand|syncSaleSmartly|api\(/,"public broadcast payload must never be executed or passed to an API");
 
 let scheduled=0,executed=0;
 const handlerSandbox={
@@ -50,7 +50,7 @@ const scheduleSandbox={
     if(item)item.cleared=true;
   }
 };
-vm.runInNewContext(scheduleSource+"\\nthis.__schedule=scheduleRemoteStatusPoll;",scheduleSandbox,{timeout:1000});
+vm.runInNewContext(scheduleSource+"\nthis.__schedule=scheduleRemoteStatusPoll;",scheduleSandbox,{timeout:1000});
 scheduleSandbox.__schedule();
 scheduleSandbox.__schedule();
 assert.equal(timers.length,1,"repeated public hints must be debounced");
@@ -65,11 +65,11 @@ timers[1].callback();
 assert.equal(pollCalls,1,"a current-session hint must poll the authenticated queue once");
 
 const pollStart=source.indexOf("  function pollRemoteStatus()");
-const pollEnd=source.indexOf("\\n  function refresh()",pollStart);
+const pollEnd=source.indexOf("\n  function refresh()",pollStart);
 assert.ok(pollStart>=0&&pollEnd>pollStart,"authenticated remote-status polling implementation must exist");
 const pollSource=source.slice(pollStart,pollEnd);
-assert.match(pollSource,/if\\(!token\\|\\|remotePolling\\)return/,"remote-status polling must require an authenticated session and prevent overlap");
-assert.match(pollSource,/api\\('GET','\\/api\\/remote-status'\\)/,"commands must be fetched from the authenticated HTTP queue");
-assert.match(pollSource,/executeRemoteCommand\\(d\\.command\\)/,"only the authenticated HTTP response may reach command execution");
+assert.match(pollSource,/if\(!token\|\|remotePolling\)return/,"remote-status polling must require an authenticated session and prevent overlap");
+assert.match(pollSource,/api\('GET','\/api\/remote-status'\)/,"commands must be fetched from the authenticated HTTP queue");
+assert.match(pollSource,/executeRemoteCommand\(d\.command\)/,"only the authenticated HTTP response may reach command execution");
 
 console.log("PASS public remote_command is a debounced wake-up only; forged payloads are ignored and execution is sourced from the authenticated remote-status API.");
