@@ -2563,3 +2563,16 @@ The prior shorthand “36 legacy/test/beta/backup functions” is superseded: pr
 All 37 retrievable sources contain the custom `x-upstatus-token`/session parser path and all 37 still expose `/api/chat/clear` with a name-only Ricardo guard. Five sources (the four operational runtimes plus `upstatus-backup-330-pre331`) also retain the legacy Ricardo-or-admin fallback in individual-message deletion; the other 32 retrievable historical sources restrict deletion to the owner.
 
 The full source/route inventory, 24-hour invocation evidence, DB catalog snapshot, lab snapshot, CI refs, and limitations are recorded in [the 2026-11-08 legacy function source audit](checkpoints/2026-11-08-legacy-function-source-audit.md). Keep beta10 active: the current 24-hour query returned 467 beta10 API invocations and one `upstatus.user.js` fetch; no deactivation is authorized.
+
+
+## Engineering checkpoint — 2026-11-08 07:10 BRT / 10:10 UTC
+
+- Added [the fail-closed production API cutover guard checkpoint](checkpoints/2026-11-08-production-cutover-guard.md). It records the current Normal mismatch: the artifact endpoint is `upstatus`, the generated API base is beta10, while the Draft production workflow deploys only `upstatus`.
+- PR #85 HEAD is now `c53f1bd23988de50fa21f62e18bcc9f817792ee8`. Its build manifest records the API function/base; the manual production workflow now runs `verify-production-cutover.mjs --enforce` before Management API preflight, CLI setup, or deploy. The guard requires both runtimes in the deploy workflow and versioned/generated sources.
+- Exact-head Validate [42470236560](https://github.com/Reekyi/UpStatus/actions/runs/42470236560) passed. Logs show the new offline regression passed and the diagnostic explicitly blocks the current beta10/upstatus mismatch because beta10 is not deployed by the workflow and its source is not versioned in this candidate. The production workflow was not dispatched.
+- Local Node 22.16.0 syntax checks and offline cutover regression passed; a local `--enforce` simulation exited 1 on the current mismatch as intended.
+- Live PR refs and CI are recorded in the checkpoint. All tracked PRs remain Draft/open/unmerged with zero human review submissions. #80 and #82 still fail their inherited base assertions; #82's live HEAD has advanced to `adb9a456`, while the QA-owned release-readiness table still records an older #82 head. Engineering did not modify the QA branch or `docs/RELEASE_READINESS.md`.
+- Fresh production SQL was SELECT/catalog-only: 5 users, 3 explicit admins, 3 broad SECURITY DEFINER broadcasts, 9 backend-owned tables with excessive client grants, 50 Realtime rows/7 partitions, and broad default ACLs. Security Advisor: 3 anon WARN + 3 authenticated WARN + 10 RLS INFO. Production remains unchanged.
+- The isolated signal-test helper remains v32; deployed HTTP 409 for `VOICE_ATTEMPT_ALREADY_ACTIVE` remains unverified. Full-product TEST, RT-01, AUTH-02/AUTH-03, ACL/default-ACL remediation, coordinated endpoint/version cutover, human review, and physical Issue #78 acceptance remain open (0/8).
+
+No production write, migration, deployment, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change, function deactivation, or destructive operation occurred.
