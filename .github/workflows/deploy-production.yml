@@ -46,7 +46,7 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: node scripts/verify-production-project.mjs
-      - name: Verify applied AUTH-03 migrations (read-only)
+      - name: Verify applied AUTH-03 and RT-01 migrations (read-only)
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
@@ -60,5 +60,6 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
+          supabase functions deploy upstatus-signal --project-ref "$SUPABASE_PROJECT_ID" --use-api
           supabase functions deploy upstatus-screen-share-3-1-1-beta10 --project-ref "$SUPABASE_PROJECT_ID" --use-api
           supabase functions deploy upstatus --project-ref "$SUPABASE_PROJECT_ID" --use-api
