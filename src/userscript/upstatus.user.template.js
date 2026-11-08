@@ -9,6 +9,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_setClipboard
 // @grant        GM_listValues
 // @grant        GM_deleteValue
 // @grant        GM_openInTab
@@ -3055,15 +3056,58 @@ function chatAvatarPresence(name){
     if(health.classList.contains('hidden'))return;
     var el=health.querySelector('[data-health-ping="'+CSS.escape(p.name)+'"]');if(el)el.innerHTML=healthPingLabel(p.name);
   }
+  async function createAndCopySetupInvite(targetName){
+    if(!canViewHealth()||!token||!member)throw new Error("Acesso não autorizado.");
+    var target=String(targetName||"").trim();
+    if(!target||target.length>120)throw new Error("Informe o nome exato da conta.");
+    var result=await api("POST","/api/setup-invite",{name:target});
+    if(!result||String(result.name||"")!==target)throw new Error("Resposta de convite inválida.");
+    var code=String(result.setupToken||"").trim().toLowerCase();
+    if(!/^[0-9a-f]{64}$/.test(code))throw new Error("O servidor retornou um código inválido.");
+    var expiresAt=Date.parse(result.expiresAt);
+    if(!Number.isFinite(expiresAt)||expiresAt<=Date.now())throw new Error("O convite retornado já expirou ou não tem validade.");
+    var copied=false;
+    try{
+      if(typeof GM_setClipboard==="function"){GM_setClipboard(code,"text");copied=true;}
+      else if(navigator.clipboard&&typeof navigator.clipboard.writeText==="function"){await navigator.clipboard.writeText(code);copied=true;}
+    }finally{code="";}
+    if(!copied)throw new Error("Não foi possível copiar o código. Atualize o Tampermonkey ou permita o acesso à área de transferência.");
+    return {name:target,expiresAt:expiresAt};
+  }
+  function bindSetupInviteControls(){
+    var input=health.querySelector(".up-setup-invite-name");
+    var button=health.querySelector(".up-setup-invite-generate");
+    var status=health.querySelector(".up-setup-invite-status");
+    if(!input||!button||!status)return;
+    button.onclick=async function(){
+      if(!canViewHealth()){status.textContent="Acesso não autorizado.";return;}
+      var target=String(input.value||"").trim();
+      if(!target||target.length>120){status.textContent="Informe o nome exato da conta.";return;}
+      button.disabled=true;
+      status.textContent="Gerando convite e copiando código…";
+      try{
+        var result=await createAndCopySetupInvite(target);
+        var expiresText=new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit"}).format(new Date(result.expiresAt));
+        status.textContent="Código copiado. Válido até "+expiresText+". Envie diretamente à pessoa.";
+        input.value="";
+      }catch(error){
+        status.textContent=String(error&&error.message||"Não foi possível gerar o convite.");
+      }finally{
+        if(button.isConnected)button.disabled=false;
+      }
+    };
+    input.addEventListener("keydown",function(event){if(event.key==="Enter"){event.preventDefault();button.click();}});
+  }
   function openHealth(){
     if(!canViewHealth())return;
     card.classList.add('hidden');
     history.classList.add('hidden');
     chat.classList.add('hidden');
-    health.innerHTML='<div class="up-health-head"><div><div class="up-health-title">Saúde do sistema</div><div class="up-health-sub">Equipe de Implementação • '+esc(member)+'</div></div><button type="button" class="up-health-close">Fechar</button></div><div class="up-health-list"><div class="up-health-row"><div class="up-health-left">'+healthLed(true)+'<span class="up-health-name">Verificando o sistema</span></div><span class="up-health-detail">Aguarde…</span></div></div><div class="up-health-footer">Verde: funcionando. Amarelo: reconectando. Vermelho: precisa de atenção.</div><button type="button" class="up-health-refresh">Atualizar agora</button>';
+    health.innerHTML='<div class="up-health-head"><div><div class="up-health-title">Saúde do sistema</div><div class="up-health-sub">Equipe de Implementação • '+esc(member)+'</div></div><button type="button" class="up-health-close">Fechar</button></div><div class="up-health-list"><div class="up-health-row"><div class="up-health-left">'+healthLed(true)+'<span class="up-health-name">Verificando o sistema</span></div><span class="up-health-detail">Aguarde…</span></div></div><div class="up-health-footer">Verde: funcionando. Amarelo: reconectando. Vermelho: precisa de atenção.</div><details class="up-setup-invite" style="margin:10px 0;padding:9px 10px;border:1px solid #344158;border-radius:9px;background:#111722;color:#edf2fb"><summary style="cursor:pointer;font-size:11px;font-weight:800">Gerar convite de primeiro acesso</summary><div style="margin-top:8px;font-size:10px;line-height:1.4;color:#9eabc0">Informe o nome exato de uma conta sem senha. Um novo convite substitui o anterior e expira em 15 minutos.</div><div style="display:flex;gap:6px;margin-top:8px;align-items:center"><input class="up-setup-invite-name" type="text" maxlength="120" autocomplete="off" placeholder="Nome exato da conta" style="min-width:0;flex:1;padding:8px 9px;border:1px solid #40506a;border-radius:7px;background:#111722;color:#edf2fb;font:11px Segoe UI,Arial,sans-serif"><button class="up-setup-invite-generate" type="button" style="border:0;border-radius:7px;padding:8px 10px;background:#4f7dff;color:#fff;font:700 10px Segoe UI,Arial,sans-serif;cursor:pointer;white-space:nowrap">Gerar e copiar</button></div><div class="up-setup-invite-status" role="status" aria-live="polite" style="min-height:15px;margin-top:7px;font-size:10px;color:#9eabc0">O código não será exibido nem armazenado no UpStatus.</div></details><button type="button" class="up-health-refresh">Atualizar agora</button>';
     health.classList.remove('hidden');
     health.querySelector('.up-health-close').onclick=function(){stopHealthMonitor();health.classList.add('hidden');card.classList.remove('hidden');};
     health.querySelector('.up-health-refresh').onclick=function(){loadHealth(true);};
+    bindSetupInviteControls();
     startHealthMonitor();
     loadHealth(true);
   }
