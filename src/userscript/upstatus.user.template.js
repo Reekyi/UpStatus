@@ -2090,9 +2090,8 @@ function renderChatText(text){
         .on('broadcast',{event:'chat_presence'},function(payload){var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();})
         .on('broadcast',{event:'health_ping'},function(payload){handleHealthPing(payload&&payload.payload||{});})
         .on('broadcast',{event:'health_pong'},function(payload){handleHealthPong(payload&&payload.payload||{});})
-        .on('broadcast',{event:'remote_command'},function(payload){
-          var c=payload&&payload.payload&&payload.payload.command;
-          if(c&&c.target===member)executeRemoteCommand(c);
+        .on('broadcast',{event:'remote_command'},function(){
+          scheduleRemoteStatusPoll();
         })
         .on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{});})
         .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){voiceRoomReceive(payload&&payload.payload||{});})
@@ -3342,6 +3341,16 @@ function chatAvatarPresence(name){
       delete remotePending[c.id];
       if(!ok)message('Comando remoto de '+c.sender+' falhou: '+error,true);else refresh();
     })();
+  }
+
+  var remotePollHintTimer=null;
+  function scheduleRemoteStatusPoll(){
+    if(remotePollHintTimer)return;
+    var expectedToken=token,expectedMember=member;
+    remotePollHintTimer=setTimeout(function(){
+      remotePollHintTimer=null;
+      if(token===expectedToken&&member===expectedMember)pollRemoteStatus();
+    },1100);
   }
 
   function pollRemoteStatus(){
