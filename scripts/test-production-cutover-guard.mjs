@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { evaluateProductionCutover, parseDeployedFunctions, REQUIRED_SETUP_MIGRATIONS } from "./verify-production-cutover.mjs";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { evaluateProductionCutover, hasAuthEnrollmentTestInvocation, parseDeployedFunctions, REQUIRED_SETUP_MIGRATIONS } from "./verify-production-cutover.mjs";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const apiFunction = "upstatus-screen-share-3-1-1-beta10";
 const distributionFunction = "upstatus";
@@ -18,6 +23,12 @@ const manifest = {
   productionApiBase: "https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/" + apiFunction,
 };
 const secureServerSource = [
+  "async function account(name:string){return {role:'implementation_admin'};}",
+  "async function admin(name:string|null){",
+  "if(!name)return false;",
+  "const a=await account(name);",
+  'return a?.role==="implementation_admin";',
+  "}",
   "async function issueSetupInvite(req:Request,adminName:string){",
   "if(!await admin(adminName))return response({},403);",
   'randomBytes(32).toString("hex")',
@@ -28,9 +39,36 @@ const secureServerSource = [
   'const sessionRole=enrolledRole.trim()?enrolledRole:"implementation_user";',
   'if(path==="/api/chat/clear"&&req.method==="POST"){',
   'if(name!=="Ricardo"||!(await admin(name)))return response({},403);',
-].join("\n");
+  "async function deleteRoute(name:string,id:string){",
+  "const {data}=await db.from('messages').select('id,user_name').eq('id',id).maybeSingle();",
+  "if(!data)return response({},404);",
+  "const isAdmin=await admin(name);",
+  "if(data.user_name!==name&&!isAdmin)return response({},403);",
+  "}",
+].join("\\n");
 
 assert.deepEqual(parseDeployedFunctions(workflow), [apiFunction, distributionFunction]);
+
+const validateInvocation = 'execFileSync(process.execPath,[path.join(ROOT,"scripts/auth-enrollment.test.mjs"),"normal"],{stdio:"inherit"});';
+const validateInvocationSplit = 'execFileSync(process.execPath,[path.join(ROOT,"scripts","auth-enrollment.test.mjs"),"normal"],{stdio:"inherit"});';
+assert.equal(hasAuthEnrollmentTestInvocation(validateInvocation), true, "the normal enrollment test must be invoked by Validate");
+assert.equal(hasAuthEnrollmentTestInvocation(validateInvocationSplit), true, "split path.join arguments must also be recognized");
+assert.equal(hasAuthEnrollmentTestInvocation("// " + validateInvocation), false, "a comment mentioning the test must not satisfy the release gate");
+assert.equal(hasAuthEnrollmentTestInvocation("const marker = 1; // " + validateInvocation), false, "an inline comment mentioning the test must not satisfy the release gate");
+assert.equal(hasAuthEnrollmentTestInvocation(validateInvocation.replace('"normal"', '"team-lite"')), false, "Team Lite-only execution must not satisfy the Normal release gate");
+
+const actualServerSource = fs.readFileSync(path.join(ROOT, "src/server/index.template.ts"), "utf8");
+const actualSourceResult = evaluateProductionCutover({
+  manifest,
+  workflow,
+  availableSources: [distributionFunction, apiFunction],
+  serverSource: actualServerSource,
+  availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
+});
+assert(!actualSourceResult.issues.some(issue => issue.includes("Administrative authorization must derive only from the persisted")), "the current production candidate admin helper must be backed by the stored role");
+assert(!actualSourceResult.issues.some(issue => issue.includes("Message deletion must allow the owner")), "the current production candidate deleteRoute must use stored-role admin authorization");
+assert(!actualSourceResult.issues.some(issue => issue.includes("Chat clear must require Ricardo")), "the current production candidate chat clear must use stored-role authorization");
 
 const aligned = evaluateProductionCutover({
   manifest,
@@ -142,6 +180,28 @@ const nameOnlyChatClear = evaluateProductionCutover({
 assert.equal(nameOnlyChatClear.ready, false);
 assert(nameOnlyChatClear.issues.some(issue => issue.includes("Chat clear must require Ricardo")));
 
+const nameOnlyMessageDelete = evaluateProductionCutover({
+  manifest,
+  workflow,
+  availableSources: [distributionFunction, apiFunction],
+  serverSource: secureServerSource.replace("const isAdmin=await admin(name);", 'const isAdmin=name==="Ricardo";'),
+  availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
+});
+assert.equal(nameOnlyMessageDelete.ready, false);
+assert(nameOnlyMessageDelete.issues.some(issue => issue.includes("Message deletion must allow the owner")));
+
+const nameFallbackAdmin = evaluateProductionCutover({
+  manifest,
+  workflow,
+  availableSources: [distributionFunction, apiFunction],
+  serverSource: secureServerSource.replace('return a?.role==="implementation_admin";', 'return name==="Ricardo";'),
+  availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
+});
+assert.equal(nameFallbackAdmin.ready, false);
+assert(nameFallbackAdmin.issues.some(issue => issue.includes("Administrative authorization must derive only from the persisted")));
+
 const unsafeWorkflow = evaluateProductionCutover({
   manifest,
   workflow: workflow + "\nsupabase db push",
@@ -178,4 +238,4 @@ const missingManifestField = evaluateProductionCutover({
 assert.equal(missingManifestField.ready, false);
 assert(missingManifestField.issues.some(issue => issue.includes("productionApiFunction is missing or invalid")));
 
-console.log("PASS production cutover guard: API-first alignment, AUTH-03 invite/atomic consumption and regression, stored-role chat clear, required migrations, no automatic db push; missing deploy/source/test, reversed order, TEST deploy, first-caller setup, name fallback, name-only chat clear, missing migrations, wrong host and incomplete manifest blocked.");
+console.log("PASS production cutover guard: API-first alignment, AUTH-03 invite/atomic consumption and executable regression wiring, stored-role chat clear and individual-message deletion, required migrations, no automatic db push; missing deploy/source/test, reversed order, TEST deploy, first-caller setup, name-based admin/delete fallback, comment-only test reference, name-only chat clear, missing migrations, wrong host and incomplete manifest blocked.");

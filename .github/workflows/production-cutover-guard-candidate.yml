@@ -1,0 +1,33 @@
+name: Production Cutover Guard Candidate
+
+on:
+  push:
+    branches:
+      - fix/production-cutover-guard-auth-delete-wiring-20261108
+      - fix/master-release-script-url-20261107
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-cutover-guard-candidate
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check Node runtime
+        run: node --version
+      - name: Check guard syntax
+        run: |
+          node --check scripts/verify-production-cutover.mjs
+          node --check scripts/test-production-cutover-guard.mjs
+      - name: Run offline cutover guard regressions
+        run: node scripts/test-production-cutover-guard.mjs
