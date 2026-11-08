@@ -2682,3 +2682,16 @@ No production write, migration, deploy, workflow dispatch, merge, release, users
 ### Ref refresh — documentation branch validation (2026-11-08 11:02 BRT / 14:02 UTC)
 
 The #80 documentation-only branch advanced to exact HEAD `cde30c6e51f78f6f4d02aaababd30e64999bdae3` after the Team Lite runner checkpoint. Validate [42487811492](https://github.com/Reekyi/UpStatus/actions/runs/42487811492) failed at the same inherited `develop` assertion, `client signed upload helper missing`, `scripts/validate.mjs:55`. The log shows the build completed and no documentation-specific error; no validator was changed. #82 remains at exact HEAD `35fa63cf5a11c77b954095123db06e0de6c6767c`; Validate [42486103438](https://github.com/Reekyi/UpStatus/actions/runs/42486103438) fails only at the inherited `production updateURL mismatch` assertion, `scripts/validate.mjs:26`.
+
+
+## 2026-11-08 — Team Lite generated API artifact parity
+
+PR [#91](https://github.com/Reekyi/UpStatus/pull/91) is a Draft follow-up stacked on #76. It adds a regression for the generated `supabase/functions/upstatus-team-lite/index.ts` artifact and wires the Team Lite candidate workflow to run `scripts/build.mjs` before verifying the generated runtime. The check ties `VERSION`, embedded Base64 userscript bytes, update/download URLs, API/Realtime origins, path marker, and AUTH-03 invite/RPC code to the reviewed Team Lite source/manifest.
+
+Exact HEAD `cb65cb831910d384715addf98285d01a273e2c6a` (4 commits ahead / 0 behind #76, three files). First run [42488077053](https://github.com/Reekyi/UpStatus/actions/runs/42488077053) exposed an over-escaped semver regex in the new test; corrected without product changes. Exact-head workflow [42488110607](https://github.com/Reekyi/UpStatus/actions/runs/42488110607) **SUCCESS** on Node v24.22.2: build generated Team Lite 3.4.31, exact embedded-artifact parity passed, and the full offline Team Lite candidate checks passed. The workflow used no Supabase secret/network/fixtures and did not deploy.
+
+New blocker confirmed during this review: the Team Lite branch's inherited `deploy-production.yml` still uses Supabase CLI `latest`, job-level credentials and deploys only `upstatus`; it does not deploy `upstatus-team-lite`. Production Team Lite remains v15 with embedded 3.4.30 while the candidate is 3.4.31. A dedicated API-first Team Lite deploy/cutover/rollback guard is still required before publication. Detailed checkpoint: [Team Lite build artifact parity](checkpoints/2026-11-08-team-lite-build-artifact-parity.md).
+
+Related [PR #90](https://github.com/Reekyi/UpStatus/pull/90) hardens the Team Lite AUTH-03 fixture runner; exact-head offline workflow [42487717033](https://github.com/Reekyi/UpStatus/actions/runs/42487717033) SUCCESS. #90 and #91 remain separate Draft PRs stacked on #76.
+
+No production write, migration, deploy, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/flag change, or function deactivation occurred.
