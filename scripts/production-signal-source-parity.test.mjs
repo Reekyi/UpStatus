@@ -69,7 +69,7 @@ function extractVoiceRoomOpenRoute(source, label) {
 
 const productionOpenRoute = extractVoiceRoomOpenRoute(production, "production signaling handler");
 const isolatedOpenRoute = extractVoiceRoomOpenRoute(isolated, "isolated signaling handler");
-const voiceAttemptConflictMapping = /code === "VOICE_ATTEMPT_CONFLICT"\\s*\\|\\|\\s*code === "VOICE_ATTEMPT_ALREADY_ACTIVE"\\s*\\|\\|\\s*code === "ROOM_FULL"\\s*\\?\\s*409\\s*:\\s*500/;
+const voiceAttemptConflictMapping = /code === "VOICE_ATTEMPT_CONFLICT"\s*\|\|\s*code === "VOICE_ATTEMPT_ALREADY_ACTIVE"\s*\|\|\s*code === "ROOM_FULL"\s*\?\s*409\s*:\s*500/;
 for (const [label, route] of [
   ["production", productionOpenRoute],
   ["isolated", isolatedOpenRoute],
