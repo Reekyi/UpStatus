@@ -110,6 +110,7 @@ try{
     health.click();
   });
   await page.locator(".up-health .up-setup-invite").waitFor({timeout:5000});
+  await page.locator(".up-setup-invite summary").click();
   await page.locator(".up-setup-invite-name").fill("Guilherme");
   await page.locator(".up-setup-invite-generate").click();
   await page.waitForFunction(()=>!!window.__upstatusClipboard,{timeout:5000});
