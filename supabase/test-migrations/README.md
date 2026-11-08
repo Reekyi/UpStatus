@@ -21,3 +21,11 @@ Production migrations must be separately authored, reviewed, validated against t
 `20261107170000_pin_empty_search_path_trigger_broadcasts_test.sql` is an isolated-only counterpart to `supabase/migrations/20261107170000_pin_empty_search_path_trigger_broadcasts.sql`. It pins the three trigger-only SECURITY DEFINER broadcast functions to an empty function `search_path`, then verifies that they remain attached to triggers, keep schema-qualified `realtime.send`, deny direct execution to `anon`/`authenticated`, and preserve `service_role` execution.
 
 Apply it only to the allowlisted isolated project after checking that no fixture workflow is active. It is not a production migration and does not make the legacy public Realtime topic private.
+
+
+## Voice attempt singleton (2026-11-08)
+
+- `20261108010000_voice_attempt_singleton_test.sql` verifies that the voice-attempt RPC remains SECURITY INVOKER, pins an empty `search_path`, and is executable only by `service_role`.
+- The paired production candidate migration prevents one UpStatus account from creating multiple active voice-room attempts across the Normal and Team Lite logical aliases. Stale/departed attempts are closed before a new attempt is accepted.
+- The authenticated integration harness races two different tab-local attempt IDs for the same account and requires exactly one winner, a deterministic `VOICE_ATTEMPT_ALREADY_ACTIVE` conflict, and a successful retry after cancellation.
+- These files are candidate-only. Apply the test SQL only to the allowlisted isolated project `bfpjtfqlnypisxljoxkb`; never apply test-migration files to production or the official TEST project.
