@@ -2338,3 +2338,53 @@ No production SQL write, migration, Edge Function deployment, merge, release, us
 - Current PRs: #74 `d8914dd` (Validate PASS, Smoke in progress); #75 `7bbf9b9` (historical Candidate Checks PASS); #76 `c025ae0` (Candidate Checks pending); #80 `270ccfb` (Validate fails inherited `client signed upload helper missing`); #82 `546291d` (Validate fails inherited `production updateURL mismatch`); #84 `21341f3` (Validate PASS); #85 `1755452` (Validate PASS). All seven remain open/Draft with zero human review submissions.
 - Issue #78 remains **0/8 physical acceptance criteria**. No Tampermonkey no-F5, physical microphone/display, or installed Normal ↔ Team Lite acceptance was performed. Issue #79 remains open.
 - No production SQL write/migration, Edge Function deployment, merge, release, userscript publication, secret/role/grant/ACL/policy/flag change, or destructive operation occurred. QA branch and release-readiness document remain untouched.
+
+
+## Engineering checkpoint — 2026-11-08 03:05 UTC (00:05 BRT)
+
+### Exact candidate heads and CI
+
+- **Normal #74** HEAD `d8914dd8e5867e87107fe3886b2346826122a6d4`: Validate [42437136152](https://github.com/Reekyi/UpStatus/actions/runs/42437136152) and Signaling Smoke [42437136129](https://github.com/Reekyi/UpStatus/actions/runs/42437136129) both **SUCCESS**. Smoke confirms 134/134 authenticated checks. The exact-head logs include AUTH-03 route-dispatch/handler regression, authenticated signaling, browser WebRTC call/voice/screen, three-member mesh, rate-limit and read-receipt concurrency, invite consumption and cleanup.
+- **Team Lite #76** HEAD `c025ae082fc2e8031868694750382d0e92288d51`: Candidate Checks [42437153048](https://github.com/Reekyi/UpStatus/actions/runs/42437153048) **SUCCESS**; 16/16 unauthenticated and 108/108 authenticated checks. The run includes the Team Lite backend's stored-role chat-clear regression, authenticated voice-room leave/retry, WebRTC call/voice/screen, mesh, rate-limit/receipt/invite checks and cleanup. The Team Lite source of truth is `src/server/team-lite-index.template.ts`; its inherited `src/server/index.template.ts` is a stale Normal template and must not be used for cross-branch parity assertions.
+- **#75 baseline** HEAD `7bbf9b9`: historical Candidate Checks PASS; #76 is the current Team Lite candidate.
+- **#80 continuity** prior HEAD `2118e4b`: Validate [42437405239](https://github.com/Reekyi/UpStatus/actions/runs/42437405239) fails at the inherited `client signed upload helper missing` assertion in the develop base. This checkpoint itself advances #80 with documentation only.
+- **#82 QA** HEAD `4d323ec20a5f848c41c1b0ba30b3e74fdf03d41d`: Validate [42439623507](https://github.com/Reekyi/UpStatus/actions/runs/42439623507) fails at the inherited `production updateURL mismatch` assertion in master. QA source and `docs/RELEASE_READINESS.md` remain untouched.
+- **#84 TEST isolation** HEAD `21341f3`: Validate PASS. **#85 master stabilization** now advances to `36c19ab87d883fe5252715fcbbc0fbef2e35ec9f`; exact-head Validate [42440947791](https://github.com/Reekyi/UpStatus/actions/runs/42440947791) **SUCCESS**.
+- All seven tracked PRs (#74, #75, #76, #80, #82, #84, #85) remain open and Draft. Review API returned zero review submissions for all seven. Ahead/behind comparisons: #74 870/0; #75 59/0; #76 340/0; #80 214/0; #82 116/0; #84 30/0; #85 25/0. These are large candidates, not small independent patches; review ancestry/overlap before any integration.
+
+### New production-deploy guard in candidate #85
+
+On isolated branch `fix/master-release-script-url-20261107`, added:
+- `scripts/verify-production-project.mjs`: read-only Supabase Management API GET; verifies exact project ref, UpStatus organization, ACTIVE_HEALTHY status and matching database host. It refuses a configured target that differs from the pinned production ref or equals the isolated signaling fixture ref.
+- `scripts/test-production-deploy-workflow-guard.mjs`: tests manual-only trigger, exact dispatch-SHA checkout, `refs/heads/master` guard, project/organization allowlist, read-only preflight, scoped secrets, CLI pin, serialization, timeout and production-function-only command.
+- `deploy-production.yml`: remains `workflow_dispatch` only; now checks out `${{ github.sha }}`, verifies master and exact SHA, requires stable 3.4.7, performs the Management API preflight, pins Supabase CLI to 2.122.1, serializes production deploys and scopes credentials to the preflight/deploy steps.
+- Wired the regression into `scripts/validate.mjs`. Exact-head Validate [42440947791](https://github.com/Reekyi/UpStatus/actions/runs/42440947791) passed: build 3.4.7, production deploy guard PASS, signed-upload client/server regressions PASS, chat regressions PASS, `Validation OK`.
+- **No workflow_dispatch occurred. No deployment was performed.** The workflow change exists only in PR #85 Draft and is not in master.
+
+### Supabase snapshot — read-only
+
+- Organization still has only two projects: production `dlfvkawaiqduhlazsszm` and isolated signaling/auth lab `bfpjtfqlnypisxljoxkb`. No independent full-product TEST project.
+- Production: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations, 38 Edge Functions; deployed `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15, legacy screen-share v6.
+- Lab: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 36 migrations, `upstatus-signal-test` v32 and `upstatus-signal-e2e-once` v3. After the serialized CI queue drained, read-only counts were zero in all 11 fixture categories (users, sessions, rooms, members, events, bindings, rate limits, call attempts, voice attempts, chat reads, messages); `realtime.messages` had 0 rows and 0 child partitions.
+- Production user aggregate: 5 users, 0 uninitialized password hashes, 0 blank roles, 3 explicit `implementation_admin` roles.
+- Read-only deployed-source inspection confirms `/api/chat/clear` in all four deployed functions (Normal v480, TEST v281, Team Lite v15, legacy screen-share v6) still checks session name `Ricardo` only. This is a role-downgrade authorization gap, not an anonymous bypass. Normal #74 and Team Lite #76 candidates now require Ricardo plus a fresh stored-role admin check before any message read/delete or Storage removal; candidate CI passes. Nothing was deployed.
+- Production still has 3 public SECURITY DEFINER broadcast functions with `search_path=public` and EXECUTE effective for anon/authenticated/service_role; production Realtime has 7 child partitions and 50 rows. Broadcast payload minimization/private authorization remains open (RT-01).
+- Nine backend-owned tables still grant anon/authenticated the seven privileges DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE and UPDATE. Default ACLs remain broad for postgres/supabase_admin. Security Advisor: 3 anon SECURITY DEFINER WARN, 3 authenticated SECURITY DEFINER WARN, 10 RLS-without-policy INFO; Performance and Health empty.
+- Lab read-only catalog confirms the setup-invite, signaling rate-limit and atomic chat-read receipt RPCs exist; no auth-specific rate-limit table/RPC exists in either lab or production. AUTH-02 remains open.
+- Lab `upstatus-signal-test` v32 source does not contain `VOICE_ATTEMPT_ALREADY_ACTIVE`; the HTTP 409 mapping is not proven by current RPC-level tests. The helper source is not tracked in the repository. Version and test it before treating this contract as complete.
+- The voice-attempt wrapper takes a global logical-room advisory lock before scanning per-user attempts. This serializes unrelated accounts; review account-scoped outer locking only after proving lock order against cancel/open and retaining the inner global lock required for shared room bindings.
+
+### AUTH-03 and AUTH-02 boundary
+
+- Normal and Team Lite candidates contain the setup-invite flow: random one-time token, hash-only persistence, 15-minute expiry, explicit stored-role admin authorization and a session-guarded route. Node VM tests execute the actual route dispatch/handlers with DB/session mocks; isolated DB tests exercise malformed, wrong, expired, replayed and concurrent consumption, role handling and cleanup.
+- This is not yet a full HTTP end-to-end test through the real Deno handler. Keep that as a gate.
+- Candidate policy is setup minimum 6 / ordinary login minimum 4. Production Normal currently requires 6 for both; production Team Lite requires 4 for both. The deployed pair therefore still has a password-policy mismatch.
+- AUTH-02 cannot safely key on an undocumented forwarding header. Supabase's public Edge Functions overview describes the gateway/runtime but does not define a trusted client-IP header contract: https://supabase.com/docs/guides/functions. The self-hosted Envoy guide is not a hosted Edge Functions guarantee. Community discussions asking about `cf-connecting-ip` remain unresolved: https://github.com/orgs/supabase/discussions/52496 and https://github.com/orgs/supabase/discussions/52040. Do not ship an IP-based limiter until Supabase documents or confirms the managed-ingress contract, or the app uses another trusted ingress. Do not trust caller-controlled `x-forwarded-for` fallbacks.
+
+### Deployment, governance and physical acceptance
+
+- `develop` still has a push-triggered TEST workflow using shared `SUPABASE_PROJECT_ID` and CLI `latest`, without destination preflight. PR #84 has the safer manual-only, exact-SHA, develop-only, dedicated `SUPABASE_TEST_PROJECT_ID`, Management API preflight and CLI 2.122.1 workflow; it remains Draft and no full-product TEST project exists.
+- The production workflow on master remains the older manual-only version with a 3.4.7 gate but no explicit master/SHA guard and CLI `latest`. The hardened replacement is only in #85 Draft.
+- Branch-protection API reads returned HTTP 403 for the integration; repository rulesets endpoint returned an empty array. Current branch-protection state is therefore **unverified**, not assumed.
+- Issue #78 remains **0/8 physical acceptance criteria**. No installed Tampermonkey offline/no-F5, physical microphone/display, or installed Normal ↔ Team Lite acceptance was performed.
+- No production SQL write/migration, Edge Function deployment, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change or destructive operation occurred. QA branch and `docs/RELEASE_READINESS.md` were not modified.
