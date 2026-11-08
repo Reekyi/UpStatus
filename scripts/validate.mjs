@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
 execFileSync(process.execPath,[path.join(ROOT,"scripts/migration-layout.test.mjs")],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/signaling-test-request.test.mjs")],{stdio:"inherit"});
+execFileSync(process.execPath,[path.join(ROOT,"scripts/signaling-transport.test.mjs")],{stdio:"inherit"});
+execFileSync(process.execPath,[path.join(ROOT,"scripts/public-call-discovery-guard.test.mjs"),"normal"],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/auth-enrollment.test.mjs"),"normal"],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/production-signal-source-parity.test.mjs")],{stdio:"inherit"});
 const rootArtifactPath=path.join(ROOT,"UpStatus.user.js");
