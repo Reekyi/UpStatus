@@ -1352,3 +1352,112 @@ assert.ok(testDeployWorkflow.includes("node scripts/test-build-target-guard.mjs"
   testDeployWorkflow.includes("version: 2.122.1") &&
   testDeployWorkflow.includes('--project-ref "$SUPABASE_TEST_PROJECT_ID"'),
   "TEST deployment must run the target guard, use a pinned CLI, and deploy only to the dedicated TEST project");
+
+
+// Regression for QA finding: clearing the shared chat is destructive and must
+// require both the Ricardo account and its stored implementation_admin role.
+// This VM executes only the real route guard; message/Storage operations remain
+// outside the extracted block and are asserted to occur strictly after it.
+const teamLiteChatClearStart = backend.indexOf('if(path==="/api/chat/clear"&&req.method==="POST"){');
+const teamLiteChatClearRead = backend.indexOf('const {data:oldMessages,error:readError}=await db.from("messages").select("image_url")', teamLiteChatClearStart);
+const teamLiteChatClearDelete = backend.indexOf('db.from("messages").delete()', teamLiteChatClearStart);
+const teamLiteChatClearStorage = backend.indexOf('db.storage.from("chat-images").remove(batch)', teamLiteChatClearStart);
+const normalChatClearStart = normalBackend.indexOf('if(path==="/api/chat/clear"&&req.method==="POST"){');
+const normalChatClearRead = normalBackend.indexOf('const {data:oldMessages,error:readError}=await db.from("messages").select("image_url")', normalChatClearStart);
+const requiredChatClearGuard = 'if(name!=="Ricardo"||!(await admin(name)))return response({error:"Somente o administrador responsável pode limpar o chat."},403);';
+assert.ok(teamLiteChatClearStart >= 0 && teamLiteChatClearRead > teamLiteChatClearStart &&
+  teamLiteChatClearDelete > teamLiteChatClearRead && teamLiteChatClearStorage > teamLiteChatClearDelete,
+  "Team Lite chat-clear guard must precede message reads, deletes, and Storage removal");
+assert.ok(backend.slice(teamLiteChatClearStart, teamLiteChatClearRead).includes(requiredChatClearGuard),
+  "Team Lite chat-clear route must require Ricardo plus the stored admin role");
+assert.ok(normalChatClearStart >= 0 && normalChatClearRead > normalChatClearStart &&
+  normalBackend.slice(normalChatClearStart, normalChatClearRead).includes(requiredChatClearGuard),
+  "Normal and Team Lite must use the same stored-role chat-clear authorization");
+assert.ok(script.includes("role==='implementation_admin'?'<button class=\\"up-chat-clear\\"") &&
+  script.includes("function clearChatRicardo(){if(role!=='implementation_admin')return;"),
+  "Team Lite clear-chat UI affordance and handler must follow the stored admin role");
+
+const teamLiteAccountStart = backend.indexOf("async function account(name:string){");
+const teamLiteCreateSessionStart = backend.indexOf("async function createSession(", teamLiteAccountStart);
+assert.ok(teamLiteAccountStart >= 0 && teamLiteCreateSessionStart > teamLiteAccountStart,
+  "Team Lite account/admin helpers must exist for the chat-clear guard regression");
+const teamLiteAdminHelpers = backend.slice(teamLiteAccountStart, teamLiteCreateSessionStart);
+const teamLiteChatClearGuardSource = backend.slice(teamLiteChatClearStart, teamLiteChatClearRead) + "\\n    }";
+const teamLiteChatClearGuardProgram = teamLiteAdminHelpers + "\\n" +
+  "async function __runChatClearGuard(name) {\\n" +
+  "  const req={method:\\"POST\\"}; const path=\\"/api/chat/clear\\";\\n" +
+  teamLiteChatClearGuardSource + "\\n" +
+  "  return response({allowed:true},200);\\n" +
+  "}\\nthis.__runChatClearGuard=__runChatClearGuard;";
+
+function makeTeamLiteChatClearGuardContext(storedRole) {
+  const counters = { userLookups: 0, messageAccesses: 0, storageAccesses: 0 };
+  const userQuery = {
+    select() { return this; },
+    eq() { return this; },
+    maybeSingle: async () => {
+      counters.userLookups++;
+      return { data: { role: storedRole }, error: null };
+    },
+  };
+  const db = {
+    from(table) {
+      if (table === "users") return userQuery;
+      if (table === "messages") {
+        counters.messageAccesses++;
+        throw new Error("chat-clear authorization test must not read or delete messages");
+      }
+      throw new Error("unexpected table in chat-clear guard test: " + table);
+    },
+    storage: {
+      from() {
+        counters.storageAccesses++;
+        throw new Error("chat-clear authorization test must not access Storage");
+      },
+    },
+  };
+  const context = {
+    db,
+    response: (body, status = 200) => ({ body, status }),
+    Promise, Object, Array, String, Number, Date, Set,
+  };
+  vm.runInNewContext(teamLiteChatClearGuardProgram, context, { timeout: 1000 });
+  return { run: context.__runChatClearGuard, counters };
+}
+
+const downgradedRicardo = makeTeamLiteChatClearGuardContext("implementation_user");
+const downgradedResult = await downgradedRicardo.run("Ricardo");
+assert.equal(downgradedResult.status, 403,
+  "Ricardo with a downgraded stored role must be denied");
+assert.equal(downgradedRicardo.counters.userLookups, 1);
+assert.equal(downgradedRicardo.counters.messageAccesses, 0,
+  "a downgraded Ricardo session must not read or delete messages");
+assert.equal(downgradedRicardo.counters.storageAccesses, 0,
+  "a downgraded Ricardo session must not remove chat Storage objects");
+
+const paddedRicardo = makeTeamLiteChatClearGuardContext(" implementation_admin ");
+const paddedResult = await paddedRicardo.run("Ricardo");
+assert.equal(paddedResult.status, 403,
+  "a padded role string must not grant chat-clear authorization");
+assert.equal(paddedRicardo.counters.messageAccesses, 0);
+assert.equal(paddedRicardo.counters.storageAccesses, 0);
+
+const nonRicardoAdmin = makeTeamLiteChatClearGuardContext("implementation_admin");
+const nonRicardoResult = await nonRicardoAdmin.run("Another Admin");
+assert.equal(nonRicardoResult.status, 403,
+  "a different administrator account must not bypass the explicit Ricardo ownership rule");
+assert.equal(nonRicardoAdmin.counters.userLookups, 0,
+  "the name mismatch must short-circuit before role lookup");
+assert.equal(nonRicardoAdmin.counters.messageAccesses, 0);
+assert.equal(nonRicardoAdmin.counters.storageAccesses, 0);
+
+const authorizedRicardo = makeTeamLiteChatClearGuardContext("implementation_admin");
+const authorizedResult = await authorizedRicardo.run("Ricardo");
+assert.equal(authorizedResult.status, 200,
+  "Ricardo with the explicit stored implementation_admin role must pass the authorization guard");
+assert.equal(authorizedResult.body.allowed, true);
+assert.equal(authorizedRicardo.counters.userLookups, 1);
+assert.equal(authorizedRicardo.counters.messageAccesses, 0,
+  "the positive authorization case evaluates only the guard and never executes destructive operations");
+assert.equal(authorizedRicardo.counters.storageAccesses, 0);
+console.log("Team Lite destructive chat-clear route requires the stored admin role; denied cases perform no message or Storage operations.");
