@@ -159,14 +159,34 @@ async function createScenario(role, member) {
   await page.goto("https://www.salesmartly.com/", { waitUntil: "domcontentloaded" });
   await page.addScriptTag({ content: smokeSource });
   await page.waitForSelector("#upstatus-root", { timeout: 10000 });
-  await page.waitForSelector("#upstatus-card .up-settings-btn", { timeout: 10000 });
+  // The settings button is intentionally inside the collapsed card; open the card before waiting for it.
+  await page.locator("#upstatus-bubble").click();
+  await page.waitForSelector("#upstatus-card:not(.hidden)", { timeout: 10000 });
+  try {
+    await page.waitForSelector("#upstatus-card .up-settings-btn", { timeout: 10000 });
+  } catch (error) {
+    const snapshot = await page.evaluate(() => {
+      const card = document.querySelector("#upstatus-card");
+      const settings = card && card.querySelector(".up-settings-btn");
+      return {
+        cardClass: card && card.className,
+        settingsClass: settings && settings.className,
+        settingsHidden: !!(settings && settings.hidden),
+        bodyText: document.body.innerText.slice(0, 500),
+        console: window.__normalConsole || []
+      };
+    });
+    throw new Error("Normal Full-IIFE did not expose settings after opening the card: " + error.message +
+      "\nPage errors: " + JSON.stringify(pageErrors) +
+      "\nUI snapshot: " + JSON.stringify(snapshot) +
+      "\nBlocked page requests: " + JSON.stringify(blockedPageRequests.slice(0, 20)));
+  }
   return { page, pageErrors, blockedPageRequests };
 }
 
 try {
   // Administrator scenario: the complete Normal IIFE must issue an invite only through the inert API and copy it without exposing it.
   const admin = await createScenario("implementation_admin", "Ricardo");
-  await admin.page.locator("#upstatus-bubble").click();
   await admin.page.locator("#upstatus-card .up-settings-btn").click();
   await admin.page.locator("#upstatus-card .up-settings-health").click();
   await admin.page.locator("#upstatus-health .up-setup-invite summary").click();
@@ -205,7 +225,6 @@ try {
 
   // Ordinary-user scenario: the normal settings menu may be present, but openHealth() must enforce the stored role.
   const ordinary = await createScenario("implementation_user", "Guilherme");
-  await ordinary.page.locator("#upstatus-bubble").click();
   await ordinary.page.locator("#upstatus-card .up-settings-btn").click();
   await ordinary.page.locator("#upstatus-card .up-settings-health").click();
   await ordinary.page.waitForTimeout(150);
