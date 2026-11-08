@@ -1354,6 +1354,7 @@ assert.ok(testDeployWorkflow.includes("node scripts/test-build-target-guard.mjs"
   "TEST deployment must run the target guard, use a pinned CLI, and deploy only to the dedicated TEST project");
 
 
+
 // Regression for QA finding: clearing the shared chat is destructive and must
 // require both the Ricardo account and its stored implementation_admin role.
 // This VM executes only the real route guard; message/Storage operations remain
@@ -1373,22 +1374,28 @@ assert.ok(backend.slice(teamLiteChatClearStart, teamLiteChatClearRead).includes(
 assert.ok(normalChatClearStart >= 0 && normalChatClearRead > normalChatClearStart &&
   normalBackend.slice(normalChatClearStart, normalChatClearRead).includes(requiredChatClearGuard),
   "Normal and Team Lite must use the same stored-role chat-clear authorization");
-assert.ok(script.includes("role==='implementation_admin'?'<button class=\\"up-chat-clear\\"") &&
-  script.includes("function clearChatRicardo(){if(role!=='implementation_admin')return;"),
-  "Team Lite clear-chat UI affordance and handler must follow the stored admin role");
+assert.ok(script.includes("member==='Ricardo'&&role==='implementation_admin'?'<button class=\"up-chat-clear\"") &&
+  script.includes("function clearChatRicardo(){if(member!=='Ricardo'||role!=='implementation_admin')return;"),
+  "Team Lite clear-chat UI affordance and handler must require both account and stored role");
 
 const teamLiteAccountStart = backend.indexOf("async function account(name:string){");
 const teamLiteCreateSessionStart = backend.indexOf("async function createSession(", teamLiteAccountStart);
 assert.ok(teamLiteAccountStart >= 0 && teamLiteCreateSessionStart > teamLiteAccountStart,
   "Team Lite account/admin helpers must exist for the chat-clear guard regression");
-const teamLiteAdminHelpers = backend.slice(teamLiteAccountStart, teamLiteCreateSessionStart);
-const teamLiteChatClearGuardSource = backend.slice(teamLiteChatClearStart, teamLiteChatClearRead) + "\\n    }";
-const teamLiteChatClearGuardProgram = teamLiteAdminHelpers + "\\n" +
-  "async function __runChatClearGuard(name) {\\n" +
-  "  const req={method:\\"POST\\"}; const path=\\"/api/chat/clear\\";\\n" +
-  teamLiteChatClearGuardSource + "\\n" +
-  "  return response({allowed:true},200);\\n" +
-  "}\\nthis.__runChatClearGuard=__runChatClearGuard;";
+const teamLiteAdminHelpers = backend.slice(teamLiteAccountStart, teamLiteCreateSessionStart)
+  .replace("async function account(name:string){", "async function account(name){")
+  .replace("async function admin(name:string|null){", "async function admin(name){");
+assert.ok(!teamLiteAdminHelpers.includes("account(name:string)") &&
+  !teamLiteAdminHelpers.includes("admin(name:string|null)"),
+  "TypeScript parameter annotations must be removed before executing the actual admin helpers in Node VM");
+const teamLiteChatClearGuardSource = backend.slice(teamLiteChatClearStart, teamLiteChatClearRead).trimEnd() + "\n    }";
+const teamLiteChatClearGuardProgram = teamLiteAdminHelpers + "\n" +
+  "async function __runChatClearGuard(name) {\n" +
+  "  const req = { method: \"POST\" };\n" +
+  "  const path = \"/api/chat/clear\";\n" +
+  teamLiteChatClearGuardSource + "\n" +
+  "  return response({ allowed: true }, 200);\n" +
+  "}\nthis.__runChatClearGuard = __runChatClearGuard;";
 
 function makeTeamLiteChatClearGuardContext(storedRole) {
   const counters = { userLookups: 0, messageAccesses: 0, storageAccesses: 0 };
