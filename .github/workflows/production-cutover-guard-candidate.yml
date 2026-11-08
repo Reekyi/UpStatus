@@ -11,7 +11,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-cutover-guard-candidate
+  # AUTH-03 fixture tests share the isolated lab with Normal and Team Lite signaling suites.
+  group: upstatus-signaling-isolated-tests
+  queue: max
   cancel-in-progress: false
 
 jobs:
@@ -28,6 +30,18 @@ jobs:
         run: node --version
       - name: Run full offline candidate Validate
         run: node scripts/validate.mjs
+      - name: Verify one-time setup invite atomic consumption in isolated lab
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_AUTH_ALLOW_MUTATION: "1"
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY is required; refusing to skip isolated AUTH-03 fixture tests."
+            exit 1
+          fi
+          node --check scripts/test-auth-enrollment.mjs
+          node scripts/test-auth-enrollment.mjs
       - name: Check guard syntax
         run: |
           node --check scripts/verify-production-cutover.mjs
