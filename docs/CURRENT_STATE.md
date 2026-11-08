@@ -2554,3 +2554,12 @@ The isolated `upstatus-signal-test` remains v32. Its deployed mapper still omits
 - Human reviews and physical Issue #78 acceptance; #78 remains OPEN at 0/8 physical criteria.
 
 All production SQL in this checkpoint was SELECT/catalog-only. No production write, migration, Edge Function deployment, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change or destructive action occurred. The independent QA branch and `docs/RELEASE_READINESS.md` were not modified.
+
+
+## 2026-11-08 06:04 BRT — complete legacy source audit
+
+The prior shorthand “36 legacy/test/beta/backup functions” is superseded: production has **38 ACTIVE functions total, four operational endpoints, and 34 historical/test/beta/backup variants**. Source inspection succeeded for 37/38; `upstatus-backup-327-pre328` returned an `index.ts` payload of zero bytes and remains unclassified.
+
+All 37 retrievable sources contain the custom `x-upstatus-token`/session parser path and all 37 still expose `/api/chat/clear` with a name-only Ricardo guard. Five sources (the four operational runtimes plus `upstatus-backup-330-pre331`) also retain the legacy Ricardo-or-admin fallback in individual-message deletion; the other 32 retrievable historical sources restrict deletion to the owner.
+
+The full source/route inventory, 24-hour invocation evidence, DB catalog snapshot, lab snapshot, CI refs, and limitations are recorded in [the 2026-11-08 legacy function source audit](checkpoints/2026-11-08-legacy-function-source-audit.md). Keep beta10 active: the current 24-hour query returned 467 beta10 API invocations and one `upstatus.user.js` fetch; no deactivation is authorized.
