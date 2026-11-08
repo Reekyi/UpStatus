@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { evaluateProductionCutover, hasAuthEnrollmentTestInvocation, parseDeployedFunctions, REQUIRED_SETUP_MIGRATIONS } from "./verify-production-cutover.mjs";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const apiFunction = "upstatus-screen-share-3-1-1-beta10";
 const distributionFunction = "upstatus";
@@ -47,7 +52,21 @@ assert.deepEqual(parseDeployedFunctions(workflow), [apiFunction, distributionFun
 const validateInvocation = 'execFileSync(process.execPath,[path.join(ROOT,"scripts","auth-enrollment.test.mjs"),"normal"],{stdio:"inherit"});';
 assert.equal(hasAuthEnrollmentTestInvocation(validateInvocation), true, "the normal enrollment test must be invoked by Validate");
 assert.equal(hasAuthEnrollmentTestInvocation("// " + validateInvocation), false, "a comment mentioning the test must not satisfy the release gate");
+assert.equal(hasAuthEnrollmentTestInvocation("const marker = 1; // " + validateInvocation), false, "an inline comment mentioning the test must not satisfy the release gate");
 assert.equal(hasAuthEnrollmentTestInvocation(validateInvocation.replace('"normal"', '"team-lite"')), false, "Team Lite-only execution must not satisfy the Normal release gate");
+
+const actualServerSource = fs.readFileSync(path.join(ROOT, "src/server/index.template.ts"), "utf8");
+const actualSourceResult = evaluateProductionCutover({
+  manifest,
+  workflow,
+  availableSources: [distributionFunction, apiFunction],
+  serverSource: actualServerSource,
+  availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
+});
+assert(!actualSourceResult.issues.some(issue => issue.includes("Administrative authorization must derive only from the persisted")), "the current production candidate admin helper must be backed by the stored role");
+assert(!actualSourceResult.issues.some(issue => issue.includes("Message deletion must allow the owner")), "the current production candidate deleteRoute must use stored-role admin authorization");
+assert(!actualSourceResult.issues.some(issue => issue.includes("Chat clear must require Ricardo")), "the current production candidate chat clear must use stored-role authorization");
 
 const aligned = evaluateProductionCutover({
   manifest,
