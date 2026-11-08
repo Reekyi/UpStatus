@@ -7,6 +7,11 @@ on:
     paths:
       - "supabase/config.toml"
       - "scripts/test-function-jwt-config.mjs"
+      - "scripts/build.mjs"
+      - "scripts/test-team-lite-build-artifact.mjs"
+      - "team-lite/**"
+      - "lucca.html"
+      - "ycaro.html"
       - ".github/workflows/team-lite-deploy-jwt-config-guard.yml"
       - ".github/workflows/team-lite-candidate.yml"
   pull_request:
@@ -15,6 +20,11 @@ on:
     paths:
       - "supabase/config.toml"
       - "scripts/test-function-jwt-config.mjs"
+      - "scripts/build.mjs"
+      - "scripts/test-team-lite-build-artifact.mjs"
+      - "team-lite/**"
+      - "lucca.html"
+      - "ycaro.html"
       - ".github/workflows/team-lite-deploy-jwt-config-guard.yml"
       - ".github/workflows/team-lite-candidate.yml"
 
@@ -24,13 +34,16 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - name: Verify custom-auth function configuration
+      - name: Build and verify Team Lite artifact/config without network or secrets
         run: |
+          node --check scripts/test-team-lite-build-artifact.mjs
           node --check scripts/test-function-jwt-config.mjs
+          node scripts/build.mjs
+          node scripts/test-team-lite-build-artifact.mjs
           node scripts/test-function-jwt-config.mjs upstatus-team-lite
