@@ -19,6 +19,7 @@ on:
       - "src/userscript/signaling-transport.mjs"
       - "scripts/signaling-transport.test.mjs"
       - "scripts/public-call-discovery-guard.test.mjs"
+      - "scripts/team-lite-candidate-check.mjs"
       - ".github/workflows/team-lite-call-source-guard.yml"
 
 permissions:
