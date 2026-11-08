@@ -2631,3 +2631,14 @@ Production SELECT returned 5 users, 3 explicit admins, zero uninitialized passwo
 The previous shorthand that only the beta10/Team Lite/test runtimes had the individual-delete name fallback is superseded: the current `upstatus` v480 source has it too.
 
 All SQL in this recheck was SELECT-only. No production write, migration, deployment, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change, function deactivation, or destructive action occurred. QA-owned `docs/RELEASE_READINESS.md` and branch #82 were not modified.
+
+
+## 2026-11-08 — Normal AUTH-03 port and release-version gate
+
+New stacked Draft candidate: [PR #89](https://github.com/Reekyi/UpStatus/pull/89), branch `fix/normal-auth03-build-safe-20261108`, HEAD `d5a4d445571507e433d9f86a6f120054f6cf2736`, 23 commits ahead of #88 and zero behind. It ports the one-time admin-issued setup-invite flow, removes plaintext password persistence and public setup enumeration, adds source-only migrations plus an allowlisted isolated integration runner, preserves tracked build sidecars, and blocks production cutover while `release.json` still reuses deployed version 3.4.7.
+
+No CI run is visible for #89; no PASS is claimed. Its PR base is the #88 candidate branch, while the general Validate workflow only targets PRs based on master/develop. The push-only candidate workflow has no visible run for this branch. See [the detailed checkpoint](checkpoints/2026-11-08-auth03-stable-normal-port.md).
+
+Fresh read-only production inspection confirms the four operational runtimes still have first-caller setup and name-based authorization fallbacks; production still has no setup-invite columns or RPC. Production branch `main` reports `MIGRATIONS_FAILED` while the project itself remains `ACTIVE_HEALTHY`. The lab already has the invite columns/RPC and remains empty; its signal helper is still v32 without the `VOICE_ATTEMPT_ALREADY_ACTIVE` HTTP 409 mapping.
+
+No migration, SQL write, deploy, workflow dispatch, merge, release, publication, secret/role/grant/ACL/policy/flag change or function deactivation occurred. Issue #78 remains 0/8 physical.
