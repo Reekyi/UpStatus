@@ -5,6 +5,7 @@ on:
     branches:
       - fix/production-cutover-guard-auth-delete-wiring-20261108
       - fix/master-release-script-url-20261107
+      - fix/normal-auth03-build-safe-20261108
 
 permissions:
   contents: read
@@ -16,7 +17,7 @@ concurrency:
 jobs:
   guard:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout exact candidate commit
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -25,6 +26,8 @@ jobs:
           persist-credentials: false
       - name: Check Node runtime
         run: node --version
+      - name: Run full offline candidate Validate
+        run: node scripts/validate.mjs
       - name: Check guard syntax
         run: |
           node --check scripts/verify-production-cutover.mjs
