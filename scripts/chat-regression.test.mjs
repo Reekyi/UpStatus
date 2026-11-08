@@ -114,6 +114,17 @@ assert(source.includes("async function callJoinActiveCall(callId)")&&source.incl
 assert(source.includes("if(p.type==='presence'){callReceivePresence(p);return;}"),"call presence must be handled before normal call-session signal filtering");
 
 assert(serverTemplate.includes("const isAdmin=await admin(name);"),"server delete is authorized by the authenticated admin role");
+
+const chatClearStart=serverTemplate.indexOf('if(path==="\/api\/chat\/clear"&&req.method==="POST"){');
+const chatClearRead=serverTemplate.indexOf('const {data:oldMessages,error:readError}=await db.from("messages").select("image_url")',chatClearStart);
+const chatClearDelete=serverTemplate.indexOf('db.from("messages").delete()',chatClearStart);
+const chatClearStorage=serverTemplate.indexOf('db.storage.from("chat-images").remove(batch)',chatClearStart);
+const requiredChatClearGuard='if(name!=="Ricardo"||!(await admin(name)))return response({error:"Somente o administrador responsável pode limpar o chat."},403);';
+assert(chatClearStart>=0&&chatClearRead>chatClearStart&&chatClearDelete>chatClearRead&&chatClearStorage>chatClearDelete,
+  "chat-clear authorization must run before message reads, deletes and Storage removal");
+assert(serverTemplate.slice(chatClearStart,chatClearRead).includes(requiredChatClearGuard),
+  "chat-clear must require Ricardo plus the current stored implementation_admin role before destructive access");
+
 assert(!serverTemplate.includes('const isAdmin=name==="Ricardo"'),"no name-only administrator bypass");
 assert(source.includes("var canDelete=m.user===member||role==='implementation_admin';"),"admin UI uses stored role");
 assert(source.includes("function clearChatAdmin(){if(member!=='Ricardo'||role!=='implementation_admin')return;"),"clear-chat action handler must require owner identity and admin role");
