@@ -7956,3 +7956,8 @@ Logs solicitados para 24h: `function_edge_logs` retornou 468 eventos, todos entr
 ### Limites e segurança desta rodada
 
 Todas as consultas SQL foram SELECT-only; Management API e fontes foram lidas. A integração mutável AUTH-03 foi executada pela pipeline de engenharia no projeto isolado allowlisted, não iniciada nem repetida pela auditoria; a consulta independente pós-run confirmou zero fixtures. Nenhuma migration, DDL, escrita SQL, deploy, merge, release, publicação, secret, flag, role, grant, policy, ACL ou fixture foi alterada pela auditoria. Nenhuma branch de engenharia ou issue foi modificada. Não houve teste físico. A única escrita desta rodada é este append na branch QA.
+
+
+### Correção de integridade do append QA nesta rodada
+
+A verificação pós-gravação detectou que o primeiro commit documental desta rodada (`3f8c53c19ad970c9f0bb1f0c5d3dc577c2f5abb7`) continha apenas a nova seção, sem o corpo histórico do arquivo. A falha foi corrigida imediatamente, sem force-push: o conteúdo integral anterior foi recuperado do commit pai `588e5c0500b0a6fcd81dfa6a14780739fad87977` (blob `3f8e58556209ce02a22f2a2c0df4b9b48b9b0e75`) e concatenado com a nova seção. O commit de restauração `ee2d127f2f0bb7ba441f5c5cc3e76bc28199c199` contém 989.567 caracteres e blob `020172264df2b66eb259a3b33542a38d08640b19`; a leitura posterior confirmou o conteúdo histórico no início e a nova seção no final. O commit intermediário permanece no histórico da branch QA, mas não é o estado final. Nenhuma branch de engenharia, runtime, issue ou projeto Supabase foi alterado.
