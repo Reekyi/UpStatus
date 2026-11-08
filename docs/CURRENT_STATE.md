@@ -2642,3 +2642,14 @@ No CI run is visible for #89; no PASS is claimed. Its PR base is the #88 candida
 Fresh read-only production inspection confirms the four operational runtimes still have first-caller setup and name-based authorization fallbacks; production still has no setup-invite columns or RPC. Production branch `main` reports `MIGRATIONS_FAILED` while the project itself remains `ACTIVE_HEALTHY`. The lab already has the invite columns/RPC and remains empty; its signal helper is still v32 without the `VOICE_ATTEMPT_ALREADY_ACTIVE` HTTP 409 mapping.
 
 No migration, SQL write, deploy, workflow dispatch, merge, release, publication, secret/role/grant/ACL/policy/flag change or function deactivation occurred. Issue #78 remains 0/8 physical.
+
+
+## 2026-11-08 — Normal AUTH-03 isolated integration validation
+
+PR [#89](https://github.com/Reekyi/UpStatus/pull/89) now has exact HEAD `cd0c7e41bb32f7ab85efd4982ad24b9206c27953` (25 commits ahead/0 behind #88, 21 files) and remains Draft. The first full Validate run failed only because `scripts/chat-regression.test.mjs:106` still expected the pre-invite role expression; the test was updated to assert the actual `enrolledRole/sessionRole` flow. Follow-up offline Validate [42485555356](https://github.com/Reekyi/UpStatus/actions/runs/42485555356) passed on `a740361`.
+
+The candidate workflow now serializes AUTH-03 fixture tests with the existing Normal/Team Lite isolated suite and runs the integration runner only against the exact allowlisted lab origin with the existing isolated service-role secret and explicit mutation opt-in. Exact-head run [42485686643](https://github.com/Reekyi/UpStatus/actions/runs/42485686643) **SUCCESS**: full offline Validate, one-time invite/atomic-consumption integration, syntax, and cutover-guard regressions all passed. Coverage includes wrong/expired/replayed tokens, one-winner concurrency, blank-role fallback, explicit-role preservation, padded-admin non-escalation, and cleanup.
+
+Post-run lab SELECT confirmed 0 users, 0 `__auth_test_*` fixtures, and 0 messages; the lab RPC is SECURITY INVOKER with empty `search_path`, service_role-only EXECUTE, and unique token-hash index. Production remains at seven migrations without invite columns/RPC. The cutover guard still blocks because `release.json` remains at deployed version 3.4.7 and no new stable version has been selected. The production managed branch `main` still reports `MIGRATIONS_FAILED` while the project is ACTIVE_HEALTHY; root cause requires Dashboard branch logs and is not inferred.
+
+Detailed evidence: [AUTH-03 integration checkpoint](checkpoints/2026-11-08-auth03-integration-validation.md). #78 remains 0/8 physical. QA branch and `docs/RELEASE_READINESS.md` were not modified. Production remained read-only; no production migration, deploy, merge, release, publication, secret/role/grant/ACL/policy/flag change or function deactivation occurred.
