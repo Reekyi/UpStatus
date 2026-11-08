@@ -30,6 +30,7 @@ on:
       - "src/server/team-lite-index.template.ts"
       - "supabase/migrations/**"
       - "scripts/signaling-transport.test.mjs"
+      - "scripts/public-call-discovery-guard.test.mjs"
       - "src/userscript/signaling-transport.mjs"
       - "scripts/test-signaling-endpoint.mjs"
       - "scripts/test-signaling-authenticated.mjs"
@@ -65,6 +66,8 @@ jobs:
           node scripts/isolation-guard.test.mjs
       - name: Test authenticated signaling adapter
         run: node scripts/signaling-transport.test.mjs
+      - name: Verify authenticated call-source boundary
+        run: node scripts/public-call-discovery-guard.test.mjs team-lite
       - name: Test first-access enrollment contract
         run: |
           node --check scripts/auth-enrollment.test.mjs
