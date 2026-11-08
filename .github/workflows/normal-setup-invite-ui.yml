@@ -4,14 +4,17 @@ on:
   push:
     branches:
       - fix/normal-setup-invite-admin-ui-20261108
+      - test/normal-setup-invite-issuance-contract-20261108
     paths:
       - "src/userscript/upstatus.user.template.js"
       - "scripts/test-setup-invite-ui.mjs"
+      - "scripts/test-setup-invite-issuance.mjs"
       - "scripts/validate.mjs"
       - ".github/workflows/normal-setup-invite-ui.yml"
   pull_request:
     branches:
       - fix/normal-beta10-verify-jwt-config-guard-20261108
+      - fix/normal-setup-invite-admin-ui-20261108
     paths:
       - "src/userscript/upstatus.user.template.js"
       - "scripts/test-setup-invite-ui.mjs"
@@ -34,4 +37,5 @@ jobs:
         run: |
           node --version
           node --check scripts/test-setup-invite-ui.mjs
+          node --check scripts/test-setup-invite-issuance.mjs
           node scripts/validate.mjs
