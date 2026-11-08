@@ -2774,3 +2774,17 @@ Detailed checkpoint: [Admin setup-invite UI: Normal and Team Lite](checkpoints/2
 QA's `docs/RELEASE_READINESS.md` branch was read but not modified. Its earlier “no client UI to issue invites” finding is superseded by candidate PRs #94/#95; QA should review the exact-head evidence. The migration, deployment, live HTTP and physical acceptance gates are not closed.
 
 Production remained read-only. No SQL write, migration, deploy, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change, function deactivation or destructive operation occurred.
+
+
+## 2026-11-08 — Public Realtime command trust and Normal Full-IIFE follow-up
+
+Checkpoint: [public Realtime command guard and P0 status](checkpoints/2026-11-08-public-realtime-command-guard.md).
+
+- Draft [PR #99](https://github.com/Reekyi/UpStatus/pull/99), stacked on Normal UI #94, changes public remote_command to a debounced wake-up only. The client fetches the command from authenticated GET /api/remote-status; forged broadcast payloads are ignored, and pending hints are discarded when token/member changes. Exact HEAD bdce39626a9636f441ffe2988c87706b9f7c7154. Push 42503182292 and PR 42503227603 SUCCESS; full offline Validate passed.
+- Scope is narrow: public call_signal, voice-room and screen-share signaling remain P0. No live malicious broadcast was sent; QA's finding remains a static high-impact security finding until the authenticated signaling cutover is implemented and tested.
+- Normal Full-IIFE #98 failed because its test waited for a settings button inside the still-collapsed card. The exact log 42502183259 shows 24 hidden locator resolutions at scripts/test-normal-setup-invite-browser.mjs:162. Test-only child [PR #100](https://github.com/Reekyi/UpStatus/pull/100) opens the card before waiting and adds diagnostics; its workflow was in progress at checkpoint creation, so no PASS is claimed.
+- Related UI/contract candidates: #94, #95, #96 and #97 passed their cited exact-head offline/browser workflows; #98 remains failed pending #100. All remain Draft.
+- Fresh production reads: 38 Edge Functions ACTIVE; four operational versions v480/v6/v15/v281; all verify_jwt=false. All four operational sources still lack /api/setup-invite and retain first-caller/name-based authorization paths. Production has seven migrations, zero setup-token columns/RPCs, 50 realtime.messages rows, seven partitions and three SECURITY DEFINER trigger functions. Security Advisor: 6 WARN / 10 INFO; performance and health empty.
+- Lab has 38 migrations, four setup-token columns, one consume RPC, zero users/messages/realtime rows. Production managed branch main remains MIGRATIONS_FAILED while project/preview are healthy; Dashboard branch logs are still needed.
+
+All production operations were read-only. No migration, SQL write, deploy, workflow dispatch, merge, release, publication, secret/role/grant/ACL/policy/flag change or function deactivation occurred. QA branch and docs/RELEASE_READINESS.md remain untouched. Issue #78 remains 0/8 physical.
