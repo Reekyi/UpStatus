@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { requestWithTransientRetry } from "./signaling-test-request.mjs";
 /**
  * Black-box unauthenticated checks for the isolated UpStatus signaling prototype.
  * Usage: UPSTATUS_SIGNAL_URL=https://<test-project>.supabase.co/functions/v1/upstatus-signal-test node scripts/test-signaling-endpoint.mjs
@@ -152,13 +153,15 @@ const cases = [
 let failed = 0;
 for (const test of cases) {
   try {
-    let res;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      res = await test.run();
-      if (![502, 503, 504].includes(res.status) || attempt === 3) break;
-      console.log(`RETRY ${test.name}: transient HTTP ${res.status} (attempt ${attempt}/3)`);
-      await new Promise(resolve => setTimeout(resolve, 750 * attempt));
-    }
+    const res = await requestWithTransientRetry(test.run, {
+      onRetry: event => {
+        if (event.kind === "http") {
+          console.log(`RETRY ${test.name}: transient HTTP ${event.status} (attempt ${event.attempt}/3)`);
+        } else {
+          console.log(`RETRY ${test.name}: transient transport ${event.error?.name || "error"} (attempt ${event.attempt}/3)`);
+        }
+      },
+    });
     let json = null;
     try { json = await res.json(); } catch {}
     const bodyOk = !test.body || test.body(json);
