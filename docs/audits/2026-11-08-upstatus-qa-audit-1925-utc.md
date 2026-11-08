@@ -80,6 +80,7 @@ Foram lidos os quatro runtimes relevantes e decodificados os userscripts embutid
 Os scripts Normal, Team Lite e TEST em produção ainda:
 - executam diretamente executeRemoteCommand com base no payload broadcast remote_command;
 - recebem call_signal, eventos de voice room e screen share e encaminham os payloads aos handlers;
+- consomem também remote_result público e confiam nos campos commandId/sender para resolver a espera e atualizar o resultado exibido;
 - não contêm signalTransportFlag, realtime.setAuth() ou private:true.
 
 O remetente é representado por campos da própria mensagem (from/to/roomId/SDP), sem identidade autenticada verificada pelo cliente. O canal usa o tópico upstatus-screen-share-live-3-1-1-beta10 e publishable key público.
@@ -116,7 +117,7 @@ O remetente é representado por campos da própria mensagem (from/to/roomId/SDP)
 - A branch main do projeto de produção reporta MIGRATIONS_FAILED, embora preview_project_status seja ACTIVE_HEALTHY.
 - A lista de projetos conectados contém somente produção e laboratório; não foi localizado um terceiro projeto TEST full-product.
 - Produção: 5 usuários, 0 password_hash NULL/vazio e 0 roles vazios. As quatro colunas setup_token_* e a RPC consume_upstatus_setup_invite não existem.
-- Laboratório: 0 usuários/fixtures após o último cleanup observado; quatro colunas setup-token e RPC de consumo existem.
+- Laboratório: 0 usuários no SELECT atual; os logs dos jobs #74/#76 confirmam cleanup de usuários, sessões, salas, memberships e eventos após os testes. Não foi feita uma nova varredura de todas as tabelas de fixture nesta rodada. Quatro colunas setup-token e RPC de consumo existem.
 
 ### AUTH-03 em produção
 
