@@ -2711,19 +2711,66 @@ Production's four operational functions currently report `verify_jwt=false`. The
 
 Supabase docs: https://supabase.com/docs/guides/local-development/cli/config and https://supabase.com/docs/guides/functions/function-configuration.
 
-### Current CI and runtime evidence
+### Current CI and runtime evidence — 2026-11-08
 
-- Normal #74 exact HEAD is now `974afa23be3f66b5d20ee5e9391c2c69a958e249`; Validate [41692984901](https://github.com/Reekyi/UpStatus/actions/runs/41692984901) and Smoke [41692984911](https://github.com/Reekyi/UpStatus/actions/runs/41692984911) both SUCCESS on that SHA (historical 2026-11-03).
-- Team Lite #76 exact HEAD `eb28e88325d7e8a6236d9050bebabf794d64a8c4`; Candidate Checks [42450476433](https://github.com/Reekyi/UpStatus/actions/runs/42450476433) SUCCESS.
-- #80 exact HEAD `635265e8879c819683abccf2b787fc1f559a70e7`; Validate [42488189106](https://github.com/Reekyi/UpStatus/actions/runs/42488189106) still fails inherited `client signed upload helper missing` at line 55.
-- #82 exact HEAD `588e5c0500b0a6fcd81dfa6a14780739fad87977`; Validate [42490869141](https://github.com/Reekyi/UpStatus/actions/runs/42490869141) still fails inherited `production updateURL mismatch` at line 26.
-- #85 Validate [42475230911](https://github.com/Reekyi/UpStatus/actions/runs/42475230911) SUCCESS, but cutover diagnostic remains BLOCKED.
-- #88 [42478899179](https://github.com/Reekyi/UpStatus/actions/runs/42478899179), #89 [42486397701](https://github.com/Reekyi/UpStatus/actions/runs/42486397701), #90 [42487717033](https://github.com/Reekyi/UpStatus/actions/runs/42487717033), #91 [42488110607](https://github.com/Reekyi/UpStatus/actions/runs/42488110607), #92 [42493683062](https://github.com/Reekyi/UpStatus/actions/runs/42493683062) and #93 [42493686213](https://github.com/Reekyi/UpStatus/actions/runs/42493686213) all have exact-head candidate/offline PASS as described in their PRs.
-- Production remains 38/38 ACTIVE functions, 7 migrations, PostgreSQL 17.11.0.002. Operational function versions: upstatus v480, beta10 v6, Team Lite v15, TEST v281; all currently report `verify_jwt=false`.
-- AUTH-03's three migrations and schema/RPC remain absent in production. Lab remains separate and healthy; no full-product TEST project exists.
-- QA's latest release-readiness branch #82 still records no admin UI for issuing setup invites, the migration→deploy first-access window, the need for full four-runtime rollout/rollback, catalog verification beyond migration ledger, and unverified `database_migrations_read` token scope. QA-owned branch/document were not changed.
-- Issue #78 remains 0/8 physical; Issue #79 body remains 16/35 and needs reconciliation.
+#### Active PR stack
 
-Detailed evidence: [Function-specific JWT deploy configuration audit](checkpoints/2026-11-08-function-jwt-config-preflight.md).
+| PR | Exact HEAD | State / evidence |
+|---|---|---|
+| [#74 Normal](https://github.com/Reekyi/UpStatus/pull/74) | `9c0133e8cf6bd85ac8993888718a408db2f24a3e` | Validate [42451736696](https://github.com/Reekyi/UpStatus/actions/runs/42451736696) + Signaling Smoke [42451736729](https://github.com/Reekyi/UpStatus/actions/runs/42451736729) SUCCESS |
+| [#75 Baseline](https://github.com/Reekyi/UpStatus/pull/75) | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) SUCCESS |
+| [#76 Team Lite](https://github.com/Reekyi/UpStatus/pull/76) | `eb28e88325d7e8a6236d9050bebabf794d64a8c4` | Candidate Checks [42450476433](https://github.com/Reekyi/UpStatus/actions/runs/42450476433) SUCCESS |
+| [#80 Continuity](https://github.com/Reekyi/UpStatus/pull/80) | `7581c24c2ee37a08700d905cfc2f66899e01f8bc` | Validate [42493818587](https://github.com/Reekyi/UpStatus/actions/runs/42493818587) FAIL: inherited `client signed upload helper missing`, line 55 |
+| [#82 QA](https://github.com/Reekyi/UpStatus/pull/82) | `b9730facf85a86b6b0cc22dec2f6f1bfed746032` | Validate [42496126120](https://github.com/Reekyi/UpStatus/actions/runs/42496126120) FAIL: inherited `production updateURL mismatch`, line 26 |
+| [#85 Master stabilization](https://github.com/Reekyi/UpStatus/pull/85) | `b75707b6eaf678d87863144748b9aed8e2866455` | Validate [42475230911](https://github.com/Reekyi/UpStatus/actions/runs/42475230911) SUCCESS; production cutover diagnostic remains BLOCKED |
+| [#88 Guard hardening](https://github.com/Reekyi/UpStatus/pull/88) | `f04d18d780ffc355b6bad457b8a12ef9fe07f82b` | Candidate guard [42478899179](https://github.com/Reekyi/UpStatus/actions/runs/42478899179) SUCCESS |
+| [#89 Normal AUTH-03](https://github.com/Reekyi/UpStatus/pull/89) | `4224dc31683d4b235e52d2ddcece1570294763f0` | Production cutover guard [42486397701](https://github.com/Reekyi/UpStatus/actions/runs/42486397701) SUCCESS; release remains blocked until migrations and rollout are ready |
+| [#90 Team Lite runner](https://github.com/Reekyi/UpStatus/pull/90) | `47e0b8760587e52448cf5954d823b00131b941fa` | [42487717033](https://github.com/Reekyi/UpStatus/actions/runs/42487717033) SUCCESS |
+| [#91 Team Lite artifact parity](https://github.com/Reekyi/UpStatus/pull/91) | `cb65cb831910d384715addf98285d01a273e2c6a` | [42488110607](https://github.com/Reekyi/UpStatus/actions/runs/42488110607) SUCCESS |
+| [#92 Team Lite JWT config](https://github.com/Reekyi/UpStatus/pull/92) | `2a1b8c74a255b92fe17844b521b49f184888f852` | [42493683062](https://github.com/Reekyi/UpStatus/actions/runs/42493683062) SUCCESS |
+| [#93 Normal JWT config](https://github.com/Reekyi/UpStatus/pull/93) | `fb9ccd9b9aa69a329e7340f87fc8b07c82618bbe` | [42493686213](https://github.com/Reekyi/UpStatus/actions/runs/42493686213) SUCCESS |
+| [#94 Normal setup-invite UI](https://github.com/Reekyi/UpStatus/pull/94) | `00462a202661fe3502d015dd2dd0ef1da239059d` | Full offline Validate [42498502349](https://github.com/Reekyi/UpStatus/actions/runs/42498502349) SUCCESS |
+| [#95 Team Lite setup-invite UI](https://github.com/Reekyi/UpStatus/pull/95) | `3dc309ce17470eb706d3cd2223e99e33a94a8bd6` | VM + authenticated offline browser + build parity [42499554010](https://github.com/Reekyi/UpStatus/actions/runs/42499554010) and [42499560082](https://github.com/Reekyi/UpStatus/actions/runs/42499560082) SUCCESS |
 
-Production remained read-only. No migration, SQL write, deploy, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change, function deactivation or destructive operation occurred. The new #92/#93 workflows are offline-only and did not contact Supabase.
+All PRs remain open and Draft; no human reviews have been submitted. #94 is stacked on #93; #95 is stacked on #92. Do not merge either child independently of its parent.
+
+#### Latest setup-invite UI work
+
+Detailed checkpoint: [Admin setup-invite UI: Normal and Team Lite](checkpoints/2026-11-08-admin-setup-invite-ui.md).
+
+- Both clients now expose the candidate `POST /api/setup-invite` route in the admin health panel.
+- The client validates the returned account name, 64-hex token and future expiry, then copies through `GM_setClipboard` with Clipboard API fallback.
+- Raw invite tokens are not rendered, persisted or logged.
+- Team Lite's minimal UI had removed the settings entry for all roles, leaving the admin health/invite panel unreachable. The candidate now retains that entry only for `implementation_admin`.
+- Normal has VM-backed helper contract tests. Team Lite additionally has an authenticated offline Playwright Full-IIFE smoke using inert GM/API/Realtime stubs and build artifact parity.
+- These tests do not constitute live Edge Function HTTP integration or a real Tampermonkey clipboard test.
+
+#### Current GitHub branches and governance
+
+- `master`: `9d40461`; `develop`: `6b33e1e`; `team-lite-official`: `9065bc1`.
+- The three official branches currently report `protected=false`; repository rulesets list is empty. The current connection receives HTTP 403 for classic branch-protection writes, so no protection change was attempted.
+- A separate `fix/normal-signaling-timeout-retry-20261108` branch exists outside the PR stack and was left untouched to avoid concurrent work collision.
+
+#### Supabase read-only snapshot
+
+- Production `dlfvkawaiqduhlazsszm`: PostgreSQL 17.11.0.002, 7 migrations, 38 ACTIVE Edge Functions. Operational versions remain Normal `upstatus` v480, beta10 v6, Team Lite v15, TEST v281. All 38 functions report `verify_jwt=false`.
+- Production users: 5 total, 3 `implementation_admin`, 0 uninitialized passwords, 0 empty roles. The four setup-invite columns and `consume_upstatus_setup_invite` RPC are absent.
+- Laboratory `bfpjtfqlnypisxljoxkb`: PostgreSQL 17.11.0.003, 38 migrations, 2 Edge Functions, 0 users after cleanup; setup-invite schema/RPC are present.
+- No third TEST full-product project exists.
+- Production Security Advisor remains 6 WARN (three SECURITY DEFINER broadcasts for anon and three for authenticated) and 10 INFO (RLS-enabled tables without policies). Nine of ten audited backend-owned tables retain excessive client grants; default ACL and Storage policy work remains open.
+- The managed Supabase branch `main` still reports `MIGRATIONS_FAILED` while the project and preview are healthy; the branch-specific Dashboard logs are still needed to diagnose it.
+
+#### Remaining release gates
+
+1. AUTH-03 migrations are absent from production; do not deploy the new UI/runtime before an explicitly authorized migration and coordinated rollout plan.
+2. Migration-to-deploy first-access window, post-migration catalog verification, and full four-runtime rollback plan remain open.
+3. Team Lite needs a dedicated production deploy workflow with project/SHA verification, pinned CLI, migration preflight, API-before-client ordering, and rollback.
+4. Live HTTP Deno integration for setup-invite and the signaling HTTP 409 mapping remains unverified; signal helper remains v32.
+5. RT-01 broadcasts, ACL-02/default ACLs and Storage policies remain unresolved.
+6. AUTH-02 trusted-IP/rate-limit design remains open.
+7. TEST full-product, human reviews, branch protection and physical acceptance remain open.
+8. Issue #78 remains 0/8 physical criteria. Issue #79 body still contains the historical 16/35 checklist and needs reconciliation.
+
+QA's `docs/RELEASE_READINESS.md` branch was read but not modified. Its earlier “no client UI to issue invites” finding is superseded by candidate PRs #94/#95; QA should review the exact-head evidence. The migration, deployment, live HTTP and physical acceptance gates are not closed.
+
+Production remained read-only. No SQL write, migration, deploy, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change, function deactivation or destructive operation occurred.
