@@ -2825,3 +2825,56 @@ Checkpoint: [authenticated call-source provenance](checkpoints/2026-11-08-authen
 - Residual: public presence/ended can still mislead or hide directory entries. They do not grant membership or authorize call control. Removing public discovery remains part of the server-mediated Realtime cutover.
 
 No Supabase operation or production change occurred. QA release-readiness branch remains untouched.
+
+
+## 2026-11-08 19:06 BRT — voice-room open 409 route regression and runtime reconciliation
+
+### Exact candidate and CI
+
+- Read the current continuity guide and CURRENT_STATE; read the independent QA release-readiness blob at QA HEAD 3ba9c15a61d220c46e7906b2f9c21b545401530e (blob 7cfbd70886df42ce790c078c224b19284a632595, 1,055,655 bytes) and the latest QA audit entry. The QA branch and release-readiness document were not edited.
+- New Draft child PR #105, base Normal provenance PR #102 at c4a5cae1271147204ab3b0c79b8916235f0799aa; exact HEAD 763b3e808b5e9c2d49a5d8f9c714fe0552ae657d, 4 commits ahead / 0 behind.
+- #105 adds a route-scoped assertion to scripts/production-signal-source-parity.test.mjs: it extracts the actual /room/open block from both production and isolated repository handlers, requires the attempt RPC wiring, requires VOICE_ATTEMPT_CONFLICT, VOICE_ATTEMPT_ALREADY_ACTIVE, and ROOM_FULL to map to 409, and requires the response to use that status.
+- Exact-head offline workflow: push 42528459983 SUCCESS and pull_request 42528477389 SUCCESS. The PR remains Draft with zero human reviews. This is source/route-wiring coverage plus full offline Normal Validate, not live HTTP integration.
+
+### HTTP 409 — candidate source versus deployed lab runtime
+
+- The production candidate source in #101/#102 already includes VOICE_ATTEMPT_ALREADY_ACTIVE in the inline /room/open 409 mapping. The new #105 test closes the route-specific regression-coverage gap for that source.
+- The repository's isolated handler source is byte-identical to the production candidate after normalizing the health service label.
+- The deployed isolated upstatus-signal-test remains v32, SHA f893360a4e0021a0d608e6cb58b8644c68f7389bce685c3177c025eb376b8712; its actual retrieved /room/open block maps VOICE_ATTEMPT_CONFLICT and ROOM_FULL to 409 but omits VOICE_ATTEMPT_ALREADY_ACTIVE, which falls through to 500. No HTTP request was sent and no lab deploy was performed.
+- Team Lite's separate helper/test path in #76 is covered by QA's 11/11 offline contract; it also has no live HTTP 409 proof against the deployed v32 runtime.
+
+### Current branch graph and CI
+
+| PR | Exact HEAD | Current evidence |
+|---|---|---|
+| #74 Normal | 9c0133e8cf6bd85ac8993888718a408db2f24a3e | Validate + Smoke historical SUCCESS |
+| #75 baseline | 7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309 | Candidate Checks historical PASS |
+| #76 Team Lite | eb28e88325d7e8a6236d9050bebabf794d64a8c4 | 110/110 candidate checks reported PASS |
+| #80 continuity | cd87c4c8bc1bbacbdd4b7eb7c8c2449ee6abc2c7 | Validate fails inherited client signed upload helper missing (scripts/validate.mjs:55) |
+| #82 QA | 3ba9c15a61d220c46e7906b2f9c21b545401530e | Validate fails inherited production updateURL mismatch (scripts/validate.mjs:26) |
+| #101 signaling | 2ef7c3324d2eb5443d31a45bd071d154ebeb4aa7 | Offline source parity + full Validate SUCCESS |
+| #102 Normal provenance | c4a5cae1271147204ab3b0c79b8916235f0799aa | Full offline Validate SUCCESS |
+| #103 Team Lite provenance | b3fb66429851024ee513bccb4700c944e50ff0cb | Push + PR offline checks SUCCESS |
+| #104 RT-01 guard | da45e7418a9d9c7719ca447a25024aeb4a553bfc | Offline guard workflow SUCCESS; separate branch line |
+| #105 409 route test | 763b3e808b5e9c2d49a5d8f9c714fe0552ae657d | Push + PR offline Validate SUCCESS |
+
+- #104 is 11 commits ahead of its RT-01 parent 0ff11af43e78bfe57d39a2a0098c30f29afed9a2, but its head is 119 ahead / 887 behind #101 (merge base a9288ccfcb0f308d3a587bfca624418a395be07b). It is not an integrated signaling release line. Do not merge it into #101 or master as-is.
+- #80 latest Validate remains red on the inherited develop assertion; #82 latest Validate 42526633725 remains red on the inherited master updateURL assertion. Neither validator was weakened.
+- Official branch rulesets remain empty; branch protection for master/develop/team-lite-official is not proven.
+
+### Supabase read-only snapshot
+
+- Production dlfvkawaiqduhlazsszm: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations through 20261027155438, 38/38 Edge Functions ACTIVE. Operational versions remain upstatus v480, beta10 v6, Team Lite v15, TEST v281; all report verify_jwt=false.
+- Production still has no upstatus-signal, no signaling tables/RPCs, no distributed rate-limit table/RPC, and no AUTH-03 setup-invite columns/RPC. The managed Supabase branch main still reports MIGRATIONS_FAILED while the project/preview are healthy.
+- Production realtime.messages: 50 rows, all private=false, 7 partitions. The three upstatus_broadcast_* functions remain SECURITY DEFINER with search_path=public and effective EXECUTE for anon/authenticated. Ten public tables have RLS and zero policies; nine retain client grants including TRUNCATE. Security Advisor: 6 WARN / 10 INFO.
+- Production Storage buckets chat-images and profile-images remain public, 20 MiB each, with zero storage.objects policies. Candidate size/MIME config still differs.
+- Laboratory bfpjtfqlnypisxljoxkb: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 38 migrations, 2 Edge Functions; signal/setup-invite schema and RPCs exist. It has zero users/messages/Realtime rows. Security Advisor: 0 WARN / 17 INFO. The deployed signal-test function remains v32; no function was updated.
+
+### Issues and remaining gates
+
+- Issue #78 remains 0/8 physical acceptance criteria. No real Tampermonkey network-loss/no-F5, microphone/display permission, or installed Normal ↔ Team Lite test was performed.
+- Issue #79 body remains the historical 16/35 checklist and needs formal reconciliation with QA.
+- RT-01 remains P0: the client source fixes provenance but transport is still default-off; production lacks the signaling backend/schema; public Realtime media/discovery fallback remains.
+- AUTH-03, AUTH-02, Team Lite deploy target, post-migration catalog verification, rollback sequencing, Storage policy, grants/default ACLs, HTTP 409 live proof, human reviews, and full TEST project remain open.
+
+No production or laboratory writes, migrations, deploys, workflow dispatches, merges, releases, userscript publication, secrets/roles/grants/ACL/policy/flag changes, or destructive operations occurred. All Supabase SQL was SELECT-only.
