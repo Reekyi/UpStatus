@@ -5,20 +5,26 @@ on:
     branches:
       - fix/normal-setup-invite-admin-ui-20261108
       - test/normal-setup-invite-issuance-contract-20261108
+      - test/normal-setup-invite-full-iife-20261108
     paths:
       - "src/userscript/upstatus.user.template.js"
       - "scripts/test-setup-invite-ui.mjs"
       - "scripts/test-setup-invite-issuance.mjs"
+      - "scripts/test-normal-setup-invite-browser.mjs"
+      - "scripts/build.mjs"
       - "scripts/validate.mjs"
       - ".github/workflows/normal-setup-invite-ui.yml"
   pull_request:
     branches:
       - fix/normal-beta10-verify-jwt-config-guard-20261108
       - fix/normal-setup-invite-admin-ui-20261108
+      - test/normal-setup-invite-issuance-contract-20261108
     paths:
       - "src/userscript/upstatus.user.template.js"
       - "scripts/test-setup-invite-ui.mjs"
       - "scripts/test-setup-invite-issuance.mjs"
+      - "scripts/test-normal-setup-invite-browser.mjs"
+      - "scripts/build.mjs"
       - "scripts/validate.mjs"
       - ".github/workflows/normal-setup-invite-ui.yml"
 
@@ -28,13 +34,23 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - name: Run full offline Normal validation including setup-invite UI contract
+      - name: Install Playwright Chromium for Normal Full-IIFE smoke
+        run: |
+          npm install --no-save --package-lock=false playwright@1.64.1
+          npx playwright install --with-deps chromium
+      - name: Build the isolated Normal artifact for Full-IIFE smoke
+        run: node scripts/build.mjs
+      - name: Run Normal administrator and ordinary-user Full-IIFE smoke
+        run: |
+          node --check scripts/test-normal-setup-invite-browser.mjs
+          node scripts/test-normal-setup-invite-browser.mjs
+      - name: Run full offline Normal validation including setup-invite issuance contract
         run: |
           node --version
           node --check scripts/test-setup-invite-ui.mjs
