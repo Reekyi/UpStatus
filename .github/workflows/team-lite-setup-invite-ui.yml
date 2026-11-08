@@ -9,6 +9,7 @@ on:
       - "scripts/test-setup-invite-ui.mjs"
       - "scripts/build.mjs"
       - "scripts/test-team-lite-build-artifact.mjs"
+      - "scripts/test-team-lite-setup-invite-browser.mjs"
       - ".github/workflows/team-lite-setup-invite-ui.yml"
   pull_request:
     branches:
@@ -18,6 +19,7 @@ on:
       - "scripts/test-setup-invite-ui.mjs"
       - "scripts/build.mjs"
       - "scripts/test-team-lite-build-artifact.mjs"
+      - "scripts/test-team-lite-setup-invite-browser.mjs"
       - ".github/workflows/team-lite-setup-invite-ui.yml"
 
 permissions:
@@ -32,11 +34,17 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - name: Check UI contract and generated Team Lite API artifact
+      - name: Install Playwright Chromium for authenticated invite UI smoke
+        run: |
+          npm install --no-save --package-lock=false playwright@1.64.1
+          npx playwright install --with-deps chromium
+      - name: Check UI contract, authenticated browser flow, and generated Team Lite API artifact
         run: |
           node --version
           node --check scripts/test-setup-invite-ui.mjs
           node scripts/test-setup-invite-ui.mjs team-lite/upstatus-team-lite.user.js
+          node --check scripts/test-team-lite-setup-invite-browser.mjs
+          node scripts/test-team-lite-setup-invite-browser.mjs
           node --check team-lite/upstatus-team-lite.user.js
           node scripts/build.mjs
           node scripts/test-team-lite-build-artifact.mjs
