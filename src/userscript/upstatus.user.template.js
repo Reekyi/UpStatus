@@ -9,6 +9,8 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_listValues
+// @grant        GM_deleteValue
 // @grant        GM_openInTab
 // @updateURL    __UPSTATUS_UPDATE_URL__
 // @downloadURL  __UPSTATUS_DOWNLOAD_URL__
@@ -58,6 +60,15 @@
   })();
 
   var key='__UPSTATUS_STORAGE_PREFIX__';
+  function clearLegacyPasswordStorage(){
+    try{
+      if(typeof GM_listValues!=='function'||typeof GM_deleteValue!=='function')return;
+      GM_listValues().forEach(function(storageKey){
+        if(typeof storageKey==='string'&&storageKey.indexOf(key+'password_')===0)GM_deleteValue(storageKey);
+      });
+    }catch(_){}
+  }
+  clearLegacyPasswordStorage();
   var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
   var CLOUD_SERVER='__UPSTATUS_CLOUD_SERVER__';
   var server=CLOUD_SERVER;
@@ -3095,7 +3106,7 @@ function chatAvatarPresence(name){
   function login(){
     health.classList.add('hidden');
     img.src=profileFallback();
-    var loginMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';lastMember=loginMember;card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><button id="up-enter">Entrar</button></div><div class="up-update up-login-update"><div><span>Versão v'+CURRENT_VERSION+'</span><a href="#" class="up-patch-link">O que há de novo?</a></div><div><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div><span class="up-update-status"></span></div><div class="up-message"></div>';
+    var loginMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';lastMember=loginMember;card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><label>Código de primeiro acesso (novas contas)</label><input class="up-input" id="up-setup-token" type="password" autocomplete="off" placeholder="Código fornecido pelo administrador"><button id="up-enter">Entrar</button></div><div class="up-update up-login-update"><div><span>Versão v'+CURRENT_VERSION+'</span><a href="#" class="up-patch-link">O que há de novo?</a></div><div><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div><span class="up-update-status"></span></div><div class="up-message"></div>';
     var nameSelect=card.querySelector('#up-name');
     function setLoginMembers(names){
       var list=(names||[]).filter(Boolean);
@@ -3104,25 +3115,26 @@ function chatAvatarPresence(name){
       if(list.indexOf(loginMember)<0)loginMember=list[0];
       nameSelect.value=loginMember;
     }
-    function passwordKey(name){return key+'password_'+String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'_');}
-    function loadSavedPassword(){var saved=GM_getValue(passwordKey(loginMember),'');var input=card.querySelector('#up-password');if(input)input.value=saved||'';}
     setLoginMembers(['Ricardo','Lohan','Guilherme']);
-    nameSelect.onchange=function(){loginMember=nameSelect.value;lastMember=loginMember;GM_setValue(key+'last_member',loginMember);loadSavedPassword();};
-    loadSavedPassword();
+    nameSelect.onchange=function(){loginMember=nameSelect.value;lastMember=loginMember;GM_setValue(key+'last_member',loginMember);var setupInput=card.querySelector('#up-setup-token');if(setupInput)setupInput.value='';};
     api('GET','/api/members').then(function(r){setLoginMembers((r.members||[]).map(function(x){return x.name;}));}).catch(function(){});
     card.querySelector('#up-enter').onclick=async function(){
       try{
         server=CLOUD_SERVER;
         var name=loginMember;
         var password=card.querySelector('#up-password').value;
-        var account=await api('GET','/api/account?name='+encodeURIComponent(name));
-        var r=await api('POST',account.needsSetup?'/api/setup':'/api/login',{name:name,password:password});
+        var setupToken=String(card.querySelector('#up-setup-token').value||'').trim();
+        var endpoint=setupToken?'/api/setup':'/api/login';
+        var payload={name:name,password:password};
+        if(setupToken)payload.setupToken=setupToken;
+        var r=await api('POST',endpoint,payload);
         token=r.token;member=r.name;role=r.role||'implementation_user';lastMember=member;
-        GM_setValue(key+'server',CLOUD_SERVER);GM_setValue(key+'token',token);GM_setValue(key+'member',member);GM_setValue(key+'last_member',member);GM_setValue(key+'role',role);GM_setValue(passwordKey(name),password);
+        GM_setValue(key+'server',CLOUD_SERVER);GM_setValue(key+'token',token);GM_setValue(key+'member',member);GM_setValue(key+'last_member',member);GM_setValue(key+'role',role);var passwordInput=card.querySelector('#up-password');if(passwordInput)passwordInput.value='';var setupTokenInput=card.querySelector('#up-setup-token');if(setupTokenInput)setupTokenInput.value='';
         img.src=profileFallback();app();refresh();startRealtime();updateBubbleAvatar(true);
       }catch(e){message(e.message,true)}
     };
     card.querySelector('#up-password').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();card.querySelector('#up-enter').click();}});
+    card.querySelector('#up-setup-token').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();card.querySelector('#up-enter').click();}});
     card.querySelector('.up-update-check').onclick=checkUpdate;
     card.querySelector('.up-patch-link').onclick=function(e){e.preventDefault();openPatchNotes();};
     checkUpdate();
