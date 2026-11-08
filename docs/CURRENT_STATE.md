@@ -2811,3 +2811,17 @@ Checkpoint: [production signaling function candidate](checkpoints/2026-11-08-pro
 - Ten audited public tables have RLS and zero policies; nine grant effective TRUNCATE to anon/authenticated, with `upstatus_visual_config` the exception. `realtime.messages` also has SELECT/INSERT grants but RLS has no policies.
 - Production Storage buckets are both public and 20 MiB. `chat-images` accepts document/video/audio types; `profile-images` accepts image types. Candidate config instead sets chat to 25 MB and profile to 2 MB, and its chat MIME list omits production document types. This mismatch needs a deliberate Storage decision before release; no bucket/config changes were made.
 - `storage.objects` has RLS and zero policies. Default ACLs remain broad for postgres/supabase_admin. No ACL or policy writes were made.
+
+
+## 2026-11-08 17:20 BRT — Authenticated call-source provenance hardening
+
+Checkpoint: [authenticated call-source provenance](checkpoints/2026-11-08-authenticated-call-source-provenance.md).
+
+- Draft [PR #102](https://github.com/Reekyi/UpStatus/pull/102), Normal, exact HEAD `c4a5cae1271147204ab3b0c79b8916235f0799aa`; [full offline Validate 42519210669](https://github.com/Reekyi/UpStatus/actions/runs/42519210669) SUCCESS.
+- Draft [PR #103](https://github.com/Reekyi/UpStatus/pull/103), Team Lite, exact HEAD `5fd4f684f7bb0b61d8a4788eef0dac2fc9d69419`; focused offline push 42519344545 and PR 42519349472 SUCCESS.
+- Both clients previously trusted a client-supplied `_authenticatedTransport: true` payload property. A public Realtime sender could forge it. The candidate now passes source provenance as an explicit `receiveCallSignal(payload, authenticatedSource)` argument: authenticated polling/invitations pass true; public Realtime always passes false.
+- The shared discovery allowlist accepts only own-property `presence` and `ended` hints with `discoveryOnly: true`. The public `ended` handler only removes a directory entry. Public `join_declined`, offer, answer and ICE messages are not discovery hints.
+- The first exact-head attempts exposed stale test assumptions (Normal chat regression and Team Lite bundled adapter parity). Both were corrected without changing production behavior; subsequent exact-head workflows passed.
+- Residual: public presence/ended can still mislead or hide directory entries. They do not grant membership or authorize call control. Removing public discovery remains part of the server-mediated Realtime cutover.
+
+No Supabase operation or production change occurred. QA release-readiness branch remains untouched.
