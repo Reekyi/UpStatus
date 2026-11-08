@@ -9,6 +9,7 @@ on:
       - "lucca.html"
       - "ycaro.html"
       - "scripts/team-lite-candidate-check.mjs"
+      - "scripts/test-team-lite-full-iife.mjs"
       - "scripts/build.mjs"
       - "scripts/test-build-target-guard.mjs"
       - ".github/workflows/deploy-test.yml"
@@ -79,6 +80,14 @@ jobs:
         env:
           UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
         run: node scripts/test-signaling-endpoint.mjs
+      - name: Install Playwright Chromium for browser smoke
+        run: |
+          npm install --no-save --package-lock=false playwright@1.64.1
+          npx playwright install --with-deps chromium
+      - name: Smoke full Team Lite userscript IIFE with offline browser and Tampermonkey stubs
+        run: |
+          node --check scripts/test-team-lite-full-iife.mjs
+          node scripts/test-team-lite-full-iife.mjs
       - name: Run authenticated isolated integration and browser tests
         env:
           SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
@@ -89,8 +98,6 @@ jobs:
             echo "::error::UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY is required; refusing to skip isolated fixture tests."
             exit 1
           fi
-          npm install --no-save --package-lock=false playwright@1.64.1
-          npx playwright install --with-deps chromium
           node scripts/run-signaling-authenticated.mjs
       - name: Verify distributed signaling rate-limit concurrency
         env:
