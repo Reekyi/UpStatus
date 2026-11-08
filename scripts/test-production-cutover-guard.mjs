@@ -19,6 +19,9 @@ const manifest = {
 };
 const secureServerSource = [
   "async function issueSetupInvite(req:Request,adminName:string){",
+  "if(!await admin(adminName))return response({},403);",
+  'randomBytes(32).toString("hex")',
+  "setup_token_hash:tokenHash(raw)",
   "consume_upstatus_setup_invite",
   "p_setup_token_hash:tokenHash(setupToken)",
   'const enrolledRole=String(enrolled.role||"");',
@@ -35,6 +38,7 @@ const aligned = evaluateProductionCutover({
   availableSources: [distributionFunction, apiFunction],
   serverSource: secureServerSource,
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
 });
 assert.equal(aligned.ready, true);
 assert.deepEqual(aligned.issues, []);
@@ -45,6 +49,7 @@ const apiNotDeployed = evaluateProductionCutover({
   availableSources: [distributionFunction, apiFunction],
   serverSource: secureServerSource,
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
 });
 assert.equal(apiNotDeployed.ready, false);
 assert(apiNotDeployed.issues.some(issue => issue.includes('runtime "' + apiFunction + '" is not deployed')));
@@ -55,6 +60,7 @@ const apiSourceMissing = evaluateProductionCutover({
   availableSources: [distributionFunction],
   serverSource: secureServerSource,
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
 });
 assert.equal(apiSourceMissing.ready, false);
 assert(apiSourceMissing.issues.some(issue => issue.includes("source \"supabase/functions/" + apiFunction + "/index.ts\" is not versioned/generated")));
@@ -65,6 +71,7 @@ const reversed = evaluateProductionCutover({
   availableSources: [distributionFunction, apiFunction],
   serverSource: secureServerSource,
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
 });
 assert.equal(reversed.ready, false);
 assert(reversed.issues.some(issue => issue.includes("API runtime must be deployed before the userscript distribution")));
@@ -75,6 +82,7 @@ const unexpected = evaluateProductionCutover({
   availableSources: [distributionFunction, apiFunction, "upstatus-test"],
   serverSource: secureServerSource,
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
 });
 assert.equal(unexpected.ready, false);
 assert(unexpected.issues.some(issue => issue.includes('Unexpected production runtime "upstatus-test"')));
@@ -85,9 +93,21 @@ const noInvite = evaluateProductionCutover({
   availableSources: [distributionFunction, apiFunction],
   serverSource: 'if(path==="/api/chat/clear"&&req.method==="POST"){if(name!=="Ricardo"||!await admin(name))return response({},403);}',
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
 });
 assert.equal(noInvite.ready, false);
 assert(noInvite.issues.some(issue => issue.includes("AUTH-03 is not release-ready")));
+
+const missingAuthTest = evaluateProductionCutover({
+  manifest,
+  workflow,
+  availableSources: [distributionFunction, apiFunction],
+  serverSource: secureServerSource,
+  availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: false,
+});
+assert.equal(missingAuthTest.ready, false);
+assert(missingAuthTest.issues.some(issue => issue.includes("AUTH-03 regression test is missing")));
 
 const missingMigration = evaluateProductionCutover({
   manifest,
@@ -95,6 +115,7 @@ const missingMigration = evaluateProductionCutover({
   availableSources: [distributionFunction, apiFunction],
   serverSource: secureServerSource,
   availableMigrations: REQUIRED_SETUP_MIGRATIONS.slice(1),
+  authEnrollmentTestPresent: true,
 });
 assert.equal(missingMigration.ready, false);
 assert(missingMigration.issues.some(issue => issue.includes("Required AUTH-03 migration source is missing")));
@@ -105,6 +126,7 @@ const nameFallback = evaluateProductionCutover({
   availableSources: [distributionFunction, apiFunction],
   serverSource: secureServerSource + '\nconst role=["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin":"implementation_user";',
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
 });
 assert.equal(nameFallback.ready, false);
 assert(nameFallback.issues.some(issue => issue.includes("must not grant implementation_admin by hard-coded account name")));
@@ -115,6 +137,7 @@ const nameOnlyChatClear = evaluateProductionCutover({
   availableSources: [distributionFunction, apiFunction],
   serverSource: secureServerSource.replace('if(name!=="Ricardo"||!(await admin(name)))', 'if(name!=="Ricardo")'),
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
 });
 assert.equal(nameOnlyChatClear.ready, false);
 assert(nameOnlyChatClear.issues.some(issue => issue.includes("Chat clear must require Ricardo")));
@@ -125,6 +148,7 @@ const unsafeWorkflow = evaluateProductionCutover({
   availableSources: [distributionFunction, apiFunction],
   serverSource: secureServerSource,
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
 });
 assert.equal(unsafeWorkflow.ready, false);
 assert(unsafeWorkflow.issues.some(issue => issue.includes("must not apply database migrations automatically")));
@@ -138,6 +162,7 @@ const wrongTarget = evaluateProductionCutover({
   availableSources: [distributionFunction, apiFunction],
   serverSource: secureServerSource,
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
 });
 assert.equal(wrongTarget.ready, false);
 assert(wrongTarget.issues.some(issue => issue.includes("approved production API function")));
@@ -148,8 +173,9 @@ const missingManifestField = evaluateProductionCutover({
   availableSources: [distributionFunction],
   serverSource: secureServerSource,
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
 });
 assert.equal(missingManifestField.ready, false);
 assert(missingManifestField.issues.some(issue => issue.includes("productionApiFunction is missing or invalid")));
 
-console.log("PASS production cutover guard: API-first alignment, AUTH-03 enrollment, stored-role chat clear and migrations required; missing deploy/source, reversed order, TEST deploy, first-caller setup, name fallback, name-only chat clear, missing migrations, automatic db push, wrong host and incomplete manifest blocked.");
+console.log("PASS production cutover guard: API-first alignment, AUTH-03 invite/atomic consumption and regression, stored-role chat clear, required migrations, no automatic db push; missing deploy/source/test, reversed order, TEST deploy, first-caller setup, name fallback, name-only chat clear, missing migrations, wrong host and incomplete manifest blocked.");
