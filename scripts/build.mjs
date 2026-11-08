@@ -16,6 +16,7 @@ const ycaroPage=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
 
 const PROJECT="dlfvkawaiqduhlazsszm";
 const PROD_FUNCTION="upstatus";
+const PROD_API_FUNCTION="upstatus-screen-share-3-1-1-beta10";
 const TEST_FUNCTION="upstatus-test";
 const PROD_TOPIC="upstatus-screen-share-live-3-1-1-beta10";
 const TEST_TOPIC="upstatus-test-live-20261007-v1";
@@ -39,14 +40,18 @@ function renderUser({version,test}){
   const topic=test?TEST_TOPIC:PROD_TOPIC;
   const ringtoneChannel=test?TEST_RINGTONE_CHANNEL:PROD_RINGTONE_CHANNEL;
   const ringtoneStorage=test?TEST_RINGTONE_STORAGE:PROD_RINGTONE_STORAGE;
-  const cloud=test?"https://"+PROJECT+".supabase.co/functions/v1/"+fn:"https://"+PROJECT+".supabase.co/functions/v1/upstatus-screen-share-3-1-1-beta10";
-  const updateUrl=cloud+"/upstatus.user.js";
+  const cloud=test?"https://"+PROJECT+".supabase.co/functions/v1/"+fn:"https://"+PROJECT+".supabase.co/functions/v1/"+PROD_API_FUNCTION;
+  const updateUrl=test?cloud+"/upstatus.user.js":String(release.scriptUrl||("https://"+PROJECT+".supabase.co/functions/v1/upstatus/upstatus.user.js")).trim();
+  const releaseManifestUrl=test?"":"https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json";
+  if(!updateUrl)throw new Error("Could not determine the production userscript update URL.");
+  if(!test&&!/^https:\/\/[^/]+\/functions\/v1\/upstatus\/upstatus\.user\.js$/.test(updateUrl))throw new Error("release.json: scriptUrl must point to the production /upstatus/upstatus.user.js endpoint.");
   return render(userTemplate,{
     "__UPSTATUS_NAME__":name,
     "__UPSTATUS_NAMESPACE__":namespace,
     "__UPSTATUS_VERSION__":version,
     "__UPSTATUS_UPDATE_URL__":updateUrl,
     "__UPSTATUS_DOWNLOAD_URL__":updateUrl,
+    "__UPSTATUS_RELEASE_MANIFEST_URL__":releaseManifestUrl,
     "__UPSTATUS_STORAGE_PREFIX__":prefix,
     "__UPSTATUS_CLOUD_SERVER__":cloud,
     "__UPSTATUS_REALTIME_TOPIC__":topic,
@@ -54,13 +59,12 @@ function renderUser({version,test}){
     "__UPSTATUS_RINGTONE_STORAGE_KEY__":ringtoneStorage
   });
 }
-function renderFunction({version,test}){
-  const fn=test?TEST_FUNCTION:PROD_FUNCTION;
+function renderFunction({version,test,functionName=test?TEST_FUNCTION:PROD_FUNCTION}){
   const userscript=renderUser({version,test});
   return render(serverTemplate,{
     "__UPSTATUS_VERSION__":version,
     "__UPSTATUS_USERSCRIPT_HEX__":hexEncode(userscript),
-    "__UPSTATUS_PATH_MARKER__":"/"+fn,
+    "__UPSTATUS_PATH_MARKER__":"/"+functionName,
     "__UPSTATUS_YCARO_HTML_EXPR__":JSON.stringify(ycaroPage)
   });
 }
@@ -72,8 +76,10 @@ function writeFunction(fn,source){
 }
 const prodUser=renderUser({version:baseVersion,test:false});
 const testUser=renderUser({version:fullVersion,test:true});
-writeFunction(PROD_FUNCTION,renderFunction({version:baseVersion,test:false}));
-writeFunction(TEST_FUNCTION,renderFunction({version:fullVersion,test:true}));
+// The distribution function and its API runtime share one reviewed server template and userscript artifact.
+writeFunction(PROD_FUNCTION,renderFunction({version:baseVersion,test:false,functionName:PROD_FUNCTION}));
+writeFunction(PROD_API_FUNCTION,renderFunction({version:baseVersion,test:false,functionName:PROD_API_FUNCTION}));
+writeFunction(TEST_FUNCTION,renderFunction({version:fullVersion,test:true,functionName:TEST_FUNCTION}));
 const dist=path.join(ROOT,"dist");
 fs.rmSync(dist,{recursive:true,force:true});
 fs.mkdirSync(dist,{recursive:true});
@@ -81,6 +87,6 @@ fs.writeFileSync(path.join(dist,"upstatus.user.js"),prodUser,"utf8");
 fs.writeFileSync(path.join(dist,"upstatus-test.user.js"),testUser,"utf8");
 fs.writeFileSync(path.join(dist,"build-manifest.json"),JSON.stringify({
   baseVersion,testVersion:fullVersion,channel:preRelease?"pre-release":"stable",
-  productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION
+  productionFunction:PROD_FUNCTION,productionApiFunction:PROD_API_FUNCTION,productionApiBase:"https://"+PROJECT+".supabase.co/functions/v1/"+PROD_API_FUNCTION,testFunction:TEST_FUNCTION
 },null,2)+"\n","utf8");
 console.log("Built UpStatus "+baseVersion+" / TEST "+fullVersion);
