@@ -48,7 +48,7 @@ assert.match(build, /const PROD_API_FUNCTION="upstatus-screen-share-3-1-1-beta10
   "build must generate the same production API runtime that the workflow deploys");
 assert.doesNotMatch(workflow, /supabase functions deploy upstatus-test/,
   "production workflow must never deploy the TEST function");
-assert.doesNotMatch(workflow, /supabase\\s+(?:db\\s+push|migration\\s+up)/,
+assert.doesNotMatch(workflow, /supabase\s+(?:db\s+push|migration\s+up)/,
   "production workflow must never apply database migrations automatically");
 assert.match(workflow, /group: upstatus-production-deploy[\s\S]*?cancel-in-progress: false/,
   "production deployments must be serialized without cancelling an active deployment");
