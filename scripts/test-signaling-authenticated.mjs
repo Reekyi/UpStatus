@@ -72,7 +72,7 @@ async function requestRaw(user, route, rawBody) {
   return { status: res.status, json };
 }
 async function serviceRpc(name, payload) {
-  if (name !== "open_upstatus_signal_voice_room") throw new Error("Unexpected isolated RPC probe");
+  if (!["open_upstatus_signal_voice_room", "open_upstatus_signal_voice_room_attempt", "cancel_upstatus_signal_voice_room_attempt"].includes(name)) throw new Error("Unexpected isolated RPC probe");
   const res = await fetch(projectUrl.origin + "/rest/v1/rpc/" + name, {
     method: "POST",
     headers: { apikey: serviceKey, authorization: "Bearer " + serviceKey, "content-type": "application/json" },
@@ -92,6 +92,7 @@ let parallelRoomTwoId = "";
 let voiceRoomId = "";
 let raceRoomId = "";
 let capacityRoomId = "";
+const voiceAttemptCleanup = [];
 function check(name, ok, detail = "") {
   results.push({ name, ok });
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " (" + detail + ")" : ""}`);
@@ -868,10 +869,65 @@ try {
     wrongLogicalReuse.status === 409 && wrongLogicalReuse.json?.error === "VOICE_ATTEMPT_CONFLICT",
     "HTTP " + wrongLogicalReuse.status);
 
+  const singletonAttempts = [
+    { attemptId: makeVoiceAttemptId("singleton-normal"), logicalId: "upstatus-team-room-v1" },
+    { attemptId: makeVoiceAttemptId("singleton-team-lite"), logicalId: "upstatus-team-lite-room-v1" },
+  ];
+  voiceAttemptCleanup.push(...singletonAttempts);
+  const singletonResults = await Promise.all(singletonAttempts.map(attempt =>
+    serviceRpc("open_upstatus_signal_voice_room_attempt", {
+      p_attempt_id: attempt.attemptId,
+      p_logical_id: attempt.logicalId,
+      p_user_name: users.A.name,
+      p_max_members: 32,
+    })
+  ));
+  const singletonWinnerIndex = singletonResults.findIndex(result => result.json?.ok === true);
+  const singletonLoserIndex = singletonWinnerIndex === 0 ? 1 : 0;
+  const singletonLoserError = singletonResults[singletonLoserIndex]?.json?.error;
+  check("same user cannot create concurrent voice attempts across Normal and Team Lite aliases",
+    singletonWinnerIndex >= 0 && singletonLoserError === "VOICE_ATTEMPT_ALREADY_ACTIVE",
+    "first=" + JSON.stringify(singletonResults[0].json) + ", second=" + JSON.stringify(singletonResults[1].json));
+  if (singletonWinnerIndex >= 0 && singletonLoserError === "VOICE_ATTEMPT_ALREADY_ACTIVE") {
+    const winner = singletonAttempts[singletonWinnerIndex];
+    const loser = singletonAttempts[singletonLoserIndex];
+    const blockedRetry = await serviceRpc("open_upstatus_signal_voice_room_attempt", {
+      p_attempt_id: loser.attemptId, p_logical_id: loser.logicalId,
+      p_user_name: users.A.name, p_max_members: 32,
+    });
+    check("second tab remains blocked while the account has an active voice attempt",
+      blockedRetry.json?.error === "VOICE_ATTEMPT_ALREADY_ACTIVE", JSON.stringify(blockedRetry.json));
+    const released = await serviceRpc("cancel_upstatus_signal_voice_room_attempt", {
+      p_attempt_id: winner.attemptId, p_logical_id: winner.logicalId, p_user_name: users.A.name,
+    });
+    check("cancelling the active voice attempt releases the account singleton",
+      released.json?.cancelled === true, JSON.stringify(released.json));
+    const retryAfterRelease = await serviceRpc("open_upstatus_signal_voice_room_attempt", {
+      p_attempt_id: loser.attemptId, p_logical_id: loser.logicalId,
+      p_user_name: users.A.name, p_max_members: 32,
+    });
+    check("a rejected tab-local attempt can retry after the active attempt ends",
+      retryAfterRelease.json?.ok === true, JSON.stringify(retryAfterRelease.json));
+    if (retryAfterRelease.json?.ok === true) {
+      const retryCancelled = await serviceRpc("cancel_upstatus_signal_voice_room_attempt", {
+        p_attempt_id: loser.attemptId, p_logical_id: loser.logicalId, p_user_name: users.A.name,
+      });
+      check("retried tab-local voice attempt cancels cleanly",
+        retryCancelled.json?.cancelled === true, JSON.stringify(retryCancelled.json));
+    }
+  }
+
 } catch (error) {
   console.error("Integration request failed:", String(error));
   results.push({ name: "test runner completed without transport error", ok: false });
 } finally {
+  for (const attempt of voiceAttemptCleanup) {
+    try {
+      await serviceRpc("cancel_upstatus_signal_voice_room_attempt", {
+        p_attempt_id: attempt.attemptId, p_logical_id: attempt.logicalId, p_user_name: users.A.name,
+      });
+    } catch {}
+  }
   if (roomId) {
     // Best-effort cleanup, without printing response payloads or credentials.
     try { await request(users.A, "/room/close", { roomId }); } catch {}
