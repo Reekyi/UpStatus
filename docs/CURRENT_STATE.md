@@ -2850,7 +2850,7 @@ No Supabase operation or production change occurred. QA release-readiness branch
 | #74 Normal | 9c0133e8cf6bd85ac8993888718a408db2f24a3e | Validate + Smoke historical SUCCESS |
 | #75 baseline | 7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309 | Candidate Checks historical PASS |
 | #76 Team Lite | eb28e88325d7e8a6236d9050bebabf794d64a8c4 | 110/110 candidate checks reported PASS |
-| #80 continuity | 156ef9dfbbd3237c739d524a60b235e7094eb4e8 | Validate [42528784996](https://github.com/Reekyi/UpStatus/actions/runs/42528784996) fails inherited client signed upload helper missing (scripts/validate.mjs:55) |
+| #80 continuity | c4943c71fe9e0584b53d09bb06ba6c2e6a1472f6 | No new run observed for this docs-only correction; prior HEAD 156ef9d Validate [42528784996](https://github.com/Reekyi/UpStatus/actions/runs/42528784996) failed inherited client signed upload helper missing (scripts/validate.mjs:55) |
 | #82 QA | 3ba9c15a61d220c46e7906b2f9c21b545401530e | Validate fails inherited production updateURL mismatch (scripts/validate.mjs:26) |
 | #101 signaling | 2ef7c3324d2eb5443d31a45bd071d154ebeb4aa7 | Offline source parity + full Validate SUCCESS |
 | #102 Normal provenance | c4a5cae1271147204ab3b0c79b8916235f0799aa | Full offline Validate SUCCESS |
@@ -2859,7 +2859,7 @@ No Supabase operation or production change occurred. QA release-readiness branch
 | #105 409 route test | 763b3e808b5e9c2d49a5d8f9c714fe0552ae657d | Push + PR offline Validate SUCCESS |
 
 - #104 is 11 commits ahead of its RT-01 parent 0ff11af43e78bfe57d39a2a0098c30f29afed9a2, but its head is 119 ahead / 887 behind #101 (merge base a9288ccfcb0f308d3a587bfca624418a395be07b). It is not an integrated signaling release line. Do not merge it into #101 or master as-is.
-- #80 latest exact-head Validate [42528784996](https://github.com/Reekyi/UpStatus/actions/runs/42528784996) remains red on the inherited develop assertion; #82 latest exact-head Validate [42526633725](https://github.com/Reekyi/UpStatus/actions/runs/42526633725) remains red on the inherited master updateURL assertion. Neither validator was weakened.
+- #80 prior HEAD 156ef9d Validate [42528784996](https://github.com/Reekyi/UpStatus/actions/runs/42528784996) remains red on the inherited develop assertion; no new run was observed for final docs-only HEAD c4943c71. #82 exact-head Validate [42526633725](https://github.com/Reekyi/UpStatus/actions/runs/42526633725) remains red on the inherited master updateURL assertion. Neither validator was weakened.
 - Official branch rulesets remain empty; branch protection for master/develop/team-lite-official is not proven.
 
 ### Supabase read-only snapshot
