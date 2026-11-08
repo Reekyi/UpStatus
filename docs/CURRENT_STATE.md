@@ -2299,3 +2299,12 @@ The lab Edge Function `upstatus-signal-test` remains v32; no Edge Function was d
 - #80/#82 inherited validator mismatches remain; do not weaken validators. The QA branch and `docs/RELEASE_READINESS.md` were not modified.
 
 No production SQL write, migration, Edge Function deployment, merge, release, userscript publication, secret/role/grant/ACL/policy/flag change, or destructive operation occurred. The only database writes were the two reviewed candidate migrations on the allowlisted isolated lab.
+
+
+### Follow-up 2026-11-08 01:25 UTC — Normal smoke completed
+
+- Normal #74 HEAD `d6b467ff0d6bbf9c3f90e8397211cc9ec7807aa4`: Signaling Smoke [42433643630](https://github.com/Reekyi/UpStatus/actions/runs/42433643630) completed SUCCESS after Validate [42433643638](https://github.com/Reekyi/UpStatus/actions/runs/42433643638). The authenticated integration count increased to **134/134**. The five new singleton assertions all passed: one concurrent attempt wins across Normal/Team Lite aliases, the second remains blocked, cancellation releases the account slot, the rejected tab-local ID can retry, and the retry cancels cleanly. Call, voice and screen WebRTC browser checks, three-member mesh, distributed 90-accepted/1-429 rate limit, read-receipt/invite concurrency, and final temporary-user/session/room/membership/event cleanup all passed.
+- Team Lite #76 HEAD `f45495fd935ee1fee10f693211f170f5c3a7d03a`: Candidate Checks [42433646521](https://github.com/Reekyi/UpStatus/actions/runs/42433646521) has started. Build-target guard, isolated-project mutation guard, signaling adapter, AUTH-03, durable voice-attempt recovery, screen-share recovery, and unauthenticated endpoint checks passed. The authenticated integration/browser step is currently in progress; do not claim the Team Lite singleton regression PASS until the run completes.
+- The Normal workflow log explicitly verified cleanup. Team Lite now owns the serialized lab queue, so no second mutation suite or manual cleanup was started. The lab Edge Function remains v32; no deployment occurred.
+- Documentation checkpoint commit is `2880c3a3ec386ef6e39dcb39bf35d6b9d0a7fa46`; its Validate [42434045215](https://github.com/Reekyi/UpStatus/actions/runs/42434045215) failed at the same inherited `client signed upload helper missing` assertion from `develop`, not at the new documentation.
+- Physical acceptance remains #78 **0/8**. Automated browser/WebRTC tests do not replace installed Tampermonkey offline/no-F5, physical microphone/display, or installed Normal ↔ Team Lite testing.
