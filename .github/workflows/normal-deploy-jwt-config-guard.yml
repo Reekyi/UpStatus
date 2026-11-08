@@ -1,0 +1,36 @@
+name: Normal Deploy JWT Config Guard
+
+on:
+  push:
+    branches:
+      - fix/normal-beta10-verify-jwt-config-guard-20261108
+    paths:
+      - "supabase/config.toml"
+      - "scripts/test-function-jwt-config.mjs"
+      - "scripts/validate.mjs"
+      - ".github/workflows/normal-deploy-jwt-config-guard.yml"
+  pull_request:
+    branches:
+      - fix/normal-auth03-build-safe-20261108
+    paths:
+      - "supabase/config.toml"
+      - "scripts/test-function-jwt-config.mjs"
+      - "scripts/validate.mjs"
+      - ".github/workflows/normal-deploy-jwt-config-guard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Verify Normal custom-auth function configuration
+        run: |
+          node --check scripts/test-function-jwt-config.mjs
+          node scripts/test-function-jwt-config.mjs upstatus upstatus-screen-share-3-1-1-beta10 upstatus-test
