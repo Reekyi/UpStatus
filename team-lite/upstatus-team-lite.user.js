@@ -4913,7 +4913,7 @@ function chatAvatarPresence(name){
     if(settingsMenu){settingsMenu.onclick=function(e){e.stopPropagation();};var settingsHealth=settingsMenu.querySelector('.up-settings-health');if(settingsHealth)settingsHealth.onclick=function(){settingsMenu.classList.add('hidden');openHealth();};var settingsTest=settingsMenu.querySelector('.up-settings-test');if(settingsTest)settingsTest.onclick=function(){settingsMenu.classList.add('hidden');openTestPanel();};settingsMenu.querySelector('.up-settings-theme').onclick=function(){toggleTheme();};document.addEventListener('click',function(e){if(!settingsMenu.contains(e.target)&&e.target!==settingsBtn)settingsMenu.classList.add('hidden');});}
     var liteChatButton=card.querySelector('.up-chat-btn');if(liteChatButton)liteChatButton.remove();
     var liteHistoryButton=card.querySelector('.up-history-btn');if(liteHistoryButton)liteHistoryButton.remove();
-    var liteSettingsButton=card.querySelector('.up-settings-btn');if(liteSettingsButton)liteSettingsButton.remove();
+    var liteSettingsButton=card.querySelector('.up-settings-btn');if(liteSettingsButton){if(role==='implementation_admin'){liteSettingsButton.title='Administração';liteSettingsButton.setAttribute('aria-label','Administração');}else liteSettingsButton.remove();}
     var liteLogoutButton=card.querySelector('.up-logout');if(liteLogoutButton)liteLogoutButton.remove();
     card.querySelectorAll('.up-statuses,.up-reasons,.up-notice,.up-update,.up-team-title-row,.up-team').forEach(function(el){el.remove();});
     quickChatBubble.onclick=function(e){e.preventDefault();e.stopPropagation();toggleTeamLitePanel();};
