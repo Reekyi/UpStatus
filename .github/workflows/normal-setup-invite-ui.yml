@@ -18,6 +18,7 @@ on:
     paths:
       - "src/userscript/upstatus.user.template.js"
       - "scripts/test-setup-invite-ui.mjs"
+      - "scripts/test-setup-invite-issuance.mjs"
       - "scripts/validate.mjs"
       - ".github/workflows/normal-setup-invite-ui.yml"
 
