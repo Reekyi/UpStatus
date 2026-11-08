@@ -18,6 +18,14 @@ export function parseDeployedFunctions(workflow) {
   return [...new Set(matches.map(match => match[1]))];
 }
 
+export function hasAuthEnrollmentTestInvocation(validateScript) {
+  const source = String(validateScript || "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  const normalInvocation = /execFileSync\s*\(\s*process\.execPath\s*,\s*\[\s*path\.join\s*\(\s*ROOT\s*,\s*["']scripts["']\s*,\s*["']auth-enrollment\.test\.mjs["']\s*\)\s*,\s*["']normal["']\s*\]\s*,\s*\{\s*stdio\s*:\s*["']inherit["']\s*\}\s*\)\s*;/;
+  return normalInvocation.test(source);
+}
+
 export function evaluateProductionCutover({
   manifest,
   workflow,
@@ -84,6 +92,28 @@ export function evaluateProductionCutover({
     issues.push("Chat clear must require Ricardo and the persisted implementation_admin role.");
   }
 
+  const adminStart = serverSource.indexOf("async function admin(");
+  const adminEnd = adminStart >= 0 ? serverSource.indexOf("\nasync function ", adminStart + 1) : -1;
+  const adminBlock = adminStart >= 0
+    ? serverSource.slice(adminStart, adminEnd > adminStart ? adminEnd : adminStart + 1200)
+    : "";
+  const storedRoleAdmin = /const a\s*=\s*await account\(name\)\s*;[\s\S]*?return a\?\.role\s*===\s*["']implementation_admin["']\s*;/.test(adminBlock);
+  if (!storedRoleAdmin) {
+    issues.push("Administrative authorization must derive only from the persisted implementation_admin role.");
+  }
+
+  const deleteStart = serverSource.indexOf("async function deleteRoute(");
+  const deleteEnd = deleteStart >= 0 ? serverSource.indexOf("\nasync function ", deleteStart + 1) : -1;
+  const deleteBlock = deleteStart >= 0
+    ? serverSource.slice(deleteStart, deleteEnd > deleteStart ? deleteEnd : deleteStart + 1800)
+    : "";
+  const storedRoleDelete = storedRoleAdmin &&
+    /const isAdmin\s*=\s*await admin\(name\)\s*;/.test(deleteBlock) &&
+    /if\s*\(\s*data\.user_name\s*!==\s*name\s*&&\s*!isAdmin\s*\)\s*return response\([\s\S]*?,\s*403\s*\)\s*;/.test(deleteBlock);
+  if (!storedRoleDelete) {
+    issues.push("Message deletion must allow the owner and require the persisted implementation_admin role for another user's message.");
+  }
+
   if (/\["Ricardo","Lohan","Guilherme"\]\.includes\(name\)\s*\?\s*["']implementation_admin["']/.test(serverSource)) {
     issues.push("Setup must not grant implementation_admin by hard-coded account name.");
   }
@@ -136,7 +166,7 @@ function main() {
   const serverSource = fs.readFileSync(serverTemplatePath, "utf8");
   const validateScript = fs.readFileSync(validateScriptPath, "utf8");
   const authEnrollmentTestPresent =
-    fs.existsSync(authTestPath) && validateScript.includes("auth-enrollment.test.mjs");
+    fs.existsSync(authTestPath) && hasAuthEnrollmentTestInvocation(validateScript);
   const required = [...new Set([
     String(manifest.productionFunction || ""),
     String(manifest.productionApiFunction || ""),
@@ -155,7 +185,7 @@ function main() {
   });
 
   if (result.ready) {
-    console.log("PASS production distribution/API alignment, AUTH-03 setup enrollment regression, stored-role chat clear, and required migration sources are present.");
+    console.log("PASS production distribution/API alignment, AUTH-03 setup enrollment regression, stored-role chat clear and message deletion, and required migration sources are present.");
     return;
   }
 
