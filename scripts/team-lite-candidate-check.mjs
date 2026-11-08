@@ -1375,6 +1375,13 @@ assert.ok(script.includes("member==='Ricardo'&&role==='implementation_admin'?'<b
   script.includes("function clearChatRicardo(){if(member!=='Ricardo'||role!=='implementation_admin')return;"),
   "Team Lite clear-chat UI affordance and handler must require both account and stored role");
 
+assert.ok(script.includes("var canDelete=m.user===member||role==='implementation_admin';") &&
+  !script.includes("var canDelete=m.user===member||member==='Ricardo'||role==='implementation_admin';"),
+  "Team Lite message-delete affordance must require ownership or the stored admin role");
+assert.ok(script.includes("function canViewHealth(){return role==='implementation_admin';}") &&
+  !script.includes("function canViewHealth(){return ['Ricardo','Lohan','Guilherme'].indexOf(member)>=0;}"),
+  "Team Lite health affordance must use the stored admin role");
+
 const teamLiteAccountStart = backend.indexOf("async function account(name:string){");
 const teamLiteCreateSessionStart = backend.indexOf("async function createSession(", teamLiteAccountStart);
 assert.ok(teamLiteAccountStart >= 0 && teamLiteCreateSessionStart > teamLiteAccountStart,
