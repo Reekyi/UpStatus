@@ -3,11 +3,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { REQUIRED_SETUP_MIGRATIONS } from "./verify-production-cutover.mjs";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
 function expectedMigrationEntries() {
   return REQUIRED_SETUP_MIGRATIONS.map(file => {
-    const match = /^(\\d{14})_(.+)\\.sql$/.exec(file);
+    const match = /^(\d{14})_(.+)\.sql$/.exec(file);
     if (!match) throw new Error("Required setup migration filename is invalid: " + file);
     return { version: match[1], name: match[2] };
   });
@@ -22,7 +20,7 @@ export function assertRequiredSetupMigrationsApplied(appliedMigrations) {
   for (const migration of appliedMigrations) {
     const version = String(migration?.version || "").trim();
     const name = String(migration?.name || "").trim();
-    if (!/^\\d{14}$/.test(version) || !name) {
+    if (!/^\d{14}$/.test(version) || !name) {
       throw new Error("Supabase Management API returned a malformed migration-history entry.");
     }
     if (byVersion.has(version)) {
