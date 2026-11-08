@@ -4,14 +4,14 @@ import { evaluateProductionCutover, parseDeployedFunctions, REQUIRED_SETUP_MIGRA
 
 const apiFunction = "upstatus-screen-share-3-1-1-beta10";
 const distributionFunction = "upstatus";
-const apiDeploy = `          supabase functions deploy ${apiFunction} --project-ref "$SUPABASE_PROJECT_ID" --use-api`;
-const distributionDeploy = `          supabase functions deploy ${distributionFunction} --project-ref "$SUPABASE_PROJECT_ID" --use-api`;
+const apiDeploy = "          supabase functions deploy " + apiFunction + ' --project-ref "$SUPABASE_PROJECT_ID" --use-api';
+const distributionDeploy = '          supabase functions deploy upstatus --project-ref "$SUPABASE_PROJECT_ID" --use-api';
 const workflow = [
   "      - name: Deploy production API before userscript distribution",
   "        run: |",
   apiDeploy,
   distributionDeploy,
-].join("\\n");
+].join("\n");
 const manifest = {
   productionFunction: distributionFunction,
   productionApiFunction: apiFunction,
@@ -25,7 +25,7 @@ const secureServerSource = [
   'const sessionRole=enrolledRole.trim()?enrolledRole:"implementation_user";',
   'if(path==="/api/chat/clear"&&req.method==="POST"){',
   'if(name!=="Ricardo"||!(await admin(name)))return response({},403);',
-].join("\\n");
+].join("\n");
 
 assert.deepEqual(parseDeployedFunctions(workflow), [apiFunction, distributionFunction]);
 
@@ -61,7 +61,7 @@ assert(apiSourceMissing.issues.some(issue => issue.includes("source \"supabase/f
 
 const reversed = evaluateProductionCutover({
   manifest,
-  workflow: workflow.replace(apiDeploy + "\\n" + distributionDeploy, distributionDeploy + "\\n" + apiDeploy),
+  workflow: workflow.replace(apiDeploy + "\n" + distributionDeploy, distributionDeploy + "\n" + apiDeploy),
   availableSources: [distributionFunction, apiFunction],
   serverSource: secureServerSource,
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
@@ -71,7 +71,7 @@ assert(reversed.issues.some(issue => issue.includes("API runtime must be deploye
 
 const unexpected = evaluateProductionCutover({
   manifest,
-  workflow: workflow.replace(distributionDeploy, distributionDeploy + "\\n          supabase functions deploy upstatus-test --project-ref \"$SUPABASE_PROJECT_ID\" --use-api"),
+  workflow: workflow.replace(distributionDeploy, distributionDeploy + "\n          supabase functions deploy upstatus-test --project-ref \"$SUPABASE_PROJECT_ID\" --use-api"),
   availableSources: [distributionFunction, apiFunction, "upstatus-test"],
   serverSource: secureServerSource,
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
@@ -103,15 +103,25 @@ const nameFallback = evaluateProductionCutover({
   manifest,
   workflow,
   availableSources: [distributionFunction, apiFunction],
-  serverSource: secureServerSource + '\\nconst role=["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin":"implementation_user";',
+  serverSource: secureServerSource + '\nconst role=["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin":"implementation_user";',
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
 });
 assert.equal(nameFallback.ready, false);
 assert(nameFallback.issues.some(issue => issue.includes("must not grant implementation_admin by hard-coded account name")));
 
+const nameOnlyChatClear = evaluateProductionCutover({
+  manifest,
+  workflow,
+  availableSources: [distributionFunction, apiFunction],
+  serverSource: secureServerSource.replace('if(name!=="Ricardo"||!(await admin(name)))', 'if(name!=="Ricardo")'),
+  availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+});
+assert.equal(nameOnlyChatClear.ready, false);
+assert(nameOnlyChatClear.issues.some(issue => issue.includes("Chat clear must require Ricardo")));
+
 const unsafeWorkflow = evaluateProductionCutover({
   manifest,
-  workflow: workflow + "\\nsupabase db push",
+  workflow: workflow + "\nsupabase db push",
   availableSources: [distributionFunction, apiFunction],
   serverSource: secureServerSource,
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
@@ -142,4 +152,4 @@ const missingManifestField = evaluateProductionCutover({
 assert.equal(missingManifestField.ready, false);
 assert(missingManifestField.issues.some(issue => issue.includes("productionApiFunction is missing or invalid")));
 
-console.log("PASS production cutover guard: API-first alignment, AUTH-03 enrollment, stored-role chat clear and migrations required; missing deploy/source, reversed order, TEST deploy, first-caller setup, name fallback, missing migrations, automatic db push, wrong host and incomplete manifest blocked.");
+console.log("PASS production cutover guard: API-first alignment, AUTH-03 enrollment, stored-role chat clear and migrations required; missing deploy/source, reversed order, TEST deploy, first-caller setup, name fallback, name-only chat clear, missing migrations, automatic db push, wrong host and incomplete manifest blocked.");
