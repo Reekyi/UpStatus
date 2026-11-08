@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { REQUIRED_SETUP_MIGRATIONS } from "./verify-production-cutover.mjs";
+import { REQUIRED_PRODUCTION_MIGRATIONS } from "./verify-production-cutover.mjs";
 
 function expectedMigrationEntries() {
-  return REQUIRED_SETUP_MIGRATIONS.map(file => {
+  return REQUIRED_PRODUCTION_MIGRATIONS.map(file => {
     const match = /^(\d{14})_(.+)\.sql$/.exec(file);
     if (!match) throw new Error("Required setup migration filename is invalid: " + file);
     return { version: match[1], name: match[2] };
   });
 }
 
-export function assertRequiredSetupMigrationsApplied(appliedMigrations) {
+export function assertRequiredProductionMigrationsApplied(appliedMigrations) {
   if (!Array.isArray(appliedMigrations)) {
     throw new Error("Supabase Management API returned an invalid migration-history response.");
   }
@@ -41,7 +41,7 @@ export function assertRequiredSetupMigrationsApplied(appliedMigrations) {
     const details = [];
     if (missing.length) details.push("missing: " + missing.join(", "));
     if (mismatched.length) details.push("name mismatch: " + mismatched.join(", "));
-    throw new Error("Required AUTH-03 migrations are not applied to production (" + details.join("; ") + ").");
+    throw new Error("Required production security/signaling migrations are not applied to production (" + details.join("; ") + ").");
   }
 
   return expectedMigrationEntries().map(item => item.version);
@@ -101,7 +101,7 @@ export async function verifyProductionMigrationHistory({
 
   return {
     projectRef: actualRef,
-    verifiedVersions: assertRequiredSetupMigrationsApplied(appliedMigrations),
+    verifiedVersions: assertRequiredProductionMigrationsApplied(appliedMigrations),
   };
 }
 
@@ -112,7 +112,7 @@ async function main() {
     isolatedProjectRef: process.env.EXPECTED_ISOLATED_SIGNALING_PROJECT_ID,
     accessToken: process.env.SUPABASE_ACCESS_TOKEN,
   });
-  console.log("Verified AUTH-03 migration history on approved production project " + result.projectRef + ": " + result.verifiedVersions.join(", ") + ".");
+  console.log("Verified required production security/signaling migration history on approved project " + result.projectRef + ": " + result.verifiedVersions.join(", ") + ".");
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
