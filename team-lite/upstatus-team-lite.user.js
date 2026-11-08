@@ -35,6 +35,8 @@
   var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
   var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
+  var voiceControlBubble=null,voiceControlAvatar=null,voiceControlWave=null,voiceControlSpeakerName='';
+  var voiceRoom={id:'upstatus-team-room-v1',seenSignals:{},sessionId:'vr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10),active:false,muted:false,speakersMuted:false,stream:null,peers:{},participants:{},timer:null,joining:false,audioContext:null,levelTimer:null,sessionStartedAt:0,sessionTimer:null,pingTimer:null,pingMs:null,lastSpeaker:'',currentSpeaker:'',recoveryAttempts:{},recoveryTimers:{}};
 /**
  * Authenticated signaling transport adapter.
  *
