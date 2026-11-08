@@ -119,3 +119,47 @@ Isolated lab bfpjtfqlnypisxljoxkb:
 ## Safety
 
 All production Supabase operations in this checkpoint were read-only (Management API source/version/list/advisor reads and SELECT-only catalog queries). No migration, SQL write, deploy, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change, function deactivation, hostile broadcast or physical test was performed. QA's branch and docs/RELEASE_READINESS.md were not modified.
+
+
+## Fresh exact-head and production verification — 2026-11-08
+
+This is a read-only refresh against GitHub and Supabase after the earlier checkpoint. It supersedes only the time-sensitive status below; the independent QA branch and its release-readiness document were not modified.
+
+### Exact GitHub state
+
+- #74 remains open/Draft at `9c0133e8cf6bd85ac8993888718a408db2f24a3e`; Validate `42451736696` and Signaling Smoke `42451736729` are completed/success.
+- #75 remains open/Draft at `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; Candidate Checks `41674353127` is a historical PASS.
+- #76 remains open/Draft at `eb28e88325d7e8a6236d9050bebabf794d64a8c4`; Candidate Checks `42450476433` is completed/success.
+- #80 remains open/Draft at `5ebd9274e49d8af51610f5007a36924a578d9bc2`, 261 commits ahead / 0 behind `develop`. Its exact Validate `42503731198` fails at the inherited `client signed upload helper missing` assertion (`scripts/validate.mjs:55`). The branch diff against `develop` is documentation-only.
+- #82 remains open/Draft at `05e9ae891a0036572f055bec4d6ee3454d344852`. Its exact Validate `42506281821` fails at the inherited `production updateURL mismatch` assertion (`scripts/validate.mjs:26`). QA branch and `docs/RELEASE_READINESS.md` remain untouched.
+- #94/#95/#96/#97 and #99 have completed successful exact-head workflows. #98 retains its original Full-IIFE failure; child #100 passed at exact HEAD `f8716a047328891eeaf4ff6729b8e936d45aeeed`, run [42503432784](https://github.com/Reekyi/UpStatus/actions/runs/42503432784). #99 passed at exact HEAD `bdce39626a9636f441ffe2988c87706b9f7c7154`, run [42503227603](https://github.com/Reekyi/UpStatus/actions/runs/42503227603). These remain Draft and stacked; #100 is test-only and #99 closes only the remote-command path in the #94 stack.
+
+### Realtime P0 remains open
+
+The independent QA inspection still identifies public call, voice-room and screen-share signaling as a release blocker. The authenticated transport in #74/#76 is opt-in: `signalTransportFlag` is read from GM storage with default `false`; when false, the clients retain public media-signal send/receive paths. In Normal, the public `call_signal` listener still reaches the handler, while the handler rejects unauthenticated payloads only when the flag is enabled. Voice-room and screen-share listeners are gated by the same flag.
+
+The candidate trees contain `upstatus-signal-test` source, but no production `upstatus-signal` Edge Function source. Production has no `upstatus-signal` deployment; the isolated project currently exposes `upstatus-signal-test` v32 and `upstatus-signal-e2e-once` v3. The flag cannot safely become the release default until the production server-mediated endpoint, its schema/migrations, deploy ordering, session/membership authorization and rollback are versioned and validated. Setting the flag true without that endpoint would break calls rather than secure them.
+
+#99 is a separate Normal stable-stack child of #94. It changes only public `remote_command` into a debounced wake-up that causes an authenticated `GET /api/remote-status`; it does not port the authenticated media transport into #94 or close the #74/#76 P0.
+
+### Fresh production read-only evidence
+
+Project `dlfvkawaiqduhlazsszm` remains `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.002, with seven applied migrations and 38 ACTIVE Edge Functions. The four operational versions remain `upstatus` v480, beta10 v6, `upstatus-team-lite` v15 and `upstatus-test` v281; all 38 functions report `verify_jwt=false`.
+
+A fresh PostgreSQL catalog query confirmed:
+
+- `upstatus_broadcast_messages()` is SECURITY DEFINER, `search_path=public`, and broadcasts `to_jsonb(OLD/NEW)` as `db_change` to `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0` with `private=false`.
+- The remote-state and user triggers also publish to that public topic. Their payloads are narrower than the full message row, but remain public.
+- All three trigger functions have effective EXECUTE for `anon` and `authenticated` (and `service_role`).
+- `realtime.messages` contains 50 rows, all in the legacy topic above with `private=false`; latest observed row is 2026-11-06 19:44:55 UTC.
+- Nine of ten audited public tables have RLS enabled with zero policies and effective client grants including SELECT/INSERT/TRUNCATE. `upstatus_visual_config` is the exception.
+- Default ACLs remain broad for objects created by `postgres` in `public`/`storage` and by `supabase_admin` in `public`/`graphql`/`graphql_public`.
+- Production still has five users, three explicit administrators, zero uninitialized passwords and zero empty roles; setup-invite columns and `consume_upstatus_setup_invite` RPC remain absent.
+
+The isolated project `bfpjtfqlnypisxljoxkb` remains `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003, with 38 migrations and two test functions. No third full-product TEST project exists. Production's managed branch `main` still reports `MIGRATIONS_FAILED` while the preview is healthy; branch-specific Dashboard logs are still required.
+
+### Acceptance and safety
+
+Issue #78 remains open at 0/8 physical acceptance criteria. Issue #79's body still carries the historical 16/35 checklist and requires a deliberate reconciliation; automated CI is not physical Tampermonkey/network/media acceptance.
+
+No attack was sent, no public-access setting was changed, and no physical microphone/display capture was attempted. All production database calls in this refresh were SELECT/catalog reads. No migration, SQL write, deploy, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change or function deactivation occurred.
