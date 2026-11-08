@@ -1,0 +1,37 @@
+name: Normal Setup Invite UI Contract
+
+on:
+  push:
+    branches:
+      - fix/normal-setup-invite-admin-ui-20261108
+    paths:
+      - "src/userscript/upstatus.user.template.js"
+      - "scripts/test-setup-invite-ui.mjs"
+      - "scripts/validate.mjs"
+      - ".github/workflows/normal-setup-invite-ui.yml"
+  pull_request:
+    branches:
+      - fix/normal-beta10-verify-jwt-config-guard-20261108
+    paths:
+      - "src/userscript/upstatus.user.template.js"
+      - "scripts/test-setup-invite-ui.mjs"
+      - "scripts/validate.mjs"
+      - ".github/workflows/normal-setup-invite-ui.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Run full offline Normal validation including setup-invite UI contract
+        run: |
+          node --version
+          node --check scripts/test-setup-invite-ui.mjs
+          node scripts/validate.mjs
