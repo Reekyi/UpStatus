@@ -2,7 +2,7 @@ const EXPECTED_ORIGIN = "https://bfpjtfqlnypisxljoxkb.supabase.co";
 
 export function assertIsolatedSupabaseMutationTarget({ baseUrl, serviceKey, allowMutation }) {
   if (allowMutation !== "1") {
-    throw new Error("Refusing fixture mutation: set UPSTATUS_SIGNAL_ALLOW_MUTATION=1 explicitly.");
+    throw new Error("Refusing fixture mutation: set UPSTATUS_AUTH_ALLOW_MUTATION=1 explicitly.");
   }
   if (typeof serviceKey !== "string" || !serviceKey.trim()) {
     throw new Error("Refusing fixture mutation: SUPABASE_SERVICE_ROLE_KEY is required.");
