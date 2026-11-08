@@ -74,7 +74,10 @@ export function createSignalingTransport({
     const body = result.body ?? result.data ?? {};
     const headers = result.headers ?? result.responseHeaders ?? null;
     if (status < 200 || status >= 300) {
-      const error = new Error(typeof body.error === "string" ? body.error : `Signaling request failed (${status})`);
+      const message = body.error === "VOICE_ATTEMPT_ALREADY_ACTIVE"
+        ? "Esta conta já possui uma tentativa de sala de voz ativa em outra aba."
+        : typeof body.error === "string" ? body.error : `Signaling request failed (${status})`;
+      const error = new Error(message);
       error.status = status;
       error.code = body.error || "SIGNALING_REQUEST_FAILED";
       const retryAfterMs = parseRetryAfter(headers, now());
