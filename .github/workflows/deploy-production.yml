@@ -42,6 +42,8 @@ jobs:
           node -e "const r=JSON.parse(require('fs').readFileSync('release.json','utf8')); if(r.preRelease || r.version !== '3.4.7') { console.error('Production locked: only explicitly approved stable release 3.4.7 may be deployed.'); process.exit(1); }"
       - name: Validate stable build
         run: node scripts/validate.mjs
+      - name: Require coordinated production API cutover
+        run: node scripts/verify-production-cutover.mjs --enforce
       - name: Verify production project with Supabase Management API
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
