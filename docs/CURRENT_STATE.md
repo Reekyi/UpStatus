@@ -2405,3 +2405,36 @@ On isolated branch `fix/master-release-script-url-20261107`, added:
 - Read-only production inspection still finds the deployed chat-clear route checking the session name only and the individual-message delete path retaining a name-based Ricardo fallback. Candidate #74/#76 use a fresh stored-role admin check; production remains unchanged. RT-01, ACL/default-ACL, AUTH-02 and full-product TEST remain open.
 - `master` and `develop` are currently unprotected (`protected=false`); rulesets are empty. No protection changes were made.
 - No production SQL write/migration, Edge Function deployment, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change or destructive operation occurred. QA branch and `docs/RELEASE_READINESS.md` were not modified.
+
+
+## Engineering checkpoint — 2026-11-08 05:22 UTC
+
+### Candidate CI and voice-attempt lock review
+
+- Team Lite #76 HEAD \`eb296326d351b79ac0b3a590debc5fab77085e36\`: [Candidate Checks 42449719802](https://github.com/Reekyi/UpStatus/actions/runs/42449719802) **SUCCESS**. The run passed 16/16 unauthenticated and 110/110 authenticated checks, including the offline signaling-helper HTTP mapper contract (11/11), stored-role chat-clear regression, same-account singleton/retry, concurrent different-account voice-attempt open/cancel, browser call/voice/screen, three-member mesh, rate limiting, read receipts, setup-invite consumption and cleanup.
+- The voice-attempt candidate migration now uses an account-scoped lock for the singleton scan. The outer global room lock was removed from that scan; the inner \`open_upstatus_signal_voice_room\` shared-binding lock remains. Cancellation takes the account lock before the shared-room lock. The isolated test migration asserts this order and service-role-only grants.
+- The migration and contract-test were applied only to isolated lab \`bfpjtfqlnypisxljoxkb\`. Lab migration history now has 38 records (36 prior + 2 candidate records); the deployed \`upstatus-signal-test\` Edge Function remains v32. Post-run read-only SELECT found zero rows in 14 fixture categories, including Storage and Realtime, and zero Realtime partitions. No manual cleanup was performed.
+- Normal #74 HEAD \`3ed925bc2c93eb3b58d7734055adb54916a3d3d8\`: [Validate 42450081991](https://github.com/Reekyi/UpStatus/actions/runs/42450081991) **SUCCESS**. [Signaling Smoke 42450082041](https://github.com/Reekyi/UpStatus/actions/runs/42450082041) is still running its authenticated integration/browser step at the time of this checkpoint; do not infer a result.
+- Candidate migration filename alignment remains a pre-release housekeeping gate: the branch currently names the new migration \`20261108020000\`, while the lab recorded it as version \`20261108050751\` and its test record as \`20261108050802\`. Rename the candidate files to the recorded versions before any future CLI migration push; do not apply either to production.
+
+### Current PR and issue state
+
+- #74 Normal: Validate PASS; Smoke pending.
+- #76 Team Lite: Candidate Checks PASS on \`eb296326\`.
+- #75 Baseline: unchanged historical PASS.
+- #80 Continuity: Validate still fails on inherited \`client signed upload helper missing\` at the \`develop\` base validator.
+- #82 QA: Validate still fails on inherited \`production updateURL mismatch\` at the \`master\` base validator.
+- #84 TEST isolation: Validate PASS; manual-only, TEST-specific preflight candidate remains Draft.
+- #85 Master stabilization: Validate PASS; production deploy guard remains candidate-only and was not dispatched.
+- #78 remains open with 0/8 physical acceptance criteria. #79 was not edited in this checkpoint, respecting the separate QA release-readiness instruction.
+- PR #86 is merged into the #76 candidate branch only, despite no explicit authorization from Ricardo. It did not target \`team-lite-official\`, \`master\`, \`develop\` or production. No rollback or history rewrite was attempted; the event remains visible for review.
+
+### Production and release gates
+
+Production \`dlfvkawaiqduhlazsszm\` remains ACTIVE_HEALTHY, with 7 migrations and 38 Edge Functions (Normal v480, TEST v281, Team Lite v15, legacy screen-share v6). No production migration, SQL write or function deployment occurred.
+
+The production Security Advisor at 05:16 UTC still reports 3 SECURITY DEFINER functions executable by \`anon\`, 3 executable by \`authenticated\`, and 10 RLS-without-policy INFO findings. Performance and Health advisors are empty. The three public broadcasts, name-only chat-clear authorization, first-setup role fallback by name, excessive backend-owned table grants and broad default ACLs remain unresolved. AUTH-02, AUTH-03 live Deno HTTP validation, RT-01, full-product TEST and physical acceptance remain release gates.
+
+GitHub rulesets are empty. The branch-protection API returned 403 for \`master\` and \`develop\`, so protection status could not be independently verified in this run. No branch-protection change was made.
+
+No merge, deploy, release, workflow dispatch, userscript publication, secret/role/grant/ACL/policy/feature-flag change or production write was performed. \`docs/RELEASE_READINESS.md\` and the independent QA branch were not modified.
