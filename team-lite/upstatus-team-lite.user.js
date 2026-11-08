@@ -28,6 +28,13 @@
     }catch(_){}
   }
   clearLegacyPasswordStorage();
+  var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
+  var CLOUD_SERVER='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-team-lite';
+  var server=CLOUD_SERVER;
+  var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';
+  var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
+  var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';
+  var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
 /**
  * Authenticated signaling transport adapter.
  *
