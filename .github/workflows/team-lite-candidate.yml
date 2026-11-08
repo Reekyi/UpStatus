@@ -9,6 +9,7 @@ on:
       - "lucca.html"
       - "ycaro.html"
       - "scripts/team-lite-candidate-check.mjs"
+      - "scripts/test-team-lite-build-artifact.mjs"
       - "scripts/test-team-lite-full-iife.mjs"
       - "scripts/build.mjs"
       - "scripts/test-build-target-guard.mjs"
@@ -58,6 +59,11 @@ jobs:
           persist-credentials: false
       - name: Test TEST build target guard
         run: node scripts/test-build-target-guard.mjs
+      - name: Build and verify Team Lite API artifact
+        run: |
+          node scripts/build.mjs
+          node --check scripts/test-team-lite-build-artifact.mjs
+          node scripts/test-team-lite-build-artifact.mjs
       - name: Verify isolated Supabase mutation guard
         run: |
           node --check scripts/assert-isolated-supabase.mjs
