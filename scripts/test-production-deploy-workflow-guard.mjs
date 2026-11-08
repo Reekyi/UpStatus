@@ -4,8 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertProductionProject } from "./verify-production-project.mjs";
-import { isStableReleaseVersion } from "./verify-production-cutover.mjs";
-import { assertRequiredSetupMigrationsApplied, verifyProductionMigrationHistory } from "./verify-production-migrations.mjs";
+import { isStableReleaseVersion, REQUIRED_PRODUCTION_MIGRATIONS } from "./verify-production-cutover.mjs";
+import { assertRequiredProductionMigrationsApplied, verifyProductionMigrationHistory } from "./verify-production-migrations.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const workflow = fs.readFileSync(path.join(ROOT, ".github/workflows/deploy-production.yml"), "utf8");
@@ -45,14 +45,17 @@ assert.match(workflow, /version: 2\.122\.1/,
   "Supabase CLI must be pinned to the validated version");
 assert.doesNotMatch(workflow, /version:\s*latest/,
   "production deployment must not float to an unreviewed CLI version");
+const signalDeployCommand = 'supabase functions deploy upstatus-signal --project-ref "$SUPABASE_PROJECT_ID" --use-api';
 const apiDeployCommand = 'supabase functions deploy upstatus-screen-share-3-1-1-beta10 --project-ref "$SUPABASE_PROJECT_ID" --use-api';
 const distributionDeployCommand = 'supabase functions deploy upstatus --project-ref "$SUPABASE_PROJECT_ID" --use-api';
+const signalDeployIndex = workflow.indexOf(signalDeployCommand);
 const apiDeployIndex = workflow.indexOf(apiDeployCommand);
 const distributionDeployIndex = workflow.indexOf(distributionDeployCommand);
-assert(apiDeployIndex >= 0, "workflow must deploy the production API runtime");
+assert(signalDeployIndex >= 0, "workflow must deploy the authenticated signaling runtime");
+assert(apiDeployIndex > signalDeployIndex, "workflow must deploy authenticated signaling before the production API runtime");
 assert(distributionDeployIndex > apiDeployIndex, "workflow must deploy the API runtime before the userscript distribution function");
-assert.equal((workflow.match(/supabase functions deploy [a-z0-9-]+/g) || []).length, 2,
-  "production workflow must deploy exactly the API and distribution runtimes");
+assert.equal((workflow.match(/supabase functions deploy [a-z0-9-]+/g) || []).length, 3,
+  "production workflow must deploy exactly the signaling, API and distribution runtimes");
 assert.match(build, /const PROD_API_FUNCTION="upstatus-screen-share-3-1-1-beta10"/,
   "build must generate the same production API runtime that the workflow deploys");
 assert.doesNotMatch(workflow, /supabase functions deploy upstatus-test/,
@@ -89,23 +92,24 @@ assert.match(migrationVerifier, /redirect: "error"/, "Management API credentials
 assert.match(migrationVerifier, /AbortSignal\.timeout\(15000\)/, "migration-history query must have a bounded timeout");
 assert.match(migrationVerifier, /database_migrations_read/, "403 must explain the required read-only migration-history scope");
 
-const requiredApplied = [
-  { version: "20261107010000", name: "setup_invites" },
-  { version: "20261107060000", name: "normalize_setup_invite_role" },
-  { version: "20261107062000", name: "preserve_setup_invite_roles_verbatim" },
-];
-assert.deepEqual(assertRequiredSetupMigrationsApplied(requiredApplied),
-  ["20261107010000", "20261107060000", "20261107062000"]);
+const requiredApplied = REQUIRED_PRODUCTION_MIGRATIONS.map(file => {
+  const match = /^(\d{14})_(.+)\.sql$/.exec(file);
+  assert.ok(match, "required production migration filename must be valid");
+  return { version: match[1], name: match[2] };
+});
+assert.deepEqual(assertRequiredProductionMigrationsApplied(requiredApplied), requiredApplied.map(item => item.version));
 assert.throws(
-  () => assertRequiredSetupMigrationsApplied([
-    { version: "20261107010000", name: "setup_invites" },
-    { version: "20261107060000", name: "normalize_setup_invite_role" },
-  ]),
+  () => assertRequiredProductionMigrationsApplied(requiredApplied.filter(item => item.version !== "20261107062000")),
   /missing: 20261107062000_preserve_setup_invite_roles_verbatim/,
-  "missing AUTH-03 migrations must block production deployment",
+  "missing AUTH-03 migration must block production deployment",
 );
 assert.throws(
-  () => assertRequiredSetupMigrationsApplied([
+  () => assertRequiredProductionMigrationsApplied(requiredApplied.filter(item => item.version !== "20261108190000")),
+  /missing: 20261108190000_distributed_signaling_rate_limit/,
+  "missing distributed signaling rate-limit migration must block production deployment",
+);
+assert.throws(
+  () => assertRequiredProductionMigrationsApplied([
     { version: "20261107010000", name: "wrong_name" },
     ...requiredApplied.slice(1),
   ]),
@@ -113,7 +117,7 @@ assert.throws(
   "migration version/name mismatches must block deployment",
 );
 assert.throws(
-  () => assertRequiredSetupMigrationsApplied([...requiredApplied, requiredApplied[0]]),
+  () => assertRequiredProductionMigrationsApplied([...requiredApplied, requiredApplied[0]]),
   /duplicate migration version/,
   "duplicate migration history entries must be rejected",
 );
@@ -127,8 +131,8 @@ const currentProductionMigrationHistory = [
   { version: "20261027155438", name: "set_upstatus_upload_limits_20mb" },
 ];
 assert.throws(
-  () => assertRequiredSetupMigrationsApplied(currentProductionMigrationHistory),
-  /Required AUTH-03 migrations are not applied to production/,
+  () => assertRequiredProductionMigrationsApplied(currentProductionMigrationHistory),
+  /Required production security\/signaling migrations are not applied to production/,
   "the currently observed production history must remain blocked",
 );
 let capturedMigrationRequest;
@@ -142,7 +146,7 @@ const migrationVerification = await verifyProductionMigrationHistory({
     return { ok: true, status: 200, json: async () => requiredApplied };
   },
 });
-assert.deepEqual(migrationVerification.verifiedVersions, ["20261107010000", "20261107060000", "20261107062000"]);
+assert.deepEqual(migrationVerification.verifiedVersions, requiredApplied.map(item => item.version));
 assert.equal(capturedMigrationRequest.url, "https://api.supabase.com/v1/projects/dlfvkawaiqduhlazsszm/database/migrations");
 assert.equal(capturedMigrationRequest.options.method, "GET");
 assert.equal(capturedMigrationRequest.options.redirect, "error");
@@ -202,4 +206,4 @@ assert.throws(
   /database host does not match/,
 );
 
-console.log("PASS production deploy is manual-only, master/SHA-pinned, organization/project-verified, CLI-pinned, serialized, limited to the two approved runtimes, and never applies migrations.");
+console.log("PASS production deploy is manual-only, master/SHA-pinned, organization/project-verified, CLI-pinned, serialized, limited to the three approved runtimes, and never applies migrations.");
