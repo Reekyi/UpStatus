@@ -1,0 +1,48 @@
+name: RT-01 Provenance Release Guard
+
+on:
+  push:
+    branches:
+      - fix/rt01-provenance-release-guard-20261108
+    paths:
+      - "scripts/verify-production-cutover.mjs"
+      - "scripts/test-production-cutover-guard.mjs"
+      - "scripts/test-production-deploy-workflow-guard.mjs"
+      - "scripts/verify-production-migrations.mjs"
+      - ".github/workflows/deploy-production.yml"
+      - ".github/workflows/rt01-provenance-release-guard.yml"
+  pull_request:
+    branches:
+      - fix/normal-rt01-release-gate-20261108
+    paths:
+      - "scripts/verify-production-cutover.mjs"
+      - "scripts/test-production-cutover-guard.mjs"
+      - "scripts/test-production-deploy-workflow-guard.mjs"
+      - "scripts/verify-production-migrations.mjs"
+      - ".github/workflows/deploy-production.yml"
+      - ".github/workflows/rt01-provenance-release-guard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: \${{ github.sha }}
+          persist-credentials: false
+      - name: Check Node runtime and syntax
+        run: |
+          node --version
+          node --check scripts/verify-production-cutover.mjs
+          node --check scripts/verify-production-migrations.mjs
+          node --check scripts/test-production-cutover-guard.mjs
+          node --check scripts/test-production-deploy-workflow-guard.mjs
+      - name: Run offline RT-01 cutover guard regressions
+        run: node scripts/test-production-cutover-guard.mjs
+      - name: Run offline production deploy and migration guard regressions
+        run: node scripts/test-production-deploy-workflow-guard.mjs
