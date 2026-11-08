@@ -9,6 +9,14 @@ on:
       - "scripts/test-function-jwt-config.mjs"
       - ".github/workflows/team-lite-deploy-jwt-config-guard.yml"
       - ".github/workflows/team-lite-candidate.yml"
+  pull_request:
+    branches:
+      - test/team-lite-built-runtime-parity-20261108
+    paths:
+      - "supabase/config.toml"
+      - "scripts/test-function-jwt-config.mjs"
+      - ".github/workflows/team-lite-deploy-jwt-config-guard.yml"
+      - ".github/workflows/team-lite-candidate.yml"
 
 permissions:
   contents: read
