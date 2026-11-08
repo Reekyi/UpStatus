@@ -28,6 +28,9 @@ assert.match(workflow, /EXPECTED_SUPABASE_ORGANIZATION_ID: bcjtvojfkfoxvsitzmkl/
   "production project must be verified against the UpStatus organization");
 assert.match(workflow, /node scripts\/verify-production-project\.mjs/,
   "read-only Management API project preflight must run before deployment");
+assert.match(workflow,
+  /name: Require coordinated production API cutover\n\s+run: node scripts\/verify-production-cutover\.mjs --enforce[\s\S]*?name: Verify production project with Supabase Management API/,
+  "production deployment must fail closed until the API runtime and distribution runtime are deployed together");
 assert.match(workflow, /version: 2\.122\.1/,
   "Supabase CLI must be pinned to the validated version");
 assert.doesNotMatch(workflow, /version:\s*latest/,
