@@ -87,9 +87,7 @@ try {
 
   await page.goto("https://www.salesmartly.com/", { waitUntil: "domcontentloaded" });
   await page.addScriptTag({ content: smokeSource });
-  await page.waitForSelector("#upstatus-team-lite-root", { state: "attached", timeout: 5000 });
-  await page.waitForSelector("#upstatus-card #up-enter", { state: "attached", timeout: 5000 });
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(250);
 
   const state = await page.evaluate(() => {
     const nameSelect = document.querySelector("#upstatus-card #up-name");
@@ -104,8 +102,8 @@ try {
     };
   });
 
-  assert.equal(state.rootPresent, true, "full userscript IIFE must mount the Team Lite root");
-  assert.equal(state.loginButtonPresent, true, "full userscript IIFE must render the login action");
+  assert.equal(state.rootPresent, true, "full userscript IIFE must mount the Team Lite root; page errors: " + pageErrors.join("\\n"));
+  assert.equal(state.loginButtonPresent, true, "full userscript IIFE must render the login action; page errors: " + pageErrors.join("\\n"));
   assert.ok(state.loginOptions.includes("Lucca") && state.loginOptions.includes("Ycaro"),
     "login roster must be populated from the stubbed members response");
   assert.equal(state.server, testApi, "startup must persist the injected test-only API endpoint");
