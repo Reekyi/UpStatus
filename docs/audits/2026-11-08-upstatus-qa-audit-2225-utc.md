@@ -212,3 +212,14 @@ No completion percentage is reported. CI, static inspection, deployed runtime st
 ## Safety record
 
 No production or lab SQL writes, migrations, Edge Function deployments, workflow dispatches/reruns, fixture mutations, secrets/flags/roles/grants/policies/ACL changes, PR merges, releases, or userscript publications were performed. All SQL was SELECT/catalog-only. No Realtime attack, broadcast injection, WebRTC offer/ICE injection, microphone capture, or screen capture was performed. The only write in this run is this new documentation file on the dedicated QA branch; no engineering branch or issue was changed.
+
+
+## Addendum — updater fix also present in Normal #74
+
+A follow-up source read corrected one omission in the comparison above. The current #74 branch (`chore/continuity-foundation`) already contains the updater URL fix, not only the separate #85 branch:
+
+- #74 `scripts/build.mjs` blob `55b7db9c36a58956cfa41d5002ac290ab8fee5d3` derives the production `updateURL` from `release.json.scriptUrl`, validates the stable `/functions/v1/upstatus/upstatus.user.js` path, and keeps TEST on a separate non-production project/URL.
+- #74 `scripts/validate.mjs` blob `bab708afb472542961f1ee06478704ea41495280` checks exact production updateURL equality and the isolated TEST URL contract.
+- #74 exact-head Validate [42451736696](https://github.com/Reekyi/UpStatus/actions/runs/42451736696) is SUCCESS.
+
+Thus the mismatch remains specifically on current master/QA; both #74 and #85 contain candidate fixes, but neither has been merged. This correction does not change the release decision or the fact that #82's latest observed merge-ref Validate failed against master.
