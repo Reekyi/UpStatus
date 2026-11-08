@@ -11,6 +11,29 @@ export const REQUIRED_SETUP_MIGRATIONS = [
   "20261107060000_normalize_setup_invite_role.sql",
   "20261107062000_preserve_setup_invite_roles_verbatim.sql",
 ];
+export const REQUIRED_RT01_MIGRATIONS = [
+  "20261029170500_restrict_trigger_function_execute.sql",
+  "20261029183000_revoke_unused_public_table_grants.sql",
+  "20261029205000_server_mediated_signaling.sql",
+  "20261030120000_signal_room_invitation_consent.sql",
+  "20261030150000_signal_membership_legacy_default.sql",
+  "20261030190000_allow_legacy_signaling_envelopes.sql",
+  "20261030192000_signal_room_bindings.sql",
+  "20261103160000_minimize_public_chat_broadcast.sql",
+  "20261103170000_minimize_public_status_broadcasts.sql",
+  "20261103171000_index_signal_room_bindings_created_by.sql",
+  "20261105150000_revoke_public_default_privileges_postgres.sql",
+  "20261105160000_merge_chat_read_receipts.sql",
+  "20261105190000_open_voice_room_membership.sql",
+  "20261106080200_call_room_attempt_recovery.sql",
+  "20261106111000_call_attempt_foreign_key_indexes.sql",
+  "20261106120500_voice_room_attempt_recovery.sql",
+  "20261107170000_pin_empty_search_path_trigger_broadcasts.sql",
+  "20261108010000_voice_attempt_singleton.sql",
+  "20261108050751_voice_attempt_account_scoped_lock.sql",
+];
+export const REQUIRED_PRODUCTION_MIGRATIONS = [...REQUIRED_SETUP_MIGRATIONS, ...REQUIRED_RT01_MIGRATIONS];
+export const REQUIRED_SIGNALING_FUNCTION = "upstatus-signal";
 
 export function parseDeployedFunctions(workflow) {
   const matches = [...String(workflow || "").matchAll(
@@ -40,6 +63,52 @@ export function isStableReleaseVersion(version, preRelease = "") {
   return false;
 }
 
+function functionWindow(source, name, limit = 2400) {
+  const start = source.indexOf("function " + name + "(");
+  return start >= 0 ? source.slice(start, start + limit) : "";
+}
+
+export function inspectAuthenticatedMediaSignaling(userscriptSource) {
+  const source = String(userscriptSource || "");
+  const issues = [];
+  const flagAssignments = [...source.matchAll(/\b(?:var|let|const)\s+signalTransportFlag\s*=\s*([^;]+);/g)];
+  if (flagAssignments.length !== 1 || flagAssignments[0][1].trim() !== "true") {
+    issues.push("RT-01 is not release-ready: authenticated media signaling must be forced on; missing, configurable, or default-off flags are unsafe.");
+  }
+  if (/GM_(?:get|set)Value\s*\(\s*key\s*\+\s*["']signaling_transport_enabled["']/.test(source)) {
+    issues.push("RT-01 is not release-ready: userscript storage must not be able to disable authenticated media signaling.");
+  }
+  if (!/signalTransportEndpoint\s*=\s*[^;]*["']\/functions\/v1\/upstatus-signal["']/.test(source)) {
+    issues.push("RT-01 is not release-ready: the client must pin the production /functions/v1/upstatus-signal endpoint.");
+  }
+  if (!["signalTransport.sendSignal", "signalTransport.sendToRoom", "signalTransport.startPolling"].every(marker => source.includes(marker))) {
+    issues.push("RT-01 is not release-ready: calls, voice rooms, and screen sharing must use the authenticated server-mediated transport.");
+  }
+  if (!source.includes("if(signalTransportFlag&&!p._authenticatedTransport") || !source.includes("p.discoveryOnly===true")) {
+    issues.push("RT-01 is not release-ready: public call_signal payloads must be rejected except narrowly scoped discovery-only hints.");
+  }
+  if (!source.includes("if(!signalTransportFlag)voiceRoomReceive(")) {
+    issues.push("RT-01 is not release-ready: public voice-room broadcasts must never be consumed as media signaling.");
+  }
+  if (!source.includes("if(!signalTransportFlag)screenShareReceive(")) {
+    issues.push("RT-01 is not release-ready: public screen-share broadcasts must never be consumed as media signaling.");
+  }
+  const callSend = functionWindow(source, "callSendTo");
+  const callSendAll = functionWindow(source, "callSendAll");
+  const voiceSend = functionWindow(source, "voiceRoomSend");
+  const screenSend = functionWindow(source, "screenShareSend");
+  if (!callSend.includes("signalTransport.sendSignal") || !callSendAll.includes("signalTransport.sendToRoom")) {
+    issues.push("RT-01 is not release-ready: one-to-one and room call signals must use authenticated server-side delivery.");
+  }
+  if (!voiceSend.includes("signalTransport.sendSignal") || !voiceSend.includes("signalTransport.sendToRoom")) {
+    issues.push("RT-01 is not release-ready: voice-room signaling must use authenticated server-side delivery.");
+  }
+  if (!screenSend.includes("signalTransport.sendSignal") || !screenSend.includes("signalTransport.sendToRoom")) {
+    issues.push("RT-01 is not release-ready: screen-share signaling must use authenticated server-side delivery.");
+  }
+  return { ready: issues.length === 0, issues };
+}
+
 export function evaluateProductionCutover({
   manifest,
   workflow,
@@ -47,6 +116,7 @@ export function evaluateProductionCutover({
   serverSource = "",
   availableMigrations = [],
   authEnrollmentTestPresent = false,
+  userscriptSource = "",
   releaseVersion = "",
   releasePreRelease = "",
 }) {
@@ -65,7 +135,7 @@ export function evaluateProductionCutover({
   if (!validSlug(distributionFunction)) issues.push("productionFunction is missing or invalid.");
   if (!validSlug(apiFunction)) issues.push("productionApiFunction is missing or invalid.");
 
-  const requiredFunctions = new Set([distributionFunction, apiFunction].filter(Boolean));
+  const requiredFunctions = new Set([distributionFunction, apiFunction, REQUIRED_SIGNALING_FUNCTION].filter(Boolean));
   for (const fn of requiredFunctions) {
     if (!deployedFunctions.includes(fn)) {
       issues.push('Required runtime "' + fn + '" is not deployed by deploy-production.yml.');
@@ -86,6 +156,18 @@ export function evaluateProductionCutover({
       issues.push("Production API runtime must be deployed before the userscript distribution runtime.");
     }
   }
+  const signalingIndex = deployedFunctions.indexOf(REQUIRED_SIGNALING_FUNCTION);
+  const apiIndex = deployedFunctions.indexOf(apiFunction);
+  const distributionIndex = deployedFunctions.indexOf(distributionFunction);
+  if (signalingIndex >= 0 && apiIndex >= 0 && signalingIndex > apiIndex) {
+    issues.push("Authenticated signaling runtime must be deployed before the product API runtime.");
+  }
+  if (signalingIndex >= 0 && distributionIndex >= 0 && signalingIndex > distributionIndex) {
+    issues.push("Authenticated signaling runtime must be deployed before userscript distribution.");
+  }
+
+  const mediaSignaling = inspectAuthenticatedMediaSignaling(userscriptSource);
+  if (!mediaSignaling.ready) issues.push(...mediaSignaling.issues);
 
   const setupInviteReady =
     serverSource.includes("async function issueSetupInvite(req:Request,adminName:string)") &&
@@ -137,9 +219,9 @@ export function evaluateProductionCutover({
     issues.push("Setup must not grant implementation_admin by hard-coded account name.");
   }
 
-  for (const migration of REQUIRED_SETUP_MIGRATIONS) {
+  for (const migration of REQUIRED_PRODUCTION_MIGRATIONS) {
     if (!migrationSet.has(migration)) {
-      issues.push("Required AUTH-03 migration source is missing: supabase/migrations/" + migration);
+      issues.push("Required production security/signaling migration source is missing: supabase/migrations/" + migration);
     }
   }
 
@@ -171,11 +253,12 @@ function main() {
   const manifestPath = path.join(ROOT, "dist", "build-manifest.json");
   const workflowPath = path.join(ROOT, ".github", "workflows", "deploy-production.yml");
   const serverTemplatePath = path.join(ROOT, "src", "server", "index.template.ts");
+  const userscriptTemplatePath = path.join(ROOT, "src", "userscript", "upstatus.user.template.js");
   const validateScriptPath = path.join(ROOT, "scripts", "validate.mjs");
   const authTestPath = path.join(ROOT, "scripts", "auth-enrollment.test.mjs");
   const migrationsPath = path.join(ROOT, "supabase", "migrations");
   if (!fs.existsSync(manifestPath) || !fs.existsSync(workflowPath) ||
-      !fs.existsSync(serverTemplatePath) || !fs.existsSync(validateScriptPath) ||
+      !fs.existsSync(serverTemplatePath) || !fs.existsSync(userscriptTemplatePath) || !fs.existsSync(validateScriptPath) ||
       !fs.existsSync(migrationsPath)) {
     throw new Error("Build manifest, production workflow, server template, validate script or migration directory is missing; refusing to assume cutover readiness.");
   }
@@ -184,12 +267,14 @@ function main() {
   const release = JSON.parse(fs.readFileSync(path.join(ROOT, "release.json"), "utf8"));
   const workflow = fs.readFileSync(workflowPath, "utf8");
   const serverSource = fs.readFileSync(serverTemplatePath, "utf8");
+  const userscriptSource = fs.readFileSync(userscriptTemplatePath, "utf8");
   const validateScript = fs.readFileSync(validateScriptPath, "utf8");
   const authEnrollmentTestPresent =
     fs.existsSync(authTestPath) && hasAuthEnrollmentTestInvocation(validateScript);
   const required = [...new Set([
     String(manifest.productionFunction || ""),
     String(manifest.productionApiFunction || ""),
+    REQUIRED_SIGNALING_FUNCTION,
   ].filter(Boolean))];
   const availableSources = required.filter(fn =>
     fs.existsSync(path.join(ROOT, "supabase", "functions", fn, "index.ts"))
@@ -202,12 +287,13 @@ function main() {
     releasePreRelease: release.preRelease,
     availableSources,
     serverSource,
+    userscriptSource,
     availableMigrations,
     authEnrollmentTestPresent,
   });
 
   if (result.ready) {
-    console.log("PASS production distribution/API alignment, AUTH-03 setup enrollment regression, stored-role chat clear and message deletion, and required migration sources are present.");
+    console.log("PASS production signaling/API/distribution order, mandatory authenticated media signaling, AUTH-03, stored-role chat authorization, and required production migration sources.");
     return;
   }
 
