@@ -99,6 +99,8 @@ Read-only `function_edge_logs` aggregation with `timestamp >= now() - interval 2
 
 No invocation rows appeared for the other 36 active function IDs in this query window. The absence of logs is not proof of no historical/client dependency.
 
+A separate 7-day query and a 30-day query returned the same 468 rows with the same first/last event timestamps (2026-11-07 17:06:12 UTC to 18:31:42 UTC). The currently surfaced log dataset therefore does **not** establish a true 7/30-day zero-use history for the other functions; it only establishes that the available rows cover this 1h25m interval. Longer-retention exports or client-side endpoint inventory are required before any retirement decision.
+
 **Operational conclusion:** beta10 is demonstrably live and must not be treated as an unused backup. Keep it active until the Normal API/update artifact split is reconciled and a coordinated cutover/rollback is reviewed.
 
 ### Normal and Team Lite artifact mismatch
