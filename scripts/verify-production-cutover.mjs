@@ -13,7 +13,7 @@ export const REQUIRED_SETUP_MIGRATIONS = [
 
 export function parseDeployedFunctions(workflow) {
   const matches = [...String(workflow || "").matchAll(
-    /^\\s*(?:run:\\s*)?supabase\\s+functions\\s+deploy\\s+([a-z0-9-]+)\\b/gm
+    /^\s*(?:run:\s*)?supabase\s+functions\s+deploy\s+([a-z0-9-]+)\b/gm
   )];
   return [...new Set(matches.map(match => match[1]))];
 }
@@ -71,12 +71,12 @@ export function evaluateProductionCutover({
 
   const clearStart = serverSource.indexOf('if(path==="/api/chat/clear"&&req.method==="POST"){');
   const clearBlock = clearStart >= 0 ? serverSource.slice(clearStart, clearStart + 700) : "";
-  const storedRoleClear = /if\\s*\\(\\s*name\\s*!==\\s*["']Ricardo["']\\s*\\|\\|\\s*!\\s*\\(?\\s*await\\s+admin\\(name\\)\\s*\\)?\\s*\\)/.test(clearBlock);
+  const storedRoleClear = /if\s*\(\s*name\s*!==\s*["']Ricardo["']\s*\|\|\s*!\s*\(?\s*await\s+admin\(name\)\s*\)?\s*\)/.test(clearBlock);
   if (!storedRoleClear) {
     issues.push("Chat clear must require Ricardo and the persisted implementation_admin role.");
   }
 
-  if (/\\["Ricardo","Lohan","Guilherme"\\]\\.includes\\(name\\)\\s*\\?\\s*["']implementation_admin["']/.test(serverSource)) {
+  if (/\["Ricardo","Lohan","Guilherme"\]\.includes\(name\)\s*\?\s*["']implementation_admin["']/.test(serverSource)) {
     issues.push("Setup must not grant implementation_admin by hard-coded account name.");
   }
 
@@ -86,7 +86,7 @@ export function evaluateProductionCutover({
     }
   }
 
-  if (/\\bsupabase\\s+(?:db\\s+push|migration\\s+up)\\b/.test(String(workflow || ""))) {
+  if (/\bsupabase\s+(?:db\s+push|migration\s+up)\b/.test(String(workflow || ""))) {
     issues.push("Production workflow must not apply database migrations automatically.");
   }
 
