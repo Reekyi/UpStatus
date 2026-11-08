@@ -15,7 +15,7 @@ export function isAllowedPublicCallDiscoverySignal(signal) {
   return !!signal && typeof signal === "object" && !Array.isArray(signal) &&
     Object.prototype.hasOwnProperty.call(signal, "type") &&
     Object.prototype.hasOwnProperty.call(signal, "discoveryOnly") &&
-    signal.type === "presence" && signal.discoveryOnly === true;
+    (signal.type === "presence" || signal.type === "ended") && signal.discoveryOnly === true;
 }
 
 export function createSignalingTransport({
