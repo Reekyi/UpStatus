@@ -2438,3 +2438,39 @@ The production Security Advisor at 05:16 UTC still reports 3 SECURITY DEFINER fu
 GitHub rulesets are empty. The branch-protection API returned 403 for \`master\` and \`develop\`, so protection status could not be independently verified in this run. No branch-protection change was made.
 
 No merge, deploy, release, workflow dispatch, userscript publication, secret/role/grant/ACL/policy/feature-flag change or production write was performed. \`docs/RELEASE_READINESS.md\` and the independent QA branch were not modified.
+
+
+## Engineering checkpoint — 2026-11-08 05:44 UTC
+
+### Exact candidate state and CI
+
+- **Normal #74** is now HEAD `9c0133e8cf6bd85ac8993888718a408db2f24a3e`. Validate [42451736696](https://github.com/Reekyi/UpStatus/actions/runs/42451736696) **SUCCESS**; the log confirms the new transient-retry regression: 8 groups passed. Signaling Smoke [42451736729](https://github.com/Reekyi/UpStatus/actions/runs/42451736729) is **PENDING** on this exact HEAD.
+- The preceding Smoke [42451731430](https://github.com/Reekyi/UpStatus/actions/runs/42451731430), on intermediate HEAD `8953f50d14c803394d69203db43e439761e53ae6`, passed syntax/static checks and the unauthenticated endpoint stage; authenticated integration/browser checks were still running at this checkpoint.
+- The prior failure [42450594116](https://github.com/Reekyi/UpStatus/actions/runs/42450594116) on HEAD `55a49b3` failed 18/19 unauthenticated checks because `/room/cancel-open` hit the 20-second timeout. The authenticated fixture-mutating stage did not start.
+- The bounded retry helper retries only TimeoutError/AbortError/UND_ERR_CONNECT_TIMEOUT and HTTP 502/503/504, at most three attempts with bounded backoff. It does not retry ordinary 4xx or non-transient errors. Offline Node 22.16.0 regression: 8 groups passed. Exact-head Validate is green; final exact-head Smoke and post-run cleanup remain pending.
+- A temporary stacked PR #87 was closed as superseded after the same patch was copied onto this candidate branch; it was not merged. No QA branch was changed.
+
+**Team Lite #76** HEAD `eb28e88325d7e8a6236d9050bebabf794d64a8c4`: Candidate Checks [42450476433](https://github.com/Reekyi/UpStatus/actions/runs/42450476433) **SUCCESS**. The exact-head log confirms 16/16 unauthenticated and 110/110 authenticated checks, including 11/11 offline isolated-helper HTTP mapper cases, same-account singleton/retry, different-account concurrent open/cancel, browser WebRTC voice/call/screen, three-member mesh, 90+1/429 rate limit and cleanup. A post-run SELECT-only lab query returned zero across 14 categories, including Storage objects and Realtime rows/partitions.
+
+### Other PRs and CI
+
+- #75 HEAD `7bbf9b9`: historical Candidate Checks PASS.
+- #80 HEAD `daa8a22`: Validate [42450384599](https://github.com/Reekyi/UpStatus/actions/runs/42450384599) fails the inherited `develop` assertion `client signed upload helper missing`; no validator was weakened.
+- #82 QA HEAD `59fbfa2`: Validate [42451535125](https://github.com/Reekyi/UpStatus/actions/runs/42451535125) fails the inherited `master` assertion `production updateURL mismatch`.
+- #84 HEAD `21341f3` Validate PASS; #85 HEAD `36c19ab` Validate PASS.
+- All seven tracked PRs #74/#75/#76/#80/#82/#84/#85 remain OPEN/Draft with zero human review submissions. Ahead/behind: #74 877/0; #75 59/0; #76 364/0; #80 221/0; #82 119/0; #84 30/0; #85 25/0. #76 remains 305 commits ahead of #75.
+
+### Supabase read-only revalidation
+
+- Organization still has exactly two ACTIVE_HEALTHY projects. Production `dlfvkawaiqduhlazsszm`: PostgreSQL 17.11.0.002, 7 migrations, 38 Edge Functions. Core runtimes: `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15, `upstatus-screen-share-3-1-1-beta10` v6.
+- Isolated lab `bfpjtfqlnypisxljoxkb`: PostgreSQL 17.11.0.003, 38 migrations, `upstatus-signal-test` v32 and `upstatus-signal-e2e-once` v3. No full-product TEST project exists.
+- Production users: 5 total, 3 explicit admins, zero blank roles and zero uninitialized password hashes.
+- Read-only SQL reconfirmed the three public SECURITY DEFINER broadcasts with `search_path=public` and EXECUTE for anon/authenticated; nine backend-owned tables still grant broad client privileges including TRUNCATE; default ACLs remain broad. Security Advisor: 3 WARN for anon + 3 WARN for authenticated + 10 RLS INFO. Performance and Health advisors are empty.
+- Production sources still have name-only chat-clear authorization and the individual-delete fallback `name === "Ricardo" || admin(name)`. The candidates require stored-role authorization; nothing was deployed.
+- The lab's post-#76 fixture count was zero. Do not query/clean fixtures while the current Normal Smoke queue is active.
+
+### Remaining release gates
+
+RT-01/public Realtime, AUTH-02, live Deno HTTP AUTH-03, real Storage E2E, full-product TEST, ACL/default-ACL remediation via an authorized owner, Normal API cutover/rollback, Team Lite runtime/version cutover, human reviews and physical acceptance remain open. Issue #78 remains **0/8 physical criteria**. The Normal userscript API base still points to beta10 while the update URL points to `upstatus`; #85 deploys only `upstatus`, so the cutover needs an explicit decision.
+
+All production queries were SELECT-only. No production SQL write/migration, Edge Function deploy, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change or destructive action occurred. `docs/RELEASE_READINESS.md` and the independent QA branch were not modified.
