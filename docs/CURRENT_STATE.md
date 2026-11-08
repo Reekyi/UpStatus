@@ -2695,3 +2695,35 @@ New blocker confirmed during this review: the Team Lite branch's inherited `depl
 Related [PR #90](https://github.com/Reekyi/UpStatus/pull/90) hardens the Team Lite AUTH-03 fixture runner; exact-head offline workflow [42487717033](https://github.com/Reekyi/UpStatus/actions/runs/42487717033) SUCCESS. #90 and #91 remain separate Draft PRs stacked on #76.
 
 No production write, migration, deploy, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/flag change, or function deactivation occurred.
+
+
+
+## 2026-11-08 — Function-specific JWT configuration for custom-auth runtimes
+
+New Draft follow-ups:
+- [#92 Team Lite JWT config](https://github.com/Reekyi/UpStatus/pull/92), exact HEAD `2a1b8c74a255b92fe17844b521b49f184888f852`, 7 ahead / 0 behind #91. Adds `[functions.upstatus-team-lite] verify_jwt = false`, a strict parser/regression guard, Team Lite candidate wiring, and offline build/artifact/config validation. [Run 42493683062](https://github.com/Reekyi/UpStatus/actions/runs/42493683062) SUCCESS on exact HEAD; generated Team Lite 3.4.31 and verified byte parity.
+- [#93 Normal beta10 JWT config](https://github.com/Reekyi/UpStatus/pull/93), exact HEAD `fb9ccd9b9aa69a329e7340f87fc8b07c82618bbe`, 5 ahead / 0 behind #89. Adds `[functions.upstatus-screen-share-3-1-1-beta10] verify_jwt = false` and wires the config guard into full Normal Validate for upstatus, beta10 and upstatus-test. [Run 42493686213](https://github.com/Reekyi/UpStatus/actions/runs/42493686213) SUCCESS on exact HEAD, including full offline Validate.
+- Corrected PR #90 and #91 base metadata to the #76 candidate branch, matching their stated stacked lineage and preventing duplicate full-candidate diffs. #92 is stacked on #91; #93 is stacked on #89. All remain Draft.
+
+### Root cause
+
+Production's four operational functions currently report `verify_jwt=false`. Their handlers validate the custom UpStatus session token. Supabase CLI defaults `functions.<slug>.verify_jwt` to `true` unless an explicit function config or `--no-verify-jwt` flag overrides it. The Normal candidate lacked the beta10 function block; the Team Lite candidate lacked its function block. The existing deployment commands do not pass `--no-verify-jwt`. A future deploy could therefore change gateway authentication behavior and reject clients before custom handler auth runs.
+
+Supabase docs: https://supabase.com/docs/guides/local-development/cli/config and https://supabase.com/docs/guides/functions/function-configuration.
+
+### Current CI and runtime evidence
+
+- Normal #74 exact HEAD is now `974afa23be3f66b5d20ee5e9391c2c69a958e249`; Validate [41692984901](https://github.com/Reekyi/UpStatus/actions/runs/41692984901) and Smoke [41692984911](https://github.com/Reekyi/UpStatus/actions/runs/41692984911) both SUCCESS on that SHA (historical 2026-11-03).
+- Team Lite #76 exact HEAD `eb28e88325d7e8a6236d9050bebabf794d64a8c4`; Candidate Checks [42450476433](https://github.com/Reekyi/UpStatus/actions/runs/42450476433) SUCCESS.
+- #80 exact HEAD `635265e8879c819683abccf2b787fc1f559a70e7`; Validate [42488189106](https://github.com/Reekyi/UpStatus/actions/runs/42488189106) still fails inherited `client signed upload helper missing` at line 55.
+- #82 exact HEAD `588e5c0500b0a6fcd81dfa6a14780739fad87977`; Validate [42490869141](https://github.com/Reekyi/UpStatus/actions/runs/42490869141) still fails inherited `production updateURL mismatch` at line 26.
+- #85 Validate [42475230911](https://github.com/Reekyi/UpStatus/actions/runs/42475230911) SUCCESS, but cutover diagnostic remains BLOCKED.
+- #88 [42478899179](https://github.com/Reekyi/UpStatus/actions/runs/42478899179), #89 [42486397701](https://github.com/Reekyi/UpStatus/actions/runs/42486397701), #90 [42487717033](https://github.com/Reekyi/UpStatus/actions/runs/42487717033), #91 [42488110607](https://github.com/Reekyi/UpStatus/actions/runs/42488110607), #92 [42493683062](https://github.com/Reekyi/UpStatus/actions/runs/42493683062) and #93 [42493686213](https://github.com/Reekyi/UpStatus/actions/runs/42493686213) all have exact-head candidate/offline PASS as described in their PRs.
+- Production remains 38/38 ACTIVE functions, 7 migrations, PostgreSQL 17.11.0.002. Operational function versions: upstatus v480, beta10 v6, Team Lite v15, TEST v281; all currently report `verify_jwt=false`.
+- AUTH-03's three migrations and schema/RPC remain absent in production. Lab remains separate and healthy; no full-product TEST project exists.
+- QA's latest release-readiness branch #82 still records no admin UI for issuing setup invites, the migration→deploy first-access window, the need for full four-runtime rollout/rollback, catalog verification beyond migration ledger, and unverified `database_migrations_read` token scope. QA-owned branch/document were not changed.
+- Issue #78 remains 0/8 physical; Issue #79 body remains 16/35 and needs reconciliation.
+
+Detailed evidence: [Function-specific JWT deploy configuration audit](checkpoints/2026-11-08-function-jwt-config-preflight.md).
+
+Production remained read-only. No migration, SQL write, deploy, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/feature-flag change, function deactivation or destructive operation occurred. The new #92/#93 workflows are offline-only and did not contact Supabase.
