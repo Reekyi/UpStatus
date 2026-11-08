@@ -16,7 +16,7 @@ function header(name) {
   return match ? match[1].trim() : "";
 }
 
-assert.match(String(release.buildVersion || ""), /^\\d+\\.\\d+\\.\\d+$/,
+assert.match(String(release.buildVersion || ""), /^\d+\.\d+\.\d+$/,
   "Team Lite buildVersion must be a stable semantic version");
 assert.equal(header("version"), release.buildVersion, "Team Lite @version must match release.json");
 assert.equal(header("updateURL"), release.scriptUrl, "Team Lite @updateURL must match release.json");
