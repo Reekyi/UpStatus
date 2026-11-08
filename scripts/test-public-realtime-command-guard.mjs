@@ -33,3 +33,43 @@ assert.ok(scheduleStart>=0&&scheduleEnd>scheduleStart,"debounced remote-status p
 const scheduleSource=source.slice(scheduleStart,scheduleEnd);
 assert.match(scheduleSource,/var expectedToken=token,expectedMember=member/,"poll hint must capture the current session identity");
 assert.match(scheduleSource,/token===expectedToken&&member===expectedMember/,"stale-session hints must be discarded");
+
+const timers=[];
+let pollCalls=0;
+const scheduleSandbox={
+  token:"session-a",
+  member:"Ricardo",
+  pollRemoteStatus(){pollCalls++;},
+  setTimeout(callback,delay){
+    const handle=timers.length+1;
+    timers.push({handle,callback,delay});
+    return handle;
+  },
+  clearTimeout(handle){
+    const item=timers.find(x=>x.handle===handle);
+    if(item)item.cleared=true;
+  }
+};
+vm.runInNewContext(scheduleSource+"\\nthis.__schedule=scheduleRemoteStatusPoll;",scheduleSandbox,{timeout:1000});
+scheduleSandbox.__schedule();
+scheduleSandbox.__schedule();
+assert.equal(timers.length,1,"repeated public hints must be debounced");
+assert.equal(timers[0].delay,1100,"public hints must not trigger an immediate request");
+scheduleSandbox.token="session-b";
+scheduleSandbox.member="Lohan";
+timers[0].callback();
+assert.equal(pollCalls,0,"a hint captured by a previous session must not poll after account/session change");
+scheduleSandbox.__schedule();
+assert.equal(timers.length,2);
+timers[1].callback();
+assert.equal(pollCalls,1,"a current-session hint must poll the authenticated queue once");
+
+const pollStart=source.indexOf("  function pollRemoteStatus()");
+const pollEnd=source.indexOf("\\n  function refresh()",pollStart);
+assert.ok(pollStart>=0&&pollEnd>pollStart,"authenticated remote-status polling implementation must exist");
+const pollSource=source.slice(pollStart,pollEnd);
+assert.match(pollSource,/if\\(!token\\|\\|remotePolling\\)return/,"remote-status polling must require an authenticated session and prevent overlap");
+assert.match(pollSource,/api\\('GET','\\/api\\/remote-status'\\)/,"commands must be fetched from the authenticated HTTP queue");
+assert.match(pollSource,/executeRemoteCommand\\(d\\.command\\)/,"only the authenticated HTTP response may reach command execution");
+
+console.log("PASS public remote_command is a debounced wake-up only; forged payloads are ignored and execution is sourced from the authenticated remote-status API.");
