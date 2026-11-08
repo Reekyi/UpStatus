@@ -75,6 +75,7 @@ const actualSourceResult = evaluateWithNextVersion({
   availableMigrations: REQUIRED_SETUP_MIGRATIONS,
   authEnrollmentTestPresent: true,
 });
+assert.equal(actualSourceResult.ready, true, "the current Normal candidate source must satisfy all cutover gates when a new stable version is supplied");
 assert(!actualSourceResult.issues.some(issue => issue.includes("Administrative authorization must derive only from the persisted")), "the current production candidate admin helper must be backed by the stored role");
 assert(!actualSourceResult.issues.some(issue => issue.includes("Message deletion must allow the owner")), "the current production candidate deleteRoute must use stored-role admin authorization");
 assert(!actualSourceResult.issues.some(issue => issue.includes("Chat clear must require Ricardo")), "the current production candidate chat clear must use stored-role authorization");
