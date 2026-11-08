@@ -102,7 +102,6 @@ try{
   assert.ok(initial.requests.some(r=>r.url.endsWith("/api/me")),"restored admin session must call /api/me: "+JSON.stringify(initial)+" pageErrors="+pageErrors.join("\\n"));
   assert.ok(initial.settingsButtonPresent,"stored administrator must retain the settings entry: "+JSON.stringify(initial)+" pageErrors="+pageErrors.join("\\n"));
   assert.ok(initial.healthButtonPresent,"restored admin session must render the health action: "+JSON.stringify(initial)+" pageErrors="+pageErrors.join("\\n"));
-  await page.locator("#upstatus-bubble").click();
   await page.locator(".up-settings-btn").click();
   await page.locator(".up-settings-health").click();
   await page.locator(".up-health .up-setup-invite").waitFor({timeout:5000});
