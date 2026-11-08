@@ -10,15 +10,21 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const secureMediaSource = [
   "var signalTransportFlag=true;",
   "var signalTransportEndpoint=server.replace(/\\/functions\\/v1\\/[^/]+$/,'/functions/v1/upstatus-signal');",
+  "export function isAllowedPublicCallDiscoverySignal(signal){\n  return !!signal&&typeof signal==='object'&&!Array.isArray(signal)&&Object.prototype.hasOwnProperty.call(signal,'type')&&Object.prototype.hasOwnProperty.call(signal,'discoveryOnly')&&(signal.type==='presence'||signal.type==='ended')&&signal.discoveryOnly===true;\n}",
   "function callSendTo(){if(signalTransportFlag)return signalTransport.sendSignal({});}",
   "function callSendAll(){if(signalTransportFlag)return signalTransport.sendToRoom({});}",
   "function voiceRoomSend(){if(signalTransportFlag){signalTransport.sendSignal({});return signalTransport.sendToRoom({});}}",
   "function screenShareSend(){if(signalTransportFlag){signalTransport.sendSignal({});return signalTransport.sendToRoom({});}}",
-  "function receiveCallSignal(p){if(signalTransportFlag&&!p._authenticatedTransport&&!((p.type==='presence'||p.type==='ended'||p.type==='join_declined')&&p.discoveryOnly===true))return;}",
+  "async function receiveCallSignal(p,authenticatedSource){if(signalTransportFlag&&!authenticatedSource&&!isAllowedPublicCallDiscoverySignal(p))return;if(p.type==='presence'){callReceivePresence(p);return;}if(p.type==='ended'){delete upCallDirectory[p.callId];return;}}",
+  "async function signalStartCallPolling(){await receiveCallSignal(p,true);}",
+  "async function signalPollInvitations(){await receiveCallSignal({type:'invite',callId:'c',from:'admin',to:'member'},true);}",
+  "function callPublishPresence(){sendRealtimeEvent('call_signal',{type:'presence',discoveryOnly:true});}",
+  "function callPublishEnded(){sendRealtimeEvent('call_signal',{type:'ended',discoveryOnly:true});}",
+  "function publicCallSignalListener(){realtimeChannel.on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{},false);});}",
   "realtimeChannel.on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){if(!signalTransportFlag)voiceRoomReceive(payload&&payload.payload||{});});",
   "realtimeChannel.on('broadcast',{event:SCREEN_ROOM_EVENT},function(payload){if(!signalTransportFlag)screenShareReceive(payload&&payload.payload||{});});",
   "signalTransport.startPolling(roomId,handler);",
-].join("\\n");
+].join("\n");
 function evaluateWithNextVersion(options) {
   return evaluateProductionCutover({
     releaseVersion: "3.4.8",
@@ -85,12 +91,14 @@ assert.equal(hasAuthEnrollmentTestInvocation(validateInvocation.replace('"normal
 
 const actualServerSource = fs.readFileSync(path.join(ROOT, "src/server/index.template.ts"), "utf8");
 const actualUserscriptSource = fs.readFileSync(path.join(ROOT, "src/userscript/upstatus.user.template.js"), "utf8");
+const actualSignalingAdapterPath = path.join(ROOT, "src/userscript/signaling-transport.mjs");
+const actualSignalingAdapterSource = fs.existsSync(actualSignalingAdapterPath) ? fs.readFileSync(actualSignalingAdapterPath, "utf8") : "";
 const actualSourceResult = evaluateWithNextVersion({
   manifest,
   workflow,
   availableSources: availableProductionSources,
   serverSource: actualServerSource,
-  userscriptSource: actualUserscriptSource,
+  userscriptSource: actualUserscriptSource + "\n" + actualSignalingAdapterSource,
   availableMigrations: REQUIRED_PRODUCTION_MIGRATIONS,
   authEnrollmentTestPresent: true,
 });
@@ -201,11 +209,23 @@ const missingMigration = evaluateWithNextVersion({
   workflow,
   availableSources: availableProductionSources,
   serverSource: secureServerSource,
-  availableMigrations: REQUIRED_SETUP_MIGRATIONS.slice(1),
+  availableMigrations: REQUIRED_PRODUCTION_MIGRATIONS.filter(file => file !== "20261107060000_normalize_setup_invite_role.sql"),
   authEnrollmentTestPresent: true,
 });
 assert.equal(missingMigration.ready, false);
 assert(missingMigration.issues.some(issue => issue.includes("Required production security/signaling migration source is missing")));
+
+const missingSignalRateLimitMigration = evaluateWithNextVersion({
+  manifest,
+  workflow,
+  availableSources: availableProductionSources,
+  serverSource: secureServerSource,
+  availableMigrations: REQUIRED_PRODUCTION_MIGRATIONS.filter(file => file !== "20261108190000_distributed_signaling_rate_limit.sql"),
+  authEnrollmentTestPresent: true,
+});
+assert.equal(missingSignalRateLimitMigration.ready, false);
+assert(missingSignalRateLimitMigration.issues.some(issue => issue.includes("Required production security/signaling migration source is missing: supabase/migrations/20261108190000_distributed_signaling_rate_limit.sql")));
+
 
 const nameFallback = evaluateWithNextVersion({
   manifest,
@@ -311,7 +331,7 @@ assert(missingSignalSource.issues.some(issue => issue.includes('source "supabase
 
 const signalAfterApi = evaluateWithNextVersion({
   manifest,
-  workflow: workflow.replace(signalDeploy + "\\n" + apiDeploy, apiDeploy + "\\n" + signalDeploy),
+  workflow: workflow.replace(signalDeploy + "\n" + apiDeploy, apiDeploy + "\n" + signalDeploy),
   availableSources: availableProductionSources,
   serverSource: secureServerSource,
   availableMigrations: REQUIRED_PRODUCTION_MIGRATIONS,
@@ -327,8 +347,16 @@ const publicVoiceMedia = secureMediaSource.replace("if(!signalTransportFlag)voic
 assert.equal(inspectAuthenticatedMediaSignaling(publicVoiceMedia).ready, false, "public voice payloads must remain rejected");
 const publicScreenMedia = secureMediaSource.replace("if(!signalTransportFlag)screenShareReceive(", "screenShareReceive(");
 assert.equal(inspectAuthenticatedMediaSignaling(publicScreenMedia).ready, false, "public screen-share payloads must remain rejected");
-const publicCallMedia = secureMediaSource.replace("if(signalTransportFlag&&!p._authenticatedTransport", "if(false");
-assert.equal(inspectAuthenticatedMediaSignaling(publicCallMedia).ready, false, "public call payloads must remain rejected");
+const payloadControlledProvenance = secureMediaSource.replace("signalTransportFlag&&!authenticatedSource", "signalTransportFlag&&!p._authenticatedTransport");
+assert.equal(inspectAuthenticatedMediaSignaling(payloadControlledProvenance).ready, false, "payload-controlled provenance must never satisfy authenticated signaling");
+const joinDeclinedDiscovery = secureMediaSource.replace("signal.type==='presence'||signal.type==='ended'", "signal.type==='presence'||signal.type==='ended'||signal.type==='join_declined'");
+assert.equal(inspectAuthenticatedMediaSignaling(joinDeclinedDiscovery).ready, false, "join_declined must not be accepted as a public discovery hint");
+const publicListenerTrusted = secureMediaSource.replace("receiveCallSignal(payload&&payload.payload||{},false)", "receiveCallSignal(payload&&payload.payload||{},true)");
+assert.equal(inspectAuthenticatedMediaSignaling(publicListenerTrusted).ready, false, "public Realtime must always pass untrusted provenance");
+const unauthenticatedPoll = secureMediaSource.replace("await receiveCallSignal(p,true);", "await receiveCallSignal(p,false);");
+assert.equal(inspectAuthenticatedMediaSignaling(unauthenticatedPoll).ready, false, "authenticated polling must pass trusted provenance out-of-band");
+const publicEndedControl = secureMediaSource.replace("delete upCallDirectory[p.callId];return;", "delete upCallDirectory[p.callId];callCleanup();return;");
+assert.equal(inspectAuthenticatedMediaSignaling(publicEndedControl).ready, false, "public ended hints must not control an active call");
 const unpinnedMedia = secureMediaSource.replace("/functions/v1/upstatus-signal", "/functions/v1/upstatus-signal-test");
 assert.equal(inspectAuthenticatedMediaSignaling(unpinnedMedia).ready, false, "the production signaling endpoint must be pinned");
 console.log("PASS production cutover guard: authenticated signaling first, API/distribution order, mandatory media transport, AUTH-03, stored-role chat authorization, required production migrations and no automatic db push; missing source/deploy/test, public media fallback, opt-in transport, wrong order, TEST deploy, name-based authorization and invalid project/manifest blocked.");
