@@ -11,9 +11,9 @@ const start = build.indexOf("function writeFunction(fn,source){");
 const end = start >= 0 ? build.indexOf("\nconst prodUser", start) : -1;
 assert.ok(start >= 0 && end > start, "build writeFunction helper must remain inspectable");
 const writeFunction = build.slice(start, end);
-assert.doesNotMatch(writeFunction, /fs\\.rmSync\\s*\\(/, "function build must not recursively delete a tracked Supabase function directory");
-assert.match(writeFunction, /fs\\.mkdirSync\\(dir,\\{recursive:true\\}\\)/, "function build must create the directory without replacing it");
-assert.match(writeFunction, /fs\\.writeFileSync\\(path\\.join\\(dir,"index\\.ts"\\),source,"utf8"\\)/, "function build must update only the generated index.ts entrypoint");
+assert.doesNotMatch(writeFunction, /fs\.rmSync\s*\(/, "function build must not recursively delete a tracked Supabase function directory");
+assert.match(writeFunction, /fs\.mkdirSync\(dir,\{recursive:true\}\)/, "function build must create the directory without replacing it");
+assert.match(writeFunction, /fs\.writeFileSync\(path\.join\(dir,"index\.ts"\),source,"utf8"\)/, "function build must update only the generated index.ts entrypoint");
 
 for (const relative of [
   "supabase/functions/upstatus/index_v25_loader.ts",
