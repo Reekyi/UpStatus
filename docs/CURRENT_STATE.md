@@ -2594,3 +2594,8 @@ No production write, migration, deploy, merge, release, publication, secret/role
 The [API runtime checkpoint](checkpoints/2026-11-08-api-runtime-generation.md) now records the first-access setup finding and new fail-closed gate. Live beta10 and the #85 template have the same extracted route/prefix/table/RPC identifiers, but differ in setup semantics: live beta10 still assigns admin by hard-coded name and allows first-caller setup; #85 removes name assignment but still lacks one-time admin-issued invites and atomic consumption. Production has five initialized users (three admins, two users), no setup-invite table/RPC, and only seven applied migrations.
 
 PR #85 HEAD `7e84c31772b82437529addd96bf11490e1286e31` Validate [42475050634](https://github.com/Reekyi/UpStatus/actions/runs/42475050634) **SUCCESS**. The production cutover preflight intentionally blocks on missing AUTH-03 and its three migration sources. No automatic migration step was added. This is an expected release gate, not a failed Validate.
+
+
+## 2026-11-08 08:20 BRT — AUTH-03 test wiring is a release gate
+
+The [API runtime checkpoint](checkpoints/2026-11-08-api-runtime-generation.md) now records that production cutover also requires `scripts/auth-enrollment.test.mjs` to be wired into `scripts/validate.mjs`. PR #85 HEAD `b75707b6eaf678d87863144748b9aed8e2866455` Validate [42475230911](https://github.com/Reekyi/UpStatus/actions/runs/42475230911) **SUCCESS**; the guard intentionally blocks on missing AUTH-03 server flow, missing wired regression test and three migration sources. This is an expected release gate. No migration/deploy/dispatch occurred.
