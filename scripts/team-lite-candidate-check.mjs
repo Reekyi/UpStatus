@@ -73,9 +73,9 @@ for (const name of requiredRuntimeGlobals) {
   const declaration = new RegExp("\\bvar\\s+[^;]*\\b" + name + "\\s*=");
   assert.match(script, declaration, "Team Lite full-IIFE runtime configuration must declare " + name);
 }
-assert.match(script, /var CLOUD_SERVER='https:\\/\\/[^']+\\.supabase\\.co\\/functions\\/v1\\/upstatus-team-lite';/,
+assert.match(script, /var CLOUD_SERVER='https:\/\/[^']+\.supabase\.co\/functions\/v1\/upstatus-team-lite';/,
   "Team Lite API base must be an explicit Supabase Edge Function URL");
-assert.match(script, /var UP_REALTIME_URL='https:\\/\\/[^']+\\.supabase\\.co';/,
+assert.match(script, /var UP_REALTIME_URL='https:\/\/[^']+\.supabase\.co';/,
   "Team Lite Realtime origin must be explicit");
 assert.match(script, /var UP_REALTIME_KEY='sb_publishable_[^']+';/,
   "Team Lite must declare its public Realtime key explicitly");
