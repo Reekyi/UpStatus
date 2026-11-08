@@ -2587,3 +2587,10 @@ The candidate manual-only production workflow deploys beta10 before `upstatus`. 
 The stable 3.4.7 #85 line remains distinct from the larger Normal signaling candidate #74. Production still has name-only chat-clear authorization, three exposed SECURITY DEFINER broadcasts, broad table/default ACLs, and no full-product TEST project. #78 remains 0/8 physical acceptance. #80/#82 retain their inherited base-validator failures.
 
 No production write, migration, deploy, merge, release, publication, secret/role/grant/ACL/policy/flag change or destructive action occurred. QA-owned files and `docs/RELEASE_READINESS.md` were not modified.
+
+
+## 2026-11-08 08:18 BRT — AUTH-03 release gate added
+
+The [API runtime checkpoint](checkpoints/2026-11-08-api-runtime-generation.md) now records the first-access setup finding and new fail-closed gate. Live beta10 and the #85 template have the same extracted route/prefix/table/RPC identifiers, but differ in setup semantics: live beta10 still assigns admin by hard-coded name and allows first-caller setup; #85 removes name assignment but still lacks one-time admin-issued invites and atomic consumption. Production has five initialized users (three admins, two users), no setup-invite table/RPC, and only seven applied migrations.
+
+PR #85 HEAD `7e84c31772b82437529addd96bf11490e1286e31` Validate [42475050634](https://github.com/Reekyi/UpStatus/actions/runs/42475050634) **SUCCESS**. The production cutover preflight intentionally blocks on missing AUTH-03 and its three migration sources. No automatic migration step was added. This is an expected release gate, not a failed Validate.
