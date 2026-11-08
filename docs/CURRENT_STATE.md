@@ -2788,3 +2788,17 @@ Checkpoint: [public Realtime command guard and P0 status](checkpoints/2026-11-08
 - Lab has 38 migrations, four setup-token columns, one consume RPC, zero users/messages/realtime rows. Production managed branch main remains MIGRATIONS_FAILED while project/preview are healthy; Dashboard branch logs are still needed.
 
 All production operations were read-only. No migration, SQL write, deploy, workflow dispatch, merge, release, publication, secret/role/grant/ACL/policy/flag change or function deactivation occurred. QA branch and docs/RELEASE_READINESS.md remain untouched. Issue #78 remains 0/8 physical.
+
+
+## 2026-11-08 — Production server-mediated signaling source candidate
+
+Checkpoint: [production signaling function candidate](checkpoints/2026-11-08-production-signaling-runtime-candidate.md).
+
+- Draft [PR #101](https://github.com/Reekyi/UpStatus/pull/101), stacked on Normal #74 at base HEAD `9c0133e8cf6bd85ac8993888718a408db2f24a3e`; candidate HEAD `2ef7c3324d2eb5443d31a45bd071d154ebeb4aa7`.
+- Added a distinct `supabase/functions/upstatus-signal/` production-source candidate, its bounded JSON parser and legacy-envelope sidecar, explicit `verify_jwt=false`, and an offline parity test wired into Normal Validate.
+- Added production migration source `20261108190000_distributed_signaling_rate_limit.sql`. It creates the RLS-enabled rate-limit table, grants table/function access only to `service_role`, uses SECURITY INVOKER with an empty search_path, and bounds opportunistic stale-bucket cleanup to 100 rows.
+- The production handler is byte-identical to the reviewed Normal isolated handler after normalizing the health service label. A read-only comparison against lab `upstatus-signal-test` v32 found exactly one functional difference in the candidate: `VOICE_ATTEMPT_ALREADY_ACTIVE` now maps to HTTP 409; `body.mjs` and `legacy-envelope.mjs` are byte-identical.
+- Lab catalog confirms `upstatus_signal_rate_limits` is RLS-enabled; anon/authenticated have no table privileges or RPC EXECUTE, while service_role has the required privileges. The deployed lab function itself remains v32 and unchanged.
+- Exact-head workflow [42513317464](https://github.com/Reekyi/UpStatus/actions/runs/42513317464) SUCCESS on Node v24.22.2. Offline parity regression and complete Normal Validate passed. The first workflow attempt [42513272235](https://github.com/Reekyi/UpStatus/actions/runs/42513272235) failed because shallow checkout omitted `origin/team-lite-official`; the workflow was corrected to `fetch-depth: 0`, then the exact-head rerun passed.
+- Production read-only catalog confirms all signaling schema objects are absent: rooms, memberships, events, bindings, call attempts, voice attempts, rate-limit table and rate-limit RPC. Production still has seven migrations and four active operational runtimes. No production schema or runtime was changed.
+- This is a source/schema candidate only. The production deploy workflow is not yet wired to deploy `upstatus-signal`; the clients still default authenticated transport off and retain public call/voice/screen fallback. **RT-01 remains P0 and is not closed.** Do not deploy or enable the transport until schema preflight, post-migration catalog verification, production deploy/rollback sequencing, both-client cutover, and explicit authorization are complete.
