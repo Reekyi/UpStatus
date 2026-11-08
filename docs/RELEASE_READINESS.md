@@ -7961,3 +7961,157 @@ Todas as consultas SQL foram SELECT-only; Management API e fontes foram lidas. A
 ### Correção de integridade do append QA nesta rodada
 
 A verificação pós-gravação detectou que o primeiro commit documental desta rodada (`3f8c53c19ad970c9f0bb1f0c5d3dc577c2f5abb7`) continha apenas a nova seção, sem o corpo histórico do arquivo. A falha foi corrigida imediatamente, sem force-push: o conteúdo integral anterior foi recuperado do commit pai `588e5c0500b0a6fcd81dfa6a14780739fad87977` (blob `3f8e58556209ce02a22f2a2c0df4b9b48b9b0e75`) e concatenado com a nova seção. O commit de restauração `ee2d127f2f0bb7ba441f5c5cc3e76bc28199c199` contém 989.567 caracteres e blob `020172264df2b66eb259a3b33542a38d08640b19`; a leitura posterior confirmou o conteúdo histórico no início e a nova seção no final. O commit intermediário permanece no histórico da branch QA, mas não é o estado final. Nenhuma branch de engenharia, runtime, issue ou projeto Supabase foi alterado.
+
+
+## Revalidação independente — 2026-11-08 13:31 BRT
+
+### Resumo desta rodada
+
+Duas novas PRs completaram a experiência administrativa de emissão de convites AUTH-03 nos userscripts. Os testes automatizados passaram, mas a revisão também identificou um bloqueador crítico na publicação Team Lite e uma divergência de limites de Storage entre configuração, cliente e servidor.
+
+**Decisão: NÃO LIBERAR.** A interface de convite está coberta por testes offline; ainda não houve teste HTTP real da rota candidata, teste físico ou revisão humana. O workflow de produção herdado pela linha Team Lite continua apontando para a função Normal.
+
+### PRs e heads revalidados
+
+| PR | HEAD | Base | Estado / evidência |
+|---|---|---|---|
+| #74 Normal | `9c0133e8cf6bd85ac8993888718a408db2f24a3e` | master | Draft; Validate 42451736696 e Smoke 42451736729 SUCCESS |
+| #75 Baseline | `7bbf9b90` | team-lite-official | Draft; baseline histórico, não candidata independente |
+| #76 Team Lite | `eb28e88325d7e8a6236d9050bebabf794d64a8c4` | team-lite-official | Draft; Candidate Checks 42450476433 SUCCESS |
+| #82 QA | `b9730facf85a86b6b0cc22dec2f6f1bfed746032` | master | Draft; Validate 42496126120 FAILURE herdada |
+| #85 Cutover | `b75707b6` | master | Draft; Validate anterior PASS, guard mantém cutover bloqueado |
+| #88 Guard | `f04d18d7` | #85 | Draft; 42478899179 SUCCESS |
+| #89 AUTH-03 Normal | `4224dc31683d4b235e52d2ddcece1570294763f0` | #88 | Draft; integração isolada anterior PASS |
+| #90 Runner safety | `fix/team-lite-auth-runner-redirect-guard-20261108` | #76 | Draft; quatro commits, sem merge |
+| #91 Team Lite artifact | `test/team-lite-built-runtime-parity-20261108` | #76 | Draft; quatro commits, sem merge |
+| #92 Team Lite JWT | `2a1b8c74a255b92fe17844b521b49f184888f852` | #91 | Draft; 42493683062 SUCCESS |
+| #93 Normal JWT | `fb9ccd9b9aa69a329e7340f87fc8b07c82618bbe` | #89 | Draft; 42493686213 SUCCESS |
+| #94 Normal invite UI | `00462a202661fe3502d015dd2dd0ef1da239059d` | #93 | Draft; 42498502349 SUCCESS |
+| #95 Team Lite invite UI | `3dc309ce17470eb706d3cd2223e99e33a94a8bd6` | #92 | Draft; 42499560082 e 42499554010 SUCCESS |
+
+Todas as PRs consultadas permanecem abertas e Draft. #94 e #95 não possuem review humana. #94 está empilhada sobre #93; #95 está empilhada sobre #92. Não integrar os dois patches de UI isoladamente da respectiva cadeia de servidor/configuração.
+
+### AUTH-03: interface administrativa
+
+**Normal #94**
+
+- Blob do userscript: `b814b9e995c7bfeac18fe136f14a53f827def405`.
+- Workflow: `normal-setup-invite-ui.yml`, blob `7eaa79a7e35805179f30eb335c72d580c0cb2ecd`.
+- Run [42498502349](https://github.com/Reekyi/UpStatus/actions/runs/42498502349): SUCCESS.
+- O Validate offline executa o contrato da UI: gate de papel armazenado, chamada POST a `/api/setup-invite`, validação de token hexadecimal de 64 caracteres, validade futura, clipboard principal/fallback e ausência de token em DOM, GM storage ou logs.
+- Não há browser Full-IIFE específico do Normal neste workflow.
+
+**Team Lite #95**
+
+- Blob do userscript: `182616fc906906732650e6de82ad7e9bc181cbcf`.
+- Workflow: `team-lite-setup-invite-ui.yml`, blob `2232e84a6a43111d40bda9810aa94e5ff96ac6f8`.
+- Runs [42499560082](https://github.com/Reekyi/UpStatus/actions/runs/42499560082) e [42499554010](https://github.com/Reekyi/UpStatus/actions/runs/42499554010): SUCCESS.
+- Playwright executa o IIFE completo com sessão administrativa simulada, API em domínio `.invalid`, GM/Tampermonkey stub e requisições de página bloqueadas.
+- Confirma painel administrativo, POST ao endpoint inerte, cópia do token, ausência do token no DOM/GM storage e ausência de tráfego de página para produção.
+- O browser smoke cobre o caminho administrador. A regressão não administrador existe no contrato VM (helper não chama o endpoint), mas ainda falta um cenário Full-IIFE explícito de usuário comum.
+
+Em ambos os candidatos, a UI exige `role === implementation_admin`; o servidor também revalida o papel persistido em `admin(adminName)`. O token é copiado, não exibido na página nem persistido pelo userscript. O teste não chama uma Edge Function candidata implantada e não comprova clipboard real do sistema operacional.
+
+O endpoint de servidor inspecionado valida administrador persistido, nome exato de destino e conta sem senha; gera 32 bytes aleatórios, guarda somente SHA-256, expira em 15 minutos e retorna HTTP 409 quando a conta não está disponível para primeiro acesso. A emissão registra `issued_by` e `issued_at`. Não foi observada limitação de taxa específica para emissão; considerar hardening, embora a rota exija sessão administrativa e o token seja de uso único.
+
+### Bloqueador crítico: workflow de produção Team Lite
+
+A branch `team-lite-official` e a branch da PR #92 possuem o mesmo arquivo `.github/workflows/deploy-production.yml`, blob SHA:
+
+`e95bab7602fd3fcf80ab88ff44ccc9c259593c75`
+
+O workflow é `workflow_dispatch`, usa environment `production` e secrets `SUPABASE_ACCESS_TOKEN` / `SUPABASE_PROJECT_ID`, mas executa:
+
+```bash
+supabase functions deploy upstatus --project-ref "$SUPABASE_PROJECT_ID" --use-api
+```
+
+O alvo é `upstatus`, não `upstatus-team-lite`.
+
+Outras lacunas observadas no mesmo workflow:
+- checkout usa o ref selecionado no dispatch, sem exigir master nem SHA de release;
+- não verifica organização/ref do projeto Supabase;
+- não faz preflight read-only das migrations AUTH-03;
+- instala Supabase CLI em `latest`, sem pin;
+- não apresenta rollback;
+- não há arquivo `deploy-team-lite-production.yml` na branch consultada.
+
+A PR #92 altera `team-lite-candidate.yml`, o guard JWT, o teste de configuração e `supabase/config.toml`; não altera `deploy-production.yml`. A PR #95 também não corrige o workflow de produção. O guard JWT da #92 valida configuração e artefato, mas não verifica o alvo do comando de deploy.
+
+A configuração Team Lite contém blocos `verify_jwt=false` para `upstatus` e `upstatus-team-lite`. Portanto, o guard JWT não impede que o workflow errado implante o runtime Normal. O valor do secret `SUPABASE_PROJECT_ID` não é visível à auditoria; se apontar para o projeto de produção, o comando tentará atualizar o runtime Normal com o código/ref escolhido no dispatch. **Não despachar esse workflow.** Criar workflow Team Lite dedicado, exigir ref/SHA aprovado, validar projeto e função alvo, fazer preflight de migrations, fixar CLI e definir rollback. Adicionar regressão que falhe se a linha Team Lite tentar implantar `upstatus`.
+
+A linha Normal candidata #89 é mais protegida: workflow manual, checkout SHA-pinned, verificação de projeto/organização, preflight read-only das migrations, CLI 2.122.1 fixada e deploy API beta10 antes da distribuição `upstatus`. Ainda depende de migrations previamente aplicadas e não tem rollback automatizado demonstrado. `release.json` continua em 3.4.7; o guard exige versão estável superior a 3.4.7. Nenhuma nova versão foi escolhida.
+
+### Storage: divergência de limites
+
+A configuração candidata Normal/Team Lite declara:
+- `chat-images`: 25 MB;
+- `profile-images`: 2 MB.
+
+Blobs: Normal config `b623947c0a5c47a4a642766fcfce9125551f3077`; Team Lite config `cc4a415c0f3d18e8d62ae43b1e979fe3d7d63326`.
+
+O cliente e `signedUploadRoute` candidato aceitam até 20 MiB para chat e avatar. O bucket de produção, consultado por SQL, continua com 20.971.520 bytes (20 MiB) nos dois buckets públicos. Não há policies em `storage.objects`.
+
+Se a configuração candidata for aplicada, avatares entre 2 e 20 MiB passam pela validação cliente/servidor, mas excedem o limite de 2 MB do bucket e falham no Storage. O limite de 25 MB do chat também não corresponde ao teto de 20 MiB do cliente/servidor. O workflow de funções não sincroniza sozinho a configuração de buckets; portanto, isto é drift de configuração e risco para uma futura sincronização, não evidência de alteração atual em produção. Definir limites únicos e alinhar config, cliente, servidor, testes e buckets antes de qualquer config push.
+
+### Supabase: fotografia read-only
+
+- Produção `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations (última `20261027155438`), 38 Edge Functions ACTIVE.
+- Laboratório `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 38 migrations (última `20261108050802`), duas Edge Functions de teste.
+- A organização continua com apenas esses dois projetos; não existe TEST full-product separado.
+- Branch gerenciada `main` de produção continua `MIGRATIONS_FAILED`, enquanto `preview_project_status` é ACTIVE_HEALTHY. O conector não expõe logs da branch. A causa permanece não diagnosticada; consultar Dashboard > Manage Branches > main > View logs conforme [Supabase Branching Troubleshooting](https://supabase.com/docs/guides/deployment/branching/troubleshooting).
+
+AUTH-03:
+- Produção não tem as quatro colunas `setup_token_*` nem a RPC `consume_upstatus_setup_invite`. A consulta de contagens encontrou 5 usuários, 3 administradores explícitos, zero password hashes vazios e zero papéis vazios.
+- Laboratório tem as quatro colunas e a RPC. Catálogo confirma SECURITY INVOKER, `search_path=""`, EXECUTE negado a anon/authenticated e concedido a service_role. A consulta pós-integração encontrou zero users, sessions, messages, rooms, memberships, events, rate limits, call attempts, voice attempts e chat reads.
+
+Edge Functions:
+- Produção: 38/38 ACTIVE, todas reportam `verify_jwt=false`. Quatro operacionais: upstatus v480 (SHA `bb2713ce...`), beta10 v6 (`f6c5f8a4...`), Team Lite v15 (`2c13414a...`) e upstatus-test v281 (`7b5dfb12...`). As demais 34 são variantes históricas/test/beta/backup; não foram desativadas. A revisão profunda desta rodada reabriu as quatro fontes operacionais.
+- Todas as quatro fontes operacionais continuam sem `/api/setup-invite`, mantêm `needsSetup`/first-caller setup e fallback administrativo nominal. A limpeza global do chat ainda tem gate pelo nome Ricardo além do papel, e o caminho antigo de setup permanece no runtime instalado.
+- Laboratório: `upstatus-signal-test` v32 SHA `f893360a...` e `upstatus-signal-e2e-once` v3 SHA `db0c9206...`. O helper v32 reconhece `VOICE_ATTEMPT_CONFLICT` e `ROOM_FULL` como 409, mas não `VOICE_ATTEMPT_ALREADY_ACTIVE`; este último pode cair em 500. O mapper candidato passou em 11/11 testes offline, sem validação HTTP real.
+
+Banco e Realtime:
+- Security Advisor: produção 6 WARN / 10 INFO; laboratório 0 WARN / 17 INFO. Produção não apresentou findings de performance nesta consulta.
+- Nove tabelas backend-owned de produção têm RLS habilitado e zero policies. anon e authenticated possuem SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER e MAINTAIN nas nove. RLS sem policies bloqueia acesso normal às linhas, mas não protege TRUNCATE.
+- Três broadcasts de produção são SECURITY DEFINER, `search_path=public`, EXECUTE para anon/authenticated/service_role. `upstatus_broadcast_messages` serializa OLD/NEW com `to_jsonb` e envia para Realtime.
+- No laboratório, as três funções também são SECURITY DEFINER, mas com `search_path=""`, EXECUTE somente para service_role e sem serialização de linha completa.
+- `realtime.messages` em produção: 50 linhas, 7 partições diretas, zero policies e SELECT/INSERT/UPDATE para anon/authenticated. Laboratório: zero linhas/partições e zero policies, mas mantém SELECT/INSERT/UPDATE para anon/authenticated.
+- Default ACLs: produção mantém concessões de cliente em defaults de postgres nos schemas public/storage e de supabase_admin em public/graphql/graphql_public. No laboratório, defaults de postgres em public foram restringidos, mas storage ainda tem grants de cliente; supabase_admin mantém defaults amplos em public/graphql/graphql_public.
+- Storage de produção: chat-images e profile-images públicos, 20 MiB cada, zero policies em storage.objects.
+
+Logs:
+- Janela solicitada: 2026-11-07 16:31 UTC a 2026-11-08 16:31 UTC.
+- function_edge_logs retornou 468 eventos, mas todos se concentram entre 17:06 e 18:31 UTC de 07/11: beta10 recebeu 157 /api/status, 156 /api/chat e 154 /api/remote-status (todos 200); upstatus recebeu um fetch de /upstatus.user.js (200).
+- edge_logs retornou 1.624 eventos até 13:47 UTC de 08/11; function_logs 328 até 18:32 UTC de 07/11. A cobertura de function_edge_logs não representa as 24 horas completas. beta10 está comprovadamente em uso; os números não devem ser apresentados como volume diário total nem usados para aposentar funções históricas.
+
+### Issues e aceitação manual
+
+- [#78](https://github.com/Reekyi/UpStatus/issues/78): 0/8 critérios físicos continuam pendentes. Ainda faltam perda real de internet, recuperação sem F5, reentrada, novas chamadas, microfone/display reais e interoperabilidade instalada Normal ↔ Team Lite.
+- [#79](https://github.com/Reekyi/UpStatus/issues/79): corpo permanece em 16/35; os comentários mais recentes registram #92/#93, mas não consolidam #94/#95 nem o workflow Team Lite incorreto.
+- Nenhuma issue foi modificada. Nenhum teste físico foi executado.
+
+### Classificação dos resultados
+
+- **Aprovado automaticamente:** Normal #74, Team Lite #76, JWT guards #92/#93, guard #88, AUTH-03 #89 (integração anterior), UI Normal #94 e UI Team Lite #95 nos respectivos runs e HEADs citados.
+- **Inspeção de código:** UI administrativa, rotas de emissão, configuração de deploy, Storage e quatro runtimes operacionais.
+- **Teste manual:** nenhum.
+- **Pendente:** HTTP real de emissão/consumo de convite, Full-IIFE Normal, Full-IIFE não administrador Team Lite, HTTP 409 real, Storage upload/download real, testes físicos #78 e reviews humanas.
+- **Bloqueado:** workflow Team Lite de produção aponta para `upstatus`; AUTH-03 não está em produção; versão Normal estável ainda é 3.4.7; TEST full-product não existe; grants/Default ACLs e Realtime seguem pendentes.
+
+### Próximos gates
+
+1. Não despachar `deploy-production.yml` da linha Team Lite; criar workflow dedicado que implante `upstatus-team-lite` e testar o alvo por regressão.
+2. Adicionar teste Full-IIFE de usuário não administrador no Team Lite e Full-IIFE Normal.
+3. Executar teste HTTP end-to-end da emissão e consumo de convite somente em ambiente isolado autorizado.
+4. Alinhar limites Storage (avatar 2 ou 20 MiB; chat 20 ou 25 MB) em config, cliente, servidor e buckets.
+5. Escolher versão Normal estável superior a 3.4.7 e concluir cutover API/distribuição com rollback.
+6. Planejar AUTH-03 para produção com congelamento de onboarding e atualização coordenada dos quatro runtimes; a auditoria não aplicou migrations.
+7. Provisionar TEST full-product e validar HTTP 409 no signaling.
+8. Migrar Realtime para canais privados/server-mediated; corrigir grants e Default ACLs com owner administrativo autorizado.
+9. Definir privacidade de Storage e validar upload/download real.
+10. Investigar MIGRATIONS_FAILED em View logs da branch.
+11. Completar 8/8 testes físicos da #78, atualizar #79 e obter reviews humanas.
+
+### Limites e segurança desta rodada
+
+Todas as consultas SQL desta rodada foram SELECT-only. Management API, fontes, PRs, workflows, logs e advisors foram consultados em leitura. Nenhum script de fixture foi executado pela auditoria. Nenhuma migration, DDL, escrita SQL, deploy, merge, release, publicação de userscript, alteração de secret, flag, role, grant, policy, ACL ou fixture foi realizada. Nenhuma branch de engenharia ou issue foi modificada. A única escrita desta rodada é este append na branch QA.
