@@ -45,3 +45,15 @@ Before any release:
 6. Obtain human review and Ricardo's explicit authorization.
 
 No production SQL write, migration, deploy, feature-flag change, secret/role/grant/ACL/policy change, merge, release, or userscript publication occurred in this checkpoint.
+
+
+## Additional production audit — Realtime and Storage (2026-11-08 16:10 BRT)
+
+Fresh SELECT-only checks add two important qualifications to the release record:
+
+- `realtime.messages` contains 50 rows, all `private=false`: 42 `user_status` and 8 `db_change`, all on `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`. The deployed `upstatus_broadcast_messages()` trigger function sends the full `to_jsonb(OLD/NEW)` record with `private=false`. QA's artifact inspection reports the current clients subscribe to a different topic (`upstatus-screen-share-live-3-1-1-beta10`); external access to the trigger topic was not reproduced, and the Dashboard's Allow public access setting is not exposed by the connector. Treat this as a confirmed public-payload design concern, not a demonstrated exploit.
+- Security Advisor still reports three anon and three authenticated SECURITY DEFINER warnings. The affected functions return `trigger`; the linter text alone does not prove they can be invoked directly as ordinary PostgREST RPCs. Their trigger behavior and unnecessary grants still require review.
+- All ten audited public tables have RLS enabled and zero policies. Nine grant effective TRUNCATE to anon and authenticated; `upstatus_visual_config` is the exception. `realtime.messages` also has RLS and zero policies but effective SELECT/INSERT table grants to anon/authenticated; do not equate grants alone with successful row access.
+- `storage.objects` has RLS enabled and zero policies. Production buckets are both public and both 20 MiB: `chat-images` includes document, video, and audio MIME types; `profile-images` permits image MIME types.
+- Candidate `supabase/config.toml` differs: `chat-images` is 25 MB and has a narrower MIME allowlist that omits the production document types; `profile-images` is 2 MB. This is a release compatibility mismatch requiring an explicit Storage policy/limit decision before deploy. Do not silently copy candidate values to production.
+- Default ACLs remain broad for `postgres` and `supabase_admin` across public/storage/GraphQL schemas. No owner-level ACL correction was attempted.
