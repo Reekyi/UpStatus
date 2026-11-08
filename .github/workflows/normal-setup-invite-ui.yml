@@ -6,6 +6,8 @@ on:
       - fix/normal-setup-invite-admin-ui-20261108
       - test/normal-setup-invite-issuance-contract-20261108
       - test/normal-setup-invite-full-iife-20261108
+      - test/normal-setup-invite-full-iife-20261108
+      - fix/normal-setup-invite-full-iife-open-card-20261108
     paths:
       - "src/userscript/upstatus.user.template.js"
       - "scripts/test-setup-invite-ui.mjs"
