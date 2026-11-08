@@ -60,4 +60,23 @@ assert(!rateLimitMigration.includes("DO $test$"), "production migration must not
 assert(production.includes('req.headers.get("x-upstatus-token")'), "signaling handler must authenticate the UpStatus session token");
 assert(production.includes("consume_upstatus_signal_rate_limit"), "signaling handler must use the distributed rate limiter");
 assert(production.includes("isMember(roomId, sender)") && production.includes("isMember(roomId, recipient)"), "unicast signaling must verify both room memberships");
+function extractVoiceRoomOpenRoute(source, label) {
+  const start = source.indexOf('if (path.endsWith("/room/open")) {');
+  const end = source.indexOf('if (path.endsWith("/room/cancel-open")) {', start);
+  assert(start >= 0 && end > start, label + " must contain a bounded /room/open route block");
+  return source.slice(start, end);
+}
+
+const productionOpenRoute = extractVoiceRoomOpenRoute(production, "production signaling handler");
+const isolatedOpenRoute = extractVoiceRoomOpenRoute(isolated, "isolated signaling handler");
+const voiceAttemptConflictMapping = /code === "VOICE_ATTEMPT_CONFLICT"\\s*\\|\\|\\s*code === "VOICE_ATTEMPT_ALREADY_ACTIVE"\\s*\\|\\|\\s*code === "ROOM_FULL"\\s*\\?\\s*409\\s*:\\s*500/;
+for (const [label, route] of [
+  ["production", productionOpenRoute],
+  ["isolated", isolatedOpenRoute],
+]) {
+  assert(route.includes('db.rpc("open_upstatus_signal_voice_room_attempt"'), label + " /room/open route must call the attempt RPC when an attempt ID is supplied");
+  assert(voiceAttemptConflictMapping.test(route), label + " /room/open route must map VOICE_ATTEMPT_ALREADY_ACTIVE to HTTP 409");
+  assert(route.includes('return response({ error: code, memberCount: result.memberCount }, status);'), label + " /room/open route must use the checked status mapping in its HTTP response");
+}
+
 console.log("PASS production signaling source parity, custom-token config, migration prerequisites, bounded rate limit, and server-derived membership guards");
