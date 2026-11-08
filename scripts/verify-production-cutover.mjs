@@ -25,12 +25,25 @@ export function evaluateProductionCutover({ manifest, workflow, availableSources
   if (!validSlug(distributionFunction)) issues.push("productionFunction is missing or invalid.");
   if (!validSlug(apiFunction)) issues.push("productionApiFunction is missing or invalid.");
 
-  for (const fn of [...new Set([distributionFunction, apiFunction].filter(Boolean))]) {
+  const requiredFunctions = new Set([distributionFunction, apiFunction].filter(Boolean));
+  for (const fn of requiredFunctions) {
     if (!deployedFunctions.includes(fn)) {
       issues.push('Required runtime "' + fn + '" is not deployed by deploy-production.yml.');
     }
     if (!sourceSet.has(fn)) {
       issues.push('Required runtime source "supabase/functions/' + fn + '/index.ts" is not versioned/generated.');
+    }
+  }
+  for (const fn of deployedFunctions) {
+    if (!requiredFunctions.has(fn)) {
+      issues.push('Unexpected production runtime "' + fn + '" is included in deploy-production.yml.');
+    }
+  }
+  if (apiFunction && distributionFunction && apiFunction !== distributionFunction) {
+    const apiIndex = deployedFunctions.indexOf(apiFunction);
+    const distributionIndex = deployedFunctions.indexOf(distributionFunction);
+    if (apiIndex >= 0 && distributionIndex >= 0 && apiIndex > distributionIndex) {
+      issues.push("Production API runtime must be deployed before the userscript distribution runtime.");
     }
   }
 
