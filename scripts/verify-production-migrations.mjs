@@ -6,7 +6,7 @@ import { REQUIRED_PRODUCTION_MIGRATIONS } from "./verify-production-cutover.mjs"
 function expectedMigrationEntries() {
   return REQUIRED_PRODUCTION_MIGRATIONS.map(file => {
     const match = /^(\d{14})_(.+)\.sql$/.exec(file);
-    if (!match) throw new Error("Required setup migration filename is invalid: " + file);
+    if (!match) throw new Error("Required production migration filename is invalid: " + file);
     return { version: match[1], name: match[2] };
   });
 }
