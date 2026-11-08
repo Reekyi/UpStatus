@@ -7582,3 +7582,112 @@ A Management API continua mostrando a branch default main como MIGRATIONS_FAILED
 ### Limites e segurança da auditoria
 
 Todas as consultas SQL foram SELECT/catalog-only em produção e laboratório. Não houve migration, DDL, escrita de banco, alteração de fixtures, deploy, merge, release, publicação, secret, flag, role, grant, policy ou ACL. Nenhum workflow foi iniciado ou repetido manualmente pela auditoria. Nenhuma branch de engenharia ou issue foi modificada. Os testes citados são evidências dos workflows GitHub; não foram executados testes físicos nesta rodada. A única escrita desta rodada é este append documental na branch QA.
+
+## Auditoria independente — 2026-11-08 10:35 BRT / 13:35 UTC
+
+### Heads e estado das PRs consultados diretamente
+
+| PR | Base | HEAD exato | Estado |
+|---|---|---|---|
+| [#74 Normal](https://github.com/Reekyi/UpStatus/pull/74) | master | `9c0133e8cf6bd85ac8993888718a408db2f24a3e` | Open / Draft |
+| [#75 baseline Team Lite](https://github.com/Reekyi/UpStatus/pull/75) | team-lite-official | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Open / Draft |
+| [#76 Team Lite](https://github.com/Reekyi/UpStatus/pull/76) | team-lite-official | `eb28e88325d7e8a6236d9050bebabf794d64a8c4` | Open / Draft |
+| [#82 QA](https://github.com/Reekyi/UpStatus/pull/82) | master | `c84b4a5fb3273bf452af6d78ba337fe05ae4f637` | Open / Draft |
+| [#85 production cutover](https://github.com/Reekyi/UpStatus/pull/85) | master | `b75707b6eaf678d87863144748b9aed8e2866455` | Open / Draft |
+| [#88 cutover guard](https://github.com/Reekyi/UpStatus/pull/88) | #85 | `f04d18d780ffc355b6bad457b8a12ef9fe07f82b` | Open / Draft |
+| [#89 AUTH-03 Normal](https://github.com/Reekyi/UpStatus/pull/89) | #88 | `cd0c7e41bb32f7ab85efd4982ad24b9206c27953` | Open / Draft |
+
+A #89 está 26 commits à frente da base #88 e zero atrás. Possui 21 arquivos alterados. As consultas de reviews para #74, #75, #76, #82, #85, #88 e #89 retornaram zero reviews submetidas. Nenhuma dessas PRs foi mesclada.
+
+### CI: resultados vinculados aos HEADs
+
+- #74 Normal: Validate [42451736696](https://github.com/Reekyi/UpStatus/actions/runs/42451736696) SUCCESS e Signaling Smoke [42451736729](https://github.com/Reekyi/UpStatus/actions/runs/42451736729) SUCCESS no HEAD `9c0133e`. A suíte registrada inclui 19/19 não autenticados e 136/136 autenticados.
+- #75: Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) SUCCESS histórico no HEAD baseline `7bbf9b9`; não é uma segunda candidata independente da #76.
+- #76 Team Lite: Candidate Checks [42450476433](https://github.com/Reekyi/UpStatus/actions/runs/42450476433) SUCCESS no HEAD `eb28e88`, com 16/16 não autenticados e 110/110 autenticados.
+- #85: Validate [42475230911](https://github.com/Reekyi/UpStatus/actions/runs/42475230911) SUCCESS, mas o log imprime `PRODUCTION CUTOVER BLOCKED` e lista AUTH-03 ausente, teste Normal de enrollment não conectado e as três migrations obrigatórias ausentes. SUCCESS significa que a validação informativa executou; não autoriza deploy.
+- #88: guard offline [42478899179](https://github.com/Reekyi/UpStatus/actions/runs/42478899179) SUCCESS no HEAD exato `f04d18d`.
+- #89: guard [42485686643](https://github.com/Reekyi/UpStatus/actions/runs/42485686643) SUCCESS no HEAD exato `cd0c7e41`. O job executou Validate offline, integração AUTH-03 no laboratório allowlisted e regressões offline do guard.
+- #82: Validate [42481111127](https://github.com/Reekyi/UpStatus/actions/runs/42481111127) FAILURE no HEAD `c84b4a5`. O log mostra `Built UpStatus 3.4.7 / TEST 3.4.7` e falha em `scripts/validate.mjs:26`, `production updateURL mismatch`. É o contrato antigo herdado da base master, não falha causada pelo conteúdo documental.
+
+Os workflows de Normal e Team Lite passaram nos testes automatizados de WebRTC, áudio, screen-share, mesh de três participantes, salas, recuperação de tentativas, concorrência, rate limit e recibos. Isso não constitui aceitação manual em Tampermonkey/dispositivos.
+
+### #89: AUTH-03 Normal portado e testado
+
+A inspeção do HEAD `cd0c7e41bb32f7ab85efd4982ad24b9206c27953` confirma:
+
+- Primeiro acesso exige token de convite emitido por administrador autenticado pelo papel persistido.
+- Token aleatório de 256 bits; somente SHA-256 do token é armazenado.
+- Expiração de 15 minutos e consumo atômico por `consume_upstatus_setup_invite`.
+- RPC SECURITY INVOKER, `search_path` vazio, EXECUTE revogado de PUBLIC/anon/authenticated e concedido somente a service_role.
+- Papéis explícitos não vazios são preservados; papel nulo/vazio/whitespace vira `implementation_user`.
+- O cliente remove enumeração pública do estado de setup e armazenamento de senha plaintext no GM storage; limpa chaves legadas.
+- O Validate executa `auth-enrollment.test.mjs normal`.
+- As três migrations de produção e três test-migrations estão versionadas como fontes; nenhuma foi aplicada em produção.
+- `build.mjs` deixou de remover recursivamente o diretório da função. `test-build-sidecar-preservation.mjs` verifica que `index_v25_loader.ts` e `backend_v25_bundle.ts` permanecem presentes e não vazios.
+
+O runner `scripts/test-auth-enrollment.mjs` é mutável. Seu guard exige simultaneamente:
+1. origem exata `https://bfpjtfqlnypisxljoxkb.supabase.co`;
+2. service-role key;
+3. `UPSTATUS_AUTH_ALLOW_MUTATION=1`;
+4. preflight GET bem-sucedido ao projeto allowlisted.
+
+O workflow da #89 executou esse runner automaticamente após o push do candidato, não por iniciativa desta auditoria. O log [42485686643](https://github.com/Reekyi/UpStatus/actions/runs/42485686643) registra sucesso para elegibilidade NULL/empty, conta já configurada, tokens malformado/incorreto/expirado/reutilizado, consumo concorrente com um único vencedor, fallback de papéis vazios, preservação de papel admin explícito e rejeição de escalada por papel com espaços. O bloco `finally` remove apenas os sete nomes de fixture com sufixo aleatório e confirma que o prefixo daquela execução não deixou usuários.
+
+Após o workflow, uma consulta SELECT-only independente encontrou zero users, sessions, messages, chat_reads, rooms, memberships, bindings, events, rate_limits, call_attempts, voice_attempts, Storage objects e Realtime messages; uma sessão de banco ativa no instante da consulta e zero locks aguardando. A auditoria não iniciou nem repetiu o runner.
+
+### #89: versão estável e deploy continuam bloqueados
+
+O guard novo define versão estável implantada `3.4.7` e exige semantic version estritamente maior, sem prerelease. `release.json` ainda declara `3.4.7`; portanto, o corte permanece bloqueado até a engenharia escolher e validar uma versão nova. Não reutilizar `@version 3.4.7` para código alterado.
+
+O workflow de produção permanece manual-only, exige branch master e checkout SHA exato, verifica projeto/organização/host pela Management API, fixa Supabase CLI 2.122.1, implanta API beta10 antes da distribuição upstatus e não executa `db push` nem migrations automaticamente. A remoção do gate fixo `version === 3.4.7` é compensada pelo guard semântico que exige versão superior à implantada.
+
+A #89 resolve no candidato o risco anterior de `fs.rmSync(dir,{recursive:true})` apagar sidecars rastreados. A limpeza recursiva de `dist` permanece, mas não remove diretórios de funções.
+
+### Supabase: fotografia read-only desta rodada
+
+Management API confirmou somente dois projetos:
+
+- Produção `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations, 38 Edge Functions ACTIVE.
+- Laboratório `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 38 migrations, 2 Edge Functions ACTIVE.
+- Não existe TEST full-product independente.
+
+Produção: SELECT-only encontrou 5 usuários, 3 com `implementation_admin`, zero role vazio, quatro colunas setup-invite ausentes e RPC `consume_upstatus_setup_invite` ausente. As quatro fontes operacionais continuam antigas: upstatus v480, beta10 v6, upstatus-team-lite v15 e upstatus-test v281. Todas ainda permitem first-caller setup e fallback administrativo nominal; `/api/chat/clear` exige somente o nome Ricardo, e `deleteRoute` mantém fallback nominal. O helper `admin(name)` lê o papel persistido; o bypass está nos fallbacks. AUTH-03 da #89 ainda não foi aplicado em produção.
+
+Laboratório: quatro colunas setup-invite presentes; RPC presente, SECURITY INVOKER, `search_path` vazio, EXECUTE negado a anon/authenticated e permitido a service_role. Zero usuários após o teste #89. A função `upstatus-signal-test` permanece v32, SHA `f893360a4e0021a0d608e6cb58b8644c68f7389bce685c3177c025eb376b8712`; mapeia `VOICE_ATTEMPT_CONFLICT` e `ROOM_FULL` para HTTP 409, mas não `VOICE_ATTEMPT_ALREADY_ACTIVE`, que ainda pode cair em HTTP 500. O mapper candidato passou offline, sem validação HTTP real.
+
+### RLS, grants, SECURITY DEFINER, Realtime e Storage
+
+Security Advisor observado em 2026-11-08 13:35 UTC: produção 6 WARN e 10 INFO; laboratório zero WARN e 17 INFO.
+
+Produção: nove tabelas backend-owned com RLS e zero policies concedem efetivamente a anon/authenticated SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER e MAINTAIN. `upstatus_visual_config` é a exceção sem esses grants. RLS sem policies bloqueia acesso normal às linhas, mas não protege TRUNCATE. Três broadcasts SECURITY DEFINER permanecem executáveis por anon/authenticated, com `search_path=public`. Default ACLs de postgres em public/storage e de supabase_admin em public/graphql/graphql_public permanecem amplas.
+
+Laboratório: 17 tabelas RLS sem policies, mas as tabelas backend-owned consultadas não concedem privilégios diretos a anon/authenticated. As três funções de broadcast são SECURITY DEFINER com `search_path` vazio, EXECUTE somente para service_role. Default ACLs de postgres em public estão restritas; storage ainda concede defaults amplos a anon/authenticated, e defaults de supabase_admin seguem amplos em public/graphql/graphql_public.
+
+Realtime produção: 50 linhas, 7 partições de dados por data e 14 relações de índice de partição (21 relações herdadas no total), zero policies e grants de cliente. Laboratório: zero linhas e zero partições. A entrega autenticada real por WebSocket continua sem comprovação; canais de broadcast do laboratório ainda usam `private=false`.
+
+Storage produção: `chat-images` e `profile-images` públicos, limite de 20 MiB cada, zero policies em `storage.objects`. Upload/download real não foi testado; os testes de upload assinado seguem mockados.
+
+A branch Supabase default `main` ainda reporta MIGRATIONS_FAILED enquanto o projeto principal e `preview_project_status` estão ACTIVE_HEALTHY. Sem logs da branch, a causa permanece não verificada; não confundir status de branch/preview com falha comprovada do banco principal.
+
+### Issues e aceitação manual
+
+- [#78](https://github.com/Reekyi/UpStatus/issues/78) permanece aberta com 0/8 critérios físicos: perda real de internet, recuperação sem F5, reentrada, novas chamadas, microfone/display reais e interoperabilidade instalada Normal ↔ Team Lite continuam pendentes.
+- [#79](https://github.com/Reekyi/UpStatus/issues/79) mantém corpo 16/35; o comentário de engenharia mais recente registrava ausência de CI para o HEAD anterior da #89, mas esse HEAD foi avançado para `cd0c7e41` e agora possui run SUCCESS [42485686643](https://github.com/Reekyi/UpStatus/actions/runs/42485686643). Corpo/comentário precisam ser reconciliados; nenhuma issue foi alterada.
+
+### Próximos gates atualizados
+
+1. Revisar manualmente #89 e seus 26 commits; manter a PR Draft até review humana.
+2. Aprovar versão estável superior a 3.4.7 e atualizar `release.json` com manifesto/rollback.
+3. Manter o deploy bloqueado até o guard AUTH-03 passar na linha candidata exata.
+4. Reconciliar Team Lite e definir seu deploy/rollback independente; o workflow Normal não publica Team Lite.
+5. Provisionar TEST full-product isolado antes de testes de produto adicionais.
+6. Corrigir HTTP 409 real para `VOICE_ATTEMPT_ALREADY_ACTIVE`.
+7. Portar autorização stored-role e AUTH-03 para os quatro runtimes de produção por rollout coordenado.
+8. Migrar Realtime para canais privados ou transporte server-mediated; revisar grants e Default ACLs com owner autorizado.
+9. Definir privacidade de Storage e validar upload/download real.
+10. Diagnosticar logs da branch Supabase MIGRATIONS_FAILED.
+11. Completar testes físicos #78, reconciliar #79 e obter reviews humanas.
+
+### Limites e segurança
+
+Produção e laboratório foram consultados por SELECT/catalog-only nesta auditoria. O workflow de engenharia #89 executou o runner mutável somente no laboratório allowlisted, com opt-in explícito e service-role secret; a auditoria não iniciou nem repetiu esse workflow. A verificação independente posterior confirmou zero fixtures. Não houve migration, DDL, escrita SQL, deploy, merge, release, publicação, alteração de secret/flag/role/grant/policy/ACL ou alteração de fixture pela auditoria. Nenhuma branch de engenharia ou issue foi modificada. Não houve teste físico. A única escrita desta auditoria é este append na branch QA.
