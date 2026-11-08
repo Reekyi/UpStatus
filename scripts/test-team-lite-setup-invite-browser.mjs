@@ -33,9 +33,10 @@ try{
     ]);
     window.__upstatusGmWrites=[];
     window.__upstatusGmRequests=[];
+    window.__upstatusGmReads=[];
     window.__upstatusClipboard=null;
     window.__upstatusRealtimeCreateClientCalls=0;
-    window.GM_getValue=(key,fallback)=>values.has(key)?values.get(key):fallback;
+    window.GM_getValue=(key,fallback)=>{const value=values.has(key)?values.get(key):fallback;window.__upstatusGmReads.push([key,value]);return value;};
     window.GM_setValue=(key,value)=>{values.set(key,value);window.__upstatusGmWrites.push([key,value]);};
     window.GM_setClipboard=(value,type)=>{window.__upstatusClipboard={value,type};};
     window.GM_xmlhttpRequest=options=>{
@@ -94,7 +95,10 @@ try{
   });
   await page.goto("https://www.salesmartly.com/",{waitUntil:"domcontentloaded"});
   await page.addScriptTag({content:smokeSource});
-  await page.waitForFunction(()=>window.__upstatusGmRequests.some(r=>r.url.endsWith("/api/me"))&&!!document.querySelector("#upstatus-team-lite-root .up-settings-btn"),{timeout:8000});
+  await page.waitForTimeout(500);
+  const initial=await page.evaluate(()=>({rootPresent:!!document.querySelector("#upstatus-team-lite-root"),cardPresent:!!document.querySelector("#upstatus-card"),settingsButtonPresent:!!document.querySelector("#upstatus-card .up-settings-btn"),requests:window.__upstatusGmRequests,reads:window.__upstatusGmReads}));
+  assert.ok(initial.requests.some(r=>r.url.endsWith("/api/me")),"restored admin session must call /api/me: "+JSON.stringify(initial)+" pageErrors="+pageErrors.join("\\n"));
+  assert.ok(initial.settingsButtonPresent,"restored admin session must render settings: "+JSON.stringify(initial)+" pageErrors="+pageErrors.join("\\n"));
   await page.locator("#upstatus-bubble").click();
   await page.locator("#upstatus-card .up-settings-btn").click();
   await page.locator("#upstatus-card .up-settings-health").click();
