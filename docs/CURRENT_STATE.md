@@ -2677,3 +2677,8 @@ Exact HEAD `47e0b8760587e52448cf5954d823b00131b941fa` (4 commits ahead / 0 behin
 Fresh read-only checks: production remains ACTIVE_HEALTHY with seven migrations, five users (three admins), no AUTH-03 columns/RPC, and four operational runtimes unchanged; the isolated lab remains clean with AUTH-03 schema/RPC present. The managed Supabase branch `main` still reports `MIGRATIONS_FAILED` while project/preview are healthy; root cause remains unavailable without Dashboard branch logs. Production release remains blocked at version 3.4.7 and missing AUTH-03 migrations. #78 remains 0/8 physical. Detailed checkpoint: [Team Lite AUTH-03 runner safety](checkpoints/2026-11-08-team-lite-auth-runner-safety.md).
 
 No production write, migration, deploy, workflow dispatch, merge, release, userscript publication, secret/role/grant/ACL/policy/flag change, or function deactivation occurred.
+
+
+### Ref refresh — documentation branch validation (2026-11-08 11:02 BRT / 14:02 UTC)
+
+The #80 documentation-only branch advanced to exact HEAD `cde30c6e51f78f6f4d02aaababd30e64999bdae3` after the Team Lite runner checkpoint. Validate [42487811492](https://github.com/Reekyi/UpStatus/actions/runs/42487811492) failed at the same inherited `develop` assertion, `client signed upload helper missing`, `scripts/validate.mjs:55`. The log shows the build completed and no documentation-specific error; no validator was changed. #82 remains at exact HEAD `35fa63cf5a11c77b954095123db06e0de6c6767c`; Validate [42486103438](https://github.com/Reekyi/UpStatus/actions/runs/42486103438) fails only at the inherited `production updateURL mismatch` assertion, `scripts/validate.mjs:26`.
