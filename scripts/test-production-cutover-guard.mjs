@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { evaluateProductionCutover, parseDeployedFunctions, REQUIRED_SETUP_MIGRATIONS } from "./verify-production-cutover.mjs";
+import { evaluateProductionCutover, hasAuthEnrollmentTestInvocation, parseDeployedFunctions, REQUIRED_SETUP_MIGRATIONS } from "./verify-production-cutover.mjs";
 
 const apiFunction = "upstatus-screen-share-3-1-1-beta10";
 const distributionFunction = "upstatus";
@@ -18,6 +18,12 @@ const manifest = {
   productionApiBase: "https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/" + apiFunction,
 };
 const secureServerSource = [
+  "async function account(name:string){return {role:'implementation_admin'};}",
+  "async function admin(name:string|null){",
+  "if(!name)return false;",
+  "const a=await account(name);",
+  'return a?.role==="implementation_admin";',
+  "}",
   "async function issueSetupInvite(req:Request,adminName:string){",
   "if(!await admin(adminName))return response({},403);",
   'randomBytes(32).toString("hex")',
@@ -28,9 +34,20 @@ const secureServerSource = [
   'const sessionRole=enrolledRole.trim()?enrolledRole:"implementation_user";',
   'if(path==="/api/chat/clear"&&req.method==="POST"){',
   'if(name!=="Ricardo"||!(await admin(name)))return response({},403);',
-].join("\n");
+  "async function deleteRoute(name:string,id:string){",
+  "const {data}=await db.from('messages').select('id,user_name').eq('id',id).maybeSingle();",
+  "if(!data)return response({},404);",
+  "const isAdmin=await admin(name);",
+  "if(data.user_name!==name&&!isAdmin)return response({},403);",
+  "}",
+].join("\\n");
 
 assert.deepEqual(parseDeployedFunctions(workflow), [apiFunction, distributionFunction]);
+
+const validateInvocation = 'execFileSync(process.execPath,[path.join(ROOT,"scripts","auth-enrollment.test.mjs"),"normal"],{stdio:"inherit"});';
+assert.equal(hasAuthEnrollmentTestInvocation(validateInvocation), true, "the normal enrollment test must be invoked by Validate");
+assert.equal(hasAuthEnrollmentTestInvocation("// " + validateInvocation), false, "a comment mentioning the test must not satisfy the release gate");
+assert.equal(hasAuthEnrollmentTestInvocation(validateInvocation.replace('"normal"', '"team-lite"')), false, "Team Lite-only execution must not satisfy the Normal release gate");
 
 const aligned = evaluateProductionCutover({
   manifest,
@@ -141,6 +158,28 @@ const nameOnlyChatClear = evaluateProductionCutover({
 });
 assert.equal(nameOnlyChatClear.ready, false);
 assert(nameOnlyChatClear.issues.some(issue => issue.includes("Chat clear must require Ricardo")));
+
+const nameOnlyMessageDelete = evaluateProductionCutover({
+  manifest,
+  workflow,
+  availableSources: [distributionFunction, apiFunction],
+  serverSource: secureServerSource.replace("const isAdmin=await admin(name);", 'const isAdmin=name==="Ricardo";'),
+  availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
+});
+assert.equal(nameOnlyMessageDelete.ready, false);
+assert(nameOnlyMessageDelete.issues.some(issue => issue.includes("Message deletion must allow the owner")));
+
+const nameFallbackAdmin = evaluateProductionCutover({
+  manifest,
+  workflow,
+  availableSources: [distributionFunction, apiFunction],
+  serverSource: secureServerSource.replace('return a?.role==="implementation_admin";', 'return name==="Ricardo";'),
+  availableMigrations: REQUIRED_SETUP_MIGRATIONS,
+  authEnrollmentTestPresent: true,
+});
+assert.equal(nameFallbackAdmin.ready, false);
+assert(nameFallbackAdmin.issues.some(issue => issue.includes("Administrative authorization must derive only from the persisted")));
 
 const unsafeWorkflow = evaluateProductionCutover({
   manifest,
