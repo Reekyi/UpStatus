@@ -414,6 +414,19 @@ const legacyVoiceClient = createSignalingTransport({
 assert.equal((await legacyVoiceClient.openVoiceRoom("upstatus-team-room-v1")).roomId, "sig_voice_legacy");
 console.log("signaling voice attempt transport: 9 assertions passed");
 
+const duplicateVoiceAttemptClient = createSignalingTransport({
+  enabled: true,
+  request: async () => ({ status: 409, body: { error: "VOICE_ATTEMPT_ALREADY_ACTIVE" } }),
+});
+await assert.rejects(
+  () => duplicateVoiceAttemptClient.openVoiceRoom("upstatus-team-room-v1", "ricardo-voice-duplicate"),
+  error => error.status === 409 &&
+    error.code === "VOICE_ATTEMPT_ALREADY_ACTIVE" &&
+    error.message.includes("outra aba"),
+  "a second tab must receive a clear conflict instead of silently sharing one account membership",
+);
+console.log("voice attempt singleton conflict message test passed");
+
 // Retry-After must survive the GM bridge contract and be exposed on rate-limit errors.
 const retryAfterClient = createSignalingTransport({
   enabled: true,
