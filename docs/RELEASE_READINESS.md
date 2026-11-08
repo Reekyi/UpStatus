@@ -8320,3 +8320,90 @@ Nenhuma conexão externa foi usada para publicar broadcasts; nenhuma oferta/ICE 
 8. Diagnosticar MIGRATIONS_FAILED, validar HTTP 409 e concluir os 8 testes físicos da #78.
 
 Nenhuma migration, escrita SQL, deploy, merge, release, publicação de userscript, alteração de secret, flag, role, grant, policy, ACL ou fixture foi realizada pela auditoria. Todas as consultas SQL foram SELECT-only. A única escrita desta execução é este append documental na branch QA; nenhuma branch de engenharia ou issue foi modificada.
+
+
+## Revalidação independente — 2026-11-08 15:30 BRT / 18:30 UTC
+
+### Heads, PRs e integridade da QA
+
+- `master`: `9d40461babcec8eb8686c2a04be9c675df7da381`.
+- `team-lite-official`: `9065bc1536fde64f437f6f12b7abb9b072cb8281`.
+- QA antes deste append: `05e9ae891a0036572f055bec4d6ee3454d344852`; blob anterior `eeeed7b749a407b78d74c32f62e9e7dce3b45d82`.
+- Comparação QA vs master: 134 commits à frente, 1 atrás. O commit master-only `9d40461` é documental (`docs: record read-only AUTH-03 migration preflight`), sem alteração de runtime. Não fiz rebase nem incorporei esse commit automaticamente.
+- PR #74 HEAD `9c0133e8cf6bd85ac8993888718a408db2f24a3e`; #75 `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; #76 `eb28e88325d7e8a6236d9050bebabf794d64a8c4`; #82 `05e9ae891a0036572f055bec4d6ee3454d344852`; #99 `bdce39626a9636f441ffe2988c87706b9f7c7154`; #100 `f8716a047328891eeaf4ff6729b8e936d45aeeed`. Todas permanecem abertas/Draft; não encontrei reviews humanas em #74, #75, #76, #82, #99 ou #100.
+
+### CI: resultados atuais e limitações
+
+- Normal #74: Validate [42451736696](https://github.com/Reekyi/UpStatus/actions/runs/42451736696) SUCCESS e Signaling Smoke [42451736729](https://github.com/Reekyi/UpStatus/actions/runs/42451736729) SUCCESS no HEAD exato.
+- Team Lite #76: Candidate Checks [42450476433](https://github.com/Reekyi/UpStatus/actions/runs/42450476433) SUCCESS no HEAD exato.
+- Team Lite baseline #75: [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) é PASS histórico; não substitui a candidata #76.
+- AUTH-03 #89: integração anterior [42486397701](https://github.com/Reekyi/UpStatus/actions/runs/42486397701) SUCCESS no candidato documentado; continua não aplicada à produção.
+- JWT: #92 [42493683062](https://github.com/Reekyi/UpStatus/actions/runs/42493683062) e #93 [42493686213](https://github.com/Reekyi/UpStatus/actions/runs/42493686213) SUCCESS.
+- UI: #94 [42498502349](https://github.com/Reekyi/UpStatus/actions/runs/42498502349), #95 [42499560082](https://github.com/Reekyi/UpStatus/actions/runs/42499560082), #96 e #97 tiveram contratos offline/Full-IIFE aprovados nos HEADs relatados pela engenharia.
+- #99: [42503182292](https://github.com/Reekyi/UpStatus/actions/runs/42503182292) (push) e [42503227603](https://github.com/Reekyi/UpStatus/actions/runs/42503227603) (pull_request) SUCCESS no HEAD `bdce396`. O patch transforma somente o broadcast público `remote_command` em wake-up para polling HTTP autenticado.
+- #100: [42503432784](https://github.com/Reekyi/UpStatus/actions/runs/42503432784) SUCCESS, mas o evento foi somente `push`. O workflow `normal-setup-invite-ui.yml` não inclui a base `test/normal-setup-invite-full-iife-20261108` em `pull_request.branches`; por isso não há check de PR para #100. O PR pai #98 permanece com Validate FAILURE nos runs [42502183259](https://github.com/Reekyi/UpStatus/actions/runs/42502183259) e [42502159909](https://github.com/Reekyi/UpStatus/actions/runs/42502159909). Há também uma entrada duplicada da branch de Full-IIFE na lista de `push.branches`.
+- QA #82: o Validate mais recente no HEAD exato falhou em [42506281821](https://github.com/Reekyi/UpStatus/actions/runs/42506281821). Log: build `3.4.7 / TEST 3.4.7`, depois `VALIDATION FAILED: production updateURL mismatch` em `scripts/validate.mjs:26`. O job fez checkout do merge ref `a5dd283`; não é falha causada pelo conteúdo Markdown, mas o PR permanece vermelho. Não iniciei rerun.
+
+### P0 Realtime — confirmação direta em código implantado
+
+Management API retornou as fontes implantadas e seus SHA:
+
+- Normal delivery `upstatus` v480, source SHA `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`; o userscript embutido é 3.4.7 e aponta a API para `upstatus-screen-share-3-1-1-beta10`.
+- API Normal beta10 v6, source SHA `f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29`.
+- Team Lite `upstatus-team-lite` v15, source SHA `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`; userscript embutido 3.4.30.
+- TEST `upstatus-test` v281, source SHA `7b5dfb1279f388d20a72ecf30f2c1e1f6104c7942017f81362e7857d6a16cb0a`; userscript embutido 3.3.28.
+
+Decodifiquei os artefatos embutidos de Normal e Team Lite. Em ambos, o cliente cria `channel(UP_REALTIME_TOPIC)` com publishable key e sem `private:true` ou `realtime.setAuth()`. Os listeners de produção passam payloads recebidos diretamente para `executeRemoteCommand`, `receiveCallSignal`, `voiceRoomReceive` e `screenShareReceive`. Team Lite verifica que o próprio cliente está autenticado e que a geração de sessão continua atual, mas isso não autentica o remetente da mensagem. O payload continua fornecendo `from`, `to`, `roomId` e SDP/candidate; os handlers de voz/tela fazem validação estrutural, não prova de identidade ou membership emitida pelo servidor.
+
+No backend Normal beta10 v6 e Team Lite v15, `/api/account?name=` ainda revela `needsSetup` e `POST /api/setup` executa o primeiro-caller setup sem convite. O caminho antigo atribui `implementation_admin` por fallback nominal para Ricardo, Lohan e Guilherme quando o papel está vazio. AUTH-03 não está nos runtimes implantados.
+
+Nos candidatos #74/#76, o evento público `remote_command` já foi reduzido a wake-up/poll autenticado. Entretanto, o transporte de voz/tela continua opt-in: `signaling_transport_enabled` default false; sem essa flag, os listeners públicos continuam ativos. A proteção `_authenticatedTransport` de `call_signal` só é exigida quando a flag está ligada. O listener público de voz/tela é desabilitado nesse modo, mas o modo seguro não é default.
+
+**Descoberta adicional:** o transporte server-mediated ainda é somente laboratório. A função `upstatus-signal-test` v32 existe no projeto isolado `bfpjtfqlnypisxljoxkb` (SHA `f893360a4e0021a0d608e6cb58b8644c68f7389bce685c3177c025eb376b8712`), junto de `upstatus-signal-e2e-once` v3. Nenhuma função `upstatus-signal-test` existe na lista de produção; os templates `src/server/index.template.ts` e `src/server/team-lite-index.template.ts` inspecionados não implementam rotas server-mediated de sinalização. O endpoint do transporte no cliente é configurável e vazio por default. Portanto, não existe ainda um caminho de sinalização autenticada pronto para ser ativado em produção; apontar clientes de produção para o laboratório não é uma solução.
+
+Não houve exploração: não publiquei broadcasts, não injetei ofertas/ICE e não capturei áudio/tela. O setting de Dashboard `Allow public access` não é exposto pelo conector. Assim, o acesso externo efetivo ao canal não foi reproduzido; o achado é um caminho de confiança não autenticada confirmado estaticamente no código implantado, com impacto potencial alto.
+
+### Realtime e PostgreSQL — snapshot read-only
+
+Produção:
+- `realtime.messages`: RLS true, FORCE RLS false, zero policies, sete partições diretas; anon/authenticated têm SELECT/INSERT/UPDATE efetivos.
+- Snapshot de 50 mensagens: todas `private=false`; 42 `user_status` e 8 `db_change`, no tópico `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`.
+- Os clientes Normal/Team Lite assinam `upstatus-screen-share-live-3-1-1-beta10`; o tópico não coincide com o dos triggers.
+- `upstatus_broadcast_messages` envia `to_jsonb(OLD/NEW)` completo; `upstatus_broadcast_remote_state` emite campos de comando/resultado; `upstatus_broadcast_users` emite estado do usuário. Todas as três funções são SECURITY DEFINER, `search_path=public`, retornam `trigger` e estão anexadas a triggers. O Advisor conta grants EXECUTE para anon/authenticated (6 WARN no total), mas não há evidência de RPC direta invocável para funções que retornam trigger. Os grants continuam desnecessários e o payload público é o risco concreto.
+- Dez tabelas públicas consultadas estão com RLS e zero policies; nove ainda concedem privilégios efetivos amplos a anon/authenticated, incluindo TRUNCATE. RLS não protege TRUNCATE.
+- Default ACLs de postgres e supabase_admin permanecem amplas em public; storage e schemas GraphQL também têm defaults amplos.
+
+Laboratório:
+- 17 tabelas públicas consultadas com RLS e zero policies; nenhuma concede privilégios diretos de tabela a anon/authenticated.
+- `realtime.messages` sem linhas, RLS true, zero policies; grants SELECT/INSERT/UPDATE a anon/authenticated continuam presentes. Nenhuma partição direta.
+- Defaults de postgres em public estão restritos a postgres/service_role; defaults de postgres em storage e defaults de supabase_admin em public/GraphQL continuam amplos.
+- Security Advisor: produção 6 WARN/10 INFO; laboratório 0 WARN/17 INFO. Performance Advisor: zero achados em produção e quatro INFO de índices não utilizados no laboratório.
+
+### AUTH-03, Edge Functions, Storage e migrations
+
+- Produção: 7 migrations; 5 usuários; zero password hashes vazios; zero papéis vazios; zero colunas `setup_token_*`; RPC `consume_upstatus_setup_invite` ausente.
+- Laboratório: 38 migrations; zero usuários/fixtures; quatro colunas `setup_token_*`; uma RPC `consume_upstatus_setup_invite`, SECURITY INVOKER, search_path vazio, EXECUTE somente service_role.
+- Produção: 38 Edge Functions ACTIVE e todas reportam `verify_jwt=false`; laboratório: duas funções de teste ACTIVE. Nenhuma função de sinalização server-mediated está implantada em produção.
+- Branch Supabase `main` continua `MIGRATIONS_FAILED`, embora o preview esteja `ACTIVE_HEALTHY`; a causa ainda não foi diagnosticada.
+- Storage de produção: `chat-images` e `profile-images` públicos, 20 MiB cada, zero policies em `storage.objects`. O config candidato declara chat 25 MB e perfil 2 MB; o backend Normal beta10 tem rota de imagem com limite 25 MiB e signed-upload com 20 MiB. Um arquivo entre 20 e 25 MiB pode passar pela primeira validação e falhar no bucket. A política de privacidade dos buckets segue sem decisão.
+- `upstatus-signal-test` v32 mapeia `VOICE_ATTEMPT_CONFLICT` e `ROOM_FULL` para 409, mas não contém `VOICE_ATTEMPT_ALREADY_ACTIVE`, que o helper candidato espera. O contrato HTTP real ainda não foi validado.
+
+### Deploy e issues
+
+- Workflow de #74 (blob `f3493d19cb59bb4d9f41eb4ab05d542befa2b8ce`) verifica master, SHA e projeto, fixa CLI 2.122.1, mas deploya somente `upstatus`; não coordena beta10.
+- Workflow do stack #89 (blob `c36ab9b5ec09546f0562b742fc351e5fe74d8d07`) é manual-only, checkout SHA exato, verifica projeto/organização, preflight read-only de migrations e publica beta10 antes de upstatus. Não aplica migrations automaticamente. Porém `release.json` segue 3.4.7 e `verify-production-cutover.mjs` exige versão estável superior a 3.4.7; o cutover falha fechado até uma nova versão ser escolhida.
+- Workflow Team Lite oficial (blob `e95bab7602fd3fcf80ab88ff44ccc9c259593c75`) ainda executa `supabase functions deploy upstatus`, usa CLI latest e não verifica projeto/SHA/migrations. O alvo deveria ser `upstatus-team-lite`. **Não despachar.** #92 adiciona o bloco `verify_jwt=false` para Team Lite, mas não corrige o workflow. #93 adiciona os blocos Normal corretos.
+- Issue #78 permanece OPEN, 0/8 critérios de aceite marcados. Issue #79 permanece OPEN, 16 marcados e 19 pendentes no corpo.
+- Nenhum teste manual foi realizado nesta execução. Não executei scripts, não mutuei fixtures e não iniciei workflows.
+
+### Veredito e próximos gates
+
+**NÃO LIBERAR.** Bloqueadores prioritários:
+1. Construir e implantar primeiro no laboratório um endpoint server-mediated para produção, com token de sessão, membership de sala, destinatário, replay/expiry e rate-limit validados no servidor; depois tornar esse transporte default em Normal e Team Lite e remover listeners públicos sensíveis.
+2. Corrigir o workflow Team Lite para o slug correto, projeto fixo, SHA exato, CLI pinada, preflight e rollback; nunca despachar o workflow atual.
+3. Integrar #99 e corrigir o filtro `pull_request.branches` de #100 para que o PR pai receba um check real.
+4. Escolher versão Normal estável superior a 3.4.7 e executar o preflight de cutover; AUTH-03 só pode ser aplicado após revisão e autorização explícita.
+5. Corrigir grants/Default ACLs com owner autorizado; decidir Storage privado e alinhar limites; corrigir HTTP 409.
+6. Diagnosticar `MIGRATIONS_FAILED`, obter reviews humanas e concluir os oito testes físicos da #78.
+
+Nenhuma migration, escrita SQL, deploy, merge, release, publicação de userscript, alteração de secret/flag/role/grant/policy/ACL ou fixture foi realizada. Todas as consultas SQL foram SELECT-only. A única escrita desta execução é este append documental na branch QA; nenhuma branch de engenharia ou issue foi modificada.
