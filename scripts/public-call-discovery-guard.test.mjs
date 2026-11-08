@@ -39,13 +39,23 @@ for (const name of names) {
   assert.ok(source.slice(realtimeCallListener, realtimeCallListener + 300).includes("receiveCallSignal(payload&&payload.payload||{},false);"),
     label + " public Realtime events must always be marked untrusted");
 
-  const discoveryCount = (source.match(/discoveryOnly:true/g) || []).length;
-  assert.equal(discoveryCount, 1, label + " may emit discoveryOnly only for call presence");
+  const discoveryEvents = [...source.matchAll(/sendRealtimeEvent\\('call_signal',\\{type:'([^']+)'[^}]*discoveryOnly:true\\}\\)/g)]
+    .map(match => match[1]).sort();
+  assert.deepEqual(discoveryEvents, ["ended", "presence"],
+    label + " may publish only presence and ended as public discovery hints");
   const presenceStart = source.indexOf("function callPublishPresence()");
   const presenceEnd = source.indexOf("function callStartPresence()", presenceStart);
   assert.ok(presenceStart >= 0 && presenceEnd > presenceStart, label + " call presence publisher must exist");
   const presenceBlock = source.slice(presenceStart, presenceEnd);
   assert.ok(presenceBlock.includes("type:'presence'") && presenceBlock.includes("discoveryOnly:true"),
-    label + " public discovery marker must be attached only to presence");
+    label + " public presence hint must be explicitly marked discovery-only");
+  const endedStart = source.indexOf("if(p.type==='ended'){");
+  const endedEnd = source.indexOf("if(p.type==='join_request')", endedStart);
+  assert.ok(endedStart >= 0 && endedEnd > endedStart, label + " ended handler must exist");
+  const endedBlock = source.slice(endedStart, endedEnd);
+  assert.ok(endedBlock.includes("delete upCallDirectory[p.callId];return;"),
+    label + " public ended hint may only remove a directory entry");
+  assert.ok(!endedBlock.includes("callCleanup") && !endedBlock.includes("upCall.active"),
+    label + " public ended hint must not terminate an active call");
 }
 console.log("Authenticated call-source boundary tests passed: " + names.join(", "));
