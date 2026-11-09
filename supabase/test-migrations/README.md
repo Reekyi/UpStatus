@@ -69,7 +69,7 @@ Apply it only to the allowlisted isolated project after checking that no fixture
 ## Database-backed signaling readiness (2026-11-09)
 
 - Production candidate migration: `20261109040000_signal_database_readiness.sql`. It adds `upstatus_signal_readiness()` as a read-only STABLE SECURITY INVOKER RPC with an empty `search_path` and service_role-only EXECUTE.
-- The probe verifies required signaling/session tables, columns, RLS state, service_role table privileges, and every RPC used by the handler, including rate limiting, call/voice attempt recovery, capacity, and event idempotency.
+- The probe verifies required signaling/session tables, columns, RLS state, service_role table privileges, and every RPC used by the handler, including rate limiting, call/voice attempt recovery, capacity, and event idempotency. It also requires each handler RPC to remain VOLATILE, SECURITY INVOKER, empty-search_path, service_role-executable, and non-executable by anon/authenticated.
 - `GET /health` remains a liveness check. `GET /ready` calls the database RPC and returns 200 only when the full dependency contract is present; missing dependencies or RPC errors return a generic 503 without exposing internal names.
 - Isolated catalog/live-readiness contract: `20261109040000_signal_database_readiness_test.sql`. It verifies STABLE/SECURITY INVOKER, empty search_path, service_role-only execution, and a ready result with no missing dependencies.
 - The test migration is isolated-only. Never apply it to production or official TEST. The production migration remains a candidate and requires QA-coordinated validation before any lab application.
