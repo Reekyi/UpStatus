@@ -44,6 +44,10 @@ assert.match(workflow, /check-runs\?per_page=100[\s\S]*?check_count[\s\S]*?retur
   "the approved PR head must have completed successful or explicitly skipped check runs");
 assert.match(workflow, /check_count[\s\S]*?-ne "\$returned_check_count"/,
   "the workflow must fail closed if check-run pagination is incomplete");
+assert.match(workflow, /grep -q "assertTeamLiteProductionMainBranch"/,
+  "the target Team Lite candidate must reject an unhealthy managed main branch");
+assert.match(workflow, /grep -q "assertRemoteMigrationsHaveLocalFiles"/,
+  "the target Team Lite candidate must reconcile every remote migration to a local source file");
 assert.match(workflow, /ref: \$\{\{ inputs\.release_sha \}\}/,
   "checkout must use the explicitly supplied release SHA");
 assert.match(workflow, /git rev-parse HEAD[\s\S]*?RELEASE_SHA/,
