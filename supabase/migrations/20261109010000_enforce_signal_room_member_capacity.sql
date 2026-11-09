@@ -96,7 +96,7 @@ BEGIN
   INSERT INTO public.upstatus_signal_room_members (room_id, user_name, status)
   VALUES (p_room_id, p_recipient, 'pending');
 
-  RETURN pg_catalog.jsonb_build_object('ok', true, 'status', 'pending', 'reissued', false);
+  RETURN pg_catalog.jsonb_build_object('ok', true, 'status', 'pending');
 EXCEPTION
   WHEN unique_violation THEN
     RETURN pg_catalog.jsonb_build_object('error', 'MEMBER_EXISTS');
@@ -179,17 +179,7 @@ BEGIN
     RETURN pg_catalog.jsonb_build_object('error', 'INVITATION_ALREADY_HANDLED');
   END IF;
 
-  SELECT pg_catalog.count(*)::integer
-    INTO v_accepted_count
-  FROM public.upstatus_signal_room_members AS m
-  WHERE m.room_id = p_room_id
-    AND m.status = 'accepted';
-
-  RETURN pg_catalog.jsonb_build_object(
-    'ok', true,
-    'status', 'accepted',
-    'memberCount', v_accepted_count
-  );
+  RETURN pg_catalog.jsonb_build_object('ok', true, 'status', 'accepted');
 END;
 $function$;
 
