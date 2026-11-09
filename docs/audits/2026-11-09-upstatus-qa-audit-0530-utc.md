@@ -230,3 +230,8 @@ A última consulta de proteção de branches registrada na auditoria anterior re
 ## Segurança desta rodada
 
 Todas as consultas SQL foram SELECT-only. Nenhuma migration foi aplicada. Nenhum runtime foi implantado. Nenhuma fixture foi criada ou removida. Nenhum workflow foi iniciado manualmente. Nenhum merge, deploy, release, publicação de userscript, alteração de secret/flag/role/grant/policy/ACL foi realizado. A única escrita desta rodada é este arquivo novo na branch QA.
+
+
+## CI pós-registro documental
+
+A criação desta nota atualizou o HEAD da PR #82 para `c06c830847ebcaf6d121688f765a6052121c3ee8`. O Validate automático [42568357236](https://github.com/Reekyi/UpStatus/actions/runs/42568357236) terminou FAILURE. O log confirma build PROD 3.4.7 / TEST 3.4.7 e o mesmo erro herdado `VALIDATION FAILED: production updateURL mismatch` em `scripts/validate.mjs:26`. Não é regressão introduzida pelo conteúdo da nota. Nenhum rerun manual foi solicitado.
