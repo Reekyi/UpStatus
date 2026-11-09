@@ -73,17 +73,74 @@ assert(migration.includes("FOR UPDATE") && migration.includes(">= 32") &&
   migration.includes("SET search_path = ''"), "production migration must lock room-first, cap membership, and use invoker security");
 assert(!migration.includes("'reissued', false") && !migration.includes("'memberCount'"),
   "RPC success responses must preserve the existing invite/accept response shape");
+function indexAfter(source, needle, start, label) {
+  const position = source.indexOf(needle, start);
+  assert(position >= 0, label + " is missing");
+  return position;
+}
+
+const inviteStart = migration.indexOf("CREATE OR REPLACE FUNCTION public.invite_upstatus_signal_room_member");
+const inviteEnd = migration.indexOf("REVOKE ALL ON FUNCTION public.invite_upstatus_signal_room_member", inviteStart);
+assert(inviteStart >= 0 && inviteEnd > inviteStart, "transactional invite RPC definition missing");
+const inviteSql = migration.slice(inviteStart, inviteEnd);
+const inviteRoom = indexAfter(inviteSql, "FROM public.upstatus_signal_rooms AS r", 0, "invite room query");
+const inviteRoomLock = indexAfter(inviteSql, "FOR UPDATE", inviteRoom, "invite room lock");
+const inviteInviter = indexAfter(inviteSql, "FROM public.upstatus_signal_room_members AS m", inviteRoomLock, "inviter membership query");
+const inviteInviterLock = indexAfter(inviteSql, "FOR UPDATE", inviteInviter, "inviter membership lock");
+const inviteRecipient = indexAfter(inviteSql, "FROM public.upstatus_signal_room_members AS m", inviteInviter + 1, "recipient membership query");
+const inviteRecipientLock = indexAfter(inviteSql, "FOR UPDATE", inviteRecipient, "recipient membership lock");
+const inviteCount = indexAfter(inviteSql, "SELECT pg_catalog.count(*)", inviteRecipientLock, "invite accepted-member count");
+const inviteWrites = [
+  inviteSql.indexOf("UPDATE public.upstatus_signal_room_members AS m", inviteCount),
+  inviteSql.indexOf("INSERT INTO public.upstatus_signal_room_members", inviteCount),
+].filter(position => position >= 0);
+assert.equal(inviteWrites.length, 2, "invite RPC must retain both declined-member reissue and new-member insert paths");
+const inviteFirstWrite = Math.min(...inviteWrites);
+const inviteOrder = [inviteRoom, inviteRoomLock, inviteInviter, inviteInviterLock, inviteRecipient, inviteRecipientLock, inviteCount, inviteFirstWrite];
+assert(inviteOrder.every((position, index) => index === 0 || position > inviteOrder[index - 1]),
+  "invite RPC must lock room -> inviter -> recipient, count accepted members, then write");
+
+const acceptStart = migration.indexOf("CREATE OR REPLACE FUNCTION public.accept_upstatus_signal_room_invitation");
+const acceptEnd = migration.indexOf("REVOKE ALL ON FUNCTION public.accept_upstatus_signal_room_invitation", acceptStart);
+assert(acceptStart >= 0 && acceptEnd > acceptStart, "transactional accept RPC definition missing");
+const acceptSql = migration.slice(acceptStart, acceptEnd);
+const acceptRoom = indexAfter(acceptSql, "FROM public.upstatus_signal_rooms AS r", 0, "accept room query");
+const acceptRoomLock = indexAfter(acceptSql, "FOR UPDATE", acceptRoom, "accept room lock");
+const acceptMember = indexAfter(acceptSql, "FROM public.upstatus_signal_room_members AS m", acceptRoomLock, "accept membership query");
+const acceptMemberLock = indexAfter(acceptSql, "FOR UPDATE", acceptMember, "accept membership lock");
+const acceptCount = indexAfter(acceptSql, "SELECT pg_catalog.count(*)", acceptMemberLock, "accept accepted-member count");
+const acceptUpdate = indexAfter(acceptSql, "UPDATE public.upstatus_signal_room_members AS m", acceptCount, "accept membership update");
+const acceptOrder = [acceptRoom, acceptRoomLock, acceptMember, acceptMemberLock, acceptCount, acceptUpdate];
+assert(acceptOrder.every((position, index) => index === 0 || position > acceptOrder[index - 1]),
+  "accept RPC must lock room -> invitation, count accepted members, then update");
+
 assert(testMigration.includes("has_function_privilege") && testMigration.includes("pg_get_functiondef") &&
-  testMigration.includes("ROOM_FULL") && testMigration.includes(">= 32"),
-  "isolated test migration must verify capacity, lock order, and service-role-only execution");
-assert(production.includes('X-UpStatus-Signal-Capacity') && isolated.includes('X-UpStatus-Signal-Capacity'),
-  "both handlers must advertise the guarded capacity test contract");
+  testMigration.includes("v_inviter_lock_pos") && testMigration.includes("v_recipient_lock_pos") &&
+  testMigration.includes("v_member_lock_pos") && testMigration.includes("ROOM_FULL") &&
+  testMigration.includes(">= 32"),
+  "isolated catalog test must verify every row lock, count ordering, capacity, and service-role-only execution");
+
 const liveHarness = read("scripts/test-signal-room-capacity.mjs");
 assert(liveHarness.includes("verifyIsolatedSupabaseMutationTarget") &&
   liveHarness.includes("UPSTATUS_SIGNAL_ALLOW_MUTATION") &&
   liveHarness.includes("X-UpStatus-Signal-Capacity") &&
   liveHarness.includes("upstatus_signal_voice_room_attempts") &&
   liveHarness.includes("Promise.all") &&
-  liveHarness.includes("deleteIn("),
-  "live capacity harness must guard the isolated target, preflight the lab, test concurrent accepts, and clean exact fixtures");
+  liveHarness.includes("deleteIn(") &&
+  liveHarness.includes("assertTableEmpty("),
+  "live capacity harness must guard the isolated target, race accepts, clean fixtures, and assert empty postconditions");
+for (const table of [
+  "users",
+  "upstatus_sessions",
+  "upstatus_signal_rooms",
+  "upstatus_signal_room_members",
+  "upstatus_signal_room_bindings",
+  "upstatus_signal_events",
+  "upstatus_signal_call_attempts",
+  "upstatus_signal_voice_room_attempts",
+  "upstatus_signal_rate_limits",
+]) {
+  assert(liveHarness.includes(`"${table}"`), "cleanup/preflight table missing: " + table);
+}
+assert(liveHarness.includes("await assertTableEmpty(table)"), "cleanup must verify every preflight table is empty");
 console.log("Generic signaling room capacity contract tests passed.");
