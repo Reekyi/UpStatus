@@ -234,3 +234,8 @@ A privacidade dos anexos continua sem decisão. A nova PR #124 não altera essa 
 **Decisão: NÃO LIBERAR.**
 
 Nenhuma migration, SQL write, fixture, deploy, merge, release, publicação de userscript ou alteração de secrets/flags/roles/grants/policies/ACLs foi realizada nesta auditoria. Todas as consultas de banco foram somente leitura. A única escrita autorizada é este novo registro documental na branch QA.
+
+
+## Atualização de CI após a gravação inicial
+
+Em 2026-11-09 09:50 UTC, o HEAD documental inicial `44d842043dcbb05f83335837aec80e2ed9c4682e` disparou [Validate 42596403077](https://github.com/Reekyi/UpStatus/actions/runs/42596403077), que falhou novamente em `scripts/validate.mjs` com `VALIDATION FAILED: production updateURL mismatch`. O log confirma que o erro é o mesmo desalinhamento entre a URL de atualização gerada pelo build (slug beta10) e o caminho exigido pelo validator/manifesto (slug `upstatus`). A nota não altera código de engenharia; a correção pertence ao build/manifesto Normal.
