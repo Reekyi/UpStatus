@@ -305,7 +305,7 @@ const incompleteProvenanceError = assert.throws(() => assertRemoteMigrationsHave
   productionRemoteHistory,
   actualMigrationContents,
   actualProvenanceManifest,
-), /missing provenance\\/source/);
+), /missing provenance\/source/);
 assert.doesNotMatch(incompleteProvenanceError.message, /Git blob SHA-1 mismatch/,
   "the known original migration blobs must match even though four other sources are missing");
 
