@@ -201,6 +201,14 @@ jobs:
               exit 1
             fi
           done
+          if ! grep -q "assertTeamLiteProductionMainBranch" scripts/verify-team-lite-production-project.mjs; then
+            echo "::error::Reviewed Team Lite candidate lacks the managed-main health preflight."
+            exit 1
+          fi
+          if ! grep -q "assertRemoteMigrationsHaveLocalFiles" scripts/verify-team-lite-production-migrations.mjs; then
+            echo "::error::Reviewed Team Lite candidate lacks complete remote/local migration reconciliation."
+            exit 1
+          fi
 
       - name: Build and validate exact Team Lite candidate
         run: |
