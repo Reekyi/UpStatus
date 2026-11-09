@@ -147,7 +147,7 @@ export function createSignalingTransport({
   function canonicalizeJson(value) {
     if (Array.isArray(value)) return value.map(item => item === undefined ? null : canonicalizeJson(item));
     if (value && typeof value === "object") {
-      const ordered = {};
+      const ordered = Object.create(null);
       Object.keys(value).sort().forEach(key => {
         const item = value[key];
         if (item !== undefined && typeof item !== "function" && typeof item !== "symbol") {
