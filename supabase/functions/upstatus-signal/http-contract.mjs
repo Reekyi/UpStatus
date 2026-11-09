@@ -16,6 +16,9 @@ const VOICE_ROOM_OPEN_ERROR_STATUS = new Map([
  * Unknown and malformed results fail closed as internal errors.
  */
 export function voiceRoomOpenResultStatus(result) {
-  if (!result || typeof result !== "object" || Array.isArray(result)) return 500;
-  return VOICE_ROOM_OPEN_ERROR_STATUS.get(String(result.error || "")) ?? 500;
+  if (!result || typeof result !== "object" || Array.isArray(result) ||
+      !Object.hasOwn(result, "error") ||
+      typeof result.error !== "string" ||
+      result.error.length === 0) return 500;
+  return VOICE_ROOM_OPEN_ERROR_STATUS.get(result.error) ?? 500;
 }
