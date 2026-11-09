@@ -108,7 +108,6 @@ for (const [fragment, label] of [
   ["ON DELETE CASCADE", "room lifetime cleanup"],
   ["ALTER TABLE public.upstatus_signal_event_idempotency ENABLE ROW LEVEL SECURITY", "RLS"],
   ["REVOKE ALL ON TABLE public.upstatus_signal_event_idempotency FROM PUBLIC, anon, authenticated", "client table revoke"],
-  ["TRUNCATE", "explicit client TRUNCATE privilege check"],
   ["SECURITY INVOKER", "invoker security"],
   ["SET search_path = ''", "empty search_path"],
   ["ON CONFLICT (room_id, sender, idempotency_key) DO NOTHING", "atomic deduplication"],
@@ -119,7 +118,7 @@ for (const [fragment, label] of [
 ]) assert(migration.includes(fragment), "idempotency migration missing " + label);
 assert(!migration.includes("DO $test$"), "production migration must not contain test-only assertions");
 assert(testMigration.includes("has_function_privilege") && testMigration.includes("pg_get_functiondef") &&
-  testMigration.includes("relrowsecurity") && testMigration.includes("IDEMPOTENCY_KEY_REUSED"),
+  testMigration.includes("relrowsecurity") && testMigration.includes("TRUNCATE") && testMigration.includes("IDEMPOTENCY_KEY_REUSED"),
   "isolated catalog test must verify table/RPC security and replay behavior");
 
 assert(adapter.includes("createSignalIdempotencyKey") &&
