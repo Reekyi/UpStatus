@@ -78,4 +78,12 @@ assert(testMigration.includes("has_function_privilege") && testMigration.include
   "isolated test migration must verify capacity, lock order, and service-role-only execution");
 assert(production.includes('X-UpStatus-Signal-Capacity') && isolated.includes('X-UpStatus-Signal-Capacity'),
   "both handlers must advertise the guarded capacity test contract");
+const liveHarness = read("scripts/test-signal-room-capacity.mjs");
+assert(liveHarness.includes("verifyIsolatedSupabaseMutationTarget") &&
+  liveHarness.includes("UPSTATUS_SIGNAL_ALLOW_MUTATION") &&
+  liveHarness.includes("X-UpStatus-Signal-Capacity") &&
+  liveHarness.includes("upstatus_signal_voice_room_attempts") &&
+  liveHarness.includes("Promise.all") &&
+  liveHarness.includes("deleteIn("),
+  "live capacity harness must guard the isolated target, preflight the lab, test concurrent accepts, and clean exact fixtures");
 console.log("Generic signaling room capacity contract tests passed.");
