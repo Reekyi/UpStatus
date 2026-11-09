@@ -28,4 +28,35 @@ for (const forbidden of [
   assert.ok(!workflow.includes(forbidden), "disabled workflow contains forbidden deploy capability: " + forbidden);
 }
 
-console.log("PASS: legacy Team Lite production workflow is fail-closed and contains no deploy path.");
+const guard = fs.readFileSync(".github/workflows/team-lite-legacy-deploy-guard.yml", "utf8");
+assert.ok(guard.includes("name: Team Lite Legacy Deploy Safety Guard"),
+  "the regression guard workflow must have its expected identity");
+assert.ok(guard.includes("permissions:\n  contents: read"),
+  "the guard workflow must use read-only repository permissions");
+assert.ok(guard.includes("uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd"),
+  "the guard workflow must pin checkout to an immutable action SHA");
+assert.ok(guard.includes("ref: ${{ github.sha }}"),
+  "the guard workflow must test the exact event commit");
+assert.ok(guard.includes("persist-credentials: false"),
+  "checkout must not persist a write-capable Git credential");
+assert.ok(guard.includes("node --check scripts/test-team-lite-legacy-deploy-disabled.mjs"),
+  "the guard workflow must syntax-check its test");
+assert.ok(guard.includes("node scripts/test-team-lite-legacy-deploy-disabled.mjs"),
+  "the guard workflow must execute the offline regression test");
+assert.ok(!guard.includes("workflow_dispatch:"),
+  "the regression guard itself must not expose a manual dispatch path");
+assert.ok(!/secrets\\.|supabase functions deploy|environment:\\s*production|version:\\s*latest/i.test(guard),
+  "the regression guard must not gain production credentials or deployment capability");
+assert.ok(!/^\\s+deploy:/m.test(guard),
+  "the regression guard must not define a deployment job");
+
+const pushSection = guard.split("  pull_request:")[0];
+const pullRequestSection = guard.split("  pull_request:")[1] || "";
+assert.ok(pushSection.includes("  push:") &&
+  pushSection.includes("- fix/team-lite-disable-legacy-prod-dispatch-20261109") &&
+  pushSection.includes("- team-lite-official"),
+  "the guard must run on candidate and official-branch pushes");
+assert.ok(pullRequestSection.includes("branches:\n      - team-lite-official"),
+  "the guard must run for pull requests targeting team-lite-official");
+
+console.log("PASS: legacy Team Lite deployment is disabled and its regression guard is read-only, exact-commit, and wired to candidate/official branch changes.");
