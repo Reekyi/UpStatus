@@ -9,7 +9,9 @@ on:
       - "fix/normal-signal-room-capacity-20261109-v2"
       - "feat/normal-signal-db-readiness-20261109"
       - "fix/normal-signal-readiness-schema-usage-20261109-v2"
+      - "fix/normal-signal-readiness-integrity-20261109"
       - "fix/normal-signal-readiness-schema-usage-20261109-v2"
+      - "fix/normal-signal-readiness-integrity-20261109"
     paths-ignore:
       - "**/*.md"
       - "docs/**"

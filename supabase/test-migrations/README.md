@@ -73,3 +73,12 @@ Apply it only to the allowlisted isolated project after checking that no fixture
 - `GET /health` remains a liveness check. `GET /ready` calls the database RPC and returns 200 only when the full dependency contract is present; missing dependencies or RPC errors return a generic 503 without exposing internal names.
 - Isolated catalog/live-readiness contract: `20261109040000_signal_database_readiness_test.sql`. It verifies STABLE/SECURITY INVOKER, empty search_path, service_role-only execution, and a ready result with no missing dependencies.
 - The test migration is isolated-only. Never apply it to production or official TEST. The production migration remains a candidate and requires QA-coordinated validation before any lab application.
+
+
+## Readiness integrity v2 and guarded capacity/replay harness (2026-11-09)
+
+- Production candidate migration: `20261109050000_signal_database_readiness_integrity.sql`. It replaces the readiness RPC with schema version `signal-v2` and verifies the required primary/unique keys, foreign-key targets and delete actions, plus the exact valid/ready indexes used by event polling, room lookup, membership lookup and bounded cleanup.
+- Isolated catalog contract: `20261109050000_signal_database_readiness_integrity_test.sql`. It checks the idempotency ledger primary key and room cascade, the event polling/ack indexes, the readiness RPC ACL/security properties, and a zero-missing-dependency result.
+- The public `GET /ready` route now requires `signal-v2` and advertises `X-UpStatus-Signal-Readiness: database-v2` only on HTTP 200. It coalesces concurrent probes and caches the result for five seconds per warm Edge Function isolate. This is a bounded per-isolate probe policy, not a global rate limiter.
+- The capacity/replay HTTP harness requires both the capacity/idempotency health markers and the database-v2 readiness marker before any fixture write. If a fixture assertion fails, cleanup attempts every FK-safe DELETE, then runs all postflight emptiness checks with `Promise.allSettled`; primary and cleanup errors are preserved together in an `AggregateError`.
+- Apply the paired test migration and run the harness only on the allowlisted isolated lab after explicit QA coordination and an approved test window. Never apply test-migration files to production or official TEST. The current shared lab v32 does not advertise the database-v2 marker, so the harness must fail closed there.
