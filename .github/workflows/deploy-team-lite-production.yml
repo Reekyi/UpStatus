@@ -7,6 +7,10 @@ on:
         description: Exact current HEAD SHA of team-lite-official
         required: true
         type: string
+      approved_pr_number:
+        description: Merged, human-approved PR that produced this exact release SHA
+        required: true
+        type: number
       release_version:
         description: Exact stable Team Lite buildVersion from team-lite/release.json
         required: true
@@ -31,6 +35,8 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
+  checks: read
 
 jobs:
   offline_guard:
@@ -59,6 +65,7 @@ jobs:
       cancel-in-progress: false
     env:
       RELEASE_SHA: ${{ inputs.release_sha }}
+      APPROVED_PR_NUMBER: ${{ inputs.approved_pr_number }}
       RELEASE_VERSION: ${{ inputs.release_version }}
       CONFIRM_PRODUCTION_DEPLOY: ${{ inputs.confirm_production_deploy }}
       EXPECTED_PRODUCTION_PROJECT_ID: dlfvkawaiqduhlazsszm
@@ -86,6 +93,10 @@ jobs:
             echo "::error::release_sha must be a full 40-character commit SHA."
             exit 1
           fi
+          if ! [[ "$APPROVED_PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::approved_pr_number must identify a merged Team Lite release PR."
+            exit 1
+          fi
           if [ -z "$RELEASE_VERSION" ]; then
             echo "::error::release_version is required."
             exit 1
@@ -105,6 +116,55 @@ jobs:
           current_sha="$(printf '%s' "$response" | jq -er '.object.sha')"
           if [ "$current_sha" != "$RELEASE_SHA" ]; then
             echo "::error::release_sha is not the current team-lite-official HEAD; refusing stale or unreviewed source."
+            exit 1
+          fi
+
+      - name: Require an approved merged PR for the exact release SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pr_url="https://api.github.com/repos/Reekyi/UpStatus/pulls/$APPROVED_PR_NUMBER"
+          pr_json="$(curl --fail --silent --show-error \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" "$pr_url")"
+          pr_state="$(printf '%s' "$pr_json" | jq -er '.state')"
+          merged_at="$(printf '%s' "$pr_json" | jq -r '.merged_at // empty')"
+          base_ref="$(printf '%s' "$pr_json" | jq -r '.base.ref // empty')"
+          merge_sha="$(printf '%s' "$pr_json" | jq -r '.merge_commit_sha // empty')"
+          head_repo="$(printf '%s' "$pr_json" | jq -r '.head.repo.full_name // empty')"
+          author_login="$(printf '%s' "$pr_json" | jq -r '.user.login // empty')"
+          head_sha="$(printf '%s' "$pr_json" | jq -r '.head.sha // empty')"
+          if [ "$pr_state" != "closed" ] || [ -z "$merged_at" ] || \
+             [ "$base_ref" != "team-lite-official" ] || [ "$merge_sha" != "$RELEASE_SHA" ] || \
+             [ "$head_repo" != "Reekyi/UpStatus" ] || [ -z "$author_login" ] || [ -z "$head_sha" ]; then
+            echo "::error::approved_pr_number must be merged into team-lite-official and produce the exact release SHA."
+            exit 1
+          fi
+
+          reviews="$(curl --fail --silent --show-error \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$pr_url/reviews?per_page=100")"
+          latest_review_state="$(printf '%s' "$reviews" | jq -r '[.[] | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")] | sort_by(.submitted_at) | last | .state // empty')"
+          latest_reviewer="$(printf '%s' "$reviews" | jq -r '[.[] | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")] | sort_by(.submitted_at) | last | .user.login // empty')"
+          if [ "$latest_review_state" != "APPROVED" ] || [ "$latest_reviewer" = "$author_login" ] || [ -z "$latest_reviewer" ]; then
+            echo "::error::The release PR must have a latest non-dismissed human approval from someone other than its author."
+            exit 1
+          fi
+
+          checks="$(curl --fail --silent --show-error \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/Reekyi/UpStatus/commits/$head_sha/check-runs?per_page=100")"
+          check_count="$(printf '%s' "$checks" | jq -er '.total_count')"
+          bad_checks="$(printf '%s' "$checks" | jq -er '[.check_runs[] | select(.status != "completed" or (.conclusion != "success" and .conclusion != "skipped"))] | length')"
+          if [ "$check_count" -lt 1 ] || [ "$bad_checks" -ne 0 ]; then
+            echo "::error::The approved PR head must have completed successful or explicitly skipped check runs."
             exit 1
           fi
 
