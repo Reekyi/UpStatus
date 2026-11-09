@@ -83,6 +83,15 @@ const projectIndex = workflow.indexOf("node scripts/verify-team-lite-production-
 const migrationsIndex = workflow.indexOf("node scripts/verify-team-lite-production-migrations.mjs");
 const cliIndex = workflow.indexOf("name: Setup pinned Supabase CLI");
 const deployIndex = workflow.indexOf("supabase functions deploy");
+const finalHeadCheckIndex = workflow.indexOf("Recheck Team Lite release SHA immediately before deployment");
+const finalHeadApiIndex = workflow.indexOf("/git/ref/heads/team-lite-official", finalHeadCheckIndex);
+const finalHeadCompareIndex = workflow.indexOf('if [ "$final_current_sha" != "$RELEASE_SHA" ]', finalHeadCheckIndex);
+const finalDeployStepIndex = workflow.indexOf("      - name: Deploy Team Lite function only");
+assert.ok(finalHeadCheckIndex > cliIndex && finalHeadApiIndex > finalHeadCheckIndex &&
+  finalHeadCompareIndex > finalHeadApiIndex && finalDeployStepIndex > finalHeadCompareIndex &&
+  !workflow.slice(finalHeadCheckIndex, finalDeployStepIndex).includes("\\n      - name:"),
+  "the official branch head must be rechecked after all preflights and immediately before the deploy step");
+
 assert.ok(dispatcherCheckoutIndex > 0 && approvedPrIndex > dispatcherCheckoutIndex &&
   checkoutIndex > approvedPrIndex && releaseIndex > checkoutIndex &&
   buildIndex > releaseIndex && candidateIndex > buildIndex &&
