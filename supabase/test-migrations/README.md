@@ -38,3 +38,10 @@ Production migrations must be separately authored, reviewed, validated against t
 - The workflow is manual-only, requires an explicit confirmation input defaulting to false, pins the exact official branch/SHA, and deploys only upstatus-team-lite with --no-verify-jwt.
 - The candidate Storage size settings now match the observed 20 MB production bucket limits. Bucket privacy remains unchanged; this workflow does not deploy or modify Storage configuration.
 
+
+## Additional production cutover gates (2026-11-09)
+
+- The read-only Team Lite project preflight also reads the managed Supabase branch inventory. The default `main` branch must track Git `master` and report `ACTIVE_HEALTHY`; a healthy project with `main.status = MIGRATIONS_FAILED` is not deploy-ready.
+- The read-only migration preflight compares every remotely applied migration version/name with the local `supabase/migrations/*.sql` filenames. Candidate migrations may be newer and unapplied, but every remote version must have its original local source filename. A missing or mismatched historical file blocks deployment.
+- Do not reconstruct missing historical SQL from the current schema. Recover the original reviewed artifacts or use a separately reviewed baseline/reconciliation plan.
+- The current production branch `main` is `MIGRATIONS_FAILED`, and four already-applied production migration files are absent from the candidate repository history. The Team Lite production preflight must therefore fail closed until both branch health and local/remote history are reconciled.

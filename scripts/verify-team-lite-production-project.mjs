@@ -19,6 +19,34 @@ export function assertTeamLiteProductionProject(project, expectedRef, expectedOr
   return { projectRef: actualRef, organizationId: expectedOrganizationId };
 }
 
+export function assertTeamLiteProductionMainBranch(payload, expectedGitBranch = "master") {
+  const branches = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.branches)
+      ? payload.branches
+      : null;
+  if (!branches) {
+    throw new Error("Supabase Management API returned an invalid managed-branch response; refusing deployment.");
+  }
+  const defaults = branches.filter(branch => branch?.name === "main" && branch?.is_default === true);
+  if (defaults.length !== 1) {
+    throw new Error("Supabase production must expose exactly one default managed main branch; refusing deployment.");
+  }
+  const main = defaults[0];
+  if (String(main.git_branch || "") !== expectedGitBranch) {
+    throw new Error("Managed production main branch must track the approved " + expectedGitBranch + " Git branch.");
+  }
+  if (String(main.status || "") !== "ACTIVE_HEALTHY") {
+    throw new Error("Managed production branch main is not ACTIVE_HEALTHY (" + String(main.status || "unknown") + "); refusing deployment.");
+  }
+  return {
+    branchId: String(main.id || ""),
+    branchName: "main",
+    gitBranch: expectedGitBranch,
+    status: "ACTIVE_HEALTHY",
+  };
+}
+
 export async function verifyTeamLiteProductionProject({
   projectRef,
   expectedProductionRef,
@@ -46,32 +74,58 @@ export async function verifyTeamLiteProductionProject({
     throw new Error("SUPABASE_ACCESS_TOKEN is required for read-only project verification.");
   }
 
-  const endpoint = "https://api.supabase.com/v1/projects/" + encodeURIComponent(actualRef);
-  let response;
+  const headers = {
+    Authorization: "Bearer " + token,
+    Accept: "application/json",
+  };
+  const projectEndpoint = "https://api.supabase.com/v1/projects/" + encodeURIComponent(actualRef);
+  let projectResponse;
   try {
-    response = await fetchImpl(endpoint, {
+    projectResponse = await fetchImpl(projectEndpoint, {
       method: "GET",
-      headers: {
-        Authorization: "Bearer " + token,
-        Accept: "application/json",
-      },
+      headers,
       redirect: "error",
       signal: AbortSignal.timeout(15000),
     });
   } catch {
     throw new Error("Supabase Management API project preflight failed; refusing deployment.");
   }
-  if (!response.ok) {
-    throw new Error("Supabase Management API project preflight failed with HTTP " + response.status + "; refusing deployment.");
+  if (!projectResponse.ok) {
+    throw new Error("Supabase Management API project preflight failed with HTTP " + projectResponse.status + "; refusing deployment.");
   }
 
   let project;
   try {
-    project = await response.json();
+    project = await projectResponse.json();
   } catch {
     throw new Error("Supabase Management API returned invalid project metadata; refusing deployment.");
   }
-  return assertTeamLiteProductionProject(project, expectedRef, organizationId);
+  const verifiedProject = assertTeamLiteProductionProject(project, expectedRef, organizationId);
+
+  const branchesEndpoint = projectEndpoint + "/branches";
+  let branchesResponse;
+  try {
+    branchesResponse = await fetchImpl(branchesEndpoint, {
+      method: "GET",
+      headers,
+      redirect: "error",
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch {
+    throw new Error("Supabase Management API managed-branch preflight failed; refusing deployment.");
+  }
+  if (!branchesResponse.ok) {
+    throw new Error("Supabase Management API managed-branch preflight failed with HTTP " + branchesResponse.status + "; refusing deployment.");
+  }
+
+  let branches;
+  try {
+    branches = await branchesResponse.json();
+  } catch {
+    throw new Error("Supabase Management API returned invalid managed-branch JSON; refusing deployment.");
+  }
+  const verifiedMainBranch = assertTeamLiteProductionMainBranch(branches);
+  return { ...verifiedProject, mainBranch: verifiedMainBranch };
 }
 
 async function main() {
@@ -82,7 +136,8 @@ async function main() {
     expectedOrganizationId: process.env.EXPECTED_SUPABASE_ORGANIZATION_ID,
     accessToken: process.env.SUPABASE_ACCESS_TOKEN,
   });
-  console.log("Verified approved Team Lite production project " + result.projectRef + " is ACTIVE_HEALTHY in the expected UpStatus organization.");
+  console.log("Verified approved Team Lite production project " + result.projectRef +
+    " and managed branch " + result.mainBranch.branchName + " are ACTIVE_HEALTHY in the expected UpStatus organization.");
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

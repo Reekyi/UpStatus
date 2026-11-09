@@ -4,11 +4,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  assertTeamLiteProductionMainBranch,
   assertTeamLiteProductionProject,
   verifyTeamLiteProductionProject,
 } from "./verify-team-lite-production-project.mjs";
 import {
   REQUIRED_TEAM_LITE_MIGRATIONS,
+  assertRemoteMigrationsHaveLocalFiles,
   assertRequiredTeamLiteMigrationsApplied,
   verifyTeamLiteProductionMigrationHistory,
 } from "./verify-team-lite-production-migrations.mjs";
@@ -189,6 +191,43 @@ assert.throws(() => assertRequiredTeamLiteMigrationsApplied([
   REQUIRED_TEAM_LITE_MIGRATIONS[0],
 ]), /duplicate migration version/);
 
+const productionRemoteHistory = [
+  { version: "20261005160000", name: "upstatus_cloud" },
+  { version: "20261005173000", name: "remote_realtime" },
+  { version: "20261005180000", name: "client_presence" },
+  { version: "20261023154754", name: "create_upstatus_visual_config" },
+  { version: "20261026195855", name: "add_chat_message_file_name" },
+  { version: "20261027154329", name: "allow_chat_document_mime_types" },
+  { version: "20261027155438", name: "set_upstatus_upload_limits_20mb" },
+];
+const completeProductionMigrationFiles = [
+  "20261005160000_upstatus_cloud.sql",
+  "20261005173000_remote_realtime.sql",
+  "20261005180000_client_presence.sql",
+  "20261023154754_create_upstatus_visual_config.sql",
+  "20261026195855_add_chat_message_file_name.sql",
+  "20261027154329_allow_chat_document_mime_types.sql",
+  "20261027155438_set_upstatus_upload_limits_20mb.sql",
+];
+assert.deepEqual(
+  assertRemoteMigrationsHaveLocalFiles(productionRemoteHistory, completeProductionMigrationFiles),
+  { remoteCount: 7, localCount: 7 },
+);
+assert.throws(() => assertRemoteMigrationsHaveLocalFiles(
+  productionRemoteHistory,
+  completeProductionMigrationFiles.filter(name => !name.startsWith("20261023154754_")),
+), /20261023154754_create_upstatus_visual_config\.sql/);
+assert.throws(() => assertRemoteMigrationsHaveLocalFiles(
+  productionRemoteHistory,
+  completeProductionMigrationFiles.map(name => name.startsWith("20261027155438_")
+    ? "20261027155438_wrong_name.sql"
+    : name),
+), /filename mismatch/);
+assert.throws(() => assertRemoteMigrationsHaveLocalFiles(
+  productionRemoteHistory,
+  [...completeProductionMigrationFiles, completeProductionMigrationFiles[0]],
+), /duplicate version/);
+
 const expectedProject = "dlfvkawaiqduhlazsszm";
 const isolatedProject = "bfpjtfqlnypisxljoxkb";
 const expectedOrganization = "bcjtvojfkfoxvsitzmkl";
@@ -209,7 +248,29 @@ assert.throws(() => assertTeamLiteProductionProject(
   { ...validProject, status: "INACTIVE" }, expectedProject, expectedOrganization
 ), /ACTIVE_HEALTHY/);
 
-let projectRequest = null;
+const validMainBranch = {
+  id: "6b38aa94-2ef5-4bfe-bf33-f0793e1fe161",
+  name: "main",
+  is_default: true,
+  git_branch: "master",
+  status: "ACTIVE_HEALTHY",
+  preview_project_status: "ACTIVE_HEALTHY",
+};
+assert.doesNotThrow(() => assertTeamLiteProductionMainBranch([validMainBranch]));
+assert.doesNotThrow(() => assertTeamLiteProductionMainBranch({ branches: [validMainBranch] }));
+assert.throws(() => assertTeamLiteProductionMainBranch([
+  { ...validMainBranch, status: "MIGRATIONS_FAILED" },
+]), /not ACTIVE_HEALTHY/);
+assert.throws(() => assertTeamLiteProductionMainBranch([
+  { ...validMainBranch, git_branch: "develop" },
+]), /must track the approved master/);
+assert.throws(() => assertTeamLiteProductionMainBranch([]), /exactly one default managed main branch/);
+assert.throws(() => assertTeamLiteProductionMainBranch([
+  validMainBranch,
+  { ...validMainBranch, id: "another-main" },
+]), /exactly one default managed main branch/);
+
+const projectRequests = [];
 await verifyTeamLiteProductionProject({
   projectRef: expectedProject,
   expectedProductionRef: expectedProject,
@@ -217,15 +278,33 @@ await verifyTeamLiteProductionProject({
   expectedOrganizationId: expectedOrganization,
   accessToken: "test-management-token",
   fetchImpl: async (url, options) => {
-    projectRequest = { url, options };
+    projectRequests.push({ url, options });
+    if (url.endsWith("/branches")) {
+      return { ok: true, status: 200, json: async () => ({ branches: [validMainBranch] }) };
+    }
     return { ok: true, status: 200, json: async () => validProject };
   },
 });
-assert.equal(projectRequest.url, "https://api.supabase.com/v1/projects/" + expectedProject);
-assert.equal(projectRequest.options.method, "GET");
-assert.equal(projectRequest.options.redirect, "error");
-assert.equal(projectRequest.options.headers.Authorization, "Bearer test-management-token");
-assert.ok(projectRequest.options.signal, "project preflight must have a bounded timeout");
+assert.equal(projectRequests.length, 2, "project and managed-main branch must both be verified");
+assert.equal(projectRequests[0].url, "https://api.supabase.com/v1/projects/" + expectedProject);
+assert.equal(projectRequests[1].url, "https://api.supabase.com/v1/projects/" + expectedProject + "/branches");
+for (const request of projectRequests) {
+  assert.equal(request.options.method, "GET");
+  assert.equal(request.options.redirect, "error");
+  assert.equal(request.options.headers.Authorization, "Bearer test-management-token");
+  assert.ok(request.options.signal, "project and branch preflights must have bounded timeouts");
+}
+
+await assert.rejects(verifyTeamLiteProductionProject({
+  projectRef: expectedProject,
+  expectedProductionRef: expectedProject,
+  isolatedProjectRef: isolatedProject,
+  expectedOrganizationId: expectedOrganization,
+  accessToken: "test-management-token",
+  fetchImpl: async url => url.endsWith("/branches")
+    ? { ok: true, status: 200, json: async () => ({ branches: [{ ...validMainBranch, status: "MIGRATIONS_FAILED" }] }) }
+    : { ok: true, status: 200, json: async () => validProject },
+}), /not ACTIVE_HEALTHY/);
 
 let isolatedProjectFetchCalled = false;
 await assert.rejects(verifyTeamLiteProductionProject({
