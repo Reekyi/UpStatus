@@ -5,6 +5,7 @@ on:
     branches:
       - fix/team-lite-authenticated-call-source-guard-20261108
       - feat/team-lite-signal-event-idempotency-20261109
+      - fix/team-lite-signal-retry-cache-20261109-consolidated
     paths:
       - "team-lite/upstatus-team-lite.user.js"
       - "src/userscript/signaling-transport.mjs"
