@@ -196,12 +196,23 @@ export function createSignalingTransport({
       ? "" : resolveSignalIdempotencyKey(idempotencyKey);
     const stableOperationId = resolveSignalOperationId(operationId);
     const identity = signalRetryIdentity(path, payloadSnapshot, stableOperationId, explicitKey);
+    const implicitIdentity = explicitKey
+      ? signalRetryIdentity(path, payloadSnapshot, stableOperationId, "")
+      : identity;
     prunePendingRetryKeys();
 
     const existingFlight = inFlightIdempotentRequests.get(identity);
     if (existingFlight) return existingFlight;
 
-    const cached = pendingRetryKeys.get(identity);
+    let retryIdentity = identity;
+    let cached = pendingRetryKeys.get(identity);
+    if (!cached && explicitKey) {
+      const implicitCached = pendingRetryKeys.get(implicitIdentity);
+      if (implicitCached && implicitCached.key === explicitKey) {
+        retryIdentity = implicitIdentity;
+        cached = implicitCached;
+      }
+    }
     const retryAfterRemainingMs = cached
       ? Math.max(0, Number(cached.retryAfterAt || 0) - now())
       : 0;
@@ -221,14 +232,14 @@ export function createSignalingTransport({
       throw cacheFullError;
     }
     const key = explicitKey || (cached && cached.key) || createSignalIdempotencyKey();
-    const requestPayload = cached && !explicitKey ? snapshotJson(cached.payload) : payloadSnapshot;
+    const requestPayload = cached ? snapshotJson(cached.payload) : payloadSnapshot;
 
     const operation = (async () => {
       let attempt = 0;
       while (true) {
         try {
           const result = await post(path, { ...requestPayload, idempotencyKey: key });
-          pendingRetryKeys.delete(identity);
+          pendingRetryKeys.delete(retryIdentity);
           return result;
         } catch (error) {
           if (error && typeof error === "object") {
@@ -244,12 +255,12 @@ export function createSignalingTransport({
           }
 
           if (retainKey) {
-            pendingRetryKeys.delete(identity);
+            pendingRetryKeys.delete(retryIdentity);
             if (pendingRetryKeys.size < pendingRetryLimit) {
               const retryAfterMs = Number.isFinite(error && error.retryAfterMs)
                 ? Math.max(0, error.retryAfterMs)
                 : Number(error && error.status) === 429 ? retryDelayBase : 0;
-              pendingRetryKeys.set(identity, {
+              pendingRetryKeys.set(retryIdentity, {
                 key,
                 payload: snapshotJson(requestPayload),
                 expiresAt: now() + pendingRetryTtl,
@@ -259,7 +270,7 @@ export function createSignalingTransport({
               try { error.retryKeyCacheFull = true; } catch {}
             }
           } else {
-            pendingRetryKeys.delete(identity);
+            pendingRetryKeys.delete(retryIdentity);
           }
           throw error;
         }

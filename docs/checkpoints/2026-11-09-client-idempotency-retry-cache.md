@@ -57,3 +57,12 @@ Draft only. Do not merge, deploy, enable authenticated signaling, or treat this 
 Review found that the first candidate retained the key for a long Retry-After but did not enforce the not-before time on a later caller invocation. A caller retry could therefore send immediately despite the server's requested delay. The follow-up stores an absolute retry-after deadline with the pending key and returns `SIGNAL_RETRY_DEFERRED` (HTTP 429, remaining delay, same key) until that deadline passes. The original request body and idempotency key are then replayed unchanged. Regression coverage uses a fake clock to prove that no second HTTP request is sent early.
 
 This remains Normal-only and in-memory per transport instance. It does not add Team Lite parity, durable retry across reload, or fresh-key anti-replay protection.
+
+
+## Explicit-key retry lookup correction — 2026-11-09
+
+The independent QA audit identified a P2 compatibility defect in the retry cache: an implicit first send was cached under an identity with no explicit key, but a caller following the existing `error.idempotencyKey` contract changed the identity by passing that key on retry. The adapter then missed the original pending body and could submit refreshed timestamps with the same key, producing a server request-hash conflict.
+
+The candidate now checks the implicit identity only when its pending entry's key exactly equals the supplied explicit key. A matching retry reuses the original cache entry and exact original request body, including the original `at`/`updatedAt`; cache deletion and refresh continue under the original identity. A different explicit key remains a distinct operation and cannot consume the pending implicit entry.
+
+Regression coverage exercises implicit send → ambiguous failure → mismatched explicit key → correct explicit retry using `error.idempotencyKey`, with refreshed timestamps. This is an offline client test, not a live Edge Function or browser/WebRTC test. The fix remains Normal-only, in-memory per transport instance, and does not provide durable retry across reload or fresh-key adversarial anti-replay.

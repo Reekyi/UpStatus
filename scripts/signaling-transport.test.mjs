@@ -587,6 +587,60 @@ assert.deepEqual(manualRetryCalls[1].body.payload.sdp, manualRetryCalls[0].body.
   "canonical object-key ordering must not change the original SDP body");
 console.log("signaling retry-key retention across caller retries: 3 assertions passed");
 
+// A caller may retry an implicit first send by passing error.idempotencyKey explicitly.
+const explicitKeyRetryCalls = [];
+let allowExplicitKeyRetry = false;
+const explicitKeyRetryClient = createSignalingTransport({
+  enabled: true,
+  maxIdempotentRetries: 0,
+  request: async (path, body) => {
+    explicitKeyRetryCalls.push({ path, body });
+    if (!allowExplicitKeyRetry) throw new Error("connection lost after request");
+    return { status: 202, body: { ok: true } };
+  },
+});
+let explicitKeyFromError = "";
+await assert.rejects(
+  () => explicitKeyRetryClient.sendSignal({
+    roomId: "sig_retry_explicit_key",
+    recipient: "mari",
+    eventType: "call_signal",
+    payload: { type: "offer", sdp: { type: "offer", sdp: "v=0" }, at: 100, updatedAt: 100 },
+  }),
+  error => {
+    explicitKeyFromError = error.idempotencyKey;
+    assert.match(explicitKeyFromError, /^[0-9a-f]{32}$/);
+    return true;
+  },
+);
+allowExplicitKeyRetry = true;
+const mismatchedExplicitKey = "c".repeat(32);
+await explicitKeyRetryClient.sendSignal({
+  roomId: "sig_retry_explicit_key",
+  recipient: "mari",
+  eventType: "call_signal",
+  payload: { sdp: { sdp: "v=0", type: "offer" }, updatedAt: 150, at: 150, type: "offer" },
+  idempotencyKey: mismatchedExplicitKey,
+});
+assert.equal(explicitKeyRetryCalls[1].body.idempotencyKey, mismatchedExplicitKey,
+  "a mismatched explicit key must remain a distinct operation");
+assert.equal(explicitKeyRetryCalls[1].body.payload.at, 150,
+  "a mismatched explicit key must not consume the pending implicit retry body");
+await explicitKeyRetryClient.sendSignal({
+  roomId: "sig_retry_explicit_key",
+  recipient: "mari",
+  eventType: "call_signal",
+  payload: { sdp: { sdp: "v=0", type: "offer" }, updatedAt: 200, at: 200, type: "offer" },
+  idempotencyKey: explicitKeyFromError,
+});
+assert.equal(explicitKeyRetryCalls.length, 3,
+  "the explicit retry must issue one request after the unrelated explicit operation");
+assert.equal(explicitKeyRetryCalls[2].body.idempotencyKey, explicitKeyFromError,
+  "the error.idempotencyKey must resolve the original pending operation");
+assert.deepEqual(explicitKeyRetryCalls[2].body, explicitKeyRetryCalls[0].body,
+  "an explicit retry must replay the exact original body despite refreshed at/updatedAt fields");
+console.log("signaling explicit-key retry lookup and mismatched-key isolation: 6 assertions passed");
+
 // Distinct payloads and explicit operation IDs must not share a pending retry key.
 const distinctRetryCalls = [];
 let distinctAttempt = 0;
