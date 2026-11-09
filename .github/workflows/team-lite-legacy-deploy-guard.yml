@@ -1,0 +1,36 @@
+name: Team Lite Legacy Deploy Safety Guard
+
+on:
+  push:
+    branches:
+      - fix/team-lite-disable-legacy-prod-dispatch-20261109
+      - team-lite-official
+    paths:
+      - ".github/workflows/deploy-production.yml"
+      - ".github/workflows/team-lite-legacy-deploy-guard.yml"
+      - "scripts/test-team-lite-legacy-deploy-disabled.mjs"
+  pull_request:
+    branches:
+      - team-lite-official
+    paths:
+      - ".github/workflows/deploy-production.yml"
+      - ".github/workflows/team-lite-legacy-deploy-guard.yml"
+      - "scripts/test-team-lite-legacy-deploy-disabled.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  offline_guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check guard test syntax
+        run: node --check scripts/test-team-lite-legacy-deploy-disabled.mjs
+      - name: Run offline legacy-deploy guard
+        run: node scripts/test-team-lite-legacy-deploy-disabled.mjs
