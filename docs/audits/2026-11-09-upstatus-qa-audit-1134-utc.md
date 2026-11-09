@@ -257,3 +257,18 @@ Nenhum teste físico foi executado nesta rodada.
 **DECISÃO: NÃO LIBERAR.**
 
 Nenhuma migration, SQL write, fixture, deploy, merge, release, publicação de userscript ou alteração de secrets/flags/roles/grants/policies/ACLs foi realizada. A única escrita desta rodada é este documento novo na branch QA.
+
+
+## Revalidação do commit documental — 2026-11-09 11:40 UTC
+
+Após criar esta nota, o HEAD QA passou a `7e3458f1c507727699fe998e26601c3fceb7cdde`. O commit tem como pai exato `9b48bb1a0d61fe6e4107951e860b325506929d29` e adiciona somente este arquivo.
+
+O Validate disparado para o HEAD documental terminou FAILURE:
+- [Run 42610880664](https://github.com/Reekyi/UpStatus/actions/runs/42610880664)
+- Job `validate` 129138682391.
+- Build concluiu PROD/TEST 3.4.7.
+- Falha em `scripts/validate.mjs:26`: `production updateURL mismatch`.
+
+É a mesma assertion herdada de master observada na #82; a nota QA não alterou código nem workflow. O novo SHA documental não é considerado CI-green.
+
+Blob antes do acréscimo: `f07dd7dea574c9656208358a75405e428a59f326`. Esta atualização foi feita somente após buscar novamente conteúdo e SHA atuais; nenhum conteúdo concorrente foi substituído.
