@@ -13,7 +13,7 @@ The adapter already generated a cryptographically random 128-bit idempotency key
 
 `src/userscript/signaling-transport.mjs` now keeps a bounded, in-memory retry cache inside each transport instance:
 
-- Cache identity includes endpoint path, optional caller-supplied `operationId`, explicit key scope, and the JSON request payload.
+- Cache identity includes endpoint path, optional caller-supplied `operationId`, explicit key scope, and a canonical JSON request payload with object keys sorted and array order preserved.
 - Only the event envelope's volatile `at` and `updatedAt` fields are excluded from identity. When a retry matches, the adapter resends the exact original request body and the original key, preserving the server's canonical request hash.
 - Network/ambiguous failures, HTTP 408/425/429, and 5xx responses retain the key. One bounded automatic retry is attempted for transient failures.
 - `Retry-After` is respected up to 1.5 seconds. Longer delays are not slept through; the key remains cached for a later caller retry.
