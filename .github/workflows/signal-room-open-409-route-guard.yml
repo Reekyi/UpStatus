@@ -21,6 +21,7 @@ on:
       - ".github/workflows/signal-room-open-409-route-guard.yml"
   pull_request:
     branches:
+      - test/normal-signal-http-contract-20261108
       - fix/normal-authenticated-call-source-guard-20261108
       - test/normal-signal-room-open-409-route-20261108
       - fix/normal-signal-http-error-code-shape-20261108
