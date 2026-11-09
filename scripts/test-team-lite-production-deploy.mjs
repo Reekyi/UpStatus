@@ -282,6 +282,11 @@ assert.throws(() => assertRemoteMigrationsHaveVerifiedProvenance(
   fixtureMigrationContents,
   { ...fixtureProvenanceManifest, entries: [{ ...fixtureProvenanceManifest.entries[0], sourceCommit: "not-a-commit" }, ...fixtureProvenanceManifest.entries.slice(1)] },
 ), /provenance entry is malformed/);
+assert.throws(() => assertRemoteMigrationsHaveVerifiedProvenance(
+  productionRemoteHistory,
+  fixtureMigrationContents,
+  { ...fixtureProvenanceManifest, algorithm: "sha256" },
+), /manifest or remote history is invalid/);
 
 const actualMigrationDirectory = path.join(ROOT, "supabase", "migrations");
 const actualMigrationFiles = fs.readdirSync(actualMigrationDirectory).filter(filename => filename.endsWith(".sql"));
