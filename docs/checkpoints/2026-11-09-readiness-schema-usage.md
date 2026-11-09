@@ -18,7 +18,7 @@ At the time of this candidate, both production `dlfvkawaiqduhlazsszm` and the is
 
 - Branch starts from PR #113 updated HEAD `c4a13a578288c8eb90f5fa0501c757dfaafa5471`.
 - Three source/test files changed.
-- PR-specific Validate is pending.
+- Parent #113 workflow now filters on its actual base branch `feat/normal-signal-db-readiness-20261109` (workflow commit `6a86d5c6b4285fe5cde6e46ffb4a70c070a96c90`); PR synchronize will exercise the exact candidate head.
 - Live lab readiness and migration tests remain pending QA coordination.
 - No migration was applied and no database was modified.
 - Production and the QA-shared lab remain read-only.
