@@ -51,9 +51,11 @@ assert(testFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==
 assert(testFn.includes("createSignedUploadUrl(path,{upsert:true})"),"Storage signed URL must be generated with upsert enabled");
 assert(testFn.includes('const max=20*1024*1024;'),"TEST signed upload limit must be 20 MiB");
 assert(testFn.includes('if(!uploadToken||!signedUrl||signedPath!==path)'),"TEST backend must verify signed upload response fields");
-assert(testFn.includes('if(p.dataUrl){'),"legacy avatar dataUrl compatibility missing from TEST backend");
+assert(testFn.includes('String(p.dataUrl||"")')&&testFn.includes('uploadFile("profile-images"'),"legacy avatar dataUrl compatibility missing from TEST backend");
 assert(testUser.includes("function uploadFileDirect(file,route)"),"client signed upload helper missing");
-assert(testUser.includes("headers:{'Content-Type':info.mime,'x-upsert':'true','authorization':'Bearer '+ticket.token}"),"client signed upload authorization headers missing");
+assert(testUser.includes("credentials:'omit',redirect:'error'"),"signed upload must omit browser credentials and reject redirects");
+assert(testUser.includes("url.searchParams.set('token',String(ticket.token))"),"signed upload capability must be carried in the token query parameter");
+assert(!testUser.includes("authorization:'Bearer '+ticket.token"),"signed upload capability must not be misused as a JWT bearer credential");
 assert(testUser.includes("uploadFileDirect(file,'/api/chat/upload-url')"),"client chat upload endpoint mismatch");
 assert(testUser.includes("uploadFileDirect(file,'/api/profile/avatar-upload-url')"),"client avatar upload endpoint mismatch");
 
@@ -88,4 +90,6 @@ for(const [artifactName,artifact] of [["production",prodUser],["test",testUser]]
   assert(!queue.includes("items.splice(")&&!queue.includes("state.list.splice("),artifactName+" custom queue must not mutate the native session list");
   assert(!queue.includes("CHAT_REMOVE_SESSION")&&!queue.includes("end_session"),artifactName+" custom queue must not remove/end sessions");
 }
+execFileSync(process.execPath,[path.join(ROOT,"scripts/test-signed-upload-client.mjs")],{stdio:"inherit"});
+execFileSync(process.execPath,[path.join(ROOT,"scripts/test-signed-upload-server.mjs")],{stdio:"inherit"});
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
