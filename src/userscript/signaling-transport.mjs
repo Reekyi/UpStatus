@@ -175,11 +175,6 @@ export function createSignalingTransport({
     for (const [identity, entry] of pendingRetryKeys) {
       if (entry.expiresAt <= currentTime) pendingRetryKeys.delete(identity);
     }
-    while (pendingRetryKeys.size > pendingRetryLimit) {
-      const oldest = pendingRetryKeys.keys().next().value;
-      if (oldest === undefined) break;
-      pendingRetryKeys.delete(oldest);
-    }
   }
 
   function shouldRetainIdempotencyKey(error) {
@@ -207,6 +202,12 @@ export function createSignalingTransport({
     if (existingFlight) return existingFlight;
 
     const cached = pendingRetryKeys.get(identity);
+    if (!cached && !explicitKey && pendingRetryKeys.size >= pendingRetryLimit) {
+      const cacheFullError = new Error("Pending signaling retry-key cache is full; retry a pending operation before sending new signals");
+      cacheFullError.code = "SIGNAL_RETRY_CACHE_FULL";
+      cacheFullError.status = 503;
+      throw cacheFullError;
+    }
     const key = explicitKey || (cached && cached.key) || createSignalIdempotencyKey();
     const requestPayload = cached && !explicitKey ? snapshotJson(cached.payload) : payloadSnapshot;
 
@@ -232,12 +233,15 @@ export function createSignalingTransport({
 
           if (retainKey) {
             pendingRetryKeys.delete(identity);
-            pendingRetryKeys.set(identity, {
-              key,
-              payload: snapshotJson(requestPayload),
-              expiresAt: now() + pendingRetryTtl,
-            });
-            prunePendingRetryKeys();
+            if (pendingRetryKeys.size < pendingRetryLimit) {
+              pendingRetryKeys.set(identity, {
+                key,
+                payload: snapshotJson(requestPayload),
+                expiresAt: now() + pendingRetryTtl,
+              });
+            } else if (error && typeof error === "object") {
+              try { error.retryKeyCacheFull = true; } catch {}
+            }
           } else {
             pendingRetryKeys.delete(identity);
           }
