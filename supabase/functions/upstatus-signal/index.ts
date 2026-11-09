@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { readJsonObject } from "./body.mjs";
 import { isAllowedLegacyEnvelope } from "./legacy-envelope.mjs";
 import { voiceRoomOpenResultStatus, roomMemberInviteResultStatus, roomMemberAcceptResultStatus } from "./http-contract.mjs";
+import { canonicalSignalRequestJson, isValidSignalIdempotencyKey, signalEventErrorStatus } from "./idempotency.mjs";
 
 const PROJECT_URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}").default || "";
@@ -35,6 +36,7 @@ function response(body: unknown, status=200, extraHeaders: Record<string,string>
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type":"application/json; charset=utf-8", ...CORS, ...extraHeaders } });
 }
 function hash(t: string) { return createHash("sha256").update(t).digest("hex"); }
+function signalRequestHash(value: unknown) { return hash(canonicalSignalRequestJson(value)); }
 async function rateLimit(name: string, limit = MAX_EVENTS_PER_MINUTE) {
   const { data, error } = await db.rpc("consume_upstatus_signal_rate_limit", {
     p_bucket_key: name,
@@ -152,7 +154,7 @@ function cleanPayload(value: unknown) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   const path = new URL(req.url).pathname.replace(/\/$/, "");
-  if (req.method === "GET" && path.endsWith("/health")) return response({ ok: true, service: "upstatus-signal" }, 200, { "X-UpStatus-Signal-Capacity": "room-capacity-v1" });
+  if (req.method === "GET" && path.endsWith("/health")) return response({ ok: true, service: "upstatus-signal" }, 200, { "X-UpStatus-Signal-Capacity": "room-capacity-v1", "X-UpStatus-Signal-Idempotency": "event-idempotency-v1" });
   try {
     if (req.method !== "POST") return response({ error: "Method not allowed" }, 405);
     const sender = await auth(req);
@@ -395,8 +397,11 @@ Deno.serve(async (req: Request) => {
     if (path.endsWith("/room/request-invite")) {
       const bindingType = String(p.bindingType || "");
       const logicalId = String(p.logicalId || "");
+      const idempotencyKey = p.idempotencyKey;
       if (bindingType !== "call" || !/^[A-Za-z0-9._:-]{1,128}$/.test(logicalId))
         return response({ error: "Invalid call reference" }, 400);
+      if (!isValidSignalIdempotencyKey(idempotencyKey))
+        return response({ error: "A valid signal idempotency key is required" }, 400);
       const { data: binding, error: bindingError } = await db.from("upstatus_signal_room_bindings")
         .select("room_id").eq("binding_type", bindingType).eq("logical_id", logicalId).maybeSingle();
       if (bindingError) throw bindingError;
@@ -410,6 +415,22 @@ Deno.serve(async (req: Request) => {
       if (membershipError) throw membershipError;
       if (membership?.status === "pending")
         return response({ error: "Invitation already pending" }, 409);
+
+      const payload = cleanPayload({ type: "join_request", callId: logicalId });
+      const requestHash = signalRequestHash({
+        kind: "join_request", roomId: binding.room_id, sender,
+        recipient: activeRoom.created_by, eventType: "call_signal", payload
+      });
+      const { data: previousKey, error: previousKeyError } = await db.from("upstatus_signal_event_idempotency")
+        .select("request_hash").eq("room_id", binding.room_id).eq("sender", sender)
+        .eq("idempotency_key", idempotencyKey).maybeSingle();
+      if (previousKeyError) throw previousKeyError;
+      if (previousKey) {
+        if (previousKey.request_hash !== requestHash)
+          return response({ error: "IDEMPOTENCY_KEY_REUSED" }, 409);
+        return response({ ok: true, status: "pending", duplicate: true }, 202);
+      }
+
       const { data: duplicate, error: duplicateError } = await db.from("upstatus_signal_events")
         .select("event_id").eq("room_id", binding.room_id).eq("sender", sender)
         .eq("recipient", activeRoom.created_by).eq("event_type", "call_signal")
@@ -417,14 +438,22 @@ Deno.serve(async (req: Request) => {
         .gt("expires_at", new Date().toISOString()).limit(1);
       if (duplicateError) throw duplicateError;
       if (duplicate?.length) return response({ error: "Join request already pending" }, 409);
-      const payload = cleanPayload({ type: "join_request", callId: logicalId });
+
       const expiresAt = new Date(Math.min(Date.now() + TTL_MS, Date.parse(activeRoom.expires_at))).toISOString();
-      const { error } = await db.from("upstatus_signal_events").insert({
-        room_id: binding.room_id, sender, recipient: activeRoom.created_by,
-        event_type: "call_signal", payload, expires_at: expiresAt
+      const { data, error } = await db.rpc("enqueue_upstatus_signal_events", {
+        p_room_id: binding.room_id, p_sender: sender, p_recipients: [activeRoom.created_by],
+        p_event_type: "call_signal", p_payload: payload, p_expires_at: expiresAt,
+        p_idempotency_key: idempotencyKey, p_request_hash: requestHash, p_allow_join_request: true
       });
       if (error) throw error;
-      return response({ ok: true, status: "pending" }, 202);
+      const result = data as Record<string, unknown> | null;
+      if (!result || typeof result !== "object" || Array.isArray(result))
+        return response({ error: "Join request enqueue failed" }, 500);
+      if (Object.hasOwn(result, "error")) {
+        const code = typeof result.error === "string" && result.error ? result.error : "UNEXPECTED_RPC_ERROR";
+        return response({ error: code }, signalEventErrorStatus(result));
+      }
+      return response({ ok: true, status: "pending", duplicate: result.duplicate === true }, 202);
     }
 
     if (path.endsWith("/room/invitations")) {
@@ -521,30 +550,47 @@ Deno.serve(async (req: Request) => {
       const roomId = String(p.roomId || "");
       const recipient = String(p.recipient || "");
       const eventType = String(p.eventType || "");
+      const idempotencyKey = p.idempotencyKey;
       const payload = cleanPayload(p.payload);
       if (!roomId || roomId.length > 128 || !recipient || recipient.length > 80 || !TYPES.has(eventType) || !payload)
         return response({ error: "Invalid signaling event" }, 400);
+      if (!isValidSignalIdempotencyKey(idempotencyKey))
+        return response({ error: "A valid signal idempotency key is required" }, 400);
       if (!isAllowedLegacyEnvelope(eventType, payload))
         return response({ error: "Invalid legacy signaling subtype" }, 400);
-      if (!(await room(roomId))) return response({ error: "Room unavailable" }, 404);
-      if (!(await isMember(roomId, sender)) || !(await isMember(roomId, recipient)))
-        return response({ error: "Sender and recipient must be room members" }, 403);
       const activeRoom = await room(roomId);
       if (!activeRoom) return response({ error: "Room unavailable" }, 404);
+      if (!(await isMember(roomId, sender)) || !(await isMember(roomId, recipient)))
+        return response({ error: "Sender and recipient must be room members" }, 403);
       const expiresAt = new Date(Math.min(Date.now() + TTL_MS, Date.parse(activeRoom.expires_at))).toISOString();
-      const { error } = await db.from("upstatus_signal_events").insert({
-        room_id: roomId, sender, recipient, event_type: eventType, payload, expires_at: expiresAt
+      const requestHash = signalRequestHash({
+        kind: "signal", roomId, sender, recipient, eventType, payload
+      });
+      const { data, error } = await db.rpc("enqueue_upstatus_signal_events", {
+        p_room_id: roomId, p_sender: sender, p_recipients: [recipient],
+        p_event_type: eventType, p_payload: payload, p_expires_at: expiresAt,
+        p_idempotency_key: idempotencyKey, p_request_hash: requestHash, p_allow_join_request: false
       });
       if (error) throw error;
-      return response({ ok: true }, 202);
+      const result = data as Record<string, unknown> | null;
+      if (!result || typeof result !== "object" || Array.isArray(result))
+        return response({ error: "Signal enqueue failed" }, 500);
+      if (Object.hasOwn(result, "error")) {
+        const code = typeof result.error === "string" && result.error ? result.error : "UNEXPECTED_RPC_ERROR";
+        return response({ error: code }, signalEventErrorStatus(result));
+      }
+      return response({ ok: true, duplicate: result.duplicate === true }, 202);
     }
 
     if (path.endsWith("/broadcast")) {
       const roomId = String(p.roomId || "");
       const eventType = String(p.eventType || "");
+      const idempotencyKey = p.idempotencyKey;
       const payload = cleanPayload(p.payload);
       if (!roomId || roomId.length > 128 || !TYPES.has(eventType) || !payload)
         return response({ error: "Invalid signaling event" }, 400);
+      if (!isValidSignalIdempotencyKey(idempotencyKey))
+        return response({ error: "A valid signal idempotency key is required" }, 400);
       if (!isAllowedLegacyEnvelope(eventType, payload))
         return response({ error: "Invalid legacy signaling subtype" }, 400);
       const activeRoom = await room(roomId);
@@ -554,14 +600,24 @@ Deno.serve(async (req: Request) => {
         .select("user_name").eq("room_id", roomId).eq("status", "accepted").limit(32);
       if (membersError) throw membersError;
       const recipients = [...new Set((members || []).map(item => item.user_name).filter(name => name !== sender))];
-      if (!recipients.length) return response({ ok: true, attempted: 0, delivered: 0 }, 202);
       const expiresAt = new Date(Math.min(Date.now() + TTL_MS, Date.parse(activeRoom.expires_at))).toISOString();
-      const rows = recipients.map(recipient => ({
-        room_id: roomId, sender, recipient, event_type: eventType, payload, expires_at: expiresAt
-      }));
-      const { error } = await db.from("upstatus_signal_events").insert(rows);
+      const requestHash = signalRequestHash({ kind: "broadcast", roomId, sender, eventType, payload });
+      const { data, error } = await db.rpc("enqueue_upstatus_signal_events", {
+        p_room_id: roomId, p_sender: sender, p_recipients: recipients,
+        p_event_type: eventType, p_payload: payload, p_expires_at: expiresAt,
+        p_idempotency_key: idempotencyKey, p_request_hash: requestHash, p_allow_join_request: false
+      });
       if (error) throw error;
-      return response({ ok: true, attempted: recipients.length, delivered: recipients.length }, 202);
+      const result = data as Record<string, unknown> | null;
+      if (!result || typeof result !== "object" || Array.isArray(result))
+        return response({ error: "Broadcast enqueue failed" }, 500);
+      if (Object.hasOwn(result, "error")) {
+        const code = typeof result.error === "string" && result.error ? result.error : "UNEXPECTED_RPC_ERROR";
+        return response({ error: code }, signalEventErrorStatus(result));
+      }
+      const attempted = Number.isSafeInteger(Number(result.attempted)) ? Number(result.attempted) : 0;
+      const delivered = Number.isSafeInteger(Number(result.delivered)) ? Number(result.delivered) : 0;
+      return response({ ok: true, attempted, delivered, duplicate: result.duplicate === true }, 202);
     }
 
     if (path.endsWith("/poll")) {
