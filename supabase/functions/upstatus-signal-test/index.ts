@@ -256,8 +256,10 @@ Deno.serve(async (req: Request) => {
       }
       const result = data as Record<string, unknown> | null;
       if (!result || typeof result !== "object") return response({ error: "Open voice room failed" }, 500);
-      if (result.error) {
-        const code = String(result.error);
+      if (Object.hasOwn(result, "error")) {
+        const code = typeof result.error === "string" && result.error.length > 0
+          ? result.error
+          : "UNEXPECTED_RPC_ERROR";
         const status = voiceRoomOpenResultStatus(result);
         return response({ error: code, memberCount: result.memberCount }, status);
       }

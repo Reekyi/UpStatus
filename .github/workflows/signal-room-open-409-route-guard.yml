@@ -5,6 +5,7 @@ on:
     branches:
       - test/normal-signal-room-open-409-route-20261108
       - test/normal-signal-http-contract-20261108
+      - fix/normal-signal-http-error-code-shape-20261108
     paths:
       - "supabase/functions/upstatus-signal/index.ts"
       - "supabase/functions/upstatus-signal-test/index.ts"
