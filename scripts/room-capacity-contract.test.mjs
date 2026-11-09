@@ -79,39 +79,39 @@ function indexAfter(source, needle, start, label) {
   return position;
 }
 
-const inviteStart = migration.indexOf("CREATE OR REPLACE FUNCTION public.invite_upstatus_signal_room_member");
-const inviteEnd = migration.indexOf("REVOKE ALL ON FUNCTION public.invite_upstatus_signal_room_member", inviteStart);
-assert(inviteStart >= 0 && inviteEnd > inviteStart, "transactional invite RPC definition missing");
-const inviteSql = migration.slice(inviteStart, inviteEnd);
-const inviteRoom = indexAfter(inviteSql, "FROM public.upstatus_signal_rooms AS r", 0, "invite room query");
-const inviteRoomLock = indexAfter(inviteSql, "FOR UPDATE", inviteRoom, "invite room lock");
-const inviteInviter = indexAfter(inviteSql, "FROM public.upstatus_signal_room_members AS m", inviteRoomLock, "inviter membership query");
-const inviteInviterLock = indexAfter(inviteSql, "FOR UPDATE", inviteInviter, "inviter membership lock");
-const inviteRecipient = indexAfter(inviteSql, "FROM public.upstatus_signal_room_members AS m", inviteInviter + 1, "recipient membership query");
-const inviteRecipientLock = indexAfter(inviteSql, "FOR UPDATE", inviteRecipient, "recipient membership lock");
-const inviteCount = indexAfter(inviteSql, "SELECT pg_catalog.count(*)", inviteRecipientLock, "invite accepted-member count");
-const inviteWrites = [
-  inviteSql.indexOf("UPDATE public.upstatus_signal_room_members AS m", inviteCount),
-  inviteSql.indexOf("INSERT INTO public.upstatus_signal_room_members", inviteCount),
+const capacityInviteStart = migration.indexOf("CREATE OR REPLACE FUNCTION public.invite_upstatus_signal_room_member");
+const capacityInviteEnd = migration.indexOf("REVOKE ALL ON FUNCTION public.invite_upstatus_signal_room_member", capacityInviteStart);
+assert(capacityInviteStart >= 0 && capacityInviteEnd > capacityInviteStart, "transactional invite RPC definition missing");
+const capacityInviteSql = migration.slice(capacityInviteStart, capacityInviteEnd);
+const capacityInviteRoom = indexAfter(capacityInviteSql, "FROM public.upstatus_signal_rooms AS r", 0, "invite room query");
+const capacityInviteRoomLock = indexAfter(capacityInviteSql, "FOR UPDATE", capacityInviteRoom, "invite room lock");
+const capacityInviteInviter = indexAfter(capacityInviteSql, "FROM public.upstatus_signal_room_members AS m", capacityInviteRoomLock, "inviter membership query");
+const capacityInviteInviterLock = indexAfter(capacityInviteSql, "FOR UPDATE", capacityInviteInviter, "inviter membership lock");
+const capacityInviteRecipient = indexAfter(capacityInviteSql, "FROM public.upstatus_signal_room_members AS m", capacityInviteInviter + 1, "recipient membership query");
+const capacityInviteRecipientLock = indexAfter(capacityInviteSql, "FOR UPDATE", capacityInviteRecipient, "recipient membership lock");
+const capacityInviteCount = indexAfter(capacityInviteSql, "SELECT pg_catalog.count(*)", capacityInviteRecipientLock, "invite accepted-member count");
+const capacityInviteWrites = [
+  capacityInviteSql.indexOf("UPDATE public.upstatus_signal_room_members AS m", capacityInviteCount),
+  capacityInviteSql.indexOf("INSERT INTO public.upstatus_signal_room_members", capacityInviteCount),
 ].filter(position => position >= 0);
-assert.equal(inviteWrites.length, 2, "invite RPC must retain both declined-member reissue and new-member insert paths");
-const inviteFirstWrite = Math.min(...inviteWrites);
-const inviteOrder = [inviteRoom, inviteRoomLock, inviteInviter, inviteInviterLock, inviteRecipient, inviteRecipientLock, inviteCount, inviteFirstWrite];
-assert(inviteOrder.every((position, index) => index === 0 || position > inviteOrder[index - 1]),
+assert.equal(capacityInviteWrites.length, 2, "invite RPC must retain both declined-member reissue and new-member insert paths");
+const capacityInviteFirstWrite = Math.min(...capacityInviteWrites);
+const capacityInviteOrder = [capacityInviteRoom, capacityInviteRoomLock, capacityInviteInviter, capacityInviteInviterLock, capacityInviteRecipient, capacityInviteRecipientLock, capacityInviteCount, capacityInviteFirstWrite];
+assert(capacityInviteOrder.every((position, index) => index === 0 || position > capacityInviteOrder[index - 1]),
   "invite RPC must lock room -> inviter -> recipient, count accepted members, then write");
 
-const acceptStart = migration.indexOf("CREATE OR REPLACE FUNCTION public.accept_upstatus_signal_room_invitation");
-const acceptEnd = migration.indexOf("REVOKE ALL ON FUNCTION public.accept_upstatus_signal_room_invitation", acceptStart);
-assert(acceptStart >= 0 && acceptEnd > acceptStart, "transactional accept RPC definition missing");
-const acceptSql = migration.slice(acceptStart, acceptEnd);
-const acceptRoom = indexAfter(acceptSql, "FROM public.upstatus_signal_rooms AS r", 0, "accept room query");
-const acceptRoomLock = indexAfter(acceptSql, "FOR UPDATE", acceptRoom, "accept room lock");
-const acceptMember = indexAfter(acceptSql, "FROM public.upstatus_signal_room_members AS m", acceptRoomLock, "accept membership query");
-const acceptMemberLock = indexAfter(acceptSql, "FOR UPDATE", acceptMember, "accept membership lock");
-const acceptCount = indexAfter(acceptSql, "SELECT pg_catalog.count(*)", acceptMemberLock, "accept accepted-member count");
-const acceptUpdate = indexAfter(acceptSql, "UPDATE public.upstatus_signal_room_members AS m", acceptCount, "accept membership update");
-const acceptOrder = [acceptRoom, acceptRoomLock, acceptMember, acceptMemberLock, acceptCount, acceptUpdate];
-assert(acceptOrder.every((position, index) => index === 0 || position > acceptOrder[index - 1]),
+const capacityAcceptStart = migration.indexOf("CREATE OR REPLACE FUNCTION public.accept_upstatus_signal_room_invitation");
+const capacityAcceptEnd = migration.indexOf("REVOKE ALL ON FUNCTION public.accept_upstatus_signal_room_invitation", capacityAcceptStart);
+assert(capacityAcceptStart >= 0 && capacityAcceptEnd > capacityAcceptStart, "transactional accept RPC definition missing");
+const capacityAcceptSql = migration.slice(capacityAcceptStart, capacityAcceptEnd);
+const capacityAcceptRoom = indexAfter(capacityAcceptSql, "FROM public.upstatus_signal_rooms AS r", 0, "accept room query");
+const capacityAcceptRoomLock = indexAfter(capacityAcceptSql, "FOR UPDATE", capacityAcceptRoom, "accept room lock");
+const capacityAcceptMember = indexAfter(capacityAcceptSql, "FROM public.upstatus_signal_room_members AS m", capacityAcceptRoomLock, "accept membership query");
+const capacityAcceptMemberLock = indexAfter(capacityAcceptSql, "FOR UPDATE", capacityAcceptMember, "accept membership lock");
+const capacityAcceptCount = indexAfter(capacityAcceptSql, "SELECT pg_catalog.count(*)", capacityAcceptMemberLock, "accept accepted-member count");
+const capacityAcceptUpdate = indexAfter(capacityAcceptSql, "UPDATE public.upstatus_signal_room_members AS m", capacityAcceptCount, "accept membership update");
+const capacityAcceptOrder = [capacityAcceptRoom, capacityAcceptRoomLock, capacityAcceptMember, capacityAcceptMemberLock, capacityAcceptCount, capacityAcceptUpdate];
+assert(capacityAcceptOrder.every((position, index) => index === 0 || position > capacityAcceptOrder[index - 1]),
   "accept RPC must lock room -> invitation, count accepted members, then update");
 
 assert(testMigration.includes("has_function_privilege") && testMigration.includes("pg_get_functiondef") &&
