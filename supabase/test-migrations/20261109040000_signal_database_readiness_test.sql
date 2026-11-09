@@ -23,6 +23,10 @@ BEGIN
     RAISE EXCEPTION 'readiness RPC must be STABLE SECURITY INVOKER with empty search_path';
   END IF;
 
+  IF NOT pg_catalog.has_schema_privilege('service_role', 'public', 'USAGE') THEN
+    RAISE EXCEPTION 'service_role must have USAGE on the public schema';
+  END IF;
+
   IF pg_catalog.has_function_privilege('anon', v_rpc, 'EXECUTE')
      OR pg_catalog.has_function_privilege('authenticated', v_rpc, 'EXECUTE')
      OR NOT pg_catalog.has_function_privilege('service_role', v_rpc, 'EXECUTE') THEN
