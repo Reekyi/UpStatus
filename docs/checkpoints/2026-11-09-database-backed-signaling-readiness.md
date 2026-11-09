@@ -36,3 +36,10 @@ This endpoint is a candidate readiness contract, not proof that the currently de
 - Initial run [42556761023](https://github.com/Reekyi/UpStatus/actions/runs/42556761023) failed because the existing room-capacity and idempotency parity tests replaced only the first service label. Both guards now replace all service-label occurrences; the final exact-head run passes.
 - The readiness RPC and isolated catalog migration remain unexecuted/unapplied. The shared lab still runs `upstatus-signal-test` v32 and does not contain the candidate capacity, idempotency, or readiness migrations.
 - Scope note: PR #109 protects generic signaling call-room `/room/invite` and `/room/accept`; Issue #78's open voice-room rule remains unchanged. The voice-room path remains `/room/open`, with no invitation/acceptance added to that flow.
+
+
+## Read-only SQL-body preflight
+
+The exact CTE body from the candidate readiness migration was executed as a standalone SELECT against the allowlisted lab project `bfpjtfqlnypisxljoxkb`. It parsed and returned `ready=false` with only the expected missing dependencies: the event-idempotency ledger/table columns, the capacity invite/accept RPCs, and the idempotent enqueue RPC. All pre-existing required tables, columns, service_role grants, and other listed RPC signatures passed the query's checks.
+
+This was a SELECT-only query extracted from the migration function body. It did not create the readiness function, apply a migration, or mutate the lab. The live `GET /ready` endpoint and isolated catalog test remain unexecuted.
