@@ -80,6 +80,20 @@ const failing = createSignalingTransport({
 });
 await assert.rejects(() => failing.poll("sig_123"), error => error.status === 403 && error.message === "Room membership required");
 
+const activeVoiceAttemptMessage = "Esta conta já possui uma tentativa de sala de voz ativa em outra aba.";
+for (const code of ["VOICE_ATTEMPT_ALREADY_ACTIVE", "VOICE_ATTEMPT_CONFLICT"]) {
+  const conflictClient = createSignalingTransport({
+    enabled: true,
+    request: async () => ({ status: 409, body: { error: code } }),
+  });
+  await assert.rejects(
+    () => conflictClient.openVoiceRoom("upstatus-team-room-v1"),
+    error => error.status === 409 && error.code === code && error.message === activeVoiceAttemptMessage,
+    `HTTP 409 ${code} must use the active voice-attempt message`,
+  );
+}
+console.log("voice-room active-attempt conflict compatibility: 2 assertions passed");
+
 console.log("signaling transport adapter: 17 assertions passed");
 
 const pollCalls = [];
