@@ -70,6 +70,12 @@ if (!health.ok || health.headers.get("X-UpStatus-Signal-Capacity") !== "room-cap
     health.headers.get("X-UpStatus-Signal-Idempotency") !== "event-idempotency-v1") {
   throw new Error("Refusing fixture writes: the isolated endpoint is not the reviewed capacity/idempotency candidate.");
 }
+const ready = await fetch(endpoint.toString().replace(/\/$/, "") + "/ready", {
+  method: "GET", redirect: "error", signal: AbortSignal.timeout(10000),
+});
+if (!ready.ok || ready.headers.get("X-UpStatus-Signal-Readiness") !== "database-v2") {
+  throw new Error("Refusing fixture writes: the database-backed readiness contract is not satisfied.");
+}
 const emptyChecks = await Promise.all([
   readRest("upstatus_signal_rooms?select=room_id"),
   readRest("upstatus_signal_room_members?select=room_id"),
@@ -98,7 +104,7 @@ const tokenByName = new Map(names.map((name, index) => [name, tokens[index]]));
 const bucketKeys = names.flatMap(name => [name + ":read", name + ":write"]);
 let roomId = "";
 let fixturesCreated = false;
-let failed = false;
+let primaryError = null;
 
 try {
   fixturesCreated = true;
@@ -213,43 +219,68 @@ try {
 
   console.log("Room-capacity integration passed: 32 accepted, concurrent accept had one winner, full-room invite/accept returned 409.");
 } catch (error) {
-  failed = true;
-  throw error;
-} finally {
-  if (fixturesCreated) {
-    // Remove only rows associated with the unique fixture names/room, in FK-safe order.
-    await deleteIn("upstatus_signal_events", "room_id", roomId ? [roomId] : []);
-    await deleteIn("upstatus_signal_event_idempotency", "room_id", roomId ? [roomId] : []);
-    await deleteIn("upstatus_signal_events", "sender", names);
-    await deleteIn("upstatus_signal_events", "recipient", names);
-    await deleteIn("upstatus_signal_room_bindings", "room_id", roomId ? [roomId] : []);
-    await deleteIn("upstatus_signal_room_bindings", "created_by", names);
-    await deleteIn("upstatus_signal_call_attempts", "room_id", roomId ? [roomId] : []);
-    await deleteIn("upstatus_signal_call_attempts", "created_by", names);
-    await deleteIn("upstatus_signal_call_attempts", "recipient", names);
-    await deleteIn("upstatus_signal_voice_room_attempts", "room_id", roomId ? [roomId] : []);
-    await deleteIn("upstatus_signal_voice_room_attempts", "created_by", names);
-    await deleteIn("upstatus_signal_room_members", "user_name", names);
-    await deleteIn("upstatus_signal_rooms", "room_id", roomId ? [roomId] : []);
-    await deleteIn("upstatus_signal_rooms", "created_by", names);
-    await deleteIn("upstatus_sessions", "user_name", names);
-    await deleteIn("upstatus_signal_rate_limits", "bucket_key", bucketKeys);
-    await deleteIn("users", "name", names);
+  primaryError = error;
+}
 
-    for (const table of [
-      "users",
-      "upstatus_sessions",
-      "upstatus_signal_rooms",
-      "upstatus_signal_room_members",
-      "upstatus_signal_room_bindings",
-      "upstatus_signal_events",
-      "upstatus_signal_call_attempts",
-      "upstatus_signal_voice_room_attempts",
-      "upstatus_signal_rate_limits",
-      "upstatus_signal_event_idempotency",
-    ]) {
-      await assertTableEmpty(table);
+const cleanupErrors = [];
+if (fixturesCreated) {
+  const cleanup = async (label, action) => {
+    try {
+      await action();
+    } catch (error) {
+      cleanupErrors.push(new Error(label + ": " + String(error?.message || error)));
     }
+  };
+
+  // Each cleanup step is attempted even when an earlier DELETE fails.
+  for (const [label, action] of [
+    ["events by room", () => deleteIn("upstatus_signal_events", "room_id", roomId ? [roomId] : [])],
+    ["idempotency ledger by room", () => deleteIn("upstatus_signal_event_idempotency", "room_id", roomId ? [roomId] : [])],
+    ["events by sender", () => deleteIn("upstatus_signal_events", "sender", names)],
+    ["events by recipient", () => deleteIn("upstatus_signal_events", "recipient", names)],
+    ["bindings by room", () => deleteIn("upstatus_signal_room_bindings", "room_id", roomId ? [roomId] : [])],
+    ["bindings by creator", () => deleteIn("upstatus_signal_room_bindings", "created_by", names)],
+    ["call attempts by room", () => deleteIn("upstatus_signal_call_attempts", "room_id", roomId ? [roomId] : [])],
+    ["call attempts by creator", () => deleteIn("upstatus_signal_call_attempts", "created_by", names)],
+    ["call attempts by recipient", () => deleteIn("upstatus_signal_call_attempts", "recipient", names)],
+    ["voice attempts by room", () => deleteIn("upstatus_signal_voice_room_attempts", "room_id", roomId ? [roomId] : [])],
+    ["voice attempts by creator", () => deleteIn("upstatus_signal_voice_room_attempts", "created_by", names)],
+    ["memberships by user", () => deleteIn("upstatus_signal_room_members", "user_name", names)],
+    ["rooms by ID", () => deleteIn("upstatus_signal_rooms", "room_id", roomId ? [roomId] : [])],
+    ["rooms by creator", () => deleteIn("upstatus_signal_rooms", "created_by", names)],
+    ["sessions by user", () => deleteIn("upstatus_sessions", "user_name", names)],
+    ["rate limits by bucket", () => deleteIn("upstatus_signal_rate_limits", "bucket_key", bucketKeys)],
+    ["users by name", () => deleteIn("users", "name", names)],
+  ]) {
+    await cleanup(label, action);
   }
-  if (failed) console.error("Room-capacity fixture cleanup completed after a failed assertion; inspect the isolated test log.");
+
+  const tables = [
+    "users",
+    "upstatus_sessions",
+    "upstatus_signal_rooms",
+    "upstatus_signal_room_members",
+    "upstatus_signal_room_bindings",
+    "upstatus_signal_events",
+    "upstatus_signal_call_attempts",
+    "upstatus_signal_voice_room_attempts",
+    "upstatus_signal_rate_limits",
+    "upstatus_signal_event_idempotency",
+  ];
+  const postflight = await Promise.allSettled(tables.map(assertTableEmpty));
+  postflight.forEach((result, index) => {
+    if (result.status === "rejected") {
+      cleanupErrors.push(new Error("postflight " + tables[index] + ": " + String(result.reason?.message || result.reason)));
+    }
+  });
+}
+
+if (primaryError) {
+  if (cleanupErrors.length) {
+    throw new AggregateError([primaryError, ...cleanupErrors], "Room-capacity test failed and cleanup reported additional errors.");
+  }
+  throw primaryError;
+}
+if (cleanupErrors.length) {
+  throw new AggregateError(cleanupErrors, "Room-capacity cleanup failed.");
 }
