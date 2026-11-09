@@ -147,7 +147,7 @@ assert(adapterTests.includes("automaticRetryCalls") &&
   adapterTests.includes("manualRetryCalls") &&
   adapterTests.includes("concurrentRetryCalls") &&
   adapterTests.includes("expiryRetryCalls") &&
-  adapterTests.includes("retryAfterCalls") &&
+  adapterTests.includes("deferredRetryCalls") &&
   adapterTests.includes("broadcastRetryCalls"),
   "client tests must cover bounded retry, later key reuse, concurrency, expiry, and room broadcast replay");
 
