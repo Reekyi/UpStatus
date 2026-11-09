@@ -1,0 +1,50 @@
+-- Isolated-only catalog and live-readiness contract for signaling readiness.
+-- Apply only after the paired production candidate migration on the allowlisted lab.
+DO $test$
+DECLARE
+  v_rpc oid := pg_catalog.to_regprocedure('public.upstatus_signal_readiness()');
+  v_prosecdef boolean;
+  v_provolatile "char";
+  v_proconfig text[];
+  v_proacl aclitem[];
+  v_result jsonb;
+  v_public_execute boolean;
+BEGIN
+  IF v_rpc IS NULL THEN
+    RAISE EXCEPTION 'upstatus_signal_readiness() is missing';
+  END IF;
+
+  SELECT p.prosecdef, p.provolatile, p.proconfig, p.proacl
+    INTO v_prosecdef, v_provolatile, v_proconfig, v_proacl
+  FROM pg_catalog.pg_proc AS p
+  WHERE p.oid = v_rpc;
+
+  IF v_prosecdef OR v_provolatile <> 's'
+     OR NOT (COALESCE(v_proconfig, ARRAY[]::text[]) @> ARRAY['search_path=""']) THEN
+    RAISE EXCEPTION 'readiness RPC must be STABLE SECURITY INVOKER with empty search_path';
+  END IF;
+
+  IF pg_catalog.has_function_privilege('anon', v_rpc, 'EXECUTE')
+     OR pg_catalog.has_function_privilege('authenticated', v_rpc, 'EXECUTE')
+     OR NOT pg_catalog.has_function_privilege('service_role', v_rpc, 'EXECUTE') THEN
+    RAISE EXCEPTION 'readiness RPC must be executable only by service_role';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM pg_catalog.aclexplode(COALESCE(v_proacl, pg_catalog.acldefault('f', (SELECT p.proowner FROM pg_catalog.pg_proc AS p WHERE p.oid = v_rpc)))) AS acl
+    WHERE acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
+  ) INTO v_public_execute;
+  IF v_public_execute THEN
+    RAISE EXCEPTION 'PUBLIC must not execute the readiness RPC';
+  END IF;
+
+  v_result := public.upstatus_signal_readiness();
+  IF v_result ->> 'ready' IS DISTINCT FROM 'true'
+     OR v_result ->> 'schemaVersion' IS DISTINCT FROM 'signal-v1'
+     OR pg_catalog.jsonb_typeof(v_result -> 'missing') IS DISTINCT FROM 'array'
+     OR pg_catalog.jsonb_array_length(v_result -> 'missing') <> 0 THEN
+    RAISE EXCEPTION 'isolated signaling database is not ready: %', v_result -> 'missing';
+  END IF;
+END;
+$test$;
