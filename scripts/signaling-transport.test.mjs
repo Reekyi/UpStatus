@@ -705,18 +705,20 @@ assert.notEqual(expiryRetryCalls[0].body.idempotencyKey, expiryRetryCalls[1].bod
   "expired retry keys must be replaced with a fresh key");
 console.log("signaling retry-key TTL: 1 assertion passed");
 
-// Long Retry-After values defer the retry but keep the original key/body for the next caller attempt.
+// Long Retry-After values defer automatic and caller retries while preserving the original key/body.
 const deferredRetryCalls = [];
 let deferredRetryAttempt = 0;
+let deferredRetryClock = 0;
 const deferredRetryClient = createSignalingTransport({
   enabled: true,
+  now: () => deferredRetryClock,
   maxIdempotentRetries: 1,
   maxRetryAfterMs: 1500,
   request: async (path, body) => {
     deferredRetryCalls.push({ path, body });
     deferredRetryAttempt++;
     if (deferredRetryAttempt === 1) {
-      return { status: 429, body: { error: "RATE_LIMITED" }, headers: "Retry-After: 10\r\n" };
+      return { status: 429, body: { error: "RATE_LIMITED" }, headers: "Retry-After: 10\\r\\n" };
     }
     return { status: 202, body: { ok: true } };
   },
@@ -727,7 +729,17 @@ await assert.rejects(() => deferredRetryClient.sendSignal({
   eventType: "call_signal",
   payload: { type: "offer", sdp: "v=0", at: 100 },
 }), error => error.status === 429 && error.retryAfterMs === 10000);
-assert.equal(deferredRetryCalls.length, 1, "long Retry-After must not be shortened into an early retry");
+assert.equal(deferredRetryCalls.length, 1, "long Retry-After must not be shortened into an early automatic retry");
+const deferredRetryKey = deferredRetryCalls[0].body.idempotencyKey;
+await assert.rejects(() => deferredRetryClient.sendSignal({
+  roomId: "sig_retry_after",
+  recipient: "mari",
+  eventType: "call_signal",
+  payload: { type: "offer", sdp: "v=0", at: 200 },
+}), error => error.code === "SIGNAL_RETRY_DEFERRED" &&
+  error.status === 429 && error.retryAfterMs === 10000 && error.idempotencyKey === deferredRetryKey);
+assert.equal(deferredRetryCalls.length, 1, "caller retries before Retry-After must not issue another request");
+deferredRetryClock = 10000;
 await deferredRetryClient.sendSignal({
   roomId: "sig_retry_after",
   recipient: "mari",
@@ -738,7 +750,7 @@ assert.equal(deferredRetryCalls[0].body.idempotencyKey, deferredRetryCalls[1].bo
   "a deferred retry must retain the original idempotency key");
 assert.equal(deferredRetryCalls[1].body.payload.at, 100,
   "a deferred retry must replay the original request body");
-console.log("signaling Retry-After deferred retry retention: 3 assertions passed");
+console.log("signaling Retry-After deferred caller retry enforcement: 5 assertions passed");
 
 // A full retry cache fails closed instead of evicting an older ambiguous operation.
 const cacheFullCalls = [];

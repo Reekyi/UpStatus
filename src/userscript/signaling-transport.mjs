@@ -202,6 +202,18 @@ export function createSignalingTransport({
     if (existingFlight) return existingFlight;
 
     const cached = pendingRetryKeys.get(identity);
+    const retryAfterRemainingMs = cached
+      ? Math.max(0, Number(cached.retryAfterAt || 0) - now())
+      : 0;
+    if (retryAfterRemainingMs > 0) {
+      const deferredError = new Error("Signaling retry is deferred by Retry-After");
+      deferredError.code = "SIGNAL_RETRY_DEFERRED";
+      deferredError.status = 429;
+      deferredError.retryAfterMs = Math.ceil(retryAfterRemainingMs);
+      deferredError.retryAfterSeconds = Math.ceil(deferredError.retryAfterMs / 1000);
+      deferredError.idempotencyKey = cached.key;
+      throw deferredError;
+    }
     if (!cached && !explicitKey && pendingRetryKeys.size >= pendingRetryLimit) {
       const cacheFullError = new Error("Pending signaling retry-key cache is full; retry a pending operation before sending new signals");
       cacheFullError.code = "SIGNAL_RETRY_CACHE_FULL";
@@ -234,10 +246,14 @@ export function createSignalingTransport({
           if (retainKey) {
             pendingRetryKeys.delete(identity);
             if (pendingRetryKeys.size < pendingRetryLimit) {
+              const retryAfterMs = Number.isFinite(error && error.retryAfterMs)
+                ? Math.max(0, error.retryAfterMs)
+                : Number(error && error.status) === 429 ? retryDelayBase : 0;
               pendingRetryKeys.set(identity, {
                 key,
                 payload: snapshotJson(requestPayload),
                 expiresAt: now() + pendingRetryTtl,
+                retryAfterAt: now() + retryAfterMs,
               });
             } else if (error && typeof error === "object") {
               try { error.retryKeyCacheFull = true; } catch {}
