@@ -64,3 +64,12 @@ Apply it only to the allowlisted isolated project after checking that no fixture
 - Isolated catalog contract: `20261109030000_signal_event_idempotency_test.sql`. It verifies RLS, grants, primary key, RPC security, lock behavior and replay conflict handling.
 - The guarded `scripts/test-signal-room-capacity.mjs` now also exercises same-key unicast/broadcast replay and different-payload key reuse. It requires both `X-UpStatus-Signal-Capacity: room-capacity-v1` and `X-UpStatus-Signal-Idempotency: event-idempotency-v1`, the exact isolated project allowlist, explicit mutation opt-in and empty preflight/postflight checks including the replay ledger.
 - The live harness remains unexecuted. The QA-shared lab runtime v32 lacks both candidate markers and the migration is unapplied. Do not apply the test migration or run the fixture harness until QA coordinates an isolated candidate runtime update.
+
+
+## Database-backed signaling readiness (2026-11-09)
+
+- Production candidate migration: `20261109040000_signal_database_readiness.sql`. It adds `upstatus_signal_readiness()` as a read-only STABLE SECURITY INVOKER RPC with an empty `search_path` and service_role-only EXECUTE.
+- The probe verifies required signaling/session tables, columns, RLS state, service_role table privileges, and every RPC used by the handler, including rate limiting, call/voice attempt recovery, capacity, and event idempotency.
+- `GET /health` remains a liveness check. `GET /ready` calls the database RPC and returns 200 only when the full dependency contract is present; missing dependencies or RPC errors return a generic 503 without exposing internal names.
+- Isolated catalog/live-readiness contract: `20261109040000_signal_database_readiness_test.sql`. It verifies STABLE/SECURITY INVOKER, empty search_path, service_role-only execution, and a ready result with no missing dependencies.
+- The test migration is isolated-only. Never apply it to production or official TEST. The production migration remains a candidate and requires QA-coordinated validation before any lab application.
