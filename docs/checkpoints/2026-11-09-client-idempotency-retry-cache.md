@@ -19,7 +19,7 @@ The adapter already generated a cryptographically random 128-bit idempotency key
 - `Retry-After` is respected up to 1.5 seconds. Longer delays are not slept through; the key remains cached for a later caller retry.
 - Permanent 4xx responses and `IDEMPOTENCY_KEY_REUSED` do not retain a key.
 - Concurrent identical operations share one in-flight request.
-- Entries expire after 30 minutes and the cache is capped at 128 entries.
+- Entries expire after 2 hours and 5 minutes and the cache is capped at 256 entries. The server creates rooms with a 2-hour lifetime and retains the idempotency ledger until room expiry/deletion; the extra 5 minutes cover the best-effort 60-second cleanup cadence.
 - `sendSignal`, `sendToRoom`, and `requestInvite` accept an optional local-only `operationId` (maximum 256 characters); it is not sent to the server. Current Normal call sites do not yet pass explicit IDs; they use the normalized payload fallback, so a call-site-specific operation ID remains a possible follow-up if QA requires stronger identity across payload reconstruction.
 
 No session token, credential, or secret is stored in the cache.
