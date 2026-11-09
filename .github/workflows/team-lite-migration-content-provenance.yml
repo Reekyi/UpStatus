@@ -1,0 +1,39 @@
+name: Team Lite Migration Content Provenance
+
+on:
+  push:
+    branches:
+      - fix/team-lite-migration-content-provenance-20261109
+    paths:
+      - ".github/workflows/team-lite-migration-content-provenance.yml"
+      - "scripts/verify-team-lite-production-migrations.mjs"
+      - "scripts/test-team-lite-production-deploy.mjs"
+      - "supabase/migrations/provenance.json"
+  pull_request:
+    branches:
+      - fix/team-lite-production-preflight-completeness-20261109
+    paths:
+      - ".github/workflows/team-lite-migration-content-provenance.yml"
+      - "scripts/verify-team-lite-production-migrations.mjs"
+      - "scripts/test-team-lite-production-deploy.mjs"
+      - "supabase/migrations/provenance.json"
+
+permissions:
+  contents: read
+
+jobs:
+  migration_provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check migration provenance verifier syntax
+        run: node --check scripts/verify-team-lite-production-migrations.mjs
+      - name: Run offline migration provenance and deploy contracts
+        run: node scripts/test-team-lite-production-deploy.mjs
+      - name: Run migration layout contract
+        run: node scripts/migration-layout.test.mjs
