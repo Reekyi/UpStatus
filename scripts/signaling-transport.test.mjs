@@ -716,7 +716,7 @@ const retryAfterClient = createSignalingTransport({
     retryAfterCalls.push({ path, body });
     retryAfterAttempt++;
     if (retryAfterAttempt === 1) {
-      return { status: 429, body: { error: "RATE_LIMITED" }, headers: "Retry-After: 10\\r\\n" };
+      return { status: 429, body: { error: "RATE_LIMITED" }, headers: "Retry-After: 10\r\n" };
     }
     return { status: 202, body: { ok: true } };
   },
