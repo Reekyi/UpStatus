@@ -74,7 +74,9 @@ export function createSignalingTransport({
     const body = result.body ?? result.data ?? {};
     const headers = result.headers ?? result.responseHeaders ?? null;
     if (status < 200 || status >= 300) {
-      const message = body.error === "VOICE_ATTEMPT_ALREADY_ACTIVE"
+      const isActiveVoiceAttemptConflict =
+        body.error === "VOICE_ATTEMPT_ALREADY_ACTIVE" || body.error === "VOICE_ATTEMPT_CONFLICT";
+      const message = isActiveVoiceAttemptConflict
         ? "Esta conta já possui uma tentativa de sala de voz ativa em outra aba."
         : typeof body.error === "string" ? body.error : `Signaling request failed (${status})`;
       const error = new Error(message);
