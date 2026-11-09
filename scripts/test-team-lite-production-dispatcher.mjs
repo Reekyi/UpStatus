@@ -38,7 +38,7 @@ assert.match(workflow, /\.merged_at[\s\S]*?\.base\.ref[\s\S]*?\.merge_commit_sha
   "the approved PR must be merged into team-lite-official and produce the exact release SHA");
 assert.match(workflow, /reviews\?per_page=100[\s\S]*?review_count[\s\S]*?latest_review_state[\s\S]*?APPROVED[\s\S]*?latest_reviewer[\s\S]*?author_login/,
   "the latest non-dismissed review must be an approval from someone other than the PR author");
-assert.match(workflow, /review_count[\s\S]*?-[ ]ge 100/,
+assert.match(workflow, /review_count[\s\S]*?-ge 100/,
   "the workflow must fail closed rather than silently truncate a multi-page review history");
 assert.match(workflow, /check-runs\?per_page=100[\s\S]*?check_count[\s\S]*?returned_check_count[\s\S]*?bad_checks/,
   "the approved PR head must have completed successful or explicitly skipped check runs");
