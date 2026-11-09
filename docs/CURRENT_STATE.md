@@ -3064,3 +3064,41 @@ The current engineering checkpoint is [Signal event idempotency and replay prote
 - Production SELECT-only catalog: 50/50 Realtime rows public in one topic; 10 public RLS tables without policies; 9 tables with effective anon TRUNCATE and 9 with authenticated TRUNCATE; two public Storage buckets with zero `storage.objects` policies; 24 default ACL entries. Security Advisor 6 WARN / 10 INFO; Performance/Health no findings. Lab Security 0 WARN / 17 INFO; Performance 4 unused-index INFO; Health no findings. Managed production branch `main` remains `MIGRATIONS_FAILED` with preview `ACTIVE_HEALTHY`; cause unproven.
 - No Supabase DDL/DML, migration, fixture mutation, function deployment, workflow dispatch, secret/role/grant/ACL/policy/flag change, merge, release, userscript publication or destructive operation occurred. All SQL was SELECT/catalog-only.
 - Next: QA review #120/#122; reconcile #111/#121 history without merging; agree per-event operation-ID/retry ownership before call-site changes; obtain an explicit QA-authorized lab window for candidate migrations and real HTTP readiness/capacity/replay tests; continue RT-01, AUTH-03/AUTH-02, Storage/ACL, branch protection, Team Lite deploy workflow and physical #78 gates. Do not release.
+
+## Engineering checkpoint — 2026-11-09 09:39 UTC
+
+### Signed Storage upload candidate on develop
+
+- Draft [PR #124](https://github.com/Reekyi/UpStatus/pull/124), branch `fix/develop-signed-upload-client-20261109`, targets `develop` at base SHA `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`.
+- Current HEAD: `77c9d4c3b525325996db973cbec609ae2ddb0d83`; six commits ahead, zero behind; GitHub reports mergeable.
+- Exact-head Validate [42594697302](https://github.com/Reekyi/UpStatus/actions/runs/42594697302) SUCCESS. The new offline client and server suites both pass.
+- The candidate ports direct signed uploads for the existing chat image/video and profile-avatar flows, hardens server-side upload URL/path/token checks, and preserves the legacy avatar data-URL fallback for installed clients.
+- The previous develop validator incorrectly expected the signed-upload token as `Authorization: Bearer`. Supabase's signed upload token is carried in the URL query; the Storage SDK uses PUT. The validator now checks the query-token contract, omitted browser credentials, and redirect rejection. This corrects the contract rather than removing a security assertion.
+- Initial run [42594529303](https://github.com/Reekyi/UpStatus/actions/runs/42594529303) failed at a stale static assertion expecting the old `if(p.dataUrl)` code shape. The fallback remained in the hardened route; the assertion was changed to verify the actual fallback call, and the server harness exercises it. Final exact-head run passes.
+- Scope limitation: the client UI remains image/video only; document-message rendering is not introduced. Signed upload does not make the existing public-read Storage buckets private. No live Storage upload was performed.
+
+### Required PR and release-gate snapshot
+
+- #74 Normal HEAD `9c0133e8cf6bd85ac8993888718a408db2f24a3e`: Validate and signaling smoke runs 42451736696 / 42451736729 SUCCESS.
+- #75 Team Lite baseline HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`: candidate run 41674353127 SUCCESS.
+- #76 Team Lite HEAD `eb28e88325d7e8a6236d9050bebabf794d64a8c4`: candidate run 42450476433 SUCCESS.
+- #80 continuity remains Draft and its current head `80f8f0522ff8371023c4293c231fd9abf16a22ea` still fails run 42578857554 at `client signed upload helper missing`. PR #124 fixes that source/contract on a separate candidate branch but is not merged; #80's old-head failure is not yet cleared.
+- #82 QA remains Draft and its current head `40809927be9eeda798e55d618a904752e351d7f6` still fails run 42582875001 at `production updateURL mismatch`. The root mismatch is the master build's hard-coded beta10 update URL versus the production release manifest. Draft PR #85, head `b75707b6eaf678d87863144748b9aed8e2866455`, changes the build to use the release manifest URL and has Validate run 42475230911 SUCCESS; it remains unmerged.
+- Draft [PR #123](https://github.com/Reekyi/UpStatus/pull/123), Team Lite production deploy guard, head `b8cd8e15a983b00fd5b1eaca0ffecfd18b9b0d99`, has guard run 42589119358 SUCCESS. It targets only `upstatus-team-lite`, is manual-only, and checks exact branch/ref, project/organization, release version and applied migration history. This is an offline guard test, not a deployment.
+- PR #123's required Team Lite migrations are absent from production. The production migration history remains seven entries through `20261027155438`; the guard must refuse deployment. No workflow_dispatch or deployment was performed.
+
+### Fresh Supabase read-only snapshot
+
+- Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations; 38/38 Edge Functions ACTIVE and platform `verify_jwt=false`. Primary versions: Normal v480 SHA `bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd`, Team Lite v15 SHA `2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb`, TEST v281 SHA `7b5dfb1279f388d20a72ecf30f2c1e1f6104c7942017f81362e7857d6a16cb0a`. No production `upstatus-signal`.
+- Laboratory `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 38 migrations; `upstatus-signal-test` v32 SHA `f893360a4e0021a0d608e6cb58b8644c68f7389bce685c3177c025eb376b8712`, E2E v3 SHA `db0c9206b2171f5f5d67459e2e7451ecbaf6e8ad3c8f55cb4e491660164f5053`. The candidate idempotency ledger and readiness-v2 RPC are still absent.
+- Production read-only catalog/Advisor snapshot: 50 Realtime rows, all `private=false`; ten public tables with RLS and no policies; nine tables with effective TRUNCATE for anon and nine for authenticated; 24 default ACL entries; two public Storage buckets and zero `storage.objects` policies; Security Advisor 6 WARN / 10 INFO. Lab Security Advisor 0 WARN / 17 INFO.
+- All 38 production functions have `verify_jwt=false`. A sample of the four main handlers shows custom token/session checks, but this is not a route-by-route audit of all 38 functions.
+- The deployed Normal v480 and Team Lite v15 sources still expose the legacy first-setup route without the candidate setup-invite token requirement. Current production has five users and zero missing password hashes, but future unconfigured accounts remain a P1 risk until AUTH-03 migrations and both backend cutovers are authorized and verified.
+- Production managed branch `main` remains `MIGRATIONS_FAILED`; preview remains ACTIVE_HEALTHY and the failure cause is unproven.
+
+### Limitations and next gates
+
+- `docs/RELEASE_READINESS.md` still returns an empty content payload through the GitHub file connector, so the latest QA audit and Issue #79 release checklist were used as the readable release-readiness evidence. Do not claim the full file was read.
+- Branch-protection/ruleset settings could not be revalidated through the available GitHub connector actions in this run; treat them as unverified rather than assuming the historical zero-ruleset snapshot is current.
+- Next: QA review #124 and #123; authorize a separate lab window before any migration/runtime mutation; prove real signed Storage upload in the isolated lab; prove readiness HTTP 200/503, capacity and replay; resolve AUTH-03/P1 first-setup, RT-01 broadcasts/ACL/Storage, and the physical #78 gates.
+- No Supabase DDL/DML, migration, fixture mutation, Edge Function deploy, workflow dispatch, secret/role/grant/ACL/policy/flag change, merge, release, userscript publication or destructive operation occurred. Supabase calls in this run were project/function/migration/Advisor reads and SELECT/catalog queries only. All PRs remain Draft and unmerged.
