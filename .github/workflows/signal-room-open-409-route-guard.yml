@@ -21,22 +21,11 @@ on:
       - ".github/workflows/signal-room-open-409-route-guard.yml"
   pull_request:
     branches:
-      - test/normal-signal-http-contract-20261108
       - fix/normal-authenticated-call-source-guard-20261108
       - test/normal-signal-room-open-409-route-20261108
-      - fix/normal-signal-http-error-code-shape-20261108
-      - fix/normal-signal-http-error-code-shape-20261108-v2
     paths:
       - "supabase/functions/upstatus-signal/index.ts"
       - "supabase/functions/upstatus-signal-test/index.ts"
-      - "supabase/functions/upstatus-signal/http-contract.mjs"
-      - "supabase/functions/upstatus-signal/body.mjs"
-      - "supabase/functions/upstatus-signal/legacy-envelope.mjs"
-      - "supabase/functions/upstatus-signal-test/http-contract.mjs"
-      - "supabase/functions/upstatus-signal-test/body.mjs"
-      - "supabase/functions/upstatus-signal-test/legacy-envelope.mjs"
-      - "supabase/config.toml"
-      - "supabase/migrations/20261108190000_distributed_signaling_rate_limit.sql"
       - "scripts/production-signal-source-parity.test.mjs"
       - "scripts/validate.mjs"
       - ".github/workflows/signal-room-open-409-route-guard.yml"
