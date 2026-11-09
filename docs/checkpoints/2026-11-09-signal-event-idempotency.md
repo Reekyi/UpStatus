@@ -53,7 +53,7 @@ No production or lab writes, migrations, deployments, fixture mutations, secrets
 - PR #74 HEAD `9c0133e8cf6bd85ac8993888718a408db2f24a3e`: Validate + Smoke PASS.
 - PR #75 HEAD `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`: historical baseline Candidate Checks PASS.
 - PR #76 HEAD `eb28e88325d7e8a6236d9050bebabf794d64a8c4`: Candidate Checks PASS.
-- PR #80 current docs HEAD `4bc3b386409cdc89e9a0d8b8a755dfc4eb4d7115`: Validate [42555621476](https://github.com/Reekyi/UpStatus/actions/runs/42555621476) FAIL, inherited `client signed upload helper missing` at `scripts/validate.mjs:55`.
+- PR #80 current docs HEAD `03fba586301656e46130294dde68020f29a83a55`: Validate [42555744751](https://github.com/Reekyi/UpStatus/actions/runs/42555744751) FAIL, inherited `client signed upload helper missing` at `scripts/validate.mjs:55`.
 - PR #82 current QA HEAD `cc0d4d0f78c664f9d776284c545df368f76110a2`: Validate [42551591404](https://github.com/Reekyi/UpStatus/actions/runs/42551591404) FAIL, inherited `production updateURL mismatch` at `scripts/validate.mjs:26`.
 - PR #109 current parent HEAD `9294f47a9dbea7038d34b74fdc53e958804e2d51`: Validate [42554593978](https://github.com/Reekyi/UpStatus/actions/runs/42554593978) PASS; workflow filter only.
 - PR #103 current Team Lite parent HEAD `de2c6a92154ece2f8a313d2bafedf02170bb5f5a`: offline guard [42554766818](https://github.com/Reekyi/UpStatus/actions/runs/42554766818) PASS; workflow filter only.
