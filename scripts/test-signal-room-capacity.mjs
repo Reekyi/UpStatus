@@ -66,8 +66,9 @@ async function assertTableEmpty(table) {
 const health = await fetch(endpoint.toString().replace(/\/$/, "") + "/health", {
   method: "GET", redirect: "error", signal: AbortSignal.timeout(10000),
 });
-if (!health.ok || health.headers.get("X-UpStatus-Signal-Capacity") !== "room-capacity-v1") {
-  throw new Error("Refusing fixture writes: the isolated endpoint is not the reviewed room-capacity-v1 candidate.");
+if (!health.ok || health.headers.get("X-UpStatus-Signal-Capacity") !== "room-capacity-v1" ||
+    health.headers.get("X-UpStatus-Signal-Idempotency") !== "event-idempotency-v1") {
+  throw new Error("Refusing fixture writes: the isolated endpoint is not the reviewed capacity/idempotency candidate.");
 }
 const emptyChecks = await Promise.all([
   readRest("upstatus_signal_rooms?select=room_id"),
@@ -77,6 +78,7 @@ const emptyChecks = await Promise.all([
   readRest("upstatus_signal_call_attempts?select=*"),
   readRest("upstatus_signal_voice_room_attempts?select=*"),
   readRest("upstatus_signal_rate_limits?select=bucket_key"),
+  readRest("upstatus_signal_event_idempotency?select=room_id"),
   readRest("upstatus_sessions?select=user_name"),
   readRest("users?select=name"),
 ]);
@@ -154,6 +156,61 @@ try {
   assert.equal(pendingCount, 2, "losing and third invitations must remain pending");
   assert.equal(rows.length, 34, "database must retain the two pending invitations without exceeding accepted capacity");
 
+  const signalKey = randomBytes(16).toString("hex");
+  const signalBody = {
+    roomId, recipient: names[1], eventType: "call_signal",
+    payload: { type: "offer", callId: "capacity-" + suffix, sdp: { type: "offer", sdp: "v=0" } },
+    idempotencyKey: signalKey,
+  };
+  const firstSignal = await call(names[0], tokens[0], "/signal", signalBody);
+  assert.equal(firstSignal.status, 202, "first unicast signal must enqueue");
+  assert.equal(firstSignal.body?.duplicate, false);
+  const replayedSignal = await call(names[0], tokens[0], "/signal", signalBody);
+  assert.equal(replayedSignal.status, 202, "same unicast idempotency key must be accepted as a replay");
+  assert.equal(replayedSignal.body?.duplicate, true, "unicast replay must not enqueue a second event");
+  const conflictingSignal = await call(names[0], tokens[0], "/signal", {
+    ...signalBody, payload: { ...signalBody.payload, sdp: { type: "offer", sdp: "v=0\r\nconflict" } },
+  });
+  assert.equal(conflictingSignal.status, 409, "same idempotency key with a different payload must conflict");
+  assert.equal(conflictingSignal.body?.error, "IDEMPOTENCY_KEY_REUSED");
+  const unicastRows = await readRest(
+    "upstatus_signal_events?select=event_id&room_id=eq." + encodeURIComponent(roomId) +
+    "&sender=eq." + encodeURIComponent(names[0]) +
+    "&recipient=eq." + encodeURIComponent(names[1]) + "&event_type=eq.call_signal"
+  );
+  assert.equal(unicastRows.length, 1, "unicast replay must create exactly one event row");
+
+  const broadcastKey = randomBytes(16).toString("hex");
+  const broadcastBody = {
+    roomId, eventType: "voice_room_signal",
+    payload: { type: "presence", callId: "capacity-" + suffix },
+    idempotencyKey: broadcastKey,
+  };
+  const firstBroadcast = await call(names[0], tokens[0], "/broadcast", broadcastBody);
+  assert.equal(firstBroadcast.status, 202);
+  assert.equal(firstBroadcast.body?.attempted, 31);
+  assert.equal(firstBroadcast.body?.delivered, 31);
+  assert.equal(firstBroadcast.body?.duplicate, false);
+  const replayedBroadcast = await call(names[0], tokens[0], "/broadcast", broadcastBody);
+  assert.equal(replayedBroadcast.status, 202);
+  assert.equal(replayedBroadcast.body?.duplicate, true);
+  assert.equal(replayedBroadcast.body?.attempted, 31, "broadcast replay must return the original recipient count");
+  const conflictingBroadcast = await call(names[0], tokens[0], "/broadcast", {
+    ...broadcastBody, payload: { type: "presence", callId: "different-" + suffix },
+  });
+  assert.equal(conflictingBroadcast.status, 409);
+  assert.equal(conflictingBroadcast.body?.error, "IDEMPOTENCY_KEY_REUSED");
+  const broadcastRows = await readRest(
+    "upstatus_signal_events?select=event_id&room_id=eq." + encodeURIComponent(roomId) +
+    "&sender=eq." + encodeURIComponent(names[0]) + "&event_type=eq.voice_room_signal"
+  );
+  assert.equal(broadcastRows.length, 31, "broadcast replay must create one event per accepted recipient");
+  const ledgerRows = await readRest(
+    "upstatus_signal_event_idempotency?select=idempotency_key&room_id=eq." + encodeURIComponent(roomId)
+  );
+  assert.equal(ledgerRows.length, 2, "unicast and broadcast should create one replay-ledger row each");
+
+
   console.log("Room-capacity integration passed: 32 accepted, concurrent accept had one winner, full-room invite/accept returned 409.");
 } catch (error) {
   failed = true;
@@ -162,6 +219,7 @@ try {
   if (fixturesCreated) {
     // Remove only rows associated with the unique fixture names/room, in FK-safe order.
     await deleteIn("upstatus_signal_events", "room_id", roomId ? [roomId] : []);
+    await deleteIn("upstatus_signal_event_idempotency", "room_id", roomId ? [roomId] : []);
     await deleteIn("upstatus_signal_events", "sender", names);
     await deleteIn("upstatus_signal_events", "recipient", names);
     await deleteIn("upstatus_signal_room_bindings", "room_id", roomId ? [roomId] : []);
@@ -188,6 +246,7 @@ try {
       "upstatus_signal_call_attempts",
       "upstatus_signal_voice_room_attempts",
       "upstatus_signal_rate_limits",
+      "upstatus_signal_event_idempotency",
     ]) {
       await assertTableEmpty(table);
     }
