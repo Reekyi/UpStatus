@@ -8,8 +8,8 @@ The independent QA audit `docs/audits/2026-11-09-upstatus-qa-audit-0025-utc.md` 
 
 Draft [PR #109](https://github.com/Reekyi/UpStatus/pull/109) is stacked on the Normal signaling candidate #108.
 
-- HEAD: `0ef939db451c736468ab3ad434942ff606c20999`
-- Exact-head Validate: [42544279847](https://github.com/Reekyi/UpStatus/actions/runs/42544279847) — SUCCESS.
+- HEAD: `94d43feca3ca4632862e24f7cdf5ecc4c4c9ac39`
+- Exact-head Validate: [42544535436](https://github.com/Reekyi/UpStatus/actions/runs/42544279847) — SUCCESS.
 - The new offline contract test passed in the full Validate run.
 
 The candidate adds:
@@ -26,7 +26,7 @@ The production migration and isolated catalog test migration are versioned. The 
 
 ## Validation boundary
 
-The live harness was not executed. The shared lab's deployed `upstatus-signal-test` remains v32 and does not advertise the capacity marker. The lab is QA-shared; no migration, function deployment, fixture, or other lab write was performed.
+The live harness syntax and safety contract passed offline CI, but it was not executed. The shared lab's deployed `upstatus-signal-test` remains v32 and does not advertise the capacity marker. The lab is QA-shared; no migration, function deployment, fixture, or other lab write was performed.
 
 Production was not modified. No production SQL write, migration, deploy, secret/role/grant/ACL/policy/flag change, merge, release, or userscript publication occurred.
 
