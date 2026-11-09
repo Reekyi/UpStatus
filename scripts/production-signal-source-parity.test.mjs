@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { voiceRoomOpenResultStatus as productionVoiceRoomOpenResultStatus } from "../supabase/functions/upstatus-signal/http-contract.mjs";
+import { voiceRoomOpenResultStatus as isolatedVoiceRoomOpenResultStatus } from "../supabase/functions/upstatus-signal-test/http-contract.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = relative => fs.readFileSync(path.join(ROOT, relative), "utf8");
@@ -20,6 +22,7 @@ assert.equal((production.match(/service: "upstatus-signal"/g) || []).length, 1, 
 assert(!production.includes("upstatus-signal-test"), "production handler must not identify itself as the test function");
 assert.equal(read(prodDir + "/body.mjs"), read(testDir + "/body.mjs"), "bounded JSON body parser drifted");
 assert.equal(read(prodDir + "/legacy-envelope.mjs"), read(testDir + "/legacy-envelope.mjs"), "legacy envelope allowlist drifted");
+assert.equal(read(prodDir + "/http-contract.mjs"), read(testDir + "/http-contract.mjs"), "voice-room HTTP status mapper drifted");
 
 const config = read("supabase/config.toml");
 const configBlock = config.match(/^\[functions\.upstatus-signal\]\nverify_jwt = false$/m);
@@ -69,14 +72,38 @@ function extractVoiceRoomOpenRoute(source, label) {
 
 const productionOpenRoute = extractVoiceRoomOpenRoute(production, "production signaling handler");
 const isolatedOpenRoute = extractVoiceRoomOpenRoute(isolated, "isolated signaling handler");
-const voiceAttemptConflictMapping = /code === "VOICE_ATTEMPT_CONFLICT"\s*\|\|\s*code === "VOICE_ATTEMPT_ALREADY_ACTIVE"\s*\|\|\s*code === "ROOM_FULL"\s*\?\s*409\s*:\s*500/;
 for (const [label, route] of [
   ["production", productionOpenRoute],
   ["isolated", isolatedOpenRoute],
 ]) {
   assert(route.includes('db.rpc("open_upstatus_signal_voice_room_attempt"'), label + " /room/open route must call the attempt RPC when an attempt ID is supplied");
-  assert(voiceAttemptConflictMapping.test(route), label + " /room/open route must map VOICE_ATTEMPT_ALREADY_ACTIVE to HTTP 409");
+  assert(route.includes("const status = voiceRoomOpenResultStatus(result);"), label + " /room/open route must use the executable HTTP status mapper");
   assert(route.includes('return response({ error: code, memberCount: result.memberCount }, status);'), label + " /room/open route must use the checked status mapping in its HTTP response");
 }
 
-console.log("PASS production signaling source parity, custom-token config, migration prerequisites, bounded rate limit, and server-derived membership guards");
+const voiceRoomOpenStatusCases = [
+  ["INVALID_LOGICAL_ID", 400],
+  ["INVALID_ARGUMENT", 400],
+  ["INVALID_ATTEMPT_ID", 400],
+  ["UNKNOWN_USER", 404],
+  ["VOICE_ROOM_OPEN_CANCELLED", 410],
+  ["VOICE_ROOM_UNAVAILABLE", 410],
+  ["VOICE_ROOM_MEMBERSHIP_ENDED", 410],
+  ["VOICE_ATTEMPT_CONFLICT", 409],
+  ["VOICE_ATTEMPT_ALREADY_ACTIVE", 409],
+  ["ROOM_FULL", 409],
+  ["UNEXPECTED_RPC_ERROR", 500],
+  ["constructor", 500],
+  ["toString", 500],
+  ["__proto__", 500],
+];
+for (const [code, expected] of voiceRoomOpenStatusCases) {
+  assert.equal(productionVoiceRoomOpenResultStatus({ error: code }), expected, "production mapper status for " + code);
+  assert.equal(isolatedVoiceRoomOpenResultStatus({ error: code }), expected, "isolated mapper status for " + code);
+}
+for (const malformed of [null, undefined, [], "VOICE_ATTEMPT_ALREADY_ACTIVE", {}]) {
+  assert.equal(productionVoiceRoomOpenResultStatus(malformed), 500, "production mapper must fail closed for malformed results");
+  assert.equal(isolatedVoiceRoomOpenResultStatus(malformed), 500, "isolated mapper must fail closed for malformed results");
+}
+
+console.log("PASS production signaling source parity, executable voice-room HTTP status mapping, custom-token config, migration prerequisites, bounded rate limit, and server-derived membership guards");
