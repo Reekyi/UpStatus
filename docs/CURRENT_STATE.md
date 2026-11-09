@@ -2960,3 +2960,8 @@ No production or laboratory writes, migrations, deployments, workflow dispatches
 - Remaining QA findings: event replay/idempotency, route-specific invite quotas (thresholds need agreement), database-backed readiness, and Team Lite stack reconciliation. Broader authenticated signaling cutover and public Realtime P0 remain open.
 - Production remained read-only. No production migration, SQL write, deploy, release, merge, userscript publication, or security-setting change occurred.
 - Checkpoint: [2026-11-09 generic room capacity guard](https://github.com/Reekyi/UpStatus/blob/docs/continuity-handoff-2026-11-04/docs/checkpoints/2026-11-09-generic-room-capacity-guard.md).
+
+
+## 2026-11-09 — Signal event idempotency
+
+The current engineering checkpoint is [Signal event idempotency and replay protection](checkpoints/2026-11-09-signal-event-idempotency.md). Draft PR #110 adds the server-side replay ledger and Normal adapter; Draft PR #111 updates the Team Lite adapter/bundle. Exact-head offline CI passed on both. The live harness remains unexecuted because the QA-shared lab runtime is v32 and the candidate migrations/markers are not installed. Production remains unchanged. See the checkpoint for SHAs, workflow links, safeguards and remaining gates.
