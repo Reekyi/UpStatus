@@ -58,6 +58,7 @@ for (const [fragment, label] of [
   ["pg_catalog.to_regclass", "required table checks"],
   ["pg_catalog.to_regprocedure", "required RPC checks"],
   ["pg_catalog.has_table_privilege", "service-role table grants"],
+  ["pg_catalog.has_schema_privilege('service_role', 'public', 'USAGE')", "service-role public schema usage"],
   ["pg_catalog.has_function_privilege", "service-role RPC grants"],
   ["prosecdef", "no SECURITY DEFINER handler RPCs"],
   ["provolatile", "VOLATILE handler RPCs"],
@@ -71,6 +72,8 @@ for (const [fragment, label] of [
 ]) {
   assert(migration.includes(fragment), "production readiness migration missing " + label);
 }
+assert(testMigration.includes("pg_catalog.has_schema_privilege('service_role', 'public', 'USAGE')"),
+  "isolated readiness migration must verify service_role schema usage");
 assert(testMigration.includes("v_result ->> 'ready'") && testMigration.includes("pg_catalog.jsonb_array_length"),
   "isolated readiness migration must execute the readiness contract and require zero missing dependencies");
 
