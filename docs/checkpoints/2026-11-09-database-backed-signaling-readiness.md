@@ -13,7 +13,7 @@ The signaling handler's existing `GET /health` response is a process/liveness ma
 - Keep `GET /health` as liveness.
 - Add `GET /ready`, backed by the read-only `public.upstatus_signal_readiness()` RPC.
 - The RPC is `STABLE SECURITY INVOKER`, uses an empty `search_path`, and is executable only by `service_role`.
-- It verifies the required tables are ordinary/partitioned tables with RLS enabled, required columns exist, service_role has the table privileges used by the handler, and every handler RPC exists with service_role EXECUTE.
+- It verifies the required tables are ordinary/partitioned tables with RLS enabled, required columns exist, service_role has the table privileges used by the handler, and every handler RPC exists with service_role EXECUTE. Handler RPCs must also remain VOLATILE SECURITY INVOKER functions with an empty `search_path`, service_role EXECUTE, and no anon/authenticated EXECUTE.
 - The Edge Function returns only generic 200/503 bodies. Internal missing-dependency names are not exposed to unauthenticated callers.
 - The production and isolated handlers/helpers remain byte-identical apart from the health service label.
 
