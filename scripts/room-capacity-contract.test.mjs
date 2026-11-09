@@ -125,11 +125,16 @@ assert(liveHarness.includes("verifyIsolatedSupabaseMutationTarget") &&
   liveHarness.includes("UPSTATUS_SIGNAL_ALLOW_MUTATION") &&
   liveHarness.includes("X-UpStatus-Signal-Capacity") &&
   liveHarness.includes("X-UpStatus-Signal-Idempotency") &&
+  liveHarness.includes(' + "/ready"') &&
+  liveHarness.includes('"X-UpStatus-Signal-Readiness"') &&
+  liveHarness.includes('"database-v2"') &&
   liveHarness.includes("upstatus_signal_voice_room_attempts") &&
   liveHarness.includes("Promise.all") &&
+  liveHarness.includes("Promise.allSettled") &&
+  liveHarness.includes("AggregateError") &&
   liveHarness.includes("deleteIn(") &&
   liveHarness.includes("assertTableEmpty("),
-  "live capacity harness must guard the isolated target, race accepts, clean fixtures, and assert empty postconditions");
+  "live capacity harness must require DB readiness, guard the isolated target, race accepts, attempt all cleanup steps, and assert empty postconditions");
 for (const table of [
   "users",
   "upstatus_sessions",
@@ -144,5 +149,5 @@ for (const table of [
 ]) {
   assert(liveHarness.includes(`"${table}"`), "cleanup/preflight table missing: " + table);
 }
-assert(liveHarness.includes("await assertTableEmpty(table)"), "cleanup must verify every preflight table is empty");
+assert(liveHarness.includes("tables.map(assertTableEmpty)") && liveHarness.includes("postflight.forEach"), "cleanup must verify every preflight table even after individual DELETE failures");
 console.log("Generic signaling room capacity contract tests passed.");
