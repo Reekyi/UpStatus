@@ -301,11 +301,19 @@ assert.deepEqual(
   { remoteCount: 3, verifiedCount: 3, manifestCount: 3 },
   "the three available original migrations must match their recorded Git blob IDs",
 );
-const incompleteProvenanceError = assert.throws(() => assertRemoteMigrationsHaveVerifiedProvenance(
-  productionRemoteHistory,
-  actualMigrationContents,
-  actualProvenanceManifest,
-), /missing provenance\/source/);
+let incompleteProvenanceError = null;
+try {
+  assertRemoteMigrationsHaveVerifiedProvenance(
+    productionRemoteHistory,
+    actualMigrationContents,
+    actualProvenanceManifest,
+  );
+} catch (error) {
+  incompleteProvenanceError = error;
+}
+assert.ok(incompleteProvenanceError instanceof Error,
+  "the current incomplete production provenance manifest must fail closed");
+assert.match(incompleteProvenanceError.message, /missing provenance\/source/);
 assert.doesNotMatch(incompleteProvenanceError.message, /Git blob SHA-1 mismatch/,
   "the known original migration blobs must match even though four other sources are missing");
 
