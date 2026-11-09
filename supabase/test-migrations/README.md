@@ -47,3 +47,10 @@ Apply it only to the allowlisted isolated project after checking that no fixture
 - Live fixture harness: `scripts/test-signal-room-capacity.mjs`. It requires the exact isolated project ref, explicit `UPSTATUS_SIGNAL_ALLOW_MUTATION=1`, an empty lab preflight across users, sessions, rooms, members, bindings, events, call attempts, voice attempts, and rate limits, plus the reviewed `X-UpStatus-Signal-Capacity: room-capacity-v1` health header before creating 35 uniquely prefixed users. It cleans only those exact fixtures.
 - The current shared lab runtime v32 does not advertise the capacity header, so the live harness intentionally aborts before fixture writes until QA/engineering coordinates an isolated candidate runtime update.
 - Never apply this test migration to production or the official TEST project. Do not run the live harness while another fixture-mutating suite is active.
+
+
+### Capacity lock-order and cleanup contract follow-up (2026-11-09)
+
+- The catalog test now checks the exact sequence: room row lock, inviter membership row lock, recipient membership row lock, accepted-member count, then either reissue/update or insert. The accept RPC must lock the room and invitation row before counting and changing status.
+- The live harness removes only rows tied to its unique fixture usernames/room across events, bindings, call attempts, voice attempts, memberships, rooms, sessions and rate-limit buckets, then asserts all nine preflight tables are empty.
+- This remains offline/catalog-contract coverage plus an unexecuted lab-only HTTP harness. Do not apply the test migration or run the harness until the QA-shared lab runtime is updated through an approved coordinated path.
