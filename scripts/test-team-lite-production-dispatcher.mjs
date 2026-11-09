@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { assertAuthorizedReleaseApproval } from "./verify-team-lite-release-review.mjs";
 
 const workflow = fs.readFileSync(".github/workflows/deploy-team-lite-production.yml", "utf8");
 
@@ -36,8 +37,12 @@ assert.match(workflow, /pulls\/\$APPROVED_PR_NUMBER/,
   "the supplied PR must be read from GitHub before deployment");
 assert.match(workflow, /\.merged_at[\s\S]*?\.base\.ref[\s\S]*?\.merge_commit_sha[\s\S]*?RELEASE_SHA/,
   "the approved PR must be merged into team-lite-official and produce the exact release SHA");
-assert.match(workflow, /reviews\?per_page=100[\s\S]*?review_count[\s\S]*?latest_review_state[\s\S]*?APPROVED[\s\S]*?latest_reviewer[\s\S]*?author_login/,
-  "the latest non-dismissed review must be an approval from someone other than the PR author");
+assert.match(workflow, /reviews\?per_page=100[\s\S]*?review_count[\s\S]*?-ge 100[\s\S]*?team-lite-release-reviews\.json[\s\S]*?verify-team-lite-release-review\.mjs/,
+  "the workflow must pass the complete current PR review response to the exact-head approval verifier");
+assert.match(workflow, /UPSTATUS_RELEASE_REVIEWERS[\s\S]*?vars\.UPSTATUS_RELEASE_REVIEWERS/,
+  "the workflow must use an explicit repository allowlist of authorized release reviewers");
+assert.match(workflow, /verify-team-lite-release-review\.mjs[\s\S]*?head_sha[\s\S]*?author_login[\s\S]*?UPSTATUS_RELEASE_REVIEWERS/,
+  "approval verification must bind the human reviewer to the exact PR head and author");
 assert.match(workflow, /review_count[\s\S]*?-ge 100/,
   "the workflow must fail closed rather than silently truncate a multi-page review history");
 assert.match(workflow, /check-runs\?per_page=100[\s\S]*?check_count[\s\S]*?returned_check_count[\s\S]*?bad_checks/,
@@ -68,6 +73,7 @@ for (const required of [
   assert.ok(workflow.includes(required), "missing candidate preflight: " + required);
 }
 
+const dispatcherCheckoutIndex = workflow.indexOf("Checkout default-branch dispatcher source");
 const approvedPrIndex = workflow.indexOf("Require an approved merged PR");
 const checkoutIndex = workflow.indexOf("Checkout exact Team Lite release candidate");
 const releaseIndex = workflow.indexOf("node scripts/verify-team-lite-release.mjs");
@@ -77,8 +83,9 @@ const projectIndex = workflow.indexOf("node scripts/verify-team-lite-production-
 const migrationsIndex = workflow.indexOf("node scripts/verify-team-lite-production-migrations.mjs");
 const cliIndex = workflow.indexOf("name: Setup pinned Supabase CLI");
 const deployIndex = workflow.indexOf("supabase functions deploy");
-assert.ok(approvedPrIndex > 0 && checkoutIndex > approvedPrIndex &&
-  releaseIndex > checkoutIndex && buildIndex > releaseIndex && candidateIndex > buildIndex &&
+assert.ok(dispatcherCheckoutIndex > 0 && approvedPrIndex > dispatcherCheckoutIndex &&
+  checkoutIndex > approvedPrIndex && releaseIndex > checkoutIndex &&
+  buildIndex > releaseIndex && candidateIndex > buildIndex &&
   projectIndex > candidateIndex && migrationsIndex > projectIndex &&
   cliIndex > migrationsIndex && deployIndex > cliIndex,
   "PR provenance, source, release, candidate, project and migration preflights must complete before CLI setup/deploy");
@@ -105,4 +112,55 @@ assert.doesNotMatch(workflow, /supabase\s+(?:db\s+push|migration\s+up)/,
 assert.doesNotMatch(workflow, /^  (?:schedule|workflow_run):/m,
   "the dispatcher must not run on a schedule or workflow completion");
 
-console.log("PASS Team Lite default-branch production dispatcher guard with complete reviewed-release provenance.");
+const approvalHead = "c".repeat(40);
+const approvedAt = "2026-11-09T10:00:00Z";
+const approval = {
+  id: 1,
+  state: "APPROVED",
+  commit_id: approvalHead,
+  submitted_at: approvedAt,
+  user: { login: "release-reviewer", type: "User" },
+};
+const approvalOptions = {
+  headSha: approvalHead,
+  authorLogin: "release-author",
+  authorizedReviewers: "release-reviewer, backup-reviewer",
+};
+assert.deepEqual(
+  assertAuthorizedReleaseApproval([approval], approvalOptions),
+  { reviewer: "release-reviewer", headSha: approvalHead, submittedAt: approvedAt },
+);
+assert.doesNotThrow(() => assertAuthorizedReleaseApproval([
+  { ...approval, commit_id: "d".repeat(40), state: "CHANGES_REQUESTED" },
+  approval,
+  { id: 2, state: "COMMENTED", commit_id: approvalHead, submitted_at: "2026-11-09T10:01:00Z", user: { login: "commenter", type: "User" } },
+], approvalOptions));
+assert.throws(() => assertAuthorizedReleaseApproval([
+  { ...approval, user: { login: "release-reviewer[bot]", type: "Bot" } },
+], approvalOptions), /human GitHub user/);
+assert.throws(() => assertAuthorizedReleaseApproval([
+  { ...approval, user: { login: "unlisted-reviewer", type: "User" } },
+], approvalOptions), /not in UPSTATUS_RELEASE_REVIEWERS/);
+assert.throws(() => assertAuthorizedReleaseApproval([
+  { ...approval, user: { login: "release-author", type: "User" } },
+], approvalOptions), /cannot approve their own/);
+assert.throws(() => assertAuthorizedReleaseApproval([
+  { ...approval, commit_id: "d".repeat(40) },
+], approvalOptions), /no latest APPROVED review/);
+assert.throws(() => assertAuthorizedReleaseApproval([
+  approval,
+  { id: 2, state: "CHANGES_REQUESTED", commit_id: approvalHead, submitted_at: "2026-11-09T10:02:00Z", user: { login: "release-reviewer", type: "User" } },
+], approvalOptions), /no latest APPROVED review/);
+assert.throws(() => assertAuthorizedReleaseApproval([
+  approval,
+  { id: 2, state: "DISMISSED", commit_id: approvalHead, submitted_at: "2026-11-09T10:02:00Z", user: { login: "release-reviewer", type: "User" } },
+], approvalOptions), /no latest APPROVED review/);
+assert.throws(() => assertAuthorizedReleaseApproval([approval], {
+  ...approvalOptions,
+  authorizedReviewers: "",
+}), /UPSTATUS_RELEASE_REVIEWERS/);
+assert.throws(() => assertAuthorizedReleaseApproval([
+  { ...approval, submitted_at: "not-a-date" },
+], approvalOptions), /invalid submission timestamp/);
+
+console.log("PASS Team Lite dispatcher guard with exact-head authorized human review provenance.");
