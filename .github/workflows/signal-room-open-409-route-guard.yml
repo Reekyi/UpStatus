@@ -1,0 +1,61 @@
+name: Voice Room Open 409 Route Guard
+
+on:
+  push:
+    branches:
+      - test/normal-signal-room-open-409-route-20261108
+      - test/normal-signal-http-contract-20261108
+    paths:
+      - "supabase/functions/upstatus-signal/index.ts"
+      - "supabase/functions/upstatus-signal-test/index.ts"
+      - "supabase/functions/upstatus-signal/http-contract.mjs"
+      - "supabase/functions/upstatus-signal/body.mjs"
+      - "supabase/functions/upstatus-signal/legacy-envelope.mjs"
+      - "supabase/functions/upstatus-signal-test/http-contract.mjs"
+      - "supabase/functions/upstatus-signal-test/body.mjs"
+      - "supabase/functions/upstatus-signal-test/legacy-envelope.mjs"
+      - "supabase/config.toml"
+      - "supabase/migrations/20261108190000_distributed_signaling_rate_limit.sql"
+      - "scripts/production-signal-source-parity.test.mjs"
+      - "scripts/validate.mjs"
+      - ".github/workflows/signal-room-open-409-route-guard.yml"
+  pull_request:
+    branches:
+      - fix/normal-authenticated-call-source-guard-20261108
+      - test/normal-signal-room-open-409-route-20261108
+      - test/normal-signal-http-contract-20261108
+    paths:
+      - "supabase/functions/upstatus-signal/index.ts"
+      - "supabase/functions/upstatus-signal-test/index.ts"
+      - "supabase/functions/upstatus-signal/http-contract.mjs"
+      - "supabase/functions/upstatus-signal/body.mjs"
+      - "supabase/functions/upstatus-signal/legacy-envelope.mjs"
+      - "supabase/functions/upstatus-signal-test/http-contract.mjs"
+      - "supabase/functions/upstatus-signal-test/body.mjs"
+      - "supabase/functions/upstatus-signal-test/legacy-envelope.mjs"
+      - "supabase/config.toml"
+      - "supabase/migrations/20261108190000_distributed_signaling_rate_limit.sql"
+      - "scripts/production-signal-source-parity.test.mjs"
+      - "scripts/validate.mjs"
+      - ".github/workflows/signal-room-open-409-route-guard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run route-level signaling contract and full offline validation
+        run: |
+          node --version
+          node --check scripts/production-signal-source-parity.test.mjs
+          node scripts/production-signal-source-parity.test.mjs
+          node scripts/validate.mjs
