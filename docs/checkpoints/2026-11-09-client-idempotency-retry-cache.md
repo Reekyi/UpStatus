@@ -30,10 +30,11 @@ No session token, credential, or secret is stored in the cache.
 
 - bounded retry with the same key and exact body;
 - later caller retry reusing the original key and payload despite a refreshed transport timestamp;
-- distinct operation IDs receiving distinct keys;
+- distinct operation IDs receiving distinct keys without sending them to the server;
 - permanent 4xx failures not being retried or cached;
-- concurrent duplicate operations being coalesced;
+- concurrent duplicate operations being coalesced even when only the transport timestamp changes;
 - retry-key expiry;
+- long `Retry-After` deferral with the original key/body retained;
 - equivalent behavior for room broadcasts.
 
 `scripts/signal-idempotency-contract.test.mjs` now asserts that the bounded cache and these regression cases remain part of the contract.
