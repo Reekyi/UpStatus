@@ -26,8 +26,10 @@ await client.bindRoom({ roomId: "sig_123", bindingType: "call", logicalId: "call
 assert.equal(calls.at(-1).path, "/room/bind");
 await client.resolveRoom({ bindingType: "voice", logicalId: "voice-room-v1" });
 await client.invite("sig_123", "mari");
-await client.requestInvite("call:abc");
+const requestInviteKey = "a".repeat(32);
+await client.requestInvite("call:abc", { idempotencyKey: requestInviteKey });
 assert.equal(calls.at(-1).path, "/room/request-invite");
+assert.equal(calls.at(-1).body.idempotencyKey, requestInviteKey);
 await client.roomMembers("sig_123");
 assert.equal(calls.at(-1).path, "/room/members");
 await client.roomStatus("sig_123");
@@ -35,6 +37,11 @@ assert.equal(calls.at(-1).path, "/room/status");
 await client.accept("sig_123");
 await client.decline("sig_123");
 await client.sendSignal({ roomId: "sig_123", recipient: "mari", eventType: "call_signal", payload: { type: "invite" } });
+assert.match(calls.at(-1).body.idempotencyKey, /^[0-9a-f]{32}$/);
+const retrySignalKey = "b".repeat(32);
+await client.sendSignal({ roomId: "sig_123", recipient: "mari", eventType: "call_signal", payload: { type: "invite" }, idempotencyKey: retrySignalKey });
+assert.equal(calls.at(-1).body.idempotencyKey, retrySignalKey);
+await assert.rejects(() => client.sendSignal({ roomId: "sig_123", recipient: "mari", eventType: "call_signal", payload: { type: "invite" }, idempotencyKey: "invalid" }), /Invalid signaling idempotency key/);
 await client.poll("sig_123");
 await client.ack("sig_123", [1, 1, 2]);
 assert.deepEqual(calls.at(-1).body.eventIds, [1, 2]);
@@ -255,11 +262,25 @@ const fanoutClient = createSignalingTransport({
     return { status: 200, body: { ok: true } };
   },
 });
+const fanoutKey = "c".repeat(32);
 const fanout = await fanoutClient.sendToRoom({
-  roomId: "sig_fanout", eventType: "voice_room_signal", payload: { type: "presence" }, senderName: "ricardo",
+  roomId: "sig_fanout", eventType: "voice_room_signal", payload: { type: "presence" }, senderName: "ricardo", idempotencyKey: fanoutKey,
 });
-assert.deepEqual(fanout, { attempted: 2, delivered: 2, failed: 0 });
+assert.deepEqual(fanout, { attempted: 2, delivered: 2, failed: 0, duplicate: false });
 assert.deepEqual(fanoutCalls.filter(call => call.path === "/broadcast").map(call => call.body.eventType), ["voice_room_signal"]);
+assert.equal(fanoutCalls.find(call => call.path === "/broadcast").body.idempotencyKey, fanoutKey);
+const retryClient = createSignalingTransport({
+  enabled: true,
+  request: async () => { throw new Error("temporary network failure"); },
+});
+const preservedRetryKey = "d".repeat(32);
+await assert.rejects(
+  () => retryClient.sendSignal({
+    roomId: "sig_retry", recipient: "mari", eventType: "call_signal",
+    payload: { type: "offer" }, idempotencyKey: preservedRetryKey,
+  }),
+  error => error.message === "temporary network failure" && error.idempotencyKey === preservedRetryKey
+);
 console.log("signaling recipient fanout: 2 assertions passed");
 
 

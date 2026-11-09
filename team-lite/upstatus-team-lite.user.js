@@ -140,6 +140,33 @@ function createSignalingTransport({
     return body;
   }
 
+  function createSignalIdempotencyKey() {
+    const cryptoApi = globalThis.crypto;
+    if (!cryptoApi || typeof cryptoApi.getRandomValues !== "function")
+      throw new Error("Secure randomness is required for signaling idempotency");
+    const bytes = new Uint8Array(16);
+    cryptoApi.getRandomValues(bytes);
+    return Array.from(bytes, value => value.toString(16).padStart(2, "0")).join("");
+  }
+
+  function resolveSignalIdempotencyKey(value) {
+    if (value === undefined || value === null || value === "") return createSignalIdempotencyKey();
+    if (typeof value !== "string" || !/^[0-9a-f]{32}$/.test(value))
+      throw new TypeError("Invalid signaling idempotency key");
+    return value;
+  }
+
+  async function postIdempotent(path, payload, idempotencyKey) {
+    try {
+      return await post(path, { ...payload, idempotencyKey });
+    } catch (error) {
+      if (error && typeof error === "object") {
+        try { error.idempotencyKey = idempotencyKey; } catch {}
+      }
+      throw error;
+    }
+  }
+
   function validId(value, label) {
     if (typeof value !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(value)) {
       throw new TypeError(`Invalid ${label}`);
@@ -267,9 +294,10 @@ function createSignalingTransport({
     throw error;
   }
 
-  async function requestInvite(logicalId) {
+  async function requestInvite(logicalId, options = {}) {
     validId(logicalId, "logical call ID");
-    return post("/room/request-invite", { bindingType: "call", logicalId });
+    const idempotencyKey = resolveSignalIdempotencyKey(options.idempotencyKey);
+    return postIdempotent("/room/request-invite", { bindingType: "call", logicalId }, idempotencyKey);
   }
 
   async function invitations() {
@@ -287,21 +315,23 @@ function createSignalingTransport({
     return post("/room/decline", { roomId });
   }
 
-  async function sendSignal({ roomId, recipient, eventType, payload }) {
+  async function sendSignal({ roomId, recipient, eventType, payload, idempotencyKey }) {
     if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
     if (typeof recipient !== "string" || !recipient || recipient.length > 80) throw new TypeError("Invalid recipient");
     if (typeof eventType !== "string" || !eventType || eventType.length > 40) throw new TypeError("Invalid event type");
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new TypeError("Invalid signaling payload");
-    return post("/signal", { roomId, recipient, eventType, payload });
+    const key = resolveSignalIdempotencyKey(idempotencyKey);
+    return postIdempotent("/signal", { roomId, recipient, eventType, payload }, key);
   }
 
-  async function sendToRoom({ roomId, eventType, payload, senderName }) {
+  async function sendToRoom({ roomId, eventType, payload, senderName, idempotencyKey }) {
     if (typeof senderName !== "string" || !senderName || senderName.length > 80)
       throw new TypeError("Invalid sender name");
-    const result = await post("/broadcast", { roomId, eventType, payload });
+    const key = resolveSignalIdempotencyKey(idempotencyKey);
+    const result = await postIdempotent("/broadcast", { roomId, eventType, payload }, key);
     const attempted = Number(result.attempted) || 0;
     const delivered = Number(result.delivered) || 0;
-    return { attempted, delivered, failed: Math.max(0, attempted - delivered) };
+    return { attempted, delivered, failed: Math.max(0, attempted - delivered), duplicate: result.duplicate === true };
   }
 
   async function poll(roomId, options = {}) {
