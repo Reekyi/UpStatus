@@ -16,7 +16,7 @@ The adapter already generated a cryptographically random 128-bit idempotency key
 - Cache identity includes endpoint path, optional caller-supplied `operationId`, explicit key scope, and a canonical JSON request payload with object keys sorted and array order preserved.
 - Only the event envelope's volatile `at` and `updatedAt` fields are excluded from identity. When a retry matches, the adapter resends the exact original request body and the original key, preserving the server's canonical request hash.
 - Network/ambiguous failures, HTTP 408/425/429, and 5xx responses retain the key. One bounded automatic retry is attempted for transient failures.
-- `Retry-After` is respected up to 1.5 seconds. Longer delays are not slept through; the key remains cached for a later caller retry.
+- `Retry-After` is respected up to 1.5 seconds. Longer delays are not slept through; the cache stores a not-before timestamp and rejects premature caller retries with `SIGNAL_RETRY_DEFERRED` until the server delay elapses, preserving the original key/body.
 - Permanent 4xx responses and `IDEMPOTENCY_KEY_REUSED` do not retain a key.
 - Concurrent identical operations share one in-flight request.
 - Entries expire after 2 hours and 5 minutes and the cache is capped at 256 entries. The server creates rooms with a 2-hour lifetime and retains the idempotency ledger until room expiry/deletion; the extra 5 minutes cover the best-effort 60-second cleanup cadence. When the cache is full, new sends without an explicit key fail closed with `SIGNAL_RETRY_CACHE_FULL`; pending keys are never silently evicted.
@@ -50,3 +50,10 @@ No session token, credential, or secret is stored in the cache.
 ## Release posture
 
 Draft only. Do not merge, deploy, enable authenticated signaling, or treat this adapter improvement as closure of the public Realtime P0.
+
+
+## Retry-After enforcement follow-up — 2026-11-09
+
+Review found that the first candidate retained the key for a long Retry-After but did not enforce the not-before time on a later caller invocation. A caller retry could therefore send immediately despite the server's requested delay. The follow-up stores an absolute retry-after deadline with the pending key and returns `SIGNAL_RETRY_DEFERRED` (HTTP 429, remaining delay, same key) until that deadline passes. The original request body and idempotency key are then replayed unchanged. Regression coverage uses a fake clock to prove that no second HTTP request is sent early.
+
+This remains Normal-only and in-memory per transport instance. It does not add Team Lite parity, durable retry across reload, or fresh-key anti-replay protection.
