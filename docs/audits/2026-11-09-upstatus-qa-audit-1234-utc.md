@@ -202,7 +202,7 @@ Nenhuma migration, SQL write, fixture, deploy, merge, release, workflow dispatch
 - O Validate disparado pelo commit documental desta auditoria terminou em FAILURE no HEAD 9cab985336dc905ec8c3658fa6be9c54fa84e15c: [run 42619469852](https://github.com/Reekyi/UpStatus/actions/runs/42619469852). O log constrói PROD/TEST 3.4.7 e falha novamente em “production updateURL mismatch”. É a mesma assertion herdada de master; a nota não altera build nem validator.
 - Confirmação adicional no laboratório: public.merge_chat_read_receipts existe como SECURITY INVOKER, search_path vazio, EXECUTE false para anon/authenticated e true somente para service_role. A função não existe em produção. O catálogo de produção também não contém tabelas/funções de signaling, setup invite ou rate limit consultadas.
 - O inventário atual confirma 38/38 Edge Functions de produção ACTIVE e 38/38 com verify_jwt=false; isso não equivale automaticamente a endpoint sem auth, pois os handlers principais usam token customizado. Runtimes relevantes: upstatus v480 (SHA bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd), upstatus-team-lite v15 (SHA 2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb) e upstatus-screen-share-3-1-1-beta10 v6 (SHA f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29).
-- O HEAD QA final após este append deve ser conferido no commit da atualização; o documento principal RELEASE_READINESS.md permanece no blob SHA 7cfbd70886df42ce790c078c224b19284a632595.
+- O documento principal RELEASE_READINESS.md permanece preservado no blob SHA 7cfbd70886df42ce790c078c224b19284a632595; os SHAs dos commits e do blob desta auditoria são verificados no histórico do GitHub.
 
 
 ## Fechamento do HEAD documental — 2026-11-09 12:47 UTC
