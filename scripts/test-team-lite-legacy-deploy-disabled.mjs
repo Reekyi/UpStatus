@@ -45,9 +45,16 @@ assert.ok(guard.includes("node scripts/test-team-lite-legacy-deploy-disabled.mjs
   "the guard workflow must execute the offline regression test");
 assert.ok(!guard.includes("workflow_dispatch:"),
   "the regression guard itself must not expose a manual dispatch path");
-assert.ok(!/secrets\\.|supabase functions deploy|environment:\\s*production|version:\\s*latest/i.test(guard),
-  "the regression guard must not gain production credentials or deployment capability");
-assert.ok(!/^\\s+deploy:/m.test(guard),
+for (const forbidden of [
+  "secrets.",
+  "supabase functions deploy",
+  "environment: production",
+  "version: latest",
+]) {
+  assert.ok(!guard.includes(forbidden),
+    "the regression guard must not gain production credentials or deployment capability: " + forbidden);
+}
+assert.ok(!guard.split("\n").some(line => line.startsWith("  deploy:")),
   "the regression guard must not define a deployment job");
 
 const pushSection = guard.split("  pull_request:")[0];
