@@ -156,6 +156,15 @@ assert(adapterTests.includes("automaticRetryCalls") &&
   adapterTests.includes("broadcastRetryCalls"),
   "client tests must cover bounded retry, later key reuse, concurrency, expiry, and room broadcast replay");
 
+assert(adapter.includes("implicitIdentity") &&
+  adapter.includes("implicitCached.key === explicitKey") &&
+  adapter.includes("retryIdentity"),
+  "an explicit retry using error.idempotencyKey must resolve the matching implicit pending entry without consuming a different key");
+assert(adapterTests.includes("explicitKeyRetryCalls") &&
+  adapterTests.includes("mismatched explicit key must not consume the pending implicit retry body") &&
+  adapterTests.includes("error.idempotencyKey"),
+  "client tests must cover implicit-to-explicit retry lookup and mismatched-key isolation");
+
 assert(adapter.includes("retryAfterAt") && adapter.includes("SIGNAL_RETRY_DEFERRED"),
   "client retry cache must enforce Retry-After not-before times for caller retries");
 assert(adapterTests.includes("deferredRetryClock") &&
