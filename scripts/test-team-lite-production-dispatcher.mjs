@@ -9,6 +9,8 @@ assert.match(workflow, /^  workflow_dispatch:\n/m,
   "the dispatcher must be present on the repository default branch");
 assert.match(workflow, /release_sha:[\s\S]*?required: true[\s\S]*?type: string/,
   "the exact Team Lite release SHA must be a required input");
+assert.match(workflow, /approved_pr_number:[\s\S]*?required: true[\s\S]*?type: number/,
+  "a merged, reviewed PR must be explicitly identified");
 assert.match(workflow, /release_version:[\s\S]*?required: true[\s\S]*?type: string/,
   "the exact stable release version must be a required input");
 assert.match(workflow, /confirm_production_deploy:[\s\S]*?required: true[\s\S]*?default: false/,
@@ -18,6 +20,8 @@ assert.match(workflow, /branches:\n\s+- master/,
 assert.match(workflow, /branches:\n\s+- fix\/team-lite-production-dispatcher-master-20261109/,
   "the offline guard push must be limited to this isolated candidate branch");
 
+assert.match(workflow, /permissions:[\s\S]*?contents: read[\s\S]*?pull-requests: read[\s\S]*?checks: read/,
+  "the dispatcher must grant only the read permissions needed for provenance checks");
 assert.match(workflow, /offline_guard:[\s\S]*?if: github\.event_name != 'workflow_dispatch'/,
   "push/PR validation must be offline-only");
 assert.match(workflow, /deploy:[\s\S]*?if: github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/master' && inputs\.confirm_production_deploy == true/,
@@ -28,6 +32,14 @@ assert.match(workflow, /git\/ref\/heads\/team-lite-official/,
   "the current official Team Lite branch head must be resolved through GitHub API");
 assert.match(workflow, /current_sha[\s\S]*?RELEASE_SHA/,
   "the supplied release SHA must exactly match the current official branch head");
+assert.match(workflow, /pulls\/\$APPROVED_PR_NUMBER/,
+  "the supplied PR must be read from GitHub before deployment");
+assert.match(workflow, /\.merged_at[\s\S]*?\.base\.ref[\s\S]*?\.merge_commit_sha[\s\S]*?RELEASE_SHA/,
+  "the approved PR must be merged into team-lite-official and produce the exact release SHA");
+assert.match(workflow, /reviews\?per_page=100[\s\S]*?latest_review_state[\s\S]*?APPROVED[\s\S]*?latest_reviewer[\s\S]*?author_login/,
+  "the latest non-dismissed review must be an approval from someone other than the PR author");
+assert.match(workflow, /check-runs\?per_page=100[\s\S]*?check_count[\s\S]*?bad_checks/,
+  "the approved PR head must have completed successful or explicitly skipped check runs");
 assert.match(workflow, /ref: \$\{\{ inputs\.release_sha \}\}/,
   "checkout must use the explicitly supplied release SHA");
 assert.match(workflow, /git rev-parse HEAD[\s\S]*?RELEASE_SHA/,
@@ -51,10 +63,13 @@ const projectIndex = workflow.indexOf("node scripts/verify-team-lite-production-
 const migrationsIndex = workflow.indexOf("node scripts/verify-team-lite-production-migrations.mjs");
 const cliIndex = workflow.indexOf("name: Setup pinned Supabase CLI");
 const deployIndex = workflow.indexOf("supabase functions deploy");
-assert.ok(releaseIndex >= 0 && buildIndex > releaseIndex && candidateIndex > buildIndex &&
+const approvedPrIndex = workflow.indexOf("Require an approved merged PR");
+const checkoutIndex = workflow.indexOf("Checkout exact Team Lite release candidate");
+assert.ok(approvedPrIndex > 0 && checkoutIndex > approvedPrIndex &&
+  releaseIndex > checkoutIndex && buildIndex > releaseIndex && candidateIndex > buildIndex &&
   projectIndex > candidateIndex && migrationsIndex > projectIndex &&
   cliIndex > migrationsIndex && deployIndex > cliIndex,
-  "release, candidate, project and migration preflights must complete before CLI setup/deploy");
+  "PR provenance, source, release, candidate, project and migration preflights must complete before CLI setup/deploy");
 
 assert.match(workflow, /EXPECTED_PRODUCTION_PROJECT_ID: dlfvkawaiqduhlazsszm/);
 assert.match(workflow, /EXPECTED_SUPABASE_ORGANIZATION_ID: bcjtvojfkfoxvsitzmkl/);
@@ -78,4 +93,4 @@ assert.doesNotMatch(workflow, /supabase\s+(?:db\s+push|migration\s+up)/,
 assert.doesNotMatch(workflow, /^  (?:schedule|workflow_run):/m,
   "the dispatcher must not run on a schedule or workflow completion");
 
-console.log("PASS Team Lite default-branch production dispatcher guard.");
+console.log("PASS Team Lite default-branch production dispatcher guard with reviewed-release provenance.");
