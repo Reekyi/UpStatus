@@ -189,3 +189,8 @@ A única escrita documental desta rodada é este novo relatório na branch QA, a
 6. Completar autorização e rate limit de AUTH-03 e validar o fluxo por HTTP no ambiente isolado.
 7. Criar ambiente full-product TEST independente.
 8. Executar os oito critérios físicos da Issue #78 e obter review humana explícita antes de qualquer release.
+
+
+## Checkpoint após a gravação do relatório - 2026-11-09 21:37 UTC
+
+A criação deste relatório gerou o commit QA 23eecd57e48449d28e646b1828f18cf55346f48f. A branch QA passou a esse HEAD e ficou 171 commits à frente e 1 atrás de master. A PR #82 acompanha esse novo HEAD. Não foi encontrado workflow run nem combined status check associado ao commit documental 23eecd; portanto, o Validate 42694741324 citado acima é a falha do HEAD anterior f136161, e o novo HEAD documental permanece sem validação CI própria. Nenhum rerun foi iniciado.
