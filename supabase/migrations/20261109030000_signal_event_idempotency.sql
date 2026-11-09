@@ -205,7 +205,7 @@ BEGIN
     room_id, sender, recipient, event_type, payload, expires_at
   )
   SELECT p_room_id, p_sender, requested.user_name, p_event_type, p_payload,
-         pg_catalog.least(p_expires_at, v_room_expires_at)
+         LEAST(p_expires_at, v_room_expires_at)
   FROM pg_catalog.unnest(v_recipients) AS requested(user_name);
 
   GET DIAGNOSTICS v_delivered = ROW_COUNT;
