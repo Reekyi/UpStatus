@@ -2951,3 +2951,12 @@ No production or laboratory writes, migrations, deployments, workflow dispatches
 - Branch protection rechecked through GitHub: master, develop, and team-lite-official all report protected=false; rulesets list is empty.
 - Issue #78 remains 0/8 physical acceptance criteria. Issue #79 retains historical 16/35 and requires formal QA reconciliation. The QA branch and docs/RELEASE_READINESS.md remain unmodified.
 - No merge, deployment, migration, workflow dispatch, release, userscript publication, secret/role/grant/ACL/policy/flag change, or destructive operation occurred. All Supabase SQL was SELECT-only.
+
+## 2026-11-08 22:12 BRT — generic signaling room capacity
+
+- Latest independent QA audit `docs/audits/2026-11-09-upstatus-qa-audit-0025-utc.md` identified that generic `/room/invite` and `/room/accept` could exceed 32 accepted members under concurrent accepts.
+- Draft [PR #109](https://github.com/Reekyi/UpStatus/pull/109), HEAD `0ef939db451c736468ab3ad434942ff606c20999`, adds room-first transactional invite/accept RPCs, preserves API response shapes, and maps `ROOM_FULL` to HTTP 409. Exact-head Validate [42544279847](https://github.com/Reekyi/UpStatus/actions/runs/42544279847) SUCCESS; offline capacity contract passed.
+- The isolated catalog test migration and concurrent HTTP harness are versioned. The live harness requires the exact allowlisted lab project, explicit mutation opt-in, empty fixture preflight, and a `room-capacity-v1` health marker. It was not run because the QA-shared lab runtime remains v32 without that marker. No lab migration/deploy/fixture was performed.
+- Remaining QA findings: event replay/idempotency, route-specific invite quotas (thresholds need agreement), database-backed readiness, and Team Lite stack reconciliation. Broader authenticated signaling cutover and public Realtime P0 remain open.
+- Production remained read-only. No production migration, SQL write, deploy, release, merge, userscript publication, or security-setting change occurred.
+- Checkpoint: [2026-11-09 generic room capacity guard](https://github.com/Reekyi/UpStatus/blob/docs/continuity-handoff-2026-11-04/docs/checkpoints/2026-11-09-generic-room-capacity-guard.md).
