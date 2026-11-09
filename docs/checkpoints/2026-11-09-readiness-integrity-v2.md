@@ -22,10 +22,12 @@ This is SQL-body/catalog validation only. The function and migration were not ap
 
 ## Validation boundary
 
-- Parent PR #115 exact base branch: `fix/normal-signal-readiness-schema-usage-20261109-v2`.
-- Candidate branch: `fix/normal-signal-readiness-integrity-20261109`.
+- Base PR #113 branch: `feat/normal-signal-db-readiness-20261109`.
+- Candidate branch: `fix/normal-signal-readiness-integrity-20261109-v2`.
 - The Validate workflow was extended to recognize this child branch for push and pull-request events.
-- Full repository Validate is pending on the exact final candidate HEAD.
+- PR #117 exact HEAD `206e19df0d9c896b22e50eb16864a4ba80be9f16`: push Validate [42565786660](https://github.com/Reekyi/UpStatus/actions/runs/42565786660) and pull-request Validate [42565813869](https://github.com/Reekyi/UpStatus/actions/runs/42565813869) both **SUCCESS**. The logs confirm migration layout, source parity, room-capacity, idempotency, readiness integrity, signed-upload, chat, Team Lite updater checks, and `Validation OK: PROD 3.4.7 / TEST 3.4.7`.
+- Supabase Preview was skipped because automatic preview branches are disabled; no database migration was applied.
+- PRs #115 and #116 remain open Draft but are marked superseded by the consolidated #117 candidate.
 - True fresh-key SDP/ICE replay rejection remains unresolved; client-key idempotency alone is not adversarial anti-replay.
 - Team Lite backend/client reconciliation, invite quota thresholds, authenticated cutover, public Realtime/Storage hardening and physical #78 acceptance remain open.
 
