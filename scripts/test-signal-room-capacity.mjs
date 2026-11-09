@@ -94,6 +94,7 @@ let fixturesCreated = false;
 let failed = false;
 
 try {
+  fixturesCreated = true;
   const userRows = names.map(name => ({ name, role: "implementation_user", status: "offline" }));
   await rest("/users", "POST", userRows);
   const sessions = names.map((name, index) => ({
@@ -102,11 +103,9 @@ try {
     expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
   }));
   await rest("/upstatus_sessions", "POST", sessions);
-  fixturesCreated = true;
 
   const tooMany = await call(names[0], tokens[0], "/room/create", { participants: names.slice(1, 33) });
   assert.equal(tooMany.status, 400, "room/create must reject 33 total participants");
-  const roomIdFromRejected = typeof tooMany.body?.roomId === "string" ? tooMany.body.roomId : null;
 
   const created = await call(names[0], tokens[0], "/room/create", { participants: names.slice(1, 31) });
   assert.equal(created.status, 201, "room/create with 31 total participants must succeed");
