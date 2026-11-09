@@ -66,7 +66,7 @@ export function assertRemoteMigrationsHaveVerifiedProvenance(appliedMigrations, 
   const localByFilename = new Map();
   for (const [rawFilename, rawContent] of localEntries) {
     const filename = String(rawFilename || "");
-    if (!/^[0-9]{14}_[A-Za-z0-9_-]+\\.sql$/.test(filename) || typeof rawContent !== "string") {
+    if (!/^[0-9]{14}_[A-Za-z0-9_-]+\.sql$/.test(filename) || typeof rawContent !== "string") {
       throw new Error("Local migration content map contains a malformed filename or non-text value.");
     }
     if (localByFilename.has(filename)) {
@@ -83,7 +83,7 @@ export function assertRemoteMigrationsHaveVerifiedProvenance(appliedMigrations, 
     const blobSha = String(entry?.gitBlobSha || "").toLowerCase();
     const sourceCommit = String(entry?.sourceCommit || "").toLowerCase();
     const sourceRef = String(entry?.sourceRef || "");
-    if (!/^\\d{14}$/.test(version) || !/^[A-Za-z0-9_-]+$/.test(name) ||
+    if (!/^\d{14}$/.test(version) || !/^[A-Za-z0-9_-]+$/.test(name) ||
         filename !== version + "_" + name + ".sql" ||
         !/^[0-9a-f]{40}$/.test(blobSha) ||
         !/^[0-9a-f]{40}$/.test(sourceCommit) || !sourceRef) {
@@ -102,7 +102,7 @@ export function assertRemoteMigrationsHaveVerifiedProvenance(appliedMigrations, 
   for (const migration of appliedMigrations) {
     const version = String(migration?.version || "").trim();
     const name = String(migration?.name || "").trim();
-    if (!/^\\d{14}$/.test(version) || !name) {
+    if (!/^\d{14}$/.test(version) || !name) {
       throw new Error("Supabase Management API returned a malformed remote migration entry for provenance verification.");
     }
     if (remoteVersions.has(version)) {
