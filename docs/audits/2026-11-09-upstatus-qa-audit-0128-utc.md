@@ -11,7 +11,7 @@ All database statements in this audit were SELECT/catalog reads. No test harness
 - master: `9d40461babcec8eb868c2a04be9c675df7da381`
 - team-lite-official: `9065bc1536fde64f437f6f12b7abb9b072cb8281`
 - QA branch and PR #82 HEAD: `5815951953fb516567304a27798da032a332f1bf`
-- QA compared with current master: 143 commits ahead, 1 behind; merge base `a9288ccfcb0f308d3a587bfca624418a395be07b`. The current master commit absent from QA is the documentation-only AUTH-03 migration preflight checkpoint. PR #82's stored base SHA is the older merge-base; the live master ref above is authoritative for this comparison.
+- QA compared with current master: 143 commits ahead, 1 behind; merge base `a9288ccfcb0f308d3a587bfca624418a395be07b`. The current master commit absent from QA is the documentation-only AUTH-03 migration preflight checkpoint. PR #82 metadata returned base_sha a9288ccfcb0f308d3a587bfca624418a395be07b, matching the comparison merge base; the live master ref above is authoritative for the current base.
 - The QA baseline file SHA remains `7cfbd70886df42ce790c078c224b19284a632595`.
 
 GitHub branch API reports master and team-lite-official as protected=false, with required status-check enforcement off and empty required-check contexts. Repository-level rulesets were not inspected, so this finding is limited to the branch-protection data returned by the branch endpoint.
@@ -35,7 +35,7 @@ GitHub branch API reports master and team-lite-official as protected=false, with
 
 The #82 job log confirms the failure is still the inherited master assertion: 'production updateURL mismatch'. The successful #74 candidate uses the release manifest URL, but that correction is not in current master.
 
-PR #109 is stacked on the #108 v2 branch (base HEAD `59f8650a1c18e0c94eaf80eda8775d5418ed3fd9`). It remains Draft, mergeable, and has no human review. PR #108 also has no human review. Review queries returned no submitted reviews for the audited PRs #74-#76, #82 and #101-#109. PR #107 is the dirty/superseded first attempt; do not integrate it.
+PR #109 is stacked on the #108 v2 branch (base HEAD `59f8650a1c18e0c94eaf80eda8775d5418ed3fd9`). It remains Draft, mergeable, and has no human review. PR #108 also has no human review. Review queries returned no submitted reviews for #74-#76, #82, #101-#106, #108 and #109. PR #107 was not re-reviewed because it is the superseded dirty attempt. PR #107 is the dirty/superseded first attempt; do not integrate it.
 
 PR #104 remains a separate divergent line: compared with #101, it is 119 commits ahead and 887 behind, with merge base `a9288ccfcb0f308d3a587bfca624418a395be07b`. Do not combine the release guard and backend stacks by blind merge.
 
