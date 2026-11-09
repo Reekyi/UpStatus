@@ -108,6 +108,7 @@ for (const [fragment, label] of [
   ["ON DELETE CASCADE", "room lifetime cleanup"],
   ["ALTER TABLE public.upstatus_signal_event_idempotency ENABLE ROW LEVEL SECURITY", "RLS"],
   ["REVOKE ALL ON TABLE public.upstatus_signal_event_idempotency FROM PUBLIC, anon, authenticated", "client table revoke"],
+  ["TRUNCATE", "explicit client TRUNCATE privilege check"],
   ["SECURITY INVOKER", "invoker security"],
   ["SET search_path = ''", "empty search_path"],
   ["ON CONFLICT (room_id, sender, idempotency_key) DO NOTHING", "atomic deduplication"],
