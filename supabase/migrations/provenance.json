@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "algorithm": "git-blob-sha1",
+  "note": "Only the three original migrations present in the reviewed master tree are recorded. Four remote production migrations are intentionally absent until their original reviewed SQL files and provenance are recovered; the production preflight must remain blocked.",
+  "entries": [
+    {
+      "version": "20261005160000",
+      "name": "upstatus_cloud",
+      "filename": "20261005160000_upstatus_cloud.sql",
+      "gitBlobSha": "636b255c6ba10fdade072183ce24dc5fdb8f4fac",
+      "sourceRef": "master",
+      "sourceCommit": "9d40461babcec8eb8686c2a04be9c675df7da381"
+    },
+    {
+      "version": "20261005173000",
+      "name": "remote_realtime",
+      "filename": "20261005173000_remote_realtime.sql",
+      "gitBlobSha": "4ce397d8679fbd0e3549a3ceeb0fe9a5f0f26e55",
+      "sourceRef": "master",
+      "sourceCommit": "9d40461babcec8eb8686c2a04be9c675df7da381"
+    },
+    {
+      "version": "20261005180000",
+      "name": "client_presence",
+      "filename": "20261005180000_client_presence.sql",
+      "gitBlobSha": "b29dac0c083d1054b08684cb4e22279d30fe44bd",
+      "sourceRef": "master",
+      "sourceCommit": "9d40461babcec8eb8686c2a04be9c675df7da381"
+    }
+  ]
+}
