@@ -133,7 +133,7 @@ export function createSignalingTransport({
   }
 
   function snapshotJson(value) {
-    const serialized = JSON.stringify(value ?? {});
+    const serialized = JSON.stringify(value);
     if (typeof serialized !== "string") throw new TypeError("Signaling request must be JSON serializable");
     return JSON.parse(serialized);
   }
@@ -146,7 +146,8 @@ export function createSignalingTransport({
 
   function signalRetryIdentity(path, payload, operationId, explicitKey) {
     const identityPayload = snapshotJson(payload);
-    if (identityPayload.payload && typeof identityPayload.payload === "object" && !Array.isArray(identityPayload.payload)) {
+    if (identityPayload && identityPayload.payload && typeof identityPayload.payload === "object" &&
+        !Array.isArray(identityPayload.payload)) {
       delete identityPayload.payload.at;
       delete identityPayload.payload.updatedAt;
     }
