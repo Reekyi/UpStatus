@@ -37,3 +37,13 @@ Apply it only to the allowlisted isolated project after checking that no fixture
 - Isolated contract test: `20261108050802_voice_attempt_account_scoped_lock_test.sql` verifies attempt-ID → account → shared-room ordering, confirms the open scan happens before the inner room-open RPC, and preserves SECURITY INVOKER, empty search_path and service_role-only grants.
 - The authenticated integration harness races opens and cancels for two different accounts while retaining the same-account one-winner regression.
 - These two version numbers match the migration records already applied to the allowlisted isolated lab `bfpjtfqlnypisxljoxkb`. Never apply test-migration files to production or official TEST.
+
+
+## Generic room membership capacity (2026-11-09)
+
+- Production candidate migration: `20261109010000_enforce_signal_room_member_capacity.sql`. It moves generic room invitation and acceptance into SECURITY INVOKER RPCs that lock the room row before membership rows, matching the lock order used by `leave_upstatus_signal_room`.
+- The RPCs enforce a maximum of 32 accepted members transactionally. Concurrent acceptances at 31 members must yield exactly one success and one `ROOM_FULL` conflict; invitations after the room is full are rejected.
+- Isolated catalog contract: `20261109010000_enforce_signal_room_member_capacity_test.sql`. It verifies VOLATILE/SECURITY INVOKER, empty `search_path`, room-first lock order, the 32-member check, and service_role-only execution.
+- Live fixture harness: `scripts/test-signal-room-capacity.mjs`. It requires the exact isolated project ref, explicit `UPSTATUS_SIGNAL_ALLOW_MUTATION=1`, an empty lab preflight, and the reviewed `X-UpStatus-Signal-Capacity: room-capacity-v1` health header before creating 35 uniquely prefixed users. It cleans only those exact fixtures.
+- The current shared lab runtime v32 does not advertise the capacity header, so the live harness intentionally aborts before fixture writes until QA/engineering coordinates an isolated candidate runtime update.
+- Never apply this test migration to production or the official TEST project. Do not run the live harness while another fixture-mutating suite is active.
