@@ -25,10 +25,18 @@ BEGIN
 
   IF pg_catalog.has_table_privilege('anon', v_table, 'SELECT')
      OR pg_catalog.has_table_privilege('anon', v_table, 'INSERT')
+     OR pg_catalog.has_table_privilege('anon', v_table, 'UPDATE')
+     OR pg_catalog.has_table_privilege('anon', v_table, 'DELETE')
+     OR pg_catalog.has_table_privilege('anon', v_table, 'TRUNCATE')
      OR pg_catalog.has_table_privilege('authenticated', v_table, 'SELECT')
      OR pg_catalog.has_table_privilege('authenticated', v_table, 'INSERT')
+     OR pg_catalog.has_table_privilege('authenticated', v_table, 'UPDATE')
+     OR pg_catalog.has_table_privilege('authenticated', v_table, 'DELETE')
+     OR pg_catalog.has_table_privilege('authenticated', v_table, 'TRUNCATE')
      OR NOT pg_catalog.has_table_privilege('service_role', v_table, 'SELECT')
-     OR NOT pg_catalog.has_table_privilege('service_role', v_table, 'INSERT') THEN
+     OR NOT pg_catalog.has_table_privilege('service_role', v_table, 'INSERT')
+     OR NOT pg_catalog.has_table_privilege('service_role', v_table, 'UPDATE')
+     OR NOT pg_catalog.has_table_privilege('service_role', v_table, 'DELETE') THEN
     RAISE EXCEPTION 'idempotency ledger table grants are not service_role-only';
   END IF;
 
