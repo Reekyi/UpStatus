@@ -41,6 +41,7 @@ for (const name of [
   "20261109010000_enforce_signal_room_member_capacity_test.sql",
   "20261109030000_signal_event_idempotency_test.sql",
   "20261109040000_signal_database_readiness_test.sql",
+  "20261109050000_signal_database_readiness_integrity_test.sql",
 ]) {
   const testPath = path.join(testMigrationsRoot, name);
   const migrationPath = path.join(migrationsRoot, name);
