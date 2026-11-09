@@ -4,11 +4,15 @@ import { readJsonObject } from "./body.mjs";
 import { isAllowedLegacyEnvelope } from "./legacy-envelope.mjs";
 import { voiceRoomOpenResultStatus, roomMemberInviteResultStatus, roomMemberAcceptResultStatus } from "./http-contract.mjs";
 import { canonicalSignalRequestJson, isValidSignalIdempotencyKey, signalEventErrorStatus } from "./idempotency.mjs";
-import { signalDatabaseReadinessStatus } from "./readiness.mjs";
+import { createSignalReadinessProbe } from "./readiness.mjs";
 
 const PROJECT_URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}").default || "";
 const db = createClient(PROJECT_URL, KEY, { auth: { persistSession: false } });
+const getSignalReadinessStatus = createSignalReadinessProbe({
+  ttlMs: 5000,
+  rpc: () => db.rpc("upstatus_signal_readiness")
+});
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "content-type, x-upstatus-token, authorization, apikey",
@@ -157,14 +161,9 @@ Deno.serve(async (req: Request) => {
   const path = new URL(req.url).pathname.replace(/\/$/, "");
   if (req.method === "GET" && path.endsWith("/health")) return response({ ok: true, service: "upstatus-signal-test" }, 200, { "X-UpStatus-Signal-Capacity": "room-capacity-v1", "X-UpStatus-Signal-Idempotency": "event-idempotency-v1" });
   if (req.method === "GET" && path.endsWith("/ready")) {
-    try {
-      const { data, error } = await db.rpc("upstatus_signal_readiness");
-      const status = signalDatabaseReadinessStatus(data, error);
-      if (status !== 200) return response({ ok: false, service: "upstatus-signal-test" }, 503);
-      return response({ ok: true, service: "upstatus-signal-test" }, 200, { "X-UpStatus-Signal-Readiness": "database-v1" });
-    } catch {
-      return response({ ok: false, service: "upstatus-signal-test" }, 503);
-    }
+    const status = await getSignalReadinessStatus();
+    if (status !== 200) return response({ ok: false, service: "upstatus-signal-test" }, 503);
+    return response({ ok: true, service: "upstatus-signal-test" }, 200, { "X-UpStatus-Signal-Readiness": "database-v2" });
   }
   try {
     if (req.method !== "POST") return response({ error: "Method not allowed" }, 405);
