@@ -14,6 +14,8 @@ on:
       - "scripts/verify-team-lite-production-migrations.mjs"
       - "scripts/verify-team-lite-release.mjs"
       - "scripts/test-team-lite-production-deploy.mjs"
+      - "scripts/build.mjs"
+      - "scripts/team-lite-candidate-check.mjs"
       - "scripts/migration-layout.test.mjs"
       - "src/server/team-lite-index.template.ts"
       - "team-lite/release.json"
@@ -54,6 +56,10 @@ jobs:
           node --check scripts/verify-team-lite-production-migrations.mjs
           node --check scripts/verify-team-lite-release.mjs
           node --check scripts/test-team-lite-production-deploy.mjs
+      - name: Build Team Lite candidate artifacts offline
+        run: node scripts/build.mjs
+      - name: Run existing Team Lite candidate contract suite offline
+        run: node scripts/team-lite-candidate-check.mjs
       - name: Run offline Team Lite production deploy guard
         run: node scripts/test-team-lite-production-deploy.mjs
       - name: Verify test migration isolation
