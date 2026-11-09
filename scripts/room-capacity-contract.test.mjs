@@ -124,6 +124,7 @@ const liveHarness = read("scripts/test-signal-room-capacity.mjs");
 assert(liveHarness.includes("verifyIsolatedSupabaseMutationTarget") &&
   liveHarness.includes("UPSTATUS_SIGNAL_ALLOW_MUTATION") &&
   liveHarness.includes("X-UpStatus-Signal-Capacity") &&
+  liveHarness.includes("X-UpStatus-Signal-Idempotency") &&
   liveHarness.includes("upstatus_signal_voice_room_attempts") &&
   liveHarness.includes("Promise.all") &&
   liveHarness.includes("deleteIn(") &&
@@ -139,6 +140,7 @@ for (const table of [
   "upstatus_signal_call_attempts",
   "upstatus_signal_voice_room_attempts",
   "upstatus_signal_rate_limits",
+  "upstatus_signal_event_idempotency",
 ]) {
   assert(liveHarness.includes(`"${table}"`), "cleanup/preflight table missing: " + table);
 }
