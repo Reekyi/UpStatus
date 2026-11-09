@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { createHash, randomBytes } from "node:crypto";
 import { readJsonObject } from "./body.mjs";
 import { isAllowedLegacyEnvelope } from "./legacy-envelope.mjs";
-import { voiceRoomOpenResultStatus } from "./http-contract.mjs";
+import { voiceRoomOpenResultStatus, roomMemberInviteResultStatus, roomMemberAcceptResultStatus } from "./http-contract.mjs";
 
 const PROJECT_URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}").default || "";
@@ -152,7 +152,7 @@ function cleanPayload(value: unknown) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   const path = new URL(req.url).pathname.replace(/\/$/, "");
-  if (req.method === "GET" && path.endsWith("/health")) return response({ ok: true, service: "upstatus-signal-test" });
+  if (req.method === "GET" && path.endsWith("/health")) return response({ ok: true, service: "upstatus-signal-test" }, 200, { "X-UpStatus-Signal-Capacity": "room-capacity-v1" });
   try {
     if (req.method !== "POST") return response({ error: "Method not allowed" }, 405);
     const sender = await auth(req);
@@ -343,33 +343,25 @@ Deno.serve(async (req: Request) => {
     if (path.endsWith("/room/invite")) {
       const roomId = String(p.roomId || "");
       const recipient = String(p.recipient || "");
-      const activeRoom = roomId ? await room(roomId) : null;
-      if (!activeRoom) return response({ error: "Room unavailable" }, 404);
-      if (!recipient || recipient.length > 80 || recipient === sender)
-        return response({ error: "A different valid recipient is required" }, 400);
-      if (!(await isMember(roomId, sender)))
-        return response({ error: "Accepted room membership required" }, 403);
-      const { data: known, error: knownError } = await db.from("users")
-        .select("name").eq("name", recipient).maybeSingle();
-      if (knownError) throw knownError;
-      if (!known) return response({ error: "Unknown participant" }, 404);
-      const { data: existing, error: existingError } = await db.from("upstatus_signal_room_members")
-        .select("status").eq("room_id", roomId).eq("user_name", recipient).maybeSingle();
-      if (existingError) throw existingError;
-      if (existing?.status === "declined") {
-        const { error: reissueError } = await db.from("upstatus_signal_room_members")
-          .update({ status: "pending", joined_at: new Date().toISOString() })
-          .eq("room_id", roomId).eq("user_name", recipient).eq("status", "declined");
-        if (reissueError) throw reissueError;
-        return response({ ok: true, status: "pending", reissued: true }, 201);
-      }
-      if (existing) return response({ error: "Participant already invited or a room member" }, 409);
-      const { error } = await db.from("upstatus_signal_room_members").insert({
-        room_id: roomId, user_name: recipient, status: "pending"
+      if (!/^[A-Za-z0-9._:-]{1,128}$/.test(roomId) ||
+          !recipient || recipient.length > 80 || recipient === sender)
+        return response({ error: "A different valid room recipient is required" }, 400);
+      const { data, error } = await db.rpc("invite_upstatus_signal_room_member", {
+        p_room_id: roomId, p_inviter: sender, p_recipient: recipient
       });
-      if (error?.code === "23505") return response({ error: "Participant already invited or a room member" }, 409);
       if (error) throw error;
-      return response({ ok: true, status: "pending" }, 201);
+      const result = data as Record<string, unknown> | null;
+      if (!result || typeof result !== "object" || Array.isArray(result))
+        return response({ error: "Room invitation failed" }, 500);
+      if (Object.hasOwn(result, "error")) {
+        const code = typeof result.error === "string" && result.error.length > 0
+          ? result.error
+          : "UNEXPECTED_RPC_ERROR";
+        return response({ error: code }, roomMemberInviteResultStatus(result));
+      }
+      if (result.ok !== true || result.status !== "pending")
+        return response({ error: "Room invitation failed" }, 500);
+      return response(result, 201);
     }
 
     if (path.endsWith("/room/members")) {
@@ -458,7 +450,29 @@ Deno.serve(async (req: Request) => {
       })) });
     }
 
-    if (path.endsWith("/room/accept") || path.endsWith("/room/decline")) {
+    if (path.endsWith("/room/accept")) {
+      const roomId = String(p.roomId || "");
+      if (!/^[A-Za-z0-9._:-]{1,128}$/.test(roomId))
+        return response({ error: "Invalid room ID" }, 400);
+      const { data, error } = await db.rpc("accept_upstatus_signal_room_invitation", {
+        p_room_id: roomId, p_user_name: sender
+      });
+      if (error) throw error;
+      const result = data as Record<string, unknown> | null;
+      if (!result || typeof result !== "object" || Array.isArray(result))
+        return response({ error: "Room acceptance failed" }, 500);
+      if (Object.hasOwn(result, "error")) {
+        const code = typeof result.error === "string" && result.error.length > 0
+          ? result.error
+          : "UNEXPECTED_RPC_ERROR";
+        return response({ error: code }, roomMemberAcceptResultStatus(result));
+      }
+      if (result.ok !== true || result.status !== "accepted")
+        return response({ error: "Room acceptance failed" }, 500);
+      return response(result);
+    }
+
+    if (path.endsWith("/room/decline")) {
       const roomId = String(p.roomId || "");
       if (!roomId || !(await room(roomId))) return response({ error: "Room unavailable" }, 404);
       const { data: invitation, error: invitationError } = await db.from("upstatus_signal_room_members")
@@ -466,13 +480,10 @@ Deno.serve(async (req: Request) => {
       if (invitationError) throw invitationError;
       if (!invitation || invitation.status !== "pending")
         return response({ error: "Pending invitation not found" }, 404);
-      const status = path.endsWith("/room/accept") ? "accepted" : "declined";
       const { data: updatedInvitation, error } = await db.from("upstatus_signal_room_members")
-        .update({ status }).eq("room_id", roomId).eq("user_name", sender).eq("status", "pending")
+        .update({ status: "declined" }).eq("room_id", roomId).eq("user_name", sender).eq("status", "pending")
         .select("status").maybeSingle();
       if (error) throw error;
-      // The conditional update is the state transition's atomic guard. A concurrent
-      // accept/decline may have won after the read above; do not report false success.
       if (!updatedInvitation) return response({ error: "Invitation already handled" }, 409);
       return response({ ok: true, status: updatedInvitation.status });
     }
