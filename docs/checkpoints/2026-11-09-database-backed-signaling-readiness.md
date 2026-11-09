@@ -43,3 +43,14 @@ This endpoint is a candidate readiness contract, not proof that the currently de
 The exact CTE body from the candidate readiness migration was executed as a standalone SELECT against the allowlisted lab project `bfpjtfqlnypisxljoxkb`. It parsed and returned `ready=false` with only the expected missing dependencies: the event-idempotency ledger/table columns, the capacity invite/accept RPCs, and the idempotent enqueue RPC. All pre-existing required tables, columns, service_role grants, and other listed RPC signatures passed the query's checks.
 
 This was a SELECT-only query extracted from the migration function body. It did not create the readiness function, apply a migration, or mutate the lab. The live `GET /ready` endpoint and isolated catalog test remain unexecuted.
+
+
+## Final security-inventory validation — 2026-11-09
+
+This section supersedes the earlier code-head reference above.
+
+- Final validated code/PR HEAD: `bfc6fc2585daaaacaf885ac9001a992fa93acb5f`.
+- Exact PR Validate [42557325620](https://github.com/Reekyi/UpStatus/actions/runs/42557325620): SUCCESS. Logs confirm `Signal database readiness contract tests passed`, source parity, capacity/idempotency contracts, Normal build, and `Validation OK: PROD 3.4.7 / TEST 3.4.7`.
+- Readiness now also fails closed if any handler RPC is not VOLATILE SECURITY INVOKER with empty `search_path`, service_role EXECUTE, and no anon/authenticated EXECUTE.
+- The SQL body was re-run as a standalone SELECT against the allowlisted lab after these checks were added. It still returns `ready=false` only for the expected absent event-idempotency ledger/table columns and the not-yet-applied capacity/idempotent-enqueue RPCs. Existing RPCs pass the volatility, invoker, search_path, and client-grant checks.
+- No function/migration was applied and no schema or row was changed. A subsequent checkpoint-only commit follows this validated code HEAD; no code changed after the passing run.
