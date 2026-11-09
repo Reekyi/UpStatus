@@ -66,9 +66,8 @@ const acceptRoute = production.slice(acceptStart, acceptEnd);
 assert(acceptRoute.includes('db.rpc("accept_upstatus_signal_room_invitation"'), "room accept route must use the transactional accept RPC");
 assert(!acceptRoute.includes('db.from("upstatus_signal_room_members")'), "room accept route must not update memberships outside the RPC");
 
-for (const [label, source] of [["invite", inviteRoute], ["accept", acceptRoute]]) {
-  assert(source.includes("ROOM_FULL"), label + " route must preserve the 409 full-room contract");
-}
+assert(inviteRoute.includes("roomMemberInviteResultStatus"), "invite route must use the shared 409 error mapper");
+assert(acceptRoute.includes("roomMemberAcceptResultStatus"), "accept route must use the shared 409 error mapper");
 assert(migration.includes("FOR UPDATE") && migration.includes(">= 32") &&
   migration.includes("ROOM_FULL") && migration.includes("SECURITY INVOKER") &&
   migration.includes("SET search_path = ''"), "production migration must lock room-first, cap membership, and use invoker security");
