@@ -38,6 +38,7 @@ for (const name of [
   "20261107170000_pin_empty_search_path_trigger_broadcasts_test.sql",
   "20261108010000_voice_attempt_singleton_test.sql",
   "20261108050802_voice_attempt_account_scoped_lock_test.sql",
+  "20261109010000_enforce_signal_room_member_capacity_test.sql",
 ]) {
   const testPath = path.join(testMigrationsRoot, name);
   const migrationPath = path.join(migrationsRoot, name);
