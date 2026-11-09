@@ -26,17 +26,18 @@ export function createSignalingTransport({
   now = () => Date.now(),
   setTimeoutFn = setTimeout,
   clearTimeoutFn = clearTimeout,
-  retryKeyTtlMs = 30 * 60 * 1000,
-  maxPendingRetryKeys = 128,
+  retryKeyTtlMs = 2 * 60 * 60 * 1000 + 5 * 60 * 1000,
+  maxPendingRetryKeys = 256,
   maxIdempotentRetries = 1,
   retryBaseDelayMs = 250,
   maxRetryAfterMs = 1500,
 } = {}) {
   if (typeof request !== "function") throw new TypeError("request must be a function");
 
-  const pendingRetryTtl = Number.isFinite(retryKeyTtlMs) && retryKeyTtlMs > 0 ? retryKeyTtlMs : 30 * 60 * 1000;
+  const pendingRetryTtl = Number.isFinite(retryKeyTtlMs) && retryKeyTtlMs > 0
+    ? retryKeyTtlMs : 2 * 60 * 60 * 1000 + 5 * 60 * 1000;
   const pendingRetryLimit = Number.isSafeInteger(maxPendingRetryKeys) && maxPendingRetryKeys > 0
-    ? Math.min(maxPendingRetryKeys, 1024) : 128;
+    ? Math.min(maxPendingRetryKeys, 1024) : 256;
   const idempotentRetryLimit = Number.isSafeInteger(maxIdempotentRetries) && maxIdempotentRetries >= 0
     ? Math.min(maxIdempotentRetries, 3) : 1;
   const retryDelayBase = Number.isFinite(retryBaseDelayMs) && retryBaseDelayMs >= 0 ? retryBaseDelayMs : 250;
