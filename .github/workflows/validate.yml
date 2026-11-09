@@ -11,6 +11,7 @@ on:
       - "fix/normal-signal-readiness-integrity-20261109-v2"
       - "feat/normal-signal-retry-key-cache-20261109"
       - "fix/normal-signal-retry-after-guard-20261109"
+      - "fix/normal-signal-explicit-retry-key-lookup-20261109"
     paths-ignore:
       - "**/*.md"
       - "docs/**"
@@ -25,6 +26,7 @@ on:
       - "fix/normal-signal-readiness-integrity-20261109-v2"
       - "feat/normal-signal-retry-key-cache-20261109"
       - "fix/normal-signal-retry-after-guard-20261109"
+      - "fix/normal-signal-explicit-retry-key-lookup-20261109"
     paths-ignore:
       - "**/*.md"
       - "docs/**"
