@@ -105,12 +105,24 @@ BEGIN
   WHERE n.nspname = 'public' AND c.relname = 'upstatus_setup_invite_rate_limits';
 
   IF NOT COALESCE(v_rls, false) THEN RAISE EXCEPTION 'setup invite rate-limit table must have RLS enabled'; END IF;
-  IF NOT pg_catalog.has_table_privilege('service_role', 'public.upstatus_setup_invite_rate_limits', 'SELECT,INSERT,UPDATE,DELETE') THEN
+  IF NOT pg_catalog.has_table_privilege('service_role', 'public.upstatus_setup_invite_rate_limits', 'SELECT') OR
+     NOT pg_catalog.has_table_privilege('service_role', 'public.upstatus_setup_invite_rate_limits', 'INSERT') OR
+     NOT pg_catalog.has_table_privilege('service_role', 'public.upstatus_setup_invite_rate_limits', 'UPDATE') OR
+     NOT pg_catalog.has_table_privilege('service_role', 'public.upstatus_setup_invite_rate_limits', 'DELETE') THEN
     RAISE EXCEPTION 'service_role must retain rate-limit table access';
   END IF;
   IF pg_catalog.has_table_privilege('anon', 'public.upstatus_setup_invite_rate_limits', 'SELECT') OR
-     pg_catalog.has_table_privilege('authenticated', 'public.upstatus_setup_invite_rate_limits', 'SELECT') THEN
-    RAISE EXCEPTION 'client roles must not read setup invite rate-limit buckets';
+     pg_catalog.has_table_privilege('anon', 'public.upstatus_setup_invite_rate_limits', 'INSERT') OR
+     pg_catalog.has_table_privilege('anon', 'public.upstatus_setup_invite_rate_limits', 'UPDATE') OR
+     pg_catalog.has_table_privilege('anon', 'public.upstatus_setup_invite_rate_limits', 'DELETE') OR
+     pg_catalog.has_table_privilege('authenticated', 'public.upstatus_setup_invite_rate_limits', 'SELECT') OR
+     pg_catalog.has_table_privilege('authenticated', 'public.upstatus_setup_invite_rate_limits', 'INSERT') OR
+     pg_catalog.has_table_privilege('authenticated', 'public.upstatus_setup_invite_rate_limits', 'UPDATE') OR
+     pg_catalog.has_table_privilege('authenticated', 'public.upstatus_setup_invite_rate_limits', 'DELETE') THEN
+    RAISE EXCEPTION 'client roles must not access setup invite rate-limit buckets';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_catalog.pg_policies WHERE schemaname='public' AND tablename='upstatus_setup_invite_rate_limits') THEN
+    RAISE EXCEPTION 'setup invite rate-limit table must not expose client policies';
   END IF;
 END;
 $test$;
