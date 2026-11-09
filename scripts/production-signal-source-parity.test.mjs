@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { voiceRoomOpenResultStatus as productionVoiceRoomOpenResultStatus } from "../supabase/functions/upstatus-signal/http-contract.mjs";
 import { voiceRoomOpenResultStatus as isolatedVoiceRoomOpenResultStatus } from "../supabase/functions/upstatus-signal-test/http-contract.mjs";
-import { signalDatabaseReadinessStatus as productionReadinessStatus } from "../supabase/functions/upstatus-signal/readiness.mjs";
+import { signalDatabaseReadinessStatus as productionReadinessStatus, createSignalReadinessProbe } from "../supabase/functions/upstatus-signal/readiness.mjs";
 import { signalDatabaseReadinessStatus as isolatedReadinessStatus } from "../supabase/functions/upstatus-signal-test/readiness.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -27,8 +27,8 @@ assert.equal(read(prodDir + "/legacy-envelope.mjs"), read(testDir + "/legacy-env
 assert.equal(read(prodDir + "/http-contract.mjs"), read(testDir + "/http-contract.mjs"), "voice-room HTTP status mapper drifted");
 assert.equal(read(prodDir + "/idempotency.mjs"), read(testDir + "/idempotency.mjs"), "signal idempotency helper drifted");
 assert.equal(read(prodDir + "/readiness.mjs"), read(testDir + "/readiness.mjs"), "database readiness helper drifted");
-assert.equal(productionReadinessStatus({ ready: true, schemaVersion: "signal-v1", missing: [] }, null), 200, "production readiness helper must accept a complete database result");
-assert.equal(isolatedReadinessStatus({ ready: false, schemaVersion: "signal-v1", missing: ["table:public.upstatus_signal_rooms"] }, null), 503, "isolated readiness helper must reject missing dependencies");
+assert.equal(productionReadinessStatus({ ready: true, schemaVersion: "signal-v2", missing: [] }, null), 200, "production readiness helper must accept a complete database result");
+assert.equal(isolatedReadinessStatus({ ready: false, schemaVersion: "signal-v2", missing: ["table:public.upstatus_signal_rooms"] }, null), 503, "isolated readiness helper must reject missing dependencies");
 
 const config = read("supabase/config.toml");
 const configBlock = config.match(/^\[functions\.upstatus-signal\]\nverify_jwt = false$/m);
@@ -51,7 +51,8 @@ const requiredMigrations = [
   "20261108190000_distributed_signaling_rate_limit.sql",
   "20261109010000_enforce_signal_room_member_capacity.sql",
   "20261109030000_signal_event_idempotency.sql",
-  "20261109040000_signal_database_readiness.sql"
+  "20261109040000_signal_database_readiness.sql",
+  "20261109050000_signal_database_readiness_integrity.sql"
 ];
 for (const file of requiredMigrations) {
   assert(fs.existsSync(path.join(ROOT, "supabase/migrations", file)), "missing production signaling migration: " + file);
@@ -72,6 +73,19 @@ for (const [fragment, label] of [
 assert(!idempotencyMigration.includes("DO $test$"), "production idempotency migration must not contain test assertions");
 assert(production.includes('db.rpc("enqueue_upstatus_signal_events"'), "signal routes must enqueue through the idempotency RPC");
 assert(production.includes('db.rpc("upstatus_signal_readiness"'), "GET /ready must call the database readiness RPC");
+assert(production.includes("createSignalReadinessProbe") && production.includes("ttlMs: 5000"),
+  "GET /ready must use the five-second per-isolate single-flight probe");
+assert(production.includes('"X-UpStatus-Signal-Readiness": "database-v2"'),
+  "GET /ready must expose the database-v2 readiness marker");
+const readinessIntegrityMigration = read("supabase/migrations/20261109050000_signal_database_readiness_integrity.sql");
+for (const [fragment, label] of [
+  ["required_constraints", "constraint inventory"],
+  ["required_indexes", "critical index inventory"],
+  ["pg_catalog.pg_constraint", "constraint catalog checks"],
+  ["pg_catalog.pg_get_indexdef", "index definition checks"],
+  ["upstatus_signal_event_idempotency", "idempotency ledger key checks"],
+  ["'schemaVersion', 'signal-v2'", "readiness v2 contract"]
+]) assert(readinessIntegrityMigration.includes(fragment), "readiness integrity migration missing " + label);
 assert(!production.includes('db.from("upstatus_signal_events").insert('), "signal events must not bypass the idempotency RPC");
 
 const rateLimitMigration = read("supabase/migrations/20261108190000_distributed_signaling_rate_limit.sql");
