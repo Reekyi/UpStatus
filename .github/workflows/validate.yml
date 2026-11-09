@@ -6,6 +6,7 @@ on:
       - master
       - develop
       - "fix/normal-signal-http-error-code-shape-20261108-v2"
+      - "fix/normal-signal-room-capacity-20261109-v2"
     paths-ignore:
       - "**/*.md"
       - "docs/**"
@@ -14,6 +15,7 @@ on:
       - master
       - develop
       - "fix/normal-signal-http-error-code-shape-20261108-v2"
+      - "fix/normal-signal-room-capacity-20261109-v2"
     paths-ignore:
       - "**/*.md"
       - "docs/**"
