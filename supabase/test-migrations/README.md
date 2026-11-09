@@ -54,3 +54,13 @@ Apply it only to the allowlisted isolated project after checking that no fixture
 - The catalog test now checks the exact sequence: room row lock, inviter membership row lock, recipient membership row lock, accepted-member count, then either reissue/update or insert. The accept RPC must lock the room and invitation row before counting and changing status.
 - The live harness removes only rows tied to its unique fixture usernames/room across events, bindings, call attempts, voice attempts, memberships, rooms, sessions and rate-limit buckets, then asserts all nine preflight tables are empty.
 - This remains offline/catalog-contract coverage plus an unexecuted lab-only HTTP harness. Do not apply the test migration or run the harness until the QA-shared lab runtime is updated through an approved coordinated path.
+
+
+## Server-side signaling event idempotency (2026-11-09)
+
+- Production candidate migration: `20261109030000_signal_event_idempotency.sql`. It adds a service-role-only replay ledger scoped by room, authenticated sender and a 128-bit client idempotency key. The ledger remains until room deletion, even after an event is acknowledged or expires, so replay cannot re-enqueue the same operation during the room lifetime.
+- The `enqueue_upstatus_signal_events` RPC uses VOLATILE SECURITY INVOKER, an empty `search_path`, room-first/share membership locks, and service_role-only execution. Reusing a key with a different canonical request hash returns `IDEMPOTENCY_KEY_REUSED` (HTTP 409).
+- The RPC supports unicast, room broadcast and the narrowly validated non-member `join_request` path. The join-request exception requires the active room creator as the sole recipient and a matching call binding.
+- Isolated catalog contract: `20261109030000_signal_event_idempotency_test.sql`. It verifies RLS, grants, primary key, RPC security, lock behavior and replay conflict handling.
+- The guarded `scripts/test-signal-room-capacity.mjs` now also exercises same-key unicast/broadcast replay and different-payload key reuse. It requires both `X-UpStatus-Signal-Capacity: room-capacity-v1` and `X-UpStatus-Signal-Idempotency: event-idempotency-v1`, the exact isolated project allowlist, explicit mutation opt-in and empty preflight/postflight checks including the replay ledger.
+- The live harness remains unexecuted. The QA-shared lab runtime v32 lacks both candidate markers and the migration is unapplied. Do not apply the test migration or run the fixture harness until QA coordinates an isolated candidate runtime update.

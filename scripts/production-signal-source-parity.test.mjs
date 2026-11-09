@@ -23,6 +23,7 @@ assert(!production.includes("upstatus-signal-test"), "production handler must no
 assert.equal(read(prodDir + "/body.mjs"), read(testDir + "/body.mjs"), "bounded JSON body parser drifted");
 assert.equal(read(prodDir + "/legacy-envelope.mjs"), read(testDir + "/legacy-envelope.mjs"), "legacy envelope allowlist drifted");
 assert.equal(read(prodDir + "/http-contract.mjs"), read(testDir + "/http-contract.mjs"), "voice-room HTTP status mapper drifted");
+assert.equal(read(prodDir + "/idempotency.mjs"), read(testDir + "/idempotency.mjs"), "signal idempotency helper drifted");
 
 const config = read("supabase/config.toml");
 const configBlock = config.match(/^\[functions\.upstatus-signal\]\nverify_jwt = false$/m);
@@ -43,11 +44,28 @@ const requiredMigrations = [
   "20261108010000_voice_attempt_singleton.sql",
   "20261108050751_voice_attempt_account_scoped_lock.sql",
   "20261108190000_distributed_signaling_rate_limit.sql",
-  "20261109010000_enforce_signal_room_member_capacity.sql"
+  "20261109010000_enforce_signal_room_member_capacity.sql",
+  "20261109030000_signal_event_idempotency.sql"
 ];
 for (const file of requiredMigrations) {
   assert(fs.existsSync(path.join(ROOT, "supabase/migrations", file)), "missing production signaling migration: " + file);
 }
+
+const idempotencyMigration = read("supabase/migrations/20261109030000_signal_event_idempotency.sql");
+for (const [fragment, label] of [
+  ["CREATE TABLE IF NOT EXISTS public.upstatus_signal_event_idempotency", "idempotency ledger"],
+  ["PRIMARY KEY (room_id, sender, idempotency_key)", "room-scoped sender key"],
+  ["ON DELETE CASCADE", "room-lifetime replay retention"],
+  ["SECURITY INVOKER", "invoker security"],
+  ["SET search_path = ''", "empty search_path"],
+  ["ON CONFLICT (room_id, sender, idempotency_key) DO NOTHING", "atomic deduplication"],
+  ["IDEMPOTENCY_KEY_REUSED", "key/payload conflict"],
+  ["FOR SHARE", "membership authorization lock"],
+  ["TO service_role", "service-role-only execution"]
+]) assert(idempotencyMigration.includes(fragment), "idempotency migration missing " + label);
+assert(!idempotencyMigration.includes("DO $test$"), "production idempotency migration must not contain test assertions");
+assert(production.includes('db.rpc("enqueue_upstatus_signal_events"'), "signal routes must enqueue through the idempotency RPC");
+assert(!production.includes('db.from("upstatus_signal_events").insert('), "signal events must not bypass the idempotency RPC");
 
 const rateLimitMigration = read("supabase/migrations/20261108190000_distributed_signaling_rate_limit.sql");
 for (const [fragment, label] of [
