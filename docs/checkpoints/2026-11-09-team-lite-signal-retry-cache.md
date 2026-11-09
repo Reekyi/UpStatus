@@ -27,3 +27,7 @@
 - Cache remains in-memory per transport instance and does not survive reload/recreation.
 - This does not add stable operation IDs at every call site, durable outbox semantics, or server-verifiable fresh-key anti-replay.
 - No Supabase migration, fixture mutation, function deployment, feature-flag change, merge, release, or userscript publication is authorized by this candidate.
+
+## Workflow trigger coordination — 2026-11-09
+
+The parent branch now includes itself in the `pull_request.branches` filter for `team-lite-call-source-guard.yml`. This is required because GitHub evaluates the workflow definition from the PR base branch; adding the base filter only in the child head is insufficient to trigger the stacked PR. Parent workflow-filter commit: `948d2b70d70fd5cd697b6534e81b2bef2c0b256a`. The child PR will be refreshed with a documentation-only commit to request the exact-head offline source-guard check. No fixture-mutating Candidate Checks are being dispatched.
