@@ -5,6 +5,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { voiceRoomOpenResultStatus as productionVoiceRoomOpenResultStatus } from "../supabase/functions/upstatus-signal/http-contract.mjs";
 import { voiceRoomOpenResultStatus as isolatedVoiceRoomOpenResultStatus } from "../supabase/functions/upstatus-signal-test/http-contract.mjs";
+import { signalDatabaseReadinessStatus as productionReadinessStatus } from "../supabase/functions/upstatus-signal/readiness.mjs";
+import { signalDatabaseReadinessStatus as isolatedReadinessStatus } from "../supabase/functions/upstatus-signal-test/readiness.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = relative => fs.readFileSync(path.join(ROOT, relative), "utf8");
@@ -14,16 +16,19 @@ const production = read(prodDir + "/index.ts");
 const isolated = read(testDir + "/index.ts");
 
 assert.equal(
-  production.replace('service: "upstatus-signal"', 'service: "upstatus-signal-test"'),
+  production.replaceAll('service: "upstatus-signal"', 'service: "upstatus-signal-test"'),
   isolated,
   "production signaling handler must remain byte-identical to the reviewed isolated handler apart from its health label"
 );
-assert.equal((production.match(/service: "upstatus-signal"/g) || []).length, 1, "production health label must be unique");
+assert.equal((production.match(/service: "upstatus-signal"/g) || []).length, (isolated.match(/service: "upstatus-signal-test"/g) || []).length, "production and isolated service labels must have matching counts");
 assert(!production.includes("upstatus-signal-test"), "production handler must not identify itself as the test function");
 assert.equal(read(prodDir + "/body.mjs"), read(testDir + "/body.mjs"), "bounded JSON body parser drifted");
 assert.equal(read(prodDir + "/legacy-envelope.mjs"), read(testDir + "/legacy-envelope.mjs"), "legacy envelope allowlist drifted");
 assert.equal(read(prodDir + "/http-contract.mjs"), read(testDir + "/http-contract.mjs"), "voice-room HTTP status mapper drifted");
 assert.equal(read(prodDir + "/idempotency.mjs"), read(testDir + "/idempotency.mjs"), "signal idempotency helper drifted");
+assert.equal(read(prodDir + "/readiness.mjs"), read(testDir + "/readiness.mjs"), "database readiness helper drifted");
+assert.equal(productionReadinessStatus({ ready: true, schemaVersion: "signal-v1", missing: [] }, null), 200, "production readiness helper must accept a complete database result");
+assert.equal(isolatedReadinessStatus({ ready: false, schemaVersion: "signal-v1", missing: ["table:public.upstatus_signal_rooms"] }, null), 503, "isolated readiness helper must reject missing dependencies");
 
 const config = read("supabase/config.toml");
 const configBlock = config.match(/^\[functions\.upstatus-signal\]\nverify_jwt = false$/m);
@@ -45,7 +50,8 @@ const requiredMigrations = [
   "20261108050751_voice_attempt_account_scoped_lock.sql",
   "20261108190000_distributed_signaling_rate_limit.sql",
   "20261109010000_enforce_signal_room_member_capacity.sql",
-  "20261109030000_signal_event_idempotency.sql"
+  "20261109030000_signal_event_idempotency.sql",
+  "20261109040000_signal_database_readiness.sql"
 ];
 for (const file of requiredMigrations) {
   assert(fs.existsSync(path.join(ROOT, "supabase/migrations", file)), "missing production signaling migration: " + file);
@@ -65,6 +71,7 @@ for (const [fragment, label] of [
 ]) assert(idempotencyMigration.includes(fragment), "idempotency migration missing " + label);
 assert(!idempotencyMigration.includes("DO $test$"), "production idempotency migration must not contain test assertions");
 assert(production.includes('db.rpc("enqueue_upstatus_signal_events"'), "signal routes must enqueue through the idempotency RPC");
+assert(production.includes('db.rpc("upstatus_signal_readiness"'), "GET /ready must call the database readiness RPC");
 assert(!production.includes('db.from("upstatus_signal_events").insert('), "signal events must not bypass the idempotency RPC");
 
 const rateLimitMigration = read("supabase/migrations/20261108190000_distributed_signaling_rate_limit.sql");
@@ -142,4 +149,4 @@ for (const malformed of malformedResults) {
   assert.equal(isolatedVoiceRoomOpenResultStatus(malformed), 500, "isolated mapper must fail closed for malformed results");
 }
 
-console.log("PASS production signaling source parity, executable voice-room HTTP status mapping, custom-token config, migration prerequisites, bounded rate limit, and server-derived membership guards");
+console.log("PASS production signaling source parity, database readiness, executable voice-room HTTP status mapping, custom-token config, migration prerequisites, bounded rate limit, and server-derived membership guards");
