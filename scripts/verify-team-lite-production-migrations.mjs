@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -44,6 +45,102 @@ export function assertRequiredTeamLiteMigrationsApplied(appliedMigrations) {
     throw new Error("Required Team Lite production migrations are not applied (" + details.join("; ") + ").");
   }
   return REQUIRED_TEAM_LITE_MIGRATIONS.map(item => item.version);
+}
+
+export function computeGitBlobSha(content) {
+  if (typeof content !== "string") {
+    throw new Error("Migration content must be UTF-8 text before its Git blob SHA-1 can be verified.");
+  }
+  const bytes = Buffer.from(content, "utf8");
+  const header = Buffer.from("blob " + bytes.length + "\0", "utf8");
+  return createHash("sha1").update(Buffer.concat([header, bytes])).digest("hex");
+}
+
+export function assertRemoteMigrationsHaveVerifiedProvenance(appliedMigrations, localMigrationContents, manifest) {
+  if (!Array.isArray(appliedMigrations) || !manifest || manifest.schemaVersion !== 1 || !Array.isArray(manifest.entries)) {
+    throw new Error("Migration provenance manifest or remote history is invalid; refusing deployment.");
+  }
+  const localEntries = localMigrationContents instanceof Map
+    ? [...localMigrationContents.entries()]
+    : Object.entries(localMigrationContents || {});
+  const localByFilename = new Map();
+  for (const [rawFilename, rawContent] of localEntries) {
+    const filename = String(rawFilename || "");
+    if (!/^[0-9]{14}_[A-Za-z0-9_-]+\\.sql$/.test(filename) || typeof rawContent !== "string") {
+      throw new Error("Local migration content map contains a malformed filename or non-text value.");
+    }
+    if (localByFilename.has(filename)) {
+      throw new Error("Local migration content map contains a duplicate filename: " + filename + ".");
+    }
+    localByFilename.set(filename, rawContent);
+  }
+
+  const manifestByVersion = new Map();
+  for (const entry of manifest.entries) {
+    const version = String(entry?.version || "");
+    const name = String(entry?.name || "");
+    const filename = String(entry?.filename || "");
+    const blobSha = String(entry?.gitBlobSha || "").toLowerCase();
+    const sourceCommit = String(entry?.sourceCommit || "").toLowerCase();
+    const sourceRef = String(entry?.sourceRef || "");
+    if (!/^\\d{14}$/.test(version) || !/^[A-Za-z0-9_-]+$/.test(name) ||
+        filename !== version + "_" + name + ".sql" ||
+        !/^[0-9a-f]{40}$/.test(blobSha) ||
+        !/^[0-9a-f]{40}$/.test(sourceCommit) || !sourceRef) {
+      throw new Error("Migration provenance entry is malformed for version " + (version || "(empty)") + ".");
+    }
+    if (manifestByVersion.has(version)) {
+      throw new Error("Migration provenance manifest contains duplicate version " + version + ".");
+    }
+    manifestByVersion.set(version, { version, name, filename, blobSha, sourceCommit, sourceRef });
+  }
+
+  const missing = [];
+  const mismatched = [];
+  const hashMismatches = [];
+  const remoteVersions = new Set();
+  for (const migration of appliedMigrations) {
+    const version = String(migration?.version || "").trim();
+    const name = String(migration?.name || "").trim();
+    if (!/^\\d{14}$/.test(version) || !name) {
+      throw new Error("Supabase Management API returned a malformed remote migration entry for provenance verification.");
+    }
+    if (remoteVersions.has(version)) {
+      throw new Error("Supabase Management API returned duplicate remote migration version " + version + ".");
+    }
+    remoteVersions.add(version);
+    const entry = manifestByVersion.get(version);
+    if (!entry) {
+      missing.push(version + "_" + name + ".sql");
+      continue;
+    }
+    if (entry.name !== name) {
+      mismatched.push(version + " remote " + name + " but manifest " + entry.name);
+      continue;
+    }
+    const localContent = localByFilename.get(entry.filename);
+    if (localContent === undefined) {
+      missing.push(entry.filename + " (local content)");
+      continue;
+    }
+    const actualBlobSha = computeGitBlobSha(localContent);
+    if (actualBlobSha !== entry.blobSha) {
+      hashMismatches.push(entry.filename + " expected " + entry.blobSha + " but found " + actualBlobSha);
+    }
+  }
+
+  if (missing.length || mismatched.length || hashMismatches.length) {
+    const details = [];
+    if (missing.length) details.push("missing provenance/source: " + missing.join(", "));
+    if (mismatched.length) details.push("name mismatch: " + mismatched.join(", "));
+    if (hashMismatches.length) details.push("Git blob SHA-1 mismatch: " + hashMismatches.join(", "));
+    throw new Error("Remote production migrations do not have complete, content-verified provenance (" + details.join("; ") + ").");
+  }
+  return {
+    remoteCount: remoteVersions.size,
+    verifiedCount: remoteVersions.size,
+    manifestCount: manifestByVersion.size,
+  };
 }
 
 export function assertRemoteMigrationsHaveLocalFiles(appliedMigrations, localMigrationFiles) {
@@ -99,6 +196,8 @@ export async function verifyTeamLiteProductionMigrationHistory({
   localMigrationFiles = fs.readdirSync(
     path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "supabase", "migrations")
   ).filter(filename => filename.endsWith(".sql")),
+  localMigrationContents = null,
+  provenanceManifest = null,
 }) {
   const actualRef = String(projectRef || "").trim();
   const expectedRef = String(expectedProductionRef || "").trim();
@@ -144,10 +243,20 @@ export async function verifyTeamLiteProductionMigrationHistory({
     throw new Error("Supabase Management API returned invalid migration-history JSON; refusing deployment.");
   }
   const localHistory = assertRemoteMigrationsHaveLocalFiles(migrations, localMigrationFiles);
+  const migrationDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "supabase", "migrations");
+  const contents = localMigrationContents ?? new Map(localMigrationFiles.map(filename => [
+    filename,
+    fs.readFileSync(path.join(migrationDirectory, filename), "utf8"),
+  ]));
+  const manifest = provenanceManifest ?? JSON.parse(
+    fs.readFileSync(path.join(migrationDirectory, "provenance.json"), "utf8")
+  );
+  const provenance = assertRemoteMigrationsHaveVerifiedProvenance(migrations, contents, manifest);
   return {
     projectRef: actualRef,
     verifiedVersions: assertRequiredTeamLiteMigrationsApplied(migrations),
     localHistory,
+    provenance,
   };
 }
 
