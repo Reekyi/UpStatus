@@ -119,9 +119,16 @@ jobs:
             exit 1
           fi
 
+      - name: Checkout default-branch dispatcher source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
       - name: Require an approved merged PR for the exact release SHA
         env:
           GH_TOKEN: ${{ github.token }}
+          UPSTATUS_RELEASE_REVIEWERS: ${{ vars.UPSTATUS_RELEASE_REVIEWERS }}
         shell: bash
         run: |
           set -euo pipefail
@@ -154,12 +161,12 @@ jobs:
             echo "::error::Review history exceeds one page; refusing an incomplete approval audit."
             exit 1
           fi
-          latest_review_state="$(printf '%s' "$reviews" | jq -r '[.[] | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")] | sort_by(.submitted_at) | last | .state // empty')"
-          latest_reviewer="$(printf '%s' "$reviews" | jq -r '[.[] | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")] | sort_by(.submitted_at) | last | .user.login // empty')"
-          if [ "$latest_review_state" != "APPROVED" ] || [ "$latest_reviewer" = "$author_login" ] || [ -z "$latest_reviewer" ]; then
-            echo "::error::The release PR must have a latest non-dismissed human approval from someone other than its author."
-            exit 1
-          fi
+          printf '%s' "$reviews" > "$RUNNER_TEMP/team-lite-release-reviews.json"
+          node scripts/verify-team-lite-release-review.mjs \
+            "$RUNNER_TEMP/team-lite-release-reviews.json" \
+            "$head_sha" \
+            "$author_login" \
+            "$UPSTATUS_RELEASE_REVIEWERS"
 
           checks="$(curl --fail --silent --show-error \
             -H "Accept: application/vnd.github+json" \
