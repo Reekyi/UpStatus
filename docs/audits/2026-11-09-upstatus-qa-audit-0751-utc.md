@@ -243,3 +243,17 @@ Release blockers and open risks:
 ## Audit write boundary
 
 This document is a new file on the dedicated QA branch. The existing RELEASE_READINESS.md and prior audit file were not modified. No engineering branch, issue, production project, lab schema, secret, flag, user, session, fixture or deployed function was changed.
+
+
+## Post-write QA CI revalidation — 2026-11-09 08:00 UTC
+
+The audit-note commit updated PR #82 and triggered a new exact-HEAD Validate run:
+
+- QA commit: 6a5d24672643cb85ccba34e90e9a2410b04a0faa.
+- Run: 42582780883 — FAILURE.
+- Job: 129045290501.
+- Log: scripts/validate.mjs:26, VALIDATION FAILED: production updateURL mismatch.
+
+This is the same inherited release-manifest/updateURL mismatch observed on the previous QA HEAD. It is not a failure in the newly added audit document. No rerun was initiated.
+
+The QA commit parent was c633d5b3b2f078bacdc87b2ebae95039ae3aa1fe and its only changed file was this new audit note. The RELEASE_READINESS.md blob and previous audit blob remained unchanged.
