@@ -71,6 +71,8 @@ assert(acceptRoute.includes("roomMemberAcceptResultStatus"), "accept route must 
 assert(migration.includes("FOR UPDATE") && migration.includes(">= 32") &&
   migration.includes("ROOM_FULL") && migration.includes("SECURITY INVOKER") &&
   migration.includes("SET search_path = ''"), "production migration must lock room-first, cap membership, and use invoker security");
+assert(!migration.includes("'reissued', false") && !migration.includes("'memberCount'"),
+  "RPC success responses must preserve the existing invite/accept response shape");
 assert(testMigration.includes("has_function_privilege") && testMigration.includes("pg_get_functiondef") &&
   testMigration.includes("ROOM_FULL") && testMigration.includes(">= 32"),
   "isolated test migration must verify capacity, lock order, and service-role-only execution");
