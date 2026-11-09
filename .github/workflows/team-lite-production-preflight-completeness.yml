@@ -1,0 +1,48 @@
+name: Team Lite Production Preflight Completeness
+
+on:
+  push:
+    branches:
+      - fix/team-lite-production-preflight-completeness-20261109
+    paths:
+      - ".github/workflows/team-lite-production-preflight-completeness.yml"
+      - "scripts/verify-team-lite-production-project.mjs"
+      - "scripts/verify-team-lite-production-migrations.mjs"
+      - "scripts/test-team-lite-production-deploy.mjs"
+      - "scripts/migration-layout.test.mjs"
+      - "supabase/migrations/**"
+      - "supabase/test-migrations/**"
+  pull_request:
+    branches:
+      - fix/team-lite-production-deploy-guard-20261109
+    paths:
+      - ".github/workflows/team-lite-production-preflight-completeness.yml"
+      - "scripts/verify-team-lite-production-project.mjs"
+      - "scripts/verify-team-lite-production-migrations.mjs"
+      - "scripts/test-team-lite-production-deploy.mjs"
+      - "scripts/migration-layout.test.mjs"
+      - "supabase/migrations/**"
+      - "supabase/test-migrations/**"
+
+permissions:
+  contents: read
+
+jobs:
+  offline_contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check preflight syntax
+        run: |
+          node --check scripts/verify-team-lite-production-project.mjs
+          node --check scripts/verify-team-lite-production-migrations.mjs
+          node --check scripts/test-team-lite-production-deploy.mjs
+      - name: Run mocked production deployment contracts
+        run: node scripts/test-team-lite-production-deploy.mjs
+      - name: Verify migration layout and isolated pairing
+        run: node scripts/migration-layout.test.mjs
