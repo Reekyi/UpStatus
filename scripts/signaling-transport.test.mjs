@@ -706,37 +706,37 @@ assert.notEqual(expiryRetryCalls[0].body.idempotencyKey, expiryRetryCalls[1].bod
 console.log("signaling retry-key TTL: 1 assertion passed");
 
 // Long Retry-After values defer the retry but keep the original key/body for the next caller attempt.
-const retryAfterCalls = [];
-let retryAfterAttempt = 0;
-const retryAfterClient = createSignalingTransport({
+const deferredRetryCalls = [];
+let deferredRetryAttempt = 0;
+const deferredRetryClient = createSignalingTransport({
   enabled: true,
   maxIdempotentRetries: 1,
   maxRetryAfterMs: 1500,
   request: async (path, body) => {
-    retryAfterCalls.push({ path, body });
-    retryAfterAttempt++;
-    if (retryAfterAttempt === 1) {
+    deferredRetryCalls.push({ path, body });
+    deferredRetryAttempt++;
+    if (deferredRetryAttempt === 1) {
       return { status: 429, body: { error: "RATE_LIMITED" }, headers: "Retry-After: 10\r\n" };
     }
     return { status: 202, body: { ok: true } };
   },
 });
-await assert.rejects(() => retryAfterClient.sendSignal({
+await assert.rejects(() => deferredRetryClient.sendSignal({
   roomId: "sig_retry_after",
   recipient: "mari",
   eventType: "call_signal",
   payload: { type: "offer", sdp: "v=0", at: 100 },
 }), error => error.status === 429 && error.retryAfterMs === 10000);
-assert.equal(retryAfterCalls.length, 1, "long Retry-After must not be shortened into an early retry");
-await retryAfterClient.sendSignal({
+assert.equal(deferredRetryCalls.length, 1, "long Retry-After must not be shortened into an early retry");
+await deferredRetryClient.sendSignal({
   roomId: "sig_retry_after",
   recipient: "mari",
   eventType: "call_signal",
   payload: { type: "offer", sdp: "v=0", at: 200 },
 });
-assert.equal(retryAfterCalls[0].body.idempotencyKey, retryAfterCalls[1].body.idempotencyKey,
+assert.equal(deferredRetryCalls[0].body.idempotencyKey, deferredRetryCalls[1].body.idempotencyKey,
   "a deferred retry must retain the original idempotency key");
-assert.equal(retryAfterCalls[1].body.payload.at, 100,
+assert.equal(deferredRetryCalls[1].body.payload.at, 100,
   "a deferred retry must replay the original request body");
 console.log("signaling Retry-After deferred retry retention: 3 assertions passed");
 
