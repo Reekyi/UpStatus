@@ -4,9 +4,18 @@ on:
   push:
     branches:
       - test/normal-signal-room-open-409-route-20261108
+      - test/normal-signal-http-contract-20261108
     paths:
       - "supabase/functions/upstatus-signal/index.ts"
       - "supabase/functions/upstatus-signal-test/index.ts"
+      - "supabase/functions/upstatus-signal/http-contract.mjs"
+      - "supabase/functions/upstatus-signal/body.mjs"
+      - "supabase/functions/upstatus-signal/legacy-envelope.mjs"
+      - "supabase/functions/upstatus-signal-test/http-contract.mjs"
+      - "supabase/functions/upstatus-signal-test/body.mjs"
+      - "supabase/functions/upstatus-signal-test/legacy-envelope.mjs"
+      - "supabase/config.toml"
+      - "supabase/migrations/20261108190000_distributed_signaling_rate_limit.sql"
       - "scripts/production-signal-source-parity.test.mjs"
       - "scripts/validate.mjs"
       - ".github/workflows/signal-room-open-409-route-guard.yml"
@@ -14,9 +23,18 @@ on:
     branches:
       - fix/normal-authenticated-call-source-guard-20261108
       - test/normal-signal-room-open-409-route-20261108
+      - test/normal-signal-http-contract-20261108
     paths:
       - "supabase/functions/upstatus-signal/index.ts"
       - "supabase/functions/upstatus-signal-test/index.ts"
+      - "supabase/functions/upstatus-signal/http-contract.mjs"
+      - "supabase/functions/upstatus-signal/body.mjs"
+      - "supabase/functions/upstatus-signal/legacy-envelope.mjs"
+      - "supabase/functions/upstatus-signal-test/http-contract.mjs"
+      - "supabase/functions/upstatus-signal-test/body.mjs"
+      - "supabase/functions/upstatus-signal-test/legacy-envelope.mjs"
+      - "supabase/config.toml"
+      - "supabase/migrations/20261108190000_distributed_signaling_rate_limit.sql"
       - "scripts/production-signal-source-parity.test.mjs"
       - "scripts/validate.mjs"
       - ".github/workflows/signal-room-open-409-route-guard.yml"
@@ -38,6 +56,8 @@ jobs:
       - name: Run route-level signaling contract and full offline validation
         run: |
           node --version
+          node --check supabase/functions/upstatus-signal/http-contract.mjs
+          node --check supabase/functions/upstatus-signal-test/http-contract.mjs
           node --check scripts/production-signal-source-parity.test.mjs
           node scripts/production-signal-source-parity.test.mjs
           node scripts/validate.mjs
