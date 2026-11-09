@@ -125,15 +125,41 @@ resolved_routines AS (
   SELECT signature, pg_catalog.to_regprocedure(signature) AS routine_oid
   FROM required_routines
 ),
+routine_properties AS (
+  SELECT r.signature, r.routine_oid, p.prosecdef, p.provolatile, p.proconfig
+  FROM resolved_routines AS r
+  LEFT JOIN pg_catalog.pg_proc AS p ON p.oid = r.routine_oid
+),
 missing_routines AS (
   SELECT 'routine:' || r.signature AS dependency
-  FROM resolved_routines AS r
+  FROM routine_properties AS r
   WHERE r.routine_oid IS NULL
   UNION ALL
   SELECT 'execute:' || r.signature AS dependency
-  FROM resolved_routines AS r
+  FROM routine_properties AS r
   WHERE r.routine_oid IS NOT NULL
     AND NOT pg_catalog.has_function_privilege('service_role', r.signature, 'EXECUTE')
+  UNION ALL
+  SELECT 'security-definer:' || r.signature AS dependency
+  FROM routine_properties AS r
+  WHERE r.routine_oid IS NOT NULL AND r.prosecdef
+  UNION ALL
+  SELECT 'volatility:' || r.signature AS dependency
+  FROM routine_properties AS r
+  WHERE r.routine_oid IS NOT NULL AND r.provolatile <> 'v'
+  UNION ALL
+  SELECT 'search_path:' || r.signature AS dependency
+  FROM routine_properties AS r
+  WHERE r.routine_oid IS NOT NULL
+    AND NOT (COALESCE(r.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=""'])
+  UNION ALL
+  SELECT 'client-execute:' || r.signature AS dependency
+  FROM routine_properties AS r
+  WHERE r.routine_oid IS NOT NULL
+    AND (
+      pg_catalog.has_function_privilege('anon', r.signature, 'EXECUTE')
+      OR pg_catalog.has_function_privilege('authenticated', r.signature, 'EXECUTE')
+    )
 ),
 missing AS (
   SELECT dependency FROM missing_tables
