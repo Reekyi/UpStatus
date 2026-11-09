@@ -72,8 +72,12 @@ if (!health.ok || health.headers.get("X-UpStatus-Signal-Capacity") !== "room-cap
 const emptyChecks = await Promise.all([
   readRest("upstatus_signal_rooms?select=room_id"),
   readRest("upstatus_signal_room_members?select=room_id"),
-  readRest("upstatus_signal_events?select=event_id"),
+  readRest("upstatus_signal_room_bindings?select=*"),
+  readRest("upstatus_signal_events?select=*"),
+  readRest("upstatus_signal_call_attempts?select=*"),
+  readRest("upstatus_signal_voice_room_attempts?select=*"),
   readRest("upstatus_signal_rate_limits?select=bucket_key"),
+  readRest("upstatus_sessions?select=user_name"),
   readRest("users?select=name"),
 ]);
 if (emptyChecks.some(rows => rows.length !== 0)) {
