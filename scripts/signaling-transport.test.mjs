@@ -519,3 +519,214 @@ for (const [signal, expected, label] of publicDiscoveryCases) {
 }
 
 console.log("Retry-After polling and public call-discovery policy tests passed");
+
+
+// Idempotent sends retry with the exact same key and request body after ambiguous failures.
+const automaticRetryCalls = [];
+let automaticRetryAttempt = 0;
+const automaticRetryClient = createSignalingTransport({
+  enabled: true,
+  retryBaseDelayMs: 0,
+  request: async (path, body) => {
+    automaticRetryCalls.push({ path, body });
+    automaticRetryAttempt++;
+    if (automaticRetryAttempt === 1) throw new Error("temporary network failure");
+    return { status: 202, body: { ok: true } };
+  },
+});
+await automaticRetryClient.sendSignal({
+  roomId: "sig_retry_auto",
+  recipient: "mari",
+  eventType: "call_signal",
+  payload: { type: "offer", sdp: "v=0", at: 100 },
+});
+assert.equal(automaticRetryCalls.length, 2, "a transient send failure must receive one bounded retry");
+assert.equal(automaticRetryCalls[0].body.idempotencyKey, automaticRetryCalls[1].body.idempotencyKey,
+  "automatic retry must reuse the first idempotency key");
+assert.deepEqual(automaticRetryCalls[0].body, automaticRetryCalls[1].body,
+  "automatic retry must resend the exact original request body");
+console.log("signaling transient send retry and key reuse: 3 assertions passed");
+
+// A later caller retry reuses the key and original payload even when only transport timestamps changed.
+const manualRetryCalls = [];
+let allowManualRetry = false;
+const manualRetryClient = createSignalingTransport({
+  enabled: true,
+  maxIdempotentRetries: 0,
+  request: async (path, body) => {
+    manualRetryCalls.push({ path, body });
+    if (!allowManualRetry) throw new Error("connection lost after request");
+    return { status: 202, body: { ok: true } };
+  },
+});
+await assert.rejects(
+  () => manualRetryClient.sendSignal({
+    roomId: "sig_retry_manual",
+    recipient: "mari",
+    eventType: "call_signal",
+    payload: { type: "ice", candidate: "candidate:1", at: 100 },
+  }),
+  error => {
+    assert.match(error.idempotencyKey, /^[0-9a-f]{32}$/);
+    return true;
+  },
+);
+const manualRetryKey = manualRetryCalls[0].body.idempotencyKey;
+allowManualRetry = true;
+await manualRetryClient.sendSignal({
+  roomId: "sig_retry_manual",
+  recipient: "mari",
+  eventType: "call_signal",
+  payload: { type: "ice", candidate: "candidate:1", at: 200 },
+});
+assert.equal(manualRetryCalls[1].body.idempotencyKey, manualRetryKey,
+  "the next attempt for the same logical payload must reuse the failed request key");
+assert.equal(manualRetryCalls[1].body.payload.at, 100,
+  "a retry must replay the exact original payload, not a newly timestamped body");
+console.log("signaling retry-key retention across caller retries: 2 assertions passed");
+
+// Distinct payloads and explicit operation IDs must not share a pending retry key.
+const distinctRetryKeys = [];
+let distinctAttempt = 0;
+const distinctRetryClient = createSignalingTransport({
+  enabled: true,
+  maxIdempotentRetries: 0,
+  request: async (path, body) => {
+    distinctRetryKeys.push(body.idempotencyKey);
+    distinctAttempt++;
+    if (distinctAttempt === 1) throw new Error("temporary network failure");
+    return { status: 202, body: { ok: true } };
+  },
+});
+await assert.rejects(() => distinctRetryClient.sendSignal({
+  roomId: "sig_retry_distinct",
+  recipient: "mari",
+  eventType: "call_signal",
+  payload: { type: "ice", candidate: "candidate:one" },
+  operationId: "negotiation-one",
+}));
+await distinctRetryClient.sendSignal({
+  roomId: "sig_retry_distinct",
+  recipient: "mari",
+  eventType: "call_signal",
+  payload: { type: "ice", candidate: "candidate:one" },
+  operationId: "negotiation-two",
+});
+assert.notEqual(distinctRetryKeys[0], distinctRetryKeys[1],
+  "different logical operation IDs must receive independent idempotency keys");
+console.log("signaling logical operation identity isolation: 1 assertion passed");
+
+// Permanent authorization errors are not cached; a later authorized attempt starts a new operation.
+const permanentRetryCalls = [];
+let permanentRetryAttempt = 0;
+const permanentRetryClient = createSignalingTransport({
+  enabled: true,
+  maxIdempotentRetries: 1,
+  request: async (path, body) => {
+    permanentRetryCalls.push({ path, body });
+    permanentRetryAttempt++;
+    if (permanentRetryAttempt === 1) return { status: 403, body: { error: "ROOM_MEMBERSHIP_REQUIRED" } };
+    return { status: 202, body: { ok: true } };
+  },
+});
+const permanentRetryPayload = {
+  roomId: "sig_retry_forbidden",
+  recipient: "mari",
+  eventType: "call_signal",
+  payload: { type: "offer", sdp: "v=0" },
+};
+await assert.rejects(() => permanentRetryClient.sendSignal(permanentRetryPayload),
+  error => error.status === 403 && error.code === "ROOM_MEMBERSHIP_REQUIRED");
+await permanentRetryClient.sendSignal(permanentRetryPayload);
+assert.notEqual(permanentRetryCalls[0].body.idempotencyKey, permanentRetryCalls[1].body.idempotencyKey,
+  "a permanent 4xx failure must not poison a future authorized operation");
+assert.equal(permanentRetryCalls.length, 2, "permanent authorization failures must not be retried automatically");
+console.log("signaling permanent-error retry policy: 2 assertions passed");
+
+// Concurrent retries for one logical operation are coalesced into one HTTP request.
+const concurrentRetryCalls = [];
+let releaseConcurrentRetry;
+const concurrentRetryClient = createSignalingTransport({
+  enabled: true,
+  maxIdempotentRetries: 0,
+  request: (path, body) => {
+    concurrentRetryCalls.push({ path, body });
+    return new Promise(resolve => {
+      releaseConcurrentRetry = () => resolve({ status: 202, body: { ok: true } });
+    });
+  },
+});
+const concurrentRetryPayload = {
+  roomId: "sig_retry_concurrent",
+  recipient: "mari",
+  eventType: "call_signal",
+  payload: { type: "answer", sdp: "v=0" },
+};
+const concurrentRetryOne = concurrentRetryClient.sendSignal(concurrentRetryPayload);
+const concurrentRetryTwo = concurrentRetryClient.sendSignal(concurrentRetryPayload);
+assert.equal(concurrentRetryCalls.length, 1, "concurrent duplicate operations must share one in-flight request");
+releaseConcurrentRetry();
+await Promise.all([concurrentRetryOne, concurrentRetryTwo]);
+console.log("signaling concurrent retry coalescing: 1 assertion passed");
+
+// Expired retry keys are discarded instead of being reused indefinitely.
+let retryCacheClock = 0;
+let retryCacheAttempt = 0;
+const expiryRetryCalls = [];
+const expiryRetryClient = createSignalingTransport({
+  enabled: true,
+  now: () => retryCacheClock,
+  retryKeyTtlMs: 100,
+  maxIdempotentRetries: 0,
+  request: async (path, body) => {
+    expiryRetryCalls.push({ path, body });
+    retryCacheAttempt++;
+    if (retryCacheAttempt === 1) throw new Error("temporary network failure");
+    return { status: 202, body: { ok: true } };
+  },
+});
+const expiryRetryPayload = {
+  roomId: "sig_retry_expiry",
+  recipient: "mari",
+  eventType: "call_signal",
+  payload: { type: "offer", sdp: "v=0" },
+};
+await assert.rejects(() => expiryRetryClient.sendSignal(expiryRetryPayload));
+retryCacheClock = 101;
+await expiryRetryClient.sendSignal(expiryRetryPayload);
+assert.notEqual(expiryRetryCalls[0].body.idempotencyKey, expiryRetryCalls[1].body.idempotencyKey,
+  "expired retry keys must be replaced with a fresh key");
+console.log("signaling retry-key TTL: 1 assertion passed");
+
+// Room broadcasts use the same retry-key and exact-payload guarantees as unicast signaling.
+const broadcastRetryCalls = [];
+let allowBroadcastRetry = false;
+const broadcastRetryClient = createSignalingTransport({
+  enabled: true,
+  maxIdempotentRetries: 0,
+  request: async (path, body) => {
+    if (path === "/broadcast") {
+      broadcastRetryCalls.push({ path, body });
+      if (!allowBroadcastRetry) throw new Error("broadcast response lost");
+      return { status: 202, body: { ok: true, attempted: 1, delivered: 1 } };
+    }
+    return { status: 200, body: { ok: true } };
+  },
+});
+const broadcastRetryArgs = {
+  roomId: "sig_broadcast_retry",
+  eventType: "voice_room_signal",
+  senderName: "ricardo",
+  payload: { type: "presence", from: "ricardo", at: 100 },
+};
+await assert.rejects(() => broadcastRetryClient.sendToRoom(broadcastRetryArgs));
+allowBroadcastRetry = true;
+await broadcastRetryClient.sendToRoom({
+  ...broadcastRetryArgs,
+  payload: { type: "presence", from: "ricardo", at: 200 },
+});
+assert.equal(broadcastRetryCalls[0].body.idempotencyKey, broadcastRetryCalls[1].body.idempotencyKey,
+  "room broadcast retries must reuse the original idempotency key");
+assert.equal(broadcastRetryCalls[1].body.payload.at, 100,
+  "room broadcast retries must preserve the original request body");
+console.log("signaling broadcast retry-key retention: 2 assertions passed");
