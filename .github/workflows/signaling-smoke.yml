@@ -15,6 +15,7 @@ on:
       - "scripts/chat-regression.test.mjs"
       - "scripts/test-chat-read-receipts.mjs"
       - "scripts/test-signal-rate-limit.mjs"
+      - "scripts/test-signal-room-capacity.mjs"
       - "scripts/assert-isolated-supabase.mjs"
       - "scripts/isolation-guard.test.mjs"
       - "scripts/migration-layout.test.mjs"
@@ -85,6 +86,7 @@ jobs:
           node --check scripts/test-auth-enrollment.mjs
           node --check scripts/test-chat-read-receipts.mjs
           node --check scripts/test-signal-rate-limit.mjs
+          node --check scripts/test-signal-room-capacity.mjs
       - name: Run unauthenticated endpoint checks against isolated project
         env:
           UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test

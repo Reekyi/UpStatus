@@ -12,6 +12,8 @@ execFileSync(process.execPath,[path.join(ROOT,"scripts/signaling-transport.test.
 execFileSync(process.execPath,[path.join(ROOT,"scripts/public-call-discovery-guard.test.mjs"),"normal"],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/auth-enrollment.test.mjs"),"normal"],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/production-signal-source-parity.test.mjs")],{stdio:"inherit"});
+execFileSync(process.execPath,[path.join(ROOT,"scripts/room-capacity-contract.test.mjs")],{stdio:"inherit"});
+execFileSync(process.execPath,["--check",path.join(ROOT,"scripts/test-signal-room-capacity.mjs")],{stdio:"inherit"});
 const rootArtifactPath=path.join(ROOT,"UpStatus.user.js");
 const rootArtifactBefore=fs.readFileSync(rootArtifactPath,"utf8");
 execFileSync(process.execPath,[path.join(ROOT,"scripts/build.mjs")],{stdio:"inherit"});

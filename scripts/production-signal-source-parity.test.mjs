@@ -42,7 +42,8 @@ const requiredMigrations = [
   "20261106120500_voice_room_attempt_recovery.sql",
   "20261108010000_voice_attempt_singleton.sql",
   "20261108050751_voice_attempt_account_scoped_lock.sql",
-  "20261108190000_distributed_signaling_rate_limit.sql"
+  "20261108190000_distributed_signaling_rate_limit.sql",
+  "20261109010000_enforce_signal_room_member_capacity.sql"
 ];
 for (const file of requiredMigrations) {
   assert(fs.existsSync(path.join(ROOT, "supabase/migrations", file)), "missing production signaling migration: " + file);
