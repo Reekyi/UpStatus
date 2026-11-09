@@ -11,7 +11,9 @@ import {
 import {
   REQUIRED_TEAM_LITE_MIGRATIONS,
   assertRemoteMigrationsHaveLocalFiles,
+  assertRemoteMigrationsHaveVerifiedProvenance,
   assertRequiredTeamLiteMigrationsApplied,
+  computeGitBlobSha,
   verifyTeamLiteProductionMigrationHistory,
 } from "./verify-team-lite-production-migrations.mjs";
 import { assertTeamLiteRelease, compareStableVersions } from "./verify-team-lite-release.mjs";
@@ -228,6 +230,74 @@ assert.throws(() => assertRemoteMigrationsHaveLocalFiles(
   [...completeProductionMigrationFiles, completeProductionMigrationFiles[0]],
 ), /duplicate version/);
 
+const fixtureMigrationContents = new Map(completeProductionMigrationFiles.map(filename => [
+  filename,
+  "-- reviewed migration fixture: " + filename + "\n",
+]));
+const fixtureProvenanceManifest = {
+  schemaVersion: 1,
+  algorithm: "git-blob-sha1",
+  entries: productionRemoteHistory.map(migration => {
+    const filename = migration.version + "_" + migration.name + ".sql";
+    return {
+      version: migration.version,
+      name: migration.name,
+      filename,
+      gitBlobSha: computeGitBlobSha(fixtureMigrationContents.get(filename)),
+      sourceRef: "offline-fixture",
+      sourceCommit: "a".repeat(40),
+    };
+  }),
+};
+assert.deepEqual(
+  assertRemoteMigrationsHaveVerifiedProvenance(
+    productionRemoteHistory,
+    fixtureMigrationContents,
+    fixtureProvenanceManifest,
+  ),
+  { remoteCount: 7, verifiedCount: 7, manifestCount: 7 },
+);
+const tamperedMigrationContents = new Map(fixtureMigrationContents);
+tamperedMigrationContents.set(
+  completeProductionMigrationFiles[0],
+  fixtureMigrationContents.get(completeProductionMigrationFiles[0]) + "-- tampered\n",
+);
+assert.throws(() => assertRemoteMigrationsHaveVerifiedProvenance(
+  productionRemoteHistory,
+  tamperedMigrationContents,
+  fixtureProvenanceManifest,
+), /Git blob SHA-1 mismatch/);
+assert.throws(() => assertRemoteMigrationsHaveVerifiedProvenance(
+  productionRemoteHistory,
+  fixtureMigrationContents,
+  { ...fixtureProvenanceManifest, entries: fixtureProvenanceManifest.entries.slice(1) },
+), /missing provenance\/source/);
+assert.throws(() => assertRemoteMigrationsHaveVerifiedProvenance(
+  productionRemoteHistory,
+  fixtureMigrationContents,
+  { ...fixtureProvenanceManifest, entries: [...fixtureProvenanceManifest.entries, fixtureProvenanceManifest.entries[0]] },
+), /duplicate version/);
+assert.throws(() => assertRemoteMigrationsHaveVerifiedProvenance(
+  productionRemoteHistory,
+  fixtureMigrationContents,
+  { ...fixtureProvenanceManifest, entries: [{ ...fixtureProvenanceManifest.entries[0], sourceCommit: "not-a-commit" }, ...fixtureProvenanceManifest.entries.slice(1)] },
+), /provenance entry is malformed/);
+
+const actualMigrationDirectory = path.join(ROOT, "supabase", "migrations");
+const actualMigrationFiles = fs.readdirSync(actualMigrationDirectory).filter(filename => filename.endsWith(".sql"));
+const actualMigrationContents = new Map(actualMigrationFiles.map(filename => [
+  filename,
+  fs.readFileSync(path.join(actualMigrationDirectory, filename), "utf8"),
+]));
+const actualProvenanceManifest = JSON.parse(read("supabase/migrations/provenance.json"));
+assert.equal(actualProvenanceManifest.entries.length, 3,
+  "only the three source files present in the reviewed master tree may be recorded until the four originals are recovered");
+assert.throws(() => assertRemoteMigrationsHaveVerifiedProvenance(
+  productionRemoteHistory,
+  actualMigrationContents,
+  actualProvenanceManifest,
+), /missing provenance\/source/);
+
 const expectedProject = "dlfvkawaiqduhlazsszm";
 const isolatedProject = "bfpjtfqlnypisxljoxkb";
 const expectedOrganization = "bcjtvojfkfoxvsitzmkl";
@@ -320,18 +390,42 @@ await assert.rejects(verifyTeamLiteProductionProject({
 }), /does not match the approved production project/);
 assert.equal(isolatedProjectFetchCalled, false, "isolated project must be rejected before any Management API request");
 
+const requiredMigrationContents = new Map(REQUIRED_TEAM_LITE_MIGRATIONS.map(migration => {
+  const filename = migration.version + "_" + migration.name + ".sql";
+  return [filename, "-- required migration fixture: " + filename + "\n"];
+}));
+const requiredProvenanceManifest = {
+  schemaVersion: 1,
+  algorithm: "git-blob-sha1",
+  entries: REQUIRED_TEAM_LITE_MIGRATIONS.map(migration => {
+    const filename = migration.version + "_" + migration.name + ".sql";
+    return {
+      version: migration.version,
+      name: migration.name,
+      filename,
+      gitBlobSha: computeGitBlobSha(requiredMigrationContents.get(filename)),
+      sourceRef: "offline-fixture",
+      sourceCommit: "b".repeat(40),
+    };
+  }),
+};
+
 let migrationRequest = null;
 const migrationResult = await verifyTeamLiteProductionMigrationHistory({
   projectRef: expectedProject,
   expectedProductionRef: expectedProject,
   isolatedProjectRef: isolatedProject,
   accessToken: "test-management-token",
+  localMigrationFiles: [...requiredMigrationContents.keys()],
+  localMigrationContents: requiredMigrationContents,
+  provenanceManifest: requiredProvenanceManifest,
   fetchImpl: async (url, options) => {
     migrationRequest = { url, options };
     return { ok: true, status: 200, json: async () => REQUIRED_TEAM_LITE_MIGRATIONS };
   },
 });
 assert.deepEqual(migrationResult.verifiedVersions, REQUIRED_TEAM_LITE_MIGRATIONS.map(item => item.version));
+assert.deepEqual(migrationResult.provenance, { remoteCount: 4, verifiedCount: 4, manifestCount: 4 });
 assert.equal(migrationRequest.url, "https://api.supabase.com/v1/projects/" + expectedProject + "/database/migrations");
 assert.equal(migrationRequest.options.method, "GET");
 assert.equal(migrationRequest.options.redirect, "error");
