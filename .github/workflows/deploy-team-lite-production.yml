@@ -149,6 +149,11 @@ jobs:
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "$pr_url/reviews?per_page=100")"
+          review_count="$(printf '%s' "$reviews" | jq -er 'length')"
+          if [ "$review_count" -ge 100 ]; then
+            echo "::error::Review history exceeds one page; refusing an incomplete approval audit."
+            exit 1
+          fi
           latest_review_state="$(printf '%s' "$reviews" | jq -r '[.[] | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")] | sort_by(.submitted_at) | last | .state // empty')"
           latest_reviewer="$(printf '%s' "$reviews" | jq -r '[.[] | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")] | sort_by(.submitted_at) | last | .user.login // empty')"
           if [ "$latest_review_state" != "APPROVED" ] || [ "$latest_reviewer" = "$author_login" ] || [ -z "$latest_reviewer" ]; then
@@ -162,9 +167,10 @@ jobs:
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/Reekyi/UpStatus/commits/$head_sha/check-runs?per_page=100")"
           check_count="$(printf '%s' "$checks" | jq -er '.total_count')"
+          returned_check_count="$(printf '%s' "$checks" | jq -er '.check_runs | length')"
           bad_checks="$(printf '%s' "$checks" | jq -er '[.check_runs[] | select(.status != "completed" or (.conclusion != "success" and .conclusion != "skipped"))] | length')"
-          if [ "$check_count" -lt 1 ] || [ "$bad_checks" -ne 0 ]; then
-            echo "::error::The approved PR head must have completed successful or explicitly skipped check runs."
+          if [ "$check_count" -lt 1 ] || [ "$check_count" -ne "$returned_check_count" ] || [ "$bad_checks" -ne 0 ]; then
+            echo "::error::The approved PR head must have a complete, paginated, successful check-run set."
             exit 1
           fi
 
