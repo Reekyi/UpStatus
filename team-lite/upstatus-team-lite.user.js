@@ -65,8 +65,24 @@ function createSignalingTransport({
   now = () => Date.now(),
   setTimeoutFn = setTimeout,
   clearTimeoutFn = clearTimeout,
+  retryKeyTtlMs = 2 * 60 * 60 * 1000 + 5 * 60 * 1000,
+  maxPendingRetryKeys = 256,
+  maxIdempotentRetries = 1,
+  retryBaseDelayMs = 250,
+  maxRetryAfterMs = 1500,
 } = {}) {
   if (typeof request !== "function") throw new TypeError("request must be a function");
+
+  const pendingRetryTtl = Number.isFinite(retryKeyTtlMs) && retryKeyTtlMs > 0
+    ? retryKeyTtlMs : 2 * 60 * 60 * 1000 + 5 * 60 * 1000;
+  const pendingRetryLimit = Number.isSafeInteger(maxPendingRetryKeys) && maxPendingRetryKeys > 0
+    ? Math.min(maxPendingRetryKeys, 1024) : 256;
+  const idempotentRetryLimit = Number.isSafeInteger(maxIdempotentRetries) && maxIdempotentRetries >= 0
+    ? Math.min(maxIdempotentRetries, 3) : 1;
+  const retryDelayBase = Number.isFinite(retryBaseDelayMs) && retryBaseDelayMs >= 0 ? retryBaseDelayMs : 250;
+  const retryAfterLimit = Number.isFinite(maxRetryAfterMs) && maxRetryAfterMs >= 0 ? maxRetryAfterMs : 1500;
+  const pendingRetryKeys = new Map();
+  const inFlightIdempotentRequests = new Map();
 
   function readResponseHeader(headers, name) {
     const target = String(name).toLowerCase();
@@ -138,6 +154,172 @@ function createSignalingTransport({
       throw error;
     }
     return body;
+  }
+
+  function createSignalIdempotencyKey() {
+    const cryptoApi = globalThis.crypto;
+    if (!cryptoApi || typeof cryptoApi.getRandomValues !== "function")
+      throw new Error("Secure randomness is required for signaling idempotency");
+    const bytes = new Uint8Array(16);
+    cryptoApi.getRandomValues(bytes);
+    return Array.from(bytes, value => value.toString(16).padStart(2, "0")).join("");
+  }
+
+  function resolveSignalIdempotencyKey(value) {
+    if (value === undefined || value === null || value === "") return createSignalIdempotencyKey();
+    if (typeof value !== "string" || !/^[0-9a-f]{32}$/.test(value))
+      throw new TypeError("Invalid signaling idempotency key");
+    return value;
+  }
+
+  function snapshotJson(value) {
+    const serialized = JSON.stringify(value);
+    if (typeof serialized !== "string") throw new TypeError("Signaling request must be JSON serializable");
+    return JSON.parse(serialized);
+  }
+
+  function resolveSignalOperationId(value) {
+    if (value === undefined || value === null || value === "") return "";
+    if (typeof value !== "string" || value.length > 256) throw new TypeError("Invalid signaling operation ID");
+    return value;
+  }
+
+  function canonicalizeJson(value) {
+    if (Array.isArray(value)) return value.map(item => item === undefined ? null : canonicalizeJson(item));
+    if (value && typeof value === "object") {
+      const ordered = Object.create(null);
+      Object.keys(value).sort().forEach(key => {
+        const item = value[key];
+        if (item !== undefined && typeof item !== "function" && typeof item !== "symbol") {
+          ordered[key] = canonicalizeJson(item);
+        }
+      });
+      return ordered;
+    }
+    return value;
+  }
+
+  function signalRetryIdentity(path, payload, operationId, explicitKey) {
+    const identityPayload = snapshotJson(payload);
+    if (identityPayload && identityPayload.payload && typeof identityPayload.payload === "object" &&
+        !Array.isArray(identityPayload.payload)) {
+      delete identityPayload.payload.at;
+      delete identityPayload.payload.updatedAt;
+    }
+    return JSON.stringify(canonicalizeJson([path, operationId, explicitKey, identityPayload]));
+  }
+
+  function prunePendingRetryKeys() {
+    const currentTime = now();
+    for (const [identity, entry] of pendingRetryKeys) {
+      if (entry.expiresAt <= currentTime) pendingRetryKeys.delete(identity);
+    }
+  }
+
+  function shouldRetainIdempotencyKey(error) {
+    if (!error || typeof error !== "object" || error.code === "IDEMPOTENCY_KEY_REUSED") return false;
+    const status = Number(error.status);
+    return !Number.isFinite(status) || status === 0 || status === 408 || status === 425 ||
+      status === 429 || status >= 500;
+  }
+
+  function idempotentRetryDelay(error) {
+    const retryAfter = Number(error && error.retryAfterMs);
+    if (Number.isFinite(retryAfter)) return retryAfter <= retryAfterLimit ? Math.max(0, retryAfter) : null;
+    return retryDelayBase;
+  }
+
+  function postIdempotent(path, payload, idempotencyKey, operationId) {
+    const payloadSnapshot = snapshotJson(payload);
+    const explicitKey = idempotencyKey === undefined || idempotencyKey === null || idempotencyKey === ""
+      ? "" : resolveSignalIdempotencyKey(idempotencyKey);
+    const stableOperationId = resolveSignalOperationId(operationId);
+    const identity = signalRetryIdentity(path, payloadSnapshot, stableOperationId, explicitKey);
+    const implicitIdentity = explicitKey
+      ? signalRetryIdentity(path, payloadSnapshot, stableOperationId, "")
+      : identity;
+    prunePendingRetryKeys();
+
+    const existingFlight = inFlightIdempotentRequests.get(identity);
+    if (existingFlight) return existingFlight;
+
+    let retryIdentity = identity;
+    let cached = pendingRetryKeys.get(identity);
+    if (!cached && explicitKey) {
+      const implicitCached = pendingRetryKeys.get(implicitIdentity);
+      if (implicitCached && implicitCached.key === explicitKey) {
+        retryIdentity = implicitIdentity;
+        cached = implicitCached;
+      }
+    }
+    const retryAfterRemainingMs = cached
+      ? Math.max(0, Number(cached.retryAfterAt || 0) - now())
+      : 0;
+    if (retryAfterRemainingMs > 0) {
+      const deferredError = new Error("Signaling retry is deferred by Retry-After");
+      deferredError.code = "SIGNAL_RETRY_DEFERRED";
+      deferredError.status = 429;
+      deferredError.retryAfterMs = Math.ceil(retryAfterRemainingMs);
+      deferredError.retryAfterSeconds = Math.ceil(deferredError.retryAfterMs / 1000);
+      deferredError.idempotencyKey = cached.key;
+      throw deferredError;
+    }
+    if (!cached && !explicitKey && pendingRetryKeys.size >= pendingRetryLimit) {
+      const cacheFullError = new Error("Pending signaling retry-key cache is full; retry a pending operation before sending new signals");
+      cacheFullError.code = "SIGNAL_RETRY_CACHE_FULL";
+      cacheFullError.status = 503;
+      throw cacheFullError;
+    }
+    const key = explicitKey || (cached && cached.key) || createSignalIdempotencyKey();
+    const requestPayload = cached ? snapshotJson(cached.payload) : payloadSnapshot;
+
+    const operation = (async () => {
+      let attempt = 0;
+      while (true) {
+        try {
+          const result = await post(path, { ...requestPayload, idempotencyKey: key });
+          pendingRetryKeys.delete(retryIdentity);
+          return result;
+        } catch (error) {
+          if (error && typeof error === "object") {
+            try { error.idempotencyKey = key; } catch {}
+          }
+
+          const retainKey = shouldRetainIdempotencyKey(error);
+          const retryDelay = retainKey ? idempotentRetryDelay(error) : null;
+          if (retainKey && retryDelay !== null && attempt < idempotentRetryLimit) {
+            attempt++;
+            await new Promise(resolve => setTimeoutFn(resolve, retryDelay));
+            continue;
+          }
+
+          if (retainKey) {
+            pendingRetryKeys.delete(retryIdentity);
+            if (pendingRetryKeys.size < pendingRetryLimit) {
+              const retryAfterMs = Number.isFinite(error && error.retryAfterMs)
+                ? Math.max(0, error.retryAfterMs)
+                : Number(error && error.status) === 429 ? retryDelayBase : 0;
+              pendingRetryKeys.set(retryIdentity, {
+                key,
+                payload: snapshotJson(requestPayload),
+                expiresAt: now() + pendingRetryTtl,
+                retryAfterAt: now() + retryAfterMs,
+              });
+            } else if (error && typeof error === "object") {
+              try { error.retryKeyCacheFull = true; } catch {}
+            }
+          } else {
+            pendingRetryKeys.delete(retryIdentity);
+          }
+          throw error;
+        }
+      }
+    })();
+
+    inFlightIdempotentRequests.set(identity, operation);
+    return operation.finally(() => {
+      if (inFlightIdempotentRequests.get(identity) === operation) inFlightIdempotentRequests.delete(identity);
+    });
   }
 
   function validId(value, label) {
@@ -267,9 +449,10 @@ function createSignalingTransport({
     throw error;
   }
 
-  async function requestInvite(logicalId) {
+  async function requestInvite(logicalId, options = {}) {
     validId(logicalId, "logical call ID");
-    return post("/room/request-invite", { bindingType: "call", logicalId });
+    return postIdempotent("/room/request-invite", { bindingType: "call", logicalId },
+      options.idempotencyKey, options.operationId);
   }
 
   async function invitations() {
@@ -287,21 +470,21 @@ function createSignalingTransport({
     return post("/room/decline", { roomId });
   }
 
-  async function sendSignal({ roomId, recipient, eventType, payload }) {
+  async function sendSignal({ roomId, recipient, eventType, payload, idempotencyKey, operationId }) {
     if (typeof roomId !== "string" || !roomId || roomId.length > 128) throw new TypeError("Invalid room ID");
     if (typeof recipient !== "string" || !recipient || recipient.length > 80) throw new TypeError("Invalid recipient");
     if (typeof eventType !== "string" || !eventType || eventType.length > 40) throw new TypeError("Invalid event type");
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new TypeError("Invalid signaling payload");
-    return post("/signal", { roomId, recipient, eventType, payload });
+    return postIdempotent("/signal", { roomId, recipient, eventType, payload }, idempotencyKey, operationId);
   }
 
-  async function sendToRoom({ roomId, eventType, payload, senderName }) {
+  async function sendToRoom({ roomId, eventType, payload, senderName, idempotencyKey, operationId }) {
     if (typeof senderName !== "string" || !senderName || senderName.length > 80)
       throw new TypeError("Invalid sender name");
-    const result = await post("/broadcast", { roomId, eventType, payload });
+    const result = await postIdempotent("/broadcast", { roomId, eventType, payload }, idempotencyKey, operationId);
     const attempted = Number(result.attempted) || 0;
     const delivered = Number(result.delivered) || 0;
-    return { attempted, delivered, failed: Math.max(0, attempted - delivered) };
+    return { attempted, delivered, failed: Math.max(0, attempted - delivered), duplicate: result.duplicate === true };
   }
 
   async function poll(roomId, options = {}) {
