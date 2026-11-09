@@ -564,7 +564,7 @@ await assert.rejects(
     roomId: "sig_retry_manual",
     recipient: "mari",
     eventType: "call_signal",
-    payload: { type: "ice", candidate: "candidate:1", at: 100 },
+    payload: { type: "offer", sdp: { type: "offer", sdp: "v=0" }, at: 100 },
   }),
   error => {
     assert.match(error.idempotencyKey, /^[0-9a-f]{32}$/);
@@ -577,7 +577,7 @@ await manualRetryClient.sendSignal({
   roomId: "sig_retry_manual",
   recipient: "mari",
   eventType: "call_signal",
-  payload: { type: "ice", candidate: "candidate:1", at: 200 },
+  payload: { sdp: { sdp: "v=0", type: "offer" }, at: 200, type: "offer" },
 });
 assert.equal(manualRetryCalls[1].body.idempotencyKey, manualRetryKey,
   "the next attempt for the same logical payload must reuse the failed request key");
