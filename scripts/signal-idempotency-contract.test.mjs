@@ -140,6 +140,7 @@ assert(adapter.includes("pendingRetryKeys") &&
   adapter.includes("inFlightIdempotentRequests") &&
   adapter.includes("retryKeyTtlMs") &&
   adapter.includes("maxIdempotentRetries") &&
+  adapter.includes("canonicalizeJson") &&
   adapter.includes("operationId"),
   "client adapter must retain failed operation keys, coalesce concurrent retries, and bound the retry cache");
 assert(adapterTests.includes("automaticRetryCalls") &&
