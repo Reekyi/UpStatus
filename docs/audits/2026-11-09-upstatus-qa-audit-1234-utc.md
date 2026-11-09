@@ -203,3 +203,11 @@ Nenhuma migration, SQL write, fixture, deploy, merge, release, workflow dispatch
 - Confirmação adicional no laboratório: public.merge_chat_read_receipts existe como SECURITY INVOKER, search_path vazio, EXECUTE false para anon/authenticated e true somente para service_role. A função não existe em produção. O catálogo de produção também não contém tabelas/funções de signaling, setup invite ou rate limit consultadas.
 - O inventário atual confirma 38/38 Edge Functions de produção ACTIVE e 38/38 com verify_jwt=false; isso não equivale automaticamente a endpoint sem auth, pois os handlers principais usam token customizado. Runtimes relevantes: upstatus v480 (SHA bb2713ceb5543a780e2ed9b56422abe21ac13cf6a4a4da6184ac6ec31f7cc9dd), upstatus-team-lite v15 (SHA 2c13414a011f458a1b3761c3d84aa425b51d1875b63e68ec61fc99561a8e0dfb) e upstatus-screen-share-3-1-1-beta10 v6 (SHA f6c5f8a4e32ecb1e4331c71c733e0d841f3538c24fd9d4bcfbba07ad1f05ad29).
 - O HEAD QA final após este append deve ser conferido no commit da atualização; o documento principal RELEASE_READINESS.md permanece no blob SHA 7cfbd70886df42ce790c078c224b19284a632595.
+
+
+## Fechamento do HEAD documental — 2026-11-09 12:47 UTC
+
+- Antes deste último append, QA estava em 7a9101412a964f4951cf010dd975779f468e75f4; comparação com master: 161 commits à frente, 1 atrás; merge-base a9288ccfcb0f308d3a587bfca624418a395be07b. O único commit de master não incorporado continua sendo o checkpoint documental 9d40461.
+- Validate do HEAD 7a9101412a964f4951cf010dd975779f468e75f4: [run 42619842629](https://github.com/Reekyi/UpStatus/actions/runs/42619842629) FAILURE em scripts/validate.mjs:26, “production updateURL mismatch”, após build PROD/TEST 3.4.7.
+- O catálogo isolado confirmou também merge_chat_read_receipts: SECURITY INVOKER, search_path vazio, sem EXECUTE para anon/authenticated e EXECUTE somente para service_role. A mesma RPC não existe em produção.
+- O resultado do Validate é uma falha do contrato de build herdado de master, não da nota documental. Não houve mudança de código, validator ou workflow de engenharia.
