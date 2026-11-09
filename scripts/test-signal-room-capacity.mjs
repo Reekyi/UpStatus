@@ -70,7 +70,7 @@ if (!health.ok || health.headers.get("X-UpStatus-Signal-Capacity") !== "room-cap
     health.headers.get("X-UpStatus-Signal-Idempotency") !== "event-idempotency-v1") {
   throw new Error("Refusing fixture writes: the isolated endpoint is not the reviewed capacity/idempotency candidate.");
 }
-const ready = await fetch(endpoint.toString().replace(/\\/$/, "") + "/ready", {
+const ready = await fetch(endpoint.toString().replace(/\/$/, "") + "/ready", {
   method: "GET", redirect: "error", signal: AbortSignal.timeout(10000),
 });
 if (!ready.ok || ready.headers.get("X-UpStatus-Signal-Readiness") !== "database-v2") {
