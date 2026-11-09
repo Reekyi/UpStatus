@@ -279,6 +279,17 @@ assert.ok(script.includes("payload.id.length>160")&&script.includes("payload.sen
 // Security assertions for the opt-in authenticated media transport.
 assert.ok(script.includes("function createSignalingTransport("), "Team Lite candidate must bundle the authenticated signaling adapter");
 assert.ok(script.includes(signalingAdapterSource), "Team Lite bundled adapter must match the shared tested source module");
+assert.ok(signalingAdapterSource.includes("function createSignalIdempotencyKey()") && signalingAdapterSource.includes("function postIdempotent(") && signalingAdapterSource.includes("error.idempotencyKey") && script.includes("function createSignalIdempotencyKey()") && script.includes("function postIdempotent("), "Team Lite must bundle secure idempotency keys and preserve the key for caller retries");
+assert.ok(signalingAdapterSource.includes("pendingRetryKeys") &&
+  signalingAdapterSource.includes("inFlightIdempotentRequests") &&
+  signalingAdapterSource.includes("retryAfterAt") &&
+  signalingAdapterSource.includes("SIGNAL_RETRY_DEFERRED") &&
+  signalingAdapterSource.includes("implicitCached.key === explicitKey") &&
+  signalingAdapterSource.includes("SIGNAL_RETRY_CACHE_FULL") &&
+  signalingAdapterSource.includes("maxPendingRetryKeys = 256") &&
+  script.includes("implicitCached.key === explicitKey") &&
+  script.includes("retryAfterAt"),
+  "Team Lite must bundle the bounded retry cache, explicit-key lookup, and Retry-After not-before enforcement");
 assert.ok(script.includes("var signalTransportFlag=GM_getValue(key+'signaling_transport_enabled',false)===true"), "authenticated signaling must remain disabled by default");
 assert.ok(script.includes("endpoint.protocol!=='https:'") && script.includes("endpoint.origin!==sessionServer.origin"), "signaling endpoint must be HTTPS and same-origin");
 assert.ok(script.includes("eventType:'voice_room_signal'") && script.includes("eventType:'screen_signal'"), "voice and screen media events must use authenticated transport when enabled");
