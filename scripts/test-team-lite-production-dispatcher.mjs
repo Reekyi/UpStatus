@@ -48,6 +48,10 @@ assert.match(workflow, /grep -q "assertTeamLiteProductionMainBranch"/,
   "the target Team Lite candidate must reject an unhealthy managed main branch");
 assert.match(workflow, /grep -q "assertRemoteMigrationsHaveLocalFiles"/,
   "the target Team Lite candidate must reconcile every remote migration to a local source file");
+assert.match(workflow, /grep -q "assertTeamLiteProductionMainBranch"/,
+  "the target Team Lite candidate must reject an unhealthy managed main branch");
+assert.match(workflow, /grep -q "assertRemoteMigrationsHaveLocalFiles"/,
+  "the target Team Lite candidate must reconcile every remote migration to a local source file");
 assert.match(workflow, /ref: \$\{\{ inputs\.release_sha \}\}/,
   "checkout must use the explicitly supplied release SHA");
 assert.match(workflow, /git rev-parse HEAD[\s\S]*?RELEASE_SHA/,
