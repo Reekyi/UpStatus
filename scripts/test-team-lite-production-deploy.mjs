@@ -292,11 +292,22 @@ const actualMigrationContents = new Map(actualMigrationFiles.map(filename => [
 const actualProvenanceManifest = JSON.parse(read("supabase/migrations/provenance.json"));
 assert.equal(actualProvenanceManifest.entries.length, 3,
   "only the three source files present in the reviewed master tree may be recorded until the four originals are recovered");
-assert.throws(() => assertRemoteMigrationsHaveVerifiedProvenance(
+assert.deepEqual(
+  assertRemoteMigrationsHaveVerifiedProvenance(
+    productionRemoteHistory.slice(0, 3),
+    actualMigrationContents,
+    actualProvenanceManifest,
+  ),
+  { remoteCount: 3, verifiedCount: 3, manifestCount: 3 },
+  "the three available original migrations must match their recorded Git blob IDs",
+);
+const incompleteProvenanceError = assert.throws(() => assertRemoteMigrationsHaveVerifiedProvenance(
   productionRemoteHistory,
   actualMigrationContents,
   actualProvenanceManifest,
-), /missing provenance\/source/);
+), /missing provenance\\/source/);
+assert.doesNotMatch(incompleteProvenanceError.message, /Git blob SHA-1 mismatch/,
+  "the known original migration blobs must match even though four other sources are missing");
 
 const expectedProject = "dlfvkawaiqduhlazsszm";
 const isolatedProject = "bfpjtfqlnypisxljoxkb";
