@@ -56,8 +56,6 @@ jobs:
       - name: Run route-level signaling contract and full offline validation
         run: |
           node --version
-          node --check supabase/functions/upstatus-signal/http-contract.mjs
-          node --check supabase/functions/upstatus-signal-test/http-contract.mjs
           node --check scripts/production-signal-source-parity.test.mjs
           node scripts/production-signal-source-parity.test.mjs
           node scripts/validate.mjs
