@@ -144,6 +144,21 @@ export function createSignalingTransport({
     return value;
   }
 
+  function canonicalizeJson(value) {
+    if (Array.isArray(value)) return value.map(item => item === undefined ? null : canonicalizeJson(item));
+    if (value && typeof value === "object") {
+      const ordered = {};
+      Object.keys(value).sort().forEach(key => {
+        const item = value[key];
+        if (item !== undefined && typeof item !== "function" && typeof item !== "symbol") {
+          ordered[key] = canonicalizeJson(item);
+        }
+      });
+      return ordered;
+    }
+    return value;
+  }
+
   function signalRetryIdentity(path, payload, operationId, explicitKey) {
     const identityPayload = snapshotJson(payload);
     if (identityPayload && identityPayload.payload && typeof identityPayload.payload === "object" &&
@@ -151,7 +166,7 @@ export function createSignalingTransport({
       delete identityPayload.payload.at;
       delete identityPayload.payload.updatedAt;
     }
-    return JSON.stringify([path, operationId, explicitKey, identityPayload]);
+    return JSON.stringify(canonicalizeJson([path, operationId, explicitKey, identityPayload]));
   }
 
   function prunePendingRetryKeys() {
