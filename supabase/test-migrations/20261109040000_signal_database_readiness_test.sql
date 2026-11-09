@@ -6,7 +6,6 @@ DECLARE
   v_prosecdef boolean;
   v_provolatile "char";
   v_proconfig text[];
-  v_proacl aclitem[];
   v_result jsonb;
   v_public_execute boolean;
 BEGIN
@@ -14,8 +13,8 @@ BEGIN
     RAISE EXCEPTION 'upstatus_signal_readiness() is missing';
   END IF;
 
-  SELECT p.prosecdef, p.provolatile, p.proconfig, p.proacl
-    INTO v_prosecdef, v_provolatile, v_proconfig, v_proacl
+  SELECT p.prosecdef, p.provolatile, p.proconfig
+    INTO v_prosecdef, v_provolatile, v_proconfig
   FROM pg_catalog.pg_proc AS p
   WHERE p.oid = v_rpc;
 
@@ -32,8 +31,11 @@ BEGIN
 
   SELECT EXISTS (
     SELECT 1
-    FROM pg_catalog.aclexplode(COALESCE(v_proacl, pg_catalog.acldefault('f', (SELECT p.proowner FROM pg_catalog.pg_proc AS p WHERE p.oid = v_rpc)))) AS acl
-    WHERE acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
+    FROM pg_catalog.pg_proc AS p,
+         LATERAL pg_catalog.aclexplode(COALESCE(p.proacl, pg_catalog.acldefault('f', p.proowner))) AS acl
+    WHERE p.oid = v_rpc
+      AND acl.grantee = 0
+      AND acl.privilege_type = 'EXECUTE'
   ) INTO v_public_execute;
   IF v_public_execute THEN
     RAISE EXCEPTION 'PUBLIC must not execute the readiness RPC';
