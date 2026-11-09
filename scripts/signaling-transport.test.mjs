@@ -718,7 +718,7 @@ const deferredRetryClient = createSignalingTransport({
     deferredRetryCalls.push({ path, body });
     deferredRetryAttempt++;
     if (deferredRetryAttempt === 1) {
-      return { status: 429, body: { error: "RATE_LIMITED" }, headers: "Retry-After: 10\\r\\n" };
+      return { status: 429, body: { error: "RATE_LIMITED" }, headers: "Retry-After: 10\r\n" };
     }
     return { status: 202, body: { ok: true } };
   },
