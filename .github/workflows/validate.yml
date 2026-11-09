@@ -2,12 +2,18 @@ name: UpStatus Validate
 
 on:
   push:
-    branches: [master, develop]
+    branches:
+      - master
+      - develop
+      - "fix/normal-signal-http-error-code-shape-20261108-v2"
     paths-ignore:
       - "**/*.md"
       - "docs/**"
   pull_request:
-    branches: [master, develop]
+    branches:
+      - master
+      - develop
+      - "fix/normal-signal-http-error-code-shape-20261108-v2"
     paths-ignore:
       - "**/*.md"
       - "docs/**"

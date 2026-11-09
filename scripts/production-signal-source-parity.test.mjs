@@ -77,6 +77,9 @@ for (const [label, route] of [
   ["isolated", isolatedOpenRoute],
 ]) {
   assert(route.includes('db.rpc("open_upstatus_signal_voice_room_attempt"'), label + " /room/open route must call the attempt RPC when an attempt ID is supplied");
+  assert(route.includes('if (Object.hasOwn(result, "error")) {'), label + " /room/open route must detect only an own RPC error field");
+  assert(route.includes('typeof result.error === "string" && result.error.length > 0'), label + " /room/open route must not coerce malformed error values");
+  assert(!route.includes("String(result.error)"), label + " /room/open route must avoid unsafe error coercion");
   assert(route.includes("const status = voiceRoomOpenResultStatus(result);"), label + " /room/open route must use the executable HTTP status mapper");
   assert(route.includes('return response({ error: code, memberCount: result.memberCount }, status);'), label + " /room/open route must use the checked status mapping in its HTTP response");
 }
@@ -101,7 +104,21 @@ for (const [code, expected] of voiceRoomOpenStatusCases) {
   assert.equal(productionVoiceRoomOpenResultStatus({ error: code }), expected, "production mapper status for " + code);
   assert.equal(isolatedVoiceRoomOpenResultStatus({ error: code }), expected, "isolated mapper status for " + code);
 }
-for (const malformed of [null, undefined, [], "VOICE_ATTEMPT_ALREADY_ACTIVE", {}]) {
+const inheritedError = Object.create({ error: "ROOM_FULL" });
+const malformedResults = [
+  null,
+  undefined,
+  [],
+  "VOICE_ATTEMPT_ALREADY_ACTIVE",
+  {},
+  { error: "" },
+  { error: 409 },
+  { error: true },
+  { error: ["ROOM_FULL"] },
+  { error: { toString: "ROOM_FULL" } },
+  inheritedError,
+];
+for (const malformed of malformedResults) {
   assert.equal(productionVoiceRoomOpenResultStatus(malformed), 500, "production mapper must fail closed for malformed results");
   assert.equal(isolatedVoiceRoomOpenResultStatus(malformed), 500, "isolated mapper must fail closed for malformed results");
 }
