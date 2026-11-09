@@ -58,8 +58,8 @@ async function deleteIn(table, column, values) {
   if (!values.length) return;
   await rest("/" + table + "?" + column + "=" + encodeURIComponent(inFilter(values)), "DELETE");
 }
-async function assertNoRows(table, query) {
-  const rows = await readRest(table + "?" + query + "&limit=1");
+async function assertTableEmpty(table) {
+  const rows = await readRest(table + "?select=*&limit=1");
   assert.equal(rows.length, 0, "fixture cleanup left rows in " + table);
 }
 
@@ -94,6 +94,7 @@ const names = Array.from({ length: 35 }, (_, index) => "__signal_capacity_" + su
 const tokens = names.map(() => randomBytes(32).toString("base64url"));
 const tokenByName = new Map(names.map((name, index) => [name, tokens[index]]));
 const bucketKeys = names.flatMap(name => [name + ":read", name + ":write"]);
+let roomId = "";
 let fixturesCreated = false;
 let failed = false;
 
@@ -113,7 +114,7 @@ try {
 
   const created = await call(names[0], tokens[0], "/room/create", { participants: names.slice(1, 31) });
   assert.equal(created.status, 201, "room/create with 31 total participants must succeed");
-  const roomId = created.body?.roomId;
+  roomId = created.body?.roomId;
   assert.equal(typeof roomId, "string", "room/create must return roomId");
 
   for (const name of names.slice(1, 31)) {
@@ -159,15 +160,37 @@ try {
   throw error;
 } finally {
   if (fixturesCreated) {
-    await deleteIn("upstatus_signal_rooms", "created_by", [names[0]]);
-    await deleteIn("upstatus_sessions", "user_name", names);
+    // Remove only rows associated with the unique fixture names/room, in FK-safe order.
+    await deleteIn("upstatus_signal_events", "room_id", roomId ? [roomId] : []);
+    await deleteIn("upstatus_signal_events", "sender", names);
+    await deleteIn("upstatus_signal_events", "recipient", names);
+    await deleteIn("upstatus_signal_room_bindings", "room_id", roomId ? [roomId] : []);
+    await deleteIn("upstatus_signal_room_bindings", "created_by", names);
+    await deleteIn("upstatus_signal_call_attempts", "room_id", roomId ? [roomId] : []);
+    await deleteIn("upstatus_signal_call_attempts", "created_by", names);
+    await deleteIn("upstatus_signal_call_attempts", "recipient", names);
+    await deleteIn("upstatus_signal_voice_room_attempts", "room_id", roomId ? [roomId] : []);
+    await deleteIn("upstatus_signal_voice_room_attempts", "created_by", names);
     await deleteIn("upstatus_signal_room_members", "user_name", names);
+    await deleteIn("upstatus_signal_rooms", "room_id", roomId ? [roomId] : []);
+    await deleteIn("upstatus_signal_rooms", "created_by", names);
+    await deleteIn("upstatus_sessions", "user_name", names);
     await deleteIn("upstatus_signal_rate_limits", "bucket_key", bucketKeys);
     await deleteIn("users", "name", names);
-    await assertNoRows("users", "name=" + encodeURIComponent(inFilter(names)) + "&select=name");
-    await assertNoRows("upstatus_sessions", "user_name=" + encodeURIComponent(inFilter(names)) + "&select=user_name");
-    await assertNoRows("upstatus_signal_room_members", "user_name=" + encodeURIComponent(inFilter(names)) + "&select=user_name");
-    await assertNoRows("upstatus_signal_rate_limits", "bucket_key=" + encodeURIComponent(inFilter(bucketKeys)) + "&select=bucket_key");
+
+    for (const table of [
+      "users",
+      "upstatus_sessions",
+      "upstatus_signal_rooms",
+      "upstatus_signal_room_members",
+      "upstatus_signal_room_bindings",
+      "upstatus_signal_events",
+      "upstatus_signal_call_attempts",
+      "upstatus_signal_voice_room_attempts",
+      "upstatus_signal_rate_limits",
+    ]) {
+      await assertTableEmpty(table);
+    }
   }
   if (failed) console.error("Room-capacity fixture cleanup completed after a failed assertion; inspect the isolated test log.");
 }
