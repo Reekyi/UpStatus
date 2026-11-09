@@ -80,11 +80,17 @@ DO $test$
 DECLARE
   v_function oid;
   v_security_definer boolean;
-  v_config text;
+  v_search_path text;
   v_rls boolean;
 BEGIN
-  SELECT p.oid, p.prosecdef, pg_catalog.array_to_string(p.proconfig, ',')
-    INTO v_function, v_security_definer, v_config
+  SELECT p.oid, p.prosecdef,
+         (
+           SELECT pg_catalog.replace(pg_catalog.split_part(setting, '=', 2), '"', '')
+           FROM pg_catalog.unnest(COALESCE(p.proconfig, ARRAY[]::text[])) AS config(setting)
+           WHERE setting LIKE 'search_path=%'
+           LIMIT 1
+         )
+    INTO v_function, v_security_definer, v_search_path
   FROM pg_catalog.pg_proc p
   JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
   WHERE n.nspname = 'public'
@@ -93,7 +99,7 @@ BEGIN
 
   IF v_function IS NULL THEN RAISE EXCEPTION 'setup invite rate-limit RPC is missing'; END IF;
   IF v_security_definer THEN RAISE EXCEPTION 'setup invite rate-limit RPC must remain SECURITY INVOKER'; END IF;
-  IF COALESCE(v_config, '') NOT ILIKE '%search_path=%' THEN RAISE EXCEPTION 'setup invite rate-limit RPC must pin an empty search_path'; END IF;
+  IF v_search_path IS DISTINCT FROM '' THEN RAISE EXCEPTION 'setup invite rate-limit RPC must pin an empty search_path (got %)', v_search_path; END IF;
   IF NOT pg_catalog.has_function_privilege('service_role', v_function, 'EXECUTE') THEN RAISE EXCEPTION 'service_role must execute setup invite rate-limit RPC'; END IF;
   IF pg_catalog.has_function_privilege('anon', v_function, 'EXECUTE') OR pg_catalog.has_function_privilege('authenticated', v_function, 'EXECUTE') THEN
     RAISE EXCEPTION 'client roles must not execute setup invite rate-limit RPC';
