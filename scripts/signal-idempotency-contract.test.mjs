@@ -23,7 +23,7 @@ const adapterTests = read("scripts/signaling-transport.test.mjs");
 const capacityHarness = read("scripts/test-signal-room-capacity.mjs");
 
 assert.equal(
-  production.replace('service: "upstatus-signal"', 'service: "upstatus-signal-test"'),
+  production.replaceAll('service: "upstatus-signal"', 'service: "upstatus-signal-test"'),
   isolated,
   "production and isolated signaling handlers must remain byte-identical apart from the health label"
 );
