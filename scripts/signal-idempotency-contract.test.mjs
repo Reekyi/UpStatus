@@ -143,6 +143,9 @@ assert(adapter.includes("pendingRetryKeys") &&
   adapter.includes("canonicalizeJson") &&
   adapter.includes("operationId"),
   "client adapter must retain failed operation keys, coalesce concurrent retries, and bound the retry cache");
+assert(adapter.includes("retryKeyTtlMs = 2 * 60 * 60 * 1000 + 5 * 60 * 1000") &&
+  adapter.includes("maxPendingRetryKeys = 256"),
+  "client retry-key retention must cover the 2-hour signaling room lifetime plus cleanup margin");
 assert(adapterTests.includes("automaticRetryCalls") &&
   adapterTests.includes("manualRetryCalls") &&
   adapterTests.includes("concurrentRetryCalls") &&
