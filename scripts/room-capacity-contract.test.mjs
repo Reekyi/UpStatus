@@ -20,7 +20,7 @@ const migration = read("supabase/migrations/20261109010000_enforce_signal_room_m
 const testMigration = read("supabase/test-migrations/20261109010000_enforce_signal_room_member_capacity_test.sql");
 
 assert.equal(
-  production.replace('service: "upstatus-signal"', 'service: "upstatus-signal-test"'),
+  production.replaceAll('service: "upstatus-signal"', 'service: "upstatus-signal-test"'),
   isolated,
   "production and isolated signaling handlers must remain identical apart from the health label"
 );
