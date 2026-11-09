@@ -1,0 +1,60 @@
+name: Team Lite Production Deploy Guard
+
+on:
+  push:
+    branches:
+      - fix/team-lite-production-deploy-guard-20261109
+    paths:
+      - ".github/workflows/deploy-production.yml"
+      - ".github/workflows/team-lite-production-deploy-guard.yml"
+      - "supabase/config.toml"
+      - "supabase/migrations/**"
+      - "supabase/test-migrations/**"
+      - "scripts/verify-team-lite-production-project.mjs"
+      - "scripts/verify-team-lite-production-migrations.mjs"
+      - "scripts/verify-team-lite-release.mjs"
+      - "scripts/test-team-lite-production-deploy.mjs"
+      - "scripts/migration-layout.test.mjs"
+      - "src/server/team-lite-index.template.ts"
+      - "team-lite/release.json"
+      - "team-lite/upstatus-team-lite.user.js"
+  pull_request:
+    branches:
+      - team-lite/signaling-transport-candidate
+    paths:
+      - ".github/workflows/deploy-production.yml"
+      - ".github/workflows/team-lite-production-deploy-guard.yml"
+      - "supabase/config.toml"
+      - "supabase/migrations/**"
+      - "supabase/test-migrations/**"
+      - "scripts/verify-team-lite-production-project.mjs"
+      - "scripts/verify-team-lite-production-migrations.mjs"
+      - "scripts/verify-team-lite-release.mjs"
+      - "scripts/test-team-lite-production-deploy.mjs"
+      - "scripts/migration-layout.test.mjs"
+      - "src/server/team-lite-index.template.ts"
+      - "team-lite/release.json"
+      - "team-lite/upstatus-team-lite.user.js"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Check verifier syntax
+        run: |
+          node --check scripts/verify-team-lite-production-project.mjs
+          node --check scripts/verify-team-lite-production-migrations.mjs
+          node --check scripts/verify-team-lite-release.mjs
+          node --check scripts/test-team-lite-production-deploy.mjs
+      - name: Run offline Team Lite production deploy guard
+        run: node scripts/test-team-lite-production-deploy.mjs
+      - name: Verify test migration isolation
+        run: node scripts/migration-layout.test.mjs
