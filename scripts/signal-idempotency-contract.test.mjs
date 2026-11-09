@@ -136,4 +136,24 @@ assert(capacityHarness.includes("X-UpStatus-Signal-Idempotency") &&
   capacityHarness.includes("replayedBroadcast"),
   "guarded lab harness must test replay, key conflict, and ledger cleanup");
 
+assert(adapter.includes("pendingRetryKeys") &&
+  adapter.includes("inFlightIdempotentRequests") &&
+  adapter.includes("retryKeyTtlMs") &&
+  adapter.includes("maxIdempotentRetries") &&
+  adapter.includes("SIGNAL_RETRY_CACHE_FULL") &&
+  adapter.includes("canonicalizeJson") &&
+  adapter.includes("operationId"),
+  "client adapter must retain failed operation keys, coalesce concurrent retries, and bound the retry cache");
+assert(adapter.includes("retryKeyTtlMs = 2 * 60 * 60 * 1000 + 5 * 60 * 1000") &&
+  adapter.includes("maxPendingRetryKeys = 256"),
+  "client retry-key retention must cover the 2-hour signaling room lifetime plus cleanup margin");
+assert(adapterTests.includes("automaticRetryCalls") &&
+  adapterTests.includes("manualRetryCalls") &&
+  adapterTests.includes("concurrentRetryCalls") &&
+  adapterTests.includes("expiryRetryCalls") &&
+  adapterTests.includes("deferredRetryCalls") &&
+  adapterTests.includes("cacheFullCalls") &&
+  adapterTests.includes("broadcastRetryCalls"),
+  "client tests must cover bounded retry, later key reuse, concurrency, expiry, and room broadcast replay");
+
 console.log("Signal event idempotency contract tests passed.");
