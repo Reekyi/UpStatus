@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/team-lite-authenticated-call-source-guard-20261108
+      - feat/team-lite-signal-event-idempotency-20261109
     paths:
       - "team-lite/upstatus-team-lite.user.js"
       - "src/userscript/signaling-transport.mjs"
@@ -14,6 +15,7 @@ on:
   pull_request:
     branches:
       - team-lite/signaling-transport-candidate
+      - fix/team-lite-authenticated-call-source-guard-20261108
     paths:
       - "team-lite/upstatus-team-lite.user.js"
       - "src/userscript/signaling-transport.mjs"
