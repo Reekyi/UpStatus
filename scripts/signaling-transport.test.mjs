@@ -740,6 +740,49 @@ assert.equal(deferredRetryCalls[1].body.payload.at, 100,
   "a deferred retry must replay the original request body");
 console.log("signaling Retry-After deferred retry retention: 3 assertions passed");
 
+// A full retry cache fails closed instead of evicting an older ambiguous operation.
+const cacheFullCalls = [];
+let cacheFullMode = "fail";
+const cacheFullClient = createSignalingTransport({
+  enabled: true,
+  maxPendingRetryKeys: 1,
+  maxIdempotentRetries: 0,
+  request: async (path, body) => {
+    cacheFullCalls.push({ path, body });
+    if (cacheFullMode === "fail") throw new Error("temporary network failure");
+    return { status: 202, body: { ok: true } };
+  },
+});
+const cacheFullFirstPayload = {
+  roomId: "sig_retry_cache_full",
+  recipient: "mari",
+  eventType: "call_signal",
+  payload: { type: "offer", sdp: "v=0", at: 100 },
+};
+const cacheFullSecondPayload = {
+  roomId: "sig_retry_cache_full",
+  recipient: "mari",
+  eventType: "call_signal",
+  payload: { type: "ice", candidate: "candidate:2" },
+};
+await assert.rejects(() => cacheFullClient.sendSignal(cacheFullFirstPayload),
+  error => /^[0-9a-f]{32}$/.test(error.idempotencyKey));
+const cacheFullFirstKey = cacheFullCalls[0].body.idempotencyKey;
+await assert.rejects(() => cacheFullClient.sendSignal(cacheFullSecondPayload),
+  error => error.code === "SIGNAL_RETRY_CACHE_FULL" && cacheFullCalls.length === 1);
+cacheFullMode = "success";
+await cacheFullClient.sendSignal({
+  ...cacheFullFirstPayload,
+  payload: { type: "offer", sdp: "v=0", at: 200 },
+});
+assert.equal(cacheFullCalls[1].body.idempotencyKey, cacheFullFirstKey,
+  "a full cache must preserve the oldest pending operation key");
+assert.equal(cacheFullCalls[1].body.payload.at, 100,
+  "the preserved pending operation must replay its original payload");
+await cacheFullClient.sendSignal(cacheFullSecondPayload);
+assert.equal(cacheFullCalls.length, 3, "new sends resume after a pending retry succeeds and frees capacity");
+console.log("signaling retry-key cache capacity guard: 3 assertions passed");
+
 // Room broadcasts use the same retry-key and exact-payload guarantees as unicast signaling.
 const broadcastRetryCalls = [];
 let allowBroadcastRetry = false;
