@@ -208,3 +208,10 @@ No manual browser/device test, live `GET /ready`, HTTP concurrency race, replay 
 **NO RELEASE.** The code-level capacity, idempotency and readiness contracts have automated PASS evidence, but the candidate migrations are not applied and the lab runtime remains v32. The production clients remain on the public Realtime path; the server-mediated signaling function is absent from production. Replay with a fresh key, readiness constraint coverage, Team Lite reconciliation, production hardening and physical acceptance remain open.
 
 All Supabase SQL in this pass was SELECT-only. No migration, fixture, deployment, merge, release, userscript publication, secret/flag/role/grant/policy/ACL change or destructive action was performed. The only write is this new append-only audit note on the dedicated QA branch.
+
+
+## Post-commit QA Validate result
+
+The documentation-only commit `772992a91385e3ce58c6d1c7bc15adefd9ce2f9d` has parent `9cc68a7be9c53abcb6e9284712ab39183dfc649c` and changes only this new audit file (210 additions, zero deletions). Its automatic PR #82 Validate [42563113049](https://github.com/Reekyi/UpStatus/actions/runs/42563113049) completed FAILURE. Job log: `production updateURL mismatch` in `scripts/validate.mjs:26`, same inherited master/build-manifest blocker as the previous #82 run. This does not indicate a runtime change in the documentation commit.
+
+Before this append, the QA branch head was `772992a91385e3ce58c6d1c7bc15adefd9ce2f9d`; the current audit-note blob was `d6328a77f3c63c5dc9b36638ca209280354e4d11`. The update below uses that exact current blob SHA and preserves the existing note content.
