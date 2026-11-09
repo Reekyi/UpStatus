@@ -3156,3 +3156,15 @@ The current engineering checkpoint is [Signal event idempotency and replay prote
 - The preceding checkpoint commit changed only `docs/CURRENT_STATE.md`, producing #80 HEAD `07ccc6f875f79721673fd96baee14dd153a20e3f`. Its exact-head Validate [42615265222](https://github.com/Reekyi/UpStatus/actions/runs/42615265222) failed after building PROD 3.0.40 / TEST 3.0.40-beta.22 at `scripts/validate.mjs:55`: `client signed upload helper missing`. This is the inherited signed-upload contract failure; no validator or runtime code was changed.
 - QA #82 remains HEAD `145d6f2ef5a71b245bee29bf27139250ee0df141`; exact-head Validate [42610953055](https://github.com/Reekyi/UpStatus/actions/runs/42610953055) failed after building PROD/TEST 3.4.7 at `scripts/validate.mjs:26`: `production updateURL mismatch`. The candidate fix remains Draft #85 and is not integrated.
 - Final provenance candidates remain Draft and mergeable: #127 HEAD `4ddd703287d8b17f29e3b28880cf0b1ef533f5fb` with focused push/PR workflows [42615124790](https://github.com/Reekyi/UpStatus/actions/runs/42615124790) and [42615130073](https://github.com/Reekyi/UpStatus/actions/runs/42615130073) SUCCESS; #128 HEAD `cb38853c4ac79932159715c8eafa8287fc884cb1` with focused PR workflow [42614800302](https://github.com/Reekyi/UpStatus/actions/runs/42614800302) SUCCESS. Neither result is a full release Validate or deployment.
+
+
+## 2026-11-09 12:15 UTC — production security count recheck (SELECT-only)
+
+Fresh read-only SQL on production returned:
+- `realtime.messages`: 52 rows, all `private=false`; 44 `user_status` and 8 `db_change`, all on the legacy `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0` topic.
+- Two public Storage buckets; zero policies on `storage.objects`.
+- Ten public RLS-enabled tables without policies.
+- TRUNCATE grants on nine public tables for `anon` and nine for `authenticated`.
+- 24 default ACL entries.
+
+This count is now 52, up from the prior audit's 50. It is a row-count/catalog observation, not proof of external exploitation or trigger-to-client delivery. Security Advisor at 12:05 UTC remains 6 WARN (3 anon + 3 authenticated) and 10 INFO. RT-01, grants/default ACLs and Storage remain open. SELECT-only; no database or Storage mutation.
