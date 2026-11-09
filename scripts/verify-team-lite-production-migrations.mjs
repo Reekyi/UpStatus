@@ -57,7 +57,8 @@ export function computeGitBlobSha(content) {
 }
 
 export function assertRemoteMigrationsHaveVerifiedProvenance(appliedMigrations, localMigrationContents, manifest) {
-  if (!Array.isArray(appliedMigrations) || !manifest || manifest.schemaVersion !== 1 || !Array.isArray(manifest.entries)) {
+  if (!Array.isArray(appliedMigrations) || !manifest || manifest.schemaVersion !== 1 ||
+      manifest.algorithm !== "git-blob-sha1" || !Array.isArray(manifest.entries)) {
     throw new Error("Migration provenance manifest or remote history is invalid; refusing deployment.");
   }
   const localEntries = localMigrationContents instanceof Map
