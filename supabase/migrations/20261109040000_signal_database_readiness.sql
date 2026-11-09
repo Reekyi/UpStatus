@@ -42,7 +42,7 @@ missing_table_privileges AS (
   FROM resolved_tables AS r
   CROSS JOIN LATERAL pg_catalog.unnest(r.privileges) AS p(privilege)
   WHERE r.relation_oid IS NOT NULL
-    AND NOT pg_catalog.has_table_privilege('service_role', r.relation_oid, p.privilege)
+    AND NOT pg_catalog.has_table_privilege('service_role', r.table_name, p.privilege)
 ),
 required_columns(table_name, column_name) AS (
   VALUES
@@ -133,7 +133,7 @@ missing_routines AS (
   SELECT 'execute:' || r.signature AS dependency
   FROM resolved_routines AS r
   WHERE r.routine_oid IS NOT NULL
-    AND NOT pg_catalog.has_function_privilege('service_role', r.routine_oid, 'EXECUTE')
+    AND NOT pg_catalog.has_function_privilege('service_role', r.signature, 'EXECUTE')
 ),
 missing AS (
   SELECT dependency FROM missing_tables
