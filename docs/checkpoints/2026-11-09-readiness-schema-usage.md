@@ -18,6 +18,6 @@ At the time of this candidate, both production `dlfvkawaiqduhlazsszm` and the is
 
 - Branch starts from PR #113 HEAD `41982e8eb7a9347ce54d2e22cec76eaeb08ac99a`.
 - Three source/test files changed; compare reports 3 commits ahead / 0 behind PR #113 before this checkpoint file.
-- Offline Validate is pending on the new Draft PR.
+- Parent #113 Validate workflow now includes this child PR base (parent workflow commit `ade95d17a5b3b37590657a00dd8566de6b758339`); exact-head PR Validate is pending.
 - No migration was applied and no database was modified.
 - Production and the QA-shared lab remain read-only.
