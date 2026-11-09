@@ -44,6 +44,10 @@ missing_table_privileges AS (
   WHERE r.relation_oid IS NOT NULL
     AND NOT pg_catalog.has_table_privilege('service_role', r.table_name, p.privilege)
 ),
+missing_schema_privileges AS (
+  SELECT 'schema:public:USAGE' AS dependency
+  WHERE NOT pg_catalog.has_schema_privilege('service_role', 'public', 'USAGE')
+),
 required_columns(table_name, column_name) AS (
   VALUES
     ('public.upstatus_sessions', 'token_hash'),
@@ -164,6 +168,7 @@ missing_routines AS (
 missing AS (
   SELECT dependency FROM missing_tables
   UNION ALL SELECT dependency FROM missing_table_privileges
+  UNION ALL SELECT dependency FROM missing_schema_privileges
   UNION ALL SELECT dependency FROM missing_columns
   UNION ALL SELECT dependency FROM missing_routines
 )
