@@ -40,6 +40,11 @@ assert.ok(build.includes("UPSTATUS_TEST_PROJECT_ID") &&
 const normalUserTemplate = read("src/userscript/upstatus.user.template.js");
 assert.ok(normalUserTemplate.includes("var UP_REALTIME_URL='__UPSTATUS_REALTIME_URL__';"),
   "Normal TEST template must not hardcode the production Realtime origin");
+const productionTopicMatch = build.match(/const PROD_TOPIC="([^"]+)";/);
+const teamLiteTopicMatch = script.match(/var UP_REALTIME_TOPIC='([^']+)';/);
+assert.ok(productionTopicMatch && teamLiteTopicMatch, "production and Team Lite Realtime topics must be declared");
+assert.equal(teamLiteTopicMatch[1], productionTopicMatch[1],
+  "Team Lite userscript topic must match the shared production build topic");
 
 function header(name) {
   const match = script.match(new RegExp("^// @" + name + "\\s+([^\\r\\n]+)$", "m"));
