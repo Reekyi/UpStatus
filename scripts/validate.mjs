@@ -23,7 +23,17 @@ assert(headerValue(prodUser,"version")===baseVersion,"production userscript vers
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
 assert(headerValue(testUser,"namespace")==="upseller-test","test namespace mismatch");
-assert(headerValue(prodUser,"updateURL").includes("/upstatus/upstatus.user.js"),"production updateURL mismatch");
+const buildSource=fs.readFileSync(path.join(ROOT,"scripts/build.mjs"),"utf8");
+const expectedProductionUpdateUrl=String(release.scriptUrl||"").trim();
+const productionProject=buildSource.match(/const PROJECT="([^"]+)";/)?.[1];
+const productionFunction=buildSource.match(/const PROD_FUNCTION="([^"]+)";/)?.[1];
+const productionApiFunction=buildSource.match(/const PROD_API_FUNCTION="([^"]+)";/)?.[1];
+assert(expectedProductionUpdateUrl,"release.json production scriptUrl missing");
+assert(headerValue(prodUser,"updateURL")===expectedProductionUpdateUrl,"production updateURL must match release.json scriptUrl");
+assert(headerValue(prodUser,"downloadURL")===expectedProductionUpdateUrl,"production downloadURL must match release.json scriptUrl");
+assert(productionProject&&productionFunction&&productionApiFunction,"production release and API targets must be explicit in build configuration");
+assert(expectedProductionUpdateUrl==="https://"+productionProject+".supabase.co/functions/v1/"+productionFunction+"/upstatus.user.js","release.json scriptUrl must point to the production userscript function");
+assert(prodUser.includes("var CLOUD_SERVER='https://"+productionProject+".supabase.co/functions/v1/"+productionApiFunction+"';"),"production API cloud server must match its separately configured API function target");
 assert(headerValue(testUser,"updateURL").includes("/upstatus-test/upstatus.user.js"),"test updateURL mismatch");
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
