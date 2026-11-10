@@ -140,7 +140,7 @@ A PR #135 arquiva statements recuperados de `supabase_migrations.schema_migratio
 
 ## Leitura de RELEASE_READINESS.md — limitação desta rodada
 
-O blob de `docs/RELEASE_READINESS.md` continua `7cfbd70886df42ce790c078c224b19284a632595`. A leitura por faixa (linhas 1–60 e 8380–8410) retornou conteúdo vazio; a tentativa raw foi rejeitada pelo GitHub Fetch com HTTP 400 por tamanho/limitação do endpoint. Portanto, **não afirmo ter relido integralmente o documento nesta execução**. A leitura integral anterior de 8.410 linhas permanece como referência; o conteúdo não foi alterado.
+O blob de `docs/RELEASE_READINESS.md` continua `7cfbd70886df42ce790c078c224b19284a632595`. A leitura por faixa (linhas 1–60 e 8380–8410) retornou conteúdo vazio; a tentativa raw foi rejeitada pelo GitHub Fetch com HTTP 400 por tamanho/limitação do endpoint. Portanto, **não afirmo ter relido integralmente o documento nesta execução**. A leitura integral anterior do documento (8.409 linhas no diff da branch) permanece como referência; o conteúdo não foi alterado.
 
 ## Gates QA
 
