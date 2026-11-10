@@ -33,7 +33,7 @@
   var server=CLOUD_SERVER;
   var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';
   var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
-  var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';
+  var UP_REALTIME_TOPIC='upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0';
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
   var voiceControlBubble=null,voiceControlAvatar=null,voiceControlWave=null,voiceControlSpeakerName='',voiceControlSyncVisibility=null;
   var voiceRoom={id:'upstatus-team-room-v1',seenSignals:{},sessionId:'vr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10),active:false,muted:false,speakersMuted:false,stream:null,peers:{},participants:{},timer:null,joining:false,audioContext:null,levelTimer:null,sessionStartedAt:0,sessionTimer:null,pingTimer:null,pingMs:null,lastSpeaker:'',currentSpeaker:'',recoveryAttempts:{},recoveryTimers:{}};
