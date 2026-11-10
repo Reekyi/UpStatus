@@ -12,6 +12,18 @@ on:
       - "scripts/production-signal-source-parity.test.mjs"
       - "scripts/validate.mjs"
       - ".github/workflows/production-signal-source-parity.yml"
+  pull_request:
+    branches:
+      - chore/continuity-foundation
+      - feat/production-authenticated-signaling-runtime-20261108
+    paths:
+      - "supabase/functions/upstatus-signal/**"
+      - "supabase/functions/upstatus-signal-test/**"
+      - "supabase/migrations/20261108190000_distributed_signaling_rate_limit.sql"
+      - "supabase/config.toml"
+      - "scripts/production-signal-source-parity.test.mjs"
+      - "scripts/validate.mjs"
+      - ".github/workflows/production-signal-source-parity.yml"
 
 permissions:
   contents: read
