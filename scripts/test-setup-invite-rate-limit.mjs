@@ -57,8 +57,15 @@ try {
   assert.equal(outcomes.filter(Boolean).length, 5, "exactly five concurrent invite requests must be allowed");
   assert.equal(outcomes.filter(value => value === false).length, 19, "remaining concurrent invite requests must be denied");
 
-  const independent = await consume(independentBucket, 5, 60);
-  assert.equal(independent, true, "a different admin bucket must have an independent counter");
+  const independentOutcomes = await Promise.all(
+    Array.from({ length: 6 }, () => consume(independentBucket, 5, 60))
+  );
+  assert.ok(independentOutcomes.every(value => typeof value === "boolean"), "independent bucket RPC must return booleans");
+  assert.equal(independentOutcomes.filter(Boolean).length, 5, "the second admin bucket must allow exactly five requests");
+  assert.equal(independentOutcomes.filter(value => value === false).length, 1, "the second admin bucket must deny its sixth request");
+
+  const firstBucketStillLimited = await consume(bucket, 5, 60);
+  assert.equal(firstBucketStillLimited, false, "using another admin bucket must not reset the first admin's exhausted limit");
 
   await new Promise(resolve => setTimeout(resolve, 1100));
   const reset = await consume(bucket, 5, 1);
