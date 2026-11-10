@@ -84,7 +84,9 @@ assert(headerValue(testUser,"updateURL")!=="https://dlfvkawaiqduhlazsszm.supabas
 assert(headerValue(testUser,"downloadURL")!=="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js","test downloadURL must not target production");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
-assert(prodUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';"),"production realtime topic compatibility check");
+const productionRealtimeTopic=buildSource.match(/const PROD_TOPIC="([^"]+)";/)?.[1];
+assert(productionRealtimeTopic,"production Realtime topic missing from build configuration");
+assert(prodUser.includes("var UP_REALTIME_TOPIC='"+productionRealtimeTopic+"';"),"production userscript topic must match build configuration");
 assert(testUser.includes("var UP_REALTIME_TOPIC='upstatus-test-live-"),"test realtime topic missing");
 assert(prodUser.includes("var UP_RINGTONE_CHANNEL='upstatus-screen-share-3-1-1-beta9-2-ringtone-stop-v1';"),"production ringtone channel mismatch");
 assert(testUser.includes("var UP_RINGTONE_CHANNEL='upstatus-test-call-ringtone-stop-v1';"),"test ringtone channel mismatch");
@@ -137,7 +139,7 @@ for(const table of ["chat_reads","messages","reactions","status_history","upstat
 assert(publicTableGrantMigration.includes("FROM PUBLIC, anon, authenticated"),"public table grant migration must cover public client roles");
 assert(publicChatBroadcastMigration.includes("jsonb_build_object('op', TG_OP)"),"public chat broadcast must emit only an operation hint");
 assert(!publicChatBroadcastMigration.includes("to_jsonb")&&!publicChatBroadcastMigration.includes("'record'"),"public chat broadcast must never serialize message rows");
-assert(publicChatBroadcastMigration.includes("'db_change'")&&publicChatBroadcastMigration.includes("upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0"),"public chat refresh hint must retain the compatible event and topic");
+assert(publicChatBroadcastMigration.includes("'db_change'")&&publicChatBroadcastMigration.includes(productionRealtimeTopic),"public chat refresh hint must match the production build topic");
 assert(publicChatBroadcastMigration.includes("RETURN OLD")&&publicChatBroadcastMigration.includes("RETURN NEW"),"chat broadcast trigger must preserve correct row return semantics");
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
 assert(serverTemplate.includes("const SESSION_CACHE_TTL_MS=5000;")&&serverTemplate.includes("now-cached.checkedAt<SESSION_CACHE_TTL_MS"),"session revocation cache must remain bounded to five seconds");
@@ -267,6 +269,7 @@ execFileSync(process.execPath,[path.join(ROOT,"scripts/team-lite-updater.test.mj
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
 
 const publicStatusBroadcastMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261103170000_minimize_public_status_broadcasts.sql"),"utf8");
+assert(publicStatusBroadcastMigration.includes(productionRealtimeTopic),"public status and remote-state triggers must match the production build topic");
 assert(publicStatusBroadcastMigration.includes("CREATE OR REPLACE FUNCTION public.upstatus_broadcast_users()"),"user status broadcast hardening migration missing");
 assert(publicStatusBroadcastMigration.includes("CREATE OR REPLACE FUNCTION public.upstatus_broadcast_remote_state()"),"remote state broadcast hardening migration missing");
 assert((publicStatusBroadcastMigration.match(/jsonb_build_object\('op', TG_OP\)/g)||[]).length===3,"status and remote broadcasts must contain operation-only payloads");
