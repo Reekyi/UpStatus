@@ -27,13 +27,17 @@ assert.deepEqual(misplaced, [], "test-only SQL must stay outside supabase/migrat
 
 for (const name of ["20261104152847_atomic_chat_read_receipts_and_visual_config_grants_test.sql","20261104154623_distributed_signaling_rate_limit_test.sql",
   "20261106191000_bounded_rate_limit_cleanup_test.sql", "20261107010000_setup_invites_test.sql", "20261108010000_voice_attempt_singleton_test.sql",
-  "20261108050802_voice_attempt_account_scoped_lock_test.sql"]) {
+  "20261108050802_voice_attempt_account_scoped_lock_test.sql", "20261109230000_setup_invite_rate_limit_test.sql"]) {
   const testPath = path.join(testMigrationsRoot, name);
   const migrationPath = path.join(migrationsRoot, name);
   assert.equal(existsSync(testPath), true, "isolated test migration missing: " + name);
   assert.equal(existsSync(migrationPath), false, "test migration must not be in supabase/migrations: " + name);
   assert.ok(readFileSync(testPath, "utf8").trim().length > 0, "isolated test migration must not be empty: " + name);
 }
+
+const setupInviteRateLimitMigrationPath = path.join(migrationsRoot, "20261109230000_setup_invite_rate_limit.sql");
+assert.equal(existsSync(setupInviteRateLimitMigrationPath), true, "production setup-invite rate-limit migration missing");
+assert.ok(readFileSync(setupInviteRateLimitMigrationPath, "utf8").includes("consume_upstatus_setup_invite_rate_limit"), "production setup-invite rate-limit RPC missing");
 
 const readmePath = path.join(testMigrationsRoot, "README.md");
 assert.equal(existsSync(readmePath), true, "isolated test migration safety README missing");
