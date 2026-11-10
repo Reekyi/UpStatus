@@ -89,7 +89,7 @@ function sharedSetupInviteRateLimitParts(sql, endMarker, label) {
 function assertProductionMetadataSuffix(suffix, label) {
   assert.match(
     suffix,
-    /^\\s*COMMENT ON TABLE public\\.upstatus_setup_invite_rate_limits IS\\s*'[^']*';\\s*COMMENT ON FUNCTION public\\.consume_upstatus_setup_invite_rate_limit\\(text,\\s*integer,\\s*integer\\) IS\\s*'[^']*';\\s*$/s,
+    /^\s*COMMENT ON TABLE public\.upstatus_setup_invite_rate_limits IS\s*'[^']*';\s*COMMENT ON FUNCTION public\.consume_upstatus_setup_invite_rate_limit\(text,\s*integer,\s*integer\) IS\s*'[^']*';\s*$/s,
     label + ": only the expected table/function COMMENT metadata may follow the shared SQL"
   );
 }
@@ -97,7 +97,7 @@ function assertProductionMetadataSuffix(suffix, label) {
 function assertIsolatedAssertionSuffix(suffix, label) {
   assert.match(
     suffix,
-    /^\\s*DO \\$test\\$[\\s\\S]*?\\$test\\$;\\s*$/,
+    /^\s*DO \$test\$[\s\S]*?\$test\$;\s*$/,
     label + ": only the isolated catalog assertion block may follow the shared SQL"
   );
 }
@@ -120,15 +120,15 @@ assertIsolatedAssertionSuffix(isolatedSetupInviteParts.suffix, "isolated test mi
 
 // Guard the guard: unexpected executable statements outside the allowed suffixes must fail.
 assert.throws(
-  () => assertCommentOnlyPrefix("SELECT 1;\\n-- comment\\n", 17, "synthetic migration"),
+  () => assertCommentOnlyPrefix("SELECT 1;\n-- comment\n", 17, "synthetic migration"),
   /unexpected executable SQL/
 );
 assert.throws(
   () => assertProductionMetadataSuffix("GRANT SELECT ON public.unexpected TO anon;", "synthetic migration"),
-  /only the expected table\\/function COMMENT metadata/
+  /only the expected table\/function COMMENT metadata/
 );
 assert.throws(
-  () => assertIsolatedAssertionSuffix("DO $test$ BEGIN NULL; END; $test$;\\nSELECT 1;", "synthetic migration"),
+  () => assertIsolatedAssertionSuffix("DO $test$ BEGIN NULL; END; $test$;\nSELECT 1;", "synthetic migration"),
   /only the isolated catalog assertion block/
 );
 const readmePath = path.join(testMigrationsRoot, "README.md");
