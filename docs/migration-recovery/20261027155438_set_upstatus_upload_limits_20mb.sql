@@ -1,0 +1,1 @@
+UPDATE storage.buckets SET file_size_limit = 20971520 WHERE name IN ('chat-images', 'profile-images');
