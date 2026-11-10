@@ -39,6 +39,10 @@ assert(headerValue(testUser,"updateURL").includes("/upstatus-test/upstatus.user.
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
 assert(prodUser.includes("var UPDATE_URL='"+expectedProductionUpdateUrl+"';"),"production manual update URL must match release.json scriptUrl");
 assert(testUser.includes("var UPDATE_URL='https://"+productionProject+".supabase.co/functions/v1/"+testFunction+"/upstatus.user.js';"),"TEST manual update URL must remain on the TEST function");
+assert(prodUser.includes("var RELEASE_MANIFEST_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json';"),"production automatic updater must use the official release manifest");
+assert(prodUser.includes("var RELEASE_SCRIPT_URL='"+expectedProductionUpdateUrl+"';"),"production automatic updater must use release.json scriptUrl");
+assert(testUser.includes("var RELEASE_MANIFEST_URL='';")&&testUser.includes("var RELEASE_SCRIPT_URL='';"),"TEST automatic updater must not consume production release metadata");
+assert(!testUser.includes("https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),"TEST artifact must not fetch the production release manifest");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
 assert(prodUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';"),"production realtime topic compatibility check");
