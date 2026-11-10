@@ -104,6 +104,11 @@ assert(source.includes("if(p.type==='presence'){callReceivePresence(p);return;}"
 assert(serverTemplate.includes("const isAdmin=await admin(name);"),"server delete is authorized by the authenticated admin role");
 assert(!serverTemplate.includes('const isAdmin=name==="Ricardo"'),"no name-only administrator bypass");
 assert(source.includes("var canDelete=m.user===member||role==='implementation_admin';"),"admin UI uses stored role");
+assert(!source.includes("member==='Ricardo'"),"chat UI must not grant administrative controls by fixed username");
+assert(source.includes("+(role==='implementation_admin'?'<button class=\\\"up-chat-clear\\\""),"chat clear button must be visible only to the stored admin role");
+assert(source.includes("function clearChatAdmin(){if(role!=='implementation_admin')return;"),"chat clear action must check the stored admin role");
+assert(serverTemplate.includes('if(path==="/api/chat/clear"&&req.method==="POST"){\n      const isAdmin=await admin(name);\n      if(!isAdmin)return response({error:"Somente administradores podem limpar o chat."},403);'),"server chat clear must authorize through the stored admin role");
+assert(!serverTemplate.includes('if(name!=="Ricardo")return response({error:"Somente Ricardo pode limpar o chat."},403);'),"server chat clear must not authorize by fixed username");
 assert(source.includes("function setPendingAttachment(file)"),"files are staged instead of uploaded immediately");
 assert(source.includes("function updateLinkPreview(text)"),"links get a removable preview");
 assert(source.includes("e.preventDefault();setPendingAttachment(file)"),"pasted images stay pending");
