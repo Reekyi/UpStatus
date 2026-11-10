@@ -78,6 +78,13 @@ assert(prodUser.includes("var RELEASE_MANIFEST_URL='https://raw.githubuserconten
 assert(testUser.includes("var RELEASE_MANIFEST_URL='';"),"TEST artifact must not use the production release manifest");
 assert(!testUser.includes("https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),"TEST artifact must not contain the production release feed");
 assert(testUser.includes("var CLOUD_SERVER='https://"+testProjectId+".supabase.co/functions/v1/upstatus-test';"),"TEST cloud server must use the dedicated TEST project");
+const productionProject=buildSource.match(/const PROJECT="([^"]+)";/)?.[1];
+const productionFunction=buildSource.match(/const PROD_FUNCTION="([^"]+)";/)?.[1];
+assert(productionProject&&productionFunction,"production API target must be defined in the build configuration");
+assert(prodUser.includes("var CLOUD_SERVER='https://"+productionProject+".supabase.co/functions/v1/"+productionFunction+"';"),"production API cloud server must match the configured production function");
+assert(!prodUser.includes("upstatus-screen-share-3-1-1-beta10"),"production API must not target the legacy beta10 function");
+const deployWorkflow=fs.readFileSync(path.join(ROOT,".github/workflows/deploy-production.yml"),"utf8");
+assert(deployWorkflow.includes("supabase functions deploy "+productionFunction+" --project-ref"),"production API target must match the production deploy workflow");
 assert(testUser.includes("var UPDATE_URL=CLOUD_SERVER+'/upstatus.user.js';"),"TEST manual update URL must derive from the TEST cloud server");
 assert(testUser.includes("base=new URL(UP_REALTIME_URL);")&&testUser.includes("url=new URL(rawUploadUrl,base);")&&testUser.includes("url.origin!==base.origin")&&testUser.includes("publicUrl.origin!==base.origin")&&testUser.includes("var uploadPrefix='/storage/v1/object/upload/sign/'+expectedBucket+'/';"),"TEST Storage URLs must resolve against and remain bound to the TEST project origin and bucket");
 assert(headerValue(testUser,"updateURL")!=="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js","test updateURL must not target production");
