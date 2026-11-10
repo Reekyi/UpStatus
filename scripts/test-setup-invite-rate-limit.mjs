@@ -11,6 +11,7 @@ const baseUrl = await verifyIsolatedSupabaseMutationTarget({
   allowMutation: process.env.UPSTATUS_AUTH_ALLOW_MUTATION,
 });
 const bucket = "setup-invite-ci:" + randomUUID().replace(/-/g, "");
+const independentBucket = bucket + ":independent";
 const headers = {
   apikey: serviceKey,
   Authorization: "Bearer " + serviceKey,
@@ -29,43 +30,48 @@ async function request(path, init = {}) {
   return text ? JSON.parse(text) : null;
 }
 
+async function consume(bucketKey, limit, windowSeconds) {
+  return request("/rest/v1/rpc/consume_upstatus_setup_invite_rate_limit", {
+    method: "POST",
+    body: JSON.stringify({
+      p_bucket_key: bucketKey,
+      p_limit: limit,
+      p_window_seconds: windowSeconds,
+    }),
+  });
+}
+
+async function cleanup(bucketKey) {
+  const filter = "?bucket_key=eq." + encodeURIComponent(bucketKey);
+  await request("/rest/v1/upstatus_setup_invite_rate_limits" + filter, { method: "DELETE" });
+  const remaining = await request("/rest/v1/upstatus_setup_invite_rate_limits" + filter + "&select=bucket_key");
+  assert.deepEqual(remaining, [], "setup-invite rate-limit fixture must be removed after the test");
+}
+
 try {
-  const rpc = "/rest/v1/rpc/consume_upstatus_setup_invite_rate_limit";
   const outcomes = await Promise.all(
-    Array.from({ length: 24 }, () =>
-      request(rpc, {
-        method: "POST",
-        body: JSON.stringify({
-          p_bucket_key: bucket,
-          p_limit: 5,
-          p_window_seconds: 60,
-        }),
-      })
-    )
+    Array.from({ length: 24 }, () => consume(bucket, 5, 60))
   );
 
   assert.ok(outcomes.every(value => typeof value === "boolean"), "rate-limit RPC must return booleans");
   assert.equal(outcomes.filter(Boolean).length, 5, "exactly five concurrent invite requests must be allowed");
   assert.equal(outcomes.filter(value => value === false).length, 19, "remaining concurrent invite requests must be denied");
 
+  const independent = await consume(independentBucket, 5, 60);
+  assert.equal(independent, true, "a different admin bucket must have an independent counter");
+
   await new Promise(resolve => setTimeout(resolve, 1100));
-  const reset = await request(rpc, {
-    method: "POST",
-    body: JSON.stringify({
-      p_bucket_key: bucket,
-      p_limit: 5,
-      p_window_seconds: 1,
-    }),
-  });
+  const reset = await consume(bucket, 5, 1);
   assert.equal(reset, true, "a new fixed window must reset the setup-invite counter");
 
-  console.log("Distributed setup-invite rate-limit concurrency test passed on the isolated Supabase project.");
+  console.log("Distributed setup-invite rate-limit concurrency, bucket isolation, and cleanup tests passed on the isolated Supabase project.");
 } finally {
-  await request(
-    "/rest/v1/upstatus_setup_invite_rate_limits?bucket_key=eq." + encodeURIComponent(bucket),
-    { method: "DELETE" }
-  ).catch(error => {
-    console.error("Setup-invite rate-limit fixture cleanup failed:", error.message);
-    process.exitCode = 1;
-  });
+  for (const bucketKey of [bucket, independentBucket]) {
+    try {
+      await cleanup(bucketKey);
+    } catch (error) {
+      console.error("Setup-invite rate-limit fixture cleanup failed:", error.message);
+      process.exitCode = 1;
+    }
+  }
 }
