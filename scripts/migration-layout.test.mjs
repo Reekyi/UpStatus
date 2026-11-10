@@ -56,13 +56,15 @@ const setupInviteRateLimitTestMigrationPath = path.join(testMigrationsRoot, "202
 assert.equal(existsSync(setupInviteRateLimitTestMigrationPath), true, "isolated setup-invite rate-limit migration missing");
 const setupInviteRateLimitTestMigration = readFileSync(setupInviteRateLimitTestMigrationPath, "utf8");
 
-function sharedSetupInviteRateLimitSql(sql, endMarker, label) {
-  const startMarker = "CREATE TABLE IF NOT EXISTS public.upstatus_setup_invite_rate_limits";
-  const start = sql.indexOf(startMarker);
-  assert.notEqual(start, -1, label + ": shared setup-invite DDL/RPC block missing");
-  const end = sql.indexOf(endMarker, start);
-  assert.notEqual(end, -1, label + ": shared setup-invite block terminator missing");
-  return sql.slice(start, end)
+function assertCommentOnlyPrefix(sql, start, label) {
+  const unexpected = sql.slice(0, start)
+    .split(/\r?\n/)
+    .filter(line => line.trim() && !line.trim().startsWith("--"));
+  assert.deepEqual(unexpected, [], label + ": unexpected executable SQL before the shared migration block");
+}
+
+function normalizeSharedSetupInviteSql(sql) {
+  return sql
     .split(/\r?\n/)
     .filter(line => !line.trim().startsWith("--"))
     .map(line => line.trim())
@@ -70,12 +72,64 @@ function sharedSetupInviteRateLimitSql(sql, endMarker, label) {
     .join("\n");
 }
 
-// The isolated migration may append catalog assertions and omit COMMENT ON metadata,
-// but its executable table/RPC/grant block must remain identical to the production candidate.
+function sharedSetupInviteRateLimitParts(sql, endMarker, label) {
+  const startMarker = "CREATE TABLE IF NOT EXISTS public.upstatus_setup_invite_rate_limits";
+  const start = sql.indexOf(startMarker);
+  assert.notEqual(start, -1, label + ": shared setup-invite DDL/RPC block missing");
+  assertCommentOnlyPrefix(sql, start, label);
+
+  const end = sql.indexOf(endMarker, start);
+  assert.notEqual(end, -1, label + ": shared setup-invite block terminator missing");
+  return {
+    block: normalizeSharedSetupInviteSql(sql.slice(start, end)),
+    suffix: sql.slice(end),
+  };
+}
+
+function assertProductionMetadataSuffix(suffix, label) {
+  assert.match(
+    suffix,
+    /^\\s*COMMENT ON TABLE public\\.upstatus_setup_invite_rate_limits IS\\s*'[^']*';\\s*COMMENT ON FUNCTION public\\.consume_upstatus_setup_invite_rate_limit\\(text,\\s*integer,\\s*integer\\) IS\\s*'[^']*';\\s*$/s,
+    label + ": only the expected table/function COMMENT metadata may follow the shared SQL"
+  );
+}
+
+function assertIsolatedAssertionSuffix(suffix, label) {
+  assert.match(
+    suffix,
+    /^\\s*DO \\$test\\$[\\s\\S]*?\\$test\\$;\\s*$/,
+    label + ": only the isolated catalog assertion block may follow the shared SQL"
+  );
+}
+
+// Every executable statement in each file must be accounted for: the common DDL/RPC/grants,
+// production metadata comments, or the isolated-only catalog assertion block.
+const productionSetupInviteParts = sharedSetupInviteRateLimitParts(
+  setupInviteRateLimitMigration, "COMMENT ON TABLE", "production migration"
+);
+const isolatedSetupInviteParts = sharedSetupInviteRateLimitParts(
+  setupInviteRateLimitTestMigration, "DO $test$", "isolated test migration"
+);
 assert.equal(
-  sharedSetupInviteRateLimitSql(setupInviteRateLimitMigration, "COMMENT ON TABLE", "production migration"),
-  sharedSetupInviteRateLimitSql(setupInviteRateLimitTestMigration, "DO $test$", "isolated test migration"),
+  productionSetupInviteParts.block,
+  isolatedSetupInviteParts.block,
   "isolated setup-invite rate-limit DDL/RPC/grants must match the production candidate"
+);
+assertProductionMetadataSuffix(productionSetupInviteParts.suffix, "production migration");
+assertIsolatedAssertionSuffix(isolatedSetupInviteParts.suffix, "isolated test migration");
+
+// Guard the guard: unexpected executable statements outside the allowed suffixes must fail.
+assert.throws(
+  () => assertCommentOnlyPrefix("SELECT 1;\\n-- comment\\n", 17, "synthetic migration"),
+  /unexpected executable SQL/
+);
+assert.throws(
+  () => assertProductionMetadataSuffix("GRANT SELECT ON public.unexpected TO anon;", "synthetic migration"),
+  /only the expected table\\/function COMMENT metadata/
+);
+assert.throws(
+  () => assertIsolatedAssertionSuffix("DO $test$ BEGIN NULL; END; $test$;\\nSELECT 1;", "synthetic migration"),
+  /only the isolated catalog assertion block/
 );
 const readmePath = path.join(testMigrationsRoot, "README.md");
 assert.equal(existsSync(readmePath), true, "isolated test migration safety README missing");
