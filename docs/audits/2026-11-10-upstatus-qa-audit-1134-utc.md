@@ -168,3 +168,8 @@ Laboratório:
 - Supabase: somente SELECT, listagem de projetos, migrations, funções e advisors. Nenhum DDL/DML, migration, fixture, deploy, secret, flag, grant, policy, ACL ou bucket foi alterado.
 - Nenhum workflow foi disparado ou reexecutado pela auditoria. Foram inspecionados os resultados já existentes.
 - Nenhum teste manual ou exploração externa foi realizado.
+
+
+## Pós-registro: validação disparada pelo próprio relatório — 2026-11-10 11:39 UTC
+
+O commit documental `f91990890cc2d4f33c4a6197f52d8cb44d07eff9` atualizou a branch QA e disparou o workflow PR-triggered [UpStatus Validate 42809179084](https://github.com/Reekyi/UpStatus/actions/runs/42809179084). O job terminou em FAILURE com a mesma asserção herdada `production updateURL mismatch` em `scripts/validate.mjs:26`. Portanto, o novo HEAD QA `f919908` também continua sem Validate verde. Isso não é falha do conteúdo deste relatório: o validador está comparando o artefato produzido pelo build herdado com o endpoint de release e falha antes de qualquer etapa Supabase Preview. Não foi feito rerun nem alteração do validator.
