@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "artifact_type": "executed_sql_statements_recovered_from_supabase_migration_ledger",
+  "repository": "Reekyi/UpStatus",
+  "repository_base_branch": "master",
+  "repository_base_commit": "9d40461babcec8eb8686c2a04be9c675df7da381",
+  "source_project_ref": "dlfvkawaiqduhlazsszm",
+  "source_table": "supabase_migrations.schema_migrations",
+  "source_fields": [
+    "version",
+    "name",
+    "created_by",
+    "idempotency_key",
+    "statements",
+    "rollback"
+  ],
+  "recovered_at": "2026-11-10T11:12:00Z",
+  "retrieval_mode": "read-only SELECT",
+  "limitations": [
+    "These artifacts preserve the SQL statement text stored in the production migration ledger.",
+    "The ledger does not prove byte-for-byte recovery of the original migration files, their comments, original formatting, or original Git commit/blob.",
+    "The artifacts are documentation-only and are not located under supabase/migrations, so Supabase CLI migration discovery will not apply them.",
+    "Do not move them into supabase/migrations or use them for deployment until independent QA and the project owner approve their provenance and content."
+  ],
+  "migrations": [
+    {
+      "version": "20261023154754",
+      "name": "create_upstatus_visual_config",
+      "file": "docs/migration-recovery/20261023154754_create_upstatus_visual_config.sql",
+      "statement_count": 1,
+      "rollback_present": false,
+      "created_by_present": true,
+      "idempotency_key_present": false,
+      "provenance_status": "executed_statement_recovered_not_original_file",
+      "git_blob_sha": "9066881af9cb723d181643605e829bb844915c1a"
+    },
+    {
+      "version": "20261026195855",
+      "name": "add_chat_message_file_name",
+      "file": "docs/migration-recovery/20261026195855_add_chat_message_file_name.sql",
+      "statement_count": 1,
+      "rollback_present": false,
+      "created_by_present": true,
+      "idempotency_key_present": false,
+      "provenance_status": "executed_statement_recovered_not_original_file",
+      "git_blob_sha": "2573b2f9eeaa8872a7cabd9ae9d993b021f0a4da"
+    },
+    {
+      "version": "20261027154329",
+      "name": "allow_chat_document_mime_types",
+      "file": "docs/migration-recovery/20261027154329_allow_chat_document_mime_types.sql",
+      "statement_count": 1,
+      "rollback_present": false,
+      "created_by_present": true,
+      "idempotency_key_present": false,
+      "provenance_status": "executed_statement_recovered_not_original_file",
+      "git_blob_sha": "552a2f5c214f813cf6e8087b1e10702e3a2fdbe1"
+    },
+    {
+      "version": "20261027155438",
+      "name": "set_upstatus_upload_limits_20mb",
+      "file": "docs/migration-recovery/20261027155438_set_upstatus_upload_limits_20mb.sql",
+      "statement_count": 1,
+      "rollback_present": false,
+      "created_by_present": true,
+      "idempotency_key_present": false,
+      "provenance_status": "executed_statement_recovered_not_original_file",
+      "git_blob_sha": "c19710263693983287de8ba0b318e3b91b3ee579"
+    }
+  ]
+}

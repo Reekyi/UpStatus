@@ -1,0 +1,1 @@
+alter table public.messages add column if not exists file_name text;
