@@ -19,11 +19,13 @@ const loginStart = server.indexOf("async function login(req:Request,setup:boolea
 const loginEnd = loginStart >= 0 ? server.indexOf("\n}", loginStart) : -1;
 assert.ok(loginStart >= 0 && loginEnd > loginStart, "login handler must remain testable for password compatibility");
 const loginBody = server.slice(loginStart, loginEnd);
-assert.ok(loginBody.includes("const minPasswordLength=setup?6:4;"), "Team Lite must require six characters for first access while preserving four-character login compatibility");
-assert.ok(loginBody.includes("password.length<minPasswordLength"), "Team Lite must enforce the setup/login minimum policy before password verification or invite consumption");
+assert.ok(loginBody.includes("const minPasswordLength=setup?6:4;"), "password minimum policy changed unexpectedly");
+assert.ok(loginBody.includes("password.length<minPasswordLength"), "login and setup must use the explicit minimum-length policy");
 const client = fs.readFileSync(path.join(ROOT, config.client), "utf8");
 const migration = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261107010000_setup_invites.sql"), "utf8");
 const testMigration = fs.readFileSync(path.join(ROOT, "supabase/test-migrations/20261107010000_setup_invites_test.sql"), "utf8");
+const rateLimitMigration = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261109230000_setup_invite_rate_limit.sql"), "utf8");
+const rateLimitTestMigration = fs.readFileSync(path.join(ROOT, "supabase/test-migrations/20261109230000_setup_invite_rate_limit_test.sql"), "utf8");
 const roleMigration = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261107060000_normalize_setup_invite_role.sql"), "utf8");
 const roleTestMigration = fs.readFileSync(path.join(ROOT, "supabase/test-migrations/20261107060000_setup_invite_role_normalization_test.sql"), "utf8");
 const rolePreservationMigration = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261107062000_preserve_setup_invite_roles_verbatim.sql"), "utf8");
@@ -52,9 +54,16 @@ assert.doesNotMatch(client, /function passwordKey\(name\)/, "client must not ret
 assert.doesNotMatch(client, /GM_setValue\(passwordKey\(name\),password\)|sessionStorage\.setItem\(passwordKey\(name\),password\)/, "client must not persist submitted passwords");
 assert.match(client, /passwordInput\.value=''/, "successful authentication must clear the password input");
 assert.match(client, /setupTokenInput\.value=''/, "successful first access must clear the one-time token input");
-assert.ok(client.includes("var key='upstatus_team_lite_';"), "Team Lite storage namespace must be declared before use");
-assert.match(client, /sessionStorage\.key\(i\)/, "Team Lite must enumerate legacy session credential keys");
-assert.match(client, /sessionStorage\.removeItem\(storageKey\)/, "Team Lite must delete legacy plaintext credential values");
+if (product === "normal") {
+  assert.ok(client.includes("var key='__UPSTATUS_STORAGE_PREFIX__';"), "Normal storage namespace placeholder must remain present");
+  assert.match(client, /@grant\s+GM_listValues/, "Normal must request GM_listValues to purge legacy credentials");
+  assert.match(client, /@grant\s+GM_deleteValue/, "Normal must request GM_deleteValue to purge legacy credentials");
+  assert.match(client, /GM_listValues\(\)/, "Normal must enumerate its legacy credential keys");
+  assert.match(client, /GM_deleteValue\(storageKey\)/, "Normal must delete legacy plaintext credential values");
+} else {
+  assert.match(client, /sessionStorage\.key\(i\)/, "Team Lite must enumerate legacy session credential keys");
+  assert.match(client, /sessionStorage\.removeItem\(storageKey\)/, "Team Lite must delete legacy plaintext credential values");
+}
 
 
 assert.match(migration, /add column if not exists setup_token_hash/i);
@@ -65,6 +74,14 @@ assert.match(migration, /set search_path = ''/i);
 assert.match(migration, /revoke all on function public\.consume_upstatus_setup_invite\(text, text, text\) from public/i);
 assert.match(migration, /revoke all on function public\.consume_upstatus_setup_invite\(text, text, text\) from anon, authenticated/i);
 assert.match(migration, /grant execute on function public\.consume_upstatus_setup_invite\(text, text, text\) to service_role/i);
+assert.match(rateLimitMigration, /create table if not exists public\.upstatus_setup_invite_rate_limits/i);
+assert.match(rateLimitMigration, /create or replace function public\.consume_upstatus_setup_invite_rate_limit/i);
+assert.match(rateLimitMigration, /security invoker/i);
+assert.match(rateLimitMigration, /set search_path = ''/i);
+assert.match(rateLimitMigration, /grant execute on function public\.consume_upstatus_setup_invite_rate_limit\(text, integer, integer\) to service_role/i);
+assert.match(rateLimitMigration, /limit 100/i);
+assert.match(rateLimitTestMigration, /has_function_privilege\('anon'/i);
+assert.match(rateLimitTestMigration, /has_table_privilege\('authenticated'/i);
 assert.match(testMigration, /has_function_privilege\('anon'/i);
 assert.match(testMigration, /has_function_privilege\('authenticated'/i);
 assert.match(testMigration, /has_function_privilege\('service_role'/i);
@@ -130,6 +147,9 @@ const inviteRouteAt=server.indexOf('if(path==="/api/setup-invite"&&req.method===
 assert.ok(contextAt>=0&&authGuardAt>contextAt&&inviteRouteAt>authGuardAt,"setup-invite route must be behind the active-session guard");
 assert.ok(server.includes('issueSetupInvite(req,name||"")'),"setup-invite route must use the name derived from the authenticated context");
 assert.doesNotMatch(issueInviteFunction,/console\.(log|error)\(/,"raw setup tokens must never be logged by the invite handler");
+assert.match(issueInviteFunction,/consume_upstatus_setup_invite_rate_limit/,"invite issuance must use the distributed database rate limiter");
+assert.ok(issueInviteFunction.includes("p_limit:5")&&issueInviteFunction.includes("p_window_seconds:900"),"invite issuance must be limited to five attempts per admin per fifteen minutes");
+assert.ok(issueInviteFunction.indexOf("consume_upstatus_setup_invite_rate_limit")<issueInviteFunction.indexOf("readBody(req)"),"rate limiting must happen before parsing invite target data");
 
 const roleMap=new Map([
   ["Admin","implementation_admin"],
@@ -137,7 +157,7 @@ const roleMap=new Map([
   ["PaddedAdmin"," implementation_admin "]
 ]);
 function makeInviteHarness(targetAvailable=true){
-  const state={targetAvailable,updates:[],filter:null,orFilter:null,selected:null,readBodyCalls:0};
+  const state={targetAvailable,updates:[],filter:null,orFilter:null,selected:null,readBodyCalls:0,rateLimitCalls:[]};
   const db={
     from(table){
       assert.equal(table,"users","invite issuance may update only the users table");
@@ -164,6 +184,11 @@ function makeInviteHarness(targetAvailable=true){
           };
         }
       };
+    },
+    async rpc(name,args){
+      state.rateLimitCalls.push({name,args});
+      assert.equal(name,"consume_upstatus_setup_invite_rate_limit","invite issuance must use the dedicated distributed limiter");
+      return {data:true,error:null};
     }
   };
   const sandbox={
@@ -200,6 +225,10 @@ assert.equal(oversized.status,400,"target names over 120 characters must be reje
 const successHarness=makeInviteHarness(true);
 const issued=await successHarness.handlers.issueSetupInvite({body:{name:"  Target User  "}}, "Admin");
 assert.equal(issued.status,200,"authorized invite issuance must succeed for an uninitialized account");
+assert.equal(successHarness.state.rateLimitCalls.length,1,"authorized issuance must consume one distributed rate-limit allowance");
+assert.equal(successHarness.state.rateLimitCalls[0].args.p_limit,5);
+assert.equal(successHarness.state.rateLimitCalls[0].args.p_window_seconds,900);
+assert.match(successHarness.state.rateLimitCalls[0].args.p_bucket_key,/^setup-invite:sha256:/,"rate-limit bucket must use a hashed admin identity");
 assert.equal(issued.body.name,"Target User","target name must be normalized");
 assert.match(issued.body.setupToken,/^[0-9a-f]{64}$/,"the one-time token must contain 256 random bits");
 assert.equal(successHarness.state.updates.length,1,"authorized issuance must perform one conditional update");
@@ -224,6 +253,7 @@ assert.equal(unavailableHarness.state.updates.length,1,"the database must receiv
 console.log(product+" setup-invite route authorization and token-handling checks passed.");
 
 console.log(product + " one-time setup enrollment static checks passed.");
+
 
 // Execute the exact candidate router slice together with its real auth/session,
 // admin, invite-issuance and first-setup handlers. Only external DB/runtime
@@ -257,7 +287,8 @@ const routeContext = extractBlock(server, "async function contextName(req:Reques
 function makeRouteHarness(options={}){
   const state={
     readBodyCalls:0,updates:[],accountLookups:[],sessionLookups:[],
-    rpcCalls:[],createdSessions:[],updateTarget:null,eligibilityFilter:null,
+    rpcCalls:[],rateLimitCalls:[],createdSessions:[],updateTarget:null,eligibilityFilter:null,
+    rateLimitAllowed:options.rateLimitAllowed!==false,rateLimitError:options.rateLimitError===true,
     rpcAccept:options.rpcAccept===true,rpcRole:options.rpcRole??null,
     targetAvailable:options.targetAvailable!==false,guestOnline:false
   };
@@ -338,11 +369,14 @@ function makeRouteHarness(options={}){
     },
     async rpc(name,args){
       state.rpcCalls.push({name,args});
-      if(name!=="consume_upstatus_setup_invite")throw new Error("Unexpected RPC: "+name);
-      return {
-        data:state.rpcAccept?[{name:args.p_user_name,role:state.rpcRole}]:[],
-        error:null
-      };
+      if(name==="consume_upstatus_setup_invite_rate_limit"){
+        state.rateLimitCalls.push({name,args});
+        return {data:state.rateLimitAllowed,error:state.rateLimitError?new Error("rate-limit RPC unavailable"):null};
+      }
+      if(name==="consume_upstatus_setup_invite"){
+        return {data:state.rpcAccept?[{name:args.p_user_name,role:state.rpcRole}]:[],error:null};
+      }
+      throw new Error("Unexpected RPC: "+name);
     }
   };
   const sandbox={
@@ -418,12 +452,32 @@ function makeRouteRequest(state,options={}){
   assert.equal(h.state.updates.length,0,"guest contexts must not update users");
 }
 {
+  const h=makeRouteHarness({rateLimitAllowed:false});
+  const result=await h.dispatch(makeRouteRequest(h.state,{token:"admin-session",body:{name:"Target"}}),"/api/setup-invite");
+  assert.equal(result.status,429,"rate-limited admins must receive HTTP 429");
+  assert.equal(h.state.rateLimitCalls.length,1,"rate-limited requests must consume exactly one counter");
+  assert.equal(h.state.readBodyCalls,0,"rate-limited requests must be rejected before target parsing");
+  assert.equal(h.state.updates.length,0,"rate-limited requests must not issue or replace an invite");
+}
+{
+  const h=makeRouteHarness({rateLimitError:true});
+  const result=await h.dispatch(makeRouteRequest(h.state,{token:"admin-session",body:{name:"Target"}}),"/api/setup-invite");
+  assert.equal(result.status,503,"missing or failing rate-limit storage must fail closed");
+  assert.equal(h.state.readBodyCalls,0,"rate-limit infrastructure failures must stop before target parsing");
+  assert.equal(h.state.updates.length,0,"rate-limit infrastructure failures must not issue an invite");
+}
+{
   const h=makeRouteHarness();
   const result=await h.dispatch(makeRouteRequest(h.state,{
     token:"admin-session",
     body:{name:"Target",adminName:"Spoofed"}
   }),"/api/setup-invite");
   assert.equal(result.status,200,"an authenticated stored admin must be able to issue an invite");
+  assert.equal(h.state.rateLimitCalls.length,1,"authorized admin route must consume the distributed rate limit");
+  assert.equal(h.state.rateLimitCalls[0].args.p_limit,5);
+  assert.equal(h.state.rateLimitCalls[0].args.p_window_seconds,900);
+  assert.equal(h.state.rateLimitCalls[0].args.p_bucket_key,"setup-invite:sha256:"+"9a".repeat(32));
+  assert.equal(h.state.readBodyCalls,1,"target body must be read only after rate-limit approval");
   assert.equal(result.body.name,"Target");
   assert.match(result.body.setupToken,/^[0-9a-f]{64}$/);
   assert.equal(h.state.updates.length,1);
