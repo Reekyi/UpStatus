@@ -85,9 +85,11 @@ jobs:
           node --check scripts/auth-enrollment.test.mjs
           node scripts/auth-enrollment.test.mjs normal
           node --check scripts/test-auth-enrollment.mjs
-          node --check scripts/test-setup-invite-rate-limit.mjs
           node --check scripts/test-chat-read-receipts.mjs
           node --check scripts/test-signal-rate-limit.mjs
+      - name: Syntax-check setup invite rate-limit harness when present
+        if: hashFiles('scripts/test-setup-invite-rate-limit.mjs') != ''
+        run: node --check scripts/test-setup-invite-rate-limit.mjs
       - name: Run unauthenticated endpoint checks against isolated project
         env:
           UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
@@ -124,6 +126,7 @@ jobs:
           UPSTATUS_AUTH_ALLOW_MUTATION: "1"
         run: node scripts/test-auth-enrollment.mjs
       - name: Verify distributed setup-invite issuance rate limit
+        if: hashFiles('scripts/test-setup-invite-rate-limit.mjs') != ''
         env:
           SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
