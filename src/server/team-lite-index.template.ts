@@ -111,6 +111,13 @@ async function login(req:Request,setup:boolean){
 }
 async function issueSetupInvite(req:Request,adminName:string){
   if(!await admin(adminName))return response({error:"Acesso não autorizado."},403);
+  const {data:rateAllowed,error:rateError}=await db.rpc("consume_upstatus_setup_invite_rate_limit",{
+    p_bucket_key:"setup-invite:"+tokenHash(adminName),
+    p_limit:5,
+    p_window_seconds:900
+  });
+  if(rateError)return response({error:"A emissão de convites está temporariamente indisponível."},503);
+  if(rateAllowed!==true)return response({error:"Limite de emissão de convites atingido. Tente novamente mais tarde."},429);
   const p:any=await readBody(req);
   const target=String(p.name||"").trim();
   if(!target||target.length>120)return response({error:"Conta inválida."},400);
