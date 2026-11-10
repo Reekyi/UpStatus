@@ -22,6 +22,7 @@ on:
       - "scripts/auth-enrollment.test.mjs"
       - "scripts/test-auth-enrollment.mjs"
       - "scripts/test-signal-rate-limit.mjs"
+      - "scripts/test-setup-invite-rate-limit.mjs"
       - "supabase/migrations/**"
       - "supabase/test-migrations/**"
       - "supabase/test-functions/**"
@@ -123,6 +124,12 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
           UPSTATUS_AUTH_ALLOW_MUTATION: "1"
         run: node scripts/test-auth-enrollment.mjs
+      - name: Verify distributed setup-invite issuance rate limit
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_AUTH_ALLOW_MUTATION: "1"
+        run: node scripts/test-setup-invite-rate-limit.mjs
       - name: Verify test migrations stay outside Supabase CLI discovery
         run: node scripts/migration-layout.test.mjs
       - name: Check candidate scripts and version metadata
