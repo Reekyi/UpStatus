@@ -1,20 +1,10 @@
 name: UpStatus Signaling Smoke Tests
 
 on:
-  push:
-    branches:
-      - feat/normal-setup-invite-rate-limit-20261109
-    paths:
-      - "src/server/index.template.ts"
-      - "scripts/auth-enrollment.test.mjs"
-      - "scripts/test-setup-invite-rate-limit.mjs"
-      - "scripts/migration-layout.test.mjs"
-      - "supabase/migrations/**"
-      - "supabase/test-migrations/**"
-      - ".github/workflows/signaling-smoke.yml"
   pull_request:
     branches:
       - master
+      - chore/continuity-foundation
     paths:
       - "scripts/test-signaling-endpoint.mjs"
       - "scripts/test-signaling-authenticated.mjs"
@@ -97,6 +87,9 @@ jobs:
           node --check scripts/test-auth-enrollment.mjs
           node --check scripts/test-chat-read-receipts.mjs
           node --check scripts/test-signal-rate-limit.mjs
+      - name: Syntax-check setup invite rate-limit harness when present
+        if: hashFiles('scripts/test-setup-invite-rate-limit.mjs') != ''
+        run: node --check scripts/test-setup-invite-rate-limit.mjs
       - name: Run unauthenticated endpoint checks against isolated project
         env:
           UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
@@ -133,6 +126,7 @@ jobs:
           UPSTATUS_AUTH_ALLOW_MUTATION: "1"
         run: node scripts/test-auth-enrollment.mjs
       - name: Verify distributed setup-invite issuance rate limit
+        if: hashFiles('scripts/test-setup-invite-rate-limit.mjs') != ''
         env:
           SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
