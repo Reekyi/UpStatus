@@ -102,11 +102,8 @@ A migration aplicada no laboratório para rate limit é `20261110000612_setup_in
 Produção tem sete migrations remotas e branch gerenciada `main` em `MIGRATIONS_FAILED`. Os quatro SQLs originais continuam ausentes de `master` (404):
 - `20261023154754_create_upstatus_visual_config.sql`
 - `20261026195855_add_chat_message_file_name.sql`
-- `20261027154329_allow_chat_message_file_name.sql` (nome de arquivo solicitado/esperado deve ser conferido; o arquivo remoto registrado é `add_chat_message_file_name`)
 - `20261027154329_allow_chat_document_mime_types.sql`
 - `20261027155438_set_upstatus_upload_limits_20mb.sql`
-
-Correção: a lista contém quatro arquivos, sendo o segundo `20261026195855_add_chat_message_file_name.sql`; o nome acima com prefixo `allow` é apenas uma observação de nomenclatura, não um quinto arquivo.
 
 ## Aceitação manual
 
