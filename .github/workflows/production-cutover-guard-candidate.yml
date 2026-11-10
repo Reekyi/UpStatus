@@ -5,7 +5,9 @@ on:
     branches:
       - fix/production-cutover-guard-auth-delete-wiring-20261108
       - fix/master-release-script-url-20261107
-      - fix/normal-auth03-build-safe-20261108
+  pull_request:
+    branches:
+      - fix/production-cutover-guard-auth-delete-wiring-20261108
 
 permissions:
   contents: read
