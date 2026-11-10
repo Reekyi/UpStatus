@@ -4,6 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertProductionProject } from "./verify-production-project.mjs";
+import { isStableReleaseVersion } from "./verify-production-cutover.mjs";
+import { assertRequiredSetupMigrationsApplied, verifyProductionMigrationHistory } from "./verify-production-migrations.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const workflow = fs.readFileSync(path.join(ROOT, ".github/workflows/deploy-production.yml"), "utf8");
@@ -29,6 +31,13 @@ assert.match(workflow, /EXPECTED_SUPABASE_ORGANIZATION_ID: bcjtvojfkfoxvsitzmkl/
   "production project must be verified against the UpStatus organization");
 assert.match(workflow, /node scripts\/verify-production-project\.mjs/,
   "read-only Management API project preflight must run before deployment");
+assert.match(workflow, /node scripts\/verify-production-migrations\.mjs/,
+  "read-only AUTH-03 migration-history preflight must run before deployment");
+const projectPreflightIndex = workflow.indexOf("node scripts/verify-production-project.mjs");
+const migrationPreflightIndex = workflow.indexOf("node scripts/verify-production-migrations.mjs");
+const cliSetupIndex = workflow.indexOf("name: Setup Supabase CLI");
+assert(projectPreflightIndex >= 0 && migrationPreflightIndex > projectPreflightIndex && cliSetupIndex > migrationPreflightIndex,
+  "applied AUTH-03 migration history must be checked after project identity and before CLI/deploy");
 assert.match(workflow,
   /name: Require coordinated production API cutover\n\s+run: node scripts\/verify-production-cutover\.mjs --enforce[\s\S]*?name: Verify production project with Supabase Management API/,
   "production deployment must fail closed until the API runtime and distribution runtime are deployed together");
@@ -54,13 +63,18 @@ assert.match(workflow, /group: upstatus-production-deploy[\s\S]*?cancel-in-progr
   "production deployments must be serialized without cancelling an active deployment");
 assert.match(workflow, /timeout-minutes: 15/,
   "production deployment must have a bounded job timeout");
-assert.equal(release.version, "3.4.7", "release candidate version changed");
-assert.equal(String(release.preRelease || ""), "", "production release must not be a prerelease");
+assert.equal(release.version, "3.4.7", "candidate must retain the currently deployed version until a release version is explicitly selected");
+assert.equal(String(release.preRelease || ""), "", "production release candidate must not carry a prerelease label");
+assert.equal(isStableReleaseVersion(release.version, release.preRelease), false, "the current release.json must remain blocked from production");
+assert.equal(isStableReleaseVersion("3.4.8", ""), true, "a new stable patch version must be eligible");
+assert.equal(isStableReleaseVersion("3.4.7", ""), false, "the deployed version must not be reused");
+assert.equal(isStableReleaseVersion("3.4.8", "rc.1"), false, "a prerelease must not be eligible");
+assert.equal(workflow.includes("version !== '3.4.7'"), false, "workflow must delegate version readiness to the cutover guard");
 
 const accessTokenBindings = workflow.match(/^\s{10}SUPABASE_ACCESS_TOKEN: \$\{\{ secrets\.SUPABASE_ACCESS_TOKEN \}\}$/gm) || [];
 const projectIdBindings = workflow.match(/^\s{10}SUPABASE_PROJECT_ID: \$\{\{ secrets\.SUPABASE_PROJECT_ID \}\}$/gm) || [];
-assert.equal(accessTokenBindings.length, 2, "production access token must be scoped only to preflight and deploy steps");
-assert.equal(projectIdBindings.length, 2, "production project secret must be scoped only to preflight and deploy steps");
+assert.equal(accessTokenBindings.length, 3, "production access token must be scoped only to project preflight, migration-history preflight, and deploy steps");
+assert.equal(projectIdBindings.length, 3, "production project secret must be scoped only to project preflight, migration-history preflight, and deploy steps");
 assert.doesNotMatch(workflow, /^      SUPABASE_ACCESS_TOKEN:/m, "production access token must not be exposed at job scope");
 assert.doesNotMatch(workflow, /^      SUPABASE_PROJECT_ID:/m, "production project secret must not be exposed at job scope");
 
@@ -68,6 +82,95 @@ assert.match(verifier, /method: "GET"/, "production metadata preflight must be r
 assert.match(verifier, /AbortSignal\.timeout\(15000\)/, "production metadata preflight must have a bounded timeout");
 assert.match(verifier, /assertProductionProject\(project, expectedProductionRef, expectedOrganizationId\)/,
   "production metadata response must be checked before deployment");
+
+const migrationVerifier = fs.readFileSync(path.join(ROOT, "scripts/verify-production-migrations.mjs"), "utf8");
+assert.match(migrationVerifier, /method: "GET"/, "migration history must be queried read-only");
+assert.match(migrationVerifier, /redirect: "error"/, "Management API credentials must not follow redirects");
+assert.match(migrationVerifier, /AbortSignal\.timeout\(15000\)/, "migration-history query must have a bounded timeout");
+assert.match(migrationVerifier, /database_migrations_read/, "403 must explain the required read-only migration-history scope");
+
+const requiredApplied = [
+  { version: "20261107010000", name: "setup_invites" },
+  { version: "20261107060000", name: "normalize_setup_invite_role" },
+  { version: "20261107062000", name: "preserve_setup_invite_roles_verbatim" },
+];
+assert.deepEqual(assertRequiredSetupMigrationsApplied(requiredApplied),
+  ["20261107010000", "20261107060000", "20261107062000"]);
+assert.throws(
+  () => assertRequiredSetupMigrationsApplied([
+    { version: "20261107010000", name: "setup_invites" },
+    { version: "20261107060000", name: "normalize_setup_invite_role" },
+  ]),
+  /missing: 20261107062000_preserve_setup_invite_roles_verbatim/,
+  "missing AUTH-03 migrations must block production deployment",
+);
+assert.throws(
+  () => assertRequiredSetupMigrationsApplied([
+    { version: "20261107010000", name: "wrong_name" },
+    ...requiredApplied.slice(1),
+  ]),
+  /name mismatch/,
+  "migration version/name mismatches must block deployment",
+);
+assert.throws(
+  () => assertRequiredSetupMigrationsApplied([...requiredApplied, requiredApplied[0]]),
+  /duplicate migration version/,
+  "duplicate migration history entries must be rejected",
+);
+const currentProductionMigrationHistory = [
+  { version: "20261005160000", name: "upstatus_cloud" },
+  { version: "20261005173000", name: "remote_realtime" },
+  { version: "20261005180000", name: "client_presence" },
+  { version: "20261023154754", name: "create_upstatus_visual_config" },
+  { version: "20261026195855", name: "add_chat_message_file_name" },
+  { version: "20261027154329", name: "allow_chat_document_mime_types" },
+  { version: "20261027155438", name: "set_upstatus_upload_limits_20mb" },
+];
+assert.throws(
+  () => assertRequiredSetupMigrationsApplied(currentProductionMigrationHistory),
+  /Required AUTH-03 migrations are not applied to production/,
+  "the currently observed production history must remain blocked",
+);
+let capturedMigrationRequest;
+const migrationVerification = await verifyProductionMigrationHistory({
+  projectRef: "dlfvkawaiqduhlazsszm",
+  expectedProductionRef: "dlfvkawaiqduhlazsszm",
+  isolatedProjectRef: "bfpjtfqlnypisxljoxkb",
+  accessToken: "test-management-token",
+  fetchImpl: async (url, options) => {
+    capturedMigrationRequest = { url, options };
+    return { ok: true, status: 200, json: async () => requiredApplied };
+  },
+});
+assert.deepEqual(migrationVerification.verifiedVersions, ["20261107010000", "20261107060000", "20261107062000"]);
+assert.equal(capturedMigrationRequest.url, "https://api.supabase.com/v1/projects/dlfvkawaiqduhlazsszm/database/migrations");
+assert.equal(capturedMigrationRequest.options.method, "GET");
+assert.equal(capturedMigrationRequest.options.redirect, "error");
+assert.equal(capturedMigrationRequest.options.headers.Authorization, "Bearer test-management-token");
+assert.ok(capturedMigrationRequest.options.signal, "migration-history request must have a bounded timeout");
+let isolatedFetchCalled = false;
+await assert.rejects(
+  verifyProductionMigrationHistory({
+    projectRef: "bfpjtfqlnypisxljoxkb",
+    expectedProductionRef: "dlfvkawaiqduhlazsszm",
+    isolatedProjectRef: "bfpjtfqlnypisxljoxkb",
+    accessToken: "test-management-token",
+    fetchImpl: async () => { isolatedFetchCalled = true; return { ok: true, status: 200, json: async () => requiredApplied }; },
+  }),
+  /does not match the approved production project/,
+);
+assert.equal(isolatedFetchCalled, false, "isolated project must be rejected before any Management API request");
+await assert.rejects(
+  verifyProductionMigrationHistory({
+    projectRef: "dlfvkawaiqduhlazsszm",
+    expectedProductionRef: "dlfvkawaiqduhlazsszm",
+    isolatedProjectRef: "bfpjtfqlnypisxljoxkb",
+    accessToken: "test-management-token",
+    fetchImpl: async () => ({ ok: false, status: 403 }),
+  }),
+  /database_migrations_read/,
+  "insufficient Management API scope must fail closed with a clear permission hint",
+);
 
 const expectedRef = "dlfvkawaiqduhlazsszm";
 const expectedOrganizationId = "bcjtvojfkfoxvsitzmkl";

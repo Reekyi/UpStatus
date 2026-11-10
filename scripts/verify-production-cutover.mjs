@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const EXPECTED_PRODUCTION_HOST = "dlfvkawaiqduhlazsszm.supabase.co";
+export const DEPLOYED_STABLE_VERSION = "3.4.7";
 export const REQUIRED_SETUP_MIGRATIONS = [
   "20261107010000_setup_invites.sql",
   "20261107060000_normalize_setup_invite_role.sql",
@@ -26,6 +27,19 @@ export function hasAuthEnrollmentTestInvocation(validateScript) {
   return normalInvocation.test(source);
 }
 
+export function isStableReleaseVersion(version, preRelease = "") {
+  if (String(preRelease || "").trim()) return false;
+  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(String(version || "").trim());
+  if (!match) return false;
+  const parts = match.slice(1).map(Number);
+  if (!parts.every(Number.isSafeInteger)) return false;
+  const deployed = DEPLOYED_STABLE_VERSION.split(".").map(Number);
+  for (let index = 0; index < 3; index += 1) {
+    if (parts[index] !== deployed[index]) return parts[index] > deployed[index];
+  }
+  return false;
+}
+
 export function evaluateProductionCutover({
   manifest,
   workflow,
@@ -33,8 +47,13 @@ export function evaluateProductionCutover({
   serverSource = "",
   availableMigrations = [],
   authEnrollmentTestPresent = false,
+  releaseVersion = "",
+  releasePreRelease = "",
 }) {
   const issues = [];
+  if (!isStableReleaseVersion(releaseVersion, releasePreRelease)) {
+    issues.push("Production release version must be a stable semantic version greater than deployed " + DEPLOYED_STABLE_VERSION + "; do not republish changed code under the current userscript version.");
+  }
   const distributionFunction = String(manifest?.productionFunction || "").trim();
   const apiFunction = String(manifest?.productionApiFunction || "").trim();
   const apiBase = String(manifest?.productionApiBase || "").trim();
@@ -162,6 +181,7 @@ function main() {
   }
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  const release = JSON.parse(fs.readFileSync(path.join(ROOT, "release.json"), "utf8"));
   const workflow = fs.readFileSync(workflowPath, "utf8");
   const serverSource = fs.readFileSync(serverTemplatePath, "utf8");
   const validateScript = fs.readFileSync(validateScriptPath, "utf8");
@@ -178,6 +198,8 @@ function main() {
   const result = evaluateProductionCutover({
     manifest,
     workflow,
+    releaseVersion: release.version,
+    releasePreRelease: release.preRelease,
     availableSources,
     serverSource,
     availableMigrations,

@@ -70,7 +70,7 @@ function renderFunction({version,test,functionName=test?TEST_FUNCTION:PROD_FUNCT
 }
 function writeFunction(fn,source){
   const dir=path.join(ROOT,"supabase/functions",fn);
-  fs.rmSync(dir,{recursive:true,force:true});
+  // Preserve tracked sidecar files; only the generated entrypoint belongs to this build.
   fs.mkdirSync(dir,{recursive:true});
   fs.writeFileSync(path.join(dir,"index.ts"),source,"utf8");
 }

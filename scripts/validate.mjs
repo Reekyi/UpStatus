@@ -6,7 +6,10 @@ import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
+execFileSync(process.execPath,[path.join(ROOT,"scripts/auth-enrollment.test.mjs"),"normal"],{stdio:"inherit"});
+execFileSync(process.execPath,[path.join(ROOT,"scripts/auth-fixture-cleanup.test.mjs")],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/build.mjs")],{stdio:"inherit"});
+execFileSync(process.execPath,[path.join(ROOT,"scripts/test-build-sidecar-preservation.mjs")],{stdio:"inherit"});
 const release=JSON.parse(fs.readFileSync(path.join(ROOT,"release.json"),"utf8"));
 const baseVersion=String(release.version).trim();
 const preRelease=String(release.preRelease||"").trim();
@@ -106,6 +109,7 @@ assert(prodUser.includes("button.style.background='#2563eb'"),"production back-a
 assert(prodUser.includes("button.style.margin='0 8px 0 0'"),"production back-arrow button must have spacing before native end-session control");
 assert(prodUser.includes("endButton.parentElement.insertBefore(button,endButton)"),"production back-arrow must sit immediately before native end-session control");
 execFileSync(process.execPath,[path.join(ROOT,"scripts/test-production-deploy-workflow-guard.mjs")],{stdio:"inherit"});
+execFileSync(process.execPath,[path.join(ROOT,"scripts/test-production-migration-history.mjs")],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/test-production-cutover-guard.mjs")],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/verify-production-cutover.mjs")],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/test-signed-upload-client.mjs")],{stdio:"inherit"});
