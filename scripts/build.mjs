@@ -16,6 +16,8 @@ const ycaroPage=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
 
 const PROJECT="dlfvkawaiqduhlazsszm";
 const PROD_FUNCTION="upstatus";
+// The release script is served by PROD_FUNCTION; API traffic remains on the legacy runtime until a separately reviewed cutover.
+const PROD_API_FUNCTION="upstatus-screen-share-3-1-1-beta10";
 const TEST_FUNCTION="upstatus-test";
 const PROD_TOPIC="upstatus-screen-share-live-3-1-1-beta10";
 const TEST_TOPIC="upstatus-test-live-20261007-v1";
@@ -39,8 +41,10 @@ function renderUser({version,test}){
   const topic=test?TEST_TOPIC:PROD_TOPIC;
   const ringtoneChannel=test?TEST_RINGTONE_CHANNEL:PROD_RINGTONE_CHANNEL;
   const ringtoneStorage=test?TEST_RINGTONE_STORAGE:PROD_RINGTONE_STORAGE;
-  const cloud=test?"https://"+PROJECT+".supabase.co/functions/v1/"+fn:"https://"+PROJECT+".supabase.co/functions/v1/upstatus-screen-share-3-1-1-beta10";
-  const updateUrl=cloud+"/upstatus.user.js";
+  const cloud=test?"https://"+PROJECT+".supabase.co/functions/v1/"+fn:"https://"+PROJECT+".supabase.co/functions/v1/"+PROD_API_FUNCTION;
+  const updateUrl=test?cloud+"/upstatus.user.js":String(release.scriptUrl||("https://"+PROJECT+".supabase.co/functions/v1/"+PROD_FUNCTION+"/upstatus.user.js")).trim();
+  if(!updateUrl)throw new Error("Could not determine the production userscript update URL.");
+  if(!test&&!/^https:\/\/[^/]+\/functions\/v1\/upstatus\/upstatus\.user\.js$/.test(updateUrl))throw new Error("release.json: scriptUrl must point to the production /upstatus/upstatus.user.js endpoint.");
   return render(userTemplate,{
     "__UPSTATUS_NAME__":name,
     "__UPSTATUS_NAMESPACE__":namespace,
