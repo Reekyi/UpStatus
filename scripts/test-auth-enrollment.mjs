@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
 import { verifyIsolatedSupabaseMutationTarget } from "./assert-isolated-supabase.mjs";
+import { cleanupAuthFixtures } from "./auth-fixture-cleanup.mjs";
 
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const projectUrl = await verifyIsolatedSupabaseMutationTarget({
@@ -74,6 +75,7 @@ async function getUser(name) {
   return Array.isArray(rows) ? rows[0] : null;
 }
 
+let testFailure = null;
 try {
   fixturesMayExist = true;
   await rest("/users", {
@@ -166,14 +168,31 @@ try {
   const paddedAdminRow = await getUser(paddedAdminRole.name);
   assert.equal(paddedAdminRow.role, " implementation_admin ");
 
-  console.log("Isolated setup enrollment passed: NULL/empty eligibility, configured-account denial, malformed/wrong/expired/replayed tokens, one-winner concurrency, NULL/empty/whitespace role fallback, explicit-role preservation, padded-admin non-escalation, and cleanup.");
-} finally {
-  if (fixturesMayExist) {
-    for (const item of cases) {
-      await rest("/users?name=eq." + encodeURIComponent(item.name), { method: "DELETE" });
-    }
-    const pattern = encodeURIComponent("__auth_test_" + suffix + "*");
-    const remaining = await rest("/users?select=name&name=like." + pattern);
-    assert.deepEqual(remaining, [], "isolated auth enrollment fixtures must be removed");
+} catch (error) {
+  testFailure = error;
+}
+
+let cleanupFailure = null;
+if (fixturesMayExist) {
+  try {
+    await cleanupAuthFixtures({
+      fixtures: cases,
+      deleteFixture: item => rest("/users?name=eq." + encodeURIComponent(item.name), { method: "DELETE" }),
+      verifyNoFixtures: async () => {
+        const pattern = encodeURIComponent("__auth_test_" + suffix + "*");
+        const remaining = await rest("/users?select=name&name=like." + pattern);
+        assert.deepEqual(remaining, [], "isolated auth enrollment fixtures must be removed");
+      },
+    });
+  } catch (error) {
+    cleanupFailure = error;
   }
 }
+
+if (testFailure && cleanupFailure) {
+  throw new AggregateError([testFailure, cleanupFailure], "AUTH-03 integration and fixture cleanup both failed.");
+}
+if (testFailure) throw testFailure;
+if (cleanupFailure) throw cleanupFailure;
+
+console.log("Isolated setup enrollment passed: NULL/empty eligibility, configured-account denial, malformed/wrong/expired/replayed tokens, one-winner concurrency, NULL/empty/whitespace role fallback, explicit-role preservation, padded-admin non-escalation, and cleanup verified.");
