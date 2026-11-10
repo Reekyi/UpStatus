@@ -367,8 +367,9 @@ assert.ok(userTemplate.includes("else callSendTo(requester,'join_declined',{upda
   "authenticated group invitation declines must be delivered through the authenticated transport");
 assert.ok(userTemplate.includes("else callSendTo(requester,'join_declined',{updatedAt:Date.now()});") &&
   userTemplate.includes("}else sendRealtimeEvent('call_signal',{type:accepted?'join_approved':'join_declined',callId:p.callId,from:member,to:requester,participants:upCall.participants.slice(),updatedAt:Date.now()});") &&
-  userTemplate.includes("(p.type==='presence'||p.type==='ended')&&p.discoveryOnly===true"),
-  "authenticated group declines must use the server-mediated transport; public discovery is limited to presence/ended and legacy public decisions remain behind the disabled-by-default flag");
+  transportSource.includes('signal.type === "presence" || signal.type === "ended"') &&
+  !transportSource.includes('signal.type === "join_declined"'),
+  "authenticated group declines must use the server-mediated transport; the shared public allowlist must remain presence/ended only; legacy public decisions remain behind the disabled-by-default flag");
 assert.ok(userTemplate.includes("startOutgoingCallWithTransport(target)") &&
   userTemplate.includes("signalStartInvitationPolling()") &&
   userTemplate.includes("signalTransport.sendToRoom({") &&
