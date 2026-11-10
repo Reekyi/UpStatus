@@ -1,6 +1,10 @@
 name: Team Lite Candidate Checks
 
 on:
+  # Run the full isolated suite on the child candidate branch as well as official-base PRs.
+  push:
+    branches:
+      - fix/team-lite-call-source-provenance-20261110
   pull_request:
     branches: [team-lite-official]
     paths:
