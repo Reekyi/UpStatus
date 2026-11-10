@@ -63,11 +63,11 @@ function sharedSetupInviteRateLimitSql(sql, endMarker, label) {
   const end = sql.indexOf(endMarker, start);
   assert.notEqual(end, -1, label + ": shared setup-invite block terminator missing");
   return sql.slice(start, end)
-    .split(/\\r?\\n/)
+    .split(/\r?\n/)
     .filter(line => !line.trim().startsWith("--"))
     .map(line => line.trim())
     .filter(Boolean)
-    .join("\\n");
+    .join("\n");
 }
 
 // The isolated migration may append catalog assertions and omit COMMENT ON metadata,
