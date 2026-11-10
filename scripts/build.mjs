@@ -25,7 +25,7 @@ if(TEST_PROJECT===PROJECT)throw new Error("Refusing to build TEST artifacts agai
 if(TEST_PROJECT===ISOLATED_SIGNALING_PROJECT)throw new Error("Refusing to build full TEST artifacts against the isolated signaling/auth project.");
 const PROD_FUNCTION="upstatus";
 const TEST_FUNCTION="upstatus-test";
-const PROD_TOPIC="upstatus-screen-share-live-3-1-1-beta10";
+const PROD_TOPIC="upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0";
 const TEST_TOPIC="upstatus-test-live-20261007-v1";
 const PROD_RINGTONE_CHANNEL="upstatus-screen-share-3-1-1-beta9-2-ringtone-stop-v1";
 const TEST_RINGTONE_CHANNEL="upstatus-test-call-ringtone-stop-v1";
