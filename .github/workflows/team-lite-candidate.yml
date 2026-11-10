@@ -6,7 +6,9 @@ on:
     branches:
       - fix/team-lite-call-source-provenance-20261110
   pull_request:
-    branches: [team-lite-official]
+    branches:
+      - team-lite-official
+      - team-lite/signaling-transport-candidate
     paths:
       - "team-lite/**"
       - "lucca-site/**"
