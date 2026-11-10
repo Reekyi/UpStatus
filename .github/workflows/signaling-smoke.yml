@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - master
+      - chore/continuity-foundation
     paths:
       - "scripts/test-signaling-endpoint.mjs"
       - "scripts/test-signaling-authenticated.mjs"
@@ -15,6 +16,7 @@ on:
       - "scripts/chat-regression.test.mjs"
       - "scripts/test-chat-read-receipts.mjs"
       - "scripts/test-signal-rate-limit.mjs"
+      - "scripts/test-setup-invite-rate-limit.mjs"
       - "scripts/assert-isolated-supabase.mjs"
       - "scripts/isolation-guard.test.mjs"
       - "scripts/migration-layout.test.mjs"
@@ -83,6 +85,7 @@ jobs:
           node --check scripts/auth-enrollment.test.mjs
           node scripts/auth-enrollment.test.mjs normal
           node --check scripts/test-auth-enrollment.mjs
+          node --check scripts/test-setup-invite-rate-limit.mjs
           node --check scripts/test-chat-read-receipts.mjs
           node --check scripts/test-signal-rate-limit.mjs
       - name: Run unauthenticated endpoint checks against isolated project
@@ -120,3 +123,9 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
           UPSTATUS_AUTH_ALLOW_MUTATION: "1"
         run: node scripts/test-auth-enrollment.mjs
+      - name: Verify distributed setup-invite issuance rate limit
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_AUTH_ALLOW_MUTATION: "1"
+        run: node scripts/test-setup-invite-rate-limit.mjs
