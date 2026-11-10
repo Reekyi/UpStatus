@@ -51,6 +51,32 @@ const setupInviteRateLimitMigrationPath = path.join(migrationsRoot, "20261109230
 assert.equal(existsSync(setupInviteRateLimitMigrationPath), true, "production setup-invite rate-limit migration missing");
 const setupInviteRateLimitMigration = readFileSync(setupInviteRateLimitMigrationPath, "utf8");
 assert.ok(setupInviteRateLimitMigration.includes("consume_upstatus_setup_invite_rate_limit"), "production setup-invite rate-limit RPC missing");
+
+const setupInviteRateLimitTestMigrationPath = path.join(testMigrationsRoot, "20261109230000_setup_invite_rate_limit_test.sql");
+assert.equal(existsSync(setupInviteRateLimitTestMigrationPath), true, "isolated setup-invite rate-limit migration missing");
+const setupInviteRateLimitTestMigration = readFileSync(setupInviteRateLimitTestMigrationPath, "utf8");
+
+function sharedSetupInviteRateLimitSql(sql, endMarker, label) {
+  const startMarker = "CREATE TABLE IF NOT EXISTS public.upstatus_setup_invite_rate_limits";
+  const start = sql.indexOf(startMarker);
+  assert.notEqual(start, -1, label + ": shared setup-invite DDL/RPC block missing");
+  const end = sql.indexOf(endMarker, start);
+  assert.notEqual(end, -1, label + ": shared setup-invite block terminator missing");
+  return sql.slice(start, end)
+    .split(/\\r?\\n/)
+    .filter(line => !line.trim().startsWith("--"))
+    .map(line => line.trim())
+    .filter(Boolean)
+    .join("\\n");
+}
+
+// The isolated migration may append catalog assertions and omit COMMENT ON metadata,
+// but its executable table/RPC/grant block must remain identical to the production candidate.
+assert.equal(
+  sharedSetupInviteRateLimitSql(setupInviteRateLimitMigration, "COMMENT ON TABLE", "production migration"),
+  sharedSetupInviteRateLimitSql(setupInviteRateLimitTestMigration, "DO $test$", "isolated test migration"),
+  "isolated setup-invite rate-limit DDL/RPC/grants must match the production candidate"
+);
 const readmePath = path.join(testMigrationsRoot, "README.md");
 assert.equal(existsSync(readmePath), true, "isolated test migration safety README missing");
 const readmeText = readFileSync(readmePath, "utf8");
