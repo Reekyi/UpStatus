@@ -1,0 +1,30 @@
+name: Normal API Target Candidate Validation
+
+on:
+  push:
+    branches:
+      - fix/normal-api-runtime-target-20261110
+      - fix/normal-call-source-provenance-20261110
+  pull_request:
+    branches:
+      - chore/continuity-foundation
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout candidate and branch history
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify official Team Lite updater baseline is available
+        run: git show-ref --verify --quiet refs/remotes/origin/team-lite-official
+      - name: Verify TEST build isolation guards
+        run: node scripts/test-build-target-guard.mjs
+      - name: Validate generated Normal and TEST artifacts
+        run: node scripts/validate.mjs

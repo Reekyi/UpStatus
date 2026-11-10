@@ -1,6 +1,10 @@
 name: UpStatus Signaling Smoke Tests
 
 on:
+  # Run the complete isolated smoke suite on this child candidate's own push.
+  push:
+    branches:
+      - fix/normal-call-source-provenance-20261110
   pull_request:
     branches:
       - master
