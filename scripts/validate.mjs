@@ -6,6 +6,7 @@ import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
+execFileSync(process.execPath,[path.join(ROOT,"scripts/test-auth-fixture-cleanup.mjs")],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/auth-enrollment.test.mjs"),"normal"],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/build.mjs")],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/test-build-sidecar-preservation.mjs")],{stdio:"inherit"});
