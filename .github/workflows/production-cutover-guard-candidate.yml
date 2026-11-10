@@ -6,6 +6,7 @@ on:
       - fix/production-cutover-guard-auth-delete-wiring-20261108
       - fix/master-release-script-url-20261107
       - fix/normal-auth03-build-safe-20261108
+      - fix/normal-auth03-fixture-cleanup-20261110
 
 permissions:
   contents: read

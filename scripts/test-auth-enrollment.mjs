@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
 import { verifyIsolatedSupabaseMutationTarget } from "./assert-isolated-supabase.mjs";
+import { cleanupAuthFixtures } from "./auth-fixture-cleanup.mjs";
 
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const projectUrl = await verifyIsolatedSupabaseMutationTarget({
@@ -74,6 +75,7 @@ async function getUser(name) {
   return Array.isArray(rows) ? rows[0] : null;
 }
 
+let primaryError = null;
 try {
   fixturesMayExist = true;
   await rest("/users", {
@@ -167,13 +169,22 @@ try {
   assert.equal(paddedAdminRow.role, " implementation_admin ");
 
   console.log("Isolated setup enrollment passed: NULL/empty eligibility, configured-account denial, malformed/wrong/expired/replayed tokens, one-winner concurrency, NULL/empty/whitespace role fallback, explicit-role preservation, padded-admin non-escalation, and cleanup.");
+} catch (error) {
+  primaryError = error;
 } finally {
   if (fixturesMayExist) {
-    for (const item of cases) {
-      await rest("/users?name=eq." + encodeURIComponent(item.name), { method: "DELETE" });
-    }
     const pattern = encodeURIComponent("__auth_test_" + suffix + "*");
-    const remaining = await rest("/users?select=name&name=like." + pattern);
-    assert.deepEqual(remaining, [], "isolated auth enrollment fixtures must be removed");
+    try {
+      await cleanupAuthFixtures({
+        cases,
+        deleteFixture: item => rest("/users?name=eq." + encodeURIComponent(item.name), { method: "DELETE" }),
+        listRemaining: () => rest("/users?select=name&name=like." + pattern),
+      });
+    } catch (cleanupError) {
+      primaryError = primaryError
+        ? new AggregateError([primaryError, cleanupError], "AUTH-03 test failed and fixture cleanup also failed.")
+        : cleanupError;
+    }
   }
 }
+if (primaryError) throw primaryError;
