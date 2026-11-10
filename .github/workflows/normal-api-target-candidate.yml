@@ -1,0 +1,23 @@
+name: Normal API Target Candidate Validation
+
+on:
+  push:
+    branches:
+      - fix/normal-api-runtime-target-20261110
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Verify TEST build isolation guards
+        run: node scripts/test-build-target-guard.mjs
+      - name: Validate generated Normal and TEST artifacts
+        run: node scripts/validate.mjs
