@@ -46,6 +46,17 @@
  * disabled by default; do not enable for users until authenticated browser/WebRTC
  * E2E tests prove explicit call invitation/acceptance and open voice-room membership.
  */
+/**
+ * Public Realtime is only an untrusted call-directory discovery hint while
+ * server-mediated signaling is enabled. No call-control event may use this path.
+ */
+function isAllowedPublicCallDiscoverySignal(signal) {
+  return !!signal && typeof signal === "object" && !Array.isArray(signal) &&
+    Object.prototype.hasOwnProperty.call(signal, "type") &&
+    Object.prototype.hasOwnProperty.call(signal, "discoveryOnly") &&
+    (signal.type === "presence" || signal.type === "ended") && signal.discoveryOnly === true;
+}
+
 function createSignalingTransport({
   request,
   enabled = false,
