@@ -3168,3 +3168,48 @@ Fresh read-only SQL on production returned:
 - 24 default ACL entries.
 
 This count is now 52, up from the prior audit's 50. It is a row-count/catalog observation, not proof of external exploitation or trigger-to-client delivery. Security Advisor at 12:05 UTC remains 6 WARN (3 anon + 3 authenticated) and 10 INFO. RT-01, grants/default ACLs and Storage remain open. SELECT-only; no database or Storage mutation.
+
+
+## Engineering checkpoint — 2026-11-10 05:12 UTC
+
+This checkpoint supersedes older PR/runtime snapshots above where they conflict. Live GitHub and Supabase state was rechecked before this append.
+
+### Exact candidate heads and CI
+
+| PR | Current head | Current evidence |
+|---|---|---|
+| #74 Normal | `fb878537d95db9097cce6d29a14260b9fd8d2e3d` | Validate [42753434411](https://github.com/Reekyi/UpStatus/actions/runs/42753434411) and Signaling Smoke [42753434336](https://github.com/Reekyi/UpStatus/actions/runs/42753434336) SUCCESS on exact head |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) SUCCESS; not a substitute for #76 |
+| #76 Team Lite candidate | `3b1406ddb56aecfa5b5515791ca99aea92c305ab` | Candidate Checks [42753492373](https://github.com/Reekyi/UpStatus/actions/runs/42753492373) SUCCESS on exact head |
+| #80 continuity | `00c2b38417b58c16b4797b82807008aed242e39e` | Validate [42631279108](https://github.com/Reekyi/UpStatus/actions/runs/42631279108) FAIL: inherited `client signed upload helper missing` at `scripts/validate.mjs:55` |
+| #82 independent QA | `aece4a9385c99e13dcef318d8c4f119f122ebb50` | Validate [42756511530](https://github.com/Reekyi/UpStatus/actions/runs/42756511530) FAIL: inherited `production updateURL mismatch` at `scripts/validate.mjs:26` |
+| #130 Normal AUTH-03 | `a6c32324e6fe17a0783bad09637131d7893285fd` | Smoke [42741601731](https://github.com/Reekyi/UpStatus/actions/runs/42741601731) SUCCESS, but branch is 12 ahead / 4 behind current #74 and must not be treated as integrated |
+| #131 reconciled Normal AUTH-03 | `17169a30a9b93d1b6f870d1632e3fd0502cb1a8b` | New Draft child of #74; PR Smoke [42760281798](https://github.com/Reekyi/UpStatus/actions/runs/42760281798) is in progress, not yet approved |
+
+PRs remain open/Draft. No human reviews were found for #74, #75, #76, #80, #82, #130 or #131. PR #131 was created from the current #74 head to avoid force-pushing or rewriting #130. It ports only six AUTH-03 files; the current base already contains the matching Smoke workflow file.
+
+### Current Supabase snapshot — SELECT-only
+
+- Production project `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven remote migrations through `20261027155438`, 38 ACTIVE Edge Functions.
+- Production managed default branch `main`: `MIGRATIONS_FAILED`; preview remains ACTIVE_HEALTHY.
+- Laboratory `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 39 migrations, two isolated test functions. There is no separate full-product TEST project.
+- Production Realtime query: 48 rows, 48 with `private=false`, one topic. Three broadcast trigger functions remain SECURITY DEFINER with effective EXECUTE for anon/authenticated.
+- Production catalog: 10 public RLS-enabled tables without policies; nine backend-owned tables retain broad client grants; 24 default ACL entries; two public Storage buckets (`chat-images`, `profile-images`) at 20 MiB; zero policies on `storage.objects`.
+- Production functions remain Normal `upstatus` v480, Team Lite `upstatus-team-lite` v15, TEST `upstatus-test` v281 and legacy Screen Share beta10 v6. The deployed Normal and Team Lite source still routes first setup through the legacy `login(req,true)`; the new invite rate-limit RPC is absent from production.
+- The four original SQL sources for migrations `20261023154754`, `20261026195855`, `20261027154329` and `20261027155438` remain unavailable in `master`; do not reconstruct them from live schema.
+
+### Release gates
+
+- RT-01 remains blocked: candidate topic parity is fixed, but production broadcasts remain public and deployed clients are still on legacy bundles/topics.
+- TEST-ISOLATION remains in progress: the lab is isolated and the current PR #131 suite is using it; it is not a full-product TEST.
+- MIGRATION-PROVENANCE remains blocked by four missing original SQL files and the managed `main` migration failure.
+- AUTH-03 remains in progress: invite issuance rate limiting is being revalidated on clean PR #131; login-attempt throttling and deployed runtime protection are not proven.
+- ACL-STORAGE remains blocked by broad grants/default ACLs and public buckets without object policies.
+- RECONNECT remains pending: issue #78 is still 0/8 and requires Ricardo's physical no-F5 confirmation.
+- HUMAN-REVIEW remains pending: no human review or explicit release authorization exists.
+
+### Safety and next step
+
+No production SQL write, migration, deployment, merge, release, userscript publication, secret/role/flag/grant/ACL/policy change or destructive action occurred. Production queries were SELECT/catalog-only. The only lab mutation in the wider test history is the previously recorded isolated contract fixture; this checkpoint itself made no database mutation.
+
+Next: allow PR #131's isolated Smoke run to finish; inspect the exact job logs and cleanup; send the result to independent QA. Keep #130 open and untouched. Continue RT-01/ACL/Storage and migration provenance only with reviewed candidate plans. Do not deploy or merge.
