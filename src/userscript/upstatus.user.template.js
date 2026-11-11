@@ -214,9 +214,8 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var member=GM_getValue(key+'member','');
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
-  var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
+  var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,remotePollHintTimer=null,remotePollHintPending=false,remoteLastPollAt=0,refreshing=false,readSentKey='',chatFastSince='';
   var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,chatUserScrollInterruptedUntil=0,pendingChatNotificationMessages=[],chatScrollObserver=null,chatScrollObservedList=null,chatLightbox=null,chatHasUnreadBelow=false;
-  var remoteResultCache={},remoteResultWaiters={};
   var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
 
   function installPageBridge(){
@@ -2062,6 +2061,20 @@ function renderChatText(text){
     if(!m||!m.id)return;
     upsertRealtimeMessage(m);
   }
+  function scheduleRemoteStatusPoll(){
+    if(!token)return;
+    remotePollHintPending=true;
+    if(remotePollHintTimer)return;
+    var expectedToken=token,expectedMember=member;
+    var wait=Math.max(0,1000-(Date.now()-remoteLastPollAt));
+    remotePollHintTimer=setTimeout(function(){
+      remotePollHintTimer=null;
+      if(token!==expectedToken||member!==expectedMember){remotePollHintPending=false;return;}
+      if(remotePolling)return;
+      remotePollHintPending=false;
+      pollRemoteStatus();
+    },wait);
+  }
   function startRealtime(){
     if(!token||realtimeClient||typeof supabase==='undefined'||!supabase.createClient)return;
     try{
@@ -2081,23 +2094,18 @@ function renderChatText(text){
         .on('broadcast',{event:'chat_presence'},function(payload){var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();})
         .on('broadcast',{event:'health_ping'},function(payload){handleHealthPing(payload&&payload.payload||{});})
         .on('broadcast',{event:'health_pong'},function(payload){handleHealthPong(payload&&payload.payload||{});})
-        .on('broadcast',{event:'remote_command'},function(payload){
-          var c=payload&&payload.payload&&payload.payload.command;
-          if(c&&c.target===member)executeRemoteCommand(c);
+        .on('broadcast',{event:'remote_command'},function(){
+          // Coalesce public hints; command data is fetched only through the authenticated API.
+          scheduleRemoteStatusPoll();
         })
         .on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{});})
         .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){voiceRoomReceive(payload&&payload.payload||{});})
         .on('broadcast',{event:SCREEN_ROOM_EVENT},function(payload){screenShareReceive(payload&&payload.payload||{});})
-        .on('broadcast',{event:'remote_result'},function(payload){
-          var r=payload&&payload.payload&&payload.payload.result;
-          if(r&&r.commandId&&r.sender===member){
-            remoteResultCache[String(r.commandId)]=r;
-            var waiter=remoteResultWaiters[String(r.commandId)];
-            if(waiter)waiter(r);
-          }
+        .on('broadcast',{event:'remote_result'},function(){
+          // Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint.
         })
         .subscribe(function(status){
-          if(status==='SUBSCRIBED'){realtimeActive=true;if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}broadcastChatPresence(!chat.classList.contains('hidden'));return;}
+          if(status==='SUBSCRIBED'){realtimeActive=true;if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}broadcastChatPresence(!chat.classList.contains('hidden'));scheduleRemoteStatusPoll();return;}
           if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
             realtimeActive=false;
             try{if(realtimeChannel)realtimeChannel.unsubscribe();}catch(e){}
@@ -2118,6 +2126,8 @@ function renderChatText(text){
   }
   function stopRealtime(){
     realtimeActive=false;
+    if(remotePollHintTimer){clearTimeout(remotePollHintTimer);remotePollHintTimer=null;}
+    remotePollHintPending=false;
     if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}
     try{if(realtimeChannel)realtimeChannel.unsubscribe();}catch(e){}
     try{if(realtimeClient)realtimeClient.removeAllChannels();}catch(e){}
@@ -3265,7 +3275,7 @@ function chatAvatarPresence(name){
       api('POST','/api/remote-status',{target:target,status:selected,reason:selected==='busy'?selectedReason:selected==='away'?'Ausente':''}).then(function(r){
         if(!r.commandId)throw new Error('O servidor não confirmou o comando.');
         msg.textContent='Aguardando '+target+' executar…';
-        if(r.command)sendRealtimeEvent('remote_command',{command:r.command});
+        if(r.commandId)sendRealtimeEvent('remote_command',{op:'hint'});
         waitRemoteResult(r.commandId,target,msg,confirm);
       }).catch(function(e){msg.textContent=e.message||'Não foi possível enviar o comando.';confirm.disabled=false;});
     };
@@ -3274,32 +3284,24 @@ function chatAvatarPresence(name){
   function applyRemoteResult(commandId,target,msg,confirm,result){
     if(result&&result.ok){
       msg.style.color='#9ce5b8';msg.textContent='Fila de '+target+' atualizada com sucesso.';
-      delete remoteResultCache[commandId];
       setTimeout(function(){closeRemoteControl();refresh();},700);
     }else{
       msg.style.color='#ff9aaa';msg.textContent='Falha: '+((result&&result.error)||'não foi possível alterar a fila.');
       if(confirm)confirm.disabled=false;
-      delete remoteResultCache[commandId];
     }
   }
   function waitRemoteResult(commandId,target,msg,confirm,started){
-    var t=started||Date.now(),id=String(commandId);
-    var cached=remoteResultCache[id];
-    if(cached){applyRemoteResult(id,target,msg,confirm,cached);return;}
-    var settled=false;
+    var t=started||Date.now(),id=String(commandId),settled=false;
     function finish(result){
       if(settled)return;
       settled=true;
-      if(remoteResultWaiters[id]===finish)delete remoteResultWaiters[id];
       applyRemoteResult(id,target,msg,confirm,result);
     }
-    remoteResultWaiters[id]=finish;
     function poll(){
       if(settled)return;
       api('GET','/api/remote-status/result?id='+encodeURIComponent(id)).then(function(d){
         if(d&&d.ready&&d.result){finish(d.result);return;}
         if(Date.now()-t>=25000){
-          if(remoteResultWaiters[id]===finish)delete remoteResultWaiters[id];
           settled=true;
           msg.style.color='#ff9aaa';msg.textContent='Tempo esgotado. '+target+' não confirmou a alteração.';if(confirm)confirm.disabled=false;
           return;
@@ -3307,7 +3309,6 @@ function chatAvatarPresence(name){
         setTimeout(poll,1500);
       }).catch(function(){
         if(Date.now()-t>=25000){
-          if(remoteResultWaiters[id]===finish)delete remoteResultWaiters[id];
           settled=true;
           msg.style.color='#ff9aaa';msg.textContent='Tempo esgotado. Não foi possível confirmar a alteração.';if(confirm)confirm.disabled=false;
           return;
@@ -3328,21 +3329,29 @@ function chatAvatarPresence(name){
         ok=true;
         if(location.hostname==='app.salesmartly.com')setTimeout(function(){location.reload()},250);
       }catch(e){error=e.message||'Falha ao sincronizar o Sale Smartly.';}
-      var resultPayload={commandId:c.id,sender:c.sender||'',target:member,status:c.status,reason:c.reason||'',ok:ok,error:error,createdAt:new Date().toISOString()};
       try{await api('POST','/api/remote-status/result',{commandId:c.id,ok:ok,error:error});}catch(_){ }
-      sendRealtimeEvent('remote_result',{result:resultPayload});
+      sendRealtimeEvent('remote_result',{op:'hint'});
       delete remotePending[c.id];
       if(!ok)message('Comando remoto de '+c.sender+' falhou: '+error,true);else refresh();
     })();
   }
 
   function pollRemoteStatus(){
-    if(!token||remotePolling)return;
+    if(!token)return;
+    if(remotePolling){remotePollHintPending=true;return;}
+    var wait=Math.max(0,1000-(Date.now()-remoteLastPollAt));
+    if(wait>0){scheduleRemoteStatusPoll();return;}
+    remoteLastPollAt=Date.now();
     remotePolling=true;
+    var expectedToken=token,expectedMember=member;
     api('GET','/api/remote-status').then(function(d){
+      if(token!==expectedToken||member!==expectedMember)return;
       if(!d.pending||!d.command)return;
       executeRemoteCommand(d.command);
-    }).catch(function(){}).finally(function(){remotePolling=false});
+    }).catch(function(){}).finally(function(){
+      remotePolling=false;
+      if(remotePollHintPending)scheduleRemoteStatusPoll();
+    });
   }
   function refresh(){
     if(!token||!member||refreshing)return;
