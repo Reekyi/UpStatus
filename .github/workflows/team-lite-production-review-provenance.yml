@@ -8,6 +8,7 @@ on:
       - ".github/workflows/deploy-team-lite-production.yml"
       - ".github/workflows/team-lite-production-review-provenance.yml"
       - "scripts/verify-team-lite-release-review.mjs"
+      - "scripts/verify-team-lite-release-checks.mjs"
       - "scripts/test-team-lite-production-dispatcher.mjs"
   pull_request:
     branches:
@@ -16,6 +17,7 @@ on:
       - ".github/workflows/deploy-team-lite-production.yml"
       - ".github/workflows/team-lite-production-review-provenance.yml"
       - "scripts/verify-team-lite-release-review.mjs"
+      - "scripts/verify-team-lite-release-checks.mjs"
       - "scripts/test-team-lite-production-dispatcher.mjs"
 
 permissions:
@@ -34,6 +36,7 @@ jobs:
       - name: Check review provenance syntax
         run: |
           node --check scripts/verify-team-lite-release-review.mjs
+          node --check scripts/verify-team-lite-release-checks.mjs
           node --check scripts/test-team-lite-production-dispatcher.mjs
       - name: Run offline current-head approval contracts
         run: node scripts/test-team-lite-production-dispatcher.mjs
