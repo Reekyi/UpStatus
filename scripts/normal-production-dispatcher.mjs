@@ -63,14 +63,36 @@ export function assertAuthorizedReleaseApproval(reviews, { headSha, authorLogin,
   if (!allowlist.has(reviewer.toLowerCase())) throw new Error("The current-head approver is not in UPSTATUS_RELEASE_REVIEWERS.");
   return { reviewer, headSha: expectedHead, submittedAt: latest.submitted_at };
 }
-export function assertSuccessfulReleaseChecks(payload) {
+export const REQUIRED_RELEASE_CHECKS = Object.freeze(["offline_guard", "validate"]);
+const ALLOWED_SKIPPED_RELEASE_CHECKS = new Set(["deploy", "Supabase Preview"]);
+export function assertSuccessfulReleaseChecks(payload, { releaseSha } = {}) {
+  const expectedSha = String(releaseSha || "").trim().toLowerCase();
+  if (!/^[0-9a-f]{40}$/.test(expectedSha)) throw new Error("Exact merged release SHA is required to verify checks.");
   const checks = payload?.check_runs;
   const total = Number(payload?.total_count);
   if (!Array.isArray(checks) || !Number.isInteger(total) || total < 1 || total >= 100 || checks.length !== total) {
     throw new Error("GitHub check-run history is empty, truncated or invalid.");
   }
-  if (checks.some(c => c?.status !== "completed" || !["success", "skipped"].includes(String(c?.conclusion || "")))) {
-    throw new Error("Every check on the exact approved PR head must be completed successfully or explicitly skipped.");
+  if (checks.some(c => String(c?.head_sha || "").toLowerCase() !== expectedSha)) {
+    throw new Error("GitHub returned checks that are not bound to the exact merged release SHA.");
+  }
+  for (const check of checks) {
+    const name = String(check?.name || "");
+    const conclusion = String(check?.conclusion || "");
+    if (check?.status !== "completed") throw new Error("Check " + (name || "<unnamed>") + " is not completed.");
+    if (conclusion === "success") continue;
+    if (conclusion === "skipped" && ALLOWED_SKIPPED_RELEASE_CHECKS.has(name)) continue;
+    throw new Error("Check " + (name || "<unnamed>") + " must succeed; only deploy and Supabase Preview may be skipped.");
+  }
+  for (const requiredName of REQUIRED_RELEASE_CHECKS) {
+    const matches = checks.filter(check =>
+      check?.name === requiredName &&
+      check?.app?.slug === "github-actions" &&
+      String(check?.head_sha || "").toLowerCase() === expectedSha
+    );
+    if (!matches.some(check => check.status === "completed" && check.conclusion === "success")) {
+      throw new Error("Required release check " + requiredName + " is missing or not successful on the exact release SHA.");
+    }
   }
   return checks.length;
 }
@@ -194,8 +216,8 @@ async function main() {
     const checks = JSON.parse(fs.readFileSync(path.resolve(checksPath), "utf8"));
     const provenance = assertMergedReleasePullRequest(pr, releaseSha);
     const approval = assertAuthorizedReleaseApproval(reviews, { ...provenance, authorizedReviewers });
-    const count = assertSuccessfulReleaseChecks(checks);
-    console.log("Verified merged master PR " + pr.number + ", exact-head approval by " + approval.reviewer + " and " + count + " completed checks.");
+    const count = assertSuccessfulReleaseChecks(checks, { releaseSha });
+    console.log("Verified merged master PR " + pr.number + ", exact-head approval by " + approval.reviewer + " and " + count + " checks on release SHA " + releaseSha + ".");
     return;
   }
   if (command === "verify-release") {
