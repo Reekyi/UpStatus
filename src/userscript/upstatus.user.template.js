@@ -2449,7 +2449,7 @@ function chatAvatarPresence(name){
     chatContextMessageId=m.id;
     var canReply=m.user!==member;
     var quick=['😂','❤️','👍','😡','😮','👏'];
-    var canDelete=m.user===member||member==='Ricardo'||role==='implementation_admin';
+    var canDelete=m.user===member||role==='implementation_admin';
     menu.innerHTML=(canReply?'<button type="button" class="up-chat-context-action" data-action="reply">↩ Responder</button>':'')+(canDelete?'<button type="button" class="up-chat-context-action up-chat-context-delete" data-action="delete">🗑 Excluir mensagem</button>':'')+'<div class="up-chat-context-reaction-row">'+quick.map(function(em){return '<button type="button" class="up-chat-reaction" data-context-reaction="'+esc(em)+'">'+em+'</button>';}).join('')+'</div>';
     menu.classList.add('show');
     var x=Math.min(window.innerWidth-menu.offsetWidth-8,Math.max(8,e.clientX||8)),y=Math.min(window.innerHeight-menu.offsetHeight-8,Math.max(8,e.clientY||8));menu.style.left=x+'px';menu.style.top=y+'px';
