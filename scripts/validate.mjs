@@ -49,7 +49,7 @@ assert(prodApiFn.includes("if(p.avatarUrl){"),"production API profile route must
 assert(prodApiFn.includes("new URL(PROJECT_URL).origin"),"production API must restrict avatar URLs to the current Supabase project");
 assert(prodApiFn.includes("Number.isSafeInteger(size)"),"production API must reject fractional or unsafe upload sizes");
 
-const apiAsDistribution=prodApiFn.replace('const marker="/'+productionApiFunction+'";','const marker="/'+productionFunction+'";');
+const apiAsDistribution=prodApiFn.replaceAll('const marker="/'+productionApiFunction+'";','const marker="/'+productionFunction+'";');
 assert(apiAsDistribution===prodFn,"production API runtime must match the reviewed distribution backend except for its function path marker");
 
 assert(expectedProductionUpdateUrl,"release.json production scriptUrl missing");
