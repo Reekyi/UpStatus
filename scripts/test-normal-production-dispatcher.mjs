@@ -1,0 +1,161 @@
+#!/usr/bin/env node
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import {
+  assertAuthorizedReleaseApproval,
+  assertMergedReleasePullRequest,
+  assertNormalProductionMainBranch,
+  assertNormalProductionProject,
+  assertNormalReleaseManifest,
+  assertRequiredNormalProductionMigrations,
+  assertSuccessfulReleaseChecks,
+  REQUIRED_PRODUCTION_MIGRATIONS,
+} from "./normal-production-dispatcher.mjs";
+
+const workflow = fs.readFileSync(".github/workflows/deploy-production.yml", "utf8");
+const helperSource = fs.readFileSync("scripts/normal-production-dispatcher.mjs", "utf8");
+assert.match(workflow, /^name: UpStatus Normal Production Dispatcher$/m);
+assert.match(workflow, /^  workflow_dispatch:/m);
+assert.match(workflow, /operation:[\s\S]*?options:[\s\S]*?- release[\s\S]*?- rollback/);
+assert.match(workflow, /release_sha:[\s\S]*?required: true[\s\S]*?type: string/);
+assert.match(workflow, /approved_pr_number:[\s\S]*?required: true[\s\S]*?type: number/);
+assert.match(workflow, /release_version:[\s\S]*?required: true[\s\S]*?type: string/);
+assert.match(workflow, /confirm_production_action:[\s\S]*?required: true[\s\S]*?default: false/);
+assert.match(workflow, /branches:[\s\S]*?- fix\/master-normal-dual-runtime-dispatcher-20261111/);
+assert.match(workflow, /permissions:[\s\S]*?contents: read[\s\S]*?pull-requests: read[\s\S]*?checks: read/);
+assert.match(workflow, /offline_guard:[\s\S]*?if: github\.event_name != 'workflow_dispatch'/);
+assert.match(workflow, /deploy:[\s\S]*?if: github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/master' && inputs\.confirm_production_action == true/);
+assert.match(workflow, /environment: production/);
+assert.match(workflow, /UPSTATUS_RELEASE_REVIEWERS:[\s\S]*?vars\.UPSTATUS_RELEASE_REVIEWERS/);
+assert.match(workflow, /UPSTATUS_CURRENT_NORMAL_VERSION:[\s\S]*?vars\.UPSTATUS_CURRENT_NORMAL_VERSION/);
+assert.match(workflow, /UPSTATUS_NORMAL_ROLLBACK_SHAS:[\s\S]*?vars\.UPSTATUS_NORMAL_ROLLBACK_SHAS/);
+assert.match(workflow, /UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED:[\s\S]*?vars\.UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED/);
+assert.match(workflow, /UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE:[\s\S]*?vars\.UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE/);
+assert.match(workflow, /Normal security, QA and release gates have not been explicitly acknowledged/);
+assert.match(workflow, /physical Normal reconnect acceptance without F5 is required/);
+assert.match(workflow, /EXPECTED_PRODUCTION_PROJECT_ID: dlfvkawaiqduhlazsszm/);
+assert.match(helperSource, /api\.supabase\.com\/v1\/projects/);
+assert.match(helperSource, /\/branches/);
+assert.match(helperSource, /\/database\/migrations/);
+assert.match(helperSource, /ACTIVE_HEALTHY/);
+assert.match(workflow, /version: 2\.122\.1/);
+assert.doesNotMatch(workflow, /version:\s*latest/);
+assert.match(workflow, /verify-review/);
+assert.match(workflow, /verify-release/);
+assert.match(workflow, /preflight/);
+assert.match(workflow, /git merge-base --is-ancestor/);
+assert.match(workflow, /Recheck master HEAD immediately before deployment/);
+assert.doesNotMatch(workflow, /supabase\s+(?:db\s+push|migration\s+up|db\s+reset)/);
+assert.doesNotMatch(workflow, /^  (?:schedule|workflow_run):/m);
+
+const deployCommands = workflow.match(/^\s*run: supabase functions deploy .+$/gm) || [];
+assert.equal(deployCommands.length, 2, "Normal dispatcher must deploy exactly the API and distribution functions.");
+assert.match(deployCommands[0], /upstatus-screen-share-3-1-1-beta10/);
+assert.match(deployCommands[1], /upstatus --project-ref/);
+assert.doesNotMatch(workflow, /supabase functions deploy (?:--no-verify-jwt )?upstatus-team-lite/);
+assert.doesNotMatch(workflow, /supabase functions deploy .*upstatus-test|upstatus-signal/);
+assert.ok(workflow.indexOf("Deploy Normal API runtime first") < workflow.indexOf("Deploy Normal userscript distribution second"));
+
+const buildSource = [
+  'const PROJECT="dlfvkawaiqduhlazsszm";',
+  'const PROD_FUNCTION="upstatus";',
+  'const PROD_API_FUNCTION="upstatus-screen-share-3-1-1-beta10";',
+  "writeFunction(PROD_FUNCTION,renderFunction",
+  "writeFunction(PROD_API_FUNCTION,renderFunction",
+].join("\n");
+const configText = ["[functions.upstatus]", "verify_jwt = false", "", "[functions.upstatus-screen-share-3-1-1-beta10]", "verify_jwt = false", ""].join("\n");
+const baseRelease = {
+  version: "3.4.8",
+  preRelease: "",
+  scriptUrl: "https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js",
+};
+assert.deepEqual(
+  assertNormalReleaseManifest({
+    release: baseRelease, buildSource, configText, requestedVersion: "3.4.8",
+    operation: "release", currentVersion: "3.4.7", releaseSha: "a".repeat(40), rollbackShas: "",
+  }),
+  { version: "3.4.8", operation: "release" },
+);
+assert.throws(() => assertNormalReleaseManifest({
+  release: { ...baseRelease, version: "3.4.7" }, buildSource, configText, requestedVersion: "3.4.7",
+  operation: "release", currentVersion: "3.4.7", releaseSha: "a".repeat(40), rollbackShas: "",
+}), /must be newer/);
+assert.throws(() => assertNormalReleaseManifest({
+  release: { ...baseRelease, preRelease: "rc1" }, buildSource, configText, requestedVersion: "3.4.8",
+  operation: "release", currentVersion: "3.4.7", releaseSha: "a".repeat(40), rollbackShas: "",
+}), /stable Normal release/);
+assert.throws(() => assertNormalReleaseManifest({
+  release: { ...baseRelease, scriptUrl: "https://example.invalid/upstatus.user.js" }, buildSource, configText, requestedVersion: "3.4.8",
+  operation: "release", currentVersion: "3.4.7", releaseSha: "a".repeat(40), rollbackShas: "",
+}), /scriptUrl/);
+assert.deepEqual(
+  assertNormalReleaseManifest({
+    release: { ...baseRelease, version: "3.4.7" }, buildSource, configText, requestedVersion: "3.4.7",
+    operation: "rollback", currentVersion: "3.4.8", releaseSha: "b".repeat(40), rollbackShas: "b".repeat(40),
+  }),
+  { version: "3.4.7", operation: "rollback" },
+);
+assert.throws(() => assertNormalReleaseManifest({
+  release: { ...baseRelease, version: "3.4.7" }, buildSource, configText, requestedVersion: "3.4.7",
+  operation: "rollback", currentVersion: "3.4.8", releaseSha: "b".repeat(40), rollbackShas: "",
+}), /UPSTATUS_NORMAL_ROLLBACK_SHAS/);
+
+const project = {
+  id: "dlfvkawaiqduhlazsszm",
+  organization_id: "bcjtvojfkfoxvsitzmkl",
+  status: "ACTIVE_HEALTHY",
+  database: { host: "db.dlfvkawaiqduhlazsszm.supabase.co" },
+};
+assert.equal(assertNormalProductionProject(project, "dlfvkawaiqduhlazsszm", "bcjtvojfkfoxvsitzmkl", "bfpjtfqlnypisxljoxkb").projectRef, "dlfvkawaiqduhlazsszm");
+assert.throws(() => assertNormalProductionProject(project, "bfpjtfqlnypisxljoxkb", "bcjtvojfkfoxvsitzmkl", "bfpjtfqlnypisxljoxkb"), /approved production project/);
+assert.deepEqual(
+  assertNormalProductionMainBranch({ branches: [{ name: "main", is_default: true, git_branch: "master", status: "ACTIVE_HEALTHY" }] }),
+  { name: "main", status: "ACTIVE_HEALTHY" },
+);
+assert.throws(() => assertNormalProductionMainBranch({ branches: [{ name: "main", is_default: true, git_branch: "master", status: "MIGRATIONS_FAILED" }] }), /not ACTIVE_HEALTHY/);
+const migrations = REQUIRED_PRODUCTION_MIGRATIONS.map(item => ({ ...item }));
+assert.equal(assertRequiredNormalProductionMigrations({ migrations }).length, 7);
+assert.throws(() => assertRequiredNormalProductionMigrations({ migrations: migrations.slice(1) }), /missing or mismatched/);
+assert.throws(() => assertRequiredNormalProductionMigrations({ migrations: [...migrations, migrations[0]] }), /duplicate version/);
+
+const headSha = "c".repeat(40);
+const releaseSha = "d".repeat(40);
+const pr = {
+  number: 143,
+  state: "closed",
+  merged_at: "2026-11-11T00:00:00Z",
+  merge_commit_sha: releaseSha,
+  base: { ref: "master" },
+  head: { sha: headSha, repo: { full_name: "Reekyi/UpStatus" } },
+  user: { login: "release-author" },
+};
+assert.deepEqual(assertMergedReleasePullRequest(pr, releaseSha), { headSha, authorLogin: "release-author" });
+assert.throws(() => assertMergedReleasePullRequest({ ...pr, merge_commit_sha: "e".repeat(40) }, releaseSha), /exact approved release SHA/);
+
+const approval = {
+  id: 1, state: "APPROVED", commit_id: headSha, submitted_at: "2026-11-11T00:00:00Z",
+  user: { login: "release-reviewer", type: "User" },
+};
+const approvalOptions = { headSha, authorLogin: "release-author", authorizedReviewers: "release-reviewer,backup-reviewer" };
+assert.equal(assertAuthorizedReleaseApproval([approval], approvalOptions).reviewer, "release-reviewer");
+assert.throws(() => assertAuthorizedReleaseApproval([{ ...approval, commit_id: "e".repeat(40) }], approvalOptions), /no latest APPROVED/);
+assert.throws(() => assertAuthorizedReleaseApproval([{ ...approval, user: { login: "reviewer-bot", type: "Bot" } }], approvalOptions), /human GitHub user/);
+assert.throws(() => assertAuthorizedReleaseApproval([{ ...approval, user: { login: "release-author", type: "User" } }], approvalOptions), /cannot approve/);
+assert.throws(() => assertAuthorizedReleaseApproval([{ ...approval, user: { login: "unlisted", type: "User" } }], approvalOptions), /not in UPSTATUS_RELEASE_REVIEWERS/);
+assert.throws(() => assertAuthorizedReleaseApproval([
+  approval,
+  { ...approval, id: 2, state: "CHANGES_REQUESTED", submitted_at: "2026-11-11T00:01:00Z" },
+], approvalOptions), /no latest APPROVED/);
+assert.throws(() => assertAuthorizedReleaseApproval([approval], { ...approvalOptions, authorizedReviewers: "" }), /UPSTATUS_RELEASE_REVIEWERS/);
+
+assert.equal(assertSuccessfulReleaseChecks({
+  total_count: 2,
+  check_runs: [
+    { name: "Validate", status: "completed", conclusion: "success" },
+    { name: "Optional", status: "completed", conclusion: "skipped" },
+  ],
+}), 2);
+assert.throws(() => assertSuccessfulReleaseChecks({ total_count: 1, check_runs: [{ status: "in_progress", conclusion: null }] }), /completed successfully/);
+assert.throws(() => assertSuccessfulReleaseChecks({ total_count: 100, check_runs: [] }), /truncated or invalid/);
+
+console.log("PASS Normal production dispatcher contract, release/rollback provenance, project/migration preflight and exact-head human approval.");
