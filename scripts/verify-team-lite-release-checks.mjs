@@ -3,7 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const REQUIRED_TEAM_LITE_RELEASE_CHECKS = Object.freeze(["offline_guard", "validate"]);
+// These checks are emitted on team-lite-official itself: the legacy safety guard and isolated candidate suite.
+export const REQUIRED_TEAM_LITE_RELEASE_CHECKS = Object.freeze(["offline_guard", "candidate-checks"]);
 const ALLOWED_SKIPPED_CHECKS = new Set(["deploy", "Supabase Preview"]);
 
 export function assertSuccessfulTeamLiteReleaseChecks(payload, { releaseSha } = {}) {

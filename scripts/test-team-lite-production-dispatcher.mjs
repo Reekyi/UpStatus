@@ -180,7 +180,7 @@ assert.throws(() => assertAuthorizedReleaseApproval([
   { ...approval, submitted_at: "not-a-date" },
 ], approvalOptions), /invalid submission timestamp/);
 
-assert.deepEqual(REQUIRED_TEAM_LITE_RELEASE_CHECKS, ["offline_guard", "validate"]);
+assert.deepEqual(REQUIRED_TEAM_LITE_RELEASE_CHECKS, ["offline_guard", "candidate-checks"]);
 const releaseSha = "d".repeat(40);
 const releaseCheck = (name, conclusion = "success", headSha = releaseSha, appSlug = "github-actions", status = "completed") => ({
   name, status, conclusion, head_sha: headSha, app: { slug: appSlug },
@@ -189,7 +189,7 @@ const validReleaseChecks = {
   total_count: 4,
   check_runs: [
     releaseCheck("offline_guard"),
-    releaseCheck("validate"),
+    releaseCheck("candidate-checks"),
     releaseCheck("deploy", "skipped"),
     releaseCheck("Supabase Preview", "skipped", releaseSha, "supabase"),
   ],
@@ -197,27 +197,27 @@ const validReleaseChecks = {
 assert.equal(assertSuccessfulTeamLiteReleaseChecks(validReleaseChecks, { releaseSha }), 4);
 assert.throws(() => assertSuccessfulTeamLiteReleaseChecks({
   total_count: 3,
-  check_runs: [releaseCheck("offline_guard"), releaseCheck("validate"), releaseCheck("optional-job", "skipped")],
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("candidate-checks"), releaseCheck("optional-job", "skipped")],
 }, { releaseSha }), /only deploy and Supabase Preview may be skipped/);
 assert.throws(() => assertSuccessfulTeamLiteReleaseChecks({
   total_count: 2,
-  check_runs: [releaseCheck("offline_guard"), releaseCheck("validate", "skipped")],
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("candidate-checks", "skipped")],
 }, { releaseSha }), /only deploy and Supabase Preview may be skipped/);
 assert.throws(() => assertSuccessfulTeamLiteReleaseChecks({
   total_count: 2,
   check_runs: [releaseCheck("offline_guard"), releaseCheck("deploy", "skipped")],
-}, { releaseSha }), /Required Team Lite release check validate is missing/);
+}, { releaseSha }), /Required Team Lite release check candidate-checks is missing/);
 assert.throws(() => assertSuccessfulTeamLiteReleaseChecks({
   total_count: 2,
-  check_runs: [releaseCheck("offline_guard"), releaseCheck("validate", "success", "e".repeat(40))],
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("candidate-checks", "success", "e".repeat(40))],
 }, { releaseSha }), /not bound to the exact merged release SHA/);
 assert.throws(() => assertSuccessfulTeamLiteReleaseChecks({
   total_count: 2,
-  check_runs: [releaseCheck("offline_guard"), releaseCheck("validate", "failure")],
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("candidate-checks", "failure")],
 }, { releaseSha }), /must succeed/);
 assert.throws(() => assertSuccessfulTeamLiteReleaseChecks({
   total_count: 2,
-  check_runs: [releaseCheck("offline_guard"), releaseCheck("validate", "success", releaseSha, "github-actions", "in_progress")],
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("candidate-checks", "success", releaseSha, "github-actions", "in_progress")],
 }, { releaseSha }), /not completed/);
 assert.throws(() => assertSuccessfulTeamLiteReleaseChecks({
   total_count: 100,
