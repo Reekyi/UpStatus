@@ -1,6 +1,9 @@
 name: Team Lite Candidate Checks
 
 on:
+  push:
+    branches:
+      - team-lite-official
   pull_request:
     branches: [team-lite-official]
     paths:
@@ -37,6 +40,7 @@ on:
       - "scripts/run-signaling-authenticated.mjs"
       - "scripts/test-signaling-browser.mjs"
       - ".github/workflows/team-lite-candidate.yml"
+      - "scripts/test-team-lite-candidate-workflow-triggers.mjs"
 
 concurrency:
   # Normal and Team Lite share the same isolated Supabase fixture project.
@@ -132,5 +136,9 @@ jobs:
         run: node scripts/test-setup-invite-rate-limit.mjs
       - name: Verify test migrations stay outside Supabase CLI discovery
         run: node scripts/migration-layout.test.mjs
+      - name: Verify exact Team Lite release-check triggers
+        run: |
+          node --check scripts/test-team-lite-candidate-workflow-triggers.mjs
+          node scripts/test-team-lite-candidate-workflow-triggers.mjs
       - name: Check candidate scripts and version metadata
         run: node scripts/team-lite-candidate-check.mjs
