@@ -10,6 +10,7 @@ import {
   assertRequiredNormalProductionMigrations,
   assertSuccessfulReleaseChecks,
   REQUIRED_PRODUCTION_MIGRATIONS,
+  REQUIRED_RELEASE_CHECKS,
 } from "./normal-production-dispatcher.mjs";
 
 const workflow = fs.readFileSync(".github/workflows/deploy-production.yml", "utf8");
@@ -21,7 +22,11 @@ assert.match(workflow, /release_sha:[\s\S]*?required: true[\s\S]*?type: string/)
 assert.match(workflow, /approved_pr_number:[\s\S]*?required: true[\s\S]*?type: number/);
 assert.match(workflow, /release_version:[\s\S]*?required: true[\s\S]*?type: string/);
 assert.match(workflow, /confirm_production_action:[\s\S]*?required: true[\s\S]*?default: false/);
-assert.match(workflow, /branches:[\s\S]*?- fix\/master-normal-dual-runtime-dispatcher-20261111/);
+assert.match(workflow, /branches:[\s\S]*?- master[\s\S]*?- fix\/master-normal-dual-runtime-dispatcher-20261111/);
+assert.match(helperSource, /REQUIRED_RELEASE_CHECKS = Object\.freeze\(\["offline_guard", "validate"\]\)/);
+assert.match(workflow, /commits\/\$RELEASE_SHA\/check-runs\?per_page=100/);
+assert.doesNotMatch(workflow, /commits\/\$pr_head_sha\/check-runs/);
+assert.match(helperSource, /assertSuccessfulReleaseChecks\(checks, \{ releaseSha \}\)/);
 assert.match(workflow, /permissions:[\s\S]*?contents: read[\s\S]*?pull-requests: read[\s\S]*?checks: read/);
 assert.match(workflow, /offline_guard:[\s\S]*?if: github\.event_name != 'workflow_dispatch'/);
 assert.match(workflow, /deploy:[\s\S]*?if: github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/master' && inputs\.confirm_production_action == true/);
@@ -148,14 +153,45 @@ assert.throws(() => assertAuthorizedReleaseApproval([
 ], approvalOptions), /no latest APPROVED/);
 assert.throws(() => assertAuthorizedReleaseApproval([approval], { ...approvalOptions, authorizedReviewers: "" }), /UPSTATUS_RELEASE_REVIEWERS/);
 
-assert.equal(assertSuccessfulReleaseChecks({
-  total_count: 2,
+assert.deepEqual(REQUIRED_RELEASE_CHECKS, ["offline_guard", "validate"]);
+const releaseCheck = (name, conclusion = "success", headSha = releaseSha, appSlug = "github-actions") => ({
+  name, status: "completed", conclusion, head_sha: headSha, app: { slug: appSlug },
+});
+const validReleaseChecks = {
+  total_count: 4,
   check_runs: [
-    { name: "Validate", status: "completed", conclusion: "success" },
-    { name: "Optional", status: "completed", conclusion: "skipped" },
+    releaseCheck("offline_guard"),
+    releaseCheck("validate"),
+    releaseCheck("deploy", "skipped"),
+    releaseCheck("Supabase Preview", "skipped", releaseSha, "supabase"),
   ],
-}), 2);
-assert.throws(() => assertSuccessfulReleaseChecks({ total_count: 1, check_runs: [{ status: "in_progress", conclusion: null }] }), /completed successfully/);
-assert.throws(() => assertSuccessfulReleaseChecks({ total_count: 100, check_runs: [] }), /truncated or invalid/);
+};
+assert.equal(assertSuccessfulReleaseChecks(validReleaseChecks, { releaseSha }), 4);
+assert.throws(() => assertSuccessfulReleaseChecks({
+  total_count: 3,
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("deploy", "skipped"), releaseCheck("Optional", "skipped")],
+}, { releaseSha }), /only deploy and Supabase Preview may be skipped/);
+assert.throws(() => assertSuccessfulReleaseChecks({
+  total_count: 2,
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("validate", "skipped")],
+}, { releaseSha }), /only deploy and Supabase Preview may be skipped/);
+assert.throws(() => assertSuccessfulReleaseChecks({
+  total_count: 2,
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("deploy", "skipped")],
+}, { releaseSha }), /Required release check validate is missing/);
+assert.throws(() => assertSuccessfulReleaseChecks({
+  total_count: 2,
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("validate", "success", "e".repeat(40))],
+}, { releaseSha }), /not bound to the exact merged release SHA/);
+assert.throws(() => assertSuccessfulReleaseChecks({
+  total_count: 2,
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("validate", "failure")],
+}, { releaseSha }), /must succeed/);
+assert.throws(() => assertSuccessfulReleaseChecks({
+  total_count: 2,
+  check_runs: [releaseCheck("offline_guard"), { ...releaseCheck("validate"), status: "in_progress", conclusion: null }],
+}, { releaseSha }), /not completed/);
+assert.throws(() => assertSuccessfulReleaseChecks({ total_count: 100, check_runs: [] }, { releaseSha }), /truncated or invalid/);
+assert.throws(() => assertSuccessfulReleaseChecks(validReleaseChecks), /Exact merged release SHA is required/);
 
 console.log("PASS Normal production dispatcher contract, release/rollback provenance, project/migration preflight and exact-head human approval.");
