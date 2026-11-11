@@ -13,12 +13,25 @@ const preRelease=String(release.preRelease||"").trim();
 const testVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
 const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.ts"),"utf8");
 const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
+const buildManifest=JSON.parse(fs.readFileSync(path.join(ROOT,"dist/build-manifest.json"),"utf8"));
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
 function checkSyntax(text,label){new vm.Script(text,{filename:label});}
+assert(buildManifest.productionApiFunction===productionApiFunction,"build manifest production API function mismatch");
+assert(prodApiFn.includes('const VERSION = "'+baseVersion+'";'),"production API backend version mismatch");
+assert(prodApiFn.includes('const marker="/'+productionApiFunction+'";'),"production API path marker mismatch");
+assert(decodeHex(prodApiFn)===prodUser,"production API runtime embedded userscript does not match production distribution artifact");
+assert(prodUser.includes("var CLOUD_SERVER='https://"+productionProject+".supabase.co/functions/v1/"+productionApiFunction+"';"),"production userscript must target the generated API runtime");
+assert(prodApiFn.includes('file_name:type==="document"&&fileName?fileName:null'),"production API runtime must persist document file_name");
+assert(prodApiFn.includes("const isAdmin=await admin(name);"),"production API runtime must authorize chat clear by stored admin role");
+assert(!prodApiFn.includes('if(name!=="Ricardo")return response({error:"Somente Ricardo pode limpar o chat."},403);'),"production API runtime must not retain fixed-name chat-clear authorization");
+assert(prodApiFn.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")'),"production API runtime signed-upload route missing");
+const apiAsDistribution=prodApiFn.replace('const marker="/'+productionApiFunction+'";','const marker="/'+productionFunction+'";');
+assert(apiAsDistribution===prodFn,"production API runtime must match the reviewed distribution backend except for its function path marker");
+
 assert(headerValue(prodUser,"version")===baseVersion,"production userscript version mismatch");
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
@@ -29,6 +42,7 @@ const productionProject=buildSource.match(/const PROJECT="([^"]+)";/)?.[1];
 const productionFunction=buildSource.match(/const PROD_FUNCTION="([^"]+)";/)?.[1];
 const productionApiFunction=buildSource.match(/const PROD_API_FUNCTION="([^"]+)";/)?.[1];
 const testFunction=buildSource.match(/const TEST_FUNCTION="([^"]+)";/)?.[1];
+const prodApiFn=productionApiFunction?fs.readFileSync(path.join(ROOT,"supabase/functions",productionApiFunction,"index.ts"),"utf8"):"";
 assert(expectedProductionUpdateUrl,"release.json production scriptUrl missing");
 assert(headerValue(prodUser,"updateURL")===expectedProductionUpdateUrl,"production updateURL must match release.json scriptUrl");
 assert(headerValue(prodUser,"downloadURL")===expectedProductionUpdateUrl,"production downloadURL must match release.json scriptUrl");
