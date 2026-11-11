@@ -23,15 +23,10 @@ on:
   push:
     branches:
       - fix/team-lite-production-dispatcher-master-20261109
-    paths:
-      - ".github/workflows/deploy-team-lite-production.yml"
-      - "scripts/test-team-lite-production-dispatcher.mjs"
+      - master
   pull_request:
     branches:
       - master
-    paths:
-      - ".github/workflows/deploy-team-lite-production.yml"
-      - "scripts/test-team-lite-production-dispatcher.mjs"
 
 permissions:
   contents: read
@@ -172,14 +167,11 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/Reekyi/UpStatus/commits/$head_sha/check-runs?per_page=100")"
-          check_count="$(printf '%s' "$checks" | jq -er '.total_count')"
-          returned_check_count="$(printf '%s' "$checks" | jq -er '.check_runs | length')"
-          bad_checks="$(printf '%s' "$checks" | jq -er '[.check_runs[] | select(.status != "completed" or (.conclusion != "success" and .conclusion != "skipped"))] | length')"
-          if [ "$check_count" -lt 1 ] || [ "$check_count" -ne "$returned_check_count" ] || [ "$bad_checks" -ne 0 ]; then
-            echo "::error::The approved PR head must have a complete, paginated, successful check-run set."
-            exit 1
-          fi
+            "https://api.github.com/repos/Reekyi/UpStatus/commits/$RELEASE_SHA/check-runs?per_page=100")"
+          printf '%s' "$checks" > "$RUNNER_TEMP/team-lite-release-checks.json"
+          node scripts/verify-team-lite-release-checks.mjs \
+            "$RUNNER_TEMP/team-lite-release-checks.json" \
+            "$RELEASE_SHA"
 
       - name: Checkout exact Team Lite release candidate
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
