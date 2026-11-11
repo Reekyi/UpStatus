@@ -146,3 +146,10 @@ Issue permanece OPEN e os oito critérios seguem sem aceite. Não houve teste ma
 **NOT READY.** A correção de checks do dispatcher #143 é válida no candidato e passou no CI push, mas não altera a prontidão de produção. Bloqueadores prioritários: Realtime privado/autorizado, grants/Default ACL/Storage, AUTH-03 e signaling server-mediated, proveniência de migrations, estado MIGRATIONS_FAILED, workflow Team Lite, testes físicos e revisão humana.
 
 Nenhum teste manual, requisição HTTP real, deploy, migration, merge, release, alteração de secrets/flags/roles/grants/policies/ACLs ou publicação foi executado pela QA. Todas as consultas SQL foram SELECT-only. A única escrita desta execução é este relatório na branch QA e a atualização do comentário QA existente na Issue #79.
+
+
+## Addendum — head final da QA e Validate disparado pelo append
+
+O snapshot inicial desta rodada registrou QA em `877a98e8d568ab1e4307f5f5f0ec382551dff5ae`. A criação deste relatório avançou a branch QA para `ef5d14ae40cbdac23ab261597dd02774d6c36a6d`, que é o HEAD final após o commit documental.
+
+O GitHub executou automaticamente o Validate da PR #82 nesse novo HEAD. O run [42961014652](https://github.com/Reekyi/UpStatus/actions/runs/42961014652) concluiu FAILURE no evento `pull_request`; o log confirma novamente build Normal/TEST 3.4.7 e `production updateURL mismatch` em `scripts/validate.mjs:26`. Nenhum rerun foi iniciado. A falha é a mesma divergência herdada da base, não uma alteração do validator neste relatório.
