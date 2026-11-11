@@ -7,7 +7,7 @@ const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
 const release=JSON.parse(fs.readFileSync(path.join(ROOT,"release.json"),"utf8"));
 const baseVersion=String(release.version||"").trim();
 const preRelease=String(release.preRelease||"").trim();
-if(!/^\d+\.\d+\.\d+$/.test(baseVersion))throw new Error("release.json: version must use X.Y.Z");
+if(!/^\\d+\\.\\d+\\.\\d+$/.test(baseVersion))throw new Error("release.json: version must use X.Y.Z");
 const fullVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
 
 const userTemplate=fs.readFileSync(path.join(ROOT,"src/userscript/upstatus.user.template.js"),"utf8");
@@ -44,7 +44,7 @@ function renderUser({version,test}){
   const cloud=test?"https://"+PROJECT+".supabase.co/functions/v1/"+fn:"https://"+PROJECT+".supabase.co/functions/v1/"+PROD_API_FUNCTION;
   const updateUrl=test?cloud+"/upstatus.user.js":String(release.scriptUrl||("https://"+PROJECT+".supabase.co/functions/v1/"+PROD_FUNCTION+"/upstatus.user.js")).trim();
   if(!updateUrl)throw new Error("Could not determine the production userscript update URL.");
-  if(!test&&!/^https:\/\/[^/]+\/functions\/v1\/upstatus\/upstatus\.user\.js$/.test(updateUrl))throw new Error("release.json: scriptUrl must point to the production /upstatus/upstatus.user.js endpoint.");
+  if(!test&&!/^https:\\/\\/[^/]+\\/functions\\/v1\\/upstatus\\/upstatus\\.user\\.js$/.test(updateUrl))throw new Error("release.json: scriptUrl must point to the production /upstatus/upstatus.user.js endpoint.");
   return render(userTemplate,{
     "__UPSTATUS_NAME__":name,
     "__UPSTATUS_NAMESPACE__":namespace,
@@ -60,8 +60,8 @@ function renderUser({version,test}){
     "__UPSTATUS_RINGTONE_STORAGE_KEY__":ringtoneStorage
   });
 }
-function renderFunction({version,test}){
-  const fn=test?TEST_FUNCTION:PROD_FUNCTION;
+function renderFunction({version,test,functionName}){
+  const fn=functionName||(test?TEST_FUNCTION:PROD_FUNCTION);
   const userscript=renderUser({version,test});
   return render(serverTemplate,{
     "__UPSTATUS_VERSION__":version,
@@ -78,8 +78,10 @@ function writeFunction(fn,source){
 }
 const prodUser=renderUser({version:baseVersion,test:false});
 const testUser=renderUser({version:fullVersion,test:true});
-writeFunction(PROD_FUNCTION,renderFunction({version:baseVersion,test:false}));
-writeFunction(TEST_FUNCTION,renderFunction({version:fullVersion,test:true}));
+writeFunction(PROD_FUNCTION,renderFunction({version:baseVersion,test:false,functionName:PROD_FUNCTION}));
+// Keep the deployed dual-runtime contract coherent: API routes are generated from the same reviewed server template.
+writeFunction(PROD_API_FUNCTION,renderFunction({version:baseVersion,test:false,functionName:PROD_API_FUNCTION}));
+writeFunction(TEST_FUNCTION,renderFunction({version:fullVersion,test:true,functionName:TEST_FUNCTION}));
 const dist=path.join(ROOT,"dist");
 fs.rmSync(dist,{recursive:true,force:true});
 fs.mkdirSync(dist,{recursive:true});
@@ -87,6 +89,6 @@ fs.writeFileSync(path.join(dist,"upstatus.user.js"),prodUser,"utf8");
 fs.writeFileSync(path.join(dist,"upstatus-test.user.js"),testUser,"utf8");
 fs.writeFileSync(path.join(dist,"build-manifest.json"),JSON.stringify({
   baseVersion,testVersion:fullVersion,channel:preRelease?"pre-release":"stable",
-  productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION
-},null,2)+"\n","utf8");
-console.log("Built UpStatus "+baseVersion+" / TEST "+fullVersion);
+  productionFunction:PROD_FUNCTION,productionApiFunction:PROD_API_FUNCTION,testFunction:TEST_FUNCTION
+},null,2)+"\\n","utf8");
+console.log("Built UpStatus "+baseVersion+" / TEST "+fullVersion+" with API runtime "+PROD_API_FUNCTION);
