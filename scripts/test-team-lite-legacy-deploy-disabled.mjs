@@ -65,5 +65,8 @@ assert.ok(pushSection.includes("  push:") &&
   "the guard must run on candidate and official-branch pushes");
 assert.ok(pullRequestSection.includes("branches:\n      - team-lite-official"),
   "the guard must run for pull requests targeting team-lite-official");
+const triggerConfig = guard.split("\npermissions:")[0];
+assert.doesNotMatch(triggerConfig, /^ {4}paths:/m,
+  "the exact-commit guard must run on every official push, not only selected file paths");
 
 console.log("PASS: legacy Team Lite deployment is disabled and its regression guard is read-only, exact-commit, and wired to candidate/official branch changes.");
