@@ -21,7 +21,7 @@ const commandHandler = section(
   ".on('broadcast',{event:'call_signal'}",
   "remote_command broadcast handler"
 );
-assert.match(commandHandler, /pollRemoteStatus\(\)/, "remote_command must only wake the authenticated command poll");
+assert.match(commandHandler, /scheduleRemoteStatusPoll\(\)/, "remote_command must only schedule a coalesced authenticated poll");
 assert.doesNotMatch(commandHandler, /payload|executeRemoteCommand/, "remote_command payload must never execute a command");
 
 const resultHandler = section(
@@ -32,12 +32,27 @@ const resultHandler = section(
 );
 assert.doesNotMatch(resultHandler, /payload|remoteResultCache|remoteResultWaiters|waiter\(/, "remote_result payload must never resolve a command result");
 
+const subscribeHandler = section(user, ".subscribe(function(status){", "        });", "Realtime subscribe handler");
+assert.match(subscribeHandler, /status==='SUBSCRIBED'[\\s\\S]*scheduleRemoteStatusPoll\\(\\)/, "Realtime subscription must reconcile pending commands after connect/reconnect");
+
+const pollScheduler = section(user, "  function scheduleRemoteStatusPoll(){", "  function startRealtime(){", "coalesced command poll scheduler");
+assert.match(pollScheduler, /remotePollHintPending=true/, "broadcast hints must be queued while a poll is in flight");
+assert.match(pollScheduler, /remotePollHintTimer/, "broadcast hints must be coalesced into one timer");
+assert.match(pollScheduler, /expectedToken=token,expectedMember=member/, "scheduled poll must be bound to the current login identity");
+assert.match(pollScheduler, /Date\\.now\\(\\)-remoteLastPollAt/, "scheduled polling must enforce a local cooldown");
+
 assert.match(user, /if\(r\.commandId\)sendRealtimeEvent\('remote_command',\{op:'hint'\}\);/, "command broadcasts must contain only a wake-up hint");
 assert.match(user, /sendRealtimeEvent\('remote_result',\{op:'hint'\}\);/, "result broadcasts must contain only a wake-up hint");
 assert.doesNotMatch(user, /remoteResultCache|remoteResultWaiters/, "public result cache/waiter path must be removed");
 
 const commandPoll = section(user, "  function pollRemoteStatus(){", "  function refresh(){", "authenticated command poll");
-assert.match(commandPoll, /if\(!token\|\|remotePolling\)return;/, "command polling must require a local session token");
+const stopRealtime = section(user, "  function stopRealtime(){", "  function updateLuccaPresence(", "Realtime stop cleanup");
+assert.match(stopRealtime, /clearTimeout\(remotePollHintTimer\)/, "pending poll timer must be cleared when Realtime stops");
+assert.match(commandPoll, /if\(!token\)return;/, "command polling must require a local session token");
+assert.match(commandPoll, /if\(remotePolling\)\{remotePollHintPending=true;return;\}/, "hints received during an active poll must not be lost");
+assert.match(commandPoll, /remoteLastPollAt=Date\.now\(\)/, "command polling must record its cooldown");
+assert.match(commandPoll, /token!==expectedToken\|\|member!==expectedMember/, "poll response must not cross a login identity change");
+assert.match(commandPoll, /if\(remotePollHintPending\)scheduleRemoteStatusPoll\(\)/, "queued hints must be retried after the active poll finishes");
 assert.match(commandPoll, /api\('GET','\/api\/remote-status'\)/, "command polling must use the authenticated API");
 assert.match(commandPoll, /executeRemoteCommand\(d\.command\)/, "only the server-returned command may execute");
 
