@@ -5,17 +5,9 @@ on:
     branches:
       - fix/team-lite-disable-legacy-prod-dispatch-20261109
       - team-lite-official
-    paths:
-      - ".github/workflows/deploy-production.yml"
-      - ".github/workflows/team-lite-legacy-deploy-guard.yml"
-      - "scripts/test-team-lite-legacy-deploy-disabled.mjs"
   pull_request:
     branches:
       - team-lite-official
-    paths:
-      - ".github/workflows/deploy-production.yml"
-      - ".github/workflows/team-lite-legacy-deploy-guard.yml"
-      - "scripts/test-team-lite-legacy-deploy-disabled.mjs"
 
 permissions:
   contents: read
