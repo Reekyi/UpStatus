@@ -141,7 +141,7 @@ assert.throws(
 );
 assert.throws(
   () => assertIsolatedAssertionSuffix("DO $test$ BEGIN NULL; END; $test$;\nSELECT 1;", "synthetic migration"),
-  /only the isolated catalog assertion block/
+  /reviewed read-only catalog allowlist/
 );
 assert.throws(
   () => assertIsolatedAssertionSuffix("DO $test$ BEGIN DROP TABLE public.users; END; $test$;", "synthetic migration"),
