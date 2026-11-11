@@ -42,6 +42,13 @@ assert(prodApiFn.includes('file_name:type==="document"&&fileName?fileName:null')
 assert(prodApiFn.includes("const isAdmin=await admin(name);"),"production API runtime must authorize chat clear by stored admin role");
 assert(!prodApiFn.includes('if(name!=="Ricardo")return response({error:"Somente Ricardo pode limpar o chat."},403);'),"production API runtime must not retain fixed-name chat-clear authorization");
 assert(prodApiFn.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")'),"production API runtime signed-upload route missing");
+assert(prodApiFn.includes('async function signedUploadRoute(req:Request,kind:"chat"|"avatar")'),"production API signed-upload handler missing");
+assert(prodApiFn.includes("createSignedUploadUrl(path,{upsert:true})"),"production API must create a signed Storage upload URL");
+assert(prodApiFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")'),"production API avatar signed-upload route missing");
+assert(prodApiFn.includes("if(p.avatarUrl){"),"production API profile route must accept a completed signed avatar upload");
+assert(prodApiFn.includes("new URL(PROJECT_URL).origin"),"production API must restrict avatar URLs to the current Supabase project");
+assert(prodApiFn.includes("Number.isSafeInteger(size)"),"production API must reject fractional or unsafe upload sizes");
+
 const apiAsDistribution=prodApiFn.replace('const marker="/'+productionApiFunction+'";','const marker="/'+productionFunction+'";');
 assert(apiAsDistribution===prodFn,"production API runtime must match the reviewed distribution backend except for its function path marker");
 
