@@ -15,6 +15,7 @@ on:
       - ".github/workflows/normal-beta10-api-candidate.yml"
       - "scripts/**"
       - "src/server/**"
+      - "src/userscript/**"
       - "release.json"
 
 permissions:
