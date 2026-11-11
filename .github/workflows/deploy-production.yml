@@ -30,6 +30,7 @@ on:
         default: false
   push:
     branches:
+      - master
       - fix/master-normal-dual-runtime-dispatcher-20261111
     paths:
       - ".github/workflows/deploy-production.yml"
@@ -141,7 +142,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify exact master SHA, merged PR, authorized review and checks
+      - name: Verify exact master SHA, merged PR, authorized review and release-SHA checks
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -172,10 +173,8 @@ jobs:
           pr_url="$api/pulls/$APPROVED_PR_NUMBER"
           pr_json="$(curl --fail --silent --show-error "${headers[@]}" "$pr_url")"
           printf '%s' "$pr_json" > "$RUNNER_TEMP/normal-release-pr.json"
-          pr_head_sha="$(printf '%s' "$pr_json" | jq -er '.head.sha')"
-
           reviews="$(curl --fail --silent --show-error "${headers[@]}" "$pr_url/reviews?per_page=100")"
-          checks="$(curl --fail --silent --show-error "${headers[@]}" "$api/commits/$pr_head_sha/check-runs?per_page=100")"
+          checks="$(curl --fail --silent --show-error "${headers[@]}" "$api/commits/$RELEASE_SHA/check-runs?per_page=100")"
           printf '%s' "$reviews" > "$RUNNER_TEMP/normal-release-reviews.json"
           printf '%s' "$checks" > "$RUNNER_TEMP/normal-release-checks.json"
 
