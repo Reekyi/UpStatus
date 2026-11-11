@@ -214,7 +214,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var member=GM_getValue(key+'member','');
   var lastMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';
   var role=GM_getValue(key+'role','implementation_user');
-  var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,refreshing=false,readSentKey='',chatFastSince='';
+  var chatReconnectTimer=null,chatLoading=false,chatForceFullQueued=false,typingPolling=false,remotePolling=false,remotePollHintTimer=null,remotePollHintPending=false,remoteLastPollAt=0,refreshing=false,readSentKey='',chatFastSince='';
   var chatForceScrollBottom=false,chatOpenScrollUntil=0,chatPendingInitialScroll=false,chatUserScrollInterruptedUntil=0,pendingChatNotificationMessages=[],chatScrollObserver=null,chatScrollObservedList=null,chatLightbox=null,chatHasUnreadBelow=false;
   var UpNativeNotification=(window.__upstatusNativeNotification || (typeof Notification!=='undefined'?Notification:null));
 
@@ -2061,6 +2061,20 @@ function renderChatText(text){
     if(!m||!m.id)return;
     upsertRealtimeMessage(m);
   }
+  function scheduleRemoteStatusPoll(){
+    if(!token)return;
+    remotePollHintPending=true;
+    if(remotePollHintTimer)return;
+    var expectedToken=token,expectedMember=member;
+    var wait=Math.max(0,1000-(Date.now()-remoteLastPollAt));
+    remotePollHintTimer=setTimeout(function(){
+      remotePollHintTimer=null;
+      if(token!==expectedToken||member!==expectedMember){remotePollHintPending=false;return;}
+      if(remotePolling)return;
+      remotePollHintPending=false;
+      pollRemoteStatus();
+    },wait);
+  }
   function startRealtime(){
     if(!token||realtimeClient||typeof supabase==='undefined'||!supabase.createClient)return;
     try{
@@ -2081,8 +2095,8 @@ function renderChatText(text){
         .on('broadcast',{event:'health_ping'},function(payload){handleHealthPing(payload&&payload.payload||{});})
         .on('broadcast',{event:'health_pong'},function(payload){handleHealthPong(payload&&payload.payload||{});})
         .on('broadcast',{event:'remote_command'},function(){
-          // Public Realtime is an untrusted wake-up hint; fetch the command through the authenticated API.
-          pollRemoteStatus();
+          // Coalesce public hints; command data is fetched only through the authenticated API.
+          scheduleRemoteStatusPoll();
         })
         .on('broadcast',{event:'call_signal'},function(payload){receiveCallSignal(payload&&payload.payload||{});})
         .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){voiceRoomReceive(payload&&payload.payload||{});})
@@ -2091,7 +2105,7 @@ function renderChatText(text){
           // Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint.
         })
         .subscribe(function(status){
-          if(status==='SUBSCRIBED'){realtimeActive=true;if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}broadcastChatPresence(!chat.classList.contains('hidden'));return;}
+          if(status==='SUBSCRIBED'){realtimeActive=true;if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}broadcastChatPresence(!chat.classList.contains('hidden'));scheduleRemoteStatusPoll();return;}
           if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
             realtimeActive=false;
             try{if(realtimeChannel)realtimeChannel.unsubscribe();}catch(e){}
@@ -2112,6 +2126,8 @@ function renderChatText(text){
   }
   function stopRealtime(){
     realtimeActive=false;
+    if(remotePollHintTimer){clearTimeout(remotePollHintTimer);remotePollHintTimer=null;}
+    remotePollHintPending=false;
     if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}
     try{if(realtimeChannel)realtimeChannel.unsubscribe();}catch(e){}
     try{if(realtimeClient)realtimeClient.removeAllChannels();}catch(e){}
@@ -3321,12 +3337,21 @@ function chatAvatarPresence(name){
   }
 
   function pollRemoteStatus(){
-    if(!token||remotePolling)return;
+    if(!token)return;
+    if(remotePolling){remotePollHintPending=true;return;}
+    var wait=Math.max(0,1000-(Date.now()-remoteLastPollAt));
+    if(wait>0){scheduleRemoteStatusPoll();return;}
+    remoteLastPollAt=Date.now();
     remotePolling=true;
+    var expectedToken=token,expectedMember=member;
     api('GET','/api/remote-status').then(function(d){
+      if(token!==expectedToken||member!==expectedMember)return;
       if(!d.pending||!d.command)return;
       executeRemoteCommand(d.command);
-    }).catch(function(){}).finally(function(){remotePolling=false});
+    }).catch(function(){}).finally(function(){
+      remotePolling=false;
+      if(remotePollHintPending)scheduleRemoteStatusPoll();
+    });
   }
   function refresh(){
     if(!token||!member||refreshing)return;
