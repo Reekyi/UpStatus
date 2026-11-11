@@ -91,8 +91,10 @@ jobs:
       UPSTATUS_RELEASE_REVIEWERS: ${{ vars.UPSTATUS_RELEASE_REVIEWERS }}
       UPSTATUS_CURRENT_NORMAL_VERSION: ${{ vars.UPSTATUS_CURRENT_NORMAL_VERSION }}
       UPSTATUS_NORMAL_ROLLBACK_SHAS: ${{ vars.UPSTATUS_NORMAL_ROLLBACK_SHAS }}
-      UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED: ${{ vars.UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED }}
-      UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE: ${{ vars.UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE }}
+      UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_SHA: ${{ vars.UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_SHA }}
+      UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_AT: ${{ vars.UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_AT }}
+      UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_SHA: ${{ vars.UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_SHA }}
+      UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_AT: ${{ vars.UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_AT }}
     steps:
       - name: Require default branch and explicit production confirmation
         shell: bash
@@ -126,12 +128,12 @@ jobs:
             echo "::error::Repository variable UPSTATUS_RELEASE_REVIEWERS is required."
             exit 1
           fi
-          if [ "$UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED" != "true" ]; then
-            echo "::error::Normal security, QA and release gates have not been explicitly acknowledged."
+          if [ -z "$UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_SHA" ] || [ -z "$UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_AT" ]; then
+            echo "::error::SHA-bound Normal security, QA and release-gate attestation is required."
             exit 1
           fi
-          if [ "$UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE" != "confirmed" ]; then
-            echo "::error::Ricardo's physical Normal reconnect acceptance without F5 is required."
+          if [ -z "$UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_SHA" ] || [ -z "$UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_AT" ]; then
+            echo "::error::SHA-bound physical Normal reconnect acceptance without F5 is required."
             exit 1
           fi
 
@@ -141,6 +143,15 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Verify SHA-bound release and physical acceptance attestations
+        run: |
+          node scripts/normal-production-dispatcher.mjs verify-attestations \
+            "$RELEASE_SHA" \
+            "$UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_SHA" \
+            "$UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_AT" \
+            "$UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_SHA" \
+            "$UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_AT"
 
       - name: Verify exact master SHA, merged PR, authorized review and release-SHA checks
         env:
