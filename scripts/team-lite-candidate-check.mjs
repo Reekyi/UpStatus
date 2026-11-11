@@ -1511,9 +1511,9 @@ assert.ok(remoteSchedulerStart >= 0 && remoteSchedulerEnd > remoteSchedulerStart
   "Team Lite remote-command reconnect test boundaries must exist");
 const remotePollProgram = script.slice(remoteSchedulerStart, remoteSchedulerEnd) +
   script.slice(remotePollStart, remotePollEnd) +
-  "\\nthis.__scheduleRemoteStatusPoll=scheduleRemoteStatusPoll;this.__pollRemoteStatus=pollRemoteStatus;";
+  "\nthis.__scheduleRemoteStatusPoll=scheduleRemoteStatusPoll;this.__pollRemoteStatus=pollRemoteStatus;";
 const remoteSubscribeStart = script.indexOf(".subscribe(function(status){");
-const remoteSubscribeEnd = script.indexOf("\\n        });", remoteSubscribeStart);
+const remoteSubscribeEnd = script.indexOf("\n        });", remoteSubscribeStart);
 assert.ok(remoteSubscribeStart >= 0 && remoteSubscribeEnd > remoteSubscribeStart,
   "Team Lite Realtime subscribe handler must exist");
 const remoteSubscribeBlock = script.slice(remoteSubscribeStart, remoteSubscribeEnd);
@@ -1525,7 +1525,7 @@ const remoteStopEnd = script.indexOf("window.addEventListener('offline'", remote
 assert.ok(remoteStopStart >= 0 && remoteStopEnd > remoteStopStart,
   "Team Lite Realtime stop handler must exist");
 const remoteStopBlock = script.slice(remoteStopStart, remoteStopEnd);
-assert.match(remoteStopBlock, /clearTimeout\\(remotePollHintTimer\\)/,
+assert.match(remoteStopBlock, /clearTimeout\(remotePollHintTimer\)/,
   "stopping Realtime must clear the pending remote-command timer");
 assert.match(remoteStopBlock, /remotePollHintPending=false/,
   "stopping Realtime must discard queued hints from the previous connection");
@@ -1536,12 +1536,12 @@ assert.match(remoteSchedulerBlock, /expectedToken=token/,
   "scheduled polling must be bound to the current session token");
 assert.match(remoteSchedulerBlock, /expectedGeneration=authGeneration,expectedMember=member/,
   "scheduled polling must be bound to the current auth generation and member");
-assert.match(remoteSchedulerBlock, /Date.now\\(\\)-remoteLastPollAt/,
+assert.match(remoteSchedulerBlock, /Date.now\(\)-remoteLastPollAt/,
   "scheduled polling must honor the one-second cooldown");
-assert.match(remoteSchedulerBlock, /if\\(remotePolling\\)return/,
+assert.match(remoteSchedulerBlock, /if\(remotePolling\)return/,
   "a timer firing during an active poll must retain the pending hint");
 const remotePollBlock = script.slice(remotePollStart, remotePollEnd);
-assert.match(remotePollBlock, /if\\(remotePolling\\)\\{remotePollHintPending=true;return;\\}/,
+assert.match(remotePollBlock, /if\(remotePolling\)\{remotePollHintPending=true;return;\}/,
   "a hint arriving during an active poll must be queued");
 assert.match(remotePollBlock, /expectedToken=token/,
   "the authenticated poll must capture the current session token");
@@ -1551,9 +1551,9 @@ assert.match(remotePollBlock, /expectedMember!==member/,
   "a stale poll response must not cross members");
 assert.match(remotePollBlock, /expectedToken!==token/,
   "a stale poll response must not cross session tokens");
-assert.match(remotePollBlock, /api\\('GET','\\/api\\/remote-status'\\)/,
+assert.match(remotePollBlock, /api\('GET','\/api\/remote-status'\)/,
   "remote commands must be fetched from the authenticated API");
-assert.match(remotePollBlock, /if\\(remotePollHintPending\\)scheduleRemoteStatusPoll\\(\\)/,
+assert.match(remotePollBlock, /if\(remotePollHintPending\)scheduleRemoteStatusPoll\(\)/,
   "a hint queued during a poll must be retried after that poll finishes");
 
 function makeRemoteReconnectContext(apiImpl) {
