@@ -4,6 +4,15 @@ on:
   push:
     branches:
       - fix/normal-beta10-api-parity-20261111
+  pull_request:
+    branches:
+      - fix/normal-beta10-api-parity-20261111
+    paths:
+      - ".github/workflows/deploy-production.yml"
+      - ".github/workflows/normal-beta10-api-candidate.yml"
+      - "scripts/**"
+      - "src/server/**"
+      - "release.json"
 
 permissions:
   contents: read
@@ -15,10 +24,11 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - name: Validate generated Normal distribution and API runtimes
+      - name: Validate generated Normal distribution, API runtimes and dispatcher
         run: node scripts/validate.mjs
