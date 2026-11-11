@@ -5,7 +5,10 @@ on:
     branches:
       - fix/normal-beta10-api-parity-20261111
   pull_request:
+    # pull_request.branches filters the PR base, not the source branch.
+    # Cover both the parent API candidate and its stacked dispatcher child.
     branches:
+      - fix/master-staged-chat-attachments-20261111
       - fix/normal-beta10-api-parity-20261111
     paths:
       - ".github/workflows/deploy-production.yml"
