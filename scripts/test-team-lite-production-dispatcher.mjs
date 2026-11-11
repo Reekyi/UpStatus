@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { assertAuthorizedReleaseApproval } from "./verify-team-lite-release-review.mjs";
+import { assertSuccessfulTeamLiteReleaseChecks, REQUIRED_TEAM_LITE_RELEASE_CHECKS } from "./verify-team-lite-release-checks.mjs";
 
 const workflow = fs.readFileSync(".github/workflows/deploy-team-lite-production.yml", "utf8");
 
@@ -18,8 +19,13 @@ assert.match(workflow, /confirm_production_deploy:[\s\S]*?required: true[\s\S]*?
   "production confirmation must be explicit and default to false");
 assert.match(workflow, /branches:\n\s+- master/,
   "the dispatcher PR guard must target master");
-assert.match(workflow, /branches:\n\s+- fix\/team-lite-production-dispatcher-master-20261109/,
-  "the offline guard push must be limited to this isolated candidate branch");
+assert.match(workflow, /push:\n    branches:\n      - fix\/team-lite-production-dispatcher-master-20261109\n      - master/,
+  "the offline guard must run on the candidate branch and every master push");
+assert.match(workflow, /pull_request:\n    branches:\n      - master/,
+  "the offline guard must run for pull requests targeting master");
+const triggerConfig = workflow.split("\npermissions:")[0];
+assert.doesNotMatch(triggerConfig, /^ {4}paths:/m,
+  "release guard triggers must not skip relevant commits through path filters");
 
 assert.match(workflow, /permissions:[\s\S]*?contents: read[\s\S]*?pull-requests: read[\s\S]*?checks: read/,
   "the dispatcher must grant only the read permissions needed for provenance checks");
@@ -45,10 +51,12 @@ assert.match(workflow, /verify-team-lite-release-review\.mjs[\s\S]*?head_sha[\s\
   "approval verification must bind the human reviewer to the exact PR head and author");
 assert.match(workflow, /review_count[\s\S]*?-ge 100/,
   "the workflow must fail closed rather than silently truncate a multi-page review history");
-assert.match(workflow, /check-runs\?per_page=100[\s\S]*?check_count[\s\S]*?returned_check_count[\s\S]*?bad_checks/,
-  "the approved PR head must have completed successful or explicitly skipped check runs");
-assert.match(workflow, /check_count[\s\S]*?-ne "\$returned_check_count"/,
-  "the workflow must fail closed if check-run pagination is incomplete");
+assert.match(workflow, /commits\/\$RELEASE_SHA\/check-runs\?per_page=100/,
+  "check-runs must be queried for the exact merged release SHA, not the PR head");
+assert.doesNotMatch(workflow, /commits\/\$head_sha\/check-runs/,
+  "PR-head checks must not substitute for checks on the merged release SHA");
+assert.match(workflow, /team-lite-release-checks\.json[\s\S]*?verify-team-lite-release-checks\.mjs[\s\S]*?\$RELEASE_SHA/,
+  "the workflow must validate the complete check-run response against RELEASE_SHA");
 assert.match(workflow, /grep -q "assertTeamLiteProductionMainBranch"/,
   "the target Team Lite candidate must reject an unhealthy managed main branch");
 assert.match(workflow, /grep -q "assertRemoteMigrationsHaveLocalFiles"/,
@@ -172,4 +180,49 @@ assert.throws(() => assertAuthorizedReleaseApproval([
   { ...approval, submitted_at: "not-a-date" },
 ], approvalOptions), /invalid submission timestamp/);
 
-console.log("PASS Team Lite dispatcher guard with exact-head authorized human review provenance.");
+assert.deepEqual(REQUIRED_TEAM_LITE_RELEASE_CHECKS, ["offline_guard", "validate"]);
+const releaseSha = "d".repeat(40);
+const releaseCheck = (name, conclusion = "success", headSha = releaseSha, appSlug = "github-actions", status = "completed") => ({
+  name, status, conclusion, head_sha: headSha, app: { slug: appSlug },
+});
+const validReleaseChecks = {
+  total_count: 4,
+  check_runs: [
+    releaseCheck("offline_guard"),
+    releaseCheck("validate"),
+    releaseCheck("deploy", "skipped"),
+    releaseCheck("Supabase Preview", "skipped", releaseSha, "supabase"),
+  ],
+};
+assert.equal(assertSuccessfulTeamLiteReleaseChecks(validReleaseChecks, { releaseSha }), 4);
+assert.throws(() => assertSuccessfulTeamLiteReleaseChecks({
+  total_count: 3,
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("validate"), releaseCheck("optional-job", "skipped")],
+}, { releaseSha }), /only deploy and Supabase Preview may be skipped/);
+assert.throws(() => assertSuccessfulTeamLiteReleaseChecks({
+  total_count: 2,
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("validate", "skipped")],
+}, { releaseSha }), /only deploy and Supabase Preview may be skipped/);
+assert.throws(() => assertSuccessfulTeamLiteReleaseChecks({
+  total_count: 2,
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("deploy", "skipped")],
+}, { releaseSha }), /Required Team Lite release check validate is missing/);
+assert.throws(() => assertSuccessfulTeamLiteReleaseChecks({
+  total_count: 2,
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("validate", "success", "e".repeat(40))],
+}, { releaseSha }), /not bound to the exact merged release SHA/);
+assert.throws(() => assertSuccessfulTeamLiteReleaseChecks({
+  total_count: 2,
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("validate", "failure")],
+}, { releaseSha }), /must succeed/);
+assert.throws(() => assertSuccessfulTeamLiteReleaseChecks({
+  total_count: 2,
+  check_runs: [releaseCheck("offline_guard"), releaseCheck("validate", "success", releaseSha, "github-actions", "in_progress")],
+}, { releaseSha }), /not completed/);
+assert.throws(() => assertSuccessfulTeamLiteReleaseChecks({
+  total_count: 100,
+  check_runs: [],
+}, { releaseSha }), /truncated or invalid/);
+assert.throws(() => assertSuccessfulTeamLiteReleaseChecks(validReleaseChecks), /Exact merged Team Lite release SHA is required/);
+
+console.log("PASS Team Lite dispatcher guard with authorized human review and exact merged-release check provenance.");
