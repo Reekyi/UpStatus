@@ -17,6 +17,12 @@ import {
 
 const workflow = fs.readFileSync(".github/workflows/deploy-production.yml", "utf8");
 const helperSource = fs.readFileSync("scripts/normal-production-dispatcher.mjs", "utf8");
+const baseCandidateWorkflow = fs.readFileSync(".github/workflows/normal-beta10-api-candidate.yml", "utf8");
+assert.match(baseCandidateWorkflow, /pull_request:\s*\n\s+branches:\s*\n\s+- fix\\/normal-beta10-api-parity-20261111/);
+assert.match(baseCandidateWorkflow, /permissions:\s*\n\s+contents:\s*read/);
+assert.match(baseCandidateWorkflow, /persist-credentials:\s*false/);
+assert.match(baseCandidateWorkflow, /run:\s*node scripts\\/validate\\.mjs/);
+assert.doesNotMatch(baseCandidateWorkflow, /secrets\\.|supabase\\s+functions\\s+deploy|workflow_dispatch/);
 assert.match(workflow, /^name: UpStatus Normal Production Dispatcher$/m);
 assert.match(workflow, /^  workflow_dispatch:/m);
 assert.match(workflow, /operation:[\s\S]*?options:[\s\S]*?- release[\s\S]*?- rollback/);
