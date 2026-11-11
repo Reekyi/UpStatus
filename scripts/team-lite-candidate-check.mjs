@@ -1499,3 +1499,137 @@ assert.equal(authorizedRicardo.counters.messageAccesses, 0,
   "the positive authorization case evaluates only the guard and never executes destructive operations");
 assert.equal(authorizedRicardo.counters.storageAccesses, 0);
 console.log("Team Lite destructive chat-clear route requires the stored admin role; denied cases perform no message or Storage operations.");
+
+
+// Realtime reconnect must reconcile pending remote commands without losing queued hints.
+const remoteSchedulerStart = script.indexOf("var remotePollHintTimer=null,remotePollHintPending=false;");
+const remoteSchedulerEnd = script.indexOf("var realtimeStatusRefreshTimer", remoteSchedulerStart);
+const remotePollStart = script.indexOf("function pollRemoteStatus()", remoteSchedulerEnd);
+const remotePollEnd = script.indexOf("function refresh()", remotePollStart);
+assert.ok(remoteSchedulerStart >= 0 && remoteSchedulerEnd > remoteSchedulerStart &&
+  remotePollStart > remoteSchedulerEnd && remotePollEnd > remotePollStart,
+  "Team Lite remote-command reconnect test boundaries must exist");
+const remotePollProgram = script.slice(remoteSchedulerStart, remoteSchedulerEnd) +
+  script.slice(remotePollStart, remotePollEnd) +
+  "\\nthis.__scheduleRemoteStatusPoll=scheduleRemoteStatusPoll;this.__pollRemoteStatus=pollRemoteStatus;";
+const remoteSubscribeStart = script.indexOf(".subscribe(function(status){");
+const remoteSubscribeEnd = script.indexOf("\\n        });", remoteSubscribeStart);
+assert.ok(remoteSubscribeStart >= 0 && remoteSubscribeEnd > remoteSubscribeStart,
+  "Team Lite Realtime subscribe handler must exist");
+const remoteSubscribeBlock = script.slice(remoteSubscribeStart, remoteSubscribeEnd);
+assert.ok(remoteSubscribeBlock.indexOf("status==='SUBSCRIBED'") >= 0 &&
+  remoteSubscribeBlock.indexOf("scheduleRemoteStatusPoll()") > remoteSubscribeBlock.indexOf("status==='SUBSCRIBED'"),
+  "SUBSCRIBED must reconcile pending remote commands after connect/reconnect");
+const remoteStopStart = script.indexOf("function stopRealtime(options){");
+const remoteStopEnd = script.indexOf("window.addEventListener('offline'", remoteStopStart);
+assert.ok(remoteStopStart >= 0 && remoteStopEnd > remoteStopStart,
+  "Team Lite Realtime stop handler must exist");
+const remoteStopBlock = script.slice(remoteStopStart, remoteStopEnd);
+assert.match(remoteStopBlock, /clearTimeout\\(remotePollHintTimer\\)/,
+  "stopping Realtime must clear the pending remote-command timer");
+assert.match(remoteStopBlock, /remotePollHintPending=false/,
+  "stopping Realtime must discard queued hints from the previous connection");
+const remoteSchedulerBlock = script.slice(remoteSchedulerStart, remoteSchedulerEnd);
+assert.match(remoteSchedulerBlock, /remotePollHintPending=true/,
+  "remote-command hints must remain queued while a poll is active");
+assert.match(remoteSchedulerBlock, /expectedToken=token/,
+  "scheduled polling must be bound to the current session token");
+assert.match(remoteSchedulerBlock, /expectedGeneration=authGeneration,expectedMember=member/,
+  "scheduled polling must be bound to the current auth generation and member");
+assert.match(remoteSchedulerBlock, /Date.now\\(\\)-remoteLastPollAt/,
+  "scheduled polling must honor the one-second cooldown");
+assert.match(remoteSchedulerBlock, /if\\(remotePolling\\)return/,
+  "a timer firing during an active poll must retain the pending hint");
+const remotePollBlock = script.slice(remotePollStart, remotePollEnd);
+assert.match(remotePollBlock, /if\\(remotePolling\\)\\{remotePollHintPending=true;return;\\}/,
+  "a hint arriving during an active poll must be queued");
+assert.match(remotePollBlock, /expectedToken=token/,
+  "the authenticated poll must capture the current session token");
+assert.match(remotePollBlock, /expectedGeneration!==authGeneration/,
+  "a stale poll response must not cross auth generations");
+assert.match(remotePollBlock, /expectedMember!==member/,
+  "a stale poll response must not cross members");
+assert.match(remotePollBlock, /expectedToken!==token/,
+  "a stale poll response must not cross session tokens");
+assert.match(remotePollBlock, /api\\('GET','\\/api\\/remote-status'\\)/,
+  "remote commands must be fetched from the authenticated API");
+assert.match(remotePollBlock, /if\\(remotePollHintPending\\)scheduleRemoteStatusPoll\\(\\)/,
+  "a hint queued during a poll must be retried after that poll finishes");
+
+function makeRemoteReconnectContext(apiImpl) {
+  const context = {
+    token: "session-one", member: "Ricardo", authGeneration: 1,
+    remotePolling: false, remoteLastPollAt: 0, clock: 10000,
+    timers: [], nextTimerId: 0, apiCalls: 0, executed: [],
+    Date: { now() { return context.clock; } }, Math, Promise,
+    setTimeout(fn, delay) {
+      const id = ++context.nextTimerId;
+      context.timers.push({ id, at: context.clock + delay, fn, cancelled: false });
+      return id;
+    },
+    clearTimeout(id) {
+      const timer = context.timers.find(item => item.id === id);
+      if (timer) timer.cancelled = true;
+    },
+    isAuthenticated() { return Boolean(context.token && context.member); },
+    api(method, route) {
+      context.apiCalls++;
+      return apiImpl(context, method, route);
+    },
+    executeRemoteCommand(command) { context.executed.push(command); }
+  };
+  vm.runInNewContext(remotePollProgram, context, { timeout: 1000 });
+  return context;
+}
+function runRemoteReconnectTimer(context) {
+  const timer = context.timers.filter(item => !item.cancelled)
+    .sort((a, b) => a.at - b.at)[0];
+  assert.ok(timer, "expected a scheduled remote-command reconciliation timer");
+  timer.cancelled = true;
+  context.clock = timer.at;
+  timer.fn();
+}
+async function flushRemoteReconnectPromises() {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+const reconnectContext = makeRemoteReconnectContext(async () => ({
+  pending: true, command: { id: "command-after-reconnect" }
+}));
+reconnectContext.__scheduleRemoteStatusPoll();
+runRemoteReconnectTimer(reconnectContext);
+await flushRemoteReconnectPromises();
+assert.equal(reconnectContext.apiCalls, 1,
+  "SUBSCRIBED reconciliation must perform one authenticated poll");
+assert.deepEqual(reconnectContext.executed, [{ id: "command-after-reconnect" }],
+  "only the authenticated API command must be executed");
+
+let resolveFirstRemotePoll;
+const queuedContext = makeRemoteReconnectContext(() => new Promise(resolve => {
+  if (!resolveFirstRemotePoll) resolveFirstRemotePoll = resolve;
+  else resolve({ pending: false });
+}));
+queuedContext.__scheduleRemoteStatusPoll();
+runRemoteReconnectTimer(queuedContext);
+assert.equal(queuedContext.apiCalls, 1, "first remote-command poll must start");
+queuedContext.__scheduleRemoteStatusPoll();
+runRemoteReconnectTimer(queuedContext);
+assert.equal(queuedContext.remotePollHintPending, true,
+  "a hint received during an active poll must survive the cooldown timer");
+resolveFirstRemotePoll({ pending: false });
+await flushRemoteReconnectPromises();
+assert.ok(queuedContext.timers.some(item => !item.cancelled),
+  "finishing an active poll must schedule the queued hint");
+runRemoteReconnectTimer(queuedContext);
+await flushRemoteReconnectPromises();
+assert.equal(queuedContext.apiCalls, 2,
+  "the queued hint must cause a second authenticated poll after the first finishes");
+
+const staleContext = makeRemoteReconnectContext(async () => ({ pending: false }));
+staleContext.__scheduleRemoteStatusPoll();
+staleContext.authGeneration++;
+runRemoteReconnectTimer(staleContext);
+assert.equal(staleContext.apiCalls, 0,
+  "a timer from an old auth generation must not poll after the session changes");
+console.log("PASS Team Lite remote-command polling reconciles after SUBSCRIBED, coalesces hints, preserves in-flight hints, enforces cooldown, and rejects stale sessions.");
