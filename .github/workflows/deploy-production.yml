@@ -1,31 +1,242 @@
-name: UpStatus Deploy PRODUCTION
+name: UpStatus Normal Production Dispatcher
 
 on:
   workflow_dispatch:
+    inputs:
+      operation:
+        description: Release a newer stable build or restore an allowlisted previous build
+        required: true
+        type: choice
+        options:
+          - release
+          - rollback
+        default: release
+      release_sha:
+        description: Exact merged master commit containing both Normal runtimes
+        required: true
+        type: string
+      approved_pr_number:
+        description: Merged master PR with current-head approval and successful checks
+        required: true
+        type: number
+      release_version:
+        description: Exact stable X.Y.Z from release.json at release_sha
+        required: true
+        type: string
+      confirm_production_action:
+        description: Explicit authorization for the selected production action
+        required: true
+        type: boolean
+        default: false
+  push:
+    branches:
+      - master
+      - fix/master-normal-dual-runtime-dispatcher-20261111
+
+  pull_request:
+    branches:
+      - master
+
 
 permissions:
   contents: read
+  pull-requests: read
+  checks: read
 
 jobs:
-  deploy:
+  offline_guard:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
-    environment: production
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    timeout-minutes: 5
     steps:
-      - name: Checkout approved release ref
+      - name: Checkout dispatcher candidate
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Require explicitly approved stable release
+      - name: Check dispatcher test syntax
         run: |
-          node -e "const r=require('./release.json'); if(r.preRelease || r.version !== '3.4.7') { console.error('Production locked: only explicitly approved stable release 3.4.7 may be deployed.'); process.exit(1); }"
-      - name: Validate stable build
+          node --check scripts/normal-production-dispatcher.mjs
+          node --check scripts/test-normal-production-dispatcher.mjs
+      - name: Run offline production-dispatcher contract
+        run: node scripts/test-normal-production-dispatcher.mjs
+      - name: Run full Normal candidate validation
         run: node scripts/validate.mjs
-      - name: Setup Supabase CLI
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.confirm_production_action == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    concurrency:
+      group: upstatus-normal-production-deploy
+      cancel-in-progress: false
+    env:
+      OPERATION: ${{ inputs.operation }}
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      APPROVED_PR_NUMBER: ${{ inputs.approved_pr_number }}
+      RELEASE_VERSION: ${{ inputs.release_version }}
+      CONFIRM_PRODUCTION_ACTION: ${{ inputs.confirm_production_action }}
+      EXPECTED_PRODUCTION_PROJECT_ID: dlfvkawaiqduhlazsszm
+      EXPECTED_SUPABASE_ORGANIZATION_ID: bcjtvojfkfoxvsitzmkl
+      EXPECTED_ISOLATED_PROJECT_ID: bfpjtfqlnypisxljoxkb
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      UPSTATUS_RELEASE_REVIEWERS: ${{ vars.UPSTATUS_RELEASE_REVIEWERS }}
+      UPSTATUS_CURRENT_NORMAL_VERSION: ${{ vars.UPSTATUS_CURRENT_NORMAL_VERSION }}
+      UPSTATUS_NORMAL_ROLLBACK_SHAS: ${{ vars.UPSTATUS_NORMAL_ROLLBACK_SHAS }}
+      UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_SHA: ${{ vars.UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_SHA }}
+      UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_AT: ${{ vars.UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_AT }}
+      UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_SHA: ${{ vars.UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_SHA }}
+      UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_AT: ${{ vars.UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_AT }}
+    steps:
+      - name: Require default branch and explicit production confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REPOSITORY" != "Reekyi/UpStatus" ] || [ "$GITHUB_REF" != "refs/heads/master" ]; then
+            echo "::error::Normal production dispatch is allowed only from Reekyi/UpStatus master."
+            exit 1
+          fi
+          if [ "$CONFIRM_PRODUCTION_ACTION" != "true" ]; then
+            echo "::error::Explicit production confirmation is required."
+            exit 1
+          fi
+          if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::release_sha must be a full 40-character SHA."
+            exit 1
+          fi
+          if [[ ! "$APPROVED_PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::approved_pr_number must be a positive PR number."
+            exit 1
+          fi
+          if [[ "$OPERATION" != "release" && "$OPERATION" != "rollback" ]]; then
+            echo "::error::operation must be release or rollback."
+            exit 1
+          fi
+          if [ -z "$RELEASE_VERSION" ] || [ -z "$UPSTATUS_CURRENT_NORMAL_VERSION" ]; then
+            echo "::error::release_version and repository variable UPSTATUS_CURRENT_NORMAL_VERSION are required."
+            exit 1
+          fi
+          if [ -z "$UPSTATUS_RELEASE_REVIEWERS" ]; then
+            echo "::error::Repository variable UPSTATUS_RELEASE_REVIEWERS is required."
+            exit 1
+          fi
+          if [ -z "$UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_SHA" ] || [ -z "$UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_AT" ]; then
+            echo "::error::SHA-bound Normal security, QA and release-gate attestation is required."
+            exit 1
+          fi
+          if [ -z "$UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_SHA" ] || [ -z "$UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_AT" ]; then
+            echo "::error::SHA-bound physical Normal reconnect acceptance without F5 is required."
+            exit 1
+          fi
+
+      - name: Checkout dispatcher source at the selected master HEAD
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify SHA-bound release and physical acceptance attestations
+        run: |
+          node scripts/normal-production-dispatcher.mjs verify-attestations \
+            "$RELEASE_SHA" \
+            "$UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_SHA" \
+            "$UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_AT" \
+            "$UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_SHA" \
+            "$UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_AT"
+
+      - name: Verify exact master SHA, merged PR, authorized review and release-SHA checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/Reekyi/UpStatus"
+          headers=(-H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GH_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28")
+
+          master_json="$(curl --fail --silent --show-error "${headers[@]}" "$api/git/ref/heads/master")"
+          current_master_sha="$(printf '%s' "$master_json" | jq -er '.object.sha')"
+          if [ "$current_master_sha" != "$GITHUB_SHA" ]; then
+            echo "::error::master changed during dispatch; restart from the current default-branch workflow."
+            exit 1
+          fi
+
+          if [ "$OPERATION" = "release" ]; then
+            if [ "$RELEASE_SHA" != "$current_master_sha" ]; then
+              echo "::error::A release must target the exact current master HEAD."
+              exit 1
+            fi
+          else
+            if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/master; then
+              echo "::error::Rollback SHA is not an ancestor of current master."
+              exit 1
+            fi
+          fi
+
+          pr_url="$api/pulls/$APPROVED_PR_NUMBER"
+          pr_json="$(curl --fail --silent --show-error "${headers[@]}" "$pr_url")"
+          printf '%s' "$pr_json" > "$RUNNER_TEMP/normal-release-pr.json"
+          reviews="$(curl --fail --silent --show-error "${headers[@]}" "$pr_url/reviews?per_page=100")"
+          checks="$(curl --fail --silent --show-error "${headers[@]}" "$api/commits/$RELEASE_SHA/check-runs?per_page=100")"
+          printf '%s' "$reviews" > "$RUNNER_TEMP/normal-release-reviews.json"
+          printf '%s' "$checks" > "$RUNNER_TEMP/normal-release-checks.json"
+
+          node scripts/normal-production-dispatcher.mjs verify-review \
+            "$RUNNER_TEMP/normal-release-pr.json" \
+            "$RUNNER_TEMP/normal-release-reviews.json" \
+            "$RUNNER_TEMP/normal-release-checks.json" \
+            "$RELEASE_SHA" "$UPSTATUS_RELEASE_REVIEWERS"
+
+      - name: Checkout exact approved release source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ inputs.release_sha }}
+          path: release-source
+          persist-credentials: false
+
+      - name: Verify stable release version and dual-runtime source
+        run: |
+          node scripts/normal-production-dispatcher.mjs verify-release \
+            release-source/release.json \
+            release-source/scripts/build.mjs \
+            release-source/supabase/config.toml \
+            "$RELEASE_VERSION" "$OPERATION" "$UPSTATUS_CURRENT_NORMAL_VERSION" \
+            "$RELEASE_SHA" "$UPSTATUS_NORMAL_ROLLBACK_SHAS"
+
+      - name: Build and validate both Normal runtimes
+        working-directory: release-source
+        run: |
+          node scripts/build.mjs
+          node scripts/validate.mjs
+
+      - name: Read-only production project, branch and migration preflight
+        run: node scripts/normal-production-dispatcher.mjs preflight release-source/supabase/migrations
+
+      - name: Setup pinned Supabase CLI
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
         with:
-          version: latest
-      - name: Deploy PRODUCTION only
-        run: supabase functions deploy upstatus --project-ref "$SUPABASE_PROJECT_ID" --use-api
+          version: 2.122.1
+
+      - name: Recheck master HEAD immediately before deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_master_sha="$(curl --fail --silent --show-error \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/Reekyi/UpStatus/git/ref/heads/master" | jq -er '.object.sha')"
+          if [ "$current_master_sha" != "$GITHUB_SHA" ]; then
+            echo "::error::master changed during preflight; refusing stale deployment."
+            exit 1
+          fi
+
+      - name: Deploy Normal API runtime first
+        run: supabase functions deploy --no-verify-jwt upstatus-screen-share-3-1-1-beta10 --project-ref "$SUPABASE_PROJECT_ID" --use-api
+
+      - name: Deploy Normal userscript distribution second
+        run: supabase functions deploy --no-verify-jwt upstatus --project-ref "$SUPABASE_PROJECT_ID" --use-api
