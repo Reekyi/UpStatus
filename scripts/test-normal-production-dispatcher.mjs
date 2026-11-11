@@ -59,7 +59,7 @@ assert.match(workflow, /version: 2\.122\.1/);
 assert.doesNotMatch(workflow, /version:\s*latest/);
 assert.match(workflow, /verify-review/);
 assert.match(workflow, /verify-release/);
-assert.match(workflow, /normal-production-dispatcher\\.mjs preflight release-source\\/supabase\\/migrations/);
+assert.match(workflow, /normal-production-dispatcher\.mjs preflight release-source\/supabase\/migrations/);
 assert.match(workflow, /git merge-base --is-ancestor/);
 assert.match(workflow, /Recheck master HEAD immediately before deployment/);
 assert.doesNotMatch(workflow, /supabase\s+(?:db\s+push|migration\s+up|db\s+reset)/);

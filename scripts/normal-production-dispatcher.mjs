@@ -202,7 +202,7 @@ export function assertRequiredNormalProductionMigrationFiles({
     const version = String(source?.version || "").trim();
     const name = String(source?.name || "").trim();
     const relativePath = String(source?.path || "").trim();
-    if (!/^\\d{14}$/.test(version) || !name || relativePath !== version + "_" + name + ".sql") {
+    if (!/^\d{14}$/.test(version) || !name || relativePath !== version + "_" + name + ".sql") {
       throw new Error("Migration source manifest contains an invalid version, name or source path.");
     }
     if (byVersion.has(version)) throw new Error("Migration source manifest contains duplicate version " + version + ".");
