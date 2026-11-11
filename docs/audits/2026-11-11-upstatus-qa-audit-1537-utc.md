@@ -213,3 +213,26 @@ O workflow oficial em team-lite-official usa CLI latest, secrets de produção e
 8. Resolver Validate da QA, executar testes físicos sem F5 e obter aprovação humana.
 
 Nenhuma ação de Ricardo é necessária nesta rodada. Os testes físicos devem aguardar uma candidata integrada e segura.
+
+
+## Adendo de validação - 2026-11-11T15:40:37.825Z
+
+### Limitação adicional de AUTH-03
+
+A rotina `login(req, setup)` implantada em Normal/Team Lite e também nos templates candidatos #74/#76 não chama um limitador de tentativas de login. A #131 limita **emissão de convites**, não tentativas de autenticação. Portanto, mesmo após integrar o rate limit de convites, o requisito de rate limit de login permanece pendente. A enumeração `GET /api/account?name=` também permanece no runtime implantado e no stack #142, enquanto #74/#76 substituem essa resposta por `needsSetup:false`.
+
+A produção atualmente tem cinco contas, todas com hash e role preenchidos; isso reduz o risco imediato de takeover por setup aberto, mas não remove a falha de desenho para novas contas sem senha.
+
+### Escopo do TEST e função de teste na produção
+
+A listagem de Edge Functions confirma também `upstatus-test` v281 dentro do **mesmo projeto de produção**. Ela não constitui isolamento de banco. A organização lista apenas produção e `upstatus-security-test`; o segundo é o laboratório de fixtures, que o workflow full-product TEST rejeita explicitamente. Assim, não existe projeto full-product TEST separado disponível.
+
+### Publicação parcial e atestados
+
+O workflow #143 publica beta10 e depois upstatus em sequência. Não há smoke pós-deploy nem compensação automática/rollback transacional se a segunda publicação falhar; pode ocorrer estado parcial entre os dois runtimes. O rollback existente é uma operação separada e allowlisted, não uma compensação automática.
+
+Os atestados de release/aceitação física são SHA + timestamps passados por variáveis de ambiente e limitados a sete dias. Eles não são assinaturas criptográficas; a configuração efetiva de revisores obrigatórios do environment production não pôde ser verificada nesta conexão.
+
+### Versionamento
+
+`release.json` em master continua em 3.4.7, igual ao Normal atualmente servido. O dispatcher exige versão estável superior à atual. Team Lite oficial continua em 3.4.30; #76 candidata 3.4.31 ainda não foi integrada à branch oficial.
