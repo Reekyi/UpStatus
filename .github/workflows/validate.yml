@@ -4,7 +4,8 @@ on:
   push:
     branches: [master, develop]
   pull_request:
-    branches: [master, develop]
+    # Include the staged-chat parent so stacked API/dispatcher PRs receive a base-branch check.
+    branches: [master, develop, fix/master-staged-chat-attachments-20261111]
 
 permissions:
   contents: read
