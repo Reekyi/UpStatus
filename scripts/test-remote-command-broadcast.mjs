@@ -33,13 +33,13 @@ const resultHandler = section(
 assert.doesNotMatch(resultHandler, /payload|remoteResultCache|remoteResultWaiters|waiter\(/, "remote_result payload must never resolve a command result");
 
 const subscribeHandler = section(user, ".subscribe(function(status){", "        });", "Realtime subscribe handler");
-assert.match(subscribeHandler, /status==='SUBSCRIBED'[\\s\\S]*scheduleRemoteStatusPoll\\(\\)/, "Realtime subscription must reconcile pending commands after connect/reconnect");
+assert.ok(subscribeHandler.indexOf("status==='SUBSCRIBED'") >= 0 && subscribeHandler.indexOf("scheduleRemoteStatusPoll()") > subscribeHandler.indexOf("status==='SUBSCRIBED'"), "Realtime subscription must reconcile pending commands after connect/reconnect");
 
 const pollScheduler = section(user, "  function scheduleRemoteStatusPoll(){", "  function startRealtime(){", "coalesced command poll scheduler");
 assert.match(pollScheduler, /remotePollHintPending=true/, "broadcast hints must be queued while a poll is in flight");
 assert.match(pollScheduler, /remotePollHintTimer/, "broadcast hints must be coalesced into one timer");
 assert.match(pollScheduler, /expectedToken=token,expectedMember=member/, "scheduled poll must be bound to the current login identity");
-assert.match(pollScheduler, /Date\\.now\\(\\)-remoteLastPollAt/, "scheduled polling must enforce a local cooldown");
+assert.ok(pollScheduler.includes("Date.now()-remoteLastPollAt"), "scheduled polling must enforce a local cooldown");
 
 assert.match(user, /if\(r\.commandId\)sendRealtimeEvent\('remote_command',\{op:'hint'\}\);/, "command broadcasts must contain only a wake-up hint");
 assert.match(user, /sendRealtimeEvent\('remote_result',\{op:'hint'\}\);/, "result broadcasts must contain only a wake-up hint");
