@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 export const REQUIRED_PRODUCTION_MIGRATIONS = Object.freeze([
@@ -11,6 +12,15 @@ export const REQUIRED_PRODUCTION_MIGRATIONS = Object.freeze([
   { version: "20261026195855", name: "add_chat_message_file_name" },
   { version: "20261027154329", name: "allow_chat_document_mime_types" },
   { version: "20261027155438", name: "set_upstatus_upload_limits_20mb" },
+]);
+export const REQUIRED_PRODUCTION_MIGRATION_SOURCES = Object.freeze([
+  Object.freeze({ version: "20261005160000", name: "upstatus_cloud", path: "20261005160000_upstatus_cloud.sql", provenance: "git-blob-verified", gitBlobSha: "636b255c6ba10fdade072183ce24dc5fdb8f4fac" }),
+  Object.freeze({ version: "20261005173000", name: "remote_realtime", path: "20261005173000_remote_realtime.sql", provenance: "git-blob-verified", gitBlobSha: "4ce397d8679fbd0e3549a3ceeb0fe9a5f0f26e55" }),
+  Object.freeze({ version: "20261005180000", name: "client_presence", path: "20261005180000_client_presence.sql", provenance: "git-blob-verified", gitBlobSha: "b29dac0c083d1054b08684cb4e22279d30fe44bd" }),
+  Object.freeze({ version: "20261023154754", name: "create_upstatus_visual_config", path: "20261023154754_create_upstatus_visual_config.sql", provenance: "ledger-recovered-only", gitBlobSha: null }),
+  Object.freeze({ version: "20261026195855", name: "add_chat_message_file_name", path: "20261026195855_add_chat_message_file_name.sql", provenance: "ledger-recovered-only", gitBlobSha: null }),
+  Object.freeze({ version: "20261027154329", name: "allow_chat_document_mime_types", path: "20261027154329_allow_chat_document_mime_types.sql", provenance: "ledger-recovered-only", gitBlobSha: null }),
+  Object.freeze({ version: "20261027155438", name: "set_upstatus_upload_limits_20mb", path: "20261027155438_set_upstatus_upload_limits_20mb.sql", provenance: "ledger-recovered-only", gitBlobSha: null }),
 ]);
 const RELEVANT_REVIEW_STATES = new Set(["APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);
 
@@ -169,6 +179,64 @@ export function assertRequiredNormalProductionMigrations(payload) {
   if (missing.length) throw new Error("Required Normal production migrations are missing or mismatched: " + missing.map(x => x.version + "_" + x.name).join(", ") + ".");
   return REQUIRED_PRODUCTION_MIGRATIONS.map(x => x.version);
 }
+export function computeGitBlobSha1(content) {
+  const bytes = Buffer.isBuffer(content) ? content : Buffer.from(String(content), "utf8");
+  return createHash("sha1").update("blob " + bytes.length + "\0").update(bytes).digest("hex");
+}
+export function assertRequiredNormalProductionMigrationFiles({
+  migrationsDir,
+  requiredMigrations = REQUIRED_PRODUCTION_MIGRATIONS,
+  sources = REQUIRED_PRODUCTION_MIGRATION_SOURCES,
+}) {
+  const rawRoot = String(migrationsDir || "").trim();
+  if (!rawRoot) throw new Error("Exact release-source migrations directory is required.");
+  const root = path.resolve(rawRoot);
+  if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
+    throw new Error("Exact release-source migrations directory does not exist.");
+  }
+  if (!Array.isArray(requiredMigrations) || !Array.isArray(sources)) {
+    throw new Error("Migration source manifest is invalid.");
+  }
+  const byVersion = new Map();
+  for (const source of sources) {
+    const version = String(source?.version || "").trim();
+    const name = String(source?.name || "").trim();
+    const relativePath = String(source?.path || "").trim();
+    if (!/^\\d{14}$/.test(version) || !name || relativePath !== version + "_" + name + ".sql") {
+      throw new Error("Migration source manifest contains an invalid version, name or source path.");
+    }
+    if (byVersion.has(version)) throw new Error("Migration source manifest contains duplicate version " + version + ".");
+    byVersion.set(version, source);
+  }
+  const missing = requiredMigrations.filter(item => byVersion.get(item.version)?.name !== item.name);
+  if (missing.length) {
+    throw new Error("Migration source manifest is incomplete: " + missing.map(item => item.version + "_" + item.name).join(", ") + ".");
+  }
+  const unresolved = requiredMigrations.filter(item => {
+    const source = byVersion.get(item.version);
+    return source.provenance !== "git-blob-verified" || !/^[0-9a-f]{40}$/.test(String(source.gitBlobSha || ""));
+  });
+  if (unresolved.length) {
+    throw new Error("Original Git-tracked migration files have unresolved provenance: " +
+      unresolved.map(item => item.version + "_" + item.name).join(", ") +
+      ". Recovered ledger statements are not release source files.");
+  }
+  for (const item of requiredMigrations) {
+    const source = byVersion.get(item.version);
+    const absolutePath = path.resolve(root, source.path);
+    if (!absolutePath.startsWith(root + path.sep)) {
+      throw new Error("Migration source path escapes the exact release-source migrations directory.");
+    }
+    if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
+      throw new Error("Original Git-tracked migration file is missing: " + source.path + ".");
+    }
+    const actualBlobSha = computeGitBlobSha1(fs.readFileSync(absolutePath));
+    if (actualBlobSha !== source.gitBlobSha) {
+      throw new Error("Git blob SHA mismatch for " + source.path + ": expected " + source.gitBlobSha + ", received " + actualBlobSha + ".");
+    }
+  }
+  return requiredMigrations.map(item => item.version);
+}
 async function fetchManagementJson(url, token, fetchImpl) {
   let response;
   try {
@@ -188,7 +256,7 @@ async function fetchManagementJson(url, token, fetchImpl) {
   try { return await response.json(); }
   catch { throw new Error("Supabase Management API returned invalid JSON."); }
 }
-export async function verifyNormalProductionPreflight({ projectRef, expectedProductionRef, isolatedProjectRef, expectedOrganizationId, accessToken, fetchImpl = fetch }) {
+export async function verifyNormalProductionPreflight({ projectRef, expectedProductionRef, isolatedProjectRef, expectedOrganizationId, accessToken, migrationSourceDir, fetchImpl = fetch }) {
   const actualRef = String(projectRef || "").trim();
   const expectedRef = String(expectedProductionRef || "").trim();
   const isolatedRef = String(isolatedProjectRef || "").trim();
@@ -198,6 +266,7 @@ export async function verifyNormalProductionPreflight({ projectRef, expectedProd
     throw new Error("SUPABASE_PROJECT_ID is missing, isolated or not the approved production project.");
   }
   if (!/^[a-z0-9]{20}$/.test(organizationId) || !token) throw new Error("Expected organization ID and SUPABASE_ACCESS_TOKEN are required.");
+  const verifiedMigrationSources = assertRequiredNormalProductionMigrationFiles({ migrationsDir: migrationSourceDir });
   const base = "https://api.supabase.com/v1/projects/" + encodeURIComponent(actualRef);
   const project = await fetchManagementJson(base, token, fetchImpl);
   const branches = await fetchManagementJson(base + "/branches", token, fetchImpl);
@@ -205,7 +274,7 @@ export async function verifyNormalProductionPreflight({ projectRef, expectedProd
   const verifiedProject = assertNormalProductionProject(project, expectedRef, organizationId, isolatedRef);
   const verifiedBranch = assertNormalProductionMainBranch(branches);
   const verifiedMigrations = assertRequiredNormalProductionMigrations(migrations);
-  return { ...verifiedProject, branch: verifiedBranch, migrations: verifiedMigrations };
+  return { ...verifiedProject, branch: verifiedBranch, migrations: verifiedMigrations, migrationSources: verifiedMigrationSources };
 }
 export const MAX_RELEASE_ATTESTATION_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 function parseReleaseAttestationTimestamp(value, label) {
@@ -283,17 +352,20 @@ async function main() {
     return;
   }
   if (command === "preflight") {
+    const [migrationSourceDir] = args;
+    if (!migrationSourceDir) throw new Error("preflight requires the exact release-source/supabase/migrations directory.");
     const result = await verifyNormalProductionPreflight({
       projectRef: process.env.SUPABASE_PROJECT_ID,
       expectedProductionRef: process.env.EXPECTED_PRODUCTION_PROJECT_ID,
       isolatedProjectRef: process.env.EXPECTED_ISOLATED_PROJECT_ID,
       expectedOrganizationId: process.env.EXPECTED_SUPABASE_ORGANIZATION_ID,
       accessToken: process.env.SUPABASE_ACCESS_TOKEN,
+      migrationSourceDir,
     });
-    console.log("Verified production project, healthy main branch and " + result.migrations.length + " required migrations without applying SQL.");
+    console.log("Verified production project, healthy main branch, " + result.migrations.length + " required migrations and their exact Git blob provenance without applying SQL.");
     return;
   }
-  throw new Error("Usage: normal-production-dispatcher.mjs <verify-attestations|verify-review|verify-release|preflight> ...");
+  throw new Error("Usage: normal-production-dispatcher.mjs <verify-attestations|verify-review|verify-release|preflight <release-source/supabase/migrations> ...");
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch(error => {

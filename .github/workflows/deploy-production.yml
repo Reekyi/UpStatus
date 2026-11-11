@@ -212,7 +212,7 @@ jobs:
           node scripts/validate.mjs
 
       - name: Read-only production project, branch and migration preflight
-        run: node scripts/normal-production-dispatcher.mjs preflight
+        run: node scripts/normal-production-dispatcher.mjs preflight release-source/supabase/migrations
 
       - name: Setup pinned Supabase CLI
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf

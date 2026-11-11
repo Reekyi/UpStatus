@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
 import {
   assertAuthorizedReleaseApproval,
   assertMergedReleasePullRequest,
@@ -10,6 +11,8 @@ import {
   assertReleaseGateAttestations,
   MAX_RELEASE_ATTESTATION_AGE_MS,
   assertRequiredNormalProductionMigrations,
+  assertRequiredNormalProductionMigrationFiles,
+  REQUIRED_PRODUCTION_MIGRATION_SOURCES,
   assertSuccessfulReleaseChecks,
   REQUIRED_PRODUCTION_MIGRATIONS,
   REQUIRED_RELEASE_CHECKS,
@@ -56,7 +59,7 @@ assert.match(workflow, /version: 2\.122\.1/);
 assert.doesNotMatch(workflow, /version:\s*latest/);
 assert.match(workflow, /verify-review/);
 assert.match(workflow, /verify-release/);
-assert.match(workflow, /preflight/);
+assert.match(workflow, /normal-production-dispatcher\\.mjs preflight release-source\\/supabase\\/migrations/);
 assert.match(workflow, /git merge-base --is-ancestor/);
 assert.match(workflow, /Recheck master HEAD immediately before deployment/);
 assert.doesNotMatch(workflow, /supabase\s+(?:db\s+push|migration\s+up|db\s+reset)/);
@@ -131,6 +134,36 @@ const migrations = REQUIRED_PRODUCTION_MIGRATIONS.map(item => ({ ...item }));
 assert.equal(assertRequiredNormalProductionMigrations({ migrations }).length, 7);
 assert.throws(() => assertRequiredNormalProductionMigrations({ migrations: migrations.slice(1) }), /missing or mismatched/);
 assert.throws(() => assertRequiredNormalProductionMigrations({ migrations: [...migrations, migrations[0]] }), /duplicate version/);
+const migrationDir = path.resolve("supabase/migrations");
+const firstMigration = REQUIRED_PRODUCTION_MIGRATION_SOURCES[0];
+assert.deepEqual(
+  assertRequiredNormalProductionMigrationFiles({
+    migrationsDir: migrationDir,
+    requiredMigrations: [REQUIRED_PRODUCTION_MIGRATIONS[0]],
+    sources: [firstMigration],
+  }),
+  ["20261005160000"],
+);
+assert.throws(
+  () => assertRequiredNormalProductionMigrationFiles({ migrationsDir: migrationDir }),
+  /Original Git-tracked migration files have unresolved provenance: 20261023154754_create_upstatus_visual_config, 20261026195855_add_chat_message_file_name, 20261027154329_allow_chat_document_mime_types, 20261027155438_set_upstatus_upload_limits_20mb/,
+);
+assert.throws(
+  () => assertRequiredNormalProductionMigrationFiles({
+    migrationsDir: migrationDir,
+    requiredMigrations: [REQUIRED_PRODUCTION_MIGRATIONS[0]],
+    sources: [{ ...firstMigration, gitBlobSha: "0".repeat(40) }],
+  }),
+  /Git blob SHA mismatch/,
+);
+assert.throws(
+  () => assertRequiredNormalProductionMigrationFiles({
+    migrationsDir: migrationDir,
+    requiredMigrations: [REQUIRED_PRODUCTION_MIGRATIONS[0]],
+    sources: [{ ...firstMigration, path: "../outside.sql" }],
+  }),
+  /invalid version, name or source path/,
+);
 
 const headSha = "c".repeat(40);
 const releaseSha = "d".repeat(40);
@@ -224,4 +257,4 @@ assert.throws(() => assertReleaseGateAttestations({ ...validAttestations, releas
 assert.throws(() => assertReleaseGateAttestations({ ...validAttestations, physicalAcceptanceAt: "2026-11-12T00:00:00Z" }), /cannot be in the future/);
 assert.throws(() => assertReleaseGateAttestations({ ...validAttestations, physicalAcceptanceAt: "2026-11-01T00:00:00Z" }), /seven-day release-attestation window/);
 
-console.log("PASS Normal production dispatcher contract, release/rollback provenance, project/migration preflight and exact-head human approval.");
+console.log("PASS Normal dispatcher contract, exact Git blob migration provenance, release/rollback checks and exact-head human approval.");
