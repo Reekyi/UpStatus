@@ -207,8 +207,61 @@ export async function verifyNormalProductionPreflight({ projectRef, expectedProd
   const verifiedMigrations = assertRequiredNormalProductionMigrations(migrations);
   return { ...verifiedProject, branch: verifiedBranch, migrations: verifiedMigrations };
 }
+export const MAX_RELEASE_ATTESTATION_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+function parseReleaseAttestationTimestamp(value, label) {
+  const raw = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(raw)) {
+    throw new Error(label + " must be an ISO-8601 UTC timestamp.");
+  }
+  const timestamp = Date.parse(raw);
+  if (!Number.isFinite(timestamp)) throw new Error(label + " must be a valid timestamp.");
+  return timestamp;
+}
+export function assertReleaseGateAttestations({
+  releaseSha,
+  releaseGatesAcknowledgedSha,
+  releaseGatesAcknowledgedAt,
+  physicalAcceptanceSha,
+  physicalAcceptanceAt,
+  nowMs = Date.now(),
+}) {
+  const expectedSha = String(releaseSha || "").trim().toLowerCase();
+  if (!/^[0-9a-f]{40}$/.test(expectedSha)) throw new Error("Exact release SHA is required for release-gate attestations.");
+  const gatesSha = String(releaseGatesAcknowledgedSha || "").trim().toLowerCase();
+  const physicalSha = String(physicalAcceptanceSha || "").trim().toLowerCase();
+  if (gatesSha !== expectedSha) throw new Error("UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_SHA must match the exact release SHA.");
+  if (physicalSha !== expectedSha) throw new Error("UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_SHA must match the exact release SHA.");
+  const now = Number(nowMs);
+  if (!Number.isFinite(now)) throw new Error("A valid current timestamp is required.");
+  const gatesAt = parseReleaseAttestationTimestamp(releaseGatesAcknowledgedAt, "UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_AT");
+  const physicalAt = parseReleaseAttestationTimestamp(physicalAcceptanceAt, "UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_AT");
+  for (const [label, timestamp] of [
+    ["UPSTATUS_NORMAL_RELEASE_GATES_ACKNOWLEDGED_AT", gatesAt],
+    ["UPSTATUS_NORMAL_PHYSICAL_ACCEPTANCE_AT", physicalAt],
+  ]) {
+    if (timestamp > now + 60_000) throw new Error(label + " cannot be in the future.");
+    if (now - timestamp > MAX_RELEASE_ATTESTATION_AGE_MS) throw new Error(label + " is older than the seven-day release-attestation window.");
+  }
+  return {
+    releaseSha: expectedSha,
+    releaseGatesAcknowledgedAt: new Date(gatesAt).toISOString(),
+    physicalAcceptanceAt: new Date(physicalAt).toISOString(),
+  };
+}
 async function main() {
   const [command, ...args] = process.argv.slice(2);
+  if (command === "verify-attestations") {
+    const [releaseSha, releaseGatesAcknowledgedSha, releaseGatesAcknowledgedAt, physicalAcceptanceSha, physicalAcceptanceAt] = args;
+    const result = assertReleaseGateAttestations({
+      releaseSha,
+      releaseGatesAcknowledgedSha,
+      releaseGatesAcknowledgedAt,
+      physicalAcceptanceSha,
+      physicalAcceptanceAt,
+    });
+    console.log("Verified release-gate and physical-acceptance attestations for exact SHA " + result.releaseSha + ".");
+    return;
+  }
   if (command === "verify-review") {
     const [prPath, reviewsPath, checksPath, releaseSha, authorizedReviewers] = args;
     const pr = JSON.parse(fs.readFileSync(path.resolve(prPath), "utf8"));
@@ -240,7 +293,7 @@ async function main() {
     console.log("Verified production project, healthy main branch and " + result.migrations.length + " required migrations without applying SQL.");
     return;
   }
-  throw new Error("Usage: normal-production-dispatcher.mjs <verify-review|verify-release|preflight> ...");
+  throw new Error("Usage: normal-production-dispatcher.mjs <verify-attestations|verify-review|verify-release|preflight> ...");
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch(error => {
