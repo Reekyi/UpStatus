@@ -1,6 +1,9 @@
 [functions.upstatus]
 verify_jwt = false
 
+[functions.upstatus-screen-share-3-1-1-beta10]
+verify_jwt = false
+
 [storage.buckets.chat-images]
 public = true
 file_size_limit = "25MB"
