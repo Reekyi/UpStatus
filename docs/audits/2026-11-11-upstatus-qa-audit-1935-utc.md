@@ -150,3 +150,10 @@ O stack #142 usa signed upload e valida MIME/tamanho declarados antes de criar U
 6. Fazer testes físicos da #78 e obter revisão/autorização humana.
 
 Não declarar percentual global nesta auditoria. CI, inspeção estática, estado do banco e aceitação física são evidências diferentes.
+
+
+## Pós-commit: Validate da própria QA
+
+Após o commit documental `9721d1c3b019f20ecee8a332a01d9d9bc1efb612`, o workflow [UpStatus Validate #43088813044](https://github.com/Reekyi/UpStatus/actions/runs/43088813044) foi disparado automaticamente e **falhou** no passo `Validate build`.
+
+Log do job [130760122971](https://github.com/Reekyi/UpStatus/actions/runs/43088813044): build gerou PROD/TEST 3.4.7 e repetiu exatamente `VALIDATION FAILED: production updateURL mismatch` em `scripts/validate.mjs:26`. Nenhum teste de produto chegou a executar depois desse assert. Isso confirma que a branch QA atual continua bloqueada pelo validator herdado; o relatório documental não causou nem corrigiu a divergência. Nenhum rerun foi disparado.
