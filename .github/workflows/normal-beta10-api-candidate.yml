@@ -1,0 +1,24 @@
+name: Normal Beta10 API Candidate Validate
+
+on:
+  push:
+    branches:
+      - fix/normal-beta10-api-parity-20261111
+
+permissions:
+  contents: read
+
+concurrency:
+  group: normal-beta10-api-candidate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Validate generated Normal distribution and API runtimes
+        run: node scripts/validate.mjs
