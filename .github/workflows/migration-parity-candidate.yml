@@ -1,0 +1,24 @@
+name: Normal Migration Parity Candidate Guard
+
+on:
+  push:
+    branches:
+      - fix/normal-migration-parity-guard-20261110
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check Node runtime
+        run: node --version
+      - name: Run offline migration parity and full validation
+        run: node scripts/validate.mjs

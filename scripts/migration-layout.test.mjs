@@ -51,6 +51,106 @@ const setupInviteRateLimitMigrationPath = path.join(migrationsRoot, "20261109230
 assert.equal(existsSync(setupInviteRateLimitMigrationPath), true, "production setup-invite rate-limit migration missing");
 const setupInviteRateLimitMigration = readFileSync(setupInviteRateLimitMigrationPath, "utf8");
 assert.ok(setupInviteRateLimitMigration.includes("consume_upstatus_setup_invite_rate_limit"), "production setup-invite rate-limit RPC missing");
+
+const setupInviteRateLimitTestMigrationPath = path.join(testMigrationsRoot, "20261109230000_setup_invite_rate_limit_test.sql");
+assert.equal(existsSync(setupInviteRateLimitTestMigrationPath), true, "isolated setup-invite rate-limit migration missing");
+const setupInviteRateLimitTestMigration = readFileSync(setupInviteRateLimitTestMigrationPath, "utf8");
+
+function assertCommentOnlyPrefix(sql, start, label) {
+  const unexpected = sql.slice(0, start)
+    .split(/\r?\n/)
+    .filter(line => line.trim() && !line.trim().startsWith("--"));
+  assert.deepEqual(unexpected, [], label + ": unexpected executable SQL before the shared migration block");
+}
+
+function normalizeSharedSetupInviteSql(sql) {
+  return sql
+    .split(/\r?\n/)
+    .filter(line => !line.trim().startsWith("--"))
+    .map(line => line.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function sharedSetupInviteRateLimitParts(sql, endMarker, label) {
+  const startMarker = "CREATE TABLE IF NOT EXISTS public.upstatus_setup_invite_rate_limits";
+  const start = sql.indexOf(startMarker);
+  assert.notEqual(start, -1, label + ": shared setup-invite DDL/RPC block missing");
+  assertCommentOnlyPrefix(sql, start, label);
+
+  const end = sql.indexOf(endMarker, start);
+  assert.notEqual(end, -1, label + ": shared setup-invite block terminator missing");
+  return {
+    block: normalizeSharedSetupInviteSql(sql.slice(start, end)),
+    suffix: sql.slice(end),
+  };
+}
+
+function assertProductionMetadataSuffix(suffix, label) {
+  assert.match(
+    suffix,
+    /^\s*COMMENT ON TABLE public\.upstatus_setup_invite_rate_limits IS\s*'[^']*';\s*COMMENT ON FUNCTION public\.consume_upstatus_setup_invite_rate_limit\(text,\s*integer,\s*integer\) IS\s*'[^']*';\s*$/s,
+    label + ": only the expected table/function COMMENT metadata may follow the shared SQL"
+  );
+}
+
+const expectedIsolatedAssertionSuffix = "DO $test$\nDECLARE\n  v_function oid;\n  v_security_definer boolean;\n  v_search_path text;\n  v_rls boolean;\nBEGIN\n  SELECT p.oid, p.prosecdef,\n         (\n           SELECT pg_catalog.replace(pg_catalog.split_part(setting, '=', 2), '\"', '')\n           FROM pg_catalog.unnest(COALESCE(p.proconfig, ARRAY[]::text[])) AS config(setting)\n           WHERE setting LIKE 'search_path=%'\n           LIMIT 1\n         )\n    INTO v_function, v_security_definer, v_search_path\n  FROM pg_catalog.pg_proc p\n  JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace\n  WHERE n.nspname = 'public'\n    AND p.proname = 'consume_upstatus_setup_invite_rate_limit'\n    AND pg_catalog.pg_get_function_identity_arguments(p.oid) = 'p_bucket_key text, p_limit integer, p_window_seconds integer';\n\n  IF v_function IS NULL THEN RAISE EXCEPTION 'setup invite rate-limit RPC is missing'; END IF;\n  IF v_security_definer THEN RAISE EXCEPTION 'setup invite rate-limit RPC must remain SECURITY INVOKER'; END IF;\n  IF v_search_path IS DISTINCT FROM '' THEN RAISE EXCEPTION 'setup invite rate-limit RPC must pin an empty search_path (got %)', v_search_path; END IF;\n  IF NOT pg_catalog.has_function_privilege('service_role', v_function, 'EXECUTE') THEN RAISE EXCEPTION 'service_role must execute setup invite rate-limit RPC'; END IF;\n  IF pg_catalog.has_function_privilege('anon', v_function, 'EXECUTE') OR pg_catalog.has_function_privilege('authenticated', v_function, 'EXECUTE') THEN\n    RAISE EXCEPTION 'client roles must not execute setup invite rate-limit RPC';\n  END IF;\n\n  SELECT c.relrowsecurity INTO v_rls\n  FROM pg_catalog.pg_class c\n  JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace\n  WHERE n.nspname = 'public' AND c.relname = 'upstatus_setup_invite_rate_limits';\n\n  IF NOT COALESCE(v_rls, false) THEN RAISE EXCEPTION 'setup invite rate-limit table must have RLS enabled'; END IF;\n  IF NOT pg_catalog.has_table_privilege('service_role', 'public.upstatus_setup_invite_rate_limits', 'SELECT') OR\n     NOT pg_catalog.has_table_privilege('service_role', 'public.upstatus_setup_invite_rate_limits', 'INSERT') OR\n     NOT pg_catalog.has_table_privilege('service_role', 'public.upstatus_setup_invite_rate_limits', 'UPDATE') OR\n     NOT pg_catalog.has_table_privilege('service_role', 'public.upstatus_setup_invite_rate_limits', 'DELETE') THEN\n    RAISE EXCEPTION 'service_role must retain rate-limit table access';\n  END IF;\n  IF pg_catalog.has_table_privilege('anon', 'public.upstatus_setup_invite_rate_limits', 'SELECT') OR\n     pg_catalog.has_table_privilege('anon', 'public.upstatus_setup_invite_rate_limits', 'INSERT') OR\n     pg_catalog.has_table_privilege('anon', 'public.upstatus_setup_invite_rate_limits', 'UPDATE') OR\n     pg_catalog.has_table_privilege('anon', 'public.upstatus_setup_invite_rate_limits', 'DELETE') OR\n     pg_catalog.has_table_privilege('authenticated', 'public.upstatus_setup_invite_rate_limits', 'SELECT') OR\n     pg_catalog.has_table_privilege('authenticated', 'public.upstatus_setup_invite_rate_limits', 'INSERT') OR\n     pg_catalog.has_table_privilege('authenticated', 'public.upstatus_setup_invite_rate_limits', 'UPDATE') OR\n     pg_catalog.has_table_privilege('authenticated', 'public.upstatus_setup_invite_rate_limits', 'DELETE') THEN\n    RAISE EXCEPTION 'client roles must not access setup invite rate-limit buckets';\n  END IF;\n  IF EXISTS (SELECT 1 FROM pg_catalog.pg_policies WHERE schemaname='public' AND tablename='upstatus_setup_invite_rate_limits') THEN\n    RAISE EXCEPTION 'setup invite rate-limit table must not expose client policies';\n  END IF;\nEND;\n$test$;";
+
+function normalizeIsolatedAssertionSuffix(sql) {
+  return sql
+    .split(/\r?\n/)
+    .filter(line => !line.trim().startsWith("--"))
+    .map(line => line.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function assertIsolatedAssertionSuffix(suffix, label) {
+  assert.equal(
+    normalizeIsolatedAssertionSuffix(suffix),
+    normalizeIsolatedAssertionSuffix(expectedIsolatedAssertionSuffix),
+    label + ": isolated assertion block must match the reviewed read-only catalog allowlist"
+  );
+}
+
+
+// Every executable statement in each file must be accounted for: the common DDL/RPC/grants,
+// production metadata comments, or the isolated-only catalog assertion block.
+const productionSetupInviteParts = sharedSetupInviteRateLimitParts(
+  setupInviteRateLimitMigration, "COMMENT ON TABLE", "production migration"
+);
+const isolatedSetupInviteParts = sharedSetupInviteRateLimitParts(
+  setupInviteRateLimitTestMigration, "DO $test$", "isolated test migration"
+);
+assert.equal(
+  productionSetupInviteParts.block,
+  isolatedSetupInviteParts.block,
+  "isolated setup-invite rate-limit DDL/RPC/grants must match the production candidate"
+);
+assertProductionMetadataSuffix(productionSetupInviteParts.suffix, "production migration");
+assertIsolatedAssertionSuffix(isolatedSetupInviteParts.suffix, "isolated test migration");
+
+// Guard the guard: unexpected executable statements outside the allowed suffixes must fail.
+assert.throws(
+  () => assertCommentOnlyPrefix("SELECT 1;\n-- comment\n", 17, "synthetic migration"),
+  /unexpected executable SQL/
+);
+assert.throws(
+  () => assertProductionMetadataSuffix("GRANT SELECT ON public.unexpected TO anon;", "synthetic migration"),
+  /only the expected table\/function COMMENT metadata/
+);
+assert.throws(
+  () => assertIsolatedAssertionSuffix("DO $test$ BEGIN NULL; END; $test$;\nSELECT 1;", "synthetic migration"),
+  /reviewed read-only catalog allowlist/
+);
+assert.throws(
+  () => assertIsolatedAssertionSuffix("DO $test$ BEGIN DROP TABLE public.users; END; $test$;", "synthetic migration"),
+  /reviewed read-only catalog allowlist/
+);
+assert.throws(
+  () => assertIsolatedAssertionSuffix("DO $test$ BEGIN EXECUTE 'DROP TABLE public.users'; END; $test$;", "synthetic migration"),
+  /reviewed read-only catalog allowlist/
+);
 const readmePath = path.join(testMigrationsRoot, "README.md");
 assert.equal(existsSync(readmePath), true, "isolated test migration safety README missing");
 const readmeText = readFileSync(readmePath, "utf8");
