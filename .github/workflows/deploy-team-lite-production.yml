@@ -23,15 +23,10 @@ on:
   push:
     branches:
       - fix/team-lite-production-dispatcher-master-20261109
-    paths:
-      - ".github/workflows/deploy-team-lite-production.yml"
-      - "scripts/test-team-lite-production-dispatcher.mjs"
+      - master
   pull_request:
     branches:
       - master
-    paths:
-      - ".github/workflows/deploy-team-lite-production.yml"
-      - "scripts/test-team-lite-production-dispatcher.mjs"
 
 permissions:
   contents: read
@@ -119,9 +114,16 @@ jobs:
             exit 1
           fi
 
+      - name: Checkout default-branch dispatcher source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
       - name: Require an approved merged PR for the exact release SHA
         env:
           GH_TOKEN: ${{ github.token }}
+          UPSTATUS_RELEASE_REVIEWERS: ${{ vars.UPSTATUS_RELEASE_REVIEWERS }}
         shell: bash
         run: |
           set -euo pipefail
@@ -154,25 +156,22 @@ jobs:
             echo "::error::Review history exceeds one page; refusing an incomplete approval audit."
             exit 1
           fi
-          latest_review_state="$(printf '%s' "$reviews" | jq -r '[.[] | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")] | sort_by(.submitted_at) | last | .state // empty')"
-          latest_reviewer="$(printf '%s' "$reviews" | jq -r '[.[] | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")] | sort_by(.submitted_at) | last | .user.login // empty')"
-          if [ "$latest_review_state" != "APPROVED" ] || [ "$latest_reviewer" = "$author_login" ] || [ -z "$latest_reviewer" ]; then
-            echo "::error::The release PR must have a latest non-dismissed human approval from someone other than its author."
-            exit 1
-          fi
+          printf '%s' "$reviews" > "$RUNNER_TEMP/team-lite-release-reviews.json"
+          node scripts/verify-team-lite-release-review.mjs \
+            "$RUNNER_TEMP/team-lite-release-reviews.json" \
+            "$head_sha" \
+            "$author_login" \
+            "$UPSTATUS_RELEASE_REVIEWERS"
 
           checks="$(curl --fail --silent --show-error \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/Reekyi/UpStatus/commits/$head_sha/check-runs?per_page=100")"
-          check_count="$(printf '%s' "$checks" | jq -er '.total_count')"
-          returned_check_count="$(printf '%s' "$checks" | jq -er '.check_runs | length')"
-          bad_checks="$(printf '%s' "$checks" | jq -er '[.check_runs[] | select(.status != "completed" or (.conclusion != "success" and .conclusion != "skipped"))] | length')"
-          if [ "$check_count" -lt 1 ] || [ "$check_count" -ne "$returned_check_count" ] || [ "$bad_checks" -ne 0 ]; then
-            echo "::error::The approved PR head must have a complete, paginated, successful check-run set."
-            exit 1
-          fi
+            "https://api.github.com/repos/Reekyi/UpStatus/commits/$RELEASE_SHA/check-runs?per_page=100")"
+          printf '%s' "$checks" > "$RUNNER_TEMP/team-lite-release-checks.json"
+          node scripts/verify-team-lite-release-checks.mjs \
+            "$RUNNER_TEMP/team-lite-release-checks.json" \
+            "$RELEASE_SHA"
 
       - name: Checkout exact Team Lite release candidate
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -234,6 +233,23 @@ jobs:
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
         with:
           version: 2.122.1
+
+      - name: Recheck Team Lite release SHA immediately before deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/Reekyi/UpStatus/git/ref/heads/team-lite-official")"
+          final_current_sha="$(printf '%s' "$response" | jq -er '.object.sha')"
+          if [ "$final_current_sha" != "$RELEASE_SHA" ]; then
+            echo "::error::team-lite-official changed during preflight; refusing to deploy a stale candidate."
+            exit 1
+          fi
 
       - name: Deploy Team Lite function only
         env:
