@@ -110,6 +110,15 @@ No laboratório, a tabela de rate limit de convites e a RPC existem; há duas co
 - Laboratório: duas funções ACTIVE: `upstatus-signal-test` v32 e `upstatus-signal-e2e-once` v3.
 - Todas reportam `verify_jwt=false` no metadata. Isso não prova ausência de autenticação: os handlers implementam validação customizada de sessão.
 
+### Edge Functions e voz
+
+- Produção: 38/38 Edge Functions ACTIVE; laboratório: 2/2 ACTIVE.
+- As 38 funções de produção e as duas funções de laboratório reportam `verify_jwt=false` no metadata. Isso não prova ausência de autenticação: os handlers principais usam validação customizada de sessão.
+- Runtimes de produção: `upstatus` v480, `upstatus-screen-share-3-1-1-beta10` v6, `upstatus-team-lite` v15 e `upstatus-test` v281. Não existe função `upstatus-signal` server-mediated na produção.
+- Laboratório: `upstatus-signal-test` v32 e `upstatus-signal-e2e-once` v3.
+- Inspeção estática de `upstatus-signal-test` v32: `VOICE_ATTEMPT_CONFLICT` e `ROOM_FULL` são mapeados para HTTP 409; `VOICE_ATTEMPT_ALREADY_ACTIVE` não é mapeado e cai no tratamento padrão HTTP 500. Não executei requisição HTTP real. A fonte candidata de signaling não foi revalidada por check PR-triggered nesta rodada.
+- Os clientes Normal/Team Lite continuam usando Realtime público para presença/sinalização; a função server-mediated ainda não está implantada em produção.
+
 ### Realtime e confiança
 
 Produção tem 67 linhas em `realtime.messages`, todas `private=false`, no tópico `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`.
