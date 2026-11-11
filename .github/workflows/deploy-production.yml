@@ -32,17 +32,11 @@ on:
     branches:
       - master
       - fix/master-normal-dual-runtime-dispatcher-20261111
-    paths:
-      - ".github/workflows/deploy-production.yml"
-      - "scripts/normal-production-dispatcher.mjs"
-      - "scripts/test-normal-production-dispatcher.mjs"
+
   pull_request:
     branches:
       - master
-    paths:
-      - ".github/workflows/deploy-production.yml"
-      - "scripts/normal-production-dispatcher.mjs"
-      - "scripts/test-normal-production-dispatcher.mjs"
+
 
 permissions:
   contents: read
