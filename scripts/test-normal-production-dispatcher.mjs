@@ -26,9 +26,9 @@ assert.match(workflow, /release_version:[\s\S]*?required: true[\s\S]*?type: stri
 assert.match(workflow, /confirm_production_action:[\s\S]*?required: true[\s\S]*?default: false/);
 assert.match(workflow, /branches:[\s\S]*?- master[\s\S]*?- fix\/master-normal-dual-runtime-dispatcher-20261111/);
 const triggerConfig = workflow.slice(0, workflow.indexOf("\npermissions:"));
-assert.doesNotMatch(triggerConfig, /^    paths:/m, "release guard must not skip release-impacting changes through path filters");
-assert.match(triggerConfig, /^  push:\n    branches:\n      - master\n      - fix\\/master-normal-dual-runtime-dispatcher-20261111/m);
-assert.match(triggerConfig, /^  pull_request:\n    branches:\n      - master/m);
+assert.doesNotMatch(triggerConfig, /^ {4}paths:/m, "release guard must not skip release-impacting changes through path filters");
+assert.ok(triggerConfig.includes("  push:\n    branches:\n      - master\n      - fix/master-normal-dual-runtime-dispatcher-20261111"), "push guard must cover master and the dispatcher candidate branch");
+assert.ok(triggerConfig.includes("  pull_request:\n    branches:\n      - master"), "pull_request guard must cover master");
 assert.match(helperSource, /REQUIRED_RELEASE_CHECKS = Object\.freeze\(\["offline_guard", "validate"\]\)/);
 assert.match(workflow, /commits\/\$RELEASE_SHA\/check-runs\?per_page=100/);
 assert.doesNotMatch(workflow, /commits\/\$pr_head_sha\/check-runs/);
