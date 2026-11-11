@@ -3715,14 +3715,20 @@ function renderChatText(text){
   // The shared Realtime topic is public. Treat broadcast payloads as untrusted hints,
   // and reconcile chat state only from the authenticated API.
   function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}
-  var remotePollHintTimer=null;
+  var remotePollHintTimer=null,remotePollHintPending=false;
   function scheduleRemoteStatusPoll(){
-    if(remotePollHintTimer||!isAuthenticated())return;
-    var expectedGeneration=authGeneration,expectedMember=member;
+    if(!isAuthenticated())return;
+    remotePollHintPending=true;
+    if(remotePollHintTimer)return;
+    var expectedGeneration=authGeneration,expectedMember=member,expectedToken=token;
+    var wait=Math.max(0,1000-(Date.now()-remoteLastPollAt));
     remotePollHintTimer=setTimeout(function(){
       remotePollHintTimer=null;
-      if(isAuthenticated()&&expectedGeneration===authGeneration&&expectedMember===member)pollRemoteStatus();
-    },1100);
+      if(!isAuthenticated()||expectedGeneration!==authGeneration||expectedMember!==member||expectedToken!==token){remotePollHintPending=false;return;}
+      if(remotePolling)return;
+      remotePollHintPending=false;
+      pollRemoteStatus();
+    },wait);
   }
   var realtimeStatusRefreshTimer=null,realtimeStatusRefreshLastAt=0;
   function scheduleRealtimeStatusRefresh(){
@@ -3760,7 +3766,7 @@ function renderChatText(text){
         .on('broadcast',{event:'remote_result'},function(){ if(!isAuthenticated()||realtimeGeneration!==authGeneration||realtimeMember!==member)return; /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })
         .subscribe(function(status){
           if(!isAuthenticated()||realtimeGeneration!==authGeneration||realtimeMember!==member){stopRealtime();return;}
-          if(status==='SUBSCRIBED'){realtimeActive=true;if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}broadcastChatPresence(!chat.classList.contains('hidden'));return;}
+          if(status==='SUBSCRIBED'){realtimeActive=true;if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}broadcastChatPresence(!chat.classList.contains('hidden'));scheduleRemoteStatusPoll();return;}
           if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
             realtimeActive=false;
             try{if(realtimeChannel)realtimeChannel.unsubscribe();}catch(e){}
@@ -3784,6 +3790,7 @@ function renderChatText(text){
     if(signalInvitationTimer){clearInterval(signalInvitationTimer);signalInvitationTimer=null;}if(signalTransport){signalTransport.stopAll();signalTransport=null;}Object.keys(signalPollStops).forEach(signalStopCallPolling);signalRoomByCallId=Object.create(null);signalCallIdByRoom=Object.create(null);signalCreatorCallIds=Object.create(null);if(!preserveVoiceRoomContext)signalVoiceRoomRoomId='';signalVoiceRoomPrepared=false;signalVoiceRoomCreator=false;
     realtimeActive=false;
     if(remotePollHintTimer){clearTimeout(remotePollHintTimer);remotePollHintTimer=null;}
+    remotePollHintPending=false;
     if(realtimeStatusRefreshTimer){clearTimeout(realtimeStatusRefreshTimer);realtimeStatusRefreshTimer=null;}
     if(realtimeRetryTimer){clearTimeout(realtimeRetryTimer);realtimeRetryTimer=null;}
     try{if(realtimeChannel)realtimeChannel.unsubscribe();}catch(e){}
@@ -4973,12 +4980,21 @@ function chatAvatarPresence(name){
   }
 
   function pollRemoteStatus(){
-    var now=Date.now();if(!token||remotePolling||now-remoteLastPollAt<1000)return;
-    remoteLastPollAt=now;remotePolling=true;
+    if(!isAuthenticated())return;
+    if(remotePolling){remotePollHintPending=true;return;}
+    var wait=Math.max(0,1000-(Date.now()-remoteLastPollAt));
+    if(wait>0){scheduleRemoteStatusPoll();return;}
+    remoteLastPollAt=Date.now();
+    remotePolling=true;
+    var expectedGeneration=authGeneration,expectedMember=member,expectedToken=token;
     api('GET','/api/remote-status').then(function(d){
+      if(!isAuthenticated()||expectedGeneration!==authGeneration||expectedMember!==member||expectedToken!==token)return;
       if(!d.pending||!d.command)return;
       executeRemoteCommand(d.command);
-    }).catch(function(){}).finally(function(){remotePolling=false});
+    }).catch(function(){}).finally(function(){
+      remotePolling=false;
+      if(remotePollHintPending)scheduleRemoteStatusPoll();
+    });
   }
   function refresh(){
     if(!isAuthenticated()||!member||refreshing)return;
