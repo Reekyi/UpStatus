@@ -49,6 +49,7 @@ function renderUser({version,test}){
     "__UPSTATUS_VERSION__":version,
     "__UPSTATUS_UPDATE_URL__":updateUrl,
     "__UPSTATUS_DOWNLOAD_URL__":updateUrl,
+    "__UPSTATUS_RELEASE_MANIFEST_URL__":test?"":"https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json",
     "__UPSTATUS_STORAGE_PREFIX__":prefix,
     "__UPSTATUS_CLOUD_SERVER__":cloud,
     "__UPSTATUS_REALTIME_TOPIC__":topic,
