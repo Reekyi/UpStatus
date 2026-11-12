@@ -532,19 +532,38 @@ async function deleteRoute(name:string,id:string){
 }
 
 
+function avatarOwnerPrefix(name:string) {
+  const normalized=String(name||"").trim().toLowerCase();
+  if(!normalized)throw new Error("Sessão inválida.");
+  return "avatar-"+tokenHash(normalized).slice(0,24)+"-";
+}
+
 async function profileRoute(req:Request,name:string) {
   if(req.method==="GET") return response({profiles:await profileMap()});
   const p:any=await readBody(req);
-  let avatarUrl=String(p.avatarUrl||"");
-  if(p.dataUrl){
-    const saved=await uploadFile("profile-images",String(p.dataUrl),20*1024*1024,new Set(["image/png","image/jpeg","image/webp","image/gif"]));
-    avatarUrl=saved.url;
+  const avatarUrl=String(p.avatarUrl||"").trim();
+  if(avatarUrl){
+    let parsed:URL;
+    try{parsed=new URL(avatarUrl);}catch{return response({error:"URL de avatar inválida."},400);}
+    const prefix="/storage/v1/object/public/profile-images/";
+    if(parsed.origin!==new URL(PROJECT_URL).origin||parsed.username||parsed.password||parsed.search||parsed.hash||!parsed.pathname.startsWith(prefix))
+      return response({error:"URL de avatar inválida."},400);
+    let objectPath="";
+    try{objectPath=decodeURIComponent(parsed.pathname.slice(prefix.length));}catch{return response({error:"URL de avatar inválida."},400);}
+    if(!objectPath||objectPath.includes("/")||objectPath.includes("\\")||objectPath==="."||objectPath===".."||objectPath.includes("\0"))
+      return response({error:"URL de avatar inválida."},400);
+    if(!objectPath.startsWith(avatarOwnerPrefix(name)))
+      return response({error:"O avatar não pertence à sua conta."},403);
+    const canonicalUrl=db.storage.from("profile-images").getPublicUrl(objectPath).data.publicUrl;
+    if(canonicalUrl!==parsed.toString())return response({error:"URL de avatar inválida."},400);
+    const {error}=await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:canonicalUrl,updated_at:new Date().toISOString()},{onConflict:"user_name"});
+    if(error)throw error;
+    return response({ok:true,avatarUrl:canonicalUrl});
   }
-  const validPrefix=PROJECT_URL+"/storage/v1/object/public/profile-images/";
-  if(!avatarUrl.startsWith(validPrefix))return response({error:"URL de avatar inválida."},400);
-  const {error}=await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:avatarUrl,updated_at:new Date().toISOString()},{onConflict:"user_name"});
+  const saved=await uploadFile("profile-images",String(p.dataUrl||""),2*1024*1024,new Set(["image/png","image/jpeg","image/webp","image/gif"]));
+  const {error}=await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:saved.url,updated_at:new Date().toISOString()},{onConflict:"user_name"});
   if(error)throw error;
-  return response({ok:true,avatarUrl});
+  return response({ok:true,avatarUrl:saved.url});
 }
 async function mediaRoute(req:Request,kind:"image"|"audio"|"document") {
   const p:any=await readBody(req);
@@ -553,18 +572,19 @@ async function mediaRoute(req:Request,kind:"image"|"audio"|"document") {
   const saved=await uploadFile("chat-images",String(p.dataUrl||""),max,allowed);
   return response({ok:true,imageUrl:saved.url,type:saved.mime.startsWith("video/")?"video":kind});
 }
-async function signedUploadRoute(req:Request,kind:"chat"|"avatar") {
+async function signedUploadRoute(req:Request,kind:"chat"|"avatar",ownerName:string) {
   const p:any=await readBody(req);
   const bucket=kind==="avatar"?"profile-images":"chat-images";
-  const max=20*1024*1024;
+  const max=kind==="avatar"?2*1024*1024:20*1024*1024;
   const mime=String(p.mime||"").toLowerCase().trim();
   const allowed=kind==="avatar"?new Set(["image/png","image/jpeg","image/webp","image/gif"]):new Set(["image/png","image/jpeg","image/webp","video/mp4","video/webm","application/pdf","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","text/csv","application/vnd.ms-powerpoint","application/vnd.openxmlformats-officedocument.presentationml.presentation","text/plain","text/rtf","application/rtf"]);
   const size=Number(p.size);
   if(!allowed.has(mime))return response({error:"Tipo de arquivo não suportado."},400);
-  if(!Number.isFinite(size)||size<1||size>max)return response({error:"O arquivo deve ter no máximo 20 MB."},400);
+  if(!Number.isFinite(size)||size<1||size>max)return response({error:kind==="avatar"?"O avatar deve ter no máximo 2 MB.":"O arquivo deve ter no máximo 20 MB."},400);
   const extByMime:Record<string,string>={"image/png":"png","image/jpeg":"jpg","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm","application/pdf":"pdf","application/msword":"doc","application/vnd.openxmlformats-officedocument.wordprocessingml.document":"docx","application/vnd.ms-excel":"xls","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":"xlsx","text/csv":"csv","application/vnd.ms-powerpoint":"ppt","application/vnd.openxmlformats-officedocument.presentationml.presentation":"pptx","text/plain":"txt","text/rtf":"rtf","application/rtf":"rtf"};
   const safeName=String(p.name||"arquivo").split(/[\\/]/).pop()?.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-100)||"arquivo";
-  const path=Date.now()+"-"+randomBytes(8).toString("hex")+"-"+safeName.replace(/\.[^.]*$/,"").slice(0,60)+"."+extByMime[mime];
+  const fileName=Date.now()+"-"+randomBytes(8).toString("hex")+"-"+safeName.replace(/\.[^.]*$/,"").slice(0,60)+"."+extByMime[mime];
+  const path=kind==="avatar"?avatarOwnerPrefix(ownerName)+fileName:fileName;
   const {data,error}=await db.storage.from(bucket).createSignedUploadUrl(path,{upsert:true});
   if(error)throw error;
   const uploadToken=String(data?.token||"");
@@ -757,8 +777,8 @@ Deno.serve(async(req)=>{
     if(path.startsWith("/api/chat/")&&req.method==="DELETE")return await deleteRoute(name,path.slice("/api/chat/".length));
     if(path==="/api/profiles")return await profileRoute(req,name);
     if(path==="/api/profile/avatar"&&req.method==="POST")return await profileRoute(req,name);
-    if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");
-    if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");
+    if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar",ctx.name);
+    if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat",ctx.name);
     if(path==="/api/chat/image"&&req.method==="POST")return await mediaRoute(req,"image");
     if(path==="/api/chat/document"&&req.method==="POST")return await mediaRoute(req,"document");
     if(path==="/api/chat/audio"&&req.method==="POST")return await mediaRoute(req,"audio");
