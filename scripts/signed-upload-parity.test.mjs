@@ -21,13 +21,14 @@ const route=server.slice(routeStart,routeEnd);
 assert(route.includes('kind==="avatar"?"profile-images":"chat-images"'),"signed upload handler must select only the intended bucket");
 assert(route.includes('const max=kind==="avatar"?2*1024*1024:20*1024*1024;'),"avatar uploads must retain the 2 MiB limit while chat uploads allow 20 MiB");
 assert(route.includes('kind==="avatar"?avatarOwnerPrefix(ownerName)+fileName:fileName'),"avatar object paths must be scoped to the authenticated owner");
+assert(route.includes('kind==="avatar"?"O avatar deve ter no máximo 2 MB.":"O arquivo deve ter no máximo 20 MB."'),"size rejection must report the correct per-kind limit");
 assert(route.includes("if(!allowed.has(mime))return response"),"signed upload handler must validate allowed MIME types");
 assert(route.includes("!Number.isFinite(size)||size<1||size>max"),"signed upload handler must validate the declared size");
 assert(route.includes("createSignedUploadUrl(path,{upsert:true})"),"signed upload handler must request a Storage signed-upload token");
 assert(route.includes("uploadUrl:uploadUrl.toString()")&&route.includes("publicUrl")&&route.includes("token:uploadToken")&&route.includes("path:signedPath"),"signed upload response must include the client ticket fields");
 
-assert(server.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat",name);'),"chat signed-upload route must be POST-only and receive the authenticated session");
-assert(server.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar",name);'),"avatar signed-upload route must be POST-only and receive the authenticated session");
+assert(server.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat",ctx.name);'),"chat signed-upload route must be POST-only and receive the authenticated session");
+assert(server.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar",ctx.name);'),"avatar signed-upload route must be POST-only and receive the authenticated session");
 
 const profileStart=server.indexOf('async function profileRoute(req:Request,name:string) {');
 const profileEnd=server.indexOf("\nasync function mediaRoute",profileStart);
