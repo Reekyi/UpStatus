@@ -51,3 +51,79 @@ The current chat is establishing durable continuity docs so a new chat can conti
 ## Last updated
 
 2026-10-09. Updated with the Ycaro stable-release preparation checkpoint. Re-check live GitHub, Supabase, and Vercel state before any merge or deployment.
+
+
+## Live engineering handoff — 2026-11-12 07:13 UTC
+
+This checkpoint supersedes the older snapshots above for current engineering status. Re-check live refs and workflows before acting.
+
+### Verified repository refs
+
+- `master`: `9d40461babcec8eb8686c2a04be9c675df7da381`.
+- `develop`: `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`.
+- `team-lite-official`: `9065bc1536fde64f437f6f12b7abb9b072cb8281`.
+
+### Priority pull requests
+
+| PR | HEAD | Current evidence |
+|---|---|---|
+| #74 Normal | `fb878537d95db9097cce6d29a14260b9fd8d2e3d` | Validate [42753434411](https://github.com/Reekyi/UpStatus/actions/runs/42753434411) and Signaling Smoke [42753434336](https://github.com/Reekyi/UpStatus/actions/runs/42753434336) passed |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | Historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed |
+| #76 Team Lite | `c4dee8d2c502499de5f95932ac14a90cffb56196` | Candidate Checks [43124413080](https://github.com/Reekyi/UpStatus/actions/runs/43124413080) passed: 110/110 authenticated checks |
+| #80 Continuity | `be72d40fa26b70f6beab8cabbede92b08e2eb194` | Validate [42760579158](https://github.com/Reekyi/UpStatus/actions/runs/42760579158) fails: `client signed upload helper missing` |
+| #82 Independent QA | `7c5691740eacab79d531ac0ecee1ef15c3ae8adf` | Validate [43170039990](https://github.com/Reekyi/UpStatus/actions/runs/43170039990) fails: `production updateURL mismatch` |
+| #149 Team Lite call-source provenance | `77352d2e3b93722d6b69a9eec31a92bb63158230` | Offline guard [43173176077](https://github.com/Reekyi/UpStatus/actions/runs/43173176077) passed; full Candidate Checks [43173176232](https://github.com/Reekyi/UpStatus/actions/runs/43173176232) is queued |
+
+All listed PRs remain open and Draft. No merge or publication has occurred.
+
+### Latest candidate work
+
+- PR #149 is a child of the current #76 HEAD. It carries the authenticated call-source provenance change and strict public discovery allowlist.
+- The parser for `.github/workflows/team-lite-candidate.yml` was corrected in commit `77352d2e3b93722d6b69a9eec31a92bb63158230`. The previous parser used `\\s*` across line breaks and an end-of-line alternative that prematurely ended the trigger section.
+- Offline assertions against the actual workflow plus inline/block YAML fixtures passed. The full isolated Candidate Checks for the new SHA remain pending; do not claim complete CI until it finishes and cleanup is verified.
+- PR #148 removes the name-based admin-role fallback, but first setup still does not require a one-time invite token. AUTH-03 is not complete.
+
+### Runtime and database safety snapshot
+
+Production project `dlfvkawaiqduhlazsszm`:
+
+- Edge Function `upstatus` is active v480; `upstatus-team-lite` is active v15.
+- The deployed userscripts embedded in both functions still execute `remote_command` received from public Realtime broadcasts and process public call signaling. Candidate protections have not reached installed runtimes.
+- `realtime.messages`: 109 rows, all `private=false` (57 `user_status`, 40 `db_change`, 6 `remote_command`, 6 `remote_result`).
+- 166 direct client table grants across `public`, `realtime`, and `storage`; 120 client default-ACL entries; 10 RLS-enabled public tables without policies.
+- Three broadcast SECURITY DEFINER functions remain executable by client roles.
+- Two public Storage buckets (`chat-images`, `profile-images`), 188 objects, and zero Storage policies.
+- Seven production migrations are recorded. Four historical SQL files are absent from the `master` tree: `20261023154754`, `20261026195855`, `20261027154329`, `20261027155438`.
+
+Isolated project `bfpjtfqlnypisxljoxkb`:
+
+- 39 migrations and two test Edge Functions (`upstatus-signal-test` v32, `upstatus-signal-e2e-once` v3).
+- Zero buckets and zero Storage objects.
+- A SELECT-only fixture audit after the previous workflow found zero test users, sessions, rooms, memberships, events, bindings, call attempts, voice attempts, rate limits, messages, read receipts, Realtime messages, and Storage objects.
+- This project is isolated from production but is not a full-product TEST environment.
+
+### Release gates
+
+- RT-01: blocked; production Realtime remains public and installed clients still consume public command payloads.
+- TEST-ISOLATION: in progress; the isolated signaling project is proven, but full-product TEST coverage is not provisioned.
+- MIGRATION-PROVENANCE: blocked; four original SQL files are missing and must not be reconstructed from guesses.
+- AUTH-03: in progress; candidate invite/rate-limit work exists, but production runtime has no setup-token columns, invite-consumption RPC, or login rate limit.
+- ACL-STORAGE: blocked; grants, default ACL, public buckets, and missing Storage policies remain.
+- RECONNECT: pending; Issue [#78](https://github.com/Reekyi/UpStatus/issues/78) remains 0/8 physical acceptance criteria. Automated tests do not replace a real no-F5 network-loss test.
+- HUMAN-REVIEW: pending; no human approval or release authorization has been recorded.
+
+### Next actions
+
+1. Wait for PR #149 Candidate Checks on exact SHA `77352d2`, then verify its fixture cleanup and request independent QA review.
+2. Reconcile Normal dispatcher/runtime candidates without bypassing the migration-provenance guard.
+3. Integrate AUTH-03 consistently into Normal and Team Lite.
+4. Recover and validate the four original migration sources.
+5. Design private/authorized Realtime and least-privilege ACL/Storage changes for an isolated full-product test environment.
+6. Resolve #80 and #82 without weakening their regression checks.
+7. Complete the physical no-F5 acceptance in Issue #78.
+
+### Safety boundary
+
+No production SQL writes, migrations, Edge Function deployments, feature-flag changes, secrets changes, userscript publication, merge, or release were performed for this checkpoint. Production SQL inspection was SELECT-only. Keep all candidates Draft until independent review, full CI, physical acceptance, and explicit human release approval.
+
+Last verified: 2026-11-12T07:13:03.016Z.
