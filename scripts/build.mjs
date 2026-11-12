@@ -40,9 +40,10 @@ function renderUser({version,test}){
   const ringtoneChannel=test?TEST_RINGTONE_CHANNEL:PROD_RINGTONE_CHANNEL;
   const ringtoneStorage=test?TEST_RINGTONE_STORAGE:PROD_RINGTONE_STORAGE;
   const cloud="https://"+PROJECT+".supabase.co/functions/v1/"+fn;
-  const updateUrl=test?cloud+"/upstatus.user.js":String(release.scriptUrl||("https://"+PROJECT+".supabase.co/functions/v1/"+PROD_FUNCTION+"/upstatus.user.js")).trim();
-  if(!updateUrl)throw new Error("Could not determine the production userscript update URL.");
-  if(!test&&!/^https:\/\/[^/]+\/functions\/v1\/upstatus\/upstatus\.user\.js$/.test(updateUrl))throw new Error("release.json: scriptUrl must point to the production /upstatus/upstatus.user.js endpoint.");
+  const expectedProductionUpdateUrl="https://"+PROJECT+".supabase.co/functions/v1/"+PROD_FUNCTION+"/upstatus.user.js";
+  const configuredProductionUpdateUrl=String(release.scriptUrl||"").trim();
+  if(!test&&configuredProductionUpdateUrl!==expectedProductionUpdateUrl)throw new Error("release.json: scriptUrl must exactly match the configured production project and /upstatus/upstatus.user.js endpoint.");
+  const updateUrl=test?cloud+"/upstatus.user.js":expectedProductionUpdateUrl;
   return render(userTemplate,{
     "__UPSTATUS_NAME__":name,
     "__UPSTATUS_NAMESPACE__":namespace,

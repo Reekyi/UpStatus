@@ -22,7 +22,9 @@ const productionFunction=buildSource.match(/const PROD_FUNCTION="([^"]+)";/)?.[1
 const testFunction=buildSource.match(/const TEST_FUNCTION="([^"]+)";/)?.[1];
 assert(project&&productionFunction&&testFunction,"build configuration must declare production and TEST functions");
 
-const expectedProductionUpdateUrl=String(release.scriptUrl||("https://"+project+".supabase.co/functions/v1/"+productionFunction+"/upstatus.user.js")).trim();
+const expectedProductionUpdateUrl="https://"+project+".supabase.co/functions/v1/"+productionFunction+"/upstatus.user.js";
+assert(String(release.scriptUrl||"").trim()===expectedProductionUpdateUrl,"release.json scriptUrl must match the configured production project origin and function");
+assert(buildSource.includes('const expectedProductionUpdateUrl="https://"+PROJECT+".supabase.co/functions/v1/"+PROD_FUNCTION+"/upstatus.user.js";')&&buildSource.includes("configuredProductionUpdateUrl!==expectedProductionUpdateUrl"),"build must reject production updater URLs outside the configured project");
 const expectedTestUpdateUrl="https://"+project+".supabase.co/functions/v1/"+testFunction+"/upstatus.user.js";
 
 assert(headerValue(prodUser,"updateURL")===expectedProductionUpdateUrl,"Normal updateURL must match release.json");
