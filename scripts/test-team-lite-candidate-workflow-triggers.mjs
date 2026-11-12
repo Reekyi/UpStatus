@@ -4,19 +4,19 @@ import fs from "node:fs";
 
 function parseBranchTargets(config, triggerName) {
   const trigger = config.match(new RegExp(
-    "^  " + triggerName + ":\\s*\\r?\\n([\\s\\S]*?)(?=^  [A-Za-z0-9_-]+:|$)",
+    "^  " + triggerName + ":[ \\t]*\\r?\\n([\\s\\S]*?)(?=^  [A-Za-z0-9_-]+:|(?![\\s\\S]))",
     "m"
   ));
   assert.ok(trigger, "workflow must define the " + triggerName + " trigger");
 
-  const inline = trigger[1].match(/^ {4}branches:\s*\[([^\]]*)\]/m);
+  const inline = trigger[1].match(/^ {4}branches:[ \t]*\[([^\]]*)\]/m);
   if (inline) {
     return inline[1].split(",").map(value => value.trim().replace(/^['"]|['"]$/g, "")).filter(Boolean);
   }
 
-  const multiline = trigger[1].match(/^ {4}branches:\s*\r?\n((?:^ {6}-\s*[^#\r\n]+(?:\r?\n|$))+)/m);
+  const multiline = trigger[1].match(/^ {4}branches:[ \t]*\r?\n((?:^ {6}-[ \t]*[^#\r\n]+(?:\r?\n|$))+)/m);
   assert.ok(multiline, triggerName + " must declare a readable branches list");
-  return [...multiline[1].matchAll(/^ {6}-\s*(['"]?)(.*?)\1\s*$/gm)].map(match => match[2]);
+  return [...multiline[1].matchAll(/^ {6}-[ \t]*(['"]?)(.*?)\1[ \t]*$/gm)].map(match => match[2]);
 }
 
 const workflow = fs.readFileSync(".github/workflows/team-lite-candidate.yml", "utf8");
