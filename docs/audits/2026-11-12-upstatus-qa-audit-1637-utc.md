@@ -112,7 +112,7 @@ Default ACLs de postgres em public/storage e de supabase_admin em public/GraphQL
 
 Projeto `bfpjtfqlnypisxljoxkb` (`upstatus-security-test`): ACTIVE_HEALTHY, região sa-east-1. Há somente duas Edge Functions: `upstatus-signal-test` v32 (SHA `f893360a4e0021a0d608e6cb58b8644c68f7389bce685c3177c025eb376b8712`) e `upstatus-signal-e2e-once` v3.
 
-As 17 tabelas de fixtures consultadas estão vazias; zero mensagens Realtime e zero buckets/objetos Storage. Dezessete/18 tabelas public consultadas têm RLS e zero policies; não há grants diretos de tabela para anon/authenticated em public. Isso confirma isolamento do projeto, mas não cria um ambiente full-product TEST.
+As 17 tabelas de fixtures consultadas estão vazias; zero mensagens Realtime e zero buckets/objetos Storage. Dezoito/18 tabelas public consultadas têm RLS e zero policies; não há grants diretos de tabela para anon/authenticated em public. Isso confirma isolamento do projeto, mas não cria um ambiente full-product TEST.
 
 Os três triggers de broadcast do laboratório usam `search_path=''`, EXECUTE somente postgres/service_role e payload mínimo contendo apenas a operação. Ainda publicam com `private=false`; portanto RT-01 não está concluído. Default ACLs de postgres em storage e de supabase_admin em public/GraphQL ainda incluem grants amplos para papéis clientes.
 
