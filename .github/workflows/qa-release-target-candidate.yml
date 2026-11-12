@@ -1,0 +1,34 @@
+name: QA Release Target Candidate Validation
+
+on:
+  push:
+    branches:
+      - fix/qa-release-script-url-20261112
+  pull_request:
+    branches:
+      - qa/release-readiness-2026-11-04-master
+    paths:
+      - "scripts/build.mjs"
+      - "scripts/validate.mjs"
+      - ".github/workflows/deploy-production.yml"
+      - "release.json"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout candidate without persisted credentials
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check build and validator syntax
+        run: |
+          node --check scripts/build.mjs
+          node --check scripts/validate.mjs
+      - name: Validate generated Normal and TEST artifacts
+        run: node scripts/validate.mjs
