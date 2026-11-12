@@ -480,6 +480,23 @@ async function deleteRoute(name:string,id:string){
 async function profileRoute(req:Request,name:string) {
   if(req.method==="GET") return response({profiles:await profileMap()});
   const p:any=await readBody(req);
+  const avatarUrl=String(p.avatarUrl||"").trim();
+  if(avatarUrl){
+    let parsed:URL;
+    try{parsed=new URL(avatarUrl);}catch{return response({error:"URL de avatar inválida."},400);}
+    const prefix="/storage/v1/object/public/profile-images/";
+    if(parsed.origin!==new URL(PROJECT_URL).origin||parsed.username||parsed.password||parsed.search||parsed.hash||!parsed.pathname.startsWith(prefix))
+      return response({error:"URL de avatar inválida."},400);
+    let objectPath="";
+    try{objectPath=decodeURIComponent(parsed.pathname.slice(prefix.length));}catch{return response({error:"URL de avatar inválida."},400);}
+    if(!objectPath||objectPath.includes("/")||objectPath.includes("\\\\")||objectPath==="."||objectPath===".."||objectPath.includes("\\0"))
+      return response({error:"URL de avatar inválida."},400);
+    const canonicalUrl=db.storage.from("profile-images").getPublicUrl(objectPath).data.publicUrl;
+    if(canonicalUrl!==parsed.toString())return response({error:"URL de avatar inválida."},400);
+    const {error}=await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:canonicalUrl,updated_at:new Date().toISOString()},{onConflict:"user_name"});
+    if(error)throw error;
+    return response({ok:true,avatarUrl:canonicalUrl});
+  }
   const saved=await uploadFile("profile-images",String(p.dataUrl||""),2*1024*1024,new Set(["image/png","image/jpeg","image/webp","image/gif"]));
   await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:saved.url,updated_at:new Date().toISOString()},{onConflict:"user_name"});
   return response({ok:true,avatarUrl:saved.url});
@@ -490,6 +507,30 @@ async function mediaRoute(req:Request,kind:"image"|"audio"|"document") {
   const allowed=kind==="audio"?new Set(["audio/webm","audio/ogg","audio/mp4","audio/mpeg","audio/wav","audio/x-wav","audio/x-m4a"]):kind==="document"?new Set(["application/pdf","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","text/csv","application/vnd.ms-powerpoint","application/vnd.openxmlformats-officedocument.presentationml.presentation","text/plain","text/rtf","application/rtf"]):new Set(["image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"]);
   const saved=await uploadFile("chat-images",String(p.dataUrl||""),max,allowed);
   return response({ok:true,imageUrl:saved.url,type:saved.mime.startsWith("video/")?"video":kind});
+}
+
+async function signedUploadRoute(req:Request,kind:"chat"|"avatar") {
+  const p:any=await readBody(req);
+  const bucket=kind==="avatar"?"profile-images":"chat-images";
+  const max=20*1024*1024;
+  const mime=String(p.mime||"").toLowerCase().trim();
+  const allowed=kind==="avatar"?new Set(["image/png","image/jpeg","image/webp","image/gif"]):new Set(["image/png","image/jpeg","image/webp","video/mp4","video/webm","application/pdf","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","text/csv","application/vnd.ms-powerpoint","application/vnd.openxmlformats-officedocument.presentationml.presentation","text/plain","text/rtf","application/rtf"]);
+  const size=Number(p.size);
+  if(!allowed.has(mime))return response({error:"Tipo de arquivo não suportado."},400);
+  if(!Number.isFinite(size)||size<1||size>max)return response({error:"O arquivo deve ter no máximo 20 MB."},400);
+  const extByMime:Record<string,string>={"image/png":"png","image/jpeg":"jpg","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm","application/pdf":"pdf","application/msword":"doc","application/vnd.openxmlformats-officedocument.wordprocessingml.document":"docx","application/vnd.ms-excel":"xls","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":"xlsx","text/csv":"csv","application/vnd.ms-powerpoint":"ppt","application/vnd.openxmlformats-officedocument.presentationml.presentation":"pptx","text/plain":"txt","text/rtf":"rtf","application/rtf":"rtf"};
+  const safeName=String(p.name||"arquivo").split(/[\\/]/).pop()?.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-100)||"arquivo";
+  const path=Date.now()+"-"+randomBytes(8).toString("hex")+"-"+safeName.replace(/\.[^.]*$/,"").slice(0,60)+"."+extByMime[mime];
+  const {data,error}=await db.storage.from(bucket).createSignedUploadUrl(path,{upsert:true});
+  if(error)throw error;
+  const uploadToken=String(data?.token||"");
+  const signedPath=String(data?.path||path);
+  const signedUrl=String(data?.signedUrl||"");
+  if(!uploadToken||!signedUrl||signedPath!==path)throw new Error("O Storage não retornou uma URL assinada válida.");
+  const publicUrl=db.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  const uploadUrl=new URL(signedUrl,PROJECT_URL+"/storage/v1/");
+  if(!uploadUrl.searchParams.has("token"))uploadUrl.searchParams.set("token",uploadToken);
+  return response({ok:true,uploadUrl:uploadUrl.toString(),signedUrl:uploadUrl.toString(),publicUrl,token:uploadToken,path:signedPath,bucket,mime,size,expiresIn:7200});
 }
 
 async function remoteRoute(req:Request,name:string) {
@@ -674,6 +715,8 @@ Deno.serve(async(req)=>{
     if(path.startsWith("/api/chat/")&&req.method==="DELETE")return await deleteRoute(name,path.slice("/api/chat/".length));
     if(path==="/api/profiles")return await profileRoute(req,name);
     if(path==="/api/profile/avatar"&&req.method==="POST")return await profileRoute(req,name);
+    if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");
+    if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");
     if(path==="/api/chat/image"&&req.method==="POST")return await mediaRoute(req,"image");
     if(path==="/api/chat/document"&&req.method==="POST")return await mediaRoute(req,"document");
     if(path==="/api/chat/audio"&&req.method==="POST")return await mediaRoute(req,"audio");
