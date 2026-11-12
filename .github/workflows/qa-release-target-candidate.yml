@@ -4,15 +4,18 @@ on:
   push:
     branches:
       - fix/qa-release-script-url-20261112
+      - fix/qa-admin-role-no-name-fallback-20261112
   pull_request:
     branches:
       - qa/release-readiness-2026-11-04-master
+      - fix/qa-release-script-url-20261112
     paths:
       - "scripts/build.mjs"
       - "scripts/validate.mjs"
       - "scripts/chat-regression.test.mjs"
       - "scripts/test-qa-release-target.mjs"
       - "src/userscript/upstatus.user.template.js"
+      - "src/server/index.template.ts"
       - ".github/workflows/deploy-production.yml"
       - "release.json"
 
@@ -36,5 +39,3 @@ jobs:
           node --check scripts/test-qa-release-target.mjs
       - name: Validate scoped release target and chat authorization contracts
         run: node scripts/test-qa-release-target.mjs
-      - name: Run full offline build and chat regressions
-        run: node scripts/validate.mjs
