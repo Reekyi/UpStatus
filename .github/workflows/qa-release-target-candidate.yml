@@ -5,6 +5,7 @@ on:
     branches:
       - fix/qa-release-script-url-20261112
       - fix/qa-admin-role-no-name-fallback-20261112
+      - fix/qa-admin-role-reconciled-20261112
   pull_request:
     branches:
       - qa/release-readiness-2026-11-04-master
