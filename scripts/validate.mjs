@@ -39,11 +39,11 @@ assert(!prodUser.includes("upstatus-screen-share-3-1-1-beta10"),"production API 
 const deployWorkflow=fs.readFileSync(path.join(ROOT,".github/workflows/deploy-production.yml"),"utf8");
 assert(deployWorkflow.includes("supabase functions deploy "+productionFunction+" --project-ref"),"production API target must match the production deploy workflow");
 assert(headerValue(testUser,"updateURL")===expectedTestUpdateUrl,"test updateURL must use the configured TEST function");
-assert(testUser.includes("var UPDATE_URL='"+expectedTestUpdateUrl+"';"),"test manual updater must use the TEST URL");
+assert(testUser.includes("var UPDATE_URL='"+expectedTestUpdateUrl+"';"),"TEST manual updater must use the TEST URL");
 assert(testUser.includes("var RELEASE_MANIFEST_URL='';"),"TEST updater must not use the production release manifest");
 assert(!testUser.includes("https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),"TEST artifact must not contain the production release feed");
 assert(testUser.includes("if(!RELEASE_MANIFEST_URL){"),"TEST updater must disable automatic checks when no channel manifest is configured");
-assert(testUser.includes("x.onclick=openUpdate"),"TEST manual update must remain available for its own configured endpoint");
+assert(testUser.includes("x.onclick=openUpdate"),"TEST updater must retain manual update access to its own channel");
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
