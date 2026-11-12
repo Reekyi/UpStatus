@@ -19,7 +19,7 @@ Esta execução foi read-only para código de produto e Supabase. Não houve che
 | `team-lite-official` | `9065bc1536fde64f437f6f12b7abb9b072cb8281` |
 
 - Compare QA → master no início da auditoria: **253 commits à frente, 1 atrás**, status diverged; merge-base `a9288ccfcb0f308d3a587bfca624418a395be07b`.
-- A criação deste relatório gerou o commit documental `39427acbf40da7532c4b8b4d615196f26e078ef2`, sem alterações de código. **HEAD QA após o registro: `39427acbf40da7532c4b8b4d615196f26e078ef2`, 254 commits à frente e 1 atrás de master.**
+- O relatório e sua conferência foram registrados em commits exclusivamente documentais após o HEAD de inspeção `e133073...`; não houve alteração de código. O HEAD atual da QA deve ser obtido do ref da branch, pois cada registro documental avança esse ref.
 - PR #74 head `fb878537d95db9097cce6d29a14260b9fd8d2e3`, base SHA `a9288cc...`; comparação com master atual: **883 à frente, 1 atrás**, status diverged.
 - PR #76 head `c4dee8d2c502499de5f95932ac14a90cffb56196`, base `team-lite-official`: **384 à frente, 0 atrás**.
 - PR #82 usa o HEAD QA `e133073...`; sua base registrada continua em `a9288cc...`.
