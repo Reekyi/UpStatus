@@ -43,6 +43,25 @@ const avatarRoute=server.indexOf('if(path==="/api/profile/avatar-upload-url"&&re
 const chatRoute=server.indexOf('if(path==="/api/chat/upload-url"&&req.method==="POST")',authGuard);
 assert(serveStart>=0&&authGuard>serveStart&&avatarRoute>authGuard&&chatRoute>authGuard,"both signed-upload routes must remain behind custom-session authentication");
 
-assert(client.includes("f.size>2*1024*1024"),"Team Lite avatar picker must retain its 2 MiB client-side limit");
+const profilePreviewStart=client.indexOf("function fileToDataUrlForProfile(file,type,ext){");
+const profilePreviewEnd=client.indexOf("\n  function uploadFileDirect",profilePreviewStart);
+assert(profilePreviewStart>=0&&profilePreviewEnd>profilePreviewStart,"profile preview helper must exist");
+const profilePreview=client.slice(profilePreviewStart,profilePreviewEnd);
+assert(profilePreview.includes("file.size>2*1024*1024"),"profile preview must reject avatars above 2 MiB before reading bytes");
+
+const clientUploadStart=client.indexOf("function uploadFileDirect(file,route){");
+const clientUploadEnd=client.indexOf("\n  function sendChatMedia",clientUploadStart);
+assert(clientUploadStart>=0&&clientUploadEnd>clientUploadStart,"signed upload client helper must exist");
+const clientUpload=client.slice(clientUploadStart,clientUploadEnd);
+assert(clientUpload.includes("route==='/api/profile/avatar-upload-url'?2*1024*1024:20*1024*1024"),"client ticket helper must use 2 MiB for avatars and preserve 20 MiB for chat attachments");
+assert(clientUpload.includes("if(file.size>max)"),"client ticket helper must reject oversized files before requesting a ticket");
+assert(client.includes("uploadFileDirect(file,'/api/profile/avatar-upload-url')"),"profile save must use the signed avatar route");
+
+const profileChangeStart=client.indexOf("profileModal.querySelector('.up-chat-profile-file').onchange=function(){");
+const profileSaveStart=client.indexOf("profileModal.querySelector('.up-chat-profile-save').onclick",profileChangeStart);
+assert(profileChangeStart>=0&&profileSaveStart>profileChangeStart,"profile file picker handler must exist");
+const profileChange=client.slice(profileChangeStart,profileSaveStart);
+assert(profileChange.includes("if(f.size>2*1024*1024)"),"profile file picker must enforce the 2 MiB limit before preview");
+assert(profileChange.includes("A foto deve ter no máximo 2 MB."),"profile file picker must explain the 2 MiB limit");
 
 console.log("Team Lite avatar hardening passed: 2 MiB limit, session ownership, canonical URL and authenticated ticket routes.");
