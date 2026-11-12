@@ -159,4 +159,4 @@ Nenhuma migration, escrita SQL, deploy, merge, release, publicação de userscri
 
 Após a criação deste relatório, o push documental no HEAD `6fec1970e0afc8425b788dabecdb4def718afecf` disparou o Validate da PR #82. O run [43149517332](https://github.com/Reekyi/UpStatus/actions/runs/43149517332) terminou **FAIL**; a consulta de jobs confirma falha no passo `Validate build`. O endpoint de logs não foi disponibilizado pelo conector nesta execução, então a mensagem exata do stderr não foi confirmada. Não afirmo que a causa seja idêntica ao `updateURL mismatch` dos heads anteriores.
 
-A branch QA permanece em `6fec1970e0afc8425b788dabecdb4def718afecf`, 237 commits à frente e 1 atrás de master. Nenhum rerun foi iniciado.
+Naquele momento, a branch QA estava em `6fec1970e0afc8425b788dabecdb4def718afecf`, 237 commits à frente e 1 atrás de master. Depois deste addendum, o arquivo recebeu um segundo commit documental e o HEAD atual passou a `79e08d114ce2cf183ab40b899deae3ea3c6cb23c`. Na consulta final não havia run associado a esse novo HEAD; o último Validate observado é o run 43149517332 no HEAD anterior. Nenhum rerun foi iniciado.
