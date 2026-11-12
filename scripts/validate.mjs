@@ -16,6 +16,7 @@ const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.t
 const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
+const buildManifest=JSON.parse(fs.readFileSync(path.join(ROOT,"dist/build-manifest.json"),"utf8"));
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
@@ -27,9 +28,21 @@ assert(headerValue(testUser,"namespace")==="upseller-test","test namespace misma
 const productionProject=buildSource.match(/const PROJECT="([^"]+)";/)?.[1];
 const productionFunction=buildSource.match(/const PROD_FUNCTION="([^"]+)";/)?.[1];
 const testFunction=buildSource.match(/const TEST_FUNCTION="([^"]+)";/)?.[1];
-assert(productionProject&&productionFunction&&testFunction,"production and TEST API targets must be defined in the build configuration");
+const isolatedSignalingProject=buildSource.match(/const ISOLATED_SIGNALING_PROJECT="([^"]+)";/)?.[1];
+const testProjectId=String(buildManifest.testProjectId||"").trim();
+const configuredTestProject=String(process.env.UPSTATUS_TEST_PROJECT_ID||"").trim();
+const configuredTestRealtimeKey=String(process.env.UPSTATUS_TEST_PUBLISHABLE_KEY||"").trim();
+const sentinelTestProject="00000000000000000000";
+assert(productionProject&&productionFunction&&testFunction&&isolatedSignalingProject,"production and TEST API targets must be defined in the build configuration");
+assert(/^[a-z0-9]{20}$/.test(testProjectId),"TEST project reference must be a 20-character lowercase Supabase ref");
+assert(testProjectId!=="dlfvkawaiqduhlazsszm","TEST artifact must never target production Supabase");
+assert(testProjectId!==isolatedSignalingProject,"full TEST artifact must not target the isolated signaling/auth project");
+assert(buildManifest.testTargetConfigured===Boolean(configuredTestProject),"build manifest TEST target configuration mismatch");
+assert(buildManifest.testRealtimeKeyConfigured===Boolean(configuredTestRealtimeKey),"build manifest TEST key configuration mismatch");
+assert(testProjectId===(configuredTestProject||sentinelTestProject),"build manifest TEST project reference mismatch");
+assert(Boolean(configuredTestProject)===Boolean(configuredTestRealtimeKey),"TEST project and publishable key must be configured together");
 const expectedProductionUpdateUrl=String(release.scriptUrl||("https://"+productionProject+".supabase.co/functions/v1/"+productionFunction+"/upstatus.user.js")).trim();
-const expectedTestUpdateUrl="https://"+productionProject+".supabase.co/functions/v1/"+testFunction+"/upstatus.user.js";
+const expectedTestUpdateUrl="https://"+testProjectId+".supabase.co/functions/v1/"+testFunction+"/upstatus.user.js";
 assert(headerValue(prodUser,"updateURL")===expectedProductionUpdateUrl,"production updateURL must match the configured stable endpoint");
 assert(headerValue(prodUser,"downloadURL")===expectedProductionUpdateUrl,"production downloadURL must match the configured stable endpoint");
 assert(prodUser.includes("var UPDATE_URL='"+expectedProductionUpdateUrl+"';"),"production manual updater must use the configured stable endpoint");
@@ -38,7 +51,13 @@ assert(prodUser.includes("var CLOUD_SERVER='https://"+productionProject+".supaba
 assert(!prodUser.includes("upstatus-screen-share-3-1-1-beta10"),"production API must not target the legacy beta10 function");
 const deployWorkflow=fs.readFileSync(path.join(ROOT,".github/workflows/deploy-production.yml"),"utf8");
 assert(deployWorkflow.includes("supabase functions deploy "+productionFunction+" --project-ref"),"production API target must match the production deploy workflow");
-assert(headerValue(testUser,"updateURL")===expectedTestUpdateUrl,"test updateURL must use the configured TEST function");
+assert(headerValue(testUser,"updateURL")===expectedTestUpdateUrl,"test updateURL must use the configured TEST project and function");
+assert(headerValue(testUser,"downloadURL")===expectedTestUpdateUrl,"test downloadURL must use the configured TEST project and function");
+assert(testUser.includes("var UP_REALTIME_URL='https://"+testProjectId+".supabase.co';"),"TEST Realtime origin must use the configured TEST project");
+assert(testUser.includes("var CLOUD_SERVER='https://"+testProjectId+".supabase.co/functions/v1/"+testFunction+"';"),"TEST API origin must use the configured TEST project");
+assert(!testUser.includes("https://"+productionProject+".supabase.co"),"TEST artifact must not contain the production project origin");
+const expectedTestRealtimeKey=configuredTestRealtimeKey||"sb_publishable_inert_test_target_not_configured";
+assert(testUser.includes("var UP_REALTIME_KEY='"+expectedTestRealtimeKey+"';"),"TEST Realtime key must be dedicated or inert");
 assert(testUser.includes("var UPDATE_URL='"+expectedTestUpdateUrl+"';"),"TEST manual updater must use the TEST URL");
 assert(testUser.includes("var RELEASE_MANIFEST_URL='';"),"TEST updater must not use the production release manifest");
 assert(!testUser.includes("https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),"TEST artifact must not contain the production release feed");
@@ -107,4 +126,5 @@ assert(prodUser.includes("button.style.margin='0 8px 0 0'"),"production back-arr
 assert(prodUser.includes("endButton.parentElement.insertBefore(button,endButton)"),"production back-arrow must sit immediately before native end-session control");
 execFileSync(process.execPath,[path.join(ROOT,"scripts/chat-regression.test.mjs")],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/signed-upload-parity.test.mjs")],{stdio:"inherit"});
+execFileSync(process.execPath,[path.join(ROOT,"scripts/test-build-target-guard.mjs")],{stdio:"inherit"});
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
