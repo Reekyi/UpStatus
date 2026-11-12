@@ -29,6 +29,8 @@ QA está 249 commits à frente e 1 atrás de master; as branches estão divergid
 
 O arquivo docs/RELEASE_READINESS.md foi lido integralmente pelo Git blob: 1.045.105 caracteres e 8.409 linhas. Blob SHA: 7cfbd70886df42ce790c078c224b19284a632595. O último checkpoint interno é 2026-11-08 15:30 BRT / 18:30 UTC. O documento está materialmente desatualizado em relação aos estados atuais de CI, Realtime, migrations e Edge Functions.
 
+> Heads da tabela acima foram capturados no início da auditoria. O relatório foi criado no commit 006c765b0def2d9b53f5bb813828d46ba166194f; a escrita documental avançou a branch QA sem alterar código ou documentos preexistentes.
+
 ## 3. PRs, reviews e CI
 
 Todas as PRs abaixo continuam abertas e Draft; não há merge nem review humana registrada nas PRs #74, #75, #76, #82, #133, #149 e #151.
