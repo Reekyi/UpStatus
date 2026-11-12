@@ -37,4 +37,16 @@ assert(profile.includes('new URL(PROJECT_URL).origin')&&profile.includes('/stora
 assert(profile.includes("getPublicUrl(objectPath).data.publicUrl"),"avatar URL must be canonicalized against the configured bucket");
 assert(profile.includes('String(p.dataUrl||"")'),"legacy avatar data-URL clients must remain compatible");
 
+
+const serveStart=server.indexOf("Deno.serve(async(req)=>{");
+const contextStart=server.indexOf("const ctx=await contextName(req);",serveStart);
+const contextNameLine=server.indexOf("const name=ctx?.name||null;",contextStart);
+const authGuard=server.indexOf('if(!ctx)return response({error:"Faça login para continuar."},401);',contextStart);
+const chatTicketRoute=server.indexOf('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");',authGuard);
+const avatarTicketRoute=server.indexOf('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");',authGuard);
+assert(serveStart>=0&&contextStart>serveStart&&contextNameLine>contextStart&&authGuard>contextNameLine,
+  "server must resolve the custom session and reject missing sessions before API routes");
+assert(chatTicketRoute>authGuard&&avatarTicketRoute>authGuard,
+  "signed-upload routes must remain behind custom-session auth guard");
+
 console.log("Signed upload parity passed: chat/avatar routes, ticket fields, PUT contract and profile URL validation.");
