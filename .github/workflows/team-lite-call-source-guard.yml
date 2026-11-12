@@ -1,0 +1,48 @@
+name: Team Lite Authenticated Call Source Guard
+
+on:
+  push:
+    branches:
+      - fix/team-lite-call-source-provenance-20261112
+    paths:
+      - "team-lite/upstatus-team-lite.user.js"
+      - "src/userscript/signaling-transport.mjs"
+      - "scripts/signaling-transport.test.mjs"
+      - "scripts/public-call-discovery-guard.test.mjs"
+      - "scripts/team-lite-candidate-check.mjs"
+      - ".github/workflows/team-lite-call-source-guard.yml"
+  pull_request:
+    branches:
+      - team-lite/signaling-transport-candidate
+    paths:
+      - "team-lite/upstatus-team-lite.user.js"
+      - "src/userscript/signaling-transport.mjs"
+      - "scripts/signaling-transport.test.mjs"
+      - "scripts/public-call-discovery-guard.test.mjs"
+      - "scripts/team-lite-candidate-check.mjs"
+      - ".github/workflows/team-lite-call-source-guard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  offline-call-source-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Check Node runtime
+        run: node --version
+      - name: Test authenticated signaling policy
+        run: |
+          node --check scripts/signaling-transport.test.mjs
+          node scripts/signaling-transport.test.mjs
+      - name: Verify Team Lite call-source boundary
+        run: |
+          node --check scripts/public-call-discovery-guard.test.mjs
+          node scripts/public-call-discovery-guard.test.mjs team-lite
+      - name: Verify Team Lite candidate contracts
+        run: node scripts/team-lite-candidate-check.mjs
