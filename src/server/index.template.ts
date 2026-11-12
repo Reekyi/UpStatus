@@ -489,7 +489,7 @@ async function profileRoute(req:Request,name:string) {
       return response({error:"URL de avatar inválida."},400);
     let objectPath="";
     try{objectPath=decodeURIComponent(parsed.pathname.slice(prefix.length));}catch{return response({error:"URL de avatar inválida."},400);}
-    if(!objectPath||objectPath.includes("/")||objectPath.includes("\\\\")||objectPath==="."||objectPath===".."||objectPath.includes("\\0"))
+    if(!objectPath||objectPath.includes("/")||objectPath.includes("\\")||objectPath==="."||objectPath===".."||objectPath.includes("\0"))
       return response({error:"URL de avatar inválida."},400);
     const canonicalUrl=db.storage.from("profile-images").getPublicUrl(objectPath).data.publicUrl;
     if(canonicalUrl!==parsed.toString())return response({error:"URL de avatar inválida."},400);
