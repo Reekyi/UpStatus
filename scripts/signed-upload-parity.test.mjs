@@ -45,8 +45,8 @@ const serveStart=server.indexOf("Deno.serve(async(req)=>{");
 const contextStart=server.indexOf("const ctx=await contextName(req);",serveStart);
 const contextNameLine=server.indexOf("const name=ctx?.name||null;",contextStart);
 const authGuard=server.indexOf('if(!ctx)return response({error:"Faça login para continuar."},401);',contextStart);
-const chatTicketRoute=server.indexOf('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");',authGuard);
-const avatarTicketRoute=server.indexOf('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");',authGuard);
+const chatTicketRoute=server.indexOf('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat",ctx.name);',authGuard);
+const avatarTicketRoute=server.indexOf('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar",ctx.name);',authGuard);
 assert(serveStart>=0&&contextStart>serveStart&&contextNameLine>contextStart&&authGuard>contextNameLine,
   "server must resolve the custom session and reject missing sessions before API routes");
 assert(chatTicketRoute>authGuard&&avatarTicketRoute>authGuard,
