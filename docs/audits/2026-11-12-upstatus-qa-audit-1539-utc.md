@@ -15,10 +15,11 @@ Esta execução foi read-only para código de produto e Supabase. Não houve che
 | Referência | HEAD |
 |---|---|
 | `master` | `9d40461babcec8eb8686c2a04be9c675df7da381` |
-| `qa/release-readiness-2026-11-04-master` | `e133073988f499078138c178e5459ffab852f862` |
+| `qa/release-readiness-2026-11-04-master` (início da auditoria) | `e133073988f499078138c178e5459ffab852f862` |
 | `team-lite-official` | `9065bc1536fde64f437f6f12b7abb9b072cb8281` |
 
-- Compare QA → master: **253 commits à frente, 1 atrás**, status diverged; merge-base `a9288ccfcb0f308d3a587bfca624418a395be07b`.
+- Compare QA → master no início da auditoria: **253 commits à frente, 1 atrás**, status diverged; merge-base `a9288ccfcb0f308d3a587bfca624418a395be07b`.
+- A criação deste relatório gerou o commit documental `39427acbf40da7532c4b8b4d615196f26e078ef2`, sem alterações de código. **HEAD QA após o registro: `39427acbf40da7532c4b8b4d615196f26e078ef2`, 254 commits à frente e 1 atrás de master.**
 - PR #74 head `fb878537d95db9097cce6d29a14260b9fd8d2e3`, base SHA `a9288cc...`; comparação com master atual: **883 à frente, 1 atrás**, status diverged.
 - PR #76 head `c4dee8d2c502499de5f95932ac14a90cffb56196`, base `team-lite-official`: **384 à frente, 0 atrás**.
 - PR #82 usa o HEAD QA `e133073...`; sua base registrada continua em `a9288cc...`.
