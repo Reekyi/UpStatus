@@ -85,7 +85,7 @@ Entretanto, `signalTransportFlag` continua default `false` e o endpoint autentic
 
 Snapshot read-only de produção:
 - 109 linhas em `realtime.messages`, todas `private=false`: 57 `user_status`, 40 `db_change`, 6 `remote_command`, 6 `remote_result`.
-- Triggers publicam no tópico legado `upstatus-live-6f8c-4d8f-ae5a-91c7b2d6e4f0` (identificador completo conferido no SQL: `upstatus-live-6f8c-4d8f-ae5a-91c7b2d6e4f0`); os clientes usam o tópico beta10. Os tópicos não coincidem.
+- Triggers publicam no tópico legado `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0` (identificador completo conferido no SQL: `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`); os clientes usam o tópico beta10. Os tópicos não coincidem.
 - `realtime.messages`: RLS true, FORCE RLS false, zero policies; anon/authenticated possuem SELECT, INSERT e UPDATE efetivos.
 - `upstatus_broadcast_messages`, `upstatus_broadcast_remote_state` e `upstatus_broadcast_users`: SECURITY DEFINER, `search_path=public`, retorno `trigger`, uma trigger anexada a cada função, EXECUTE efetivo para anon/authenticated.
 - `upstatus_broadcast_messages` envia `to_jsonb(CASE WHEN TG_OP='DELETE' THEN OLD ELSE NEW END)` em `db_change`, com `private=false`.
@@ -146,6 +146,10 @@ O dispatcher #143 deve continuar falhando fechado para essas fontes sem blob ori
 - A organização possui dois projetos Supabase: produção e `upstatus-security-test`. Não existe terceiro projeto full-product TEST.
 - O laboratório tem 39 migrations, zero grants diretos de tabela public para anon/authenticated e as fixtures consultadas estavam vazias.
 - A branch gerenciada de produção `main` continua `MIGRATIONS_FAILED`; o preview está `ACTIVE_HEALTHY`.
+
+## Workflow oficial de publicação Team Lite
+
+O workflow `.github/workflows/deploy-production.yml` na branch `team-lite-official` (blob `e95bab7602fd3fcf80ab88ff44ccc9c259593c75`) é manual (`workflow_dispatch`), instala Supabase CLI com `version: latest` e executa `supabase functions deploy upstatus --project-ref "$SUPABASE_PROJECT_ID" --use-api`. O destino é incorreto: Team Lite deve publicar em `upstatus-team-lite`, não em `upstatus` (runtime Normal). Não há CLI pinada nesse workflow. **Não despachar.** Nenhum deploy foi executado.
 
 ## Issues e aceitação manual
 
