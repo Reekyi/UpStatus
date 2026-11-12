@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/qa-updateurl-reconciled-20261112
+      - fix/qa-signed-upload-parity-20261112
   pull_request:
     branches:
       - qa/release-readiness-2026-11-04-master
