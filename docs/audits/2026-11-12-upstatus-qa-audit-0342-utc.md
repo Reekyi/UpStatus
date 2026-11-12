@@ -153,3 +153,10 @@ A organização lista somente dois projetos: produção e laboratório. O slug `
 10. Obter aprovação humana e executar os oito critérios físicos da #78.
 
 Nenhuma migration, escrita SQL, deploy, merge, release, publicação de userscript, alteração de secret/flag/role/grant/policy/ACL ou operação destrutiva foi realizada. Nenhum workflow foi iniciado ou repetido manualmente pela auditoria. A única alteração de repositório é este novo arquivo documental na branch QA; nenhum arquivo existente foi sobrescrito.
+
+
+## Addendum — 2026-11-12 03:45 UTC
+
+Após a criação deste relatório, o push documental no HEAD `6fec1970e0afc8425b788dabecdb4def718afecf` disparou o Validate da PR #82. O run [43149517332](https://github.com/Reekyi/UpStatus/actions/runs/43149517332) terminou **FAIL**; a consulta de jobs confirma falha no passo `Validate build`. O endpoint de logs não foi disponibilizado pelo conector nesta execução, então a mensagem exata do stderr não foi confirmada. Não afirmo que a causa seja idêntica ao `updateURL mismatch` dos heads anteriores.
+
+A branch QA permanece em `6fec1970e0afc8425b788dabecdb4def718afecf`, 237 commits à frente e 1 atrás de master. Nenhum rerun foi iniciado.
