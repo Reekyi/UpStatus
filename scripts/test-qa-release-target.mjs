@@ -10,6 +10,7 @@ execFileSync(process.execPath,[path.join(ROOT,"scripts/build.mjs")],{stdio:"inhe
 const release=JSON.parse(fs.readFileSync(path.join(ROOT,"release.json"),"utf8"));
 const buildSource=fs.readFileSync(path.join(ROOT,"scripts/build.mjs"),"utf8");
 const template=fs.readFileSync(path.join(ROOT,"src/userscript/upstatus.user.template.js"),"utf8");
+const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
 const deployWorkflow=fs.readFileSync(path.join(ROOT,".github/workflows/deploy-production.yml"),"utf8");
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
@@ -45,6 +46,10 @@ assert(testUser.includes("x.onclick=openUpdate"),"TEST manual update must remain
 assert(template.includes("var canDelete=m.user===member||role==='implementation_admin';"),"chat delete UI must use the stored administrator role");
 assert(!template.includes("var canDelete=m.user===member||member==='Ricardo'||role==='implementation_admin';"),"chat delete UI must not grant admin access by display name");
 assert(template.includes("role=r.role||'implementation_user';")&&template.includes("GM_setValue(key+'role',role);"),"chat UI must persist the role returned by the server");
+assert(serverTemplate.includes('const role=a.role||"implementation_user";'),"first setup must default to the stored role or ordinary-user role");
+assert(!serverTemplate.includes('["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin"'),"first setup must never infer admin privileges from a display name");
+assert(serverTemplate.includes('if(!(await admin(name)))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);'),"health route must authorize using the persisted administrator role");
+assert(serverTemplate.includes('if(name!=="Ricardo"||!(await admin(name)))return response({error:"Somente Ricardo pode limpar o chat."},403);'),"chat clearing must require both owner identity and persisted admin role");
 assert(template.includes("document.addEventListener('click',function(ev){document.querySelectorAll('.up-chat-emoji-menu').forEach(function(m){var b=m.__upstatusEmojiButton;if(!m.contains(ev.target)&&(!b||!b.contains(ev.target)))"),"emoji picker must preserve clicks inside its menu and owning button");
 
 console.log("QA release target, updater-channel and chat-role contracts PASS");
