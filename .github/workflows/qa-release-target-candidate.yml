@@ -10,6 +10,8 @@ on:
     paths:
       - "scripts/build.mjs"
       - "scripts/validate.mjs"
+      - "scripts/chat-regression.test.mjs"
+      - "src/userscript/upstatus.user.template.js"
       - ".github/workflows/deploy-production.yml"
       - "release.json"
 
