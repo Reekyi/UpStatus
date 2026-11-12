@@ -11,6 +11,7 @@ on:
       - "scripts/build.mjs"
       - "scripts/validate.mjs"
       - "scripts/chat-regression.test.mjs"
+      - "scripts/test-qa-release-target.mjs"
       - "src/userscript/upstatus.user.template.js"
       - ".github/workflows/qa-updateurl-candidate.yml"
       - "release.json"
@@ -32,5 +33,7 @@ jobs:
         run: |
           node --check scripts/build.mjs
           node --check scripts/validate.mjs
+      - name: Validate release target and chat authorization contracts
+        run: node scripts/test-qa-release-target.mjs
       - name: Run full offline build and chat regressions
         run: node scripts/validate.mjs
