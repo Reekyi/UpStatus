@@ -15,6 +15,7 @@ on:
       - "scripts/chat-regression.test.mjs"
       - "scripts/test-qa-release-target.mjs"
       - "scripts/signed-upload-parity.test.mjs"
+      - "scripts/test-build-target-guard.mjs"
       - "src/server/index.template.ts"
       - "src/userscript/upstatus.user.template.js"
       - ".github/workflows/qa-updateurl-candidate.yml"
@@ -37,6 +38,9 @@ jobs:
         run: |
           node --check scripts/build.mjs
           node --check scripts/validate.mjs
+          node --check scripts/test-build-target-guard.mjs
+      - name: Test TEST project and publishable-key isolation
+        run: node scripts/test-build-target-guard.mjs
       - name: Validate release target and chat authorization contracts
         run: node scripts/test-qa-release-target.mjs
       - name: Run full offline build and chat regressions
