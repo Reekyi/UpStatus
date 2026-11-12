@@ -1,0 +1,28 @@
+name: Team Lite Avatar Hardening
+
+on:
+  push:
+    branches:
+      - fix/team-lite-avatar-owner-limit-20261112
+    paths:
+      - "src/server/team-lite-index.template.ts"
+      - "team-lite/upstatus-team-lite.user.js"
+      - "scripts/team-lite-avatar-hardening.test.mjs"
+      - ".github/workflows/team-lite-avatar-hardening.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  avatar-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate Team Lite avatar contract
+        run: node scripts/team-lite-avatar-hardening.test.mjs
