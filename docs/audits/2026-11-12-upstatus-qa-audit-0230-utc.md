@@ -115,7 +115,7 @@ A candidata Team Lite e o Normal candidato também não estão alinhados no tóp
 
 - Projeto `ACTIVE_HEALTHY`, PostgreSQL 17.11.
 - **7 migrations** aplicadas.
-- **109** registros em `realtime.messages`, todos `private=false`, no tópico `upstatus-live-6f8c7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`? Não: o tópico observado é exatamente `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`.
+- **109** registros em `realtime.messages`, todos `private=false`, no tópico `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`.
 - Dez tabelas públicas com RLS habilitado e sem policies: `chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing`, `upstatus_visual_config`, `users`.
 - Nove dessas tabelas têm grants diretos para `anon` e `authenticated`: 126 entradas no total, cobrindo DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE e UPDATE. RLS não protege TRUNCATE.
 - `realtime.messages`: RLS habilitado, FORCE RLS desabilitado, zero policies e SELECT/INSERT/UPDATE para anon e authenticated.
