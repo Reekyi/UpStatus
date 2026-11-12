@@ -36,3 +36,5 @@ jobs:
           node --check scripts/test-qa-release-target.mjs
       - name: Validate scoped release target and chat authorization contracts
         run: node scripts/test-qa-release-target.mjs
+      - name: Run full offline build and chat regressions
+        run: node scripts/validate.mjs
