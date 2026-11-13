@@ -8,6 +8,7 @@ import vm from "node:vm";
 import { readFileSync } from "node:fs";
 
 const functionSource = readFileSync("supabase/functions/upstatus-signal-test/index.ts", "utf8");
+const voiceStatusModule = readFileSync("supabase/functions/upstatus-signal-test/voice-status.mjs", "utf8");
 const userTemplate = readFileSync("src/userscript/upstatus.user.template.js", "utf8");
 const transportSource = readFileSync("src/userscript/signaling-transport.mjs", "utf8");
 const bodyModule = readFileSync("supabase/functions/upstatus-signal-test/body.mjs", "utf8");
@@ -140,7 +141,8 @@ assert.ok(voiceAttemptSingletonMigration.includes("VOICE_ATTEMPT_ALREADY_ACTIVE"
   voiceAttemptSingletonMigration.includes("FOR UPDATE") &&
   voiceAttemptSingletonTest.includes("pg_get_functiondef") &&
   voiceAttemptSingletonTest.includes("has_function_privilege") &&
-  functionSource.includes('code === "VOICE_ATTEMPT_ALREADY_ACTIVE"') &&
+  voiceStatusModule.includes('"VOICE_ATTEMPT_ALREADY_ACTIVE"') &&
+  voiceStatusModule.includes("return 409") &&
   authenticatedHarness.includes("same user cannot create concurrent voice attempts across Normal and Team Lite aliases"),
   "voice attempt RPC must enforce one active account membership across tab-local IDs and return a mapped conflict");
 assert.ok(functionSource.includes('path.endsWith("/room/cancel-open")') &&
