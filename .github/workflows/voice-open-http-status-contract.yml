@@ -11,6 +11,16 @@ on:
       - "scripts/validate.mjs"
       - "supabase/functions/upstatus-signal-test/index.ts"
       - "supabase/functions/upstatus-signal-test/voice-status.mjs"
+  pull_request:
+    branches:
+      - fix/voice-open-http-409-contract-20261113
+    paths:
+      - ".github/workflows/voice-open-http-status-contract.yml"
+      - "scripts/voice-open-status.test.mjs"
+      - "scripts/signaling-static.test.mjs"
+      - "scripts/validate.mjs"
+      - "supabase/functions/upstatus-signal-test/index.ts"
+      - "supabase/functions/upstatus-signal-test/voice-status.mjs"
 
 permissions:
   contents: read
