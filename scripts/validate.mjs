@@ -32,6 +32,7 @@ assert(prodUser.includes("var CLOUD_SERVER='https://dlfvkawaiqduhlazsszm.supabas
 const expectedTestUpdateUrl="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test/upstatus.user.js";
 assert(headerValue(testUser,"updateURL")===expectedTestUpdateUrl,"test updateURL must match the TEST function");
 assert(headerValue(testUser,"downloadURL")===expectedTestUpdateUrl,"test downloadURL must match the TEST function");
+assert(testUser.includes("var UPDATE_URL='"+expectedTestUpdateUrl+"';"),"TEST manual updater must match the TEST function");
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
