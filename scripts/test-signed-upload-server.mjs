@@ -56,7 +56,7 @@ const req=body=>({method:"POST",body});
   assert.ok(r.body.uploadUrl.startsWith(project+"/storage/v1/object/upload/sign/chat-images/"));
   assert.ok(r.body.publicUrl.startsWith(project+"/storage/v1/object/public/chat-images/"));
   assert.equal(h.calls.storage.length,1);
-  assert.equal(h.calls.storage[0].options.upsert,true);
+  assert.equal(h.calls.storage[0].options.upsert,false);
 }
 {
   const h=harness();
