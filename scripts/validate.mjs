@@ -48,7 +48,8 @@ assert(testUser.includes("upStatusSaleChatClose"),"Sale Smartly close integratio
 assert(testFn.includes("async function signedUploadRoute(req:Request,kind:\"chat\"|\"avatar\")"),"signed upload route missing from TEST backend");
 assert(testFn.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");'),"chat signed-upload endpoint missing from TEST backend");
 assert(testFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");'),"avatar signed-upload endpoint missing from TEST backend");
-assert(testFn.includes("createSignedUploadUrl(path,{upsert:true})"),"Storage signed URL must be generated with upsert enabled");
+assert(testFn.includes("createSignedUploadUrl(path,{upsert:false})"),"Storage signed URL must forbid object overwrite");
+assert(!testUser.includes("'x-upsert':'true'"),"signed upload client must not request object overwrite");
 assert(testFn.includes('const max=20*1024*1024;'),"TEST signed upload limit must be 20 MiB");
 assert(testFn.includes('if(!uploadToken||!signedUrl||signedPath!==path)'),"TEST backend must verify signed upload response fields");
 assert(testFn.includes('String(p.dataUrl||"")')&&testFn.includes('uploadFile("profile-images"'),"legacy avatar dataUrl compatibility missing from TEST backend");
