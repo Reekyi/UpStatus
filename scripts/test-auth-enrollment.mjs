@@ -19,6 +19,7 @@ async function rest(path, options = {}) {
   const response = await fetch(restUrl + path, {
     ...options,
     headers: { ...headers, ...(options.headers || {}) },
+    redirect: "error",
     signal: AbortSignal.timeout(15000),
   });
   const text = await response.text();
