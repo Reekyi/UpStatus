@@ -33,6 +33,10 @@ const expectedTestUpdateUrl="https://dlfvkawaiqduhlazsszm.supabase.co/functions/
 assert(headerValue(testUser,"updateURL")===expectedTestUpdateUrl,"test updateURL must match the TEST function");
 assert(headerValue(testUser,"downloadURL")===expectedTestUpdateUrl,"test downloadURL must match the TEST function");
 assert(testUser.includes("var UPDATE_URL='"+expectedTestUpdateUrl+"';"),"TEST manual updater must match the TEST function");
+assert(prodUser.includes("var RELEASE_MANIFEST_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json';"),"Normal updater must use the stable release manifest");
+assert(testUser.includes("var RELEASE_MANIFEST_URL='';"),"TEST updater must not use the production release manifest");
+assert(testUser.includes("if(!RELEASE_MANIFEST_URL){"),"TEST automatic updater must stop without a dedicated channel manifest");
+assert(!testUser.includes("https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),"TEST userscript must not fetch the production release feed");
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
