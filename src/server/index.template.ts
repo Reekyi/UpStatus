@@ -481,7 +481,7 @@ async function signedUploadRoute(req:Request,kind:"chat"|"avatar") {
   const extByMime:Record<string,string>={"image/png":"png","image/jpeg":"jpg","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm","application/pdf":"pdf","application/msword":"doc","application/vnd.openxmlformats-officedocument.wordprocessingml.document":"docx","application/vnd.ms-excel":"xls","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":"xlsx","text/csv":"csv","application/vnd.ms-powerpoint":"ppt","application/vnd.openxmlformats-officedocument.presentationml.presentation":"pptx","text/plain":"txt","text/rtf":"rtf","application/rtf":"rtf"};
   const safeName=String(p.name||"arquivo").split(/[\\/]/).pop()?.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-100)||"arquivo";
   const path=Date.now()+"-"+randomBytes(8).toString("hex")+"-"+safeName.replace(/\.[^.]*$/,"").slice(0,60)+"."+extByMime[mime];
-  const {data,error}=await db.storage.from(bucket).createSignedUploadUrl(path,{upsert:true});
+  const {data,error}=await db.storage.from(bucket).createSignedUploadUrl(path,{upsert:false});
   if(error)throw error;
   const uploadToken=String(data?.token||"");
   const signedPath=String(data?.path||path);
