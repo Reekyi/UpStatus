@@ -493,7 +493,10 @@ async function profileRoute(req:Request,name:string) {
   if(error)throw error;
   return response({ok:true,avatarUrl:saved.url});
 }
-async function signedUploadRoute(req:Request,kind:"chat"|"avatar",ownerName:string) {\n  const ownerId=kind==="avatar"?await avatarUserId(ownerName):"";\n  if(kind==="avatar"&&!ownerId)return response({error:"Não foi possível identificar sua conta com segurança."},409);\n  const ownerPrefix=kind==="avatar"?avatarOwnerPrefix(ownerId):"";
+async function signedUploadRoute(req:Request,kind:"chat"|"avatar",ownerName:string) {
+  const ownerId=kind==="avatar"?await avatarUserId(ownerName):"";
+  if(kind==="avatar"&&!ownerId)return response({error:"Não foi possível identificar sua conta com segurança."},409);
+  const ownerPrefix=kind==="avatar"?avatarOwnerPrefix(ownerId):"";
   const p:any=await readBody(req);
   const bucket=kind==="avatar"?"profile-images":"chat-images";
   const max=kind==="avatar"?2*1024*1024:20*1024*1024;
@@ -504,7 +507,8 @@ async function signedUploadRoute(req:Request,kind:"chat"|"avatar",ownerName:stri
   if(!Number.isSafeInteger(size)||size<1||size>max)return response({error:kind==="avatar"?"A foto deve ter no máximo 2 MB.":"O arquivo deve ter no máximo 20 MB."},400);
   const extByMime:Record<string,string>={"image/png":"png","image/jpeg":"jpg","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm","application/pdf":"pdf","application/msword":"doc","application/vnd.openxmlformats-officedocument.wordprocessingml.document":"docx","application/vnd.ms-excel":"xls","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":"xlsx","text/csv":"csv","application/vnd.ms-powerpoint":"ppt","application/vnd.openxmlformats-officedocument.presentationml.presentation":"pptx","text/plain":"txt","text/rtf":"rtf","application/rtf":"rtf"};
   const safeName=String(p.name||"arquivo").split(/[\\/]/).pop()?.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-100)||"arquivo";
-  const fileName=Date.now()+"-"+randomBytes(8).toString("hex")+"-"+safeName.replace(/\.[^.]*$/,"").slice(0,60)+"."+extByMime[mime];\n  const path=kind==="avatar"?ownerPrefix+fileName:fileName;
+  const fileName=Date.now()+"-"+randomBytes(8).toString("hex")+"-"+safeName.replace(/\.[^.]*$/,"").slice(0,60)+"."+extByMime[mime];
+  const path=kind==="avatar"?ownerPrefix+fileName:fileName;
   const {data,error}=await db.storage.from(bucket).createSignedUploadUrl(path,{upsert:false});
   if(error)throw error;
   const uploadToken=String(data?.token||"");
