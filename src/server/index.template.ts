@@ -293,13 +293,13 @@ function sniffMime(bytes:Uint8Array,declared:string) {
 function ext(mime:string) {
   return ({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm","audio/webm":"webm","audio/ogg":"ogg","audio/mp4":"m4a","audio/mpeg":"mp3","audio/wav":"wav","audio/x-wav":"wav","audio/x-m4a":"m4a" } as Record<string,string>)[mime]||"";
 }
-async function uploadFile(bucket:string,dataUrl:string,max:number,allowed:Set<string>) {
+async function uploadFile(bucket:string,dataUrl:string,max:number,allowed:Set<string>,pathPrefix="") {
   const d=decodeDataUrl(dataUrl);
   const mime=sniffMime(d.bytes,d.mime);
   if(!allowed.has(mime))throw new Error("Tipo de arquivo não suportado.");
   if(d.bytes.length>max)throw new Error("Arquivo acima do limite permitido.");
   const e=ext(mime);if(!e)throw new Error("Tipo de arquivo não suportado.");
-  const path=Date.now()+"-"+randomBytes(6).toString("hex")+"."+e;
+  const path=String(pathPrefix||"")+Date.now()+"-"+randomBytes(6).toString("hex")+"."+e;
   const body=d.bytes.buffer.slice(d.bytes.byteOffset,d.bytes.byteOffset+d.bytes.byteLength);
   const {error}=await db.storage.from(bucket).upload(path,body,{contentType:mime,cacheControl:"31536000",upsert:false});
   if(error)throw error;
@@ -446,10 +446,31 @@ async function deleteRoute(name:string,id:string){
   return response({ok:true,id});
 }
 
+function uniqueAvatarUserId(rows:any[]) {
+  if(!Array.isArray(rows)||rows.length!==1)return null;
+  const id=String(rows[0]?.id??"").trim();
+  return /^[0-9]+$/.test(id)?id:null;
+}
+async function avatarUserId(name:string) {
+  const normalized=String(name||"").trim();
+  if(!normalized)return null;
+  const {data,error}=await db.from("users").select("id").eq("name",normalized).limit(2);
+  if(error)throw error;
+  return uniqueAvatarUserId(data);
+}
+function avatarOwnerPrefix(userId:string|number) {
+  const normalized=String(userId??"").trim();
+  if(!/^[0-9]+$/.test(normalized))throw new Error("Identidade de usuário inválida.");
+  return "avatar-"+tokenHash("upstatus-user-id:"+normalized).slice(0,24)+"-";
+}
+
 async function profileRoute(req:Request,name:string) {
   if(req.method==="GET") return response({profiles:await profileMap()});
   const p:any=await readBody(req);
   const avatarUrl=String(p.avatarUrl||"").trim();
+  const userId=await avatarUserId(name);
+  if(!userId)return response({error:"Não foi possível identificar sua conta com segurança."},409);
+  const ownerPrefix=avatarOwnerPrefix(userId);
   if(avatarUrl){
     let parsed:URL;
     try{parsed=new URL(avatarUrl);}catch(e){return response({error:"URL de foto inválida."},400);}
@@ -458,18 +479,21 @@ async function profileRoute(req:Request,name:string) {
     if(parsed.origin!==projectOrigin||parsed.username||parsed.password||!parsed.pathname.startsWith(prefix)||parsed.search||parsed.hash)return response({error:"A foto precisa pertencer ao bucket de perfil deste projeto."},400);
     let objectPath="";
     try{objectPath=decodeURIComponent(parsed.pathname.slice(prefix.length));}catch(e){return response({error:"Caminho de foto inválido."},400);}
-    if(!objectPath||objectPath.includes("/")||objectPath.includes("\\")||objectPath==="."||objectPath==="..")return response({error:"Caminho de foto inválido."},400);
-    const {error}=await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:parsed.toString(),updated_at:new Date().toISOString()},{onConflict:"user_name"});
+    if(!objectPath||objectPath.includes("/")||objectPath.includes("\\")||objectPath==="."||objectPath===".."||objectPath.includes("\0"))return response({error:"Caminho de foto inválido."},400);
+    if(!objectPath.startsWith(ownerPrefix))return response({error:"O avatar não pertence à sua conta."},403);
+    const canonicalUrl=db.storage.from("profile-images").getPublicUrl(objectPath).data.publicUrl;
+    if(canonicalUrl!==parsed.toString())return response({error:"URL de foto inválida."},400);
+    const {error}=await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:canonicalUrl,updated_at:new Date().toISOString()},{onConflict:"user_name"});
     if(error)throw error;
-    return response({ok:true,avatarUrl:parsed.toString()});
+    return response({ok:true,avatarUrl:canonicalUrl});
   }
-  // Backward compatibility for already-installed clients that still send a data URL.
-  const saved=await uploadFile("profile-images",String(p.dataUrl||""),2*1024*1024,new Set(["image/png","image/jpeg","image/webp","image/gif"]));
+  // Backward compatibility for already-installed clients; legacy uploads use the same immutable owner prefix.
+  const saved=await uploadFile("profile-images",String(p.dataUrl||""),2*1024*1024,new Set(["image/png","image/jpeg","image/webp","image/gif"]),ownerPrefix);
   const {error}=await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:saved.url,updated_at:new Date().toISOString()},{onConflict:"user_name"});
   if(error)throw error;
   return response({ok:true,avatarUrl:saved.url});
 }
-async function signedUploadRoute(req:Request,kind:"chat"|"avatar") {
+async function signedUploadRoute(req:Request,kind:"chat"|"avatar",ownerName:string) {\n  const ownerId=kind==="avatar"?await avatarUserId(ownerName):"";\n  if(kind==="avatar"&&!ownerId)return response({error:"Não foi possível identificar sua conta com segurança."},409);\n  const ownerPrefix=kind==="avatar"?avatarOwnerPrefix(ownerId):"";
   const p:any=await readBody(req);
   const bucket=kind==="avatar"?"profile-images":"chat-images";
   const max=kind==="avatar"?2*1024*1024:20*1024*1024;
@@ -480,7 +504,7 @@ async function signedUploadRoute(req:Request,kind:"chat"|"avatar") {
   if(!Number.isSafeInteger(size)||size<1||size>max)return response({error:kind==="avatar"?"A foto deve ter no máximo 2 MB.":"O arquivo deve ter no máximo 20 MB."},400);
   const extByMime:Record<string,string>={"image/png":"png","image/jpeg":"jpg","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm","application/pdf":"pdf","application/msword":"doc","application/vnd.openxmlformats-officedocument.wordprocessingml.document":"docx","application/vnd.ms-excel":"xls","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":"xlsx","text/csv":"csv","application/vnd.ms-powerpoint":"ppt","application/vnd.openxmlformats-officedocument.presentationml.presentation":"pptx","text/plain":"txt","text/rtf":"rtf","application/rtf":"rtf"};
   const safeName=String(p.name||"arquivo").split(/[\\/]/).pop()?.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-100)||"arquivo";
-  const path=Date.now()+"-"+randomBytes(8).toString("hex")+"-"+safeName.replace(/\.[^.]*$/,"").slice(0,60)+"."+extByMime[mime];
+  const fileName=Date.now()+"-"+randomBytes(8).toString("hex")+"-"+safeName.replace(/\.[^.]*$/,"").slice(0,60)+"."+extByMime[mime];\n  const path=kind==="avatar"?ownerPrefix+fileName:fileName;
   const {data,error}=await db.storage.from(bucket).createSignedUploadUrl(path,{upsert:false});
   if(error)throw error;
   const uploadToken=String(data?.token||"");
@@ -647,8 +671,8 @@ Deno.serve(async(req)=>{
     if(path.startsWith("/api/chat/")&&req.method==="DELETE")return await deleteRoute(name,path.slice("/api/chat/".length));
     if(path==="/api/profiles")return await profileRoute(req,name);
     if(path==="/api/profile/avatar"&&req.method==="POST")return await profileRoute(req,name);
-    if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");
-    if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");
+    if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar",ctx.name);
+    if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat",ctx.name);
     if(path==="/api/chat/image"&&req.method==="POST")return await mediaRoute(req,"image");
     if(path==="/api/chat/document"&&req.method==="POST")return await mediaRoute(req,"document");
     if(path==="/api/chat/audio"&&req.method==="POST")return await mediaRoute(req,"audio");
