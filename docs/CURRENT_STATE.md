@@ -3213,3 +3213,43 @@ PRs remain open/Draft. No human reviews were found for #74, #75, #76, #80, #82, 
 No production SQL write, migration, deployment, merge, release, userscript publication, secret/role/flag/grant/ACL/policy change or destructive action occurred. Production queries were SELECT/catalog-only. The only lab mutation in the wider test history is the previously recorded isolated contract fixture; this checkpoint itself made no database mutation.
 
 Next: allow PR #131's isolated Smoke run to finish; inspect the exact job logs and cleanup; send the result to independent QA. Keep #130 open and untouched. Continue RT-01/ACL/Storage and migration provenance only with reviewed candidate plans. Do not deploy or merge.
+
+
+## 2026-11-13 10:13 UTC — engineering continuation checkpoint
+
+### Verified refs
+- `master`: `9d40461babcec8eb8686c2a04be9c675df7da381`.
+- `develop`: `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`.
+- `team-lite-official`: `9065bc1536fde64f437f6f12b7abb9b072cb8281`.
+- QA branch `qa/release-readiness-2026-11-04-master`: `2c52ddd85f514567563a64a5550e5e1e2bb91b1d`.
+
+### Candidate state
+- Normal #74: `dcaf6a072546eda0089e0cee4018c3047011f600`; Validate and Signaling Smoke runs 43376770142 / 43376770200 passed. Smoke includes 136/136 authenticated checks; setup-invite issuance rate-limit step was skipped on that earlier run.
+- Team Lite #76: `83a6cc4503ddc01254f6a2abbcc7af5c6803eb94`; Candidate Checks 43363871881 passed (110/110 authenticated, 16/16 unauthenticated).
+- Baseline #75: `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`; historical PASS only.
+- Continuity #80: `be72d40fa26b70f6beab8cabbede92b08e2eb194`; latest recorded Validate fails with `client signed upload helper missing`.
+- QA #82: `2c52ddd85f514567563a64a5550e5e1e2bb91b1d`; Validate 43403571410 fails with `production updateURL mismatch`.
+- #159: `0bf5a9b76156dea69380468197f19d6ee4bcffc3`; independent QA found P1: first setup no longer requires/consumes setupToken. Do not integrate #159 independently.
+- #160: `d36eae7c78de74bd9938fd38d558752f0bf214cb`; distributed setup-invite rate limit candidate, isolated Smoke 43399500463 passed.
+- #161: `a1d8dc8409ae894a5fb02acd2014749b7281868f`; Draft consolidated candidate, 10 commits ahead/0 behind #74. It preserves #160 and aligns Normal CLOUD_SERVER with PROD_FUNCTION. Smoke 43407101808 is in progress: complete build/Validate, harness syntax and unauthenticated isolated checks passed; authenticated browser/integration step is still running. No review has been received.
+
+### Supabase read-only snapshot
+- Only two projects are listed: production `dlfvkawaiqduhlazsszm` and isolated signaling/auth lab `bfpjtfqlnypisxljoxkb`. No full-product TEST project exists.
+- Production branch `main`: `MIGRATIONS_FAILED`; preview `ACTIVE_HEALTHY`. Production has 38 ACTIVE Edge Functions, including 12 slugs with `upstatus-test` prefix.
+- Production Realtime snapshot: 125 messages in 14 days, all `private=false` (67 user_status, 46 db_change, 6 remote_command, 6 remote_result).
+- Production catalog: nine public tables with direct anon/authenticated grants (including TRUNCATE), ten RLS tables without policies, 120 client Default ACL entries, three SECURITY DEFINER broadcast functions with client EXECUTE, two public Storage buckets and 188 objects, zero Storage object policies.
+- Lab: 39 migrations, two Edge Functions, zero direct client grants in public, 18 RLS tables without policies, zero buckets/objects. This lab is not a full-product TEST environment.
+- Production session identity remains name-based: `upstatus_sessions.user_name`, `upstatus_profiles` primary key `user_name`, and `users.name` is not UNIQUE.
+- The production migration ledger contains statements for versions `20261023154754`, `20261026195855`, `20261027154329`, and `20261027155438`. Their statement lengths/MD5s were recorded in the engineering checkpoint. This recovers executed statements, not the original files byte-for-byte; provenance is still in progress. No SQL writes or migrations were applied.
+
+### Release gates and safety
+- RT-01, TEST-ISOLATION, ACL-STORAGE remain blocked.
+- AUTH-03 is in progress in candidate/lab only; production remains unchanged.
+- MIGRATION-PROVENANCE is in progress; the four ledger statements are recoverable but original source-file provenance is not fully restored.
+- RECONNECT remains pending: issue #78 is 0/8 physical acceptance criteria; no F5-free browser test was performed in this checkpoint.
+- HUMAN-REVIEW remains pending; no human approval or release authorization was received.
+- Official Team Lite deploy workflow still uses CLI `latest` and deploys `upstatus` instead of `upstatus-team-lite`. Develop TEST workflow uses the shared `SUPABASE_PROJECT_ID` secret and CLI `latest`. Neither workflow was dispatched.
+- No merge, deploy, release, userscript publication, production migration/write, feature-flag change, secret change, or destructive operation occurred. Production SQL was SELECT-only.
+
+### Next concrete action
+Inspect the final result and complete logs of Smoke 43407101808 on #161, then obtain independent QA review. Keep all candidates Draft. Do not cut over the Normal API to `upstatus` until the release version, coordinated runtime/API/auth/signaling plan, rollback, human review and Ricardo's explicit authorization are in place.
