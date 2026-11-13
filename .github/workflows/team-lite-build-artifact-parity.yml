@@ -1,0 +1,35 @@
+name: Team Lite Build Artifact Parity
+
+on:
+  push:
+    branches:
+      - test/team-lite-built-runtime-parity-20261108
+
+permissions:
+  contents: read
+
+concurrency:
+  group: team-lite-build-artifact-parity
+  cancel-in-progress: false
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check build and test syntax
+        run: |
+          node --version
+          node --check scripts/build.mjs
+          node --check scripts/test-team-lite-build-artifact.mjs
+      - name: Build generated runtimes locally
+        run: node scripts/build.mjs
+      - name: Verify Team Lite API artifact parity
+        run: node scripts/test-team-lite-build-artifact.mjs
+      - name: Verify Team Lite candidate source contracts
+        run: node scripts/team-lite-candidate-check.mjs
