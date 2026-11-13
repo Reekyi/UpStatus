@@ -471,6 +471,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var currentStatus='offline';
   var CURRENT_VERSION='__UPSTATUS_VERSION__'
   var UPDATE_URL='__UPSTATUS_UPDATE_URL__';
+  var RELEASE_MANIFEST_URL='__UPSTATUS_RELEASE_MANIFEST_URL__';
   var externalNotifPermission='default';
   var externalNotifSeen={};
   function iconSvg(name,cls){var p={
@@ -1041,14 +1042,19 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     var installed=String(CURRENT_VERSION||'').trim();
     statuses.forEach(function(s){s.textContent=' • Verificando versão oficial…';});
     manuals.forEach(function(x){x.disabled=true;x.title='Verificando versão oficial';x.onclick=function(){};});
-    fetch('https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
+    if(!RELEASE_MANIFEST_URL){
+      statuses.forEach(function(s){s.textContent=' • Atualizador automático desabilitado neste canal.';});
+      manuals.forEach(function(x){x.disabled=false;x.title='Abrir atualização deste canal';x.onclick=openUpdate;});
+      return;
+    }
+    fetch(RELEASE_MANIFEST_URL+'?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
       .then(function(r){if(!r.ok)throw new Error('Manifesto oficial: HTTP '+r.status);return r.json();})
       .then(function(manifest){
         if(!manifest||!Object.prototype.hasOwnProperty.call(manifest,'version'))throw new Error('Manifesto inválido para este canal.');
         var remote=String(manifest.version||'').trim();
-        var url=String(manifest.scriptUrl||'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js').trim();
+        var url=String(manifest.scriptUrl||UPDATE_URL).trim();
         if(!remote||!/^\d+(?:\.\d+){1,3}(?:-[0-9A-Za-z.-]+)?$/.test(remote))throw new Error('Versão do manifesto inválida.');
-        if(url!=='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js')throw new Error('Link do script não corresponde ao canal oficial.');
+        if(url!==UPDATE_URL)throw new Error('Link do script não corresponde ao canal deste build.');
         return fetch(url+'?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
           .then(function(sr){if(!sr.ok)throw new Error('Script oficial: HTTP '+sr.status);return sr.text();})
           .then(function(text){
