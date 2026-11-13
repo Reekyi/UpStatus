@@ -1,0 +1,45 @@
+name: Voice Open HTTP Status Contract
+
+on:
+  push:
+    branches:
+      - fix/voice-open-http-409-contract-reconciled-20261113
+    paths:
+      - ".github/workflows/voice-open-http-status-contract.yml"
+      - "scripts/voice-open-status.test.mjs"
+      - "scripts/signaling-static.test.mjs"
+      - "scripts/validate.mjs"
+      - "supabase/functions/upstatus-signal-test/index.ts"
+      - "supabase/functions/upstatus-signal-test/voice-status.mjs"
+  pull_request:
+    branches:
+      - fix/normal-api-target-aligned-rate-limit-20261113
+      - fix/voice-open-http-409-contract-reconciled-20261113
+    paths:
+      - ".github/workflows/voice-open-http-status-contract.yml"
+      - "scripts/voice-open-status.test.mjs"
+      - "scripts/signaling-static.test.mjs"
+      - "scripts/validate.mjs"
+      - "supabase/functions/upstatus-signal-test/index.ts"
+      - "supabase/functions/upstatus-signal-test/voice-status.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check Node runtime
+        run: node --version
+      - name: Run voice-open HTTP status contract
+        run: node scripts/voice-open-status.test.mjs
+      - name: Run signaling static regression suite
+        run: node scripts/signaling-static.test.mjs
+      - name: Run full offline Validate
+        run: node scripts/validate.mjs
