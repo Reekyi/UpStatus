@@ -79,7 +79,12 @@ assert(source.includes("!list._upstatusUserScrolling&&(chatPendingInitialScroll|
 assert(source.includes("if(Date.now()<chatUserScrollInterruptedUntil&&!chatForceScrollBottom)"),"non-forced scrolling must respect the user-scroll interruption window");
 assert(source.includes("function openChat(){")&&source.includes("chatUserScrollInterruptedUntil=0;"),"opening the chat must reset an older scroll-interruption window");
 
-assert(source.includes("(member==='Ricardo'?'<button class=\"up-chat-clear\" type=\"button\" title=\"Limpar chat\">'+iconSvg('trash')+'</button>':'')+'<button class=\"up-chat-library\""),"Ricardo must see the clear-chat action before the media library; other members must not see the clear action");
+assert(source.includes("(role==='implementation_admin'?'<button class=\"up-chat-clear\" type=\"button\" title=\"Limpar chat\">'+iconSvg('trash')+'</button>':'')+'<button class=\"up-chat-library\""),"clear-chat action must be displayed using the stored administrator role");
+assert(source.includes("function clearChatAdmin(){if(role!=='implementation_admin')return;"),"client clear-chat handler must use the stored administrator role");
+assert(source.includes("clearBtn.onclick=clearChatAdmin"),"clear-chat button must call the role-based handler");
+assert(serverTemplate.includes('if(!(await admin(name)))return response({error:"Somente administradores podem limpar o chat."},403);'),"chat clear endpoint must authorize using the persisted administrator role");
+assert(!serverTemplate.includes('if(name!=="Ricardo")return response({error:"Somente Ricardo pode limpar o chat."},403);'),"chat clear endpoint must not authorize by display name");
+assert(serverTemplate.includes('message:"🧹 "+name+" limpou o chat."'),"chat clear system message must identify the acting administrator");
 assert(source.includes(".up-chat-photo{display:block;box-sizing:border-box;min-width:0;max-width:min(260px,100%);max-height:210px;width:auto;height:auto;"),"chat images must shrink to fit narrow bubbles without forcing horizontal overflow");
 assert(source.includes(".up-chat-media{display:block;box-sizing:border-box;min-width:0;width:auto;height:auto;max-width:min(220px,100%);max-height:150px;"),"chat media must stay within the available bubble width while preserving intrinsic proportions");
 assert(source.includes(".up-chat-media-video{width:min(220px,100%);height:auto;aspect-ratio:4/3;max-height:150px}"),"chat videos must use responsive width and preserve a stable aspect ratio");
