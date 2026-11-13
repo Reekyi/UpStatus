@@ -2125,8 +2125,8 @@
       if(!expectedBucket){reject(new Error('Rota de upload não permitida.'));return;}
       var info=resolveFileMime(file,expectedBucket==='chat-images');
       if(!info.ok){reject(new Error('Tipo de arquivo não suportado.'));return;}
-      var size=Number(file.size);
-      if(!Number.isFinite(size)||size<1||size>20*1024*1024){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}
+      var size=Number(file.size),maxSize=expectedBucket==='profile-images'?2*1024*1024:20*1024*1024;
+      if(!Number.isFinite(size)||size<1||size>maxSize){reject(new Error(expectedBucket==='profile-images'?'A foto deve ter no máximo 2 MB.':'O arquivo deve ter no máximo 20 MB.'));return;}
       api('POST',route,{mime:info.mime,size:size,name:String(file.name||'arquivo')}).then(function(ticket){
         if(!ticket||!ticket.token||!ticket.publicUrl||!ticket.path||ticket.bucket!==expectedBucket||ticket.mime!==info.mime||Number(ticket.size)!==size)throw new Error('Resposta de autorização incompleta.');
         var base,url,publicUrl,rawUploadUrl=String(ticket.uploadUrl||ticket.signedUrl||'');
