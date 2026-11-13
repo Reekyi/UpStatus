@@ -2015,3 +2015,10 @@ See `docs/CURRENT_STATE.md` for the complete exact-head CI and Supabase checkpoi
 The #74 candidate also contains the reviewed builder correction that sources production `@updateURL/@downloadURL` from `release.json.scriptUrl` while keeping the legacy API cloud endpoint separate. The independent QA #82 branch still fails its master-based Validate with `production updateURL mismatch`; do not edit the QA branch or weaken its validator. #80's inherited Validate failure remains `client signed upload helper missing`.
 
 Production was rechecked read-only: seven migrations through `20261027155438`, no distributed rate-limit or atomic read-receipt RPC, and three public broadcast SECURITY DEFINER functions remain client-executable. The distributed limiter is still isolated-only and its candidate cleanup is unbounded; RT-01 public Realtime, physical Tampermonkey acceptance, official TEST migration/rollback, human reviews, and release approval remain gates. No production writes or deployment occurred.
+
+
+## 2026-11-13 continuation note
+
+The current verified engineering checkpoint is appended to `docs/CURRENT_STATE.md` on this documentation branch. Re-fetch live refs before continuing. The preferred Normal candidate is now Draft PR #161, based on #74 and preserving #160's distributed setup-invite rate limit; its API target is aligned to `PROD_FUNCTION`, and its Validate/build step passed while authenticated isolated Smoke was still running at the last check. QA review is pending. PR #159 must not be integrated independently because its first-setup route regresses the one-time `setupToken` requirement.
+
+Production remains untouched. The production Supabase branch reports `MIGRATIONS_FAILED`; Realtime is still public, ACL/Storage remain unresolved, and no full-product TEST project exists. The four historical migration statements are available in the production ledger, but original source-file provenance is not yet fully restored. Issue #78 remains 0/8 physical acceptance criteria. No merge, deploy, release, migration, feature-flag or secret change is authorized by this checkpoint.
