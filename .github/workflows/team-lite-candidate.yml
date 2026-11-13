@@ -1,0 +1,144 @@
+name: Team Lite Candidate Checks
+
+on:
+  push:
+    branches:
+      - team-lite-official
+  pull_request:
+    branches: [team-lite-official]
+    paths:
+      - "team-lite/**"
+      - "lucca-site/**"
+      - "lucca.html"
+      - "ycaro.html"
+      - "scripts/team-lite-candidate-check.mjs"
+      - "scripts/test-team-lite-full-iife.mjs"
+      - "scripts/build.mjs"
+      - "scripts/test-build-target-guard.mjs"
+      - ".github/workflows/deploy-test.yml"
+      - "scripts/team-lite-voice-room-attempt-recovery.test.mjs"
+      - "scripts/screen-share-recovery.test.mjs"
+      - "scripts/test-chat-read-receipts.mjs"
+      - "scripts/assert-isolated-supabase.mjs"
+      - "scripts/isolation-guard.test.mjs"
+      - "scripts/migration-layout.test.mjs"
+      - "scripts/auth-enrollment.test.mjs"
+      - "scripts/test-auth-enrollment.mjs"
+      - "scripts/test-signal-rate-limit.mjs"
+      - "scripts/test-setup-invite-rate-limit.mjs"
+      - "supabase/migrations/**"
+      - "supabase/test-migrations/**"
+      - "supabase/test-functions/**"
+      - "scripts/test-signal-test-helper-http-contract.mjs"
+      - "src/server/index.template.ts"
+      - "src/server/team-lite-index.template.ts"
+      - "supabase/migrations/**"
+      - "scripts/signaling-transport.test.mjs"
+      - "src/userscript/signaling-transport.mjs"
+      - "scripts/test-signaling-endpoint.mjs"
+      - "scripts/test-signaling-authenticated.mjs"
+      - "scripts/run-signaling-authenticated.mjs"
+      - "scripts/test-signaling-browser.mjs"
+      - ".github/workflows/team-lite-candidate.yml"
+      - "scripts/test-team-lite-candidate-workflow-triggers.mjs"
+
+concurrency:
+  # Normal and Team Lite share the same isolated Supabase fixture project.
+  # Retain a bounded queue so a new Normal run cannot cancel a pending Team Lite run.
+  group: upstatus-signaling-isolated-tests
+  queue: max
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Test TEST build target guard
+        run: node scripts/test-build-target-guard.mjs
+      - name: Verify isolated Supabase mutation guard
+        run: |
+          node --check scripts/assert-isolated-supabase.mjs
+          node --check scripts/isolation-guard.test.mjs
+          node scripts/isolation-guard.test.mjs
+      - name: Test authenticated signaling adapter
+        run: node scripts/signaling-transport.test.mjs
+      - name: Test first-access enrollment contract
+        run: |
+          node --check scripts/auth-enrollment.test.mjs
+          node scripts/auth-enrollment.test.mjs team-lite
+          node --check scripts/test-auth-enrollment.mjs
+      - name: Test durable voice-room attempt recovery
+        run: |
+          node --check scripts/team-lite-voice-room-attempt-recovery.test.mjs
+          node scripts/team-lite-voice-room-attempt-recovery.test.mjs
+      - name: Test screen-share signaling recovery
+        run: |
+          node --check scripts/screen-share-recovery.test.mjs
+          node scripts/screen-share-recovery.test.mjs team-lite/upstatus-team-lite.user.js
+      - name: Test isolated signaling helper HTTP status contract
+        run: |
+          node --check scripts/test-signal-test-helper-http-contract.mjs
+          node scripts/test-signal-test-helper-http-contract.mjs
+      - name: Test isolated signaling endpoint authentication
+        env:
+          UPSTATUS_SIGNAL_URL: https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test
+        run: node scripts/test-signaling-endpoint.mjs
+      - name: Install Playwright Chromium for browser smoke
+        run: |
+          npm install --no-save --package-lock=false playwright@1.64.1
+          npx playwright install --with-deps chromium
+      - name: Smoke full Team Lite userscript IIFE with offline browser and Tampermonkey stubs
+        run: |
+          node --check scripts/test-team-lite-full-iife.mjs
+          node scripts/test-team-lite-full-iife.mjs
+      - name: Run authenticated isolated integration and browser tests
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_SIGNAL_ALLOW_MUTATION: "1"
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY is required; refusing to skip isolated fixture tests."
+            exit 1
+          fi
+          node scripts/run-signaling-authenticated.mjs
+      - name: Verify distributed signaling rate-limit concurrency
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_SIGNAL_ALLOW_MUTATION: "1"
+        run: node scripts/test-signal-rate-limit.mjs
+      - name: Verify atomic chat read-receipt concurrency
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_SIGNAL_ALLOW_MUTATION: "1"
+        run: node scripts/test-chat-read-receipts.mjs
+      - name: Verify one-time setup invite atomic consumption
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_AUTH_ALLOW_MUTATION: "1"
+        run: node scripts/test-auth-enrollment.mjs
+      - name: Verify distributed setup-invite issuance rate limit
+        env:
+          SUPABASE_URL: https://bfpjtfqlnypisxljoxkb.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.UPSTATUS_SIGNAL_TEST_SERVICE_ROLE_KEY }}
+          UPSTATUS_AUTH_ALLOW_MUTATION: "1"
+        run: node scripts/test-setup-invite-rate-limit.mjs
+      - name: Verify test migrations stay outside Supabase CLI discovery
+        run: node scripts/migration-layout.test.mjs
+      - name: Verify exact Team Lite release-check triggers
+        run: |
+          node --check scripts/test-team-lite-candidate-workflow-triggers.mjs
+          node scripts/test-team-lite-candidate-workflow-triggers.mjs
+      - name: Check candidate scripts and version metadata
+        run: node scripts/team-lite-candidate-check.mjs

@@ -12,8 +12,20 @@ const fullVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
 
 const userTemplate=fs.readFileSync(path.join(ROOT,"src/userscript/upstatus.user.template.js"),"utf8");
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
+const teamLiteServerTemplate=fs.readFileSync(path.join(ROOT,"src/server/team-lite-index.template.ts"),"utf8");
+const teamLiteScript=fs.readFileSync(path.join(ROOT,"team-lite/upstatus-team-lite.user.js"),"utf8");
+const teamLiteRelease=JSON.parse(fs.readFileSync(path.join(ROOT,"team-lite/release.json"),"utf8"));
+const luccaHtml=fs.readFileSync(path.join(ROOT,"lucca.html"),"utf8");
+const ycaroHtml=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
+
 
 const PROJECT="dlfvkawaiqduhlazsszm";
+const ISOLATED_SIGNALING_PROJECT="bfpjtfqlnypisxljoxkb";
+const configuredTestProject=String(process.env.UPSTATUS_TEST_PROJECT_ID||"").trim();
+const TEST_PROJECT=configuredTestProject||"00000000000000000000";
+if(!/^[a-z0-9]{20}$/.test(TEST_PROJECT))throw new Error("UPSTATUS_TEST_PROJECT_ID must be a 20-character lowercase Supabase project reference.");
+if(TEST_PROJECT===PROJECT)throw new Error("Refusing to build TEST artifacts against the production Supabase project.");
+if(TEST_PROJECT===ISOLATED_SIGNALING_PROJECT)throw new Error("Refusing to build full TEST artifacts against the isolated signaling/auth project.");
 const PROD_FUNCTION="upstatus";
 const TEST_FUNCTION="upstatus-test";
 const PROD_TOPIC="upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0";
@@ -38,7 +50,7 @@ function renderUser({version,test}){
   const topic=test?TEST_TOPIC:PROD_TOPIC;
   const ringtoneChannel=test?TEST_RINGTONE_CHANNEL:PROD_RINGTONE_CHANNEL;
   const ringtoneStorage=test?TEST_RINGTONE_STORAGE:PROD_RINGTONE_STORAGE;
-  const cloud="https://"+PROJECT+".supabase.co/functions/v1/"+fn;
+  const cloud="https://"+(test?TEST_PROJECT:PROJECT)+".supabase.co/functions/v1/"+fn;
   const updateUrl=cloud+"/upstatus.user.js";
   return render(userTemplate,{
     "__UPSTATUS_NAME__":name,
@@ -48,6 +60,7 @@ function renderUser({version,test}){
     "__UPSTATUS_DOWNLOAD_URL__":updateUrl,
     "__UPSTATUS_STORAGE_PREFIX__":prefix,
     "__UPSTATUS_CLOUD_SERVER__":cloud,
+    "__UPSTATUS_REALTIME_URL__":"https://"+(test?TEST_PROJECT:PROJECT)+".supabase.co",
     "__UPSTATUS_REALTIME_TOPIC__":topic,
     "__UPSTATUS_RINGTONE_CHANNEL__":ringtoneChannel,
     "__UPSTATUS_RINGTONE_STORAGE_KEY__":ringtoneStorage
@@ -62,9 +75,19 @@ function renderFunction({version,test}){
     "__UPSTATUS_PATH_MARKER__":"/"+fn
   });
 }
+function renderTeamLiteFunction(){
+  const version=String(teamLiteRelease.buildVersion||"").trim();
+  if(!/^\d+\.\d+\.\d+$/.test(version))throw new Error("team-lite/release.json: buildVersion must use X.Y.Z");
+  return render(teamLiteServerTemplate,{
+    "__UPSTATUS_VERSION__":version,
+    "__UPSTATUS_USERSCRIPT_BASE64__":Buffer.from(teamLiteScript,"utf8").toString("base64"),
+    "__UPSTATUS_LUCCA_HTML_EXPR__":JSON.stringify(luccaHtml),
+    "__UPSTATUS_YCARO_HTML_EXPR__":JSON.stringify(ycaroHtml)
+  });
+}
 function writeFunction(fn,source){
   const dir=path.join(ROOT,"supabase/functions",fn);
-  fs.rmSync(dir,{recursive:true,force:true});
+  // Preserve tracked sidecar files; only the generated entrypoint belongs to this build.
   fs.mkdirSync(dir,{recursive:true});
   fs.writeFileSync(path.join(dir,"index.ts"),source,"utf8");
 }
@@ -72,13 +95,15 @@ const prodUser=renderUser({version:baseVersion,test:false});
 const testUser=renderUser({version:fullVersion,test:true});
 writeFunction(PROD_FUNCTION,renderFunction({version:baseVersion,test:false}));
 writeFunction(TEST_FUNCTION,renderFunction({version:fullVersion,test:true}));
+writeFunction("upstatus-team-lite",renderTeamLiteFunction());
 const dist=path.join(ROOT,"dist");
-fs.rmSync(dist,{recursive:true,force:true});
 fs.mkdirSync(dist,{recursive:true});
 fs.writeFileSync(path.join(dist,"upstatus.user.js"),prodUser,"utf8");
 fs.writeFileSync(path.join(dist,"upstatus-test.user.js"),testUser,"utf8");
 fs.writeFileSync(path.join(dist,"build-manifest.json"),JSON.stringify({
   baseVersion,testVersion:fullVersion,channel:preRelease?"pre-release":"stable",
-  productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION
+  productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION,
+  testProjectId:TEST_PROJECT,testTargetConfigured:Boolean(configuredTestProject),
+  teamLiteVersion:String(teamLiteRelease.buildVersion||""),teamLiteFunction:"upstatus-team-lite"
 },null,2)+"\n","utf8");
-console.log("Built UpStatus "+baseVersion+" / TEST "+fullVersion);
+console.log("Built UpStatus "+baseVersion+" / TEST "+fullVersion+" / Team Lite "+teamLiteRelease.buildVersion+" / TEST target "+(configuredTestProject?TEST_PROJECT:"inert sentinel (not deployable)"));
