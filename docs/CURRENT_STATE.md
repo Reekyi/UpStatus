@@ -3253,3 +3253,44 @@ Next: allow PR #131's isolated Smoke run to finish; inspect the exact job logs a
 
 ### Next concrete action
 Inspect the final result and complete logs of Smoke 43407101808 on #161, then obtain independent QA review. Keep all candidates Draft. Do not cut over the Normal API to `upstatus` until the release version, coordinated runtime/API/auth/signaling plan, rollback, human review and Ricardo's explicit authorization are in place.
+
+
+## Engineering checkpoint — 2026-11-13 14:05:32 UTC
+
+### Exact repository state rechecked
+- Repository: `Reekyi/UpStatus`; default branch `master`.
+- `master`: `9d40461babcec8eb8686c2a04be9c675df7da381`; `develop`: `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`; `team-lite-official`: `9065bc1536fde64f437f6f12b7abb9b072cb8281`. All three report `protected=false`.
+- QA PR #82 head: `ffe306256c867e6fc73916e6cbf596f4db97edb5`. The latest QA report stored on that branch was generated at 13:46:44 UTC; the report body records the pre-report QA head, while the final report commit is the current PR head.
+- PR #74: `dcaf6a072546eda0089e0cee4018c3047011f600`, base master at `a9288ccfcb0f308d3a587bfca624418a395be07b`, 887 commits / 90 files. Validate #43376770142 and Smoke #43376770200 succeeded; Smoke reported 19/19 unauthenticated and 136/136 authenticated checks, but the setup-invite issuance rate-limit contract was skipped on that run.
+- PR #75: `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309`, 59 commits / 10 files. Candidate Checks #41674353127 is historical baseline evidence only.
+- PR #76: `83a6cc4503ddc01254f6a2abbcc7af5c6803eb94`, 386 commits / 57 files. Candidate Checks #43363871881 succeeded with 16/16 unauthenticated and 110/110 authenticated checks.
+- PR #80: `0df2e24f2907007ed53d11f8c286feba0d00ef28`, 307 commits ahead / 0 behind develop; its 21 changed files are documentation. Validate #43407662416 failed with the inherited assertion `client signed upload helper missing` at `scripts/validate.mjs`.
+- PR #82: `ffe306256c867e6fc73916e6cbf596f4db97edb5`, 281 commits ahead / 1 behind master; its 138 changed files are documentation. Validate #43436792837 failed with `production updateURL mismatch`. Do not weaken the validator or edit QA's report history to make the docs PR green.
+- PR #161: `ae6a5f3053b160f6f5235b68cc94ff1a9fb8984e`, 11 commits / 10 files, based on #74 head `dcaf6a0). Smoke #43430030814 succeeded with 19/19 unauthenticated and 136/136 authenticated checks, including the distributed setup-invite rate-limit harness.
+- PR #162: `8dc23905180494feded76f10e9fbdd59ac85feb5`, 6 commits / 7 files, based on the Normal candidate branch. Validate #43430131864 and contract run #43422554676 succeeded. The contract maps `VOICE_ATTEMPT_ALREADY_ACTIVE` to HTTP 409, but the test is offline/locally constructed; it is not an HTTP request to the deployed Edge Function. PR #162's recorded base SHA `a1d8dc8` is one commit behind current #161 head `ae6a5f3`; the PR Validate merge ref included the updated base according to the QA run log, but refresh the merge ref before relying on future checks.
+- PR #159 remains unsuitable for independent integration: QA identified a first-setup regression that removes the required one-time setup-token contract. PR #160 remains an earlier rate-limit candidate superseded by the consolidated #161 line.
+
+### Current independent-QA findings
+- QA report: [2026-11-13 audit, 13:46:44 UTC](https://github.com/Reekyi/UpStatus/blob/qa/release-readiness-2026-11-04-master/docs/audits/2026-11-13-upstatus-qa-audit-134644-utc.md). Recommendation remains NOT READY.
+- The production Realtime SELECT over the last 14 days returned 128 broadcast rows, all `private=false`, on topic `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`: 70 `user_status`, 46 `db_change`, 6 `remote_command`, and 6 `remote_result`. QA source inspection reports installed Normal/Team Lite clients subscribe to a different beta10 topic and do not set `private:true` or `realtime.setAuth()`. Server-side broadcast payloads can contain full row data. RT-01 remains BLOCKED.
+- Installed runtimes remain Normal `upstatus` v480, Team Lite `upstatus-team-lite` v15, TEST `upstatus-test` v281 and legacy Normal API `upstatus-screen-share-3-1-1-beta10` v6. Production has 38 active functions, including 12 `upstatus-test*` slugs; the TEST bundle still shares Normal's namespace/GM prefix and points at the production beta10 API. Do not infer unauthenticated access solely from `verify_jwt=false`; application-level session validation must be reviewed per route.
+- Only two Supabase projects exist: production `dlfvkawaiqduhlazsszm` (ACTIVE_HEALTHY, us-west-2) and signaling/auth lab `bfpjtfqlnypisxljoxkb` (ACTIVE_HEALTHY, sa-east-1). The lab is not full-product TEST. Production's managed `main` branch remains `MIGRATIONS_FAILED` while its preview reports `ACTIVE_HEALTHY`; the lab has no development branches.
+- Production has 7 migrations and no setup-token columns, setup-invite rate-limit table/RPC, or `upstatus_sessions.user_id`; `users.name` is not unique. The lab has 38 migrations, setup-invite and signaling rate-limit tables, and service-role-only SECURITY INVOKER RPCs, but still uses name-based sessions. The current lab schema query found 0 Realtime rows.
+- Production has 10 RLS-enabled public tables without policies; 9 backend-owned public tables grant 7 privilege types (including TRUNCATE) to each of anon and authenticated. Three SECURITY DEFINER broadcast functions remain executable by both client roles. Security Advisor: 6 WARN and 10 INFO.
+- Production Storage has two public buckets (`chat-images` and `profile-images`), each limited to 20 MiB, 188 objects and zero `storage.objects` policies. The backend/config candidates contain a 20 MiB versus 25 MiB validation mismatch that must be reconciled before release.
+- Lab Security Advisor has 18 INFO and no WARN; 18 public tables have RLS without policies, but the lab has no direct anon/authenticated public-table grants, no buckets and no objects. The lab's three relevant RPCs (`consume_upstatus_setup_invite`, `consume_upstatus_setup_invite_rate_limit`, `consume_upstatus_signal_rate_limit`) are SECURITY INVOKER with empty search_path and EXECUTE limited to service_role.
+- The deployed `upstatus-signal-test` v32 does not map `VOICE_ATTEMPT_ALREADY_ACTIVE` to 409. PR #162 contains the offline candidate correction only; no lab deploy or live HTTP test was performed.
+- The four historical migration statements remain present in the production ledger, but original SQL files are absent from the canonical Git migration directory. Ledger recovery is not byte-for-byte source provenance. No migration was applied.
+- Issue #78 remains 0/8 physical acceptance criteria. CI/Playwright/WebRTC does not replace Tampermonkey network-loss recovery without F5, real microphone/display permissions or installed Normal ↔ Team Lite interoperability.
+- Issue #79 body remains at 16/35 historical checklist items; use the live gate JSON, not this body count, as the release-state source. QA's dedicated comment was preserved.
+
+### Gate status and safety
+- RT-01: BLOCKED — public Realtime broadcasts, topic mismatch and no private/authenticated transport.
+- TEST-ISOLATION: BLOCKED — only signaling/auth lab exists; no independent full-product TEST project.
+- MIGRATION-PROVENANCE: IN PROGRESS — statements are recoverable from ledger, original files/source provenance not restored.
+- AUTH-03: BLOCKED — production has no setup-token/rate-limit schema or RPC; installed setup/admin paths remain legacy.
+- ACL-STORAGE: BLOCKED — broad grants, SECURITY DEFINER execution, public buckets and missing Storage policies.
+- RECONNECT: PENDING — no physical no-F5 acceptance from Ricardo; issue #78 remains 0/8.
+- HUMAN-REVIEW: PENDING — PRs remain Draft without human approvals or release authorization.
+
+No merge, deploy, release, migration, userscript publication, production write, secret/feature-flag/grant/policy/ACL change or destructive action occurred. All production SQL was SELECT/catalog-only. This checkpoint is documentation-only.
