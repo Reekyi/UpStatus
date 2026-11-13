@@ -45,9 +45,13 @@ checkSyntax(testUser,"dist/upstatus-test.user.js");
 assert(prodUser.includes("upStatusSaleChatClose"),"Sale Smartly close integration missing from production artifact");
 assert(testUser.includes("upStatusSaleChatClose"),"Sale Smartly close integration missing from test artifact");
 
-assert(testFn.includes("async function signedUploadRoute(req:Request,kind:\"chat\"|\"avatar\")"),"signed upload route missing from TEST backend");
-assert(testFn.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");'),"chat signed-upload endpoint missing from TEST backend");
-assert(testFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");'),"avatar signed-upload endpoint missing from TEST backend");
+assert(testFn.includes("async function signedUploadRoute(req:Request,kind:\"chat\"|\"avatar\",ownerName:string)"),"signed upload route must receive authenticated owner context");
+assert(testFn.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat",ctx.name);'),"chat signed-upload endpoint must pass authenticated context");
+assert(testFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar",ctx.name);'),"avatar signed-upload endpoint must pass authenticated context");
+assert(testFn.includes('db.from("users").select("id").eq("name",normalized).limit(2)'),"avatar ownership must resolve one immutable users.id");
+assert(testFn.includes('tokenHash("upstatus-user-id:"+normalized)'),"avatar owner prefix must derive from immutable users.id");
+assert(testFn.includes("objectPath.startsWith(ownerPrefix)"),"profile route must reject another user's avatar object");
+assert(testFn.includes('kind==="avatar"?ownerPrefix+fileName:fileName'),"signed avatar ticket path must be scoped to its owner");
 assert(testFn.includes("createSignedUploadUrl(path,{upsert:false})"),"Storage signed URL must forbid object overwrite");
 assert(!testUser.includes("'x-upsert':'true'"),"signed upload client must not request object overwrite");
 assert(testFn.includes('const max=20*1024*1024;'),"TEST signed upload limit must be 20 MiB");
