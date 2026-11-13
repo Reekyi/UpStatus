@@ -52,7 +52,7 @@ const validTicket=ticketFor();
   assert.equal(h.calls.fetch[0].options.credentials,"omit");
   assert.equal(h.calls.fetch[0].options.redirect,"error");
   assert.equal(h.calls.fetch[0].options.headers["Content-Type"],"image/png");
-  assert.equal(h.calls.fetch[0].options.headers["x-upsert"],"true");
+  assert.equal("x-upsert" in h.calls.fetch[0].options.headers,false);
   assert.equal("authorization" in h.calls.fetch[0].options.headers,false);
   assert.equal(new URL(h.calls.fetch[0].url).searchParams.get("token"),validTicket.token);
 }
