@@ -66,7 +66,7 @@ assert(source.includes("function setChatNewMessageIndicator(show)"),"chat must e
 assert(source.includes("btn.appendChild(dot)"),"new-message indicator must create a visible dot element on the latest-message arrow");
 assert(source.includes("hasNewExternalMessage=nextMessages.some"),"polling must detect incoming messages when realtime events are missed");
 assert(source.includes("chatPendingInitialScroll=true;chatOpenScrollUntil=Date.now()+2400;chatForceScrollBottom=true;"),"reopening chat must request scrolling to the latest message");
-assert(source.includes("var currentMenu=document.querySelector('.up-chat-emoji-menu'),currentBtn=document.querySelector('.up-chat-emoji-btn')"),"emoji picker outside-click handler must use the current menu and button");
+assert(source.includes("document.addEventListener('click',function(ev){document.querySelectorAll('.up-chat-emoji-menu').forEach(function(m){var b=m.__upstatusEmojiButton;if(!m.contains(ev.target)&&(!b||!b.contains(ev.target)))"),"emoji picker outside-click handler must preserve clicks inside the menu and its owning button");
 assert(source.includes("document.body.appendChild(box)"),"image lightbox must be mounted at page level");
 assert(serverTemplate.includes('.in("state_key",["remote-status"])'),"health state query must use the correct Supabase in-filter arguments");
 
@@ -100,15 +100,18 @@ assert(source.includes("async function callJoinActiveCall(callId)")&&source.incl
 assert(source.includes("if(p.type==='presence'){callReceivePresence(p);return;}"),"call presence must be handled before normal call-session signal filtering");
 
 assert(serverTemplate.includes("const isAdmin=await admin(name);"),"server delete is authorized by the authenticated admin role");
+assert(serverTemplate.includes('if(name!=="Ricardo"||!(await admin(name)))'),"chat-wide cleanup requires the owner and persisted administrator role");
 assert(!serverTemplate.includes('const isAdmin=name==="Ricardo"'),"no name-only administrator bypass");
 assert(source.includes("var canDelete=m.user===member||role==='implementation_admin';"),"admin UI uses stored role");
+assert(!source.includes("var canDelete=m.user===member||member==='Ricardo'||role==='implementation_admin';"),"chat delete UI must not grant admin access by display name");
+assert(source.includes("role=r.role||'implementation_user';")&&source.includes("GM_setValue(key+'role',role);"),"chat admin UI must use and persist the role returned by the server");
 assert(source.includes("function setPendingAttachment(file)"),"files are staged instead of uploaded immediately");
 assert(source.includes("function updateLinkPreview(text)"),"links get a removable preview");
 assert(source.includes("e.preventDefault();setPendingAttachment(file)"),"pasted images stay pending");
 assert(source.includes("fileName:String(record.file_name"),"filename is separate from caption");
 assert(serverTemplate.includes('file_name:type==="document"&&fileName?fileName:null'),"file name is saved to separate database column");
 assert(source.includes("var incomingTime=!own?"),"received messages show per-message timestamps");
-assert(source.includes("var ownMeta=own?'<span class=\"up-chat-own-meta\"><span class=\"up-chat-own-time\">"),"sent time appears with ticks");
+assert(source.includes("var ownMeta=own?'<div class=\"up-chat-own-meta\"><span class=\"up-chat-own-time\">"),"sent time and read ticks must render inside the own-message metadata container");
 assert(source.includes("function screenShareStart()"),"screen-sharing start handler missing");
 assert(source.includes("function screenShareReceive(p)"),"screen-sharing signal handler missing");
 assert(source.includes("SCREEN_ROOM_EVENT"),"screen-sharing realtime event missing");
@@ -118,5 +121,5 @@ assert(source.includes("data-sender-color"),"per-sender chat color rendering mis
 assert(source.includes("function requestPublicChatLinkTitle(url,callback)"),"stable Google Docs link-title hydration helper missing");
 assert(source.includes('class="up-chat-link-card"'),"stable chat link-card renderer missing");
 assert(source.includes("hydrateChatLinkTitles(list);"),"chat link-card hydration hook missing");
-assert(source.includes("upstatus-340-chat-link-card-compat"),"chat link-card compatibility styles missing");
+assert(source.includes(".up-chat-bubble:has(.up-chat-link-card){padding:4px!important;border-width:1px!important;box-shadow:none!important}")&&source.includes(".up-chat-link-card{padding:7px!important;gap:8px!important;border-width:1px!important;border-radius:9px!important}"),"chat link-card compatibility styles missing");
 console.log("Chat regression tests passed: composer, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");
