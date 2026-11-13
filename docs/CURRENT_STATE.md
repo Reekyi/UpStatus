@@ -3303,7 +3303,7 @@ No merge, deploy, release, migration, userscript publication, production write, 
 
 Re-fetched live GitHub branch refs, PR metadata/diffs, commit workflow runs, job logs, review submissions, Issues #78/#79, the complete Release Readiness blob, the continuity handoff, the release checklist, Supabase project inventory, migrations, Edge Functions, Security Advisors, table/catalog metadata, Storage buckets/policies, and read-only SQL snapshots. The only repository edit in this checkpoint is this append to `docs/CURRENT_STATE.md` on the documentation branch for PR #80. The existing Engineering comments on Issue #79 and PR #162 were updated in place; the QA comment/report were not edited.
 
-No new application tests were run in this execution. Existing GitHub Actions logs were inspected. All SQL executed against production and the lab was SELECT/catalog-only. No merge, deploy, release, userscript publication, migration, production write, secret/feature-flag/grant/policy/ACL change, or destructive operation occurred.
+No manual/local application tests were run. A documentation-only commit later triggered the existing Validate workflow; its result is recorded in the follow-up below. All SQL executed against production and the lab was SELECT/catalog-only. No merge, deploy, release, userscript publication, migration, production write, secret/feature-flag/grant/policy/ACL change, or destructive operation occurred.
 
 ### GitHub refs and PRs
 
@@ -3401,3 +3401,12 @@ Four later historical SQL source files remain absent from the canonical director
 8. Obtain the physical no-F5 Normal and Team Lite acceptance for all eight criteria in Issue #78 and human reviews.
 
 No merge, deploy, release, userscript publication, migration, production SQL write, secret/feature-flag/grant/policy/ACL change, or destructive operation occurred. Production received SELECT/catalog queries only.
+
+
+### Follow-up — Validate disparado pelo checkpoint documental (2026-11-13T17:03:23.204Z)
+
+- The documentation-only commit `bdcea1503a73de77a0ab8dfbb993139c907a3163` advanced PR #80 to 310 commits ahead / 0 behind develop; the PR remains Draft and mergeable.
+- Despite the documentation-only diff, the existing `UpStatus Validate` workflow was triggered by a `pull_request` event: [run 43468788226](https://github.com/Reekyi/UpStatus/actions/runs/43468788226), exact HEAD `bdcea1503a73de77a0ab8dfbb993139c907a3163`.
+- The job built `PROD 3.0.40 / TEST 3.0.40-beta.22` and failed at `scripts/validate.mjs:55` with `client signed upload helper missing`. This is the same inherited develop-side assertion observed on prior #80 heads; no application code or validator was changed in this checkpoint.
+- Inspection of `.github/workflows/validate.yml` at both `develop` and the #80 branch (blob `a4a47db5d45fb99e60115ab6617af69f1215ff2f`) confirms that the workflow has no `paths-ignore` for either `push` or `pull_request`; therefore documentation-only PR updates still execute the full Validate. No workflow change was made because #80 is intentionally documentation-only.
+- No local/manual test was run. The only execution was the existing GitHub Actions Validate workflow above.
