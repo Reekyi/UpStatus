@@ -3294,3 +3294,110 @@ Inspect the final result and complete logs of Smoke 43407101808 on #161, then ob
 - HUMAN-REVIEW: PENDING — PRs remain Draft without human approvals or release authorization.
 
 No merge, deploy, release, migration, userscript publication, production write, secret/feature-flag/grant/policy/ACL change or destructive action occurred. All production SQL was SELECT/catalog-only. This checkpoint is documentation-only.
+
+
+
+## Engineering checkpoint — 2026-11-13 17:02:30 UTC
+
+### Scope, exact refs, and safety
+
+Re-fetched live GitHub branch refs, PR metadata/diffs, commit workflow runs, job logs, review submissions, Issues #78/#79, the complete Release Readiness blob, the continuity handoff, the release checklist, Supabase project inventory, migrations, Edge Functions, Security Advisors, table/catalog metadata, Storage buckets/policies, and read-only SQL snapshots. The only repository edit in this checkpoint is this append to `docs/CURRENT_STATE.md` on the documentation branch for PR #80. The existing Engineering comments on Issue #79 and PR #162 were updated in place; the QA comment/report were not edited.
+
+No new application tests were run in this execution. Existing GitHub Actions logs were inspected. All SQL executed against production and the lab was SELECT/catalog-only. No merge, deploy, release, userscript publication, migration, production write, secret/feature-flag/grant/policy/ACL change, or destructive operation occurred.
+
+### GitHub refs and PRs
+
+Live branch refs:
+- `master`: `9d40461babcec8eb8686c2a04be9c675df7da381` (API reports protected=false).
+- `develop`: `6b33e1e26ad105143f00372ae6d0f2fa52df60d6` (protected=false).
+- `team-lite-official`: `9065bc1536fde64f437f6f12b7abb9b072cb8281` (protected=false).
+- Documentation branch `docs/continuity-handoff-2026-11-04`: `8ba76f81121fd8bec2c799c2d2a78db1368363be` (protected=false).
+- QA branch endpoint returned `7a4730cff0e0fd18c03adea175e7bdcbf0f1de4b`; see the PR #82 ref discrepancy below.
+
+| PR | Head reported by PR API | Base | Commits / files | Existing CI evidence |
+|---|---|---|---:|---|
+| #74 Normal | `dcaf6a072546eda0089e0cee4018c3047011f600` | master at `a9288ccfcb0f308d3a587bfca624418a395be07b` | 887 / 90 | Validate [43376770142](https://github.com/Reekyi/UpStatus/actions/runs/43376770142) and Smoke [43376770200](https://github.com/Reekyi/UpStatus/actions/runs/43376770200) SUCCESS |
+| #75 Team Lite baseline | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | team-lite-official at `9065bc1536fde64f437f6f12b7abb9b072cb8281` | 59 / 10 | Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) historical PASS |
+| #76 Team Lite candidate | `83a6cc4503ddc01254f6a2abbcc7af5c6803eb94` | team-lite-official at `9065bc1536fde64f437f6f12b7abb9b072cb8281` | 386 / 57 | Candidate Checks [43363871881](https://github.com/Reekyi/UpStatus/actions/runs/43363871881) SUCCESS |
+| #80 continuity | `8ba76f81121fd8bec2c799c2d2a78db1368363be` | develop at `6b33e1e26ad105143f00372ae6d0f2fa52df60d6` | 309 / 22 | Validate [43448744132](https://github.com/Reekyi/UpStatus/actions/runs/43448744132) FAILURE |
+| #82 independent QA | PR API: `c8e3c6f144969d0371845eb1acb51c4e49652716` | master at `a9288ccfcb0f308d3a587bfca624418a395be07b` | 284 / 141 | Validate [43463260387](https://github.com/Reekyi/UpStatus/actions/runs/43463260387) FAILURE |
+| #161 Normal consolidated | `ae6a5f3053b160f6f5235b68cc94ff1a9fb8984e` | chore/continuity-foundation at #74 HEAD `dcaf6a0` | 11 / 10 | Smoke [43430030814](https://github.com/Reekyi/UpStatus/actions/runs/43430030814) SUCCESS |
+| #162 voice HTTP contract | `fa8c9fa1fc91a238fca65fb46f31d078288e7f36` | normal candidate; PR metadata records base `a1d8dc8409ae894a5fb02acd2014749b7281868f` | 8 / 7 | Contract [43459218841](https://github.com/Reekyi/UpStatus/actions/runs/43459218841), Validate [43459219365](https://github.com/Reekyi/UpStatus/actions/runs/43459219365), and push contract [43459208349](https://github.com/Reekyi/UpStatus/actions/runs/43459208349) SUCCESS |
+
+All seven PRs remain open, Draft, unmerged and mergeable according to the PR metadata. Submitted review lists returned zero reviews for #74, #75, #76, #80, #82, #161 and #162.
+
+The #80 diff against develop is documentation-only: 309 commits ahead, zero behind, 22 files. Its exact-head Validate log fails at `scripts/validate.mjs:55` with `client signed upload helper missing`; no validator was weakened.
+
+The #82 PR API reports head `c8e3c6f`, and run 43463260387 is a pull_request event on that SHA. Its job log fails at `scripts/validate.mjs:26` with `production updateURL mismatch`. However, the repository branch endpoint for `qa/release-readiness-2026-11-04-master` returns `7a4730c`, while the latest QA report at 16:28 UTC records `386d22d` as the pre-report QA HEAD. The PR metadata, branch endpoint, and report therefore expose three different refs. Do not assume they are equivalent; QA/Engineering must reconcile the PR head and branch ref before attaching new CI evidence to the latest report. The QA branch and its report history were not modified.
+
+#161's Smoke log reports 19/19 unauthenticated and 136/136 authenticated checks, including the distributed setup-invite rate-limit harness. The PR-triggered workflow-run query returns only the Smoke for #161; the dedicated `validate.yml` filter includes master/develop/the candidate branch but the actual base is `chore/continuity-foundation`. The Smoke ran the full offline Validate successfully, but the separate required Validate check is not currently demonstrated on the exact #161 PR event.
+
+#162's checks passed on HEAD `fa8c9fa`, but the base branch has moved. Compare of current base branch `fix/normal-api-target-aligned-rate-limit-20261113` to #162 returns 8 commits ahead, 1 behind, with merge-base `a1d8dc8`; the one base-only commit changes `.github/workflows/validate.yml` (one insertion and one deletion). The PR remains mergeable by GitHub metadata, but it is not reconciled with the current base. No rebase or history rewrite was performed. The HTTP 409 test constructs local `Response` objects; it is not a live request to the deployed Edge Function.
+
+### Supabase project inventory and current runtime
+
+Exactly two projects are listed; both are ACTIVE_HEALTHY:
+- Production `dlfvkawaiqduhlazsszm`, UpStatus, `us-west-2`, PostgreSQL 17.11.0.002.
+- Signaling/auth lab `bfpjtfqlnypisxljoxkb`, `sa-east-1`, PostgreSQL 17.11.0.003.
+
+There is no full-product TEST project. Production's managed `main` branch reports `MIGRATIONS_FAILED` while its preview reports `ACTIVE_HEALTHY`; the lab has no Supabase development branches.
+
+- Production: 7 applied migrations and 38 active Edge Functions; 12 slugs begin with `upstatus-test`.
+- Lab: 39 migrations and 2 active functions (`upstatus-signal-test` v32 and `upstatus-signal-e2e-once` v3).
+- Production runtime versions remain Normal `upstatus` v480, Team Lite `upstatus-team-lite` v15, TEST `upstatus-test` v281, and legacy beta10 v6.
+- Lab `upstatus-signal-test` v32 has SHA `f893360a4e0021a0d608e6cb58b8644c68f7389bce685c3177c025eb376b8712`. Its deployed source maps `VOICE_ATTEMPT_CONFLICT` and `ROOM_FULL` to 409, but does not contain `VOICE_ATTEMPT_ALREADY_ACTIVE` or the candidate `voiceOpenErrorStatus` helper. That error still falls through to 500. No lab deploy or live HTTP request occurred.
+
+### Realtime, grants, Default ACL, RLS and Storage
+
+A fresh production SELECT over the last 14 days returned **97** rows in `realtime.messages`, all `private=false`, on topic `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0` (first observed 2026-11-10 12:23:15; last 2026-11-13 16:00:26). The lab has zero Realtime rows. Installed Normal/Team Lite clients still use the legacy beta10 topic and do not establish private authenticated delivery. RT-01 remains blocked.
+
+Production Security Advisor at 16:57 UTC returned 6 WARN and 10 INFO:
+- Three broadcast SECURITY DEFINER functions are executable by anon and authenticated (six WARN findings total).
+- Ten public RLS-enabled tables have no policies.
+- Nine backend-owned public tables grant seven privilege types to each of anon and authenticated, including TRUNCATE (126 privilege rows total; 18 TRUNCATE grants).
+- The read-only Default ACL expansion shows broad defaults across public, storage, graphql and graphql_public for roles including anon/authenticated; no ACL was changed.
+- Storage has two public buckets, each live-limited to 20 MiB: `chat-images` and `profile-images`. There are 188 objects and zero policies on `storage.objects`.
+- The current master `supabase/config.toml` (blob `eb121d75ebd86adeeae88edcf364db87c80902fb`) still declares chat-images 25 MB and profile-images 2 MB, both public. This disagrees with the live 20 MiB limit on both buckets. No bucket or policy change was made.
+
+Lab Security Advisor returned 18 INFO and no WARN. Lab public schema has no direct anon/authenticated table grants; it has 18 RLS-enabled tables without policies, no Storage buckets/objects, and 39 migrations. The lab has four setup-token columns and the invite-rate-limit table, but `upstatus_sessions` still stores `user_name` and has no `user_id`. Production has no setup-token columns or invite-rate-limit table/RPC, and its sessions are also name-based. No user/session values were inspected.
+
+### Migration provenance
+
+The production ledger lists 7 migrations; the lab lists 39. The current `master` tree contains only three canonical SQL files under `supabase/migrations`:
+- `20261005160000_upstatus_cloud.sql`
+- `20261005173000_remote_realtime.sql`
+- `20261005180000_client_presence.sql`
+
+Four later historical SQL source files remain absent from the canonical directory, although their executed statements are present in the production ledger. Ledger recovery is not byte-for-byte original-file provenance. The original files were not reconstructed and no migration was applied.
+
+### Documentation, issues and acceptance
+
+- `docs/RELEASE_READINESS.md` blob `7cfbd70886df42ce790c078c224b19284a632595`: 8,410 lines / 1,045,105 bytes. Its latest technical checkpoint remains 2026-11-08 18:30 UTC; the file is QA-owned and was not changed.
+- `RELEASE_CHECKLIST.md` was read in full. It requires TEST isolation, functional/browser acceptance, and explicit approval before production.
+- `UPSTATUS_HANDOFF.md` and the tail of `docs/CURRENT_STATE.md` were read on the continuity branch. This append supersedes the previous engineering snapshot dated 2026-11-13 14:05:32 UTC.
+- Latest independent QA report consulted: [2026-11-13 16:28 UTC](https://github.com/Reekyi/UpStatus/blob/qa/release-readiness-2026-11-04-master/docs/audits/2026-11-13-upstatus-qa-audit-1628-utc.md). Its recommendation is NOT READY.
+- Issue [#78](https://github.com/Reekyi/UpStatus/issues/78) remains open, 0/8 physical acceptance criteria. No F5-free physical browser test was performed.
+- Issue [#79](https://github.com/Reekyi/UpStatus/issues/79) remains open; its body checklist is historical (16/35). The dedicated Engineering comment is updated in place; the QA comment is preserved.
+
+### Release gates
+
+- RT-01: BLOCKED — 97 production broadcasts are public; installed client topic/auth does not match a private server-mediated path.
+- TEST-ISOLATION: BLOCKED — only production and signaling/auth lab exist; no full-product TEST.
+- MIGRATION-PROVENANCE: IN PROGRESS — ledger statements are present, but four original canonical SQL files are missing.
+- AUTH-03: BLOCKED — production lacks setup-token/rate-limit schema and sessions still use name identity; lab candidate schema is not deployed.
+- ACL-STORAGE: BLOCKED — broad grants/Default ACL, SECURITY DEFINER warnings, public buckets and zero Storage object policies; live/config size mismatch remains.
+- RECONNECT: PENDING — #78 remains 0/8 and requires Ricardo's physical no-F5 acceptance.
+- HUMAN-REVIEW: PENDING — all seven PRs remain Draft with zero submitted reviews; no explicit release authorization exists.
+
+### Next actions
+
+1. Reconcile #162 onto the current #161 base and rerun the dedicated PR Validate and voice contract on the final stacked SHA.
+2. Ask QA to reconcile the #82 PR head, branch endpoint and report HEAD before treating a new QA CI run as exact-head evidence.
+3. Obtain explicit authorization and confirm project cost/organization before provisioning Full-Product TEST.
+4. Design a private server-mediated Realtime cutover with rollback; do not flip channels or revoke grants before client/server trust-boundary validation.
+5. Complete AUTH-03 with immutable `users.id` session identity, then validate login/setup and role behavior in isolated TEST.
+6. Align Storage live/config limits and decide public/private access with object policies; review Default ACL changes with the owning admin role.
+7. Recover the four original migration sources or document a formal provenance exception; diagnose the managed `main` migration failure.
+8. Obtain the physical no-F5 Normal and Team Lite acceptance for all eight criteria in Issue #78 and human reviews.
+
+No merge, deploy, release, userscript publication, migration, production SQL write, secret/feature-flag/grant/policy/ACL change, or destructive operation occurred. Production received SELECT/catalog queries only.
