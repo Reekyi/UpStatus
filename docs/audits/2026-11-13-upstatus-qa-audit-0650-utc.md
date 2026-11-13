@@ -192,3 +192,17 @@ Issue #79 mantém checklist 16/35. O comentário QA existente foi atualizado; o 
 ## Segurança operacional desta execução
 
 Todas as consultas Supabase foram SELECT-only. Não houve alteração de produção, secrets, flags, migrations, deploy, merge, release ou publicação de userscript. Não foi executado teste de exploração nem upload real. A única escrita no repositório foi este novo relatório na branch QA; a única outra escrita foi a atualização do comentário QA existente na Issue #79.
+
+
+## 11. Adendo — propriedade de avatar e identidade da sessão
+
+A PR #157 foi reavaliada como candidata relacionada, embora não faça parte do conjunto obrigatório:
+- HEAD `b7baf3a98e22b8a9555d667878e49e121d7bcf8c`, Draft, sem reviews humanas.
+- Workflow `Team Lite Avatar Hardening` #43333849082 PASS.
+- O teste é de helper puro; o próprio PR declara que não fez upload real nem consulta de validação contra Supabase.
+
+A #157 deriva o prefixo de avatar de `users.id`, mas resolve esse ID novamente a partir do nome retornado pela sessão. A sessão continua armazenando `user_name`, não `user_id`. Como `users.name` não é UNIQUE em produção, o fail-closed para zero/mais de um resultado não resolve o caso de nome antigo reutilizado por exatamente uma nova conta: uma sessão antiga ainda vinculada ao nome pode resolver para o novo ID. A correção completa exige vincular `user_id` à sessão no login e invalidar sessões antigas em renomeações/reutilização.
+
+A #157 altera somente o template Team Lite; não fecha a mesma lacuna no Normal. A candidata #74 ainda aceita qualquer caminho canônico de `profile-images` no `profileRoute`, sem validar prefixo/ownership do objeto. O upload assinado cria caminho aleatório sem vínculo ao usuário; o bucket é público. Portanto, a propriedade do avatar continua incompleta nos dois produtos até integrar uma solução consistente baseada em ID de sessão.
+
+Também há diferença de limite no Normal candidato: o caminho legado de avatar limita a 2 MiB, enquanto `signedUploadRoute(kind="avatar")` permite até 20 MiB. O limite do bucket continua 20 MiB. Não foi realizado upload real.
