@@ -1273,7 +1273,7 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
   var CURRENT_VERSION='__UPSTATUS_VERSION__'
   var UPSTATUS_TEST_CHANNEL=__UPSTATUS_TEST_CHANNEL__;
   var RELEASE_MANIFEST_URL='__UPSTATUS_RELEASE_MANIFEST_URL__';
-  var UPDATE_URL=CLOUD_SERVER+'/upstatus.user.js';
+  var UPDATE_URL='__UPSTATUS_UPDATE_URL__';
   var externalNotifPermission='default';
   var externalNotifSeen={};
   function iconSvg(name,cls){var p={
@@ -1856,9 +1856,9 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
       .then(function(manifest){
         if(!manifest||!Object.prototype.hasOwnProperty.call(manifest,'version'))throw new Error('Manifesto inválido para este canal.');
         var remote=String(manifest.version||'').trim();
-        var url=String(manifest.scriptUrl||CLOUD_SERVER+'/upstatus.user.js').trim();
+        var url=String(manifest.scriptUrl||UPDATE_URL).trim();
         if(!remote||!/^\d+(?:\.\d+){1,3}(?:-[0-9A-Za-z.-]+)?$/.test(remote))throw new Error('Versão do manifesto inválida.');
-        if(url!==CLOUD_SERVER+'/upstatus.user.js')throw new Error('Link do script não corresponde ao canal oficial.');
+        if(url!==UPDATE_URL)throw new Error('Link do script não corresponde ao canal deste build.');
         return fetch(url+'?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
           .then(function(sr){if(!sr.ok)throw new Error('Script oficial: HTTP '+sr.status);return sr.text();})
           .then(function(text){
