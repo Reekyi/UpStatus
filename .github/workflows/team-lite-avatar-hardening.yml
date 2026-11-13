@@ -3,6 +3,14 @@ name: Team Lite Avatar Hardening
 on:
   push:
     branches:
+      - fix/team-lite-avatar-user-id-20261113
+    paths:
+      - "src/server/team-lite-index.template.ts"
+      - "team-lite/upstatus-team-lite.user.js"
+      - "scripts/team-lite-avatar-hardening.test.mjs"
+      - ".github/workflows/team-lite-avatar-hardening.yml"
+  pull_request:
+    branches:
       - fix/team-lite-avatar-owner-limit-20261112
     paths:
       - "src/server/team-lite-index.template.ts"
