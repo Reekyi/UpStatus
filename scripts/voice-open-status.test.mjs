@@ -7,7 +7,7 @@ const source = readFileSync("supabase/functions/upstatus-signal-test/index.ts", 
 const workflow = readFileSync(".github/workflows/voice-open-http-status-contract.yml", "utf8");
 assert.match(
   workflow,
-  /push:\s*branches:\s*\n\s*-\s*fix\/voice-open-http-409-contract-20261113/,
+  /push:\s*branches:\s*\n\s*-\s*fix\/voice-open-http-409-contract-reconciled-20261113/,
   "the contract workflow push trigger must target this candidate branch",
 );
 assert.match(
@@ -17,7 +17,7 @@ assert.match(
 );
 assert.match(
   workflow,
-  /pull_request:[\s\S]*?branches:[\s\S]*?-\s*fix\/voice-open-http-409-contract-20261113/,
+  /pull_request:[\s\S]*?branches:[\s\S]*?-\s*fix\/voice-open-http-409-contract-reconciled-20261113/,
   "the contract workflow PR trigger must retain the candidate branch for future child PRs",
 );
 assert.match(
