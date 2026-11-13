@@ -38,6 +38,7 @@ for (const name of [
   "20261107170000_pin_empty_search_path_trigger_broadcasts_test.sql",
   "20261108010000_voice_attempt_singleton_test.sql",
   "20261108050802_voice_attempt_account_scoped_lock_test.sql",
+  "20261109230000_setup_invite_rate_limit_test.sql",
 ]) {
   const testPath = path.join(testMigrationsRoot, name);
   const migrationPath = path.join(migrationsRoot, name);
@@ -46,6 +47,10 @@ for (const name of [
   assert.ok(readFileSync(testPath, "utf8").trim().length > 0, "isolated test migration must not be empty: " + name);
 }
 
+const setupInviteRateLimitMigrationPath = path.join(migrationsRoot, "20261109230000_setup_invite_rate_limit.sql");
+assert.equal(existsSync(setupInviteRateLimitMigrationPath), true, "production setup-invite rate-limit migration missing");
+const setupInviteRateLimitMigration = readFileSync(setupInviteRateLimitMigrationPath, "utf8");
+assert.ok(setupInviteRateLimitMigration.includes("consume_upstatus_setup_invite_rate_limit"), "production setup-invite rate-limit RPC missing");
 const readmePath = path.join(testMigrationsRoot, "README.md");
 assert.equal(existsSync(readmePath), true, "isolated test migration safety README missing");
 const readmeText = readFileSync(readmePath, "utf8");
