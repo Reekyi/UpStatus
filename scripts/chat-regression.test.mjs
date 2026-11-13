@@ -101,6 +101,8 @@ assert(source.includes("if(p.type==='presence'){callReceivePresence(p);return;}"
 
 assert(serverTemplate.includes("const isAdmin=await admin(name);"),"server delete is authorized by the authenticated admin role");
 assert(serverTemplate.includes('if(name!=="Ricardo"||!(await admin(name)))'),"chat-wide cleanup requires the owner and persisted administrator role");
+assert(serverTemplate.includes('const role=a.role||"implementation_user";'),"first setup must default an unset role to implementation_user");
+assert(!serverTemplate.includes('const role=a.role||(["Ricardo","Lohan","Guilherme"].includes(name)?'),"first setup must never grant administrator role by display name");
 assert(!serverTemplate.includes('const isAdmin=name==="Ricardo"'),"no name-only administrator bypass");
 assert(source.includes("var canDelete=m.user===member||role==='implementation_admin';"),"admin UI uses stored role");
 assert(!source.includes("var canDelete=m.user===member||member==='Ricardo'||role==='implementation_admin';"),"chat delete UI must not grant admin access by display name");

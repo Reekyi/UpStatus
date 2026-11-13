@@ -92,7 +92,7 @@ async function login(req:Request,setup:boolean){
   if(!a)return response({error:"Use um usuário válido e uma senha de pelo menos 6 caracteres."},400);
   if(setup){
     if(a.password_hash)return response({error:"Esta conta já foi configurada."},409);
-    const role=a.role||(["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin":"implementation_user");
+    const role=a.role||"implementation_user";
     const {error}=await db.from("users").update({password_hash:passwordHash(password),role}).eq("name",name);
     if(error)throw error;
     return createSession(name,{...a,password_hash:undefined,role});
