@@ -1,0 +1,35 @@
+name: Production Signaling Source Parity
+
+on:
+  push:
+    branches:
+      - feat/production-authenticated-signaling-runtime-20261108
+    paths:
+      - "supabase/functions/upstatus-signal/**"
+      - "supabase/functions/upstatus-signal-test/**"
+      - "supabase/migrations/20261108190000_distributed_signaling_rate_limit.sql"
+      - "supabase/config.toml"
+      - "scripts/production-signal-source-parity.test.mjs"
+      - "scripts/validate.mjs"
+      - ".github/workflows/production-signal-source-parity.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check offline source-parity regression
+        run: |
+          node --version
+          node --check scripts/production-signal-source-parity.test.mjs
+          node scripts/production-signal-source-parity.test.mjs
+      - name: Run complete offline Normal validation
+        run: node scripts/validate.mjs
