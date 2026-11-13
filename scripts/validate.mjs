@@ -65,9 +65,11 @@ assert(headerValue(prodUser,"version")===baseVersion,"production userscript vers
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
 assert(headerValue(testUser,"namespace")==="upseller-test","test namespace mismatch");
-const expectedProductionUpdateUrl=String(release.scriptUrl||"https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js").trim();
-assert(headerValue(prodUser,"updateURL")===expectedProductionUpdateUrl,"production updateURL must match the configured stable endpoint");
-assert(headerValue(prodUser,"downloadURL")===expectedProductionUpdateUrl,"production downloadURL must match the configured stable endpoint");
+const expectedProductionUpdateUrl="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js";
+assert(String(release.scriptUrl||"").trim()===expectedProductionUpdateUrl,"release.json scriptUrl must match the production distribution endpoint");
+assert(headerValue(prodUser,"updateURL")===expectedProductionUpdateUrl,"production updateURL must match release.json scriptUrl");
+assert(headerValue(prodUser,"downloadURL")===expectedProductionUpdateUrl,"production downloadURL must match release.json scriptUrl");
+assert(prodUser.includes("var UPDATE_URL='"+expectedProductionUpdateUrl+"';"),"production manual updater must match release.json scriptUrl");
 assert(headerValue(testUser,"updateURL")===expectedTestUrl,"test updateURL must use the configured non-production TEST project");
 assert(headerValue(testUser,"downloadURL")===expectedTestUrl,"test downloadURL must use the configured non-production TEST project");
 assert(prodUser.includes("var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';"),"production Realtime URL must remain pinned to production");
