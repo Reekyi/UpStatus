@@ -34,7 +34,9 @@ assert(prefixSource,"immutable avatar owner prefix helper must be present");
 const avatarOwnerPrefix=vm.runInNewContext("("+prefixSource[0].replace("function avatarOwnerPrefix(userId:string|number)","function avatarOwnerPrefix(userId)")+")",{tokenHash:value=>createHash("sha256").update(value).digest("hex")});
 assert(avatarOwnerPrefix(42)===avatarOwnerPrefix("42"),"numeric user ID must have a stable owner prefix");
 assert(avatarOwnerPrefix(42)!==avatarOwnerPrefix(43),"different users must have different owner prefixes");
-assert.throws(()=>avatarOwnerPrefix("Ricardo"),/Identidade de usuário inválida/,"session names must not be accepted as owner identifiers");
+let rejectedName=false;
+try{avatarOwnerPrefix("Ricardo");}catch(error){rejectedName=/Identidade de usuário inválida/.test(String(error));}
+assert(rejectedName,"session names must not be accepted as owner identifiers");
 assert(profile.includes("const userId=await avatarUserId(name);"),"profile save must resolve the immutable user ID");
 assert(profile.includes('if(!userId)return response({error:"Não foi possível identificar sua conta com segurança."},409);'),"ambiguous or missing user identity must fail closed");
 assert(profile.includes("objectPath.startsWith(ownerPrefix)"),"profile route must reject objects owned by another immutable user ID");
