@@ -2152,7 +2152,7 @@
         if(!queryToken)url.searchParams.set('token',String(ticket.token));
         else if(queryToken!==String(ticket.token))throw new Error('O token da URL assinada não corresponde à autorização.');
         if(!url.searchParams.get('token'))throw new Error('A URL assinada veio sem token.');
-        return fetch(url.toString(),{method:'PUT',credentials:'omit',redirect:'error',headers:{'Content-Type':info.mime,'x-upsert':'true','cache-control':'max-age=3600'},body:file}).then(function(resp){
+        return fetch(url.toString(),{method:'PUT',credentials:'omit',redirect:'error',headers:{'Content-Type':info.mime,'cache-control':'max-age=3600'},body:file}).then(function(resp){
           if(!resp||!resp.ok)throw new Error('Falha no Storage ('+Number(resp&&resp.status||0)+').');
           return {publicUrl:publicUrl.toString(),path:String(ticket.path),bucket:expectedBucket,mime:info.mime,size:size};
         });
