@@ -68,7 +68,7 @@ assert.ok(testUser.includes("var UPSTATUS_TEST_CHANNEL=true;") &&
   testUser.includes("var RELEASE_MANIFEST_URL='';"),
   "default TEST artifact must disable production updater and release feed");
 assert.ok(testUser.includes("var CLOUD_SERVER='https://" + sentinelProject + ".supabase.co/functions/v1/upstatus-test';") &&
-  testUser.includes("var UPDATE_URL='https://" + sampleProject + ".supabase.co/functions/v1/upstatus-test/upstatus.user.js';"),
+  testUser.includes("var UPDATE_URL='https://" + sentinelProject + ".supabase.co/functions/v1/upstatus-test/upstatus.user.js';"),
   "default TEST manual update URL must derive from the inert TEST cloud server");
 assert.ok(testUser.includes("base=new URL(UP_REALTIME_URL);") &&
   testUser.includes("url=new URL(rawUploadUrl,base);") &&
@@ -89,7 +89,7 @@ assert.equal(header(testUser, "updateURL"),
 assert.ok(testUser.includes("var UP_REALTIME_URL='https://" + sampleProject + ".supabase.co';"),
   "configured TEST Realtime URL must use the same project as its API");
 assert.ok(testUser.includes("var CLOUD_SERVER='https://" + sampleProject + ".supabase.co/functions/v1/upstatus-test';") &&
-  testUser.includes("var UPDATE_URL=CLOUD_SERVER+'/upstatus.user.js';"),
+  testUser.includes("var UPDATE_URL='https://" + sampleProject + ".supabase.co/functions/v1/upstatus-test/upstatus.user.js';"),
   "configured TEST manual update URL must derive from the configured TEST cloud server");
 
 for (const [projectId, expectedMessage] of [
