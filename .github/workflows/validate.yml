@@ -7,7 +7,7 @@ on:
       - "**/*.md"
       - "docs/**"
   pull_request:
-    branches: [master, develop]
+    branches: [master, develop, chore/continuity-foundation, fix/normal-api-target-aligned-rate-limit-20261113]
     paths-ignore:
       - "**/*.md"
       - "docs/**"
