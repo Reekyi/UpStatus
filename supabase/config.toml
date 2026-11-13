@@ -1,14 +1,17 @@
 [functions.upstatus]
 verify_jwt = false
 
+[functions.upstatus-team-lite]
+verify_jwt = false
+
 [storage.buckets.chat-images]
 public = true
-file_size_limit = "25MB"
+file_size_limit = "20MB"
 allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/webm", "audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav", "audio/x-m4a"]
 
 [storage.buckets.profile-images]
 public = true
-file_size_limit = "2MB"
+file_size_limit = "20MB"
 allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "image/gif"]
 
 [functions.upstatus-test]

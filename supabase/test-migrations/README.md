@@ -28,3 +28,13 @@ Production migrations must be separately authored, reviewed, validated against t
 - Isolated contract test: `20261108050802_voice_attempt_account_scoped_lock_test.sql` verifies attempt-ID → account → shared-room ordering, confirms the open scan happens before the inner room-open RPC, and preserves SECURITY INVOKER, empty search_path and service_role-only grants.
 - The authenticated integration harness races opens and cancels for two different accounts while retaining the same-account one-winner regression.
 - These two version numbers match the migration records already applied to the allowlisted isolated lab `bfpjtfqlnypisxljoxkb`. Never apply test-migration files to production or official TEST.
+
+## Team Lite production deployment prerequisites (2026-11-09)
+
+- The Team Lite backend template calls both consume_upstatus_setup_invite and merge_chat_read_receipts. Production must have the three AUTH-03 setup-invite migrations and the production candidate migration 20261109090000_atomic_chat_read_receipts_and_visual_config_grants.sql applied before the matching Team Lite function can be deployed.
+- The production migration is a separately reviewed candidate under supabase/migrations/. Its SQL is byte-identical to the existing isolated counterpart 20261104152847_atomic_chat_read_receipts_and_visual_config_grants_test.sql.
+- The isolated counterpart remains test-only and must never be applied to production or the official TEST runtime. Any future application to the isolated lab requires a coordinated QA window and independent project/content verification.
+- The Team Lite production workflow checks project identity and migration history with read-only Management API GET requests. It does not apply migrations.
+- The workflow is manual-only, requires an explicit confirmation input defaulting to false, pins the exact official branch/SHA, and deploys only upstatus-team-lite with --no-verify-jwt.
+- The candidate Storage size settings now match the observed 20 MB production bucket limits. Bucket privacy remains unchanged; this workflow does not deploy or modify Storage configuration.
+
