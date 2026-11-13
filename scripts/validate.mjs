@@ -23,8 +23,15 @@ assert(headerValue(prodUser,"version")===baseVersion,"production userscript vers
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
 assert(headerValue(testUser,"namespace")==="upseller-test","test namespace mismatch");
-assert(headerValue(prodUser,"updateURL").includes("/upstatus/upstatus.user.js"),"production updateURL mismatch");
-assert(headerValue(testUser,"updateURL").includes("/upstatus-test/upstatus.user.js"),"test updateURL mismatch");
+const expectedProductionUpdateUrl=String(release.scriptUrl||"").trim();
+assert(expectedProductionUpdateUrl==="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js","release.json scriptUrl must match the production distribution endpoint");
+assert(headerValue(prodUser,"updateURL")===expectedProductionUpdateUrl,"production updateURL must match release.json scriptUrl");
+assert(headerValue(prodUser,"downloadURL")===expectedProductionUpdateUrl,"production downloadURL must match release.json scriptUrl");
+assert(prodUser.includes("var UPDATE_URL='"+expectedProductionUpdateUrl+"';"),"production manual updater must match release.json scriptUrl");
+assert(prodUser.includes("var CLOUD_SERVER='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-screen-share-3-1-1-beta10';"),"production API endpoint must remain on beta10 until a coordinated cutover");
+const expectedTestUpdateUrl="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus-test/upstatus.user.js";
+assert(headerValue(testUser,"updateURL")===expectedTestUpdateUrl,"test updateURL must match the TEST function");
+assert(headerValue(testUser,"downloadURL")===expectedTestUpdateUrl,"test downloadURL must match the TEST function");
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
