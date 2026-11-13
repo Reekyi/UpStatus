@@ -1383,24 +1383,31 @@ assert.ok(testDeployWorkflow.includes("node scripts/test-build-target-guard.mjs"
 
 
 // Regression for QA finding: clearing the shared chat is destructive and must
-// require both the Ricardo account and its stored implementation_admin role.
+// require the persisted implementation_admin role, independent of display name.
 // This VM executes only the real route guard; message/Storage operations remain
 // outside the extracted block and are asserted to occur strictly after it.
 const teamLiteChatClearStart = backend.indexOf('if(path==="/api/chat/clear"&&req.method==="POST"){');
 const teamLiteChatClearRead = backend.indexOf('const {data:oldMessages,error:readError}=await db.from("messages").select("image_url")', teamLiteChatClearStart);
 const teamLiteChatClearDelete = backend.indexOf('db.from("messages").delete()', teamLiteChatClearStart);
 const teamLiteChatClearStorage = backend.indexOf('db.storage.from("chat-images").remove(batch)', teamLiteChatClearStart);
-const requiredChatClearGuard = 'if(name!=="Ricardo"||!(await admin(name)))return response({error:"Somente o administrador responsável pode limpar o chat."},403);';
+const requiredChatClearGuard = 'if(!(await admin(name)))return response({error:"Somente administradores podem limpar o chat."},403);';
 assert.ok(teamLiteChatClearStart >= 0 && teamLiteChatClearRead > teamLiteChatClearStart &&
   teamLiteChatClearDelete > teamLiteChatClearRead && teamLiteChatClearStorage > teamLiteChatClearDelete,
   "Team Lite chat-clear guard must precede message reads, deletes, and Storage removal");
 assert.ok(backend.slice(teamLiteChatClearStart, teamLiteChatClearRead).includes(requiredChatClearGuard),
-  "Team Lite chat-clear route must require Ricardo plus the stored admin role");
+  "Team Lite chat-clear route must require the persisted admin role");
+assert.ok(!backend.slice(teamLiteChatClearStart, teamLiteChatClearRead).includes('name!=="Ricardo"'),
+  "Team Lite chat-clear route must not authorize by display name");
+assert.ok(backend.includes('message:"🧹 "+name+" limpou o chat."'),
+  "Team Lite chat-clear system message must identify the acting administrator");
 // The Normal candidate's equivalent guard is tested by PR #74's own Validate regression.
 // This Team Lite branch inherits an older Normal template from team-lite-official, so do not compare that stale snapshot here.
-assert.ok(script.includes("member==='Ricardo'&&role==='implementation_admin'?'<button class=\"up-chat-clear\"") &&
-  script.includes("function clearChatRicardo(){if(member!=='Ricardo'||role!=='implementation_admin')return;"),
-  "Team Lite clear-chat UI affordance and handler must require both account and stored role");
+assert.ok(script.includes("role==='implementation_admin'?'<button class=\"up-chat-clear\"") &&
+  script.includes("function clearChatAdmin(){if(role!=='implementation_admin')return;") &&
+  script.includes("clearBtn.onclick=clearChatAdmin") &&
+  !script.includes("member==='Ricardo'&&role==='implementation_admin'?'<button class=\"up-chat-clear\"") &&
+  !script.includes("function clearChatRicardo(){if(member!=='Ricardo'||role!=='implementation_admin')return;"),
+  "Team Lite clear-chat UI affordance and handler must use the stored admin role without a name gate");
 
 assert.ok(script.includes("var canDelete=m.user===member||role==='implementation_admin';") &&
   !script.includes("var canDelete=m.user===member||member==='Ricardo'||role==='implementation_admin';"),
@@ -1482,10 +1489,11 @@ assert.equal(paddedRicardo.counters.storageAccesses, 0);
 
 const nonRicardoAdmin = makeTeamLiteChatClearGuardContext("implementation_admin");
 const nonRicardoResult = await nonRicardoAdmin.run("Another Admin");
-assert.equal(nonRicardoResult.status, 403,
-  "a different administrator account must not bypass the explicit Ricardo ownership rule");
-assert.equal(nonRicardoAdmin.counters.userLookups, 0,
-  "the name mismatch must short-circuit before role lookup");
+assert.equal(nonRicardoResult.status, 200,
+  "an implementation_admin account must be authorized independently of its display name");
+assert.equal(nonRicardoResult.body.allowed, true);
+assert.equal(nonRicardoAdmin.counters.userLookups, 1,
+  "the persisted role must be checked for every account name");
 assert.equal(nonRicardoAdmin.counters.messageAccesses, 0);
 assert.equal(nonRicardoAdmin.counters.storageAccesses, 0);
 
