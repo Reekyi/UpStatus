@@ -78,6 +78,12 @@ for(const size of [0,-1,1.5,20*1024*1024+1]){
   assert.equal(h.calls.storage.length,0);
 }
 {
+  const h=harness();
+  const r=await h.context.__signedUploadRoute(req({mime:"image/png",size:2*1024*1024+1,name:"avatar.png"}),"avatar");
+  assert.equal(r.status,400);
+  assert.equal(h.calls.storage.length,0);
+}
+{
   const h=harness({signedData:({bucket,path,token})=>({token,path,signedUrl:"https://attacker.example/storage/v1/object/upload/sign/"+bucket+"/"+path+"?token="+token})});
   await assert.rejects(()=>h.context.__signedUploadRoute(req({mime:"image/png",size:10,name:"x.png"}),"chat"),/origem ou rota de upload inesperada/);
 }
