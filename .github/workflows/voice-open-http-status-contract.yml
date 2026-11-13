@@ -7,6 +7,8 @@ on:
     paths:
       - ".github/workflows/voice-open-http-status-contract.yml"
       - "scripts/voice-open-status.test.mjs"
+      - "scripts/signaling-static.test.mjs"
+      - "scripts/validate.mjs"
       - "supabase/functions/upstatus-signal-test/index.ts"
       - "supabase/functions/upstatus-signal-test/voice-status.mjs"
 
@@ -25,3 +27,7 @@ jobs:
         run: node --version
       - name: Run voice-open HTTP status contract
         run: node scripts/voice-open-status.test.mjs
+      - name: Run signaling static regression suite
+        run: node scripts/signaling-static.test.mjs
+      - name: Run full offline Validate
+        run: node scripts/validate.mjs
