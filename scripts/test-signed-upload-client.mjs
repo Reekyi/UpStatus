@@ -63,9 +63,10 @@ const validTicket=ticketFor();
   assert.equal(new URL(h.calls.fetch[0].url).searchParams.get("token"),noQuery.token);
 }
 {
-  const avatarTicket=ticketFor({bucket:"profile-images",path:"avatar.png"});
+  const avatarFile={name:"avatar.png",type:"image/png",size:2*1024*1024};
+  const avatarTicket=ticketFor({bucket:"profile-images",path:"avatar.png",size:2*1024*1024});
   const h=harness(avatarTicket);
-  const result=await h.uploadFileDirect(imageFile,"/api/profile/avatar-upload-url");
+  const result=await h.uploadFileDirect(avatarFile,"/api/profile/avatar-upload-url");
   assert.equal(result.bucket,"profile-images");
   assert.equal(h.calls.api[0].route,"/api/profile/avatar-upload-url");
 }
@@ -74,6 +75,8 @@ const validTicket=ticketFor();
   await assert.rejects(()=>h.uploadFileDirect({name:"bad.zip",type:"application/zip",size:123},"/api/chat/upload-url"),/Tipo de arquivo/);
   assert.equal(h.calls.api.length,0);
   await assert.rejects(()=>h.uploadFileDirect({name:"large.png",type:"image/png",size:20*1024*1024+1},"/api/chat/upload-url"),/20 MB/);
+  assert.equal(h.calls.api.length,0);
+  await assert.rejects(()=>h.uploadFileDirect({name:"large-avatar.png",type:"image/png",size:2*1024*1024+1},"/api/profile/avatar-upload-url"),/2 MB/);
   assert.equal(h.calls.api.length,0);
   await assert.rejects(()=>h.uploadFileDirect({name:"clip.mp4",type:"video/mp4",size:123},"/api/profile/avatar-upload-url"),/Tipo de arquivo/);
   assert.equal(h.calls.api.length,0);
