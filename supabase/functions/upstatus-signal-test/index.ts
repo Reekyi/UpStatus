@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { createHash, randomBytes } from "node:crypto";
 import { readJsonObject } from "./body.mjs";
 import { isAllowedLegacyEnvelope } from "./legacy-envelope.mjs";
+import { voiceOpenErrorStatus } from "./voice-status.mjs";
 
 const PROJECT_URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}").default || "";
@@ -257,10 +258,7 @@ Deno.serve(async (req: Request) => {
       if (!result || typeof result !== "object") return response({ error: "Open voice room failed" }, 500);
       if (result.error) {
         const code = String(result.error);
-        const status = code === "INVALID_LOGICAL_ID" || code === "INVALID_ARGUMENT" || code === "INVALID_ATTEMPT_ID" ? 400 :
-          code === "UNKNOWN_USER" ? 404 :
-          code === "VOICE_ROOM_OPEN_CANCELLED" || code === "VOICE_ROOM_UNAVAILABLE" || code === "VOICE_ROOM_MEMBERSHIP_ENDED" ? 410 :
-          code === "VOICE_ATTEMPT_CONFLICT" || code === "VOICE_ATTEMPT_ALREADY_ACTIVE" || code === "ROOM_FULL" ? 409 : 500;
+        const status = voiceOpenErrorStatus(code);
         return response({ error: code, memberCount: result.memberCount }, status);
       }
       return response(result, result.created === true ? 201 : 200);
