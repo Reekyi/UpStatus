@@ -61,12 +61,26 @@ assert(!source.includes("chatDot.textContent=chatUnread>99"),"numeric unread bad
 assert(source.includes("countBadge.textContent='';"),"toast stack must not show a numeric notification counter");
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
 assert(serverTemplate.includes("const cutoff=new Date(Date.now()-48*60*60*1000).toISOString();"),"fast chat route must define its unread cutoff");
+assert(serverTemplate.includes("async function contextName(req:Request)") &&
+  serverTemplate.includes('joinedAt:Date.parse(String(s.joinedAt))||Date.now()'),
+  "guest chat identity must carry the current Lucca/Ycaro session start time");
+assert(serverTemplate.includes("chatRows(name,effectiveSince,sessionStartedAt)") &&
+  serverTemplate.includes("chatRows(name,undefined,sessionStartedAt)") &&
+  serverTemplate.includes('query=query.gte("created_at",new Date(Math.max(sessionStartedAt,Date.parse(cutoff))).toISOString())'),
+  "guest chat history must exclude messages created before the current guest session");
+assert(serverTemplate.includes("unreadRowsQuery=unreadRowsQuery.gte(\"created_at\",new Date(Math.max(sessionStartedAt,Date.parse(cutoff))).toISOString())"),
+  "guest unread counts must respect the current session start time");
+assert(serverTemplate.includes("validRows=(valid||[]).filter((x:any)=>x.user_name!==name&&(!sessionStartedAt||!Number.isFinite(sessionStartedAt)||sessionStartedAt<=0||Date.parse(x.created_at)>=sessionStartedAt))"),
+  "guest read receipts must not mark messages from before the current session as read");
+assert(serverTemplate.includes('chatRoute(req,name,ctx.guest?ctx.joinedAt:0)') &&
+  serverTemplate.includes('readRoute(req,name,ctx.guest?ctx.joinedAt:0)'),
+  "guest session boundaries must be passed to chat history and read-receipt routes");
 
 assert(source.includes("function setChatNewMessageIndicator(show)"),"chat must expose the new-message indicator state");
 assert(source.includes("btn.appendChild(dot)"),"new-message indicator must create a visible dot element on the latest-message arrow");
 assert(source.includes("hasNewExternalMessage=nextMessages.some"),"polling must detect incoming messages when realtime events are missed");
 assert(source.includes("chatPendingInitialScroll=true;chatOpenScrollUntil=Date.now()+2400;chatForceScrollBottom=true;"),"reopening chat must request scrolling to the latest message");
-assert(source.includes("var currentMenu=document.querySelector('.up-chat-emoji-menu'),currentBtn=document.querySelector('.up-chat-emoji-btn')"),"emoji picker outside-click handler must use the current menu and button");
+assert(source.includes("var b=m.__upstatusEmojiButton;if(!m.contains(ev.target)&&(!b||!b.contains(ev.target)))"),"emoji picker outside-click handler must use each menu and its owning button");
 assert(source.includes("document.body.appendChild(box)"),"image lightbox must be mounted at page level");
 assert(serverTemplate.includes('.in("state_key",["remote-status"])'),"health state query must use the correct Supabase in-filter arguments");
 
@@ -79,7 +93,7 @@ assert(source.includes("!list._upstatusUserScrolling&&(chatPendingInitialScroll|
 assert(source.includes("if(Date.now()<chatUserScrollInterruptedUntil&&!chatForceScrollBottom)"),"non-forced scrolling must respect the user-scroll interruption window");
 assert(source.includes("function openChat(){")&&source.includes("chatUserScrollInterruptedUntil=0;"),"opening the chat must reset an older scroll-interruption window");
 
-assert(source.includes("(member==='Ricardo'?'<button class=\"up-chat-clear\" type=\"button\" title=\"Limpar chat\">'+iconSvg('trash')+'</button>':'')+'<button class=\"up-chat-library\""),"Ricardo must see the clear-chat action before the media library; other members must not see the clear action");
+assert(source.includes("(member==='Ricardo'&&role==='implementation_admin'?'<button class=\"up-chat-clear\" type=\"button\" title=\"Limpar chat\">'+iconSvg('trash')+'</button>':'')+'<button class=\"up-chat-library\""),"only the owner with the admin role must see the clear-chat action");
 assert(source.includes(".up-chat-photo{display:block;box-sizing:border-box;min-width:0;max-width:min(260px,100%);max-height:210px;width:auto;height:auto;"),"chat images must shrink to fit narrow bubbles without forcing horizontal overflow");
 assert(source.includes(".up-chat-media{display:block;box-sizing:border-box;min-width:0;width:auto;height:auto;max-width:min(220px,100%);max-height:150px;"),"chat media must stay within the available bubble width while preserving intrinsic proportions");
 assert(source.includes(".up-chat-media-video{width:min(220px,100%);height:auto;aspect-ratio:4/3;max-height:150px}"),"chat videos must use responsive width and preserve a stable aspect ratio");
@@ -100,15 +114,44 @@ assert(source.includes("async function callJoinActiveCall(callId)")&&source.incl
 assert(source.includes("if(p.type==='presence'){callReceivePresence(p);return;}"),"call presence must be handled before normal call-session signal filtering");
 
 assert(serverTemplate.includes("const isAdmin=await admin(name);"),"server delete is authorized by the authenticated admin role");
+
+const chatClearStart=serverTemplate.indexOf('if(path==="\/api\/chat\/clear"&&req.method==="POST"){');
+const chatClearRead=serverTemplate.indexOf('const {data:oldMessages,error:readError}=await db.from("messages").select("image_url")',chatClearStart);
+const chatClearDelete=serverTemplate.indexOf('db.from("messages").delete()',chatClearStart);
+const chatClearStorage=serverTemplate.indexOf('db.storage.from("chat-images").remove(batch)',chatClearStart);
+const requiredChatClearGuard='if(name!=="Ricardo"||!(await admin(name)))return response({error:"Somente o administrador responsável pode limpar o chat."},403);';
+assert(chatClearStart>=0&&chatClearRead>chatClearStart&&chatClearDelete>chatClearRead&&chatClearStorage>chatClearDelete,
+  "chat-clear authorization must run before message reads, deletes and Storage removal");
+assert(serverTemplate.slice(chatClearStart,chatClearRead).includes(requiredChatClearGuard),
+  "chat-clear must require Ricardo plus the current stored implementation_admin role before destructive access");
+
 assert(!serverTemplate.includes('const isAdmin=name==="Ricardo"'),"no name-only administrator bypass");
 assert(source.includes("var canDelete=m.user===member||role==='implementation_admin';"),"admin UI uses stored role");
+assert(source.includes("function clearChatAdmin(){if(member!=='Ricardo'||role!=='implementation_admin')return;"),"clear-chat action handler must require owner identity and admin role");
+assert(source.includes("function canViewHealth(){return role==='implementation_admin';}"),"health diagnostics control must be role-gated in the UI");
+assert(!source.includes("function clearChatRicardo()"),"clear-chat handler must not be tied to a person's name");
 assert(source.includes("function setPendingAttachment(file)"),"files are staged instead of uploaded immediately");
+assert(source.includes("input.value='';\n    updateLinkPreview('');"),"sending a text message must clear its draft link preview");
+assert(source.includes("if(input)updateLinkPreview(input.value||'');else box.classList.add('hidden')"),"removing an attachment must preserve any link preview for the remaining draft");
 assert(source.includes("function updateLinkPreview(text)"),"links get a removable preview");
+assert(source.includes("chatLinkPreviewDismissedUrl=url.href"),"dismissed link preview must be scoped to the URL the user dismissed");
+assert(source.includes("if(chatLinkPreviewDismissed&&url.href===chatLinkPreviewDismissedUrl)"),"a different URL must be allowed to show a new preview");
+assert(source.includes("catch(e){if(!chatPendingAttachment)box.classList.add('hidden');return;}"),"invalid URL drafts must not leave an empty visible preview container");
 assert(source.includes("e.preventDefault();setPendingAttachment(file)"),"pasted images stay pending");
 assert(source.includes("fileName:String(record.file_name"),"filename is separate from caption");
+assert(source.includes("fileName:isDocument?String(file.name||'Documento'):''"),"document uploads must send the original filename separately from the caption");
+assert(source.includes("message:isDocument?(String(caption||'').trim()||String(file.name||'Documento')):String(caption||'').trim(),type:isDocument?'document'"),"attachment captions must remain visible during upload and on document fallback");
+assert(source.includes("sendChatMedia(pending,text,reply)"),"pending attachment sends must preserve the selected reply target");
+assert(source.includes("reply=replyOverride!==undefined?replyOverride:chatReplyTo"),"attachment upload must use the reply target captured before clearing the composer");
+assert(source.includes("setPendingAttachment(file);if(input)updateLinkPreview(input.value||'');setChatReply(reply)"),"failed attachment uploads must restore the file, caption preview, and reply target");
 assert(serverTemplate.includes('file_name:type==="document"&&fileName?fileName:null'),"file name is saved to separate database column");
 assert(source.includes("var incomingTime=!own?"),"received messages show per-message timestamps");
-assert(source.includes("var ownMeta=own?'<span class=\"up-chat-own-meta\"><span class=\"up-chat-own-time\">"),"sent time appears with ticks");
+assert(source.includes("up-chat-own-meta")&&source.includes("up-chat-own-time"),"sent time appears with ticks");
+assert(source.includes(".on('broadcast',{event:'remote_command'},function(){scheduleRemoteStatusPoll();})"),"public remote-command hints must use a coalesced polling scheduler");
+assert(source.includes("if(remotePollHintTimer)return;") && source.includes("if(token===expectedToken&&member===expectedMember)pollRemoteStatus();"),"remote-command hint scheduling must coalesce spam and stay session-bound");
+assert(!source.includes("if(c&&c.target===member)executeRemoteCommand(c);"),"untrusted realtime remote-command payloads must never be executed directly");
+assert(source.includes("remoteLastPollAt=0"),"remote command polling must have a throttle timestamp");
+assert(source.includes("now-remoteLastPollAt<1000"),"remote command poll trigger must be throttled against public broadcast spam");
 assert(source.includes("function screenShareStart()"),"screen-sharing start handler missing");
 assert(source.includes("function screenShareReceive(p)"),"screen-sharing signal handler missing");
 assert(source.includes("SCREEN_ROOM_EVENT"),"screen-sharing realtime event missing");
@@ -118,5 +161,93 @@ assert(source.includes("data-sender-color"),"per-sender chat color rendering mis
 assert(source.includes("function requestPublicChatLinkTitle(url,callback)"),"stable Google Docs link-title hydration helper missing");
 assert(source.includes('class="up-chat-link-card"'),"stable chat link-card renderer missing");
 assert(source.includes("hydrateChatLinkTitles(list);"),"chat link-card hydration hook missing");
-assert(source.includes("upstatus-340-chat-link-card-compat"),"chat link-card compatibility styles missing");
-console.log("Chat regression tests passed: composer, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");
+assert(source.includes(".up-chat-link-card{display:flex")&&source.includes('class="up-chat-link-card"'),"chat link-card renderer and styles must exist");
+
+assert(source.includes("function scheduleRealtimeChatRefresh()"),"public chat broadcasts must use a canonical refresh scheduler");
+assert(source.includes("var wait=Math.max(0,1000-(Date.now()-realtimeChatRefreshLastAt));"),"public broadcast spam must be throttled before it triggers authenticated chat refreshes");
+assert(source.includes("function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}"),"chat_fast payloads must not be trusted as canonical message data");
+assert(source.includes("sendRealtimeEvent('chat_fast')")&&!source.includes("sendRealtimeEvent('chat_fast',{message:created})")&&!source.includes("sendRealtimeEvent('chat_fast',{message:r.message})"),"chat_fast must publish only an empty refresh hint, never a message row");
+assert(source.includes(".on('broadcast',{event:'db_change'},function(){scheduleRealtimeChatRefresh();})"),"database-change broadcasts must trigger an authenticated refresh instead of applying the supplied row");
+assert(source.includes(".on('broadcast',{event:'chat_fast'},function(){handleRealtimeChatFast();})"),"chat_fast listener must ignore attacker-controlled payloads");
+assert(source.includes(".on('broadcast',{event:'chat_read'},function(){scheduleRealtimeChatRefresh();})"),"read receipt broadcasts must be reconciled from the authenticated API");
+assert(!source.includes(".on('broadcast',{event:'db_change'},function(payload){"),"public database-change events must not apply broadcast-supplied rows");
+assert(source.includes("realtimeChatRefreshLastAt=Date.now();")&&source.includes("loadChat(true);"),"broadcast refreshes must fetch authoritative chat state from the server");
+
+
+assert(source.includes("p.type!=='presence'&&p.type!=='ended'&&p.to!==member"),"call signaling except public presence/end events must be addressed to the current member");
+assert(source.includes("p.callId.length>160")&&source.includes("p.from.length>80"),"call signaling identifiers must be bounded");
+assert(source.includes("p.sdp.sdp.length>100000"),"oversized call SDP must be rejected");
+assert(source.includes("JSON.stringify(p.candidate).length>4096"),"oversized ICE candidates must be rejected");
+assert(source.includes("(p.type==='offer'||p.type==='answer'||p.type==='ice')&&p.to!==member"),"voice and screen-share negotiation events must be directly targeted");
+assert(source.includes("function screenShareReceive(p)")&&source.includes("function voiceRoomReceive(p)"),"voice and screen-share handlers must remain present after hardening");
+assert(source.includes("if(signalTransportFlag){\n        if(signalTransport&&signalRoomByCallId[p.callId])")&&source.includes("A sinalização autenticada da chamada não está disponível. O pedido não foi processado.")&&source.includes("}else sendRealtimeEvent('call_signal',{type:accepted?'join_approved':'join_declined'"),"group join approvals must fail closed when authenticated transport is enabled but the room mapping is missing");
+
+
+assert(source.includes("p.participants.length>32"),"call roster broadcasts must be capped to 32 participants");
+assert(source.includes("p.callId.length>160")&&source.includes("p.from.length>80"),"call roster identifiers must be bounded");
+assert(source.includes("list.slice(0,32)")&&source.includes("out.length<32"),"merged call participants must be bounded and deduplicated");
+
+assert(source.includes(".on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"),"public remote_result broadcasts must not be treated as authoritative command results");
+assert(source.includes("api('GET','/api/remote-status/result?id='+encodeURIComponent(id))"),"remote command completion must continue polling the authenticated result endpoint");
+assert(source.includes("payload.sender!==p.name"),"health pong sender must match the member being measured");
+assert(source.includes("payload.id.length>160")&&source.includes("payload.sender.length>80"),"health ping identifiers and sender labels must be bounded");
+console.log("Chat regression tests passed: chat, updater, notifications, untrusted Realtime payload handling, and targeted media signaling.");
+
+assert(source.includes("sendRealtimeEvent('remote_command',{op:'hint'})"),"client remote-command broadcast must contain only a generic hint");
+assert(!source.includes("sendRealtimeEvent('remote_result'"),"client must not broadcast remote result metadata publicly");
+
+assert(source.includes(".on('broadcast',{event:'user_status'},function(){scheduleRealtimeStatusRefresh();})"),"public user status events must use a throttled authenticated refresh scheduler");
+assert(source.includes("if(token!==expectedToken||member!==expectedMember)return;"),"scheduled public status refresh must be bound to the active normal session");
+
+assert(source.includes("callsReleased=upCall&&upCall.active?await callCleanup(true,'hangup'):await signalRetryPendingCallAttempts();") &&
+  source.includes("if(callsReleased)callsReleased=await signalRetryPendingCallLeaves();") &&
+  source.includes("if(!callsReleased){") &&
+  source.indexOf("if(!callsReleased){") < source.indexOf("await api('POST','/api/logout',{})") &&
+  source.indexOf("if(!callsReleased){") < source.indexOf("token='';"),"normal logout must confirm logical call-attempt cancellation and room leave before clearing the session");
+assert(source.includes("await api('POST','/api/logout',{})"),"normal logout must revoke the custom server session before clearing local credentials");
+
+assert(source.includes("if(!token||!member||!signalTransport||!signalTransportFlag||signalInvitationPollBusy)return;"),"invitation polling must not continue authenticated requests after logout");
+assert(source.includes("signalTransportFlag&&!p._authenticatedTransport&&!((p.type==='presence'||p.type==='ended'||p.type==='join_declined')&&p.discoveryOnly===true)"),"normal client must ignore public call-control signals when authenticated transport is enabled");
+assert(source.includes("from:event.sender,to:member,callId:event.payload.callId||callId,_authenticatedTransport:true"),"normal authenticated poll events must be explicitly marked as server-authenticated");
+assert(source.includes("to:member,_authenticatedTransport:true"),"normal server-issued invitations must pass the authenticated receive gate");
+assert(source.includes("if(signalTransportFlag){\n      if(!signalTransport||!signalRoomId)return false;"),"normal one-to-one and group call sends must fail closed without an authenticated room");
+assert(source.includes("if(signalTransportFlag){\n    if(!signalTransport||!signalVoiceRoomRoomId){voiceRoomMessage")&&source.includes("if(signalTransportFlag){\n      if(!signalTransport||!signalVoiceRoomRoomId){screenShareMessage"),"normal voice and screen sends must fail closed without authenticated room bindings");
+assert(source.includes("if(!signalTransportFlag)voiceRoomReceive(payload&&payload.payload||{})")&&source.includes("if(!signalTransportFlag)screenShareReceive(payload&&payload.payload||{})"),"normal client must ignore public voice and screen media broadcasts when authenticated transport is enabled");
+assert(source.includes("if(signalTransportFlag){\n      if(!signalTransport){message('A sinalização autenticada não está configurada. A chamada não foi iniciada.'"),"normal outgoing calls must not fall back to public signaling when the endpoint is unavailable");
+assert(source.includes("if(signalTransportFlag){\n      if(!signalTransport){message('A sinalização autenticada não está configurada. O pedido não foi enviado.'"),"normal group join requests must not fall back to public signaling when the endpoint is unavailable");
+assert(source.includes("var signalTransportFlag=GM_getValue(key+'signaling_transport_enabled',false)===true"),"normal authenticated signaling must remain opt-in and disabled by default");
+assert(source.includes("discoveryOnly:true"),"normal public call presence/end/decline events must be non-authoritative discovery hints when authenticated transport is enabled");
+assert(source.includes("if(signalTransportFlag){\n      if(signalTransport&&roomId)callSendAll('presence'")&&source.includes("if(signalTransportFlag){\n        if(signalTransport&&signalRoomId&&!upCall.pendingInvite)"),"normal call presence and teardown must never publish public control events in authenticated mode");
+
+
+assert(source.includes("if(token!==expectedToken||member!==expectedMember)return;"),"delayed invitation responses must be discarded after logout or account switch");
+
+const unreadHelperStart=serverTemplate.indexOf("function unreadChatCount(");
+const unreadHelperEnd=serverTemplate.indexOf("\n}",unreadHelperStart)+2;
+assert(unreadHelperStart>=0&&unreadHelperEnd>unreadHelperStart,"server must expose a per-message unread reconciliation helper");
+const unreadHelperSource=serverTemplate.slice(unreadHelperStart,unreadHelperEnd);
+const unreadContext={};
+vm.createContext(unreadContext);
+vm.runInContext(unreadHelperSource.replace(/:any\[\]/g,"").replace(/:any/g,"").replace(/:string/g,"")+";this.unreadChatCount=unreadChatCount;",unreadContext);
+const persistedReceipts={"read-before-refresh":["Ricardo"],"read-by-other":["Lohan"]};
+const afterRefresh=[
+  {id:"read-before-refresh",user:"Lohan",type:"text"},
+  {id:"arrived-after-read-snapshot",user:"Guilherme",type:"text"},
+  {id:"read-by-other",user:"Ícaro",type:"text"},
+  {id:"own-message",user:"Ricardo",type:"text"},
+  {id:"system-message",user:"Lucca",type:"system"}
+];
+assert(unreadContext.unreadChatCount(afterRefresh,persistedReceipts,"Ricardo")===2,
+  "per-message read receipts must survive refresh while a message arriving after the read snapshot remains unread");
+assert(serverTemplate.includes('db.from("chat_reads").select("messages").eq("user_name",name).maybeSingle()'),
+  "fast chat refresh must reconcile unread counts from persisted per-message receipts");
+assert(serverTemplate.includes("unreadChatCount(messages,readBy,name)"),
+  "full chat history must derive unread count from per-message receipts, not a moving request-time cursor");
+assert(serverTemplate.includes("const readAt=Math.max(previousReadAt,latestReadAt);"),
+  "read cursor must advance only to the newest message actually marked read");
+assert(!serverTemplate.includes('last_read_at:new Date().toISOString()'),
+  "a read request must not mark messages arriving after its snapshot as read");
+assert(serverTemplate.includes('db.rpc("merge_chat_read_receipts"') && serverTemplate.includes("p_messages:map"),
+  "read receipts must be merged atomically in the database instead of read-modify-upsert from Edge isolates");
+assert(!serverTemplate.includes('db.from("chat_reads").upsert('),
+  "chat receipt writes must not overwrite concurrent receipt maps from separate Edge isolates");

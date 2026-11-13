@@ -3,8 +3,14 @@ name: UpStatus Validate
 on:
   push:
     branches: [master, develop]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
   pull_request:
     branches: [master, develop]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
 
 permissions:
   contents: read
@@ -16,6 +22,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          fetch-depth: 0
           persist-credentials: false
+      - name: Test TEST build target guard
+        run: node scripts/test-build-target-guard.mjs
       - name: Validate build
         run: node scripts/validate.mjs

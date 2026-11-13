@@ -6,29 +6,89 @@ import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
+execFileSync(process.execPath,[path.join(ROOT,"scripts/migration-layout.test.mjs")],{stdio:"inherit"});
+execFileSync(process.execPath,[path.join(ROOT,"scripts/signaling-test-request.test.mjs")],{stdio:"inherit"});
+execFileSync(process.execPath,[path.join(ROOT,"scripts/auth-enrollment.test.mjs"),"normal"],{stdio:"inherit"});
+const rootArtifactPath=path.join(ROOT,"UpStatus.user.js");
+const rootArtifactBefore=fs.readFileSync(rootArtifactPath,"utf8");
 execFileSync(process.execPath,[path.join(ROOT,"scripts/build.mjs")],{stdio:"inherit"});
+if(fs.readFileSync(rootArtifactPath,"utf8")!==rootArtifactBefore)throw new Error("Validation must not modify the tracked UpStatus.user.js artifact without an explicit release sync.");
 const release=JSON.parse(fs.readFileSync(path.join(ROOT,"release.json"),"utf8"));
+const buildSource=fs.readFileSync(path.join(ROOT,"scripts/build.mjs"),"utf8");
+assert(!buildSource.includes("fs.rmSync"),"build must not recursively delete function or dist directories");
+for(const sidecar of ["supabase/functions/upstatus/index_v25_loader.ts","supabase/functions/upstatus/backend_v25_bundle.ts"]){
+  assert(fs.existsSync(path.join(ROOT,sidecar)),"build must preserve tracked function sidecar: "+sidecar);
+}
 const baseVersion=String(release.version).trim();
 const preRelease=String(release.preRelease||"").trim();
 const testVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
+const buildManifest=JSON.parse(fs.readFileSync(path.join(ROOT,"dist/build-manifest.json"),"utf8"));
+const testProjectId=String(buildManifest.testProjectId||"").trim();
+const configuredTestProject=String(process.env.UPSTATUS_TEST_PROJECT_ID||"").trim();
 const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.ts"),"utf8");
 const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
+const triggerGrantMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261029170500_restrict_trigger_function_execute.sql"),"utf8");
+const publicTableGrantMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261029183000_revoke_unused_public_table_grants.sql"),"utf8");
+const signalBindingIndexMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261103171000_index_signal_room_bindings_created_by.sql"),"utf8");
+assert(signalBindingIndexMigration.includes("CREATE INDEX IF NOT EXISTS upstatus_signal_room_bindings_created_by_idx") && signalBindingIndexMigration.includes("(created_by)"),"signal room binding creator foreign key must have a supporting index");
+const publicChatBroadcastMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261103160000_minimize_public_chat_broadcast.sql"),"utf8");
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
 const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
+assert(/^[a-z0-9]{20}$/.test(testProjectId),"TEST project reference must be a 20-character lowercase Supabase ref");
+assert(testProjectId!=="dlfvkawaiqduhlazsszm","TEST artifact must never target production Supabase");
+assert(testProjectId!=="bfpjtfqlnypisxljoxkb","full TEST artifact must not target the isolated signaling/auth project");
+assert(buildManifest.testTargetConfigured===Boolean(configuredTestProject),"build manifest TEST target configuration mismatch");
+assert(testProjectId===(configuredTestProject||"00000000000000000000"),"build manifest TEST project reference mismatch");
+const expectedTestUrl="https://"+testProjectId+".supabase.co/functions/v1/upstatus-test/upstatus.user.js";
+function compareVersions(a,b){const left=String(a||"").split(".").map(Number),right=String(b||"").split(".").map(Number);for(let i=0;i<3;i++){const x=left[i]||0,y=right[i]||0;if(x!==y)return x>y?1:-1;}return 0;}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
 function checkSyntax(text,label){new vm.Script(text,{filename:label});}
+assert(buildSource.includes('process.argv.includes("--sync-root-artifact")'),"root artifact sync must remain opt-in");
+assert(buildSource.includes("compareVersions(baseVersion,currentVersion)<=0"),"root artifact sync must require a strictly newer release version");
+assert(buildSource.indexOf("let rootArtifactPath=null")<buildSource.indexOf("writeFunction(PROD_FUNCTION"),"root artifact release guard must run before destructive build writes");
+assert(buildSource.includes('fs.writeFileSync(rootArtifactPath,prodUser,"utf8")'),"root artifact sync must write the built production userscript");
+const rootArtifactVersion=(rootArtifactBefore.match(/^\/\/ @version\s+(\d+\.\d+\.\d+)$/m)||[])[1]||"";
+if(rootArtifactBefore!==prodUser&&(!rootArtifactVersion||compareVersions(baseVersion,rootArtifactVersion)<=0)){
+  let sameVersionSyncBlocked=false;
+  try{execFileSync(process.execPath,[path.join(ROOT,"scripts/build.mjs"),"--sync-root-artifact"],{stdio:"pipe"});}
+  catch(error){sameVersionSyncBlocked=String(error&&error.stderr||error&&error.message||"").includes("unless release.json.version is greater");}
+  assert(sameVersionSyncBlocked,"root artifact sync must be rejected unless the release version is strictly newer");
+  assert(fs.readFileSync(rootArtifactPath,"utf8")===rootArtifactBefore,"rejected root artifact sync must leave the tracked artifact unchanged");
+}
+assert(prodUser.includes("function createSignalingTransport"),"production build must include the default-off signaling adapter");
+assert(prodUser.includes("signaling_transport_enabled',false)===true"),"production userscript must keep the transport disabled by default");
+assert(testUser.includes("signaling_transport_enabled',false)===true"),"TEST userscript must keep the transport disabled by default");
+assert(testUser.includes("function createSignalingTransport"),"TEST build must include the default-off signaling adapter");
 assert(headerValue(prodUser,"version")===baseVersion,"production userscript version mismatch");
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
 assert(headerValue(testUser,"namespace")==="upseller-test","test namespace mismatch");
-assert(headerValue(prodUser,"updateURL").includes("/upstatus/upstatus.user.js"),"production updateURL mismatch");
-assert(headerValue(testUser,"updateURL").includes("/upstatus-test/upstatus.user.js"),"test updateURL mismatch");
-assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
+const expectedProductionUpdateUrl="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js";
+assert(String(release.scriptUrl||"").trim()===expectedProductionUpdateUrl,"release.json scriptUrl must match the production distribution endpoint");
+assert(headerValue(prodUser,"updateURL")===expectedProductionUpdateUrl,"production updateURL must match release.json scriptUrl");
+assert(headerValue(prodUser,"downloadURL")===expectedProductionUpdateUrl,"production downloadURL must match release.json scriptUrl");
+assert(prodUser.includes("var UPDATE_URL='"+expectedProductionUpdateUrl+"';"),"production manual updater must match release.json scriptUrl");
+assert(headerValue(testUser,"updateURL")===expectedTestUrl,"test updateURL must use the configured non-production TEST project");
+assert(headerValue(testUser,"downloadURL")===expectedTestUrl,"test downloadURL must use the configured non-production TEST project");
+assert(prodUser.includes("var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';"),"production Realtime URL must remain pinned to production");
+assert(testUser.includes("var UP_REALTIME_URL='https://"+testProjectId+".supabase.co';"),"TEST Realtime URL must use the dedicated TEST project");
+assert(prodUser.includes("var UPSTATUS_TEST_CHANNEL=false;"),"production updater channel flag must be false");
+assert(testUser.includes("var UPSTATUS_TEST_CHANNEL=true;"),"TEST updater must be disabled by channel flag");
+assert(prodUser.includes("var RELEASE_MANIFEST_URL='https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json';"),"production updater must use the production release manifest");
+assert(testUser.includes("var RELEASE_MANIFEST_URL='';"),"TEST artifact must not use the production release manifest");
+assert(!testUser.includes("https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),"TEST artifact must not contain the production release feed");
+assert(testUser.includes("var CLOUD_SERVER='https://"+testProjectId+".supabase.co/functions/v1/upstatus-test';"),"TEST cloud server must use the dedicated TEST project");
+assert(testUser.includes("var UPDATE_URL='"+expectedTestUrl+"';"),"TEST manual update URL must match the configured TEST userscript endpoint");
+assert(testUser.includes("base=new URL(UP_REALTIME_URL);")&&testUser.includes("url=new URL(rawUploadUrl,base);")&&testUser.includes("url.origin!==base.origin")&&testUser.includes("publicUrl.origin!==base.origin")&&testUser.includes("var uploadPrefix='/storage/v1/object/upload/sign/'+expectedBucket+'/';"),"TEST Storage URLs must resolve against and remain bound to the TEST project origin and bucket");
+assert(headerValue(testUser,"updateURL")!=="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js","test updateURL must not target production");
+assert(headerValue(testUser,"downloadURL")!=="https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js","test downloadURL must not target production");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
-assert(prodUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';"),"production realtime topic compatibility check");
+const productionRealtimeTopic=buildSource.match(/const PROD_TOPIC="([^"]+)";/)?.[1];
+assert(productionRealtimeTopic,"production Realtime topic missing from build configuration");
+assert(prodUser.includes("var UP_REALTIME_TOPIC='"+productionRealtimeTopic+"';"),"production userscript topic must match build configuration");
 assert(testUser.includes("var UP_REALTIME_TOPIC='upstatus-test-live-"),"test realtime topic missing");
 assert(prodUser.includes("var UP_RINGTONE_CHANNEL='upstatus-screen-share-3-1-1-beta9-2-ringtone-stop-v1';"),"production ringtone channel mismatch");
 assert(testUser.includes("var UP_RINGTONE_CHANNEL='upstatus-test-call-ringtone-stop-v1';"),"test ringtone channel mismatch");
@@ -37,6 +97,101 @@ assert(testUser.includes("var upRingtoneStorageKey='upstatus_test_call_ringtone_
 assert(prodFn.includes('const VERSION = "'+baseVersion+'";'),"production backend version mismatch");
 assert(testFn.includes('const VERSION = "'+testVersion+'";'),"test backend version mismatch");
 assert(prodFn.includes('const marker="/upstatus";'),"production path marker mismatch");
+assert(prodFn.includes('const officialTeam=new Set(["Ricardo","Guilherme","Lohan"]);'),"member list must be restricted to official team members");
+assert(prodFn.includes('async function signedUploadRoute(req:Request,kind:"chat"|"avatar")'),"signed upload handler missing from production backend");
+assert(prodFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");'),"avatar signed-upload route missing");
+assert(prodFn.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");'),"chat signed-upload route missing");
+assert(prodFn.includes('if(!allowed.has(mime))return response({error:"Tipo de arquivo não suportado."},400);'),"signed uploads must enforce a MIME allowlist");
+assert(prodFn.includes('if(!Number.isSafeInteger(size)||size<1||size>max)return response({error:"O arquivo deve ter no máximo 20 MB."},400);'),"signed uploads must reject non-integer, invalid or oversized declared sizes");
+assert(prodFn.includes('if(!uploadToken||!signedUrl||signedPath!==path)throw new Error("O Storage não retornou uma URL assinada válida.");'),"signed upload URLs must be validated before returning them");
+assert(prodFn.includes('const queryToken=uploadUrl.searchParams.get("token");')&&prodFn.includes('if(queryToken&&queryToken!==uploadToken)throw new Error("O token da URL assinada não corresponde à autorização.");')&&prodFn.includes('uploadUrl.searchParams.set("token",uploadToken);'),"signed upload URL token must match the Storage ticket before return");
+assert(prodFn.includes('const bucket=kind==="avatar"?"profile-images":"chat-images";'),"signed upload must use only the intended storage buckets");
+assert(prodFn.includes('const avatarUrl=String(p.avatarUrl||"").trim();'),"profile route must accept the signed avatar URL returned by Storage");
+assert(prodFn.includes('const prefix="/storage/v1/object/public/profile-images/";'),"profile route must bind avatar URLs to the profile-images bucket");
+assert(prodFn.includes('if(uploadUrl.origin!==projectOrigin||uploadUrl.username||uploadUrl.password||uploadUrl.hash||!uploadUrl.pathname.startsWith(uploadPrefix))'),"signed upload URL must be HTTPS-project-origin and bucket-route bound");
+assert(prodFn.includes('if(uploadedPath!==path)throw new Error("O caminho assinado não corresponde ao objeto solicitado.");'),"signed upload URL must match the exact object path");
+assert(prodFn.includes('if(publicUrl.origin!==projectOrigin||publicUrl.username||publicUrl.password||!publicUrl.pathname.startsWith(publicPrefix)||publicUrl.search||publicUrl.hash)'),"public upload URL must remain on the same project and bucket");
+assert(prodFn.includes('if(publicPath!==path)throw new Error("O caminho público não corresponde ao objeto autorizado.");'),"public upload URL must match the exact object path");
+assert(prodUser.includes("credentials:'omit'")&&prodUser.includes("redirect:'error'")&&prodUser.includes("url.origin!==base.origin"),"production Storage PUT must omit credentials, reject redirects and bind origin");
+assert(testUser.includes("credentials:'omit'")&&testUser.includes("redirect:'error'")&&testUser.includes("url.origin!==base.origin"),"TEST Storage PUT must omit credentials, reject redirects and bind origin");
+assert(prodFn.includes("async function chatRoute(req:Request,name:string,sessionStartedAt=0)"),"guest session history filter parameter missing");
+assert(prodFn.includes('if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&sessionStartedAt>0)'),"guest chat history must be filtered by server-side session start");
+assert(prodFn.includes('if(path==="/api/chat")return await chatRoute(req,name,ctx.guest?ctx.joinedAt:0);'),"guest chat requests must pass their session start time");
+assert(prodFn.includes('if(sessionStartedAt&&Number.isFinite(sessionStartedAt)&&sessionStartedAt>0)unreadRowsQuery=unreadRowsQuery.gte("created_at",new Date(Math.max(sessionStartedAt,Date.parse(cutoff))).toISOString());'),"guest unread counts must be scoped to the current session");
+assert(prodFn.includes('if(path==="/api/chat/read"&&req.method==="POST")return await readRoute(req,name,ctx.guest?ctx.joinedAt:0);'),"guest read receipts must receive the current session start time");
+assert(prodFn.includes('x.user_name!==name&&(!sessionStartedAt||!Number.isFinite(sessionStartedAt)||sessionStartedAt<=0||Date.parse(x.created_at)>=sessionStartedAt)'),"guest read receipts must not mark messages from prior sessions");
+assert(prodFn.includes('file_name:type==="document"&&fileName?fileName:null'),"document filename persistence missing from chat messages");
+assert(prodFn.includes('fileName:m.file_name||""'),"document filename hydration missing from chat history");
+assert(prodFn.includes("const isAdmin=await admin(name);"),"message deletion must require the authenticated admin role");
+assert(prodFn.includes('if(name!=="Ricardo"||!(await admin(name)))return response({error:"Somente o administrador responsável pode limpar o chat."},403);'),"clearing shared chat must require both the owner identity and stored admin role");
+assert(prodFn.includes('if(!(await admin(name)))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);'),"health diagnostics must require the stored admin role");
+assert(!prodFn.includes('if(!["Ricardo","Lohan","Guilherme"].includes(name))'),"health diagnostics must not use a name-only access check");
+assert(prodFn.includes('message:"🧹 "+name+" limpou o chat."'),"chat clear audit message must identify the acting admin");
+assert(!prodFn.includes('if(name!=="Ricardo")return response({error:"Somente Ricardo pode limpar o chat."}'),"chat clearing must not use a name-only admin check");
+assert(prodFn.includes('const enrolledRole=String(enrolled.role||"");')&&prodFn.includes('const sessionRole=enrolledRole.trim()?enrolledRole:"implementation_user";')&&prodFn.includes('return createSession(name,{name,role:sessionRole});'),"account setup must default blank roles without canonicalizing non-empty explicit roles");
+assert(triggerGrantMigration.includes("FROM PUBLIC, anon, authenticated"),"trigger broadcast migration must revoke direct execution from public client roles");
+for(const fn of ["upstatus_broadcast_messages","upstatus_broadcast_remote_state","upstatus_broadcast_users"]){
+  assert(triggerGrantMigration.includes("public."+fn+"()"),"trigger broadcast execution migration missing "+fn);
+}
+assert(triggerGrantMigration.includes("IF fn IS NOT NULL THEN"),"trigger execution migration must tolerate environments without every legacy function");
+assert(publicTableGrantMigration.includes("REVOKE ALL PRIVILEGES ON TABLE"),"public table grant migration must revoke unnecessary client grants");
+for(const table of ["chat_reads","messages","reactions","status_history","upstatus_profiles","upstatus_sessions","upstatus_state","upstatus_typing","users"]){
+  assert(publicTableGrantMigration.includes("public."+table),"public table grant migration missing "+table);
+}
+assert(publicTableGrantMigration.includes("FROM PUBLIC, anon, authenticated"),"public table grant migration must cover public client roles");
+assert(publicChatBroadcastMigration.includes("jsonb_build_object('op', TG_OP)"),"public chat broadcast must emit only an operation hint");
+assert(!publicChatBroadcastMigration.includes("to_jsonb")&&!publicChatBroadcastMigration.includes("'record'"),"public chat broadcast must never serialize message rows");
+assert(publicChatBroadcastMigration.includes("'db_change'")&&publicChatBroadcastMigration.includes(productionRealtimeTopic),"public chat refresh hint must match the production build topic");
+assert(publicChatBroadcastMigration.includes("RETURN OLD")&&publicChatBroadcastMigration.includes("RETURN NEW"),"chat broadcast trigger must preserve correct row return semantics");
+const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
+assert(serverTemplate.includes("const SESSION_CACHE_TTL_MS=5000;")&&serverTemplate.includes("now-cached.checkedAt<SESSION_CACHE_TTL_MS"),"session revocation cache must remain bounded to five seconds");
+
+assert(serverTemplate.includes('Deno.env.get("SUPABASE_SECRET_KEYS")') && serverTemplate.includes('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")'),"server backend must obtain database credentials only from Edge Function environment secrets");
+assert(serverTemplate.includes('createClient(PROJECT_URL, ADMIN_KEY'),"server database access must use the server-side privileged client, not browser-role grants");
+assert(!serverTemplate.includes('createClient(PROJECT_URL, "eyJ'),"server-side database credentials must never be hardcoded in source");
+
+
+
+// The public Realtime topic is not an authenticated trust boundary. These assertions
+// ensure broadcasts only invalidate/refetch canonical chat state and never become
+// authoritative remote-command or remote-result data.
+for(const artifact of [prodUser,testUser]){
+  assert(artifact.includes("function scheduleRealtimeChatRefresh(){"),"Realtime chat invalidation scheduler missing");
+  assert(artifact.includes("var wait=Math.max(0,1000-(Date.now()-realtimeChatRefreshLastAt));"),"Realtime chat invalidation must be throttled");
+  assert(artifact.includes("function handleRealtimeChatFast(){scheduleRealtimeChatRefresh();}"),"chat_fast payload must be treated as an invalidation hint");
+  assert(artifact.includes(".on('broadcast',{event:'db_change'},function(){scheduleRealtimeChatRefresh();})"),"db_change payload rows must not be applied directly");
+  assert(artifact.includes(".on('broadcast',{event:'chat_fast'},function(){handleRealtimeChatFast();})"),"chat_fast listener must not trust broadcast payloads");
+  assert(artifact.includes(".on('broadcast',{event:'chat_read'},function(){scheduleRealtimeChatRefresh();})"),"public read receipts must be reconciled through canonical chat state");
+  assert(artifact.includes(".on('broadcast',{event:'user_status'},function(){scheduleRealtimeStatusRefresh();})"),"user_status broadcasts must be throttled refresh-only hints");
+  assert(artifact.includes("var wait=Math.max(0,1000-(Date.now()-realtimeStatusRefreshLastAt));"),"public user_status hints must be throttled to one refresh per second");
+  assert(artifact.includes("if(token!==expectedToken||member!==expectedMember)return;"),"delayed status refresh must not cross normal-client sessions");
+  assert(artifact.includes(".on('broadcast',{event:'remote_command'},function(){scheduleRemoteStatusPoll();})"),"remote command events must use a coalesced polling scheduler");
+  assert(artifact.includes("if(remotePollHintTimer)return;") && artifact.includes("if(token===expectedToken&&member===expectedMember)pollRemoteStatus();"),"remote command hint timers must coalesce and remain session-bound");
+  assert(artifact.includes("sendRealtimeEvent('remote_command',{op:'hint'})"),"client remote_command broadcasts must contain only a generic hint");
+  assert(!artifact.includes("sendRealtimeEvent('remote_result'"),"client must not broadcast remote result metadata publicly");
+  assert(artifact.includes("callsReleased=upCall&&upCall.active?await callCleanup(true,'hangup'):await signalRetryPendingCallAttempts();") &&
+    artifact.includes("if(callsReleased)callsReleased=await signalRetryPendingCallLeaves();") &&
+    artifact.includes("if(!callsReleased){") &&
+    artifact.indexOf("if(!callsReleased){") < artifact.indexOf("await api('POST','/api/logout',{})") &&
+    artifact.indexOf("if(!callsReleased){") < artifact.indexOf("token='';"),
+    "normal logout must confirm logical call-attempt cancellation and room leave before clearing credentials");
+  assert(artifact.includes("await api('POST','/api/logout',{})"),"normal logout must revoke the server session before clearing the local token");
+  assert(artifact.includes("return cleanupPromise;") && artifact.includes("voiceRoomLeavePromise=leavePromise.finally") && artifact.includes("return voiceRoomLeavePromise;"),"normal call and voice cleanup must expose completion promises");
+  const logoutStart=artifact.indexOf("card.querySelector('.up-logout').onclick=async function()");
+  const logoutCallCleanup=artifact.indexOf("await callCleanup(true,'hangup')",logoutStart);
+  const logoutVoiceGate=artifact.indexOf("normalReleaseVoiceRoomBeforeLogout()",logoutStart);
+  const logoutRevoke=artifact.indexOf("await api('POST','/api/logout',{})",logoutStart);
+  const voiceGateStart=artifact.indexOf("async function normalReleaseVoiceRoomBeforeLogout(){");
+  const voiceGateEnd=artifact.indexOf("\nwindow.addEventListener('pagehide'",voiceGateStart);
+  const voiceGateSource=artifact.slice(voiceGateStart,voiceGateEnd);
+  assert(voiceGateStart>=0&&voiceGateEnd>voiceGateStart&&voiceGateSource.includes("await voiceRoomLeave()")&&voiceGateSource.includes("await signalRetryPendingVoiceRoomAttempts()")&&voiceGateSource.includes("!signalPendingVoiceRoomStorageHealthy")&&voiceGateSource.includes("signalVoiceRoomAttemptId")&&voiceGateSource.includes("signalVoiceRoomRoomId"),"Normal logout gate must await voice leave and logical-attempt cancellation, retaining the session while membership remains");
+  assert(logoutStart>=0&&logoutCallCleanup>logoutStart&&logoutVoiceGate>logoutCallCleanup&&logoutRevoke>logoutVoiceGate,"normal logout must finish call/voice signaling before server session revocation");
+  assert(artifact.includes("if(!token||!member||!signalTransport||!signalTransportFlag||signalInvitationPollBusy)return;"),"normal invitation polling must stop issuing requests while logged out");
+  assert(artifact.includes("var expectedToken=token,expectedMember=member;") && artifact.includes("if(token!==expectedToken||member!==expectedMember)return;"),"stale invitation poll responses must not cross normal-client sessions");
+  assert(artifact.includes(".on('broadcast',{event:'remote_result'},function(){ /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })"),"remote_result broadcasts must not be authoritative");
+}
+
+assert(!prodFn.includes('["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin"'),"account setup must not grant admin by name");
 assert(testFn.includes('const marker="/upstatus-test";'),"test path marker mismatch");
 assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not match build output");
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
@@ -45,12 +200,35 @@ checkSyntax(testUser,"dist/upstatus-test.user.js");
 
 const luccaHtml=fs.readFileSync(path.join(ROOT,"lucca-site/index.html"),"utf8");
 const ycaroHtml=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
+for(const guestHtml of [luccaHtml,ycaroHtml]){
+  assert(guestHtml.includes(".up-chat-item.lucca .up-chat-bubble{background:#273247;border:1px solid #a855f7"),"guest portals must use a neutral fill with Lucca's purple border");
+  assert(guestHtml.includes(".up-chat-item.ycaro .up-chat-bubble{background:#273247;border:1px solid #f97316"),"guest portals must use a neutral fill with Ycaro's orange border");
+  assert(guestHtml.includes(".up-chat-system-event span{display:inline-block;padding:0;border:0;border-radius:0;background:transparent"),"guest join/leave notices must be plain centered text without a pill or colored fill");
+  assert(guestHtml.includes("m.user==='Lucca'")&&guestHtml.includes("m.user==='Ycaro'"),"guest portals must style both Lucca and Ycaro messages consistently");
+}
+for(const notice of ['message:"Lucca entrou no chat"','message:"Lucca saiu do chat"','message:"Ycaro entrou no chat"','message:"Ycaro saiu do chat"']){
+  assert(prodFn.includes(notice),"backend must emit the exact plain-text guest presence notice: "+notice);
+}
+assert(!/message:"[🔴🟠] (?:Lucca|Ycaro)(?: Maluco)? (?:entrou|saiu) do chat\."/u.test(prodFn),"guest presence notices must not contain emojis, nicknames, or trailing punctuation");
+
 const luccaInline=[...luccaHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].find(m=>!/\bsrc\s*=/.test(m[1])&&m[2].trim());
 assert(!!luccaInline,"Lucca inline script missing");
 checkSyntax(luccaInline[2],"lucca-site/index.html inline script");
 assert(luccaHtml.includes("sendMedia(file)"),"Lucca media upload flow missing");
 assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Lucca");'),"Lucca guest login/logout/expiry must preserve shared chat history");
 assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Ycaro")'),"Ycaro guest login/logout/expiry must preserve shared chat history");
+assert(prodUser.includes("var upNetworkOffline=false") && prodUser.includes("window.addEventListener('offline'") && prodUser.includes("window.addEventListener('online'"),"Normal production artifact must reset local media state offline and reconnect Realtime online");
+assert(testUser.includes("var upNetworkOffline=false") && testUser.includes("window.addEventListener('offline'") && testUser.includes("window.addEventListener('online'"),"Normal test artifact must reset local media state offline and reconnect Realtime online");
+assert(prodUser.includes("voiceRoom.joinGeneration!==joinGeneration") && prodUser.includes("navigator.onLine===false"),"Normal voice-room join must reject offline entry and stale getUserMedia completion");
+assert(testUser.includes("voiceRoom.joinGeneration!==joinGeneration") && testUser.includes("navigator.onLine===false"),"Normal test voice-room join must reject offline entry and stale getUserMedia completion");
+assert(prodUser.includes("signalTransport.stopAll()") && prodUser.includes("signalVoiceRoomPrepared=false"),"Normal offline recovery must stop stale authenticated signaling pollers and reset room preparation state");
+assert(testUser.includes("signalTransport.stopAll()") && testUser.includes("signalVoiceRoomPrepared=false"),"Normal test offline recovery must stop stale authenticated signaling pollers and reset room preparation state");
+const prodRealtimeStart=prodUser.match(/function startRealtime\(\)\s*\{([\s\S]*?)\n  \}/);
+const testRealtimeStart=testUser.match(/function startRealtime\(\)\s*\{([\s\S]*?)\n  \}/);
+const prodOnlineHandler=prodUser.match(/window.addEventListener\('online',function\(\)\{([\s\S]*?)\n  \}\);/);
+const testOnlineHandler=testUser.match(/window.addEventListener\('online',function\(\)\{([\s\S]*?)\n  \}\);/);
+assert(prodRealtimeStart && prodRealtimeStart[1].includes("initSignalingTransport();") && prodOnlineHandler && prodOnlineHandler[1].includes("startRealtime();"),"Normal reconnect must recreate authenticated signaling transport when Realtime restarts");
+assert(testRealtimeStart && testRealtimeStart[1].includes("initSignalingTransport();") && testOnlineHandler && testOnlineHandler[1].includes("startRealtime();"),"Normal TEST reconnect must recreate authenticated signaling transport when Realtime restarts");
 assert(prodFn.includes("const html="+JSON.stringify(ycaroHtml)+";"),"Ycaro page embedding mismatch");
 assert(prodFn.includes('if(path==="/ycaro"||path==="/ycaro.html")'),"Ycaro page route missing");
 assert(prodFn.includes('Deno.env.get("YCARO_PASSWORD")'),"Ycaro password setting missing");
@@ -86,5 +264,16 @@ assert(prodUser.includes("M19 12H5M12 19l-7-7 7-7"),"production button must use 
 assert(prodUser.includes("button.style.background='#2563eb'"),"production back-arrow button must use the blue theme color");
 assert(prodUser.includes("button.style.margin='0 8px 0 0'"),"production back-arrow button must have spacing before native end-session control");
 assert(prodUser.includes("endButton.parentElement.insertBefore(button,endButton)"),"production back-arrow must sit immediately before native end-session control");
+ execFileSync(process.execPath,[path.join(ROOT,"scripts/test-signed-upload-client.mjs")],{stdio:"inherit"});
+ execFileSync(process.execPath,[path.join(ROOT,"scripts/test-signed-upload-server.mjs")],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/chat-regression.test.mjs")],{stdio:"inherit"});
+execFileSync(process.execPath,[path.join(ROOT,"scripts/team-lite-updater.test.mjs")],{stdio:"inherit"});
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
+
+const publicStatusBroadcastMigration=fs.readFileSync(path.join(ROOT,"supabase/migrations/20261103170000_minimize_public_status_broadcasts.sql"),"utf8");
+assert(publicStatusBroadcastMigration.includes(productionRealtimeTopic),"public status and remote-state triggers must match the production build topic");
+assert(publicStatusBroadcastMigration.includes("CREATE OR REPLACE FUNCTION public.upstatus_broadcast_users()"),"user status broadcast hardening migration missing");
+assert(publicStatusBroadcastMigration.includes("CREATE OR REPLACE FUNCTION public.upstatus_broadcast_remote_state()"),"remote state broadcast hardening migration missing");
+assert((publicStatusBroadcastMigration.match(/jsonb_build_object\('op', TG_OP\)/g)||[]).length===3,"status and remote broadcasts must contain operation-only payloads");
+assert(!/jsonb_build_object\([\s\S]*?'(record|command|result|sender|target|status|reason|error|createdAt)'/.test(publicStatusBroadcastMigration),"status and remote broadcasts must not serialize sensitive metadata");
+assert(publicStatusBroadcastMigration.includes("SET search_path TO pg_catalog, public"),"broadcast SECURITY DEFINER functions must pin a safe search_path");

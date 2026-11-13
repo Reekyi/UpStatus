@@ -1,0 +1,120 @@
+# UpStatus release cutover plan
+
+Status: candidate preparation only. This document does not authorize production changes.
+
+## Current deployed baseline (read-only inventory, 2026-11-04)
+
+### Normal
+- Release manifest: 3.4.7.
+- Production main function: upstatus, deployed version 480.
+- Production legacy runtime endpoint used by the userscript build: upstatus-screen-share-3-1-1-beta10, deployed version 6.
+- Userscript update artifact URL already points to /functions/v1/upstatus/upstatus.user.js.
+- The build script still renders CLOUD_SERVER to the legacy upstatus-screen-share-3-1-1-beta10 endpoint. Do not change only one of these URLs.
+
+### Team Lite
+- Release manifest: core 3.4.7, build 3.4.31.
+- Production function: upstatus-team-lite, deployed version 15.
+- Stable userscript URL currently points to the team-lite-official branch.
+- Candidate changes are in PR #76 and must not be distributed from the stable URL before approval.
+
+### Realtime authorization dependency
+- The current userscript subscribes to a public Realtime topic and authenticates UpStatus API calls with its own x-upstatus-token. That custom token is not a Supabase Auth JWT.
+- Supabase private Realtime channels require config.private=true plus RLS policies on realtime.messages and a valid Auth JWT in the Realtime connection. See https://supabase.com/docs/guides/realtime/authorization.
+- Therefore, do not simply revoke anon/authenticated privileges on realtime.messages or flip the channel to private. First design and test a trusted JWT exchange or replace the public broadcast dependency with an authenticated server-mediated/polling path.
+- Keep RT-01 and RT-17 open until that migration is implemented and validated end-to-end.
+
+### Signaling candidate
+- Isolated project function upstatus-signal-test is deployed at version 27.
+- It validates authenticated room signaling and now uses a Postgres-backed fixed-window rate limiter.
+- This endpoint is isolated-only. There is no production upstatus-signal endpoint in the current production inventory.
+- The authenticated transport in both userscripts remains opt-in and disabled by default. Do not enable it globally until the production endpoint and migration sequence are ready.
+
+## Required order
+
+1. **Freeze the candidate heads**
+   - Normal PR #74 and Team Lite PR #76 remain Draft.
+   - Record the exact head SHAs and require passing Validate, Signaling Smoke, and Candidate Checks on those exact heads.
+   - Resolve any workflow queue or failure before preparing release artifacts.
+
+2. **Prepare production migrations**
+   - Generate production migration files through the approved Supabase CLI workflow. Do not copy isolated migration versions or names ending in _test into production.
+   - Review the SQL and rollback for: trigger-only SECURITY DEFINER execute grants; backend-owned table grants; chat receipt atomic merge RPC; rate-limit table/RPC if the production signaling endpoint will use it.
+   - Confirm the Realtime realtime.messages grants and public topic dependency before changing them. Revoking those grants without moving the client off public channels may break broadcasts.
+   - Apply to official TEST first, run smoke and rollback checks, then obtain explicit approval before production.
+
+3. **Deploy backend before client**
+   - Deploy the reviewed backend function to the intended product endpoint.
+   - Verify health, authentication, chat read receipts, room creation/invitation, signal delivery, poll/ack, rate limits, and cleanup against the deployed candidate.
+   - Keep the legacy endpoint available during the validation window.
+
+4. **Switch Normal as one coordinated release**
+   - Update the build-time CLOUD_SERVER target and the update artifact URL consistently.
+   - Increment the release version and build artifacts from the reviewed commit.
+   - Verify manifest version, userscript metadata, endpoint path, embedded backend version, and download/update URL.
+   - Do not distribute until the new endpoint has passed authenticated browser tests.
+
+5. **Switch Team Lite separately**
+   - Keep the Team Lite stable URL and version unchanged until PR #76 is approved.
+   - Publish a new versioned artifact from the approved Team Lite head.
+   - Verify Lucca/Ycaro session boundaries, guest read receipts, updater behavior, and Normal ↔ Team Lite compatibility.
+
+6. **Enable authenticated signaling gradually**
+   - Keep the opt-in flag disabled by default.
+   - Enable only for a controlled test cohort after the endpoint is deployed and validated.
+   - Verify voice, screen sharing, room invitation, reconnection, peer teardown, and rate-limit behavior before widening rollout.
+
+## Rollback
+
+- Preserve the previous userscript artifacts and endpoint versions.
+- If the new endpoint fails, restore the prior CLOUD_SERVER target and previous artifact URL/version as one coordinated rollback.
+- Disable the new signaling opt-in flag for the affected cohort.
+- Keep additive database objects in place unless a reviewed rollback proves they are safe to remove.
+- Restore any revoked grants only through an explicit reviewed migration; do not use ad-hoc console edits.
+- Record the exact failing version, endpoint, migration versions, and test evidence.
+
+## Release gates still open
+
+- Final-head Normal Signaling Smoke and Team Lite Candidate Checks, including the new 429 endpoint test and concurrent rate-limit RPC test.
+- Production migration review and official TEST validation.
+- Public Realtime topic / realtime.messages decision.
+- Production endpoint cutover and release version increments.
+- Physical browser network-loss recovery, Tampermonkey permissions, real microphone and screen capture checks.
+- Manual chat scroll/unread confirmation and Sale Smartly confirmation.
+- Ycaro scope and secret configuration decision.
+
+## Safety boundary
+
+No production deployment, migration, feature-flag change, stable artifact publication, PR merge, or endpoint cutover is authorized by this plan. Each requires explicit approval after the preceding gates pass.
+
+
+## Voice-room membership contract — candidate checkpoint (2026-11-05)
+
+- Authenticated voice-room entry is now separate from call invitations. `POST /room/open` accepts only `upstatus-team-room-v1` and `upstatus-team-lite-room-v1`; caller identity is derived from the validated UpStatus session, then the Edge Function invokes the service-role-only RPC.
+- The candidate SQL migration `20261105190000_open_voice_room_membership.sql` creates an atomic open/join operation and a coordinated leave operation. It serializes both product aliases, enforces a maximum of 32 accepted members, makes repeated joins idempotent, hands owner control to the earliest remaining member, and closes the room when its final member leaves.
+- Team Lite #76 exact runtime head `4178e54654b1bd2c06516fba9edea17d779b9ecd` passed Candidate Checks run [42119919319](https://github.com/Reekyi/UpStatus/actions/runs/42119919319), including 103/103 authenticated integration checks and browser WebRTC/mesh/teardown. Normal #74 Validate passed on `73c19d5a890d39ee9524c1fb5042b7f6ffb7f53b`; its Signaling Smoke run [42120068577](https://github.com/Reekyi/UpStatus/actions/runs/42120068577) was still running at the last check.
+- This does not authorize enabling the transport or deploying the migration. The isolated project has migration version `20261105220323`; production has no open-voice RPCs and remains unchanged. Keep the flag default-off until exact-head Normal Smoke, official TEST validation, and manual acceptance pass.
+- Physical no-F5 recovery, installed Tampermonkey behavior, real microphone/display capture, and live Normal ↔ Team Lite interoperability remain manual gates under issue #78.
+
+
+### Validation update — 2026-11-05
+
+The Normal runtime candidate at `73c19d5a890d39ee9524c1fb5042b7f6ffb7f53b` completed both Validate [42120068532](https://github.com/Reekyi/UpStatus/actions/runs/42120068532) and Signaling Smoke [42120068577](https://github.com/Reekyi/UpStatus/actions/runs/42120068577) successfully. The smoke log confirms 103/103 authenticated integration checks, open voice late-join/owner-race/capacity cases, browser call/voice/screen WebRTC, three-member mesh, cleanup, rate-limit concurrency, and atomic read-receipt concurrency. PR #74 then received documentation-only commits; no runtime/workflow inputs changed after the validated head.
+
+Team Lite #76 head `4178e54654b1bd2c06516fba9edea17d779b9ecd` also passed Candidate Checks [42119919319](https://github.com/Reekyi/UpStatus/actions/runs/42119919319) with 103/103 authenticated checks. These are isolated-candidate results, not manual or production acceptance.
+
+**Still blocked:** no production migration or Edge deployment; no Retry-After header on HTTP 429; distributed rate limiting is not yet integrated into the deployed product endpoints; public Realtime full-row broadcasts remain; physical network/device and live cross-client tests remain pending. Keep the transport default-off.
+
+## AUTH-03 — first-access enrollment
+
+The candidate migration `20261107010000_setup_invites.sql` adds hashed, expiring one-time enrollment metadata to `public.users` and a SECURITY INVOKER `consume_upstatus_setup_invite` RPC whose EXECUTE privilege is limited to `service_role`. The Normal and Team Lite candidate templates require an admin-issued token for `POST /api/setup`; the public account-state endpoint no longer reveals setup state. The client never persists the raw token.
+
+The migration was applied only to isolated project `bfpjtfqlnypisxljoxkb` under ledger entry `20261107020949_upstatus_setup_invites_isolated_test`. Its catalog/security assertion passed. Exact-head Normal and Team Lite integration workflows are still pending, so this is not release approval.
+
+Before official TEST or production:
+1. Complete the isolated concurrent/expired-token integration test on both exact candidate heads.
+2. Review the admin invite issuance route and provide a controlled admin UI or documented internal operator procedure.
+3. Validate the production migration and rollback in the approved official TEST environment.
+4. Deploy the backend and migration before distributing the client that submits setup tokens.
+5. Keep the separate distributed auth rate limiter, password-policy decision, human review, and physical first-login acceptance as independent gates.
+
+No production migration, Edge deployment, secret change, or release is authorized by this plan.
