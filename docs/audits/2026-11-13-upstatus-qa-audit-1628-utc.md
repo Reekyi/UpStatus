@@ -138,3 +138,8 @@ Security Advisor de produção, observado em 16:26 UTC: 10 INFO de RLS sem polic
 **Recomendação: NOT READY.** Prioridades: (1) corrigir filtro de Validate da #161 para a base real e obter check dedicado no SHA; (2) atualizar #162 sobre HEAD atual da #161 e validar contrato HTTP com chamada real no laboratório; (3) provisionar ambiente full-product TEST independente antes de substituir o runtime legado; (4) tornar sinalização privada/autenticada por padrão e remover fallback público de voz/tela; (5) implantar AUTH-03 e migrar identidade para `users.id`; (6) corrigir workflow Team Lite para slug correto, CLI pinada e preflight; (7) endurecer grants/Default ACL/Storage e recuperar os quatro SQLs; (8) executar os oito testes físicos e obter aprovação humana explícita.
 
 Nenhuma migration, escrita SQL, deploy, merge, release, publicação de userscript, alteração de secret/flag/role/grant/policy/ACL ou fixture foi realizada. A única escrita no repositório é este arquivo novo na branch QA.
+
+
+## Adendo de revalidação após o commit documental
+
+Após a criação deste relatório, a branch QA avançou para `c8e3c6f144969d0371845eb1acb51c4e49652716`, que também é o novo HEAD da PR #82. O GitHub executou automaticamente o Validate [43463260387](https://github.com/Reekyi/UpStatus/actions/runs/43463260387) nesse novo SHA; o job falhou novamente com o mesmo erro: `VALIDATION FAILED: production updateURL mismatch` (após construir `3.4.7 / TEST 3.4.7`). Portanto, a falha foi confirmada também no HEAD documental final, não apenas no HEAD anterior `386d22d`. Nenhum validator foi alterado e nenhum rerun foi iniciado.
