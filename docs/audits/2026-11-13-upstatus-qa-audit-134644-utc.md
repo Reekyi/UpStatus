@@ -231,3 +231,11 @@ CI Chromium/WebRTC não substitui a aceitação física no Tampermonkey.
 **Conclusão:** NOT READY. A #161 é a melhor candidata Normal, a #76 é a candidata Team Lite mais completa e a #162 melhora o contrato de voz. Ainda assim, os runtimes instalados, a infraestrutura de produção e os workflows oficiais não representam a arquitetura candidata. Nenhuma publicação deve ocorrer nesta condição.
 
 **Ação que depende do owner:** autorizar ou negar o terceiro projeto Supabase full-product TEST. O custo/billing não foi verificado nesta auditoria.
+
+
+## Atualização após o commit documental
+
+- O relatório foi criado no commit f4933528bba6d1becb7ef4aadf61839fddc23baf; o HEAD da QA e da PR #82 passou a esse SHA.
+- O GitHub disparou Validate #43436652756 no novo HEAD. O job terminou FAILURE com o mesmo erro: production updateURL mismatch.
+- O commit que disparou esse run acrescentou somente este relatório Markdown; não alterou código de produto nem o validator. A falha permanece reproduzível na branch QA atual.
+- O relatório original docs/RELEASE_READINESS.md permaneceu intacto.
