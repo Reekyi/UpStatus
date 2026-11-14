@@ -58,7 +58,7 @@ A falha de #82 é herdada de master e reproduzida no novo HEAD documental:
 |---|---|---|---|
 | #89 AUTH-03/cutover | 5c46eea3e4c9f909d3e0992bacfbd2263c2d8024 | 42840853509 PASS | Guard bloqueia cutover porque release continua 3.4.7 e as três migrations AUTH-03 não estão aplicadas |
 | #124 signed uploads | 77c9d4c3b525325996db973cbec609ae2ddb0d83 | 42594697302 PASS | Contrato client/server offline; não torna buckets privados nem inspeciona bytes realmente enviados |
-| #135 migration recovery | 98e96cfe59b0db585fd4a322736cbfdd12484ba0 | 42805693777 FAIL herdado | Statements recuperados do ledger; não são arquivos originais byte a byte |
+| #135 migration recovery | 98e96cfe59b0db585fd4a322736cbfdd12484ba0 | Validate anterior descrito no corpo da PR: FAIL herdado | Statements recuperados do ledger; não são arquivos originais byte a byte |
 | #146 remote-command/reconnect | 71c5ce2f730ade8ee3e8b090498202933809ce5c | 43108250452 PASS | Broadcast remote_command vira hint para polling autenticado; não fecha voz/tela |
 | #149 Team Lite call provenance | 77352d2e3b93722d6b69a9eec31a92bb63158230 | 43173176077 e 43173176232 PASS | Proveniência sai do payload controlável; ainda não habilita transporte privado por padrão |
 | #157 Team Lite avatar owner | b7baf3a98e22b8a9555d667878e49e121d7bcf8c | 43333849082 PASS | Prefixo deriva de users.id, mas signed upload ainda usa upsert:true |
@@ -68,6 +68,8 @@ A falha de #82 é herdada de master e reproduzida no novo HEAD documental:
 | #164 avatar server-mediated | a27ced56564f3d18948c70138f6d6b2a1f2d0907 | 43544570609 PASS | Limite de corpo/arquivo, MIME por assinatura, ownership por ID e upsert:false; testes usam mocks |
 
 #85 também tem Validate PASS no HEAD b75707b, mas está baseado no master anterior a 9d40461 e foi supersedido pelo trabalho mais recente de #158. O #158 é baseado no master atual e continua falhando na regressão de anexos staged.
+
+Nota de evidência para #135: o corpo da PR registra uma falha anterior herdada de updateURL, mas a consulta desta rodada não encontrou um run PR-triggered associado ao HEAD 98e96cfe. Por isso, nenhum ID de execução é atribuído a essa falha.
 
 ## Realtime e código instalado
 
