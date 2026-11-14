@@ -3691,3 +3691,14 @@ The latest inspected lab function-edge log sample contains HTTP 402 responses at
 - Issue #79 body remains historical 16/35; its dedicated Engineering/QA JSON is the operational gate record.
 - Latest QA report [2026-11-14 19:37 UTC](https://github.com/Reekyi/UpStatus/blob/qa/release-readiness-2026-11-04-master/docs/audits/2026-11-14-upstatus-qa-audit-1937-utc.md) confirms the release remains NOT READY. The full `docs/RELEASE_READINESS.md` blob was too large for direct extraction in this run; the current QA report and continuity files were inspected instead.
 - No merge, deploy, release, production migration/write, secret/flag/role/grant/policy/ACL change, userscript publication, billing change, or destructive operation occurred. SQL access was SELECT/catalog-only.
+
+
+## 2026-11-14 2026-11-14T20:07:18.212Z — #167 exact-head Validate passed
+
+- PR #167 current head is `d100b0820dd7f98e2b78a98e6b6f8c09f13b1867`, 15 commits ahead / 0 behind master, still Draft.
+- The first correction [9614166](https://github.com/Reekyi/UpStatus/commit/9614166f6bdb5722fb23ad61adbac115ce77f74a) aligned the timestamp/ticks assertion with the real `div.up-chat-own-meta` markup. Validate [43635528812](https://github.com/Reekyi/UpStatus/actions/runs/43635528812) advanced past that assertion and then exposed a second stale assertion requiring the nonexistent style ID `upstatus-340-chat-link-card-compat`.
+- The second correction [d100b08](https://github.com/Reekyi/UpStatus/commit/d100b0820dd7f98e2b78a98e6b6f8c09f13b1867) changes only `scripts/chat-regression.test.mjs`, replacing the missing-ID check with exact assertions for the existing compact bubble and link-card CSS rules. No product HTML/CSS was changed by either test correction.
+- Exact-head Validate [43635704388](https://github.com/Reekyi/UpStatus/actions/runs/43635704388) completed SUCCESS on `d100b08`. Logs confirm `Built UpStatus 3.4.7 / TEST 3.4.7`, `Chat regression tests passed`, and `Validation OK: PROD 3.4.7 / TEST 3.4.7`.
+- This is offline build/chat-regression evidence only. It does not validate real Storage, Supabase Smoke, browser WebRTC, Tampermonkey, microphone/display permissions, or physical reconnect. PR #167 remains Draft pending independent QA and human review.
+- PR #80 documentation branch at the previous checkpoint head `865634f` received Validate [43635639978](https://github.com/Reekyi/UpStatus/actions/runs/43635639978), which still fails at the inherited `client signed upload helper missing` assertion. PR #82 current head `7275325` Validate [43633091200](https://github.com/Reekyi/UpStatus/actions/runs/43633091200) still fails at `production updateURL mismatch`. The QA branch remains untouched.
+- No merge, deploy, release, production write, migration, secret/flag/ACL/role change, userscript publication, or destructive action occurred.
