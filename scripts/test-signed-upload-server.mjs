@@ -214,9 +214,9 @@ for(const avatarUrl of [
 }
 for(const users of [[],[{id:42,name:"Alice"},{id:43,name:"Alice"}],[{id:"bad",name:"Alice"}]]){
   const h=harness({users});
-  const r=await h.context.__signedUploadRoute(req({mime:"image/png",size:123,name:"avatar.png"}),"avatar","Alice");
+  const r=await h.context.__profileRoute(req({dataUrl:"data:image/png;base64,iVBORw0KGgo="}),"Alice");
   assert.equal(r.status,409);
-  assert.equal(h.calls.storage.length,0);
+  assert.equal(h.calls.uploads.length,0);
 }
 {
   const h=harness({users:[]});
