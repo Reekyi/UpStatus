@@ -114,7 +114,8 @@ assert(source.includes("photoFile.addEventListener('change',function(){if(photoF
 assert(source.includes("fileName:String(record.file_name"),"filename is separate from caption");
 assert(serverTemplate.includes('file_name:type==="document"&&fileName?fileName:null'),"file name is saved to separate database column");
 assert(source.includes("var incomingTime=!own?"),"received messages show per-message timestamps");
-assert(source.includes("var ownMeta=own?'<span class=\"up-chat-own-meta\"><span class=\"up-chat-own-time\">"),"sent time appears with ticks");
+assert(source.includes("var tick=own?'<span class=\"up-chat-read "),"sent messages render read-receipt ticks");
+assert(source.includes("var ownMeta=own?'<div class=\"up-chat-own-meta\"><span class=\"up-chat-own-time\">'+fmtTime(m.createdAt)+'</span>'+tick+'</div>':'';"),"sent timestamp is rendered with read-receipt ticks");
 assert(source.includes("function screenShareStart()"),"screen-sharing start handler missing");
 assert(source.includes("function screenShareReceive(p)"),"screen-sharing signal handler missing");
 assert(source.includes("SCREEN_ROOM_EVENT"),"screen-sharing realtime event missing");
