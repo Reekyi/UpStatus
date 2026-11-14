@@ -261,3 +261,12 @@ O destino correto do produto é `upstatus-team-lite`. O workflow também usa CLI
 
 ---
 **Segurança desta execução:** nenhuma alteração em produção, migration, deploy, merge, release, userscript, secret, flag, grant, policy, ACL ou fixture. Todas as consultas SQL foram SELECT-only. A única escrita documental desta rodada é este novo relatório na branch QA; o `RELEASE_READINESS.md` central e as branches de Engenharia foram preservados.
+
+
+## Addendum — HEAD final após a escrita documental (14/11/2026 13:46 UTC)
+
+- HEAD QA antes do relatório: `2b95cd784780191a4709a47faa304ac0b35a06c1`.
+- O relatório foi criado no commit documental `35ed9fffe18d94d962b5a05f92da3f2819536ef7`; a PR #82 passou a ter 162 arquivos alterados, todos documentais.
+- O Validate `43596318267` corresponde ao HEAD anterior `2b95cd7` e falhou em `production updateURL mismatch`.
+- Consultei os workflow runs do commit documental `35ed9ff`; nenhum run foi associado a esse commit. Portanto, **não há novo resultado de CI no HEAD documental final**. O último resultado observado continua sendo a falha do HEAD anterior.
+- Este addendum é somente documental e usa o SHA atual do blob como pré-condição; nenhuma alteração de runtime ou branch de Engenharia foi feita.
