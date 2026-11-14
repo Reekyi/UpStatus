@@ -63,12 +63,10 @@ const validTicket=ticketFor();
   assert.equal(new URL(h.calls.fetch[0].url).searchParams.get("token"),noQuery.token);
 }
 {
-  const avatarFile={name:"avatar.png",type:"image/png",size:2*1024*1024};
-  const avatarTicket=ticketFor({bucket:"profile-images",path:"avatar.png",size:2*1024*1024});
-  const h=harness(avatarTicket);
-  const result=await h.uploadFileDirect(avatarFile,"/api/profile/avatar-upload-url");
-  assert.equal(result.bucket,"profile-images");
-  assert.equal(h.calls.api[0].route,"/api/profile/avatar-upload-url");
+  const h=harness(validTicket);
+  await assert.rejects(()=>h.uploadFileDirect(imageFile,"/api/profile/avatar-upload-url"),/Rota de upload/);
+  assert.equal(h.calls.api.length,0);
+  assert.equal(h.calls.fetch.length,0);
 }
 {
   const h=harness(validTicket);
@@ -160,8 +158,9 @@ const validTicket=ticketFor();
   await assert.rejects(()=>h.uploadFileDirect(imageFile,"/api/chat/upload-url"),/Storage \(403\)/);
 }
 assert.ok(source.includes("uploadFileDirect(file,'/api/chat/upload-url')"),"chat UI must use signed uploads");
-assert.ok(source.includes("uploadFileDirect(file,'/api/profile/avatar-upload-url')"),"avatar UI must use signed uploads");
+assert.ok(source.includes("fileToDataUrlForProfile(file,info.mime,info.ext).then(function(dataUrl){return api('POST','/api/profile/avatar',{dataUrl:dataUrl});})"),"avatar UI must use server-mediated content validation");
+assert.ok(!source.includes("uploadFileDirect(file,'/api/profile/avatar-upload-url')"),"avatar UI must not request a direct signed upload");
 assert.ok(!source.includes("api('POST','/api/chat/image',{dataUrl:dataUrl})"),"chat image UI must not send base64 payloads after signed-upload cutover");
-assert.ok(!source.includes("fileToDataUrl(file).then(function(data){return api('POST','/api/profile/avatar',{dataUrl:data});})"),"avatar save UI must not send base64 payloads after signed-upload cutover");
+assert.ok(source.includes("fileToDataUrlForProfile(file,info.mime,info.ext)"),"avatar save UI must prepare a bounded server-mediated image payload");
 
 console.log("PASS signed-upload client validates route, bucket, MIME, size, project origin, object path, one-time token, PUT contract, and UI wiring.");

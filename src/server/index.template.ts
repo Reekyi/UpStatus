@@ -288,6 +288,7 @@ function sniffMime(bytes:Uint8Array,declared:string) {
   if(bytes.length>=3&&bytes[0]===0x49&&bytes[1]===0x44&&bytes[2]===0x33)return "audio/mpeg";
   if(bytes.length>=12&&bytes[4]===0x66&&bytes[5]===0x74&&bytes[6]===0x79&&bytes[7]===0x70)return declared==="video/mp4"?"video/mp4":declared.startsWith("audio/")?"audio/mp4":"image/jpeg";
   if(bytes.length>=12&&bytes[0]===0x52&&bytes[1]===0x49&&bytes[2]===0x46&&bytes[3]===0x46&&bytes[8]===0x57&&bytes[9]===0x41&&bytes[10]===0x56&&bytes[11]===0x45)return "audio/wav";
+  if(declared.startsWith("image/"))return "";
   return declared;
 }
 function ext(mime:string) {
@@ -494,6 +495,7 @@ async function profileRoute(req:Request,name:string) {
   return response({ok:true,avatarUrl:saved.url});
 }
 async function signedUploadRoute(req:Request,kind:"chat"|"avatar",ownerName:string) {
+  if(kind==="avatar")return response({error:"Avatar uploads require server-side content validation."},410);
   const ownerId=kind==="avatar"?await avatarUserId(ownerName):"";
   if(kind==="avatar"&&!ownerId)return response({error:"Não foi possível identificar sua conta com segurança."},409);
   const ownerPrefix=kind==="avatar"?avatarOwnerPrefix(ownerId):"";

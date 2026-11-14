@@ -51,7 +51,8 @@ assert(testFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==
 assert(testFn.includes('db.from("users").select("id").eq("name",normalized).limit(2)'),"avatar ownership must resolve one immutable users.id");
 assert(testFn.includes('tokenHash("upstatus-user-id:"+normalized)'),"avatar owner prefix must derive from immutable users.id");
 assert(testFn.includes("objectPath.startsWith(ownerPrefix)"),"profile route must reject another user's avatar object");
-assert(testFn.includes('kind==="avatar"?ownerPrefix+fileName:fileName'),"signed avatar ticket path must be scoped to its owner");
+assert(testFn.includes('if(kind==="avatar")return response({error:"Avatar uploads require server-side content validation."},410);'),"direct signed avatar uploads must fail closed");
+assert(testFn.includes('if(declared.startsWith("image/"))return ""'),"server must reject image MIME declarations without matching magic bytes");
 assert(testFn.includes("createSignedUploadUrl(path,{upsert:false})"),"Storage signed URL must forbid object overwrite");
 assert(!testUser.includes("'x-upsert':'true'"),"signed upload client must not request object overwrite");
 assert(testFn.includes('const max=20*1024*1024;'),"TEST signed upload limit must be 20 MiB");
@@ -62,7 +63,8 @@ assert(testUser.includes("credentials:'omit',redirect:'error'"),"signed upload m
 assert(testUser.includes("url.searchParams.set('token',String(ticket.token))"),"signed upload capability must be carried in the token query parameter");
 assert(!testUser.includes("authorization:'Bearer '+ticket.token"),"signed upload capability must not be misused as a JWT bearer credential");
 assert(testUser.includes("uploadFileDirect(file,'/api/chat/upload-url')"),"client chat upload endpoint mismatch");
-assert(testUser.includes("uploadFileDirect(file,'/api/profile/avatar-upload-url')"),"client avatar upload endpoint mismatch");
+assert(testUser.includes("fileToDataUrlForProfile(file,info.mime,info.ext).then(function(dataUrl){return api('POST','/api/profile/avatar',{dataUrl:dataUrl});})"),"client avatar must use server-mediated content validation");
+assert(!testUser.includes("uploadFileDirect(file,'/api/profile/avatar-upload-url')"),"client avatar must not request a direct signed upload");
 
 assert(prodUser.includes("UPSTATUS_SALE_DESELECT_CHAT"),"Sale Smartly deselect bridge missing from production artifact");
 assert(testUser.includes("UPSTATUS_SALE_DESELECT_CHAT"),"Sale Smartly deselect bridge missing from test artifact");

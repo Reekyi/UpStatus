@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import { createHash } from "node:crypto";
+import { Buffer } from "node:buffer";
 
 const source=fs.readFileSync("src/server/index.template.ts","utf8");
 function extract(start,end,label){
@@ -9,11 +10,21 @@ function extract(start,end,label){
   assert.ok(i>=0&&j>i,label+" source block is missing");
   return source.slice(i,j).trim();
 }
+const uploadHelpersStart=source.indexOf("function decodeDataUrl(raw:string) {");
+const contextNameStart=source.indexOf("async function contextName(req:Request)",uploadHelpersStart);
+assert.ok(uploadHelpersStart>=0&&contextNameStart>uploadHelpersStart,"server upload validation helpers must exist");
+let uploadHelpers=source.slice(uploadHelpersStart,contextNameStart).trim();
 const identityStart=source.indexOf("function uniqueAvatarUserId(rows:any[]) {");
 const profileStart=source.indexOf("async function profileRoute(req:Request,name:string) {");
 const signedStart=source.indexOf('async function signedUploadRoute(req:Request,kind:"chat"|"avatar",ownerName:string) {');
 const mediaStart=source.indexOf("async function mediaRoute(",signedStart);
 assert.ok(identityStart>=0&&profileStart>identityStart&&signedStart>profileStart&&mediaStart>signedStart,"immutable identity, profile and signed-upload blocks must exist in order");
+uploadHelpers=uploadHelpers
+  .replace("function decodeDataUrl(raw:string)","function decodeDataUrl(raw)")
+  .replace("function sniffMime(bytes:Uint8Array,declared:string)","function sniffMime(bytes,declared)")
+  .replace("function ext(mime:string)","function ext(mime)")
+  .replace('async function uploadFile(bucket:string,dataUrl:string,max:number,allowed:Set<string>,pathPrefix="")','async function uploadFile(bucket,dataUrl,max,allowed,pathPrefix="")');
+assert.ok(!/:string|:Uint8Array|:Set</.test(uploadHelpers),"test transpiler left an upload-helper TypeScript annotation");
 let profileSource=source.slice(identityStart,signedStart).trim();
 let signedSource=source.slice(signedStart,mediaStart).trim();
 profileSource=profileSource
@@ -31,20 +42,15 @@ assert.ok(!/:Request|:string|:URL|:Record</.test(profileSource+signedSource),"te
 
 const project="https://test-project.supabase.co";
 function harness(overrides={}){
-  const calls={storage:[],upserts:[],legacyUploads:[]};
+  const calls={storage:[],upserts:[],uploads:[]};
   const users=overrides.users||[{id:42,name:"Alice"}];
   const context=vm.createContext({
     PROJECT_URL:project,
-    URL,Date,
+    URL,Date,atob,Uint8Array,
     tokenHash:value=>createHash("sha256").update(String(value)).digest("hex"),
     readBody:async req=>req.body||{},
     response:(body,status=200)=>({body,status}),
     randomBytes:n=>({toString:()=> "a".repeat(n*2)}),
-    uploadFile:async(...args)=>{
-      calls.legacyUploads.push(args);
-      const objectPath=String(args[4]||"")+"legacy-avatar.png";
-      return {url:project+"/storage/v1/object/public/profile-images/"+objectPath};
-    },
     db:{
       storage:{
         from:bucket=>({
@@ -56,7 +62,8 @@ function harness(overrides={}){
               :{token,path,signedUrl:project+"/storage/v1/object/upload/sign/"+bucket+"/"+path+"?token="+encodeURIComponent(token)};
             return {data,error:null};
           },
-          getPublicUrl:path=>({data:{publicUrl:overrides.publicUrl?overrides.publicUrl({bucket,path}):project+"/storage/v1/object/public/"+bucket+"/"+path}})
+          getPublicUrl:path=>({data:{publicUrl:overrides.publicUrl?overrides.publicUrl({bucket,path}):project+"/storage/v1/object/public/"+bucket+"/"+path}}),
+          upload:async(path,body,options)=>{calls.uploads.push({bucket,path,bytes:Array.from(new Uint8Array(body)),options});return {error:null};}
         })
       },
       from:table=>{
@@ -67,7 +74,7 @@ function harness(overrides={}){
       }
     }
   });
-  vm.runInContext(profileSource+"\n"+signedSource+"\nglobalThis.__profileRoute=profileRoute;globalThis.__signedUploadRoute=signedUploadRoute;globalThis.__avatarOwnerPrefix=avatarOwnerPrefix;globalThis.__uniqueAvatarUserId=uniqueAvatarUserId;",context);
+  vm.runInContext(uploadHelpers+"\n"+profileSource+"\n"+signedSource+"\nglobalThis.__profileRoute=profileRoute;globalThis.__signedUploadRoute=signedUploadRoute;globalThis.__avatarOwnerPrefix=avatarOwnerPrefix;globalThis.__uniqueAvatarUserId=uniqueAvatarUserId;",context);
   return {context,calls};
 }
 const req=body=>({method:"POST",body});
@@ -87,11 +94,8 @@ const req=body=>({method:"POST",body});
 {
   const h=harness();
   const r=await h.context.__signedUploadRoute(req({mime:"image/png",size:123,name:"avatar.png"}),"avatar","Alice");
-  assert.equal(r.status,200);
-  assert.equal(r.body.bucket,"profile-images");
-  assert.equal(r.body.mime,"image/png");
-  assert.ok(h.calls.storage[0].path.startsWith(h.context.__avatarOwnerPrefix(42)));
-  assert.equal(h.calls.storage[0].options.upsert,false);
+  assert.equal(r.status,410);
+  assert.equal(h.calls.storage.length,0);
 }
 {
   const h=harness();
@@ -158,13 +162,36 @@ for(const avatarUrl of [
 }
 {
   const h=harness();
-  const r=await h.context.__profileRoute(req({dataUrl:"data:image/png;base64,AAAA"}),"Alice");
+  const r=await h.context.__profileRoute(req({dataUrl:"data:image/png;base64,iVBORw0KGgo="}),"Alice");
   assert.equal(r.status,200);
-  assert.equal(h.calls.legacyUploads.length,1);
-  assert.equal(h.calls.legacyUploads[0][0],"profile-images");
-  assert.equal(h.calls.legacyUploads[0][4],h.context.__avatarOwnerPrefix(42));
+  assert.equal(h.calls.uploads.length,1);
+  assert.equal(h.calls.uploads[0].bucket,"profile-images");
+  assert.equal(h.calls.uploads[0].options.contentType,"image/png");
+  assert.equal(h.calls.uploads[0].options.upsert,false);
+  assert.equal(h.calls.uploads[0].bytes.length,8);
+  assert.ok(h.calls.uploads[0].path.startsWith(h.context.__avatarOwnerPrefix(42)));
   assert.ok(r.body.avatarUrl.includes(h.context.__avatarOwnerPrefix(42)));
   assert.equal(h.calls.upserts.length,1);
+}
+{
+  const h=harness();
+  await assert.rejects(()=>h.context.__profileRoute(req({dataUrl:"data:image/png;base64,AAAA"}),"Alice"),/Tipo de arquivo não suportado/);
+  assert.equal(h.calls.uploads.length,0);
+}
+{
+  const h=harness();
+  const r=await h.context.__profileRoute(req({dataUrl:"data:image/jpeg;base64,iVBORw0KGgo="}),"Alice");
+  assert.equal(r.status,200);
+  assert.equal(h.calls.uploads[0].options.contentType,"image/png");
+  assert.ok(h.calls.uploads[0].path.endsWith(".png"));
+}
+{
+  const bytes=Buffer.alloc(2*1024*1024+1);
+  Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]).copy(bytes);
+  const h=harness();
+  const dataUrl="data:image/png;base64,"+bytes.toString("base64");
+  await assert.rejects(()=>h.context.__profileRoute(req({dataUrl}),"Alice"),/Arquivo acima do limite permitido/);
+  assert.equal(h.calls.uploads.length,0);
 }
 {
   const h=harness();
