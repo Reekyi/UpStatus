@@ -110,6 +110,7 @@ assert(source.includes("var canDelete=m.user===member||role==='implementation_ad
 assert(source.includes("function setPendingAttachment(file)"),"pending attachment preview helper is missing");
 assert(source.includes("function updateLinkPreview(text)"),"links get a removable preview");
 assert(source.includes("e.preventDefault();setPendingAttachment(file)"),"pasted images stay pending");
+assert(source.includes("photoFile.addEventListener('change',function(){if(photoFile.files&&photoFile.files[0])setPendingAttachment(photoFile.files[0]);photoFile.value='';});"),"selected attachments stay pending until send");
 assert(source.includes("fileName:String(record.file_name"),"filename is separate from caption");
 assert(serverTemplate.includes('file_name:type==="document"&&fileName?fileName:null'),"file name is saved to separate database column");
 assert(source.includes("var incomingTime=!own?"),"received messages show per-message timestamps");
