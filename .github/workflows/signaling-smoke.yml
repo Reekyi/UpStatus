@@ -1,6 +1,9 @@
 name: UpStatus Signaling Smoke Tests
 
 on:
+  push:
+    branches:
+      - fix/normal-call-source-provenance-reconciled-20261114
   pull_request:
     branches:
       - master
