@@ -3585,3 +3585,60 @@ This run was read-only for product code and Supabase. No code or migration was c
 6. Design private/server-mediated Realtime, immutable `users.id` sessions, AUTH-03, least-privilege grants/Default ACL and Storage policies for isolated TEST.
 7. Recover the original four migration sources or record a formal provenance exception; diagnose managed `main` migration failure.
 8. Complete all eight physical criteria in Issue #78 and obtain human review/explicit release approval.
+
+
+## 2026-11-14 18:08 UTC — Engineering checkpoint
+
+### Team Lite call-source provenance candidate
+
+- Created Draft PR [#166](https://github.com/Reekyi/UpStatus/pull/166) from branch `fix/team-lite-call-source-provenance-reconciled-20261114-r2`, based on the exact current #76 HEAD `83a6cc4503ddc01254f6a2abbcc7af5c6803eb94`.
+- The candidate removes the payload-controlled `_authenticatedTransport` marker. Server-mediated poll/invitation paths pass authenticated provenance as a separate argument; public Realtime call-signal input is explicitly untrusted.
+- The public call-discovery allowlist accepts only own-property `presence` and `ended` hints. Public `ended` only removes a directory entry; it cannot terminate an active call.
+- The port is selective: the two commits unique to #76 were inspected and preserved, including the chat-clear rule requiring both the Ricardo account and stored `implementation_admin` role.
+- The candidate is six commits / six files ahead of #76, has no merge conflict, and remains Draft. No human review has been submitted.
+
+### Exact-head validation
+
+- Offline guard workflow [run 43624572780](https://github.com/Reekyi/UpStatus/actions/runs/43624572780) passed on head `e90e0dbbc0c6d89d77ea359dff0f1e82b4428413`.
+- The isolated GitHub Actions job passed the signaling adapter suite (including 17 adapter assertions), the public call-discovery boundary test, and the full offline Team Lite candidate contract checks.
+- This is source/offline evidence only. No Supabase-dependent Smoke, browser WebRTC, physical Tampermonkey, microphone, or screen-capture test was run for #166.
+- The preceding Normal Smoke [run 43619663747](https://github.com/Reekyi/UpStatus/actions/runs/43619663747) stopped at HTTP 402 `exceed_edge_functions_invocations_quota` in the isolated project. Do not repeat a Supabase-dependent Smoke until quota availability is confirmed.
+
+### Current required PRs and CI
+
+| PR | Current HEAD | Ahead / Behind | Latest relevant CI |
+|---|---|---:|---|
+| #74 Normal | `dcaf6a0` | 887 / 1 vs master | Validate + Smoke PASS |
+| #75 Team Lite baseline | `7bbf9b9` | 59 / 0 vs team-lite-official | historical Candidate Checks PASS |
+| #76 Team Lite | `83a6cc4` | 386 / 0 vs team-lite-official | Candidate Checks PASS |
+| #80 continuity | `8fd5883` | 313 / 0 vs develop | Validate FAIL: signed-upload helper missing |
+| #82 QA | `4ffcbc7` | 315 / 1 vs master | Validate FAIL: production updateURL mismatch |
+
+Evidence: #74 [43376770142](https://github.com/Reekyi/UpStatus/actions/runs/43376770142) and [43376770200](https://github.com/Reekyi/UpStatus/actions/runs/43376770200); #75 [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127); #76 [43363871881](https://github.com/Reekyi/UpStatus/actions/runs/43363871881); #80 [43498839846](https://github.com/Reekyi/UpStatus/actions/runs/43498839846); #82 [43621967320](https://github.com/Reekyi/UpStatus/actions/runs/43621967320). PR #82 remains QA-owned; Engineering did not modify its branch or release-readiness document.
+
+### Runtime and database snapshot — SELECT/catalog only
+
+Production project `dlfvkawaiqduhlazsszm` is ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, with seven ledger migrations and 38 ACTIVE Edge Functions. Its managed Supabase branch `main` is `MIGRATIONS_FAILED`; preview status is ACTIVE_HEALTHY.
+
+- `realtime.messages`: 106 events in the last 14 days, all `private=false` (72 user_status, 26 db_change, 4 remote_command, 4 remote_result).
+- 166 direct client table-grant rows; 10 public RLS tables without policies; 24 default ACL entries / 300 expanded privileges.
+- Three SECURITY DEFINER broadcast functions remain executable by anon/authenticated, with `search_path=public`.
+- Public buckets: `chat-images` (168 objects) and `profile-images` (20 objects), both 20 MiB; zero Storage object policies.
+- Five users, 319 sessions, five profiles; no `user_id` columns in sessions/profiles, no setup-token columns, and no setup-invite rate-limit table.
+
+The isolated project `bfpjtfqlnypisxljoxkb` is ACTIVE_HEALTHY in sa-east-1, with 39 migrations and two active test functions (`upstatus-signal-test` v32 and `upstatus-signal-e2e-once` v3). It has setup-token columns and setup-invite rate-limit schema, but no users, sessions, profiles, buckets, or objects; sessions/profiles still lack `user_id`. Its Security Advisor has 18 INFO and zero WARN. It is an isolated signaling/auth lab, not Full-Product TEST.
+
+### Acceptance and release
+
+- Issue #78 remains open at 0/8 physical criteria. No no-F5 recovery, real microphone/display permission, or installed Normal ↔ Team Lite test was performed.
+- Issue #79 body remains historical 16/35; the dedicated Engineering/QA JSON is the current gate record.
+- Release remains NOT READY. No merge, deploy, release, production migration/write, secret/feature-flag/grant/policy/ACL change, userscript publication, or destructive operation occurred.
+- The only product-code change is the isolated #166 candidate. The documentation append is on this existing continuity branch; the QA branch and its comment were not changed.
+
+### Next actions
+
+1. Obtain independent QA review of #166 on exact head `e90e0db`; preserve the current #76 chat-clear ownership guard.
+2. Restore/confirm isolated Edge Function quota before any Supabase-dependent Smoke; obtain Ricardo's authorization before querying billing.
+3. Keep RT-01 blocked until server-mediated authenticated signaling is implemented and public call-control paths are retired by default in both products.
+4. Resolve #80/#82 without weakening Validate, correct Team Lite deployment targeting, complete Full-Product TEST, and finish the eight physical criteria in #78.
+5. Do not merge #166, enable the signaling flag, or publish userscripts without separate review and explicit authorization.
