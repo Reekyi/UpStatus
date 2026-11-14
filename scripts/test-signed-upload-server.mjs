@@ -114,7 +114,7 @@ for(const size of [0,-1,1.5,20*1024*1024+1]){
 {
   const h=harness();
   const r=await h.context.__signedUploadRoute(req({mime:"image/png",size:2*1024*1024+1,name:"avatar.png"}),"avatar","Alice");
-  assert.equal(r.status,400);
+  assert.equal(r.status,410);
   assert.equal(h.calls.storage.length,0);
 }
 {
