@@ -205,7 +205,6 @@ As candidatas #157 (Team Lite) e #164 (Normal) melhoram ownership/validação de
 A PR [#135](https://github.com/Reekyi/UpStatus/pull/135) arquiva quatro statements recuperados do ledger. Comparei cada arquivo com `supabase_migrations.schema_migrations.statements` em produção, por versão. **Os quatro conteúdos coincidem exatamente**:
 1. `20261023154754_create_upstatus_visual_config.sql`
 2. `20261026195855_add_chat_message_file_name.sql`
-3. `20261027154329_add_chat_message_file_name.sql` — não; o arquivo correto é `20261026195855_add_chat_message_file_name.sql`
 3. `20261027154329_allow_chat_document_mime_types.sql`
 4. `20261027155438_set_upstatus_upload_limits_20mb.sql`
 
