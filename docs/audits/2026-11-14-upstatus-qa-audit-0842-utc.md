@@ -253,3 +253,7 @@ Prioridades:
 - Não houve exploração Realtime, broadcast de teste, chamada externa, captura de áudio/tela, teste físico ou rerun manual de CI.
 - A configuração de public access do Realtime não está exposta pelo conector.
 - O relatório é um checkpoint de auditoria, não autorização de mudança ou release.
+
+
+## Addendum de CI após o commit documental
+**2026-11-14 08:42 UTC.** O push do relatório criou o commit `6d43d127af13b3cce05e768895c7b1a1b12067eb` e acionou automaticamente o Validate da PR #82. O run [43577086061](https://github.com/Reekyi/UpStatus/actions/runs/43577086061) concluiu FAIL. O log mostra `Built UpStatus 3.4.7 / TEST 3.4.7` e `VALIDATION FAILED: production updateURL mismatch` em `scripts/validate.mjs:26`. Não houve rerun manual, alteração do validator ou alteração de código de Engenharia.
