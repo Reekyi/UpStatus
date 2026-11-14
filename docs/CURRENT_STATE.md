@@ -3611,10 +3611,10 @@ This run was read-only for product code and Supabase. No code or migration was c
 | #74 Normal | `dcaf6a0` | 887 / 1 vs master | Validate + Smoke PASS |
 | #75 Team Lite baseline | `7bbf9b9` | 59 / 0 vs team-lite-official | historical Candidate Checks PASS |
 | #76 Team Lite | `83a6cc4` | 386 / 0 vs team-lite-official | Candidate Checks PASS |
-| #80 continuity | `8fd5883` | 313 / 0 vs develop | Validate FAIL: signed-upload helper missing |
+| #80 continuity | `8b45df7` | 314 / 0 vs develop | Documentation-only head; no new CI run visible yet (previous head failed signed-upload helper) |
 | #82 QA | `4ffcbc7` | 315 / 1 vs master | Validate FAIL: production updateURL mismatch |
 
-Evidence: #74 [43376770142](https://github.com/Reekyi/UpStatus/actions/runs/43376770142) and [43376770200](https://github.com/Reekyi/UpStatus/actions/runs/43376770200); #75 [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127); #76 [43363871881](https://github.com/Reekyi/UpStatus/actions/runs/43363871881); #80 [43498839846](https://github.com/Reekyi/UpStatus/actions/runs/43498839846); #82 [43621967320](https://github.com/Reekyi/UpStatus/actions/runs/43621967320). PR #82 remains QA-owned; Engineering did not modify its branch or release-readiness document.
+The #80 row reflects the documentation commit created by this checkpoint; the previously observed Validate failure [43498839846](https://github.com/Reekyi/UpStatus/actions/runs/43498839846) is on the prior head `8fd5883`, and no result for the new documentation head was visible at this update. Evidence: #74 [43376770142](https://github.com/Reekyi/UpStatus/actions/runs/43376770142) and [43376770200](https://github.com/Reekyi/UpStatus/actions/runs/43376770200); #75 [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127); #76 [43363871881](https://github.com/Reekyi/UpStatus/actions/runs/43363871881); #80 [43498839846](https://github.com/Reekyi/UpStatus/actions/runs/43498839846); #82 [43621967320](https://github.com/Reekyi/UpStatus/actions/runs/43621967320). PR #82 remains QA-owned; Engineering did not modify its branch or release-readiness document.
 
 ### Runtime and database snapshot — SELECT/catalog only
 
