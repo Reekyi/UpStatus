@@ -8,7 +8,9 @@ const source=fs.readFileSync("src/server/index.template.ts","utf8");
 const readBodyStart=source.indexOf("async function readBody(req:Request,maxBytes=0) {");
 const tokenStart=source.indexOf("function token(req:Request)",readBodyStart);
 assert.ok(readBodyStart>=0&&tokenStart>readBodyStart,"bounded readBody source block is missing");
-const readBodySource=source.slice(readBodyStart,tokenStart).trim().replace("async function readBody(req:Request,maxBytes=0)","async function readBody(req,maxBytes=0)");
+const readBodySource=source.slice(readBodyStart,tokenStart).trim()
+  .replace("async function readBody(req:Request,maxBytes=0)","async function readBody(req,maxBytes=0)")
+  .replace("const chunks:Uint8Array[]=","const chunks=");
 function extract(start,end,label){
   const i=source.indexOf(start),j=source.indexOf(end,i);
   assert.ok(i>=0&&j>i,label+" source block is missing");
@@ -45,6 +47,7 @@ signedSource=signedSource
   .replace("const p:any=","const p=")
   .replace("const extByMime:Record<string,string>=","const extByMime=");
 assert.ok(!/:Request|:string|:URL|:Record</.test(profileSource+signedSource),"test transpiler left a TypeScript annotation");
+assert.ok(!/:Request|:Uint8Array\[\]/.test(readBodySource),"test transpiler left a readBody TypeScript annotation");
 assert.ok(profileSource.includes("readBody(req,3*1024*1024)"),"avatar route must bound request body before JSON parsing");
 
 const project="https://test-project.supabase.co";
