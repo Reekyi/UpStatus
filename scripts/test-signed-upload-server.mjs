@@ -149,7 +149,7 @@ for(const size of [0,-1,1.5,20*1024*1024+1]){
   assert.equal(r.body.avatarUrl,avatar);
   assert.equal(h.calls.upserts.length,1);
   assert.equal(h.calls.upserts[0].row.avatar_url,avatar);
-  assert.equal(h.calls.legacyUploads.length,0);
+  assert.equal(h.calls.uploads.length,0);
 }
 for(const avatarUrl of [
   "https://attacker.example/storage/v1/object/public/profile-images/avatar.png",
@@ -222,6 +222,6 @@ for(const users of [[],[{id:42,name:"Alice"},{id:43,name:"Alice"}],[{id:"bad",na
   const h=harness({users:[]});
   const r=await h.context.__profileRoute(req({dataUrl:"data:image/png;base64,AAAA"}),"Alice");
   assert.equal(r.status,409);
-  assert.equal(h.calls.legacyUploads.length,0);
+  assert.equal(h.calls.uploads.length,0);
 }
 console.log("PASS signed-upload server validates bucket, path, token, MIME, size, HTTPS origin and profile compatibility.");
