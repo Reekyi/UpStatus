@@ -23,6 +23,7 @@ uploadHelpers=uploadHelpers
   .replace("function decodeDataUrl(raw:string)","function decodeDataUrl(raw)")
   .replace("function sniffMime(bytes:Uint8Array,declared:string)","function sniffMime(bytes,declared)")
   .replace("function ext(mime:string)","function ext(mime)")
+  .replace(" as Record<string,string>","")
   .replace('async function uploadFile(bucket:string,dataUrl:string,max:number,allowed:Set<string>,pathPrefix="")','async function uploadFile(bucket,dataUrl,max,allowed,pathPrefix="")');
 assert.ok(!/:string|:Uint8Array|:Set</.test(uploadHelpers),"test transpiler left an upload-helper TypeScript annotation");
 let profileSource=source.slice(identityStart,signedStart).trim();
