@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createSignalingTransport } from "../src/userscript/signaling-transport.mjs";
+import { createSignalingTransport, isAllowedPublicCallDiscoverySignal } from "../src/userscript/signaling-transport.mjs";
 
 const calls = [];
 const request = async (path, body, options) => {
@@ -492,4 +492,23 @@ assert.equal(scheduledRetryTimers.length, 1, "one failed poll must schedule one 
 assert.equal(scheduledRetryTimers[0].delay, 60_000,
   "polling must wait at least the server's 60-second Retry-After instead of the shorter exponential backoff");
 stopRetryPolling();
-console.log("Retry-After polling backoff tests passed");
+
+const inheritedDiscovery = Object.create({ type: "presence", discoveryOnly: true });
+const publicDiscoveryCases = [
+  [{ type: "presence", discoveryOnly: true }, true, "explicit public presence hint is allowed"],
+  [{ type: "presence", discoveryOnly: false }, false, "presence without the discovery marker is rejected"],
+  [{ type: "presence" }, false, "ordinary presence is not implicitly public"],
+  [{ type: "ended", discoveryOnly: true }, true, "public ended is accepted only as a directory-discovery hint"],
+  [{ type: "join_declined", discoveryOnly: true }, false, "public join_declined cannot spoof a refusal"],
+  [{ type: "offer", discoveryOnly: true }, false, "public offers are never discovery hints"],
+  [{ type: "answer", discoveryOnly: true }, false, "public answers are never discovery hints"],
+  [{ type: "ice", discoveryOnly: true }, false, "public ICE is never a discovery hint"],
+  [null, false, "null payload is rejected"],
+  [[], false, "array payload is rejected"],
+  [inheritedDiscovery, false, "inherited marker properties are not trusted"],
+];
+for (const [signal, expected, label] of publicDiscoveryCases) {
+  assert.equal(isAllowedPublicCallDiscoverySignal(signal), expected, label);
+}
+
+console.log("Retry-After polling and public call-discovery policy tests passed");

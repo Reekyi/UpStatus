@@ -207,16 +207,16 @@ assert(source.includes("callsReleased=upCall&&upCall.active?await callCleanup(tr
 assert(source.includes("await api('POST','/api/logout',{})"),"normal logout must revoke the custom server session before clearing local credentials");
 
 assert(source.includes("if(!token||!member||!signalTransport||!signalTransportFlag||signalInvitationPollBusy)return;"),"invitation polling must not continue authenticated requests after logout");
-assert(source.includes("signalTransportFlag&&!p._authenticatedTransport&&!((p.type==='presence'||p.type==='ended'||p.type==='join_declined')&&p.discoveryOnly===true)"),"normal client must ignore public call-control signals when authenticated transport is enabled");
-assert(source.includes("from:event.sender,to:member,callId:event.payload.callId||callId,_authenticatedTransport:true"),"normal authenticated poll events must be explicitly marked as server-authenticated");
-assert(source.includes("to:member,_authenticatedTransport:true"),"normal server-issued invitations must pass the authenticated receive gate");
+assert(source.includes("async function receiveCallSignal(p,authenticatedSource){")&&source.includes("signalTransportFlag&&!authenticatedSource&&!isAllowedPublicCallDiscoverySignal(p)"),"normal client must use out-of-band transport provenance and a strict public discovery allowlist");
+assert(source.includes("from:event.sender,to:member,callId:event.payload.callId||callId")&&source.includes("await receiveCallSignal(p,true);"),"normal authenticated poll events must pass provenance outside the payload");
+assert(source.includes("to:member},true);"),"normal server-issued invitations must pass trusted provenance out-of-band");
 assert(source.includes("if(signalTransportFlag){\n      if(!signalTransport||!signalRoomId)return false;"),"normal one-to-one and group call sends must fail closed without an authenticated room");
 assert(source.includes("if(signalTransportFlag){\n    if(!signalTransport||!signalVoiceRoomRoomId){voiceRoomMessage")&&source.includes("if(signalTransportFlag){\n      if(!signalTransport||!signalVoiceRoomRoomId){screenShareMessage"),"normal voice and screen sends must fail closed without authenticated room bindings");
 assert(source.includes("if(!signalTransportFlag)voiceRoomReceive(payload&&payload.payload||{})")&&source.includes("if(!signalTransportFlag)screenShareReceive(payload&&payload.payload||{})"),"normal client must ignore public voice and screen media broadcasts when authenticated transport is enabled");
 assert(source.includes("if(signalTransportFlag){\n      if(!signalTransport){message('A sinalização autenticada não está configurada. A chamada não foi iniciada.'"),"normal outgoing calls must not fall back to public signaling when the endpoint is unavailable");
 assert(source.includes("if(signalTransportFlag){\n      if(!signalTransport){message('A sinalização autenticada não está configurada. O pedido não foi enviado.'"),"normal group join requests must not fall back to public signaling when the endpoint is unavailable");
 assert(source.includes("var signalTransportFlag=GM_getValue(key+'signaling_transport_enabled',false)===true"),"normal authenticated signaling must remain opt-in and disabled by default");
-assert(source.includes("discoveryOnly:true"),"normal public call presence/end/decline events must be non-authoritative discovery hints when authenticated transport is enabled");
+assert(source.includes("discoveryOnly:true")&&source.includes("isAllowedPublicCallDiscoverySignal(p)")&&!source.includes("_authenticatedTransport"),"normal public presence/ended hints are allowlisted and cannot claim authenticated provenance");
 assert(source.includes("if(signalTransportFlag){\n      if(signalTransport&&roomId)callSendAll('presence'")&&source.includes("if(signalTransportFlag){\n        if(signalTransport&&signalRoomId&&!upCall.pendingInvite)"),"normal call presence and teardown must never publish public control events in authenticated mode");
 
 
