@@ -94,7 +94,7 @@ const req=body=>{
   return {
     method:"POST",
     headers:{get:name=>name.toLowerCase()==="content-length"?String(bytes.length):null},
-    body:{getReader:()=>({read:async()=>sent?{done:true}:{done:false,value:bytes},cancel:async()=>{sent=true;}})},
+    body:{getReader:()=>({read:async()=>{if(sent)return {done:true};sent=true;return {done:false,value:bytes};},cancel:async()=>{sent=true;}})},
     text:async()=>raw
   };
 };
