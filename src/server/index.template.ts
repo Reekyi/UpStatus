@@ -92,7 +92,7 @@ async function login(req:Request,setup:boolean){
   if(!a)return response({error:"Use um usuário válido e uma senha de pelo menos 6 caracteres."},400);
   if(setup){
     if(a.password_hash)return response({error:"Esta conta já foi configurada."},409);
-    const role=a.role||(["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin":"implementation_user");
+    const role=a.role||"implementation_user";
     const {error}=await db.from("users").update({password_hash:passwordHash(password),role}).eq("name",name);
     if(error)throw error;
     return createSession(name,{...a,password_hash:undefined,role});
@@ -679,7 +679,8 @@ Deno.serve(async(req)=>{
     if(path==="/api/chat/audio"&&req.method==="POST")return await mediaRoute(req,"audio");
     if(path.startsWith("/api/remote-status"))return await remoteRoute(req,name);
     if(path==="/api/chat/clear"&&req.method==="POST"){
-      if(name!=="Ricardo")return response({error:"Somente Ricardo pode limpar o chat."},403);
+      // Chat-wide cleanup follows the persisted administrator role, never a display name.
+      if(name!=="Ricardo"||!(await admin(name)))return response({error:"Somente o administrador responsável pode limpar o chat."},403);
       const {data:oldMessages,error:readError}=await db.from("messages").select("image_url").gte("created_at","1970-01-01");
       if(readError)throw readError;
       const prefix=PROJECT_URL+"/storage/v1/object/public/chat-images/";
@@ -693,7 +694,7 @@ Deno.serve(async(req)=>{
         if(removeError)console.error("Chat media cleanup failed",removeError);
         else removedFiles+=batch.length;
       }
-      await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🧹 Ricardo limpou o chat.",type:"system",system_type:"chat_clear",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
+      await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🧹 "+name+" limpou o chat.",type:"system",system_type:"chat_clear",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});
       return response({ok:true,removedFiles});
     }
     return response({error:"Não encontrado."},404);
