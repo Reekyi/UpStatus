@@ -74,9 +74,9 @@ const validTicket=ticketFor();
   assert.equal(h.calls.api.length,0);
   await assert.rejects(()=>h.uploadFileDirect({name:"large.png",type:"image/png",size:20*1024*1024+1},"/api/chat/upload-url"),/20 MB/);
   assert.equal(h.calls.api.length,0);
-  await assert.rejects(()=>h.uploadFileDirect({name:"large-avatar.png",type:"image/png",size:2*1024*1024+1},"/api/profile/avatar-upload-url"),/2 MB/);
+  await assert.rejects(()=>h.uploadFileDirect({name:"large-avatar.png",type:"image/png",size:2*1024*1024+1},"/api/profile/avatar-upload-url"),/Rota de upload/);
   assert.equal(h.calls.api.length,0);
-  await assert.rejects(()=>h.uploadFileDirect({name:"clip.mp4",type:"video/mp4",size:123},"/api/profile/avatar-upload-url"),/Tipo de arquivo/);
+  await assert.rejects(()=>h.uploadFileDirect({name:"clip.mp4",type:"video/mp4",size:123},"/api/profile/avatar-upload-url"),/Rota de upload/);
   assert.equal(h.calls.api.length,0);
   await assert.rejects(()=>h.uploadFileDirect(imageFile,"/api/other/upload"),/Rota de upload/);
   assert.equal(h.calls.api.length,0);
@@ -162,5 +162,7 @@ assert.ok(source.includes("fileToDataUrlForProfile(file,info.mime,info.ext).then
 assert.ok(!source.includes("uploadFileDirect(file,'/api/profile/avatar-upload-url')"),"avatar UI must not request a direct signed upload");
 assert.ok(!source.includes("api('POST','/api/chat/image',{dataUrl:dataUrl})"),"chat image UI must not send base64 payloads after signed-upload cutover");
 assert.ok(source.includes("fileToDataUrlForProfile(file,info.mime,info.ext)"),"avatar save UI must prepare a bounded server-mediated image payload");
+assert.ok(source.includes("resolveFileMime(file,false),size=Number(file.size)"),"avatar save UI must reject non-image MIME and inspect the declared size");
+assert.ok(source.includes("size>2*1024*1024"),"avatar save UI must enforce the 2 MiB client-side limit");
 
 console.log("PASS signed-upload client validates route, bucket, MIME, size, project origin, object path, one-time token, PUT contract, and UI wiring.");

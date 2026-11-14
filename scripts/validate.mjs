@@ -64,6 +64,7 @@ assert(testUser.includes("url.searchParams.set('token',String(ticket.token))"),"
 assert(!testUser.includes("authorization:'Bearer '+ticket.token"),"signed upload capability must not be misused as a JWT bearer credential");
 assert(testUser.includes("uploadFileDirect(file,'/api/chat/upload-url')"),"client chat upload endpoint mismatch");
 assert(testUser.includes("fileToDataUrlForProfile(file,info.mime,info.ext).then(function(dataUrl){return api('POST','/api/profile/avatar',{dataUrl:dataUrl});})"),"client avatar must use server-mediated content validation");
+assert(testUser.includes("size>2*1024*1024"),"client avatar must enforce the 2 MiB limit before encoding");
 assert(!testUser.includes("uploadFileDirect(file,'/api/profile/avatar-upload-url')"),"client avatar must not request a direct signed upload");
 
 assert(prodUser.includes("UPSTATUS_SALE_DESELECT_CHAT"),"Sale Smartly deselect bridge missing from production artifact");
