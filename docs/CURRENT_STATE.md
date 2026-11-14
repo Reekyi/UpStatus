@@ -3642,3 +3642,52 @@ The isolated project `bfpjtfqlnypisxljoxkb` is ACTIVE_HEALTHY in sa-east-1, with
 3. Keep RT-01 blocked until server-mediated authenticated signaling is implemented and public call-control paths are retired by default in both products.
 4. Resolve #80/#82 without weakening Validate, correct Team Lite deployment targeting, complete Full-Product TEST, and finish the eight physical criteria in #78.
 5. Do not merge #166, enable the signaling flag, or publish userscripts without separate review and explicit authorization.
+
+
+## 2026-11-14 2026-11-14T20:05:42.379Z — Engineering checkpoint: #167 timestamp assertion
+
+### Candidate #167
+
+- Current branch: `docs/continuity-handoff-2026-11-04` on the product candidate; current head `9614166f6bdb5722fb23ad61adbac115ce77f74a`, base `master`, 14 commits ahead / 0 behind. PR #167 remains Draft and mergeable; no human review exists.
+- The previous Validate runs [43630541376](https://github.com/Reekyi/UpStatus/actions/runs/43630541376) and [43630712950](https://github.com/Reekyi/UpStatus/actions/runs/43630712950) failed at `CHAT REGRESSION FAILED: sent time appears with ticks`.
+- QA identified the assertion mismatch correctly: the test expected `<span class="up-chat-own-meta">`, while the current template renders `<div class="up-chat-own-meta"><span class="up-chat-own-time">` with `fmtTime(m.createdAt)`, followed by the read-receipt tick element.
+- Engineering changed only `scripts/chat-regression.test.mjs` in commit [9614166](https://github.com/Reekyi/UpStatus/commit/9614166f6bdb5722fb23ad61adbac115ce77f74a). The test now asserts the actual wrapper, timestamp formatter and tick insertion. No product HTML/CSS was changed by this fix.
+- The exact new SHA currently has no workflow run and no combined status. Do not claim the assertion or PR #167 is validated until an exact-head Validate succeeds. The repository workflow `.github/workflows/validate.yml` has push triggers only for master/develop and pull_request targets master/develop; this candidate is a PR to master.
+- PR #167 description was updated with the new SHA and explicit pending-validation status.
+
+### Required PRs and current CI
+
+| PR | Current HEAD | Ahead / Behind | Latest relevant evidence |
+|---|---|---:|---|
+| #74 Normal | `dcaf6a0` | 887 / 1 vs master | Validate [43376770142](https://github.com/Reekyi/UpStatus/actions/runs/43376770142) and Smoke [43376770200](https://github.com/Reekyi/UpStatus/actions/runs/43376770200) SUCCESS |
+| #75 Team Lite baseline | `7bbf9b9` | 59 / 0 vs team-lite-official | Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) SUCCESS (historical baseline) |
+| #76 Team Lite | `83a6cc4` | 386 / 0 vs team-lite-official | Candidate Checks [43363871881](https://github.com/Reekyi/UpStatus/actions/runs/43363871881) SUCCESS |
+| #80 continuity | `58d1f2b` | 315 / 0 vs develop | Validate [43624977654](https://github.com/Reekyi/UpStatus/actions/runs/43624977654) FAILURE: signed-upload helper missing |
+| #82 QA | `7275325` | 318 / 1 vs master | Validate [43633091200](https://github.com/Reekyi/UpStatus/actions/runs/43633091200) FAILURE: production updateURL mismatch |
+| #167 updater/chat | `9614166` | 14 / 0 vs master | No run/status for exact SHA; previous head `53bd0f1` failed the stale timestamp assertion |
+
+- Branch heads: master `9d40461`, develop `6b33e1e`, team-lite-official `9065bc1`; all three report `protected=false`.
+- No submitted human reviews were found on PRs #74, #75, #76, #80, #82 or #167.
+- #82 remains QA-owned. Do not modify its branch or QA report.
+
+### Supabase snapshot — SELECT/catalog only, 2026-11-14 20:03 UTC
+
+Production project `dlfvkawaiqduhlazsszm` is ACTIVE_HEALTHY (PostgreSQL 17.11.0.002), with seven ledger migrations through `20261027155438` and 38 ACTIVE Edge Functions. Main managed branch remains `MIGRATIONS_FAILED`; preview is ACTIVE_HEALTHY. Primary function versions: `upstatus` v480, `upstatus-test` v281, `upstatus-team-lite` v15.
+
+- Direct SQL returned 106 `realtime.messages` rows with `private=false` in the last 14 days.
+- The three `public.upstatus_broadcast_*` functions are SECURITY DEFINER, have `search_path=public`, and are executable by both anon and authenticated.
+- Two public Storage buckets contain 188 objects total; no Storage object policies were found in the current security snapshot.
+- Ten public RLS-enabled tables have no policies; Security Advisor reports six WARN (three anon-executable and three authenticated-executable SECURITY DEFINER findings) and ten INFO.
+- `information_schema.role_table_grants` returned 126 direct grant rows across anon/authenticated and nine public tables, including 18 TRUNCATE grant rows.
+- Application users: 5; `auth.users`: 0; sessions: 319; profiles: 5. No production `user_id` linkage or setup-invite rate-limit schema was confirmed.
+
+The isolated project `bfpjtfqlnypisxljoxkb` is ACTIVE_HEALTHY with 39 migrations and two active test functions (`upstatus-signal-test` v32 and `upstatus-signal-e2e-once` v3). Direct counts were zero for users, auth users, sessions, profiles, buckets, objects, signal rooms, memberships and signal events. It is an isolated signaling/auth lab, not Full-Product TEST.
+
+The latest inspected lab function-edge log sample contains HTTP 402 responses at 2026-11-14 17:10:45 UTC for the Smoke endpoints. The prior Smoke [43619663747](https://github.com/Reekyi/UpStatus/actions/runs/43619663747) was blocked by `exceed_edge_functions_invocations_quota`; no newer successful Smoke was observed. Do not repeat Supabase-dependent Smoke until quota availability is confirmed. No billing query was made.
+
+### Acceptance and release
+
+- Issue #78 remains 0/8 physical criteria. No no-F5 reconnection, real microphone/display permission, or installed Normal ↔ Team Lite acceptance was performed.
+- Issue #79 body remains historical 16/35; its dedicated Engineering/QA JSON is the operational gate record.
+- Latest QA report [2026-11-14 19:37 UTC](https://github.com/Reekyi/UpStatus/blob/qa/release-readiness-2026-11-04-master/docs/audits/2026-11-14-upstatus-qa-audit-1937-utc.md) confirms the release remains NOT READY. The full `docs/RELEASE_READINESS.md` blob was too large for direct extraction in this run; the current QA report and continuity files were inspected instead.
+- No merge, deploy, release, production migration/write, secret/flag/role/grant/policy/ACL change, userscript publication, billing change, or destructive operation occurred. SQL access was SELECT/catalog-only.
