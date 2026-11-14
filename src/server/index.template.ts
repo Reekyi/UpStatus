@@ -22,8 +22,33 @@ const CORS = {
 function response(body:unknown,status=200,extra:Record<string,string>={}) {
   return new Response(JSON.stringify(body),{status,headers:{"Content-Type":"application/json; charset=utf-8",...CORS,...extra}});
 }
-async function readBody(req:Request) {
-  const raw=await req.text();
+async function readBody(req:Request,maxBytes=0) {
+  let raw="";
+  if(maxBytes>0){
+    const declaredLength=Number(req.headers.get("content-length")||0);
+    if(Number.isFinite(declaredLength)&&declaredLength>maxBytes)throw new Error("REQUEST_BODY_TOO_LARGE");
+    const reader=req.body?.getReader();
+    if(reader){
+      const chunks:Uint8Array[]=[];
+      let total=0;
+      while(true){
+        const {done,value}=await reader.read();
+        if(done)break;
+        total+=value.byteLength;
+        if(total>maxBytes){
+          try{await reader.cancel();}catch{}
+          throw new Error("REQUEST_BODY_TOO_LARGE");
+        }
+        chunks.push(value);
+      }
+      const bytes=new Uint8Array(total);
+      let offset=0;
+      for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+      raw=new TextDecoder().decode(bytes);
+    }
+  }else{
+    raw=await req.text();
+  }
   if(!raw)return {};
   try{return JSON.parse(raw)}catch{throw new Error("Pedido inválido.")}
 }
@@ -286,20 +311,25 @@ function sniffMime(bytes:Uint8Array,declared:string) {
   if(bytes.length>=4&&bytes[0]===0x1a&&bytes[1]===0x45&&bytes[2]===0xdf&&bytes[3]===0xa3)return declared.startsWith("audio/")?"audio/webm":"video/webm";
   if(bytes.length>=4&&bytes[0]===0x4f&&bytes[1]===0x67&&bytes[2]===0x67&&bytes[3]===0x53)return "audio/ogg";
   if(bytes.length>=3&&bytes[0]===0x49&&bytes[1]===0x44&&bytes[2]===0x33)return "audio/mpeg";
-  if(bytes.length>=12&&bytes[4]===0x66&&bytes[5]===0x74&&bytes[6]===0x79&&bytes[7]===0x70)return declared==="video/mp4"?"video/mp4":declared.startsWith("audio/")?"audio/mp4":"image/jpeg";
+  if(bytes.length>=12&&bytes[4]===0x66&&bytes[5]===0x74&&bytes[6]===0x79&&bytes[7]===0x70){
+    if(declared==="video/mp4")return "video/mp4";
+    if(declared.startsWith("audio/"))return "audio/mp4";
+    return "";
+  }
   if(bytes.length>=12&&bytes[0]===0x52&&bytes[1]===0x49&&bytes[2]===0x46&&bytes[3]===0x46&&bytes[8]===0x57&&bytes[9]===0x41&&bytes[10]===0x56&&bytes[11]===0x45)return "audio/wav";
+  if(declared.startsWith("image/"))return "";
   return declared;
 }
 function ext(mime:string) {
   return ({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm","audio/webm":"webm","audio/ogg":"ogg","audio/mp4":"m4a","audio/mpeg":"mp3","audio/wav":"wav","audio/x-wav":"wav","audio/x-m4a":"m4a" } as Record<string,string>)[mime]||"";
 }
-async function uploadFile(bucket:string,dataUrl:string,max:number,allowed:Set<string>) {
+async function uploadFile(bucket:string,dataUrl:string,max:number,allowed:Set<string>,pathPrefix="") {
   const d=decodeDataUrl(dataUrl);
   const mime=sniffMime(d.bytes,d.mime);
   if(!allowed.has(mime))throw new Error("Tipo de arquivo não suportado.");
   if(d.bytes.length>max)throw new Error("Arquivo acima do limite permitido.");
   const e=ext(mime);if(!e)throw new Error("Tipo de arquivo não suportado.");
-  const path=Date.now()+"-"+randomBytes(6).toString("hex")+"."+e;
+  const path=String(pathPrefix||"")+Date.now()+"-"+randomBytes(6).toString("hex")+"."+e;
   const body=d.bytes.buffer.slice(d.bytes.byteOffset,d.bytes.byteOffset+d.bytes.byteLength);
   const {error}=await db.storage.from(bucket).upload(path,body,{contentType:mime,cacheControl:"31536000",upsert:false});
   if(error)throw error;
@@ -446,20 +476,102 @@ async function deleteRoute(name:string,id:string){
   return response({ok:true,id});
 }
 
+function uniqueAvatarUserId(rows:any[]) {
+  if(!Array.isArray(rows)||rows.length!==1)return null;
+  const id=String(rows[0]?.id??"").trim();
+  return /^[0-9]+$/.test(id)?id:null;
+}
+async function avatarUserId(name:string) {
+  const normalized=String(name||"").trim();
+  if(!normalized)return null;
+  const {data,error}=await db.from("users").select("id").eq("name",normalized).limit(2);
+  if(error)throw error;
+  return uniqueAvatarUserId(data);
+}
+function avatarOwnerPrefix(userId:string|number) {
+  const normalized=String(userId??"").trim();
+  if(!/^[0-9]+$/.test(normalized))throw new Error("Identidade de usuário inválida.");
+  return "avatar-"+tokenHash("upstatus-user-id:"+normalized).slice(0,24)+"-";
+}
+
 async function profileRoute(req:Request,name:string) {
   if(req.method==="GET") return response({profiles:await profileMap()});
-  const p:any=await readBody(req);
-  let avatarUrl=String(p.avatarUrl||"");
-  if(p.dataUrl){
-    const saved=await uploadFile("profile-images",String(p.dataUrl),20*1024*1024,new Set(["image/png","image/jpeg","image/webp","image/gif"]));
-    avatarUrl=saved.url;
+  let p:any;
+  try{p=await readBody(req,3*1024*1024);}catch(e){
+    if(String(e).includes("REQUEST_BODY_TOO_LARGE"))return response({error:"Arquivo acima do limite permitido."},413);
+    throw e;
   }
-  const validPrefix=PROJECT_URL+"/storage/v1/object/public/profile-images/";
-  if(!avatarUrl.startsWith(validPrefix))return response({error:"URL de avatar inválida."},400);
-  const {error}=await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:avatarUrl,updated_at:new Date().toISOString()},{onConflict:"user_name"});
+  const avatarUrl=String(p.avatarUrl||"").trim();
+  const userId=await avatarUserId(name);
+  if(!userId)return response({error:"Não foi possível identificar sua conta com segurança."},409);
+  const ownerPrefix=avatarOwnerPrefix(userId);
+  if(avatarUrl){
+    let parsed:URL;
+    try{parsed=new URL(avatarUrl);}catch(e){return response({error:"URL de foto inválida."},400);}
+    const projectOrigin=new URL(PROJECT_URL).origin;
+    const prefix="/storage/v1/object/public/profile-images/";
+    if(parsed.origin!==projectOrigin||parsed.username||parsed.password||!parsed.pathname.startsWith(prefix)||parsed.search||parsed.hash)return response({error:"A foto precisa pertencer ao bucket de perfil deste projeto."},400);
+    let objectPath="";
+    try{objectPath=decodeURIComponent(parsed.pathname.slice(prefix.length));}catch(e){return response({error:"Caminho de foto inválido."},400);}
+    if(!objectPath||objectPath.includes("/")||objectPath.includes("\\")||objectPath==="."||objectPath===".."||objectPath.includes("\0"))return response({error:"Caminho de foto inválido."},400);
+    if(!objectPath.startsWith(ownerPrefix))return response({error:"O avatar não pertence à sua conta."},403);
+    const canonicalUrl=db.storage.from("profile-images").getPublicUrl(objectPath).data.publicUrl;
+    if(canonicalUrl!==parsed.toString())return response({error:"URL de foto inválida."},400);
+    const {error}=await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:canonicalUrl,updated_at:new Date().toISOString()},{onConflict:"user_name"});
+    if(error)throw error;
+    return response({ok:true,avatarUrl:canonicalUrl});
+  }
+  // Backward compatibility for already-installed clients; legacy uploads use the same immutable owner prefix.
+  const saved=await uploadFile("profile-images",String(p.dataUrl||""),2*1024*1024,new Set(["image/png","image/jpeg","image/webp","image/gif"]),ownerPrefix);
+  const {error}=await db.from("upstatus_profiles").upsert({user_name:name,avatar_url:saved.url,updated_at:new Date().toISOString()},{onConflict:"user_name"});
   if(error)throw error;
-  return response({ok:true,avatarUrl});
+  return response({ok:true,avatarUrl:saved.url});
 }
+async function signedUploadRoute(req:Request,kind:"chat"|"avatar",ownerName:string) {
+  if(kind==="avatar")return response({error:"Avatar uploads require server-side content validation."},410);
+  const ownerId=kind==="avatar"?await avatarUserId(ownerName):"";
+  if(kind==="avatar"&&!ownerId)return response({error:"Não foi possível identificar sua conta com segurança."},409);
+  const ownerPrefix=kind==="avatar"?avatarOwnerPrefix(ownerId):"";
+  const p:any=await readBody(req);
+  const bucket=kind==="avatar"?"profile-images":"chat-images";
+  const max=kind==="avatar"?2*1024*1024:20*1024*1024;
+  const mime=String(p.mime||"").toLowerCase().trim();
+  const allowed=kind==="avatar"?new Set(["image/png","image/jpeg","image/webp","image/gif"]):new Set(["image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm","application/pdf","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","text/csv","application/vnd.ms-powerpoint","application/vnd.openxmlformats-officedocument.presentationml.presentation","text/plain","text/rtf","application/rtf"]);
+  const size=Number(p.size);
+  if(!allowed.has(mime))return response({error:"Tipo de arquivo não suportado."},400);
+  if(!Number.isSafeInteger(size)||size<1||size>max)return response({error:kind==="avatar"?"A foto deve ter no máximo 2 MB.":"O arquivo deve ter no máximo 20 MB."},400);
+  const extByMime:Record<string,string>={"image/png":"png","image/jpeg":"jpg","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm","application/pdf":"pdf","application/msword":"doc","application/vnd.openxmlformats-officedocument.wordprocessingml.document":"docx","application/vnd.ms-excel":"xls","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":"xlsx","text/csv":"csv","application/vnd.ms-powerpoint":"ppt","application/vnd.openxmlformats-officedocument.presentationml.presentation":"pptx","text/plain":"txt","text/rtf":"rtf","application/rtf":"rtf"};
+  const safeName=String(p.name||"arquivo").split(/[\\/]/).pop()?.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-100)||"arquivo";
+  const fileName=Date.now()+"-"+randomBytes(8).toString("hex")+"-"+safeName.replace(/\.[^.]*$/,"").slice(0,60)+"."+extByMime[mime];
+  const path=kind==="avatar"?ownerPrefix+fileName:fileName;
+  const {data,error}=await db.storage.from(bucket).createSignedUploadUrl(path,{upsert:false});
+  if(error)throw error;
+  const uploadToken=String(data?.token||"");
+  const signedPath=String(data?.path||path);
+  const signedUrl=String(data?.signedUrl||"");
+  if(!uploadToken||!signedUrl||signedPath!==path)throw new Error("O Storage não retornou uma URL assinada válida.");
+  const projectBase=new URL(PROJECT_URL);
+  if(projectBase.protocol!=="https:")throw new Error("O projeto retornou uma origem de Storage inválida.");
+  const projectOrigin=projectBase.origin;
+  const uploadUrl=new URL(signedUrl,projectOrigin+"/storage/v1/");
+  const uploadPrefix="/storage/v1/object/upload/sign/"+bucket+"/";
+  if(uploadUrl.origin!==projectOrigin||uploadUrl.username||uploadUrl.password||uploadUrl.hash||!uploadUrl.pathname.startsWith(uploadPrefix))throw new Error("O Storage retornou uma origem ou rota de upload inesperada.");
+  let uploadedPath="";
+  try{uploadedPath=decodeURIComponent(uploadUrl.pathname.slice(uploadPrefix.length));}catch(e){throw new Error("Caminho de upload inválido.");}
+  if(uploadedPath!==path)throw new Error("O caminho assinado não corresponde ao objeto solicitado.");
+  const queryToken=uploadUrl.searchParams.get("token");
+  if(queryToken&&queryToken!==uploadToken)throw new Error("O token da URL assinada não corresponde à autorização.");
+  uploadUrl.searchParams.set("token",uploadToken);
+  if(!uploadUrl.searchParams.get("token"))throw new Error("A URL assinada veio sem token.");
+  const publicUrl=new URL(db.storage.from(bucket).getPublicUrl(path).data.publicUrl);
+  const publicPrefix="/storage/v1/object/public/"+bucket+"/";
+  if(publicUrl.origin!==projectOrigin||publicUrl.username||publicUrl.password||!publicUrl.pathname.startsWith(publicPrefix)||publicUrl.search||publicUrl.hash)throw new Error("A URL pública retornada é inválida.");
+  let publicPath="";
+  try{publicPath=decodeURIComponent(publicUrl.pathname.slice(publicPrefix.length));}catch(e){throw new Error("Caminho público inválido.");}
+  if(publicPath!==path)throw new Error("O caminho público não corresponde ao objeto autorizado.");
+  return response({ok:true,uploadUrl:uploadUrl.toString(),signedUrl:uploadUrl.toString(),publicUrl:publicUrl.toString(),token:uploadToken,path:signedPath,bucket,mime,size,expiresIn:7200});
+}
+
 async function mediaRoute(req:Request,kind:"image"|"audio"|"document") {
   const p:any=await readBody(req);
   const max=20*1024*1024;
@@ -467,30 +579,6 @@ async function mediaRoute(req:Request,kind:"image"|"audio"|"document") {
   const saved=await uploadFile("chat-images",String(p.dataUrl||""),max,allowed);
   return response({ok:true,imageUrl:saved.url,type:saved.mime.startsWith("video/")?"video":kind});
 }
-async function signedUploadRoute(req:Request,kind:"chat"|"avatar") {
-  const p:any=await readBody(req);
-  const bucket=kind==="avatar"?"profile-images":"chat-images";
-  const max=20*1024*1024;
-  const mime=String(p.mime||"").toLowerCase().trim();
-  const allowed=kind==="avatar"?new Set(["image/png","image/jpeg","image/webp","image/gif"]):new Set(["image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm","application/pdf","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","text/csv","application/vnd.ms-powerpoint","application/vnd.openxmlformats-officedocument.presentationml.presentation","text/plain","text/rtf","application/rtf"]);
-  const size=Number(p.size);
-  if(!allowed.has(mime))return response({error:"Tipo de arquivo não suportado."},400);
-  if(!Number.isFinite(size)||size<1||size>max)return response({error:"O arquivo deve ter no máximo 20 MB."},400);
-  const extByMime:Record<string,string>={"image/png":"png","image/jpeg":"jpg","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm","application/pdf":"pdf","application/msword":"doc","application/vnd.openxmlformats-officedocument.wordprocessingml.document":"docx","application/vnd.ms-excel":"xls","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":"xlsx","text/csv":"csv","application/vnd.ms-powerpoint":"ppt","application/vnd.openxmlformats-officedocument.presentationml.presentation":"pptx","text/plain":"txt","text/rtf":"rtf","application/rtf":"rtf"};
-  const safeName=String(p.name||"arquivo").split(/[\\/]/).pop()?.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-100)||"arquivo";
-  const path=Date.now()+"-"+randomBytes(8).toString("hex")+"-"+safeName.replace(/\.[^.]*$/,"").slice(0,60)+"."+extByMime[mime];
-  const {data,error}=await db.storage.from(bucket).createSignedUploadUrl(path,{upsert:true});
-  if(error)throw error;
-  const uploadToken=String(data?.token||"");
-  const signedPath=String(data?.path||path);
-  const signedUrl=String(data?.signedUrl||"");
-  if(!uploadToken||!signedUrl||signedPath!==path)throw new Error("O Storage não retornou uma URL assinada válida.");
-  const publicUrl=db.storage.from(bucket).getPublicUrl(path).data.publicUrl;
-  const uploadUrl=new URL(signedUrl,PROJECT_URL+"/storage/v1/");
-  if(!uploadUrl.searchParams.has("token"))uploadUrl.searchParams.set("token",uploadToken);
-  return response({ok:true,uploadUrl:uploadUrl.toString(),publicUrl,token:uploadToken,path,bucket,mime,size,expiresIn:7200});
-}
-
 async function remoteRoute(req:Request,name:string) {
   const state:any=await stateValue("remote-status",{commands:{},results:{}});
   state.commands=state.commands||{};state.results=state.results||{};
@@ -622,8 +710,8 @@ Deno.serve(async(req)=>{
     if(path.startsWith("/api/chat/")&&req.method==="DELETE")return await deleteRoute(name,path.slice("/api/chat/".length));
     if(path==="/api/profiles")return await profileRoute(req,name);
     if(path==="/api/profile/avatar"&&req.method==="POST")return await profileRoute(req,name);
-    if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");
-    if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");
+    if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar",ctx.name);
+    if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat",ctx.name);
     if(path==="/api/chat/image"&&req.method==="POST")return await mediaRoute(req,"image");
     if(path==="/api/chat/document"&&req.method==="POST")return await mediaRoute(req,"document");
     if(path==="/api/chat/audio"&&req.method==="POST")return await mediaRoute(req,"audio");

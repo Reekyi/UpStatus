@@ -45,17 +45,27 @@ checkSyntax(testUser,"dist/upstatus-test.user.js");
 assert(prodUser.includes("upStatusSaleChatClose"),"Sale Smartly close integration missing from production artifact");
 assert(testUser.includes("upStatusSaleChatClose"),"Sale Smartly close integration missing from test artifact");
 
-assert(testFn.includes("async function signedUploadRoute(req:Request,kind:\"chat\"|\"avatar\")"),"signed upload route missing from TEST backend");
-assert(testFn.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");'),"chat signed-upload endpoint missing from TEST backend");
-assert(testFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");'),"avatar signed-upload endpoint missing from TEST backend");
-assert(testFn.includes("createSignedUploadUrl(path,{upsert:true})"),"Storage signed URL must be generated with upsert enabled");
+assert(testFn.includes("async function signedUploadRoute(req:Request,kind:\"chat\"|\"avatar\",ownerName:string)"),"signed upload route must receive authenticated owner context");
+assert(testFn.includes('if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat",ctx.name);'),"chat signed-upload endpoint must pass authenticated context");
+assert(testFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar",ctx.name);'),"avatar signed-upload endpoint must pass authenticated context");
+assert(testFn.includes('db.from("users").select("id").eq("name",normalized).limit(2)'),"avatar ownership must resolve one immutable users.id");
+assert(testFn.includes('tokenHash("upstatus-user-id:"+normalized)'),"avatar owner prefix must derive from immutable users.id");
+assert(testFn.includes("objectPath.startsWith(ownerPrefix)"),"profile route must reject another user's avatar object");
+assert(testFn.includes('if(kind==="avatar")return response({error:"Avatar uploads require server-side content validation."},410);'),"direct signed avatar uploads must fail closed");
+assert(testFn.includes('if(declared.startsWith("image/"))return ""'),"server must reject image MIME declarations without matching magic bytes");
+assert(testFn.includes("createSignedUploadUrl(path,{upsert:false})"),"Storage signed URL must forbid object overwrite");
+assert(!testUser.includes("'x-upsert':'true'"),"signed upload client must not request object overwrite");
 assert(testFn.includes('const max=20*1024*1024;'),"TEST signed upload limit must be 20 MiB");
 assert(testFn.includes('if(!uploadToken||!signedUrl||signedPath!==path)'),"TEST backend must verify signed upload response fields");
-assert(testFn.includes('if(p.dataUrl){'),"legacy avatar dataUrl compatibility missing from TEST backend");
+assert(testFn.includes('String(p.dataUrl||"")')&&testFn.includes('uploadFile("profile-images"'),"legacy avatar dataUrl compatibility missing from TEST backend");
 assert(testUser.includes("function uploadFileDirect(file,route)"),"client signed upload helper missing");
-assert(testUser.includes("headers:{'Content-Type':info.mime,'x-upsert':'true','authorization':'Bearer '+ticket.token}"),"client signed upload authorization headers missing");
+assert(testUser.includes("credentials:'omit',redirect:'error'"),"signed upload must omit browser credentials and reject redirects");
+assert(testUser.includes("url.searchParams.set('token',String(ticket.token))"),"signed upload capability must be carried in the token query parameter");
+assert(!testUser.includes("authorization:'Bearer '+ticket.token"),"signed upload capability must not be misused as a JWT bearer credential");
 assert(testUser.includes("uploadFileDirect(file,'/api/chat/upload-url')"),"client chat upload endpoint mismatch");
-assert(testUser.includes("uploadFileDirect(file,'/api/profile/avatar-upload-url')"),"client avatar upload endpoint mismatch");
+assert(testUser.includes("fileToDataUrlForProfile(file,info.mime,info.ext).then(function(dataUrl){return api('POST','/api/profile/avatar',{dataUrl:dataUrl});})"),"client avatar must use server-mediated content validation");
+assert(testUser.includes("size>2*1024*1024"),"client avatar must enforce the 2 MiB limit before encoding");
+assert(!testUser.includes("uploadFileDirect(file,'/api/profile/avatar-upload-url')"),"client avatar must not request a direct signed upload");
 
 assert(prodUser.includes("UPSTATUS_SALE_DESELECT_CHAT"),"Sale Smartly deselect bridge missing from production artifact");
 assert(testUser.includes("UPSTATUS_SALE_DESELECT_CHAT"),"Sale Smartly deselect bridge missing from test artifact");
@@ -88,4 +98,6 @@ for(const [artifactName,artifact] of [["production",prodUser],["test",testUser]]
   assert(!queue.includes("items.splice(")&&!queue.includes("state.list.splice("),artifactName+" custom queue must not mutate the native session list");
   assert(!queue.includes("CHAT_REMOVE_SESSION")&&!queue.includes("end_session"),artifactName+" custom queue must not remove/end sessions");
 }
+execFileSync(process.execPath,[path.join(ROOT,"scripts/test-signed-upload-client.mjs")],{stdio:"inherit"});
+execFileSync(process.execPath,[path.join(ROOT,"scripts/test-signed-upload-server.mjs")],{stdio:"inherit"});
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
