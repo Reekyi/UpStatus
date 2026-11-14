@@ -24,7 +24,7 @@ Os userscripts servidos foram decodificados a partir de `USERSCRIPT_BASE64` embu
 | `team-lite-official` | `9065bc1536fde64f437f6f12b7abb9b072cb8281` | linha oficial separada |
 | QA / PR #82 | `150fd93b546d1fdaf7b7d8af7f20f33643fa9ec5` | 311 à frente / 1 atrás de master |
 
-A PR #82 tem **164 arquivos alterados, todos sob `docs/`**. O único commit master-only observado na comparação é documental. Nenhuma mudança de runtime foi adicionada pela QA nesta rodada.
+A PR #82 tem **164 arquivos alterados, todos sob `docs/`**. Nenhuma mudança de runtime foi adicionada pela QA nesta rodada.
 
 ### PRs obrigatórias
 
