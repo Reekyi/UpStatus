@@ -41,12 +41,13 @@ profileSource=profileSource
   .replace("function avatarOwnerPrefix(userId:string|number)","function avatarOwnerPrefix(userId)")
   .replace("async function profileRoute(req:Request,name:string)","async function profileRoute(req,name)")
   .replace("const p:any=","const p=")
+  .replace("let p:any;","let p;")
   .replace("let parsed:URL;","let parsed;");
 signedSource=signedSource
   .replace('async function signedUploadRoute(req:Request,kind:"chat"|"avatar",ownerName:string)',"async function signedUploadRoute(req,kind,ownerName)")
   .replace("const p:any=","const p=")
   .replace("const extByMime:Record<string,string>=","const extByMime=");
-assert.ok(!/:Request|:string|:URL|:Record</.test(profileSource+signedSource),"test transpiler left a TypeScript annotation");
+assert.ok(!/:Request|:string|:URL|:Record<|:any/.test(profileSource+signedSource),"test transpiler left a TypeScript annotation");
 assert.ok(!/:Request|:Uint8Array\[\]/.test(readBodySource),"test transpiler left a readBody TypeScript annotation");
 assert.ok(profileSource.includes("readBody(req,3*1024*1024)"),"avatar route must bound request body before JSON parsing");
 
