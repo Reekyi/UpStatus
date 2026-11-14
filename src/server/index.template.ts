@@ -22,8 +22,33 @@ const CORS = {
 function response(body:unknown,status=200,extra:Record<string,string>={}) {
   return new Response(JSON.stringify(body),{status,headers:{"Content-Type":"application/json; charset=utf-8",...CORS,...extra}});
 }
-async function readBody(req:Request) {
-  const raw=await req.text();
+async function readBody(req:Request,maxBytes=0) {
+  let raw="";
+  if(maxBytes>0){
+    const declaredLength=Number(req.headers.get("content-length")||0);
+    if(Number.isFinite(declaredLength)&&declaredLength>maxBytes)throw new Error("REQUEST_BODY_TOO_LARGE");
+    const reader=req.body?.getReader();
+    if(reader){
+      const chunks:Uint8Array[]=[];
+      let total=0;
+      while(true){
+        const {done,value}=await reader.read();
+        if(done)break;
+        total+=value.byteLength;
+        if(total>maxBytes){
+          try{await reader.cancel();}catch{}
+          throw new Error("REQUEST_BODY_TOO_LARGE");
+        }
+        chunks.push(value);
+      }
+      const bytes=new Uint8Array(total);
+      let offset=0;
+      for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+      raw=new TextDecoder().decode(bytes);
+    }
+  }else{
+    raw=await req.text();
+  }
   if(!raw)return {};
   try{return JSON.parse(raw)}catch{throw new Error("Pedido inválido.")}
 }
@@ -286,7 +311,11 @@ function sniffMime(bytes:Uint8Array,declared:string) {
   if(bytes.length>=4&&bytes[0]===0x1a&&bytes[1]===0x45&&bytes[2]===0xdf&&bytes[3]===0xa3)return declared.startsWith("audio/")?"audio/webm":"video/webm";
   if(bytes.length>=4&&bytes[0]===0x4f&&bytes[1]===0x67&&bytes[2]===0x67&&bytes[3]===0x53)return "audio/ogg";
   if(bytes.length>=3&&bytes[0]===0x49&&bytes[1]===0x44&&bytes[2]===0x33)return "audio/mpeg";
-  if(bytes.length>=12&&bytes[4]===0x66&&bytes[5]===0x74&&bytes[6]===0x79&&bytes[7]===0x70)return declared==="video/mp4"?"video/mp4":declared.startsWith("audio/")?"audio/mp4":"image/jpeg";
+  if(bytes.length>=12&&bytes[4]===0x66&&bytes[5]===0x74&&bytes[6]===0x79&&bytes[7]===0x70){
+    if(declared==="video/mp4")return "video/mp4";
+    if(declared.startsWith("audio/"))return "audio/mp4";
+    return "";
+  }
   if(bytes.length>=12&&bytes[0]===0x52&&bytes[1]===0x49&&bytes[2]===0x46&&bytes[3]===0x46&&bytes[8]===0x57&&bytes[9]===0x41&&bytes[10]===0x56&&bytes[11]===0x45)return "audio/wav";
   if(declared.startsWith("image/"))return "";
   return declared;
@@ -467,7 +496,11 @@ function avatarOwnerPrefix(userId:string|number) {
 
 async function profileRoute(req:Request,name:string) {
   if(req.method==="GET") return response({profiles:await profileMap()});
-  const p:any=await readBody(req);
+  let p:any;
+  try{p=await readBody(req,3*1024*1024);}catch(e){
+    if(String(e).includes("REQUEST_BODY_TOO_LARGE"))return response({error:"Arquivo acima do limite permitido."},413);
+    throw e;
+  }
   const avatarUrl=String(p.avatarUrl||"").trim();
   const userId=await avatarUserId(name);
   if(!userId)return response({error:"Não foi possível identificar sua conta com segurança."},409);

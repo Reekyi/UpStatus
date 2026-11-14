@@ -5,6 +5,10 @@ import { createHash } from "node:crypto";
 import { Buffer } from "node:buffer";
 
 const source=fs.readFileSync("src/server/index.template.ts","utf8");
+const readBodyStart=source.indexOf("async function readBody(req:Request,maxBytes=0) {");
+const tokenStart=source.indexOf("function token(req:Request)",readBodyStart);
+assert.ok(readBodyStart>=0&&tokenStart>readBodyStart,"bounded readBody source block is missing");
+const readBodySource=source.slice(readBodyStart,tokenStart).trim().replace("async function readBody(req:Request,maxBytes=0)","async function readBody(req,maxBytes=0)");
 function extract(start,end,label){
   const i=source.indexOf(start),j=source.indexOf(end,i);
   assert.ok(i>=0&&j>i,label+" source block is missing");
@@ -41,6 +45,7 @@ signedSource=signedSource
   .replace("const p:any=","const p=")
   .replace("const extByMime:Record<string,string>=","const extByMime=");
 assert.ok(!/:Request|:string|:URL|:Record</.test(profileSource+signedSource),"test transpiler left a TypeScript annotation");
+assert.ok(profileSource.includes("readBody(req,3*1024*1024)"),"avatar route must bound request body before JSON parsing");
 
 const project="https://test-project.supabase.co";
 function harness(overrides={}){
@@ -48,9 +53,9 @@ function harness(overrides={}){
   const users=overrides.users||[{id:42,name:"Alice"}];
   const context=vm.createContext({
     PROJECT_URL:project,
-    URL,Date,atob,Uint8Array,
+    URL,Date,atob,Uint8Array,TextDecoder,
     tokenHash:value=>createHash("sha256").update(String(value)).digest("hex"),
-    readBody:async req=>req.body||{},
+
     response:(body,status=200)=>({body,status}),
     randomBytes:n=>({toString:()=> "a".repeat(n*2)}),
     db:{
@@ -76,10 +81,51 @@ function harness(overrides={}){
       }
     }
   });
-  vm.runInContext(uploadHelpers+"\n"+profileSource+"\n"+signedSource+"\nglobalThis.__profileRoute=profileRoute;globalThis.__signedUploadRoute=signedUploadRoute;globalThis.__avatarOwnerPrefix=avatarOwnerPrefix;globalThis.__uniqueAvatarUserId=uniqueAvatarUserId;",context);
+  vm.runInContext(readBodySource+"\n"+uploadHelpers+"\n"+profileSource+"\n"+signedSource+"\nglobalThis.__readBody=readBody;globalThis.__sniffMime=sniffMime;globalThis.__profileRoute=profileRoute;globalThis.__signedUploadRoute=signedUploadRoute;globalThis.__avatarOwnerPrefix=avatarOwnerPrefix;globalThis.__uniqueAvatarUserId=uniqueAvatarUserId;",context);
   return {context,calls};
 }
-const req=body=>({method:"POST",body});
+const req=body=>{
+  const raw=JSON.stringify(body);
+  const bytes=new TextEncoder().encode(raw);
+  let sent=false;
+  return {
+    method:"POST",
+    headers:{get:name=>name.toLowerCase()==="content-length"?String(bytes.length):null},
+    body:{getReader:()=>({read:async()=>sent?{done:true}:{done:false,value:bytes},cancel:async()=>{sent=true;}})},
+    text:async()=>raw
+  };
+};
+function streamRequest(chunks,contentLength=null){
+  let index=0,cancelled=false,getReaderCalls=0;
+  const request={
+    headers:{get:name=>name.toLowerCase()==="content-length"?contentLength:null},
+    body:{getReader:()=>{getReaderCalls++;return {
+      read:async()=>index<chunks.length?{done:false,value:chunks[index++]}:{done:true},
+      cancel:async()=>{cancelled=true;}
+    };}},
+    text:async()=>{throw new Error("Limited body read must not call Request.text().");}
+  };
+  return {request,state:()=>({cancelled,getReaderCalls})};
+}
+{
+  const h=harness();
+  const s=streamRequest([new Uint8Array(9)],"9");
+  await assert.rejects(()=>h.context.__readBody(s.request,8),/REQUEST_BODY_TOO_LARGE/);
+  assert.equal(s.state().getReaderCalls,0,"Content-Length must be rejected before acquiring the body reader");
+}
+{
+  const h=harness();
+  const s=streamRequest([new Uint8Array(5),new Uint8Array(4)],null);
+  await assert.rejects(()=>h.context.__readBody(s.request,8),/REQUEST_BODY_TOO_LARGE/);
+  assert.equal(s.state().cancelled,true,"stream reader must be cancelled when the body exceeds its limit");
+}
+{
+  const h=harness();
+  const bytes=new TextEncoder().encode('{"ok":1}');
+  const s=streamRequest([bytes],String(bytes.length));
+  const parsed=await h.context.__readBody(s.request,bytes.length);
+  assert.equal(parsed.ok,1,"bounded reader must parse a body exactly at the limit");
+}
 {
   const h=harness();
   const r=await h.context.__signedUploadRoute(req({mime:"application/pdf",size:123,name:"Quarterly report.pdf"}),"chat","Alice");
@@ -164,6 +210,13 @@ for(const avatarUrl of [
 }
 {
   const h=harness();
+  const r=await h.context.__profileRoute(req({dataUrl:"A".repeat(3*1024*1024)}),"Alice");
+  assert.equal(r.status,413);
+  assert.equal(h.calls.uploads.length,0);
+  assert.equal(h.calls.upserts.length,0);
+}
+{
+  const h=harness();
   const r=await h.context.__profileRoute(req({dataUrl:"data:image/png;base64,iVBORw0KGgo="}),"Alice");
   assert.equal(r.status,200);
   assert.equal(h.calls.uploads.length,1);
@@ -178,6 +231,17 @@ for(const avatarUrl of [
 {
   const h=harness();
   await assert.rejects(()=>h.context.__profileRoute(req({dataUrl:"data:image/png;base64,AAAA"}),"Alice"),/Tipo de arquivo não suportado/);
+  assert.equal(h.calls.uploads.length,0);
+}
+{
+  const h=harness();
+  const mp4=new Uint8Array(12);
+  mp4[4]=0x66;mp4[5]=0x74;mp4[6]=0x79;mp4[7]=0x70;
+  assert.equal(h.context.__sniffMime(mp4,"image/jpeg"),"");
+  assert.equal(h.context.__sniffMime(mp4,"video/mp4"),"video/mp4");
+  assert.equal(h.context.__sniffMime(mp4,"audio/mp4"),"audio/mp4");
+  const mp4DataUrl="data:image/jpeg;base64,"+Buffer.from(mp4).toString("base64");
+  await assert.rejects(()=>h.context.__profileRoute(req({dataUrl:mp4DataUrl}),"Alice"),/Tipo de arquivo não suportado/);
   assert.equal(h.calls.uploads.length,0);
 }
 {
