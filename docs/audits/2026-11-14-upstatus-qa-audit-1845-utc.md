@@ -249,6 +249,6 @@ MIGRATION-PROVENANCE não foi reavaliado nesta rodada; o último resultado previ
 
 Nenhuma produção foi modificada. Todas as consultas SQL foram SELECT-only. Não houve merge, deploy, migration, release, publicação de userscript, alteração de secrets, flags, roles, grants, policies, ACL, fixtures ou operação destrutiva.
 
-A única escrita desta execução é este novo relatório documental na branch QA dedicada. O comentário da Engenharia na Issue #79 foi preservado. O comentário dedicado UPCONTROL:QA foi atualizado no mesmo ID, sem duplicatas, com JSON válido e feed de atividades desta execução.
+As únicas escritas desta execução foram este relatório documental na branch QA dedicada e a atualização do comentário UPCONTROL:QA na Issue #79. O comentário da Engenharia na Issue #79 foi preservado. O comentário dedicado UPCONTROL:QA foi atualizado no mesmo ID, sem duplicatas, com JSON válido e feed de atividades desta execução.
 
 **Conclusão: NÃO LIBERAR.** A correção de proveniência avançou nos candidatos, mas o runtime instalado continua no caminho público legado, o backend autenticado não existe nos templates de produção e o ambiente de integração está sem quota.
