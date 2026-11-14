@@ -26,6 +26,7 @@ uploadHelpers=uploadHelpers
   .replace(" as Record<string,string>","")
   .replace('async function uploadFile(bucket:string,dataUrl:string,max:number,allowed:Set<string>,pathPrefix="")','async function uploadFile(bucket,dataUrl,max,allowed,pathPrefix="")');
 assert.ok(!/:string|:Uint8Array|:Set</.test(uploadHelpers),"test transpiler left an upload-helper TypeScript annotation");
+assert.ok(!uploadHelpers.includes(" as Record<string,string>"),"test transpiler left a TypeScript record cast");
 let profileSource=source.slice(identityStart,signedStart).trim();
 let signedSource=source.slice(signedStart,mediaStart).trim();
 profileSource=profileSource
