@@ -224,3 +224,8 @@ Ordem de trabalho:
 ## 11. Registro de segurança
 
 Nenhum merge, deploy, release, publicação de userscript, migration em produção, alteração de secret/flag/role/grant/policy/ACL ou operação destrutiva foi realizada. Todas as consultas SQL foram SELECT-only. Nenhum workflow foi disparado ou repetido pela auditoria. A única escrita no GitHub nesta execução é este arquivo novo na branch QA e a atualização do comentário QA dedicado na Issue #79. O comentário da Engenharia foi preservado.
+
+
+## Pós-commit: Validate da própria atualização documental
+
+Depois que este relatório foi adicionado, a PR #82 avançou para o HEAD 552b97027d16cf957017d233dded54ef80d366ed. O Validate exato [43759075165](https://github.com/Reekyi/UpStatus/actions/runs/43759075165) terminou em FAILURE no job validate, repetindo **VALIDATION FAILED: production updateURL mismatch** em scripts/validate.mjs:26. O job não aponta erro de Markdown; a falha continua no contrato de build/validator da base master. Nenhum código de produto foi alterado para contornar o check.
