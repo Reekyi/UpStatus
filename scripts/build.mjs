@@ -40,12 +40,16 @@ function renderUser({version,test}){
   const ringtoneChannel=test?TEST_RINGTONE_CHANNEL:PROD_RINGTONE_CHANNEL;
   const ringtoneStorage=test?TEST_RINGTONE_STORAGE:PROD_RINGTONE_STORAGE;
   const cloud=test?"https://"+PROJECT+".supabase.co/functions/v1/"+fn:"https://"+PROJECT+".supabase.co/functions/v1/upstatus-screen-share-3-1-1-beta10";
-  const updateUrl=cloud+"/upstatus.user.js";
+  const expectedProductionUpdateUrl="https://"+PROJECT+".supabase.co/functions/v1/"+PROD_FUNCTION+"/upstatus.user.js";
+  const updateUrl=test?cloud+"/upstatus.user.js":String(release.scriptUrl||"").trim();
+  const releaseManifestUrl=test?"":"https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json";
+  if(!test&&updateUrl!==expectedProductionUpdateUrl)throw new Error("release.json: scriptUrl must match the production distribution endpoint.");
   return render(userTemplate,{
     "__UPSTATUS_NAME__":name,
     "__UPSTATUS_NAMESPACE__":namespace,
     "__UPSTATUS_VERSION__":version,
     "__UPSTATUS_UPDATE_URL__":updateUrl,
+    "__UPSTATUS_RELEASE_MANIFEST_URL__":releaseManifestUrl,
     "__UPSTATUS_DOWNLOAD_URL__":updateUrl,
     "__UPSTATUS_STORAGE_PREFIX__":prefix,
     "__UPSTATUS_CLOUD_SERVER__":cloud,
