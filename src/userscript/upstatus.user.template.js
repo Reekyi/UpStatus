@@ -470,7 +470,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var originalTitle=document.title;
   var currentStatus='offline';
   var CURRENT_VERSION='__UPSTATUS_VERSION__'
-  var UPDATE_URL='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js';
+  var UPDATE_URL='__UPSTATUS_UPDATE_URL__';
   var externalNotifPermission='default';
   var externalNotifSeen={};
   function iconSvg(name,cls){var p={
