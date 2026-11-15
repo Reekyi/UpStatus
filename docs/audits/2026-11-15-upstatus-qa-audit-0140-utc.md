@@ -20,9 +20,9 @@ Todas as consultas SQL foram SELECT-only. Não houve chamada de escrita, teste d
 | `master` | `9d40461babcec8eb8686c2a04be9c675df7da381` |
 | `develop` | `6b33e1e26ad105143f00372ae6d0f2fa52df60d6` |
 | `team-lite-official` | `9065bc1536fde64f437f6f12b7abb9b072cb8281` |
-| `qa/release-readiness-2026-11-04-master` | `744fe3c1063c36e340b2a278d1771cb7b80ea7f6` |
+| `qa/release-readiness-2026-11-04-master` (antes do relatório) | `744fe3c1063c36e340b2a278d1771cb7b80ea7f6` |
 
-A comparação QA → master retorna **323 commits à frente e 1 atrás**. Os 173 arquivos divergentes estão sob `docs/`; não há alteração de runtime nessa divergência.
+Antes de anexar este relatório, a comparação QA → master retornava **323 commits à frente e 1 atrás**, com 173 arquivos divergentes, todos sob `docs/`. O commit aditivo desta auditoria é `0566aa4c7e5cb4b480107e3e72612fe107ab9d51`; depois dele, a comparação passou a 324 commits à frente e 1 atrás, com 174 arquivos, ainda todos sob `docs/`. Não houve alteração de runtime.
 
 As quatro branches consultadas retornam `protected=false`; o endpoint de repository rulesets retorna lista vazia. Não há enforcement de checks obrigatórios nem review humana exigida pelas regras de branch. Isso permite que alterações cheguem às linhas principais sem a barreira formal de aprovação.
 
@@ -141,7 +141,7 @@ Versões observadas:
 
 As tabelas de produto, usuários, sessões, salas, memberships, eventos, bindings e tentativas estão vazias após a limpeza dos testes.
 
-O helper cliente reconhece `VOICE_ATTEMPT_ALREADY_ACTIVE` como conflito HTTP 409, mas a função `upstatus-signal-test` v32 não mapeia explicitamente esse código (mapeia `VOICE_ATTEMPT_CONFLICT` e `ROOM_FULL`). O caminho observado cai no erro genérico 500. O contrato HTTP precisa ser alinhado e testado no endpoint.
+O helper cliente reconhece `VOICE_ATTEMPT_ALREADY_ACTIVE` como conflito de domínio, mas preserva o status HTTP recebido. A função `upstatus-signal-test` v32 não mapeia explicitamente esse código para HTTP 409 (mapeia `VOICE_ATTEMPT_CONFLICT` e `ROOM_FULL`); portanto, quando o RPC retorna esse código, o caminho cai no erro genérico 500. O contrato HTTP precisa ser alinhado e testado no endpoint.
 
 ## 9. Workflows e releases
 
