@@ -4032,3 +4032,75 @@ Production deployed Normal `upstatus` v480 and Team Lite `upstatus-team-lite` v1
 - No merge, deploy, release, production migration, production SQL write, secret/flag/role/grant/policy change, workflow dispatch, or userscript publication occurred. All database SQL was SELECT/catalog-only. Remote GitHub documentation was the only write in this checkpoint.
 
 **Recommendation: NOT READY.** Next: obtain independent review of #167 and #168; coordinate the #82 QA snapshot; keep #170 as a redundant, failing candidate until maintainers decide its disposition; resolve the Team Lite deploy workflow, AUTH-03, RT-01, ACL/Storage, migration provenance, Full-Product TEST, and physical #78 acceptance.
+
+
+## Engineering checkpoint — 2026-11-15T23:06:53.073Z (remote GitHub/Supabase verification)
+
+### Scope and source-of-truth checks
+- Re-read `docs/PROJECT_GUIDE.md` from `docs/continuity-handoff-2026-11-04`, the 2,025-line `UPSTATUS_HANDOFF.md`, `RELEASE_CHECKLIST.md`, this file's current tail, and the full QA-owned `docs/RELEASE_READINESS.md` blob (8,423 lines / 1,046,356 bytes). The large release-readiness file ends at its 2026-11-15 06:30 UTC appendix; the independent QA report at 22:40 UTC is the newer delta.
+- The 22:40 QA report was read from `docs/audits/2026-11-15-upstatus-qa-audit-2240-utc.md`. It records QA HEAD `c5da9af` at report time. The live QA branch has since advanced to `6acccf0180c1620bb9756188cf6e8c2086fd5230` with a documentation-only migration-filename correction; exact-head Validate [43770387826](https://github.com/Reekyi/UpStatus/actions/runs/43770387826) still fails. QA must incorporate this post-report commit/run in its next independent delta.
+- This checkpoint is documentation-only. Before writing, the #169 branch HEAD was re-read as `156c919a22af419d63dfca1be82af2c7e96a55da`, the PR diff was confirmed to contain only `docs/CURRENT_STATE.md`, and the file blob SHA was checked. No QA branch or QA-owned file was changed.
+
+### Official refs, protection and required PRs
+- `master`: `9d40461babcec8eb8686c2a04be9c675df7da381`, `protected=false`.
+- `develop`: `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`, `protected=false`.
+- `team-lite-official`: `9065bc1536fde64f437f6f12b7abb9b072cb8281`, `protected=false`.
+- QA `qa/release-readiness-2026-11-04-master`: `6acccf0180c1620bb9756188cf6e8c2086fd5230`, `protected=false`. No branch protection/ruleset enforcement was observed for these refs.
+
+| PR | HEAD | Base | Ahead / behind | State | Exact-head CI observed |
+|---|---|---|---:|---|---|
+| [#74](https://github.com/Reekyi/UpStatus/pull/74) | `dcaf6a072546eda0089e0cee4018c3047011f600` | master | 887 / 1 | Open, Draft | Validate [43376770142](https://github.com/Reekyi/UpStatus/actions/runs/43376770142) PASS; Smoke [43376770200](https://github.com/Reekyi/UpStatus/actions/runs/43376770200) PASS |
+| [#75](https://github.com/Reekyi/UpStatus/pull/75) | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | team-lite-official | 59 / 0 | Open, Draft | Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) historical PASS |
+| [#76](https://github.com/Reekyi/UpStatus/pull/76) | `83a6cc4503ddc01254f6a2abbcc7af5c6803eb94` | team-lite-official | 386 / 0 | Open, Draft | Candidate Checks [43363871881](https://github.com/Reekyi/UpStatus/actions/runs/43363871881) PASS |
+| [#80](https://github.com/Reekyi/UpStatus/pull/80) | `46541cad8b5592e183406ed2d78afc2b43c47bff` | develop | 320 / 0 | Open, Draft | Validate [43651529898](https://github.com/Reekyi/UpStatus/actions/runs/43651529898) FAIL: `client signed upload helper missing` at line 55 |
+| [#82](https://github.com/Reekyi/UpStatus/pull/82) | `6acccf0180c1620bb9756188cf6e8c2086fd5230` | master | 351 / 1 | Open, Draft | Validate [43770387826](https://github.com/Reekyi/UpStatus/actions/runs/43770387826) FAIL: `production updateURL mismatch` at line 26 |
+
+All five required PRs remain open/Draft and unmerged. Reviews were checked for the required and active candidate PRs; no submitted human approvals were returned.
+
+### Candidate comparison and CI
+- #161 Normal invite-rate-limit candidate: HEAD `557814dc31bed779b84a2094358dc6b2a7e67689`; Validate [43479685384](https://github.com/Reekyi/UpStatus/actions/runs/43479685384) and Smoke [43479685445](https://github.com/Reekyi/UpStatus/actions/runs/43479685445) PASS. The Smoke exercises the isolated RPC concurrency contract; it is not an HTTP endpoint test.
+- #168 stacks on #161 at `c6de3eb29bb419e817a237487185df0df752015d`; Validate [43755941462](https://github.com/Reekyi/UpStatus/actions/runs/43755941462) PASS. It adds HTTP 429 `Retry-After: 900` and exposes the header via CORS. 900 seconds is the full fixed window, not the exact remaining wait; no Smoke/browser test was observed.
+- #167, HEAD `d100b0820dd7f98e2b78a98e6b6f8c09f13b1867`, Validate [43635704388](https://github.com/Reekyi/UpStatus/actions/runs/43635704388) PASS. Its diff includes the per-channel updater metadata, persisted `implementation_admin` authorization for chat-wide clear, and pending attachment preview/upload/retry behavior.
+- #170, HEAD `693039eddbd01e210fd1344b0196703ca067f374`, Validate [43762594686](https://github.com/Reekyi/UpStatus/actions/runs/43762594686) FAIL: `files are staged instead of uploaded immediately`. Direct diff comparison confirms #170 overlaps #167 on updater-channel separation and stored-role chat-clear authorization, while #167 additionally contains the pending-attachment implementation and corresponding regression coverage. Treat #167 as the more complete candidate for independent review; do not weaken the failing assertion or duplicate the implementation. #170 remains open/Draft.
+- #169 documentation candidate remains on `docs/engineering-checkpoint-2026-11-15-168`, based on #80, and its diff is limited to `docs/CURRENT_STATE.md`. No workflow run was returned for its current documentation-only HEAD `156c919a22af419d63dfca1be82af2c7e96a55da`.
+
+### Supabase read-only snapshot
+Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, seven migrations and 38 active Edge Functions. Runtime versions: Normal `upstatus` v480, TEST `upstatus-test` v281, Team Lite `upstatus-team-lite` v15, legacy Normal API beta10 v6. The managed production `main` branch remains MIGRATIONS_FAILED per the QA report; no migration or repair was attempted.
+- `realtime.messages`: 106 rows, all `private=false`, one topic.
+- Three `upstatus_broadcast_*` functions are SECURITY DEFINER with `search_path=public`; anon and authenticated have effective EXECUTE. The message trigger broadcasts OLD/NEW through `to_jsonb` with `private=false`.
+- 126 direct client table-grant rows in public, including 18 TRUNCATE grants; ten public tables have RLS enabled without policies; 24 default ACL entries.
+- Storage buckets `chat-images` and `profile-images` are public, 188 objects total, zero policies on `storage.objects`.
+- Security Advisor: six WARN (three functions for anon and the same three for authenticated) and ten INFO (RLS enabled without policies).
+
+Lab `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 39 migrations and two active isolated Edge Functions.
+- Zero direct anon/authenticated grants on public tables; 18 RLS-enabled/no-policy tables; 25 default ACL entries.
+- No Realtime messages, Storage buckets or Storage objects.
+- The three broadcast functions use an empty search_path and deny client EXECUTE, but this project is not Full-Product TEST and has no product fixtures.
+- Security Advisor: zero WARN and 18 INFO.
+
+Production migration ledger contains seven versions. The four original SQL sources remain missing from master/QA and were not reconstructed:
+`20261023154754_create_upstatus_visual_config.sql`,
+`20261026195855_add_chat_message_file_name.sql`,
+`20261027154329_allow_chat_document_mime_types.sql`,
+`20261027155438_set_upstatus_upload_limits_20mb.sql`.
+The lab has 39 versions; candidate migration `20261109230000` is not in its ledger, which instead contains the contract-test migration `20261110000612`. The existence of the table/RPC does not establish source-migration provenance.
+
+The explicit 24-hour log window returned only `pgbouncer_logs` and `postgres_logs` in both projects. No Edge/Function log source was available, so no current HTTP 402 count or quota-recovery claim is supported.
+
+### Issues, acceptance and gate disposition
+- [Issue #78](https://github.com/Reekyi/UpStatus/issues/78) remains OPEN with 0/8 physical acceptance criteria. No installed Tampermonkey network-loss/reconnect-without-F5 test was performed.
+- [Issue #79](https://github.com/Reekyi/UpStatus/issues/79) body remains a historical 16/35 checklist; the dedicated Engineering and QA JSON comments are the operational record.
+- RT-01: BLOCKED — public broadcasts and client EXECUTE remain.
+- TEST-ISOLATION: BLOCKED — isolated auth/signaling lab is empty and not Full-Product TEST.
+- MIGRATION-PROVENANCE: BLOCKED — four original SQL files remain unavailable; production managed branch is MIGRATIONS_FAILED.
+- AUTH-03: BLOCKED — deployed Normal/Team Lite still use legacy setup and name-based chat clear; candidate code is not deployed.
+- ACL-STORAGE: BLOCKED — broad grants/default ACLs, public buckets, no Storage policies.
+- RECONNECT: PENDING — #78 remains 0/8 and requires physical confirmation.
+- HUMAN-REVIEW: PENDING — no human approvals or explicit release authorization.
+
+### Safety and next action
+No merge, deploy, release, userscript publication, production SQL write, migration, secret/flag/role/grant/policy/ACL change, workflow dispatch, billing query, or destructive operation occurred. Supabase SQL was SELECT/catalog-only. This checkpoint uses remote GitHub metadata and existing Actions runs; no local checkout or local tests were available.
+
+Next: request independent QA review of #168 and #167; have QA incorporate the post-report #82 HEAD/run; keep #167 as the preferred overlapping updater/chat/attachment candidate; resolve the #80/#82 inherited validators without weakening them; correct the Team Lite deploy workflow before anyone dispatches it; recover Full-Product TEST and original migration sources; continue RT-01/AUTH-03/ACL-Storage. Keep #78 open until physical acceptance and do not authorize release.
+
+**Recommendation: NOT READY.** No production or release action is authorized by this checkpoint.
