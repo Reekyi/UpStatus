@@ -81,7 +81,9 @@ Os 19 ocorreram no `upstatus-signal-test` às 17:10:45 UTC de 14/11, distribuíd
 
 ## 5. Runtimes implantados e compatibilidade
 
-Snapshot read-only dos runtimes principais:
+Snapshot read-only dos runtimes principais. O inventário lista 38 Edge Functions ACTIVE: duas funções principais e 36 endpoints adicionais com nomes de test/beta/backup. Todas reportam verify_jwt=false no gateway; isso não prova ausência de autenticação própria nos handlers.
+
+
 
 | Função | Versão da Edge Function | Userscript embutido |
 |---|---:|---:|
@@ -134,7 +136,7 @@ Na branch `team-lite-official`, o `release.json` da raiz é `3.0.40-beta.22`, en
 
 ### Laboratório
 
-- 17 tabelas públicas consultadas com RLS, zero policies e sem privilégios diretos para anon/authenticated.
+- 18 tabelas públicas consultadas com RLS, zero policies e sem privilégios diretos para anon/authenticated.
 - Três funções de broadcast mantêm SECURITY DEFINER, mas com `search_path` vazio e EXECUTE restrito a service_role.
 - `realtime.messages` está sem linhas; continua sem policies e com grants de cliente.
 - Default ACL de `supabase_admin` em public/GraphQL e defaults de postgres em storage ainda são amplos.
