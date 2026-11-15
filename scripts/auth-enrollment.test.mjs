@@ -195,7 +195,7 @@ function makeInviteHarness(targetAvailable=true){
     account:async name=>roleMap.has(name)?{role:roleMap.get(name)}:null,
     db,
     readBody:async req=>{state.readBodyCalls++;return req.body||{};},
-    response:(body,status=200)=>({body,status}),
+    response:(body,status=200,headers={})=>({body,status,headers}),
     randomBytes:n=>({toString:encoding=>{assert.equal(encoding,"hex");return "ab".repeat(n);}}),
     tokenHash:raw=>"sha256:"+"cd".repeat(32)
   };
@@ -387,7 +387,7 @@ function makeRouteHarness(options={}){
     randomBytes:n=>({toString:encoding=>{assert.equal(encoding,"hex");return "ab".repeat(n);}}),
     passwordHash:password=>"password-hash:"+password,
     checkPassword:()=>false,
-    response:(body,status=200)=>({body,status}),
+    response:(body,status=200,headers={})=>({body,status,headers}),
     createSession:async(name,knownAccount)=>{
       state.createdSessions.push({name,role:knownAccount?.role});
       return {body:{name,role:knownAccount?.role,token:"session-token"},status:200};
@@ -455,6 +455,8 @@ function makeRouteRequest(state,options={}){
   const h=makeRouteHarness({rateLimitAllowed:false});
   const result=await h.dispatch(makeRouteRequest(h.state,{token:"admin-session",body:{name:"Target"}}),"/api/setup-invite");
   assert.equal(result.status,429,"rate-limited admins must receive HTTP 429");
+  assert.equal(result.headers["Retry-After"],"900","rate-limited admins must receive a conservative retry delay");
+  assert.equal(result.headers["Access-Control-Expose-Headers"],"Retry-After","browser clients must be allowed to read Retry-After");
   assert.equal(h.state.rateLimitCalls.length,1,"rate-limited requests must consume exactly one counter");
   assert.equal(h.state.readBodyCalls,0,"rate-limited requests must be rejected before target parsing");
   assert.equal(h.state.updates.length,0,"rate-limited requests must not issue or replace an invite");
