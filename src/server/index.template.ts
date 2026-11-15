@@ -117,7 +117,11 @@ async function issueSetupInvite(req:Request,adminName:string){
     p_window_seconds:900
   });
   if(rateError)return response({error:"A emissão de convites está temporariamente indisponível."},503);
-  if(rateAllowed!==true)return response({error:"Limite de emissão de convites atingido. Tente novamente mais tarde."},429);
+  // The RPC returns only a boolean, so expose the full fixed window as a conservative retry delay.
+  if(rateAllowed!==true)return response({error:"Limite de emissão de convites atingido. Tente novamente mais tarde."},429,{
+    "Retry-After":"900",
+    "Access-Control-Expose-Headers":"Retry-After"
+  });
   const p:any=await readBody(req);
   const target=String(p.name||"").trim();
   if(!target||target.length>120)return response({error:"Conta inválida."},400);
