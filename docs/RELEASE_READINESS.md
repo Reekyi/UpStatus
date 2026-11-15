@@ -8407,3 +8407,16 @@ Laboratório:
 6. Diagnosticar `MIGRATIONS_FAILED`, obter reviews humanas e concluir os oito testes físicos da #78.
 
 Nenhuma migration, escrita SQL, deploy, merge, release, publicação de userscript, alteração de secret/flag/role/grant/policy/ACL ou fixture foi realizada. Todas as consultas SQL foram SELECT-only. A única escrita desta execução é este append documental na branch QA; nenhuma branch de engenharia ou issue foi modificada.
+
+
+---
+
+## Revalidação independente — 2026-11-15 06:30 UTC
+
+A auditoria mais recente está em [docs/audits/2026-11-15-upstatus-qa-audit-0630-utc.md](docs/audits/2026-11-15-upstatus-qa-audit-0630-utc.md). O documento-base anterior terminava em 08/11/2026 15:30 BRT. Esta rodada revalidou os heads reais, CI das PRs #74/#75/#76/#82, workflows, bundles implantados, RLS/grants/SECURITY DEFINER, Realtime, Storage, Edge Functions, migrations e logs.
+
+**Veredito: NOT READY.** Novos achados: respostas HTTP 402 em downloads/API e websocket Realtime de produção em 14/11; workflow oficial Team Lite publica o slug Normal; runtimes instalados mantêm setup sem convite, política de senha divergente e limpeza de chat autorizada somente pelo nome. Produção também mantém broadcasts públicos de mensagens completas e permissões amplas. Issue #78 permanece 0/8; #79 permanece 16/35.
+
+CI: #74 Validate/Smoke PASS; #75 PASS histórico; #76 Candidate Checks PASS; #82 Validate FAIL em production updateURL mismatch. Nenhum teste manual foi realizado.
+
+Nenhuma produção foi modificada. Todas as consultas SQL foram SELECT-only. Nenhum merge, deploy, migration, release, publicação de userscript, alteração de secret/flag/permissão ou operação destrutiva foi realizada.
