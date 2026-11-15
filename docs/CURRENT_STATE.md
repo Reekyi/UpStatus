@@ -4000,3 +4000,35 @@ Draft PR [#170](https://github.com/Reekyi/UpStatus/pull/170), branch `fix/master
 Production deployed Normal `upstatus` v480 and Team Lite `upstatus-team-lite` v15 still route `/api/setup` through `login(req,true)`, do not call `consume_upstatus_setup_invite_rate_limit`, and allow `/api/chat/clear` based on the display name `Ricardo` alone. The lab has the rate-limit table/RPC, but the original candidate migration version `20261109230000` is absent from its managed migration ledger. The #170 chat authorization change is candidate-only and has not reached either runtime.
 
 **Recommendation remains NOT READY.** No merge, deploy, release, migration, production ACL/policy change, secret/flag change or userscript publication occurred. Supabase queries remain SELECT/catalog-only.
+
+
+
+## 2026-11-15 22:03 UTC — Engineering audit checkpoint
+
+### Verified GitHub state
+
+- Official refs: `master` `9d40461babcec8eb8686c2a04be9c675df7da381`; `develop` `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`; `team-lite-official` `9065bc1536fde64f437f6f12b7abb9b072cb8281`.
+- PRs #74, #75, and #76 remain open/Draft. Exact-head evidence inspected: #74 Validate 43376770142 and Smoke 43376770200 SUCCESS; #75 Candidate Checks 41674353127 historical PASS; #76 Candidate Checks 43363871881 SUCCESS.
+- PR #80 remains open/Draft and Validate 43651529898 fails with `client signed upload helper missing`.
+- QA PR #82 is at `c5da9af483aa78bb401287c51c37310374fb1d1d`; Validate 43764374378 fails with `production updateURL mismatch`.
+- PR #167 is at `d100b0820dd7f98e2b78a98e6b6f8c09f13b1867`; Validate 43635704388 passed. PR #168 is at `c6de3eb29bb419e817a237487185df0df752015d`; Validate 43755941462 passed, with no Smoke run observed.
+- PR #170 is at `693039eddbd01e210fd1344b0196703ca067f374`; Validate 43762594686 fails because the pending-attachment helper is absent from that branch. Direct source comparison shows #167 already contains the overlapping updater-channel separation and persisted-role chat-clear changes from #170, plus the pending-attachment implementation. Treat #167 as the more complete candidate for review; do not integrate #170 independently or weaken its failing assertion. Both remain Draft and unreviewed.
+- PR #168 adds HTTP 429 `Retry-After: 900` and exposes the header through CORS. This is a conservative full-window delay because the RPC returns only a boolean; it is not the exact remaining time. Validate passed; no Smoke or physical test was observed.
+- PR #169 remains the documentation-only continuity branch. Its existing diff is limited to `docs/CURRENT_STATE.md`; this checkpoint is appended on that same isolated branch.
+
+### Supabase read-only snapshot
+
+- Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, 38 Edge Functions, 7 migrations, 106 Realtime rows all `private=false`, three SECURITY DEFINER broadcast functions with `search_path=public` and client EXECUTE grants, 126 client table grants, 18 client TRUNCATE grants, 10 RLS-enabled tables without policies, two public Storage buckets, 188 objects, and zero policies on `storage.objects`. The setup-invite rate-limit table/RPC is absent.
+- Production runtimes remain Normal `upstatus` v480 and Team Lite `upstatus-team-lite` v15. Source inspection confirms `POST /api/setup` still uses `login(req,true)`, and `/api/chat/clear` still authorizes by the display name `Ricardo`. The candidate fixes have not reached either runtime.
+- Lab `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, 39 migrations, two isolated Edge Functions, zero Realtime rows, no Storage buckets or objects, and the setup-invite rate-limit table/RPC exists. It is not Full-Product TEST.
+- The managed production branch `main` remains `MIGRATIONS_FAILED`, although the project preview is ACTIVE_HEALTHY.
+- The last-24-hour log stream returned only `pgbouncer_logs` and `postgres_logs` in both projects. No Edge/Function log source was available, so this checkpoint does not assert a current HTTP 402 count or quota recovery.
+- The four original production SQL files remain absent according to the independent QA audit; no SQL was reconstructed or applied. The large `docs/RELEASE_READINESS.md` blob could not be retrieved by the contents connector; QA's independent report records a full 8,422-line review and the current delta.
+
+### Acceptance and safety
+
+- Issue #78 remains open with 0/8 physical criteria. No physical no-F5 confirmation was found; no new manual test was requested because this round did not change voice/reconnect code.
+- Issue #79's 16/35 body checklist is historical; the dedicated Engineering and QA JSON comments remain the operational release record.
+- No merge, deploy, release, production migration, production SQL write, secret/flag/role/grant/policy change, workflow dispatch, or userscript publication occurred. All database SQL was SELECT/catalog-only. Remote GitHub documentation was the only write in this checkpoint.
+
+**Recommendation: NOT READY.** Next: obtain independent review of #167 and #168; coordinate the #82 QA snapshot; keep #170 as a redundant, failing candidate until maintainers decide its disposition; resolve the Team Lite deploy workflow, AUTH-03, RT-01, ACL/Storage, migration provenance, Full-Product TEST, and physical #78 acceptance.
