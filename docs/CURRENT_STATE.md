@@ -3892,3 +3892,55 @@ Lab `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 39 migration
 Next: reconcile #164 with develop through reviewed integration (no merge performed here); keep #167 Draft and request independent review; ask QA to incorporate #82 HEAD `8dbcbcc` and Validate 43649512678; restore lab availability only after Ricardo authorizes read-only billing inspection; continue RT-01/AUTH-03 and ACL/Storage in a full-product isolated environment; complete physical #78 acceptance and human review.
 
 **Recommendation: NOT READY.** No production or release action is authorized by this checkpoint.
+
+
+## 2026-11-15 20:05 UTC — Engineering automation checkpoint
+
+### Verified GitHub state
+
+- Branch heads: `master` `9d40461babcec8eb8686c2a04be9c675df7da381`; `develop` `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`; `team-lite-official` `9065bc1536fde64f437f6f12b7abb9b072cb8281`; QA `qa/release-readiness-2026-11-04-master` `3ac7086d30e2c5c48f8528f97763ec6753f5bc9d`.
+- PR #74: open Draft, 887 ahead / 1 behind; exact-head Validate [43376770142](https://github.com/Reekyi/UpStatus/actions/runs/43376770142) and Signaling Smoke [43376770200](https://github.com/Reekyi/UpStatus/actions/runs/43376770200) passed. Smoke skipped the setup-invite issuance rate-limit step.
+- PR #75: open Draft, 59 ahead / 0 behind; historical Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) passed.
+- PR #76: open Draft, 386 ahead / 0 behind; Candidate Checks [43363871881](https://github.com/Reekyi/UpStatus/actions/runs/43363871881) passed, including isolated setup-invite rate-limit coverage.
+- PR #80: open Draft, documentation-only (22 Markdown files), 320 ahead / 0 behind; Validate [43651529898](https://github.com/Reekyi/UpStatus/actions/runs/43651529898) fails on the inherited develop assertion `client signed upload helper missing` at `scripts/validate.mjs:55`.
+- PR #82: open Draft, documentation-only (192 Markdown files), 346 ahead / 1 behind; current head `3ac7086`; Validate [43753937306](https://github.com/Reekyi/UpStatus/actions/runs/43753937306) fails on `production updateURL mismatch` at `scripts/validate.mjs:26`. The QA report/comment at 19:30 UTC predates this head and should be refreshed independently.
+- PRs #74/#75/#76/#80/#82 have no submitted reviews. No merge occurred.
+
+### New isolated engineering candidate
+
+- Created Draft [PR #168](https://github.com/Reekyi/UpStatus/pull/168), branch `fix/normal-setup-invite-retry-after-20261115`, based on the exact #161 head `557814dc31bed779b84a2094358dc6b2a7e67689`.
+- It adds `Retry-After: 900` and `Access-Control-Expose-Headers: Retry-After` to the Normal setup-invite HTTP 429 response. The 900-second delay is a conservative upper bound because the current RPC returns only a boolean; it is not the exact remaining window.
+- The route-dispatch regression now asserts both headers. Exact-head Validate [43755941462](https://github.com/Reekyi/UpStatus/actions/runs/43755941462) passed; logs confirm the Normal setup-invite route-dispatch checks passed. No Smoke or live browser test was run for this header-only change. PR #168 remains Draft, stacked on #161, and has no review.
+- The separate #161 version/update-feed issue remains open: its API-target change does not yet include a stable version bump and generated artifact update. Do not publish it under the unchanged 3.4.7 version.
+
+### Supabase read-only snapshot
+
+Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11, 7 migrations, 38 Edge Functions. Core deployed functions: `upstatus` v480 (3.4.7), `upstatus-team-lite` v15 (3.4.30), `upstatus-test` v281 (3.3.28). The managed branch `main` remains `MIGRATIONS_FAILED`; preview is ACTIVE_HEALTHY.
+
+- `realtime.messages`: 106 rows, all `private=false`, one topic; events: 26 db_change, 72 user_status, 4 remote_command, 4 remote_result.
+- Three `upstatus_broadcast_*` functions remain SECURITY DEFINER with `search_path=public`; EXECUTE is present for PUBLIC, anon, authenticated, postgres and service_role. Security Advisor: 3 anon + 3 authenticated WARN; 10 RLS-no-policy INFO.
+- Ten public tables have RLS and no policies. Nine tables grant client privileges (126 rows total, including 18 TRUNCATE grants). Default ACL inventory has 24 entries with broad postgres/supabase_admin defaults.
+- Storage buckets `chat-images` and `profile-images` remain public, 168 + 20 objects, 20 MiB limits, and zero policies on `storage.objects`.
+- Production has 5 app users, 0 auth.users, 319 sessions, 5 profiles, 302 messages and 6 chat_reads. Setup-invite token columns, rate-limit table and RPC are absent from production.
+
+Lab `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, 39 migrations, 2 Edge Functions, no managed branches, no users/messages/fixtures/Realtime rows/buckets/Storage objects. It has setup-token columns and the invite-rate-limit table/RPC. Eighteen public tables have RLS and no policies; no direct client grants exist on public tables, but client grants remain on realtime.messages and storage.objects. The three broadcast functions use empty search_path and are executable only by postgres/service_role. Default ACL inventory has 25 entries. This is an isolated signaling/auth lab, not Full-Product TEST.
+
+HTTP 402 logs in the explicit 24-hour window 2026-11-14 20:00 UTC to 2026-11-15 20:00 UTC: production 2 function_edge_logs, latest 2026-11-14 20:57:39.868 UTC; lab 0. Historical lab quota error `exceed_edge_functions_invocations_quota` remains evidenced by [run 43619663747](https://github.com/Reekyi/UpStatus/actions/runs/43619663747), but does not prove a current quota block.
+
+### Acceptance and release
+
+- Issue [#78](https://github.com/Reekyi/UpStatus/issues/78) remains open, 0/8 physical acceptance criteria. No new no-F5 physical confirmation was received.
+- Issue [#79](https://github.com/Reekyi/UpStatus/issues/79) remains open; its 16/35 body checklist is historical, while the dedicated Engineering/QA JSON comments remain the operational gate record.
+- Release Readiness base document was read from its QA-branch blob (1,046,356 characters / 8,423 lines); its last appended section remains 2026-11-15 06:30 UTC. The independent QA report at 19:30 UTC is newer, but predates current QA PR head `3ac7086` and Validate run `43753937306`.
+- No local checkout is available in this runtime. The two code changes above were made only through GitHub's remote contents API on an isolated candidate branch and validated by GitHub Actions; no local tests were claimed.
+
+### Next steps
+
+1. QA independently incorporate #82 head `3ac7086` and Validate `43753937306`.
+2. Review #168 and #161; resolve the stable version bump/artifact/updater contract before any rollout.
+3. Review #164's signed chat-upload content validation before integration.
+4. Correct the Team Lite workflow to consume its own manifest and deploy only `upstatus-team-lite` after human review.
+5. Restore a full-product isolated TEST environment; recover the four original migration SQL files and provenance.
+6. Continue RT-01, AUTH-03 and ACL/Storage remediation. Keep #78 open until Ricardo confirms the physical no-F5 acceptance.
+
+**Recommendation: NOT READY.** No merge, deploy, release, production migration, secret/flag change, production ACL/policy change, or userscript publication was performed. All database queries were SELECT-only.
