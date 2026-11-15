@@ -118,7 +118,7 @@ As funções de broadcast retornam trigger; não foi demonstrada exploração RP
 
 - Produção tem 7 migrations; branch gerenciada main continua MIGRATIONS_FAILED, com preview ACTIVE_HEALTHY.
 - Laboratório tem 39 migrations e nenhuma branch gerenciada.
-- Quatro SQLs originais retornam 404 tanto em master quanto na QA: 20261023154754_create_upstatus_visual_config.sql; 20261026195855_add_chat_message_file_name.sql; 20261027154329_add_chat_message_file_name.sql; 20261027155438_set_upstatus_upload_limits_20mb.sql. (O segundo arquivo é add_chat_message_file_name; o terceiro é allow_chat_document_mime_types.)
+- Quatro SQLs originais retornam 404 tanto em master quanto na QA: 20261023154754_create_upstatus_visual_config.sql; 20261026195855_add_chat_message_file_name.sql; 20261027154329_allow_chat_document_mime_types.sql; 20261027155438_set_upstatus_upload_limits_20mb.sql.
 - Laboratório tem zero usuários, mensagens, chat_reads, sessões, salas, memberships, eventos, bindings, call attempts, voice attempts, rate-limit rows, mensagens Realtime e objetos Storage. Não é Full-Product TEST.
 - Nos logs das últimas 24h consultadas havia apenas pgbouncer_logs e postgres_logs; não havia edge_logs/function_edge_logs suficientes para contar HTTP 402 ou provar recuperação. Não inferir zero 402.
 - Issue #78 permanece 0/8 critérios físicos. Issue #79 permanece 16/35 itens marcados.
