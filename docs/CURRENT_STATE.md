@@ -3981,3 +3981,22 @@ Lab `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 39 migration
 - `docs/RELEASE_READINESS.md` is present on the QA branch but the GitHub contents connector returns an empty body for its large blob. The independent QA audit [2026-11-15 20:36 UTC](https://github.com/Reekyi/UpStatus/blob/qa/release-readiness-2026-11-04-master/docs/audits/2026-11-15-upstatus-qa-audit-2036-utc.md) records its full 8,422-line review. `docs/PROJECT_GUIDE.md` was not found in the inspected refs; README, UPSTATUS_HANDOFF, RELEASE_CHECKLIST and CURRENT_STATE were read.
 
 **Recommendation: NOT READY.** No production write, migration, deployment, merge, release, secret/flag change or userscript publication occurred. Supabase SQL in this checkpoint was SELECT/catalog-only.
+
+
+## 2026-11-15 21:24 UTC — Engineering follow-up
+
+### New updater and chat-authorization candidate
+Draft PR [#170](https://github.com/Reekyi/UpStatus/pull/170), branch `fix/master-release-manifest-updateurl-20261115`, is based on master and currently at `693039eddbd01e210fd1344b0196703ca067f374`.
+- Production @updateURL/@downloadURL now derive from `release.json.scriptUrl`; the build fails closed if the manifest does not match the stable `/functions/v1/upstatus/upstatus.user.js` endpoint.
+- The internal UPDATE_URL is a per-channel build placeholder. The stable release manifest is injected only into Normal. TEST automatic update checks are disabled until a dedicated TEST manifest exists; manual update remains bound to the TEST URL.
+- The TEST artifact is guarded against embedding the production distribution URL or production release feed.
+- The same candidate now requires both the owner account and persisted `implementation_admin` role for chat-wide clear in the UI and server endpoint. The message records the acting administrator. The chat deletion UI no longer grants visibility from display name alone.
+- The emoji outside-click regression assertion was aligned with the current owner-button handler; no product handler change was needed for that item.
+- Validate attempts on the candidate heads exposed, in order: TEST's internal production URL; a test assertion referencing a build-manifest field absent from master; the production URL fallback/feed in the TEST updater; stale emoji assertion; stale admin-role assertion; and finally a pending-attachment feature assertion whose implementation is present in #167 but not in master.
+- Latest exact-head Validate [43762594686](https://github.com/Reekyi/UpStatus/actions/runs/43762594686) on `693039ed` fails at `scripts/chat-regression.test.mjs`: `files are staged instead of uploaded immediately`. This is not a PASS for #170. Candidate [#167](https://github.com/Reekyi/UpStatus/pull/167) contains the pending-attachment implementation and passes Validate [43635704388](https://github.com/Reekyi/UpStatus/actions/runs/43635704388), but remains Draft/unreviewed. Do not remove or weaken the feature assertion to force green CI; coordinate integration/review of #167 first.
+- No Signaling Smoke run was observed for #170. No local tests were run. All edits are remote candidate-branch commits; no production runtime was changed.
+
+### Current AUTH-03 evidence
+Production deployed Normal `upstatus` v480 and Team Lite `upstatus-team-lite` v15 still route `/api/setup` through `login(req,true)`, do not call `consume_upstatus_setup_invite_rate_limit`, and allow `/api/chat/clear` based on the display name `Ricardo` alone. The lab has the rate-limit table/RPC, but the original candidate migration version `20261109230000` is absent from its managed migration ledger. The #170 chat authorization change is candidate-only and has not reached either runtime.
+
+**Recommendation remains NOT READY.** No merge, deploy, release, migration, production ACL/policy change, secret/flag change or userscript publication occurred. Supabase queries remain SELECT/catalog-only.
