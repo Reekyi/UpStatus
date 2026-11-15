@@ -29,6 +29,8 @@ assert(headerValue(prodUser,"updateURL")===expectedProductionUpdateUrl,"producti
 assert(headerValue(prodUser,"downloadURL")===expectedProductionUpdateUrl,"production downloadURL must match release.json scriptUrl");
 assert(prodUser.includes("var UPDATE_URL='"+expectedProductionUpdateUrl+"';"),"production manual updater must use the release distribution endpoint");
 assert(headerValue(testUser,"updateURL").includes("/upstatus-test/upstatus.user.js"),"test updateURL mismatch");
+const expectedTestUpdateUrl="https://"+testProjectId+".supabase.co/functions/v1/upstatus-test/upstatus.user.js";
+assert(testUser.includes("var UPDATE_URL='"+expectedTestUpdateUrl+"';"),"TEST manual updater must use the TEST distribution endpoint");
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
