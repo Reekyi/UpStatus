@@ -1,31 +1,92 @@
-name: UpStatus Deploy PRODUCTION
+name: UpStatus Team Lite Deploy PRODUCTION
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm_production_deploy:
+        description: "Required only after Ricardo explicitly approves this exact release."
+        required: true
+        type: boolean
+        default: false
+      release_version:
+        description: "Must exactly match team-lite/release.json buildVersion."
+        required: true
+        type: string
 
 permissions:
   contents: read
 
+concurrency:
+  group: upstatus-team-lite-production-deploy
+  queue: max
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: production
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      EXPECTED_PRODUCTION_PROJECT_ID: dlfvkawaiqduhlazsszm
+      EXPECTED_ISOLATED_SIGNALING_PROJECT_ID: bfpjtfqlnypisxljoxkb
+      EXPECTED_SUPABASE_ORGANIZATION_ID: bcjtvojfkfoxvsitzmkl
+      EXPECTED_CURRENT_TEAM_LITE_VERSION: "3.4.30"
     steps:
-      - name: Checkout approved release ref
+      - name: Checkout exact release commit
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Reject pre-release builds
+
+      - name: Require official branch, exact SHA and explicit release confirmation
+        shell: bash
+        env:
+          CONFIRM_PRODUCTION_DEPLOY: ${{ inputs.confirm_production_deploy }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
-          node -e "const r=require('./release.json'); if(r.preRelease) { console.error('Production requires release.json.preRelease to be empty.'); process.exit(1); }"
-      - name: Validate stable build
-        run: node scripts/validate.mjs
-      - name: Setup Supabase CLI
+          if [ "$GITHUB_REF" != "refs/heads/team-lite-official" ]; then
+            echo "::error::Team Lite production deployment is allowed only from refs/heads/team-lite-official."
+            exit 1
+          fi
+          checked_out_sha="$(git rev-parse HEAD)"
+          if [ -z "$GITHUB_SHA" ] || [ "$checked_out_sha" != "$GITHUB_SHA" ]; then
+            echo "::error::Checked-out commit does not match the workflow dispatch SHA."
+            exit 1
+          fi
+          if [ "$CONFIRM_PRODUCTION_DEPLOY" != "true" ]; then
+            echo "::error::Explicit production release confirmation is required."
+            exit 1
+          fi
+          node scripts/verify-team-lite-release.mjs "$RELEASE_VERSION"
+
+      - name: Build candidate artifacts
+        run: node scripts/build.mjs
+
+      - name: Validate Team Lite candidate and deployment contracts
+        run: |
+          node scripts/team-lite-candidate-check.mjs
+          node scripts/test-team-lite-production-deploy.mjs
+          node scripts/migration-layout.test.mjs
+
+      - name: Verify approved production project with Management API
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: node scripts/verify-team-lite-production-project.mjs
+
+      - name: Verify required Team Lite migrations are already applied (read-only)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: node scripts/verify-team-lite-production-migrations.mjs
+
+      - name: Setup pinned Supabase CLI
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
         with:
-          version: latest
-      - name: Deploy PRODUCTION only
-        run: supabase functions deploy upstatus --project-ref "$SUPABASE_PROJECT_ID" --use-api
+          version: 2.122.1
+
+      - name: Deploy Team Lite function only
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: supabase functions deploy --no-verify-jwt upstatus-team-lite --project-ref "$SUPABASE_PROJECT_ID" --use-api
