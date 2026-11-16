@@ -88,4 +88,5 @@ for(const [artifactName,artifact] of [["production",prodUser],["test",testUser]]
   assert(!queue.includes("items.splice(")&&!queue.includes("state.list.splice("),artifactName+" custom queue must not mutate the native session list");
   assert(!queue.includes("CHAT_REMOVE_SESSION")&&!queue.includes("end_session"),artifactName+" custom queue must not remove/end sessions");
 }
+execFileSync(process.execPath,[path.join(ROOT,"scripts/test-admin-role-security.mjs")],{stdio:"inherit"});
 console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
