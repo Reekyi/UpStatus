@@ -1,0 +1,25 @@
+name: Team Lite Chat Clear Authorization
+
+on:
+  pull_request:
+    branches: [team-lite-official]
+    paths:
+      - "src/server/index.template.ts"
+      - "src/userscript/upstatus.user.template.js"
+      - "scripts/team-lite-chat-clear-security.test.mjs"
+      - ".github/workflows/team-lite-chat-clear-security.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  chat-clear-authorization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Run isolated source regression
+        run: node scripts/team-lite-chat-clear-security.test.mjs
