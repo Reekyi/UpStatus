@@ -103,7 +103,7 @@ O Security Advisor de produção, observado às 18:37 UTC, retorna 10 INFO de RL
 
 O catálogo confirma nove tabelas backend-owned em `public` com RLS habilitado, zero policies e grants amplos para `anon`/ `authenticated`, inclusive `TRUNCATE`: `chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing` e `users`. RLS protege operações de linha sem policy, mas não é proteção para TRUNCATE. O grant é desnecessário e deve ser removido por change set revisado; não foi testada exploração.
 
-As três funções `upstatus_broadcast_messages()`, `upstatus_broadcast_remote_state()` e `upstatus_broadcast_users()` são `SECURITY DEFINER`, têm `search_path=public` e EXECUTE listado para `anon` e `authenticated`. São funções trigger-returning anexadas a triggers; não foi demonstrada invocação direta via RPC nesta execução. O Advisor ainda as classifica como WARN e o EXECUTE amplo é desnecessário.
+As três funções `upstatus_broadcast_messages()`, `upstatus_broadcast_remote_state()` e `upstatus_broadcast_users()` são `SECURITY DEFINER`, têm `search_path=public` e EXECUTE listado para `anon` e `authenticated`. São funções trigger-returning anexadas a triggers. O Advisor atual as descreve como executáveis por `anon` e `authenticated` via `/rest/v1/rpc/<nome_da_função>`; não executei essas rotas. Como a assinatura retorna `trigger`, a disponibilidade efetiva do endpoint deve ser confirmada em ambiente isolado, mas os grants e o alerta permanecem bloqueadores até serem revogados ou formalmente justificados.
 
 ### Default ACL
 
