@@ -1,0 +1,34 @@
+name: Team Lite Auth Runner Safety
+
+on:
+  push:
+    branches:
+      - fix/team-lite-auth-runner-redirect-guard-20261108
+
+permissions:
+  contents: read
+
+concurrency:
+  group: team-lite-auth-runner-safety
+  cancel-in-progress: false
+
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check runtime and syntax
+        run: |
+          node --version
+          node --check scripts/assert-isolated-supabase.mjs
+          node --check scripts/test-auth-enrollment.mjs
+          node --check scripts/isolation-guard.test.mjs
+      - name: Verify isolated target and credential redirect guards
+        run: node scripts/isolation-guard.test.mjs
+      - name: Verify Team Lite enrollment contract offline
+        run: node scripts/auth-enrollment.test.mjs team-lite
