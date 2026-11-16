@@ -9,7 +9,7 @@ function extract(start,end,label){
   return source.slice(i,j).trim();
 }
 let profileSource=extract("async function profileRoute(req:Request,name:string) {","async function mediaRoute(","profileRoute");
-let signedSource=extract("async function signedUploadRoute(req:Request,kind:\\\"chat\\\"|\\\"avatar\\\") {","async function remoteRoute(","signedUploadRoute");
+let signedSource=extract("async function signedUploadRoute(req:Request,kind:\"chat\"|\"avatar\") {","async function remoteRoute(","signedUploadRoute");
 profileSource=profileSource.replace("async function profileRoute(req:Request,name:string)","async function profileRoute(req,name)").replace("const p:any=","const p=").replace("let parsed:URL;","let parsed;");
 signedSource=signedSource.replace("async function signedUploadRoute(req:Request,kind:\"chat\"|\"avatar\")","async function signedUploadRoute(req,kind)").replace("const p:any=","const p=").replace("const extByMime:Record<string,string>=","const extByMime=");
 assert.ok(!/:Request|:string|:URL|:Record</.test(profileSource+signedSource),"test transpiler left a TypeScript annotation");

@@ -63,11 +63,18 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
+      - name: Verify exact Team Lite release-check triggers
+        if: always()
+        run: |
+          node --check scripts/test-team-lite-candidate-workflow-triggers.mjs
+          node scripts/test-team-lite-candidate-workflow-triggers.mjs
       - name: Test Team Lite signed-upload server contract
+        if: always()
         run: |
           node --check scripts/test-team-lite-signed-upload-server.mjs
           node scripts/test-team-lite-signed-upload-server.mjs
       - name: Test Team Lite signed-upload client contract
+        if: always()
         run: |
           node --check scripts/test-team-lite-signed-upload-client.mjs
           node scripts/test-team-lite-signed-upload-client.mjs
@@ -155,9 +162,5 @@ jobs:
         run: node scripts/test-setup-invite-rate-limit.mjs
       - name: Verify test migrations stay outside Supabase CLI discovery
         run: node scripts/migration-layout.test.mjs
-      - name: Verify exact Team Lite release-check triggers
-        run: |
-          node --check scripts/test-team-lite-candidate-workflow-triggers.mjs
-          node scripts/test-team-lite-candidate-workflow-triggers.mjs
       - name: Check candidate scripts and version metadata
         run: node scripts/team-lite-candidate-check.mjs

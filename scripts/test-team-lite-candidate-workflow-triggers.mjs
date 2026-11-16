@@ -47,4 +47,6 @@ assert.ok(offlineJob.includes("node scripts/test-team-lite-signed-upload-server.
 assert.ok(offlineJob.includes("node scripts/test-team-lite-signed-upload-client.mjs"));
 assert.doesNotMatch(offlineJob, /SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY|UPSTATUS_SIGNAL_ALLOW_MUTATION/,
   "offline upload contracts must not depend on Supabase credentials or mutate a project");
+assert.ok(offlineJob.includes("node scripts/test-team-lite-candidate-workflow-triggers.mjs"),
+  "offline job must validate its own workflow trigger contract");
 console.log("PASS Team Lite release checks run on every official push and retain exact isolated-project mutation guards.");
