@@ -1,0 +1,25 @@
+name: Develop Admin Role Security
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "src/server/index.template.ts"
+      - "src/userscript/upstatus.user.template.js"
+      - "scripts/test-admin-role-security.mjs"
+      - ".github/workflows/develop-admin-role-security.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  admin-role-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Run isolated admin-role regression
+        run: node scripts/test-admin-role-security.mjs
