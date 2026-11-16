@@ -51,7 +51,7 @@ assert(testFn.includes('if(path==="/api/profile/avatar-upload-url"&&req.method==
 assert(testFn.includes("createSignedUploadUrl(path,{upsert:true})"),"Storage signed URL must be generated with upsert enabled");
 assert(testFn.includes('const max=20*1024*1024;'),"TEST signed upload limit must be 20 MiB");
 assert(testFn.includes('if(!uploadToken||!signedUrl||signedPath!==path)'),"TEST backend must verify signed upload response fields");
-assert(testFn.includes('if(p.dataUrl){'),"legacy avatar dataUrl compatibility missing from TEST backend");
+assert(testFn.includes('const saved=await uploadFile("profile-images",String(p.dataUrl||""),2*1024*1024'),"legacy avatar dataUrl compatibility missing from TEST backend");
 assert(testUser.includes("function uploadFileDirect(file,route)"),"client signed upload helper missing");
 assert(testUser.includes("credentials:'omit'"),"signed upload must omit ambient credentials");
 assert(testUser.includes("redirect:'error'"),"signed upload must reject redirects");
