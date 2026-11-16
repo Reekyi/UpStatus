@@ -239,3 +239,14 @@ Não havia fonte Edge/Function suficiente; não calcular HTTP 402 nem declarar r
 - Nenhum merge, deploy, migration, release ou publicação de userscript.
 - Nenhum teste físico ou local alegado.
 - Única escrita no GitHub: este relatório novo na branch QA e atualização do comentário QA existente na Issue #79.
+
+
+## Follow-up de CI após o commit documental — 2026-11-16 05:50 UTC
+
+O novo commit documental `9d1f2723b0a14f45b1f3318367020cbc96effe08` atualizou o HEAD da branch QA e da PR #82. O workflow disparou no merge ref `aebf95db26416b0e73263b426261adf2ab6f8219` e **falhou novamente** no passo Validate:
+
+- Run [43812737507](https://github.com/Reekyi/UpStatus/actions/runs/43812737507)
+- Erro exato: `VALIDATION FAILED: production updateURL mismatch`
+- Build observado: `Built UpStatus 3.4.7 / TEST 3.4.7`
+
+Portanto, a falha #82 não está limitada ao HEAD anterior `456de382`: ela foi reproduzida no merge ref que inclui o relatório QA. A branch QA agora está 359 commits à frente e 1 atrás de master. Nenhum código de produto foi alterado para provocar ou contornar a falha; o commit foi apenas documentação.
