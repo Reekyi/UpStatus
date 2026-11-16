@@ -4413,3 +4413,109 @@ Os quatro SQLs originais continuam ausentes do repositório; não reconstruir po
 - Issue [#79](https://github.com/Reekyi/UpStatus/issues/79) permanece OPEN; seu corpo 16/35 é histórico. Os comentários dedicados Engenharia/QA são o registro operacional.
 
 **Recomendação: NOT READY.** Próximos passos: revisão independente de #171/#174/#175; reconciliar #174/#175 em develop somente após revisão; consolidar #161/#167/#168 em um candidato Normal e rodar Validate + Smoke no mesmo HEAD; resolver #80/#82 sem enfraquecer validators; corrigir dispatcher Team Lite e allowlist do TEST; recuperar SQLs originais e Full-Product TEST; avançar RT-01/AUTH-03/ACL-Storage; manter #78 aberta até confirmação física de Ricardo.
+
+
+## Engineering checkpoint — 2026-11-16 07:10 UTC (live GitHub/Supabase revalidation)
+
+### Scope and safety
+
+Rechecked the official branch refs, required PRs #74/#75/#76/#80/#82, candidate PRs #169/#171/#174/#175, exact-head workflow runs and logs, Issue #78/#79, the continuity documents, the complete QA-owned Release Readiness blob, Supabase project inventory/catalog/advisors, deployed function source, and the exact last-24-hour log window.
+
+This checkpoint is documentation-only. No product source was changed in this run. No merge, deploy, release, userscript publication, migration, production SQL write, secret/feature-flag/role/grant/policy/ACL change, billing query, workflow dispatch, or destructive action occurred. Supabase database queries were SELECT/catalog-only. No local checkout or local tests were run.
+
+### Official refs and required PRs
+
+Live refs resolved from PR base comparisons:
+
+- master: `9d40461babcec8eb8686c2a04be9c675df7da381`
+- develop: `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`
+- team-lite-official: `9065bc1536fde64f437f6f12b7abb9b072cb8281`
+- QA PR #82 head: `a92f7be95709ffcf5c3b12010315b3ad904149d7`; the latest QA audit file at 06:37 UTC records the earlier QA head `b68df996`, so its table predates the current PR head.
+
+| PR | Exact head | Ahead / behind current base | Exact-head CI |
+|---|---|---:|---|
+| [#74 Normal](https://github.com/Reekyi/UpStatus/pull/74) | `dcaf6a072546eda0089e0cee4018c3047011f600` | 887 / 1 | Validate [43376770142](https://github.com/Reekyi/UpStatus/actions/runs/43376770142) PASS; Smoke [43376770200](https://github.com/Reekyi/UpStatus/actions/runs/43376770200) PASS |
+| [#75 Team Lite baseline](https://github.com/Reekyi/UpStatus/pull/75) | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | 59 / 0 | Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) historical PASS |
+| [#76 Team Lite](https://github.com/Reekyi/UpStatus/pull/76) | `83a6cc4503ddc01254f6a2abbcc7af5c6803eb94` | 386 / 0 | Candidate Checks [43363871881](https://github.com/Reekyi/UpStatus/actions/runs/43363871881) PASS |
+| [#80 continuity](https://github.com/Reekyi/UpStatus/pull/80) | `46541cad8b5592e183406ed2d78afc2b43c47bff` | 320 / 0 | Validate [43651529898](https://github.com/Reekyi/UpStatus/actions/runs/43651529898) FAIL: `client signed upload helper missing` |
+| [#82 QA](https://github.com/Reekyi/UpStatus/pull/82) | `a92f7be95709ffcf5c3b12010315b3ad904149d7` | 363 / 1 | Validate [43818526224](https://github.com/Reekyi/UpStatus/actions/runs/43818526224) FAIL: `production updateURL mismatch` |
+
+All five required PRs remain open and Draft. Review submissions for #74/#75/#76/#80/#82 are empty.
+
+### Candidate PRs and reviews
+
+- [#171 Team Lite authorization](https://github.com/Reekyi/UpStatus/pull/171), head `8eae059a4b20e5a04370d8d39d6da7f32a220335`, 8 commits ahead / 0 behind `team-lite-official`, four files changed. Dedicated isolated setup/chat-clear regression [43814131143](https://github.com/Reekyi/UpStatus/actions/runs/43814131143) SUCCESS. The log confirms setup cannot elevate by display name and chat-wide clear requires persisted role on server and client. No full Validate/Smoke or physical acceptance is claimed.
+- [#174 develop signed-upload backport](https://github.com/Reekyi/UpStatus/pull/174), head `277dd7bbfe87a4e40c0ca62395a83c3fe01c7849`, based on develop. Validate [43802407509](https://github.com/Reekyi/UpStatus/actions/runs/43802407509) SUCCESS for offline client/server signed-upload contracts and build. No real Storage PUT, byte inspection, private quarantine, or browser upload was run.
+- [#175 develop admin-role hardening](https://github.com/Reekyi/UpStatus/pull/175), head `d20187c22bb0684ce19aabc38fbc5ebb774fdd40`, based on develop. Dedicated regression [43808590208](https://github.com/Reekyi/UpStatus/actions/runs/43808590208) SUCCESS; full Validate [43808590131](https://github.com/Reekyi/UpStatus/actions/runs/43808590131) FAIL after the new regression passed, on the inherited `client signed upload helper missing` assertion.
+- Review submissions for #171/#174/#175 are empty. All remain Draft and unmerged.
+- [#169 documentation](https://github.com/Reekyi/UpStatus/pull/169) remains Draft and isolated. Before this append its head was `60683ceaa8420339770e7e2975c169a52deaf8f2`, base `docs/continuity-handoff-2026-11-04` at `46541cad`, and its diff contained only `docs/CURRENT_STATE.md` plus `docs/checkpoints/2026-11-16-engineering-0512-utc.md`.
+
+### QA coordination and release documents
+
+The latest independent QA report is [2026-11-16 06:37 UTC](https://github.com/Reekyi/UpStatus/blob/qa/release-readiness-2026-11-04-master/docs/audits/2026-11-16-upstatus-qa-audit-0637-utc.md). It records a full read of `docs/RELEASE_READINESS.md`, a NOT READY verdict, no manual Tampermonkey/device tests, and no production writes. The live PR #82 has since advanced to `a92f7be`; its newer Validate [43818526224](https://github.com/Reekyi/UpStatus/actions/runs/43818526224) again fails at the inherited `production updateURL mismatch`. The QA branch and QA-owned audit/comment were not edited.
+
+Read `docs/PROJECT_GUIDE.md`, the 2,025-line `UPSTATUS_HANDOFF.md`, `RELEASE_CHECKLIST.md`, the current `docs/CURRENT_STATE.md`, and the full 1,046,356-character QA-owned `docs/RELEASE_READINESS.md` blob. The latter's recorded appendix ends at 2026-11-15 06:30 UTC; use the newer QA audit and live refs for later changes.
+
+### Build and workflow findings
+
+Read the live workflow/build files on their respective refs:
+
+- master `.github/workflows/deploy-test.yml`: manual dispatch, generic `secrets.SUPABASE_PROJECT_ID`, Supabase CLI `latest`, deploys `upstatus-test`.
+- develop `.github/workflows/deploy-test.yml`: also has a push trigger on develop, generic `secrets.SUPABASE_PROJECT_ID`, CLI `latest`; unsafe to dispatch until a dedicated Full-Product TEST project and explicit project guard exist.
+- master `.github/workflows/deploy-production.yml`: manual, generic project secret, hard guard for stable version 3.4.7, CLI `latest`.
+- team-lite-official `.github/workflows/deploy-production.yml`: manual, generic project secret, CLI `latest`, and incorrectly deploys slug `upstatus` instead of `upstatus-team-lite`. Do not dispatch.
+- master `scripts/build.mjs` derives the Normal updateURL from the legacy beta10 API cloud endpoint; `release.json` points to `/upstatus/upstatus.user.js`, which `scripts/validate.mjs` requires. This directly explains the current #82 Validate failure.
+- The corresponding fixes exist only in candidate lines; no official workflow or build file was edited.
+
+### Supabase — live SELECT/catalog snapshot
+
+Projects listed by Supabase:
+
+- Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations, 38 ACTIVE Edge Functions.
+- Lab `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 39 migrations, 2 Edge Functions. No managed development branches were returned for either project.
+
+Production runtime versions: `upstatus` v480, `upstatus-team-lite` v15, `upstatus-test` v281, beta10 v6.
+
+Production catalog:
+
+- `realtime.messages`: 106 rows, all 106 `private=false`, one topic; 26 db_change, 72 user_status, 4 remote_command, 4 remote_result.
+- Three `upstatus_broadcast_*` functions remain SECURITY DEFINER with `search_path=public`; EXECUTE is available to anon and authenticated.
+- Ten public RLS-enabled tables have no policies. Client grants in public total 126, including 18 TRUNCATE grants.
+- Storage buckets `chat-images` (168 objects) and `profile-images` (20 objects) are both public; zero policies on `storage.objects`; eight client grants on `storage.objects`.
+- Production has five users: three `implementation_admin`, two `implementation_user`; the setup-invite rate-limit table is absent.
+- Deployed Normal v480, Team Lite v15 and beta10 v6 still contain setup called via `login(req,true)` and the name-based setup-role fallback. The persisted-role `admin()` helper exists, but deployed `/api/chat/clear` still checks only `name === "Ricardo"`. Candidate fixes are not deployed.
+- Security Advisor: 10 INFO for RLS without policies; 3 WARN for anon-executable and 3 WARN for authenticated-executable SECURITY DEFINER broadcasts. Performance and Health advisors returned no findings.
+
+Lab catalog:
+
+- Zero users/fixtures, Realtime rows, Storage buckets or objects.
+- 18 public RLS-enabled tables without policies; zero direct client grants in public.
+- Three broadcast SECURITY DEFINER functions use an empty search_path and do not grant EXECUTE to anon/authenticated.
+- Setup-invite rate-limit table exists only in the lab.
+- Security Advisor: 18 RLS/no-policy INFO; Performance Advisor: five unused-index INFO; Health empty.
+- This is an isolated signaling/auth lab, not Full-Product TEST.
+
+The four original migration files still return 404 on master while their versions exist in the production ledger: `20261023154754`, `20261026195855`, `20261027154329`, `20261027155438`. Do not reconstruct SQL by inference. QA's latest report says managed production branch `main` remains `MIGRATIONS_FAILED`; the live branch-list action returned no development branches.
+
+Exact 24-hour log window 2026-11-15T07:10:00Z–2026-11-16T07:10:00Z:
+- Production: 72 pgbouncer_logs, 23 postgres_logs.
+- Lab: 72 pgbouncer_logs, 18 postgres_logs.
+- No Edge/Function log source was returned; do not infer current HTTP 402 count or quota recovery.
+
+### Issues and release gates
+
+- Issue [#78](https://github.com/Reekyi/UpStatus/issues/78) remains OPEN, 0/8 acceptance criteria. No physical Tampermonkey/Sale Smartly network-loss/no-F5 test occurred.
+- Issue [#79](https://github.com/Reekyi/UpStatus/issues/79) remains OPEN; its 16/35 body count is historical. The dedicated Engineering and QA comments remain the operational record.
+
+| Gate | State | Current evidence |
+|---|---|---|
+| RT-01 | BLOCKED | 106 public Realtime messages and three client-executable SECURITY DEFINER broadcasts |
+| TEST-ISOLATION | BLOCKED | lab has no product fixtures or Storage; no Full-Product TEST project |
+| MIGRATION-PROVENANCE | BLOCKED | four original SQL files return 404 on master |
+| AUTH-03 | IN PROGRESS | #171 and #175 dedicated regressions pass, but production runtimes remain legacy and production rate-limit table is absent |
+| ACL-STORAGE | BLOCKED | broad client grants, public buckets, zero Storage policies |
+| RECONNECT | PENDING | issue #78 0/8; physical confirmation still required from Ricardo |
+| HUMAN-REVIEW | PENDING | no review submissions on required or current authorization candidates |
+
+**Recommendation: NOT READY.** Next steps: independent review of #171/#174/#175; reconcile #174/#175 only after review; fix #82's build/updateURL source in an isolated candidate; resolve #80 without weakening its upload assertion; consolidate #161/#167/#168 in one Normal candidate and run Validate + Smoke on the same HEAD; fix Team Lite dispatcher and TEST target guards; recover original SQLs and provision Full-Product TEST; advance RT-01/AUTH-03/ACL-Storage; keep #78 open until physical acceptance.
+
