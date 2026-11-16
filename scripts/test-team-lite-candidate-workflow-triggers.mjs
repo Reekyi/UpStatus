@@ -33,4 +33,11 @@ const authenticatedStep = workflow.indexOf("Run authenticated isolated integrati
 assert.ok(isolationStep > 0 && authenticatedStep > isolationStep,
   "the isolation guard must run before authenticated fixture mutations");
 
+for (const script of [
+  "scripts/test-team-lite-signed-upload-server.mjs",
+  "scripts/test-team-lite-signed-upload-client.mjs"
+]) {
+  assert.ok(pullRequestSection.includes(`- "${script}"`), script + " must trigger Team Lite candidate checks");
+  assert.ok(workflow.includes(`node ${script}`), script + " must execute in Team Lite candidate checks");
+}
 console.log("PASS Team Lite release checks run on every official push and retain exact isolated-project mutation guards.");

@@ -41,6 +41,8 @@ on:
       - "scripts/test-signaling-browser.mjs"
       - ".github/workflows/team-lite-candidate.yml"
       - "scripts/test-team-lite-candidate-workflow-triggers.mjs"
+      - "scripts/test-team-lite-signed-upload-server.mjs"
+      - "scripts/test-team-lite-signed-upload-client.mjs"
 
 concurrency:
   # Normal and Team Lite share the same isolated Supabase fixture project.
@@ -140,5 +142,13 @@ jobs:
         run: |
           node --check scripts/test-team-lite-candidate-workflow-triggers.mjs
           node scripts/test-team-lite-candidate-workflow-triggers.mjs
+      - name: Test Team Lite signed-upload server contract
+        run: |
+          node --check scripts/test-team-lite-signed-upload-server.mjs
+          node scripts/test-team-lite-signed-upload-server.mjs
+      - name: Test Team Lite signed-upload client contract
+        run: |
+          node --check scripts/test-team-lite-signed-upload-client.mjs
+          node scripts/test-team-lite-signed-upload-client.mjs
       - name: Check candidate scripts and version metadata
         run: node scripts/team-lite-candidate-check.mjs
