@@ -55,6 +55,23 @@ permissions:
   contents: read
 
 jobs:
+  signed-upload-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Test Team Lite signed-upload server contract
+        run: |
+          node --check scripts/test-team-lite-signed-upload-server.mjs
+          node scripts/test-team-lite-signed-upload-server.mjs
+      - name: Test Team Lite signed-upload client contract
+        run: |
+          node --check scripts/test-team-lite-signed-upload-client.mjs
+          node scripts/test-team-lite-signed-upload-client.mjs
+
   candidate-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -142,13 +159,5 @@ jobs:
         run: |
           node --check scripts/test-team-lite-candidate-workflow-triggers.mjs
           node scripts/test-team-lite-candidate-workflow-triggers.mjs
-      - name: Test Team Lite signed-upload server contract
-        run: |
-          node --check scripts/test-team-lite-signed-upload-server.mjs
-          node scripts/test-team-lite-signed-upload-server.mjs
-      - name: Test Team Lite signed-upload client contract
-        run: |
-          node --check scripts/test-team-lite-signed-upload-client.mjs
-          node scripts/test-team-lite-signed-upload-client.mjs
       - name: Check candidate scripts and version metadata
         run: node scripts/team-lite-candidate-check.mjs

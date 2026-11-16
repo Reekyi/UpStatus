@@ -40,4 +40,11 @@ for (const script of [
   assert.ok(pullRequestSection.includes(`- "${script}"`), script + " must trigger Team Lite candidate checks");
   assert.ok(workflow.includes(`node ${script}`), script + " must execute in Team Lite candidate checks");
 }
+assert.match(workflow, /^  signed-upload-contracts:/m,
+  "offline signed-upload contracts must have an independent job");
+const offlineJob = workflow.split("  candidate-checks:")[0];
+assert.ok(offlineJob.includes("node scripts/test-team-lite-signed-upload-server.mjs"));
+assert.ok(offlineJob.includes("node scripts/test-team-lite-signed-upload-client.mjs"));
+assert.doesNotMatch(offlineJob, /SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY|UPSTATUS_SIGNAL_ALLOW_MUTATION/,
+  "offline upload contracts must not depend on Supabase credentials or mutate a project");
 console.log("PASS Team Lite release checks run on every official push and retain exact isolated-project mutation guards.");
