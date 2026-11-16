@@ -4775,3 +4775,10 @@ The four original migration SQLs remain absent and managed production `main` rem
 **Recommendation: NOT READY.** Next: restore isolated-project Edge invocation quota; obtain independent review of #76/#171/#174/#175 and Normal candidates; resolve #80/#82 without weakening validators; run full isolated integration and Smoke on exact integrated heads; recover original SQLs and provision Full-Product TEST; advance Realtime/AUTH-03/Storage; retain #78 until physical no-F5 acceptance.
 
 No official branch, production project, QA-owned file or release artifact was changed. No merge, deploy, release, userscript publication, migration, production SQL write, secret/feature-flag/role/grant/ACL/policy change or destructive operation occurred. The only product-code changes are on the isolated Draft candidate #76. All tests cited are GitHub Actions runs; the signed-upload contract tests are offline mocks, not real Storage tests.
+
+
+## Engineering checkpoint — 2026-11-16 16:57 UTC
+
+See [the 16:57 UTC checkpoint](docs/checkpoints/2026-11-16-engineering-1657-utc.md) for the live GitHub refs, exact-head CI, Supabase availability/security snapshot, HTTP 402 evidence, workflow defects, migration provenance, issue status and gate disposition. This is a read-only product audit plus documentation-only continuity update. No product code or production resource changed. The isolated lab remains blocked by its explicit Edge invocation quota error; production HTTP 402s remain unexplained by the available logs. The current exact-head #82 Validate run still fails on the inherited updateURL mismatch, and #80 still fails on the inherited signed-upload helper assertion.
+
+**Recommendation: NOT READY.** Owner-side billing/spend-cap inspection is required for the lab; production 402 cause must be confirmed separately. Physical #78 acceptance and human reviews remain pending.
