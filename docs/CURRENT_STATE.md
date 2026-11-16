@@ -4722,3 +4722,56 @@ Exact 24-hour log window 2026-11-15T11:09:00Z–2026-11-16T11:09:00Z:
 **Recommendation: NOT READY.** Next steps: independently review #167/#161/#168 and #171/#174/#175; reconcile the Normal candidates and run Validate + Smoke on one exact HEAD; review #174 before #175; resolve #80/#82 without weakening validators; correct TEST project isolation and the Team Lite dispatcher; recover original SQLs and provision Full-Product TEST; advance RT-01/AUTH-03/ACL-Storage; retain #78 until physical no-F5 acceptance.
 
 This checkpoint changes documentation only. No product source, official branch or QA-owned file was changed. No merge, deploy, release, userscript publication, migration, production SQL write, secret/feature-flag/role/grant/policy/ACL change, workflow dispatch, billing query, fixture mutation or destructive operation occurred. Supabase SQL was SELECT/catalog-only. No local checkout or local tests were run; all cited test evidence is from existing GitHub Actions runs.
+
+
+## Engineering checkpoint — 2026-11-16 12:44 UTC
+
+### Team Lite signed-upload parity candidate
+
+- PR [#76](https://github.com/Reekyi/UpStatus/pull/76), branch `team-lite/signaling-transport-candidate`, now points to `00a578e9174e08238a1289a35feb02d171625421` (389 commits ahead, 0 behind `team-lite-official`, 59 changed files). It remains Draft, open and unreviewed.
+- Commit [3b4385c](https://github.com/Reekyi/UpStatus/commit/3b4385c088285e14a4ad4c4b4f229b18e77023b2) ports the hardened Normal signed-upload contract to Team Lite: safe-integer size validation, exact project origin, signed upload path, bucket/object path, token and public URL checks; profile URL validation now parses and checks the full URL rather than trusting a string prefix. The legacy data-URL avatar path remains for installed clients with the existing 20 MB ceiling.
+- The Team Lite userscript now validates the expected bucket, MIME, size, origin, path and one-time token, then performs the PUT with `credentials: omit` and `redirect: error`. Chat and avatar UI paths use the signed-upload helper.
+- Commits [66b4930](https://github.com/Reekyi/UpStatus/commit/66b493026f6d240a30facee59a10116cb0c28b1c) and [00a578e](https://github.com/Reekyi/UpStatus/commit/00a578e9174e08238a1289a35feb02d171625421) split offline contracts into an independent, credential-free job and fix the Team Lite server-test extraction markers to match the actual source order. The workflow-trigger test now asserts that the offline job contains no Supabase credentials or mutation opt-in.
+- Exact-head Candidate Checks [43868863235](https://github.com/Reekyi/UpStatus/actions/runs/43868863235): job `signed-upload-contracts` SUCCESS. Logs confirm the workflow-trigger contract, server contract (bucket/path/token/MIME/size/HTTPS origin/profile compatibility) and client contract (route/bucket/MIME/size/origin/object path/token/PUT/UI wiring) all PASS.
+- The separate `candidate-checks` job still FAILS before authenticated integration can run. The isolated Supabase project returns HTTP 402 with the explicit message `exceed_edge_functions_invocations_quota`. Do not mark Full-Product TEST or integration complete. The offline tests use mocks; they do not perform a real Storage PUT or inspect uploaded bytes.
+
+### Supabase quota evidence
+
+- The exact 24-hour production Edge log window `2026-11-15T12:26:00Z`–`2026-11-16T12:26:00Z` contains 5,889 `function_edge_logs` entries, all HTTP 402, all GET requests to the deployed beta10 API. Main paths: `/api/chat` (3,124), `/api/status` (1,365), `/api/remote-status` (1,365). Production logs expose status and request metadata but not the response body; do not assert that production has the same quota reason as the lab without further evidence.
+- The isolated lab `bfpjtfqlnypisxljoxkb` is explicitly restricted by `exceed_edge_functions_invocations_quota`; the workflow response says the project owner must upgrade the plan or remove spend caps. This is the immediate blocker for authenticated Candidate Checks and requires owner-side billing/spend-cap review. No billing or plan settings were changed.
+
+### Current mandatory PRs and QA coordination
+
+| PR | Current result |
+|---|---|
+| [#74](https://github.com/Reekyi/UpStatus/pull/74) | Validate + Smoke historical PASS; open Draft |
+| [#75](https://github.com/Reekyi/UpStatus/pull/75) | Historical PASS; open Draft |
+| [#76](https://github.com/Reekyi/UpStatus/pull/76) | Candidate Checks has offline upload job PASS, isolated integration FAIL due lab quota; open Draft |
+| [#80](https://github.com/Reekyi/UpStatus/pull/80) | Validate [43651529898](https://github.com/Reekyi/UpStatus/actions/runs/43651529898) FAIL: `client signed upload helper missing` |
+| [#82](https://github.com/Reekyi/UpStatus/pull/82) | Validate [43859007405](https://github.com/Reekyi/UpStatus/actions/runs/43859007405) FAIL: inherited `production updateURL mismatch` |
+
+Live #82 head is `ea4a9150b071fad4eb826c01bb345ff14fc3615d`. The latest independent QA report read this run is [2026-11-16 11:32 UTC](https://github.com/Reekyi/UpStatus/blob/qa/release-readiness-2026-11-04-master/docs/audits/2026-11-16-upstatus-qa-audit-1132-utc.md); its reported code head is older than the live PR head because the QA branch subsequently advanced. QA branch and audit files were not changed. Engineering coordination was updated in the existing [#82 comment](https://github.com/Reekyi/UpStatus/pull/82#issuecomment-6902912399).
+
+Other candidates remain: #167/#168/#161 are the Normal integration pieces; #171 is the Team Lite admin-role regression; #174 is the develop signed-upload candidate; #175 depends on #174 and still fails its full Validate. None is merged or human-reviewed.
+
+### Supabase security snapshot and remaining gates
+
+Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY; 38 Edge Functions; 7 migrations; 106/106 Realtime messages public; 10 public RLS tables without policies; 126 client table grants including 18 TRUNCATE; 6 public default-ACL entries; 3 client-executable SECURITY DEFINER broadcasts; 2 public Storage buckets, 188 objects, 0 Storage policies. Installed Normal v480, Team Lite v15, TEST v281 and beta10 v6 still retain legacy setup/admin behavior in the inspected sources.
+
+Lab `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY but not Full-Product TEST; 39 migrations, 2 test Edge Functions, 0 users/messages/Realtime rows/buckets/objects, 18 public RLS tables without policies. Its Edge invocation quota is exhausted.
+
+The four original migration SQLs remain absent and managed production `main` remains `MIGRATIONS_FAILED`. No original migration was reconstructed. The Team Lite production workflow still targets `upstatus` rather than `upstatus-team-lite`; TEST still lacks a dedicated full-product project.
+
+| Gate | State |
+|---|---|
+| RT-01 | BLOCKED: public Realtime messages and client-executable broadcasts |
+| TEST-ISOLATION | BLOCKED: lab quota exhausted; no Full-Product TEST |
+| MIGRATION-PROVENANCE | BLOCKED: four original SQL sources absent; managed main MIGRATIONS_FAILED |
+| AUTH-03 | BLOCKED: candidate regressions exist but deployed runtimes remain legacy |
+| ACL-STORAGE | BLOCKED: broad grants, public buckets, no Storage policies |
+| RECONNECT | PENDING: Issue #78 remains 0/8; physical no-F5 confirmation still required |
+| HUMAN-REVIEW | PENDING: no submitted review/approval or release authorization |
+
+**Recommendation: NOT READY.** Next: restore isolated-project Edge invocation quota; obtain independent review of #76/#171/#174/#175 and Normal candidates; resolve #80/#82 without weakening validators; run full isolated integration and Smoke on exact integrated heads; recover original SQLs and provision Full-Product TEST; advance Realtime/AUTH-03/Storage; retain #78 until physical no-F5 acceptance.
+
+No official branch, production project, QA-owned file or release artifact was changed. No merge, deploy, release, userscript publication, migration, production SQL write, secret/feature-flag/role/grant/ACL/policy change or destructive operation occurred. The only product-code changes are on the isolated Draft candidate #76. All tests cited are GitHub Actions runs; the signed-upload contract tests are offline mocks, not real Storage tests.
