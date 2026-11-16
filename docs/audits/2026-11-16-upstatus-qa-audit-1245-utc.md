@@ -17,9 +17,9 @@
 | PR #76 | `00a578e9174e08238a1289a35feb02d171625421` |
 | PR #82 | `ea4a9150b071fad4eb826c01bb345ff14fc3615d` |
 
-- QA/#82 está 366 commits à frente e 1 atrás de master; o commit master-only é documental. Não fiz rebase.
+- QA/#82 está 366 commits à frente e 1 atrás de master antes deste relatório; o commit master-only é documental. Não fiz rebase.
 - #74 está 887 commits à frente e 1 atrás de master, com 90 arquivos alterados.
-- #75 está 59 commits à frente de team-lite-official. #76 está 386 à frente, com 59 arquivos; #76 é a linha candidata atual, não uma entrega independente de #75.
+- #75 está 59 commits à frente de team-lite-official. #76 está 389 à frente, com 59 arquivos; #76 é a linha candidata atual, não uma entrega independente de #75.
 - #82 é documental: 206 arquivos e 50.857 linhas adicionadas.
 - #74, #75, #76 e #82 continuam abertas/Draft. Não há reviews humanas registradas nessas quatro PRs.
 
@@ -128,9 +128,9 @@ Os dois projetos estão ACTIVE_HEALTHY. A função implantada inspecionada não 
 | RECONNECT | pending | Issue #78 0/8; depende de teste físico e confirmação |
 | HUMAN-REVIEW | pending | Nenhuma review/aprovação humana registrada |
 
-## 8. Próximos passos
+Após o commit deste relatório, a QA branch passou para `d53b5b4` (367 commits à frente e 1 atrás de master); a PR #82 passou a 207 arquivos e 51.002 adições. O Validate automático [43869372350](https://github.com/Reekyi/UpStatus/actions/runs/43869372350) repetiu a falha herdada `production updateURL mismatch` no commit documental desta auditoria.\n\n## 8. Próximos passos
 
-1. Solicitar ao responsável da organização Supabase a verificação do uso, limites e entitlements de Edge Functions e a origem exata do HTTP 402.
+1. O proprietário do projeto isolado deve restaurar as Edge Functions ajustando o plano ou removendo o spend cap; em seguida, confirmar se a mesma restrição afeta produção.
 2. Após a restauração do laboratório, repetir Candidate Checks #76 no HEAD atual e executar os testes autenticados/browser; manter o job offline de upload como evidência separada.
 3. Provisionar um projeto Full-Product TEST dedicado e corrigir os guards/workflows de master e develop.
 4. Recuperar os quatro SQLs originais de artefatos/backup; não reconstruir migrations por inferência.
