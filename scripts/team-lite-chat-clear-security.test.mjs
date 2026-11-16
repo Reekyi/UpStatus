@@ -41,4 +41,4 @@ assert.ok(user.includes("clearBtn.onclick=clearChatAdmin"),
 assert.ok(!user.includes("function clearChatRicardo(){if(member!=='Ricardo')return;"),
   "client must not retain the display-name-only handler");
 
-process.stdout.write("Team Lite chat-clear authorization regression passed.\\n");
+process.stdout.write("Team Lite chat-clear authorization regression passed.\n");
