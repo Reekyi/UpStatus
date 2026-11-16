@@ -49,7 +49,7 @@ As reviews submetidas de #74, #75, #76 e #82 estão vazias. As PRs relevantes pe
 - #74 Smoke: **136/136** verificações autenticadas; testes de salas, concorrência, convites, WebRTC no Chromium e entrega de tracks de áudio/vídeo; limpeza de fixtures verificada. O harness de rate limit de emissão de convite foi **skipped** nessa execução.
 - #76 Candidate Checks: **110/110** verificações autenticadas; inclui rate limit de convites, testes de voz/screen signaling, WebRTC no browser e IIFE Team Lite com browser/Tampermonkey stubs offline.
 - Esses resultados são CI histórico no ambiente isolado. Não comprovam microfone físico, captura física de tela, Tampermonkey real no Sale Smartly ou reconexão após queda real de internet.
-- #167 valida contratos de upload cliente/servidor com mocks; não fez PUT real para Storage.
+- #167 valida contratos de upload cliente/servidor com mocks; não fez PUT real para Storage. O bundle Normal atualmente implantado já marca o item como `pendingUpload:true`; portanto a regressão precisa proteger o contrato de anexo pendente (envio posterior e restauração se falhar), não exigir upload imediato.
 - #175 tem teste dedicado de papel administrativo aprovado, mas o Validate completo falha em `client signed upload helper missing`.
 
 ## Build, distribuição e workflows
@@ -132,11 +132,10 @@ Ambos os projetos reportaram apenas logs PostgreSQL/PgBouncer na janela de 24h; 
 Os quatro SQLs abaixo retornam 404 tanto em master quanto em QA, embora suas versões estejam no ledger de produção:
 - `20261023154754_create_upstatus_visual_config.sql`
 - `20261026195855_add_chat_message_file_name.sql`
-- `20261027154329_add_chat_document_file_name.sql` (nome registrado no ledger: `add_chat_message_file_name`)
 - `20261027154329_allow_chat_document_mime_types.sql`
 - `20261027155438_set_upstatus_upload_limits_20mb.sql`
 
-**Nota:** o ledger confirma sete versões; não reconstruir SQL ausente por inferência. A lista de 404 verificada nesta rodada contém quatro arquivos originais: visual_config, chat_message_file_name, allow_chat_document_mime_types e set_upstatus_upload_limits_20mb.
+**Nota:** o ledger confirma sete versões; não reconstruir SQL ausente por inferência.
 
 ## Gates
 
