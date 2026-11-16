@@ -14,7 +14,7 @@ Li docs/RELEASE_READINESS.md na branch QA. Blob SHA: 7ed86116c40f3e2309b1bf7ca34
 |---|---|---|
 | master | 9d40461babcec8eb8686c2a04be9c675df7da381 | release metadata 3.4.7 |
 | team-lite-official | 9065bc1536fde64f437f6f12b7abb9b072cb8281 | Team Lite 3.4.30 |
-| QA qa/release-readiness-2026-11-04-master | a9a9e1965d0442b1fe9476b32657ef95c66ff99d | HEAD atual da PR #82 |
+| QA qa/release-readiness-2026-11-04-master / PR #82 | a9a9e1965d0442b1fe9476b32657ef95c66ff99d antes do relatório; e84ee9a6f81e2fb5db125cb79506b1a5cded3f1d após a criação do relatório | HEAD documental atual da PR #82 |
 | PR #74 | dcaf6a072546eda0089e0cee4018c3047011f600 | aberta / Draft |
 | PR #75 | 7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309 | aberta / Draft |
 | PR #76 | 00a578e9174e08238a1289a35feb02d171625421 | aberta / Draft |
@@ -135,7 +135,7 @@ O hardening de grants/SECURITY DEFINER foi validado no laboratório, não em pro
 ## 8. Issues e aceitação manual
 
 - Issue #78 permanece OPEN, com 0/8 critérios físicos marcados e 28 comentários. Os oito critérios incluem recuperação Normal e Team Lite sem F5, reentrada, novas chamadas, ausência de peers/polling órfãos e teste manual. Nenhum teste físico foi realizado nesta execução.
-- Issue #79 permanece OPEN, com 150 comentários. O corpo ainda contém snapshots antigos de heads e checks das PRs; use os refs/CI atuais e o comentário dedicado QA como fonte atual. Contagens históricas como 16/35 não são percentual de prontidão.
+- Issue #79 permanece OPEN, com 150 comentários. O corpo ainda contém snapshots antigos de heads e checks das PRs (por exemplo, #74 7475a82, #76 87bbb2f e #82 64fe827); use os refs/CI atuais e o comentário dedicado QA como fonte atual. Não encontrei um percentual de prontidão atual confiável no corpo.
 - As quatro PRs não têm reviews humanas. HUMAN-REVIEW permanece pendente.
 
 ## 9. Gates reavaliados
