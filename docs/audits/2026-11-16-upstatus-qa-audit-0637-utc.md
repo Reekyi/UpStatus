@@ -7,7 +7,7 @@
 
 ## Método e limites
 
-Releitura de `docs/RELEASE_READINESS.md`, heads/PRs/issues/workflows/commits do GitHub, logs de CI já existentes, fontes das Edge Functions implantadas e consultas SQL exclusivamente SELECT nos dois projetos. Nenhum workflow foi disparado por esta auditoria. Não houve checkout local, execução local de testes, sessão Tampermonkey/Sale Smartly autenticada ou dispositivo físico; portanto não houve teste manual.
+Releitura de `docs/RELEASE_READINESS.md`, heads/PRs/issues/workflows/commits do GitHub, logs de CI já existentes, fontes das Edge Functions implantadas e consultas SQL exclusivamente SELECT nos dois projetos. Nenhum workflow foi disparado manualmente; os commits documentais na QA acionaram automaticamente o Validate da PR #82. Não houve checkout local, execução local de testes, sessão Tampermonkey/Sale Smartly autenticada ou dispositivo físico; portanto não houve teste manual.
 
 Vocabulário: **CI PASS/FAIL** = resultado do workflow no commit indicado; **inspeção de código** = leitura estática de fonte/configuração; **teste automatizado de integração/browser** = execução do CI no ambiente isolado; **manual pendente** = exige navegador/dispositivo real; **bloqueado** = dependência objetiva ainda não resolvida.
 
@@ -33,7 +33,7 @@ A API do GitHub retorna `protected=false` e nenhum required status check nas qua
 | #74 Normal | `dcaf6a0` | [Validate 43376770142](https://github.com/Reekyi/UpStatus/actions/runs/43376770142) e [Smoke 43376770200](https://github.com/Reekyi/UpStatus/actions/runs/43376770200) PASS | Candidata forte; não integrada |
 | #75 Team Lite | `7bbf9b9` | [Candidate Checks 41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) PASS histórico | Baseline antigo, superado pela #76 |
 | #76 Team Lite | `83a6cc4` | [Candidate Checks 43363871881](https://github.com/Reekyi/UpStatus/actions/runs/43363871881) PASS | Candidata forte; não integrada |
-| #82 QA | `b68df99` | [Validate 43812990969](https://github.com/Reekyi/UpStatus/actions/runs/43812990969) FAIL | Falha reproduzida em updateURL |
+| #82 QA | `b68df99` | [Validate 43818444956](https://github.com/Reekyi/UpStatus/actions/runs/43818444956) FAIL (run anterior 43812990969 também falhou) | Falha reproduzida em updateURL |
 | #161 Normal | `557814d` | [Validate 43479685384](https://github.com/Reekyi/UpStatus/actions/runs/43479685384) e [Smoke 43479685445](https://github.com/Reekyi/UpStatus/actions/runs/43479685445) PASS | Baseada na #74; não integrada |
 | #163 Voz HTTP 409 | `00f357b` | [Validate 43488594110](https://github.com/Reekyi/UpStatus/actions/runs/43488594110) PASS | Contrato offline; runtime de laboratório não atualizado |
 | #167 Upload/chat | `d25b3fb` | [Validate 43784897392](https://github.com/Reekyi/UpStatus/actions/runs/43784897392) PASS | Sem Smoke/transferência real |
@@ -165,3 +165,8 @@ Os quatro SQLs abaixo retornam 404 tanto em master quanto em QA, embora suas ver
 ## Integridade
 
 Nenhuma consulta SQL alterou dados: todas foram SELECT-only. Não houve merge, deploy, migration, release, publicação de userscript, alteração de secrets/flags/roles/grants/policies/ACLs ou operação destrutiva. Nenhum teste manual foi alegado. A única escrita documental desta rodada é este arquivo novo na branch QA; o comentário dedicado QA da Issue #79 foi atualizado sem duplicata e sem tocar no comentário da Engenharia.
+
+
+## Checkpoint final de CI — 2026-11-16 06:41 UTC
+
+O commit documental `78da4115972f3ae871482f2d5b731283b322b322` acionou o Validate automático da PR #82. O run [43818444956](https://github.com/Reekyi/UpStatus/actions/runs/43818444956) concluiu FAIL: o build gerou `UpStatus 3.4.7 / TEST 3.4.7` e terminou em `VALIDATION FAILED: production updateURL mismatch`. Isso confirma que o problema permanece no build de master e não foi resolvido pelo relatório/documentação. Nenhum teste foi disparado manualmente pela QA.
