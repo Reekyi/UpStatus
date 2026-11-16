@@ -4271,3 +4271,61 @@ Production `dlfvkawaiqduhlazsszm` is ACTIVE_HEALTHY, PostgreSQL 17.11, seven mig
 - No local checkout or local tests were available/used. All test evidence above comes from existing GitHub Actions runs. All Supabase SQL was SELECT/catalog-only. No merge into official branches, deploy, release, userscript publication, production write, migration, secret/flag change, workflow dispatch, billing query or destructive operation occurred.
 
 **Recommendation: NOT READY.** Next: reconcile #167 with #161/#168 as one Normal candidate; correct #80/#82 inherited validators without weakening assertions; design private quarantine and byte inspection for Storage; repair Team Lite publication workflow; recover Full-Product TEST and original migrations; continue RT-01/AUTH-03/ACL-Storage; keep #78 open until Ricardo confirms physical no-F5 acceptance. Ricardo must still decide whether the isolated candidate PR #172's merged state should be kept or reverted.
+
+
+## Checkpoint de Engenharia — 2026-11-16 04:12 UTC
+
+### PRs obrigatórias e CI reconsultados
+
+- Branches oficiais: master `9d40461`, develop `6b33e1e`, team-lite-official `9065bc1`; QA `c9817d70`. As quatro referências retornaram `protected=false`, sem required checks.
+- #74 `dcaf6a0`: Validate [43376770142](https://github.com/Reekyi/UpStatus/actions/runs/43376770142) e Smoke [43376770200](https://github.com/Reekyi/UpStatus/actions/runs/43376770200) SUCCESS no SHA exato.
+- #75 `7bbf9b9`: Candidate Checks PASS histórico.
+- #76 `83a6cc4`: Candidate Checks PASS.
+- #80 `46541cad`: Validate [43651529898](https://github.com/Reekyi/UpStatus/actions/runs/43651529898) FAILURE: `client signed upload helper missing`.
+- #82 `c9817d70`: Validate [43799830619](https://github.com/Reekyi/UpStatus/actions/runs/43799830619) FAILURE: `production updateURL mismatch`.
+- Todas permanecem abertas e Draft. Nenhuma das PRs obrigatórias ou candidatas #167/#168/#169/#170/#172/#174 tem review submetida.
+
+### Novo backport isolado para develop — PR #174
+
+- Draft [PR #174](https://github.com/Reekyi/UpStatus/pull/174), branch `fix/develop-signed-upload-client-backport-20261116`, base exata develop `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`.
+- HEAD validado: `277dd7bbfe87a4e40c0ca62395a83c3fe01c7849`; 7 commits à frente, 0 atrás; diff restrito a cinco arquivos.
+- Portou `uploadFileDirect` para chat image/video e avatar, validando origem HTTPS, bucket, caminho, token, URL pública, credenciais omitidas e redirects rejeitados.
+- Endureceu `signedUploadRoute` e `profileRoute`; manteve compatibilidade de avatar `dataUrl` para clientes antigos.
+- Acrescentou testes de contrato isolados de cliente/servidor e os conectou a `scripts/validate.mjs`. O validator foi corrigido para o contrato correto de signed URL (token na query, sem Authorization bearer), não enfraquecido.
+- Validate [43802407509](https://github.com/Reekyi/UpStatus/actions/runs/43802407509) SUCCESS no HEAD exato. Logs: client signed-upload PASS; server signed-upload PASS; `Validation OK: PROD 3.0.40 / TEST 3.0.40-beta.22`.
+- O runner usou mocks; não houve transferência real ao Storage nem teste de navegador. O cliente deste backport continua limitado a imagens/vídeos. O servidor valida MIME/tamanho declarados, não magic bytes; buckets de produção continuam públicos. #80 segue falhando até integração revisada/autorizada de uma candidata com esse contrato.
+
+### Reconciliação de #167/#168/#172
+
+- #167 `d25b3fbe` Validate [43784897392](https://github.com/Reekyi/UpStatus/actions/runs/43784897392) PASS; #168 `c6de3eb` Validate [43755941462](https://github.com/Reekyi/UpStatus/actions/runs/43755941462) PASS.
+- A auditoria QA independente de 2026-11-16 03:45 UTC confirma que #167 e #161/#168 ainda são linhas distintas; nenhum HEAD único reúne anexos pendentes, API Normal correta, setup token/rate limit e Retry-After. #167 também mantém CLOUD_SERVER no beta10.
+- #172 permanece closed/merged apenas na linha candidata #167. Seu commit `01ef40243140015e36e303447a3e158ec37a040e` é ancestral do HEAD #167, dois commits atrás e zero à frente. A QA recomenda manter esse fast-forward; nenhum rollback foi feito e nenhuma branch oficial foi atingida.
+
+### Supabase — snapshot read-only 2026-11-16 04:11 UTC
+
+Produção `dlfvkawaiqduhlazsszm`:
+- 38 Edge Functions ACTIVE; runtimes principais: upstatus v480, upstatus-team-lite v15, upstatus-test v281, beta10 v6.
+- 7 migrations no ledger; branch gerenciada `main` permanece `MIGRATIONS_FAILED`.
+- 10/10 tabelas public com RLS e sem policies; 126 grants anon/authenticated em nove tabelas, incluindo 18 TRUNCATE.
+- Realtime: 106/106 mensagens `private=false`, um tópico, zero policies e seis grants de cliente em `realtime.messages`.
+- Três funções `upstatus_broadcast_*` SECURITY DEFINER com EXECUTE para anon e authenticated.
+- Storage: dois buckets públicos, 188 objetos, zero policies e oito grants de cliente em `storage.objects`.
+- Security Advisor: 10 INFO e seis WARN; performance e health advisors sem findings.
+
+Laboratório `bfpjtfqlnypisxljoxkb`:
+- 39 migrations e duas Edge Functions isoladas; zero usuários/fixtures de produto, zero mensagens Realtime, zero buckets e zero objetos Storage.
+- 18/18 tabelas public com RLS sem policies; zero grants diretos em public, mas seis grants de cliente em `realtime.messages` e oito em `storage.objects`.
+- Três funções broadcast SECURITY DEFINER sem EXECUTE para anon/authenticated; Performance Advisor com cinco unused-index INFO; Health sem findings.
+- Continua não sendo Full-Product TEST.
+
+As quatro migrations originais continuam ausentes/404. Os logs das últimas 24h expuseram somente PgBouncer/PostgreSQL; não há contagem atual sustentada de HTTP 402 nem prova de recuperação de quota. Os runtimes instalados Normal, Team Lite, TEST e beta10 ainda contêm `login(req,true)` e fallback nominal de papel; beta10 também mantém limpeza global de chat por nome literal.
+
+### Workflows e aceitação
+
+- Workflow Team Lite oficial ainda lê o manifesto raiz beta.22 e executa `supabase functions deploy upstatus`; não despachar.
+- Workflow TEST em develop ainda possui gatilho push e usa `SUPABASE_PROJECT_ID` genérico; não houve push em develop nem deploy.
+- Issue #78 continua OPEN, 0/8 critérios físicos; nenhum teste Tampermonkey/Sale Smartly foi executado.
+- Issue #79 continua OPEN, corpo histórico 16/35; comentários dedicados Engenharia/QA são o estado operacional atual.
+- A auditoria QA mais recente é [2026-11-16 03:45 UTC](https://github.com/Reekyi/UpStatus/blob/c9817d70b304e37d6abfdf4ba92c7c1bd5a9f924/docs/audits/2026-11-16-upstatus-qa-audit-0345-utc.md). Ela registra leitura integral de `docs/RELEASE_READINESS.md` (1.046.356 caracteres) e confirma os mesmos bloqueios.
+
+**Recomendação: NOT READY.** Próximos passos: revisão humana da #174; integrar #167 com #161/#168 em uma única linha Normal; resolver #80/#82 sem enfraquecer validators; corrigir workflow Team Lite; recuperar Full-Product TEST e os quatro SQLs; projetar quarentena privada/inspeção de bytes; avançar RT-01/AUTH-03/ACL-Storage; manter #78 aberta até confirmação física de Ricardo.
