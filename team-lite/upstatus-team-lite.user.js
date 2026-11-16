@@ -46,6 +46,17 @@
  * disabled by default; do not enable for users until authenticated browser/WebRTC
  * E2E tests prove explicit call invitation/acceptance and open voice-room membership.
  */
+/**
+ * Public Realtime is only an untrusted call-directory discovery hint while
+ * server-mediated signaling is enabled. No call-control event may use this path.
+ */
+function isAllowedPublicCallDiscoverySignal(signal) {
+  return !!signal && typeof signal === "object" && !Array.isArray(signal) &&
+    Object.prototype.hasOwnProperty.call(signal, "type") &&
+    Object.prototype.hasOwnProperty.call(signal, "discoveryOnly") &&
+    (signal.type === "presence" || signal.type === "ended") && signal.discoveryOnly === true;
+}
+
 function createSignalingTransport({
   request,
   enabled = false,
@@ -1337,10 +1348,10 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
     signalPollStops[roomId]=signalTransport.startPolling(roomId,async function(event){
       if(!event||!event.payload)return;
       if(event.event_type==='call_signal'){
-        var p=Object.assign({},event.payload,{from:event.sender,to:member,callId:event.payload.callId||callId,_authenticatedTransport:true});
+        var p=Object.assign({},event.payload,{from:event.sender,to:member,callId:event.payload.callId||callId});
         try{p.participants=await signalGetRoomMembers(roomId);}catch(e){p.participants=[member,event.sender];}
         if(!p.initiator)p.initiator=signalCreatorCallIds[p.callId]?member:event.sender;
-        await receiveCallSignal(p);
+        await receiveCallSignal(p,true);
         return;
       }
       if(event.event_type==='voice_room_signal'){
@@ -1375,7 +1386,7 @@ window.addEventListener('pagehide',function(){try{callCleanup(false,'pagehide').
           signalTransport.decline(roomId).catch(function(){}).finally(function(){delete signalRoomByCallId[callId];delete signalCallIdByRoom[roomId];delete signalCreatorCallIds[callId];});
           continue;
         }
-        await receiveCallSignal({type:'invite',callId:callId,from:invitation.invitedBy,initiator:invitation.invitedBy,participants:[invitation.invitedBy,member],to:member,_authenticatedTransport:true});
+        await receiveCallSignal({type:'invite',callId:callId,from:invitation.invitedBy,initiator:invitation.invitedBy,participants:[invitation.invitedBy,member],to:member},true);
       }
     }catch(e){}finally{signalInvitationPollBusy=false;}
   }
@@ -3580,9 +3591,9 @@ function renderChatText(text){
     if(sent)message('Pedido para entrar enviado a '+target+'. Aguarde a confirmação.',false);
     else message('Não foi possível enviar o pedido de entrada.',true);
   }
-  async function receiveCallSignal(p){
+  async function receiveCallSignal(p,authenticatedSource){
     if(!p||typeof p.type!=='string'||typeof p.callId!=='string'||!p.callId||p.callId.length>160||typeof p.from!=='string'||!p.from||p.from.length>80||p.from===member)return;
-    if(signalTransportFlag&&!p._authenticatedTransport&&!((p.type==='presence'||p.type==='ended'||p.type==='join_declined')&&p.discoveryOnly===true))return;
+    if(signalTransportFlag&&!authenticatedSource&&!isAllowedPublicCallDiscoverySignal(p))return;
     if(p.type!=='presence'&&p.type!=='ended'&&p.to!==member)return;
     if((p.type==='offer'||p.type==='answer')&&(!p.sdp||typeof p.sdp.sdp!=='string'||p.sdp.sdp.length>100000))return;
     if(p.type==='ice'&&(!p.candidate||JSON.stringify(p.candidate).length>4096))return;
@@ -3760,7 +3771,7 @@ function renderChatText(text){
         .on('broadcast',{event:'remote_command'},function(){
           if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)scheduleRemoteStatusPoll();
         })
-        .on('broadcast',{event:'call_signal'},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)receiveCallSignal(payload&&payload.payload||{});})
+        .on('broadcast',{event:'call_signal'},function(payload){if(isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)receiveCallSignal(payload&&payload.payload||{},false);})
         .on('broadcast',{event:VOICE_ROOM_EVENT},function(payload){if(!signalTransportFlag&&isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)voiceRoomReceive(payload&&payload.payload||{});})
         .on('broadcast',{event:SCREEN_ROOM_EVENT},function(payload){if(!signalTransportFlag&&isAuthenticated()&&realtimeGeneration===authGeneration&&realtimeMember===member)screenShareReceive(payload&&payload.payload||{});})
         .on('broadcast',{event:'remote_result'},function(){ if(!isAuthenticated()||realtimeGeneration!==authGeneration||realtimeMember!==member)return; /* Public Realtime is an untrusted hint; waitRemoteResult polls the authenticated result endpoint. */ })
