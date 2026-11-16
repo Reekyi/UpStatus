@@ -4329,3 +4329,87 @@ As quatro migrations originais continuam ausentes/404. Os logs das últimas 24h 
 - A auditoria QA mais recente é [2026-11-16 03:45 UTC](https://github.com/Reekyi/UpStatus/blob/c9817d70b304e37d6abfdf4ba92c7c1bd5a9f924/docs/audits/2026-11-16-upstatus-qa-audit-0345-utc.md). Ela registra leitura integral de `docs/RELEASE_READINESS.md` (1.046.356 caracteres) e confirma os mesmos bloqueios.
 
 **Recomendação: NOT READY.** Próximos passos: revisão humana da #174; integrar #167 com #161/#168 em uma única linha Normal; resolver #80/#82 sem enfraquecer validators; corrigir workflow Team Lite; recuperar Full-Product TEST e os quatro SQLs; projetar quarentena privada/inspeção de bytes; avançar RT-01/AUTH-03/ACL-Storage; manter #78 aberta até confirmação física de Ricardo.
+
+
+## Engineering checkpoint — 2026-11-16 0605 UTC
+
+### Escopo e integridade
+
+- Reconcilei branches, PRs obrigatórias, Issues #78/#79, CI, workflows, Project Guide, Handoff, Release Checklist e o relatório QA mais recente.
+- A única alteração de código desta rodada foi na candidata Team Lite #171, isolada da branch oficial. A outra escrita é este checkpoint documental na PR #169.
+- Nenhuma branch oficial, banco, runtime, secret, feature flag ou configuração de produção foi alterada. Não houve merge, deploy, release, publicação de userscript, migration, SQL write, workflow dispatch ou operação destrutiva.
+- Não houve checkout local. O teste citado foi executado no runner isolado do GitHub Actions.
+
+### Refs oficiais e PRs obrigatórias
+
+Heads confirmados pelos metadados atuais das PRs:
+- master: `a9288ccfcb0f308d3a587bfca624418a395be07b`
+- develop: `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`
+- team-lite-official: `9065bc1536fde64f437f6f12b7abb9b072cb8281`
+- QA: `b68df996f1be2079f7308c4023312b0b8bf662bd`
+
+| PR | HEAD | Estado / evidência |
+|---|---|---|
+| [#74 Normal](https://github.com/Reekyi/UpStatus/pull/74) | `dcaf6a072546eda0089e0cee4018c3047011f600` | aberta/Draft; Validate [43376770142](https://github.com/Reekyi/UpStatus/actions/runs/43376770142) e Smoke [43376770200](https://github.com/Reekyi/UpStatus/actions/runs/43376770200) SUCCESS |
+| [#75 baseline Team Lite](https://github.com/Reekyi/UpStatus/pull/75) | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | aberta/Draft; Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) PASS histórico |
+| [#76 Team Lite](https://github.com/Reekyi/UpStatus/pull/76) | `83a6cc4503ddc01254f6a2abbcc7af5c6803eb94` | aberta/Draft; Candidate Checks [43363871881](https://github.com/Reekyi/UpStatus/actions/runs/43363871881) SUCCESS |
+| [#80 continuidade](https://github.com/Reekyi/UpStatus/pull/80) | `46541cad8b5592e183406ed2d78afc2b43c47bff` | aberta/Draft; Validate [43651529898](https://github.com/Reekyi/UpStatus/actions/runs/43651529898) FAILURE: `client signed upload helper missing` |
+| [#82 QA](https://github.com/Reekyi/UpStatus/pull/82) | `b68df996f1be2079f7308c4023312b0b8bf662bd` | aberta/Draft; Validate [43812990969](https://github.com/Reekyi/UpStatus/actions/runs/43812990969) FAILURE: `production updateURL mismatch` |
+
+As cinco PRs obrigatórias continuam abertas e Draft. As reviews consultadas nas #74/#75/#76/#80/#82 e candidatas #167/#168/#169/#174/#175 não registraram review submetida. #171 também permanece sem review humana.
+
+### Candidata Team Lite #171 — avanço desta execução
+
+A PR [#171](https://github.com/Reekyi/UpStatus/pull/171), anteriormente fechada sem merge, foi reaberta após reavaliar o diff: a branch oficial Team Lite ainda continha fallback de setup que promovia contas por nome, e a candidata já corrigia a autorização de limpeza global do chat. Em vez de criar uma PR duplicada, completei a mesma candidata.
+
+- Branch: `fix/team-lite-chat-clear-admin-role-20261116`.
+- Base: `team-lite-official` em `9065bc1`.
+- HEAD: `8eae059a4b20e5a04370d8d39d6da7f32a220335`.
+- Compare: 8 commits ahead / 0 behind; quatro arquivos alterados.
+- Setup agora preserva privilégio administrativo somente quando o papel persistido é exatamente `implementation_admin`; papéis ausentes ou inesperados resultam em `implementation_user`.
+- Limpeza global do chat exige a identidade responsável e o papel persistido no servidor; interface e handler também verificam o papel. A mensagem de auditoria identifica quem executou.
+- O teste isolado agora executa o handler de setup extraído em Node VM com mocks de banco/sessão, cobrindo papel ausente, usuário, administrador e valor inesperado.
+- Workflow dedicado [43814131143](https://github.com/Reekyi/UpStatus/actions/runs/43814131143) SUCCESS no HEAD exato. O log confirma: `Team Lite authorization regression passed: setup cannot elevate by name; chat-wide clear requires persisted role on server and client.`
+- A PR continua Draft, aberta, sem review e sem merge. Este teste específico não substitui Validate/Smoke completo nem teste físico Team Lite.
+
+### Outras candidatas e dependências
+
+- [#174](https://github.com/Reekyi/UpStatus/pull/174) HEAD `277dd7bbfe87a4e40c0ca62395a83c3fe01c7849`: Validate [43802407509](https://github.com/Reekyi/UpStatus/actions/runs/43802407509) SUCCESS para contratos offline de upload assinado; não houve Storage real, inspeção de bytes ou teste de navegador.
+- [#175](https://github.com/Reekyi/UpStatus/pull/175) HEAD `d20187c22bb0684ce19aabc38fbc5ebb774fdd40`: regressão dedicada [43808590208](https://github.com/Reekyi/UpStatus/actions/runs/43808590208) SUCCESS; Validate completo [43808590131](https://github.com/Reekyi/UpStatus/actions/runs/43808590131) FAILURE depois da nova regressão passar, por dependência herdada `client signed upload helper missing`.
+- [#167](https://github.com/Reekyi/UpStatus/pull/167) Validate [43784897392](https://github.com/Reekyi/UpStatus/actions/runs/43784897392) SUCCESS; [#168](https://github.com/Reekyi/UpStatus/pull/168) Validate [43755941462](https://github.com/Reekyi/UpStatus/actions/runs/43755941462) SUCCESS. Continuam linhas separadas; não há um único candidato Normal com #161 + #167 + #168 submetido a Validate e Smoke no mesmo HEAD.
+- #172 permanece closed/merged somente dentro da linhagem candidata #167; a QA recomenda manter o fast-forward. Nenhum ref oficial foi alterado.
+- A auditoria QA mais recente é o relatório [05:40 UTC](https://github.com/Reekyi/UpStatus/blob/b68df996f1be2079f7308c4023312b0b8bf662bd/docs/audits/2026-11-16-upstatus-qa-audit-0540-utc.md). Ela leu o documento completo de Release Readiness e manteve NOT READY. O Validate #82 posterior 43812990969 reproduziu o updateURL mismatch no HEAD QA atual.
+
+### Supabase — snapshot SELECT/catalog 2026-11-16 06:00 UTC
+
+Produção `dlfvkawaiqduhlazsszm`:
+- Projeto ACTIVE_HEALTHY, PostgreSQL 17.11.0.002; 7 migrations no ledger e 38 Edge Functions ACTIVE. A branch gerenciada `main` permanece `MIGRATIONS_FAILED`; preview reporta ACTIVE_HEALTHY.
+- Runtimes principais: `upstatus` v480, `upstatus-team-lite` v15, `upstatus-test` v281 e beta10 v6.
+- 10/10 tabelas public com RLS e zero policies; nove tabelas concedem privilégios diretos a anon/authenticated, totalizando 126 grants e 18 TRUNCATE.
+- Realtime: 106/106 registros dos últimos 14 dias com `private=false`, um tópico, zero policies e seis grants de cliente em `realtime.messages`.
+- Três funções `upstatus_broadcast_*` SECURITY DEFINER, `search_path=public`, EXECUTE para anon e authenticated. A função de mensagens transmite o registro OLD/NEW completo.
+- Storage: buckets públicos `chat-images` (168 objetos) e `profile-images` (20 objetos), 188 objetos no total, zero policies próprias em `storage.objects` e oito grants de cliente.
+- Default ACLs de produção ainda concedem privilégios amplos a anon/authenticated em public, storage e schemas expostos.
+- Contas: cinco usuários, três com papel persistido `implementation_admin`, dois `implementation_user`, zero papéis nulos. Isso não autoriza alteração de produção.
+- A tabela e RPC de rate limit de setup não existem em produção.
+- Security Advisor: 10 INFO de RLS sem policy e seis WARN de SECURITY DEFINER executável por clientes; Performance e Health sem findings.
+
+Laboratório `bfpjtfqlnypisxljoxkb`:
+- ACTIVE_HEALTHY, 39 migrations, duas Edge Functions; zero usuários/fixtures, mensagens Realtime, buckets e objetos Storage.
+- 18 tabelas public com RLS sem policies; zero grants diretos em public, mas seis grants de cliente em `realtime.messages` e oito em `storage.objects`.
+- As três funções broadcast usam search_path vazio e não permitem EXECUTE a anon/authenticated.
+- Tabela e RPC de rate limit de setup existem apenas no laboratório.
+- Security Advisor: 18 INFO de RLS sem policy; Performance: cinco unused-index INFO; Health sem findings. Não é Full-Product TEST.
+
+Os quatro SQLs originais continuam ausentes do repositório; não reconstruir por inferência. A consulta de logs desta rodada falhou internamente em produção e na resolução de permissão do laboratório; portanto não há contagem nova de HTTP 402 nem conclusão sobre quota.
+
+### Workflows e aceitação
+
+- Team Lite production workflow ainda usa CLI `latest` e executa `supabase functions deploy upstatus`, embora o slug correto seja `upstatus-team-lite`; não despachar.
+- Develop TEST workflow ainda tem gatilho automático por push e usa `SUPABASE_PROJECT_ID` genérico.
+- Normal production workflow é manual, mas também usa project ID genérico e CLI `latest`.
+- Runtimes implantados Normal, Team Lite e TEST ainda contêm fallback de setup por nome e limpeza global do chat autorizada apenas pelo nome Ricardo. As candidatas não foram implantadas.
+- Issue [#78](https://github.com/Reekyi/UpStatus/issues/78) permanece OPEN, 0/8 critérios físicos; nenhum teste Tampermonkey/Sale Smartly sem F5 ocorreu.
+- Issue [#79](https://github.com/Reekyi/UpStatus/issues/79) permanece OPEN; seu corpo 16/35 é histórico. Os comentários dedicados Engenharia/QA são o registro operacional.
+
+**Recomendação: NOT READY.** Próximos passos: revisão independente de #171/#174/#175; reconciliar #174/#175 em develop somente após revisão; consolidar #161/#167/#168 em um candidato Normal e rodar Validate + Smoke no mesmo HEAD; resolver #80/#82 sem enfraquecer validators; corrigir dispatcher Team Lite e allowlist do TEST; recuperar SQLs originais e Full-Product TEST; avançar RT-01/AUTH-03/ACL-Storage; manter #78 aberta até confirmação física de Ricardo.
