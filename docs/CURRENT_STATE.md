@@ -4147,3 +4147,45 @@ Lab `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11, 39 migrations, two
 - No merge, deploy, release, migration, production SQL write, secret/flag/role/grant/policy/ACL change, workflow dispatch, billing query, or userscript publication occurred. All Supabase SQL was SELECT-only. GitHub writes were limited to isolated documentation/candidate branches and coordination comments. No local checkout or local tests were available; cited tests are existing GitHub Actions runs only.
 
 **Recommendation: NOT READY.** Next: obtain independent review of #167/#168 and #76; have QA incorporate #82 HEAD `aca7f840` and Validate `43776040353`; resolve #80/#82 inherited validators without weakening them; correct the Team Lite deploy workflow; recover Full-Product TEST and original migration provenance; continue RT-01/AUTH-03/ACL-Storage; keep #78 open until physical acceptance.
+
+
+## Engineering checkpoint — 2026-11-16T01:14:00Z (remote GitHub/Supabase verification)
+
+### Required refs, PRs and current exact-head CI
+- Official refs rechecked: master `9d40461babcec8eb868c2a04be9c675df7da381`, develop `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`, team-lite-official `9065bc1536fde64f437f6f12b7abb9b072cb8281`.
+- Required PRs remain open/Draft/unmerged: #74 `dcaf6a0` Validate + Smoke SUCCESS; #75 `7bbf9b9` historical Candidate Checks SUCCESS; #76 `83a6cc4` Candidate Checks SUCCESS; #80 `46541cad` Validate FAILURE; #82 `465100b10220b239ac407069cd3dc38c7c9e660f` Validate [43781245980](https://github.com/Reekyi/UpStatus/actions/runs/43781245980) FAILURE: `production updateURL mismatch` at `scripts/validate.mjs:26`.
+- #80 latest known failure remains [43651529898](https://github.com/Reekyi/UpStatus/actions/runs/43651529898): `client signed upload helper missing` at `scripts/validate.mjs:55`.
+- The latest QA-owned audit file [2026-11-16 00:33 UTC](https://github.com/Reekyi/UpStatus/blob/qa/release-readiness-2026-11-04-master/docs/audits/2026-11-16-upstatus-qa-audit-0033-utc.md) records the prior QA HEAD `aca7f840`; live PR #82 has advanced to `465100b`. Engineering updated only its existing coordination comment [6902912399](https://github.com/Reekyi/UpStatus/pull/82#issuecomment-6902912399), asking QA to incorporate the newer exact-head failure.
+
+### Normal staged-attachment signed-upload correction
+- A source-to-source audit found a functional gap in #167: its userscript called `/api/chat/upload-url` and `/api/profile/avatar-upload-url`, but its server template did not define/register those handlers.
+- The signed-upload route/profile handler and offline contract tests were ported from #85 into the isolated #167 candidate line. The client helper was then tightened to restrict routes/buckets/MIME, verify project origin/path/token, set `credentials: omit`, and `redirect: error`.
+- Current #167 head: `d25b3fbe1bd28a222d45ead6a467ceb7fd00548a`. Exact candidate Validate [43784897392](https://github.com/Reekyi/UpStatus/actions/runs/43784897392) SUCCESS. The log explicitly reports:
+  - PASS signed-upload client: route, bucket, MIME, size, project origin, object path, one-time token, PUT contract and UI wiring.
+  - PASS signed-upload server: bucket, path, token, MIME, size, HTTPS origin and profile compatibility.
+  - Chat regression tests passed; Validation OK for PROD/TEST 3.4.7.
+- Intermediate Validate runs [43784659556](https://github.com/Reekyi/UpStatus/actions/runs/43784659556) and [43784740117](https://github.com/Reekyi/UpStatus/actions/runs/43784740117) failed on assertions that were retained and fixed. Do not report those intermediate heads as green.
+- The candidate still trusts client-declared MIME/size and does not inspect bytes before upload. Production Storage buckets remain public and have zero object policies; no quarantine bucket exists. This is a functional candidate correction, not an ACL/Storage security completion.
+- A temporary stacked PR #172 was marked merged by GitHub because its commits were fast-forwarded into the #167 candidate base (expected old SHA checked). This did not merge into master/develop/team-lite-official. Temporary validation PR #173 was closed unmerged after capturing Validate [43784897392](https://github.com/Reekyi/UpStatus/actions/runs/43784897392). Both auxiliary branches are preserved. #167 remains open/Draft and is the candidate of record.
+- #167 still needs independent review and reconciliation with #161/#168 before any integration decision.
+
+### Team Lite workflow hazard
+- The live official workflow `.github/workflows/deploy-production.yml` on `team-lite-official` reads root `release.json`, which remains `3.0.40-beta.22`, while `team-lite/release.json` says buildVersion `3.4.30` stable.
+- It uses Supabase CLI `latest` and deploys slug `upstatus`, not `upstatus-team-lite`. Do not dispatch it.
+- Develop TEST workflow still uses generic `SUPABASE_PROJECT_ID`, CLI `latest`, and push trigger. Candidate #76 has stronger TEST target guards, but is not integrated.
+
+### Supabase read-only snapshot
+Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, 38 Edge Functions, seven migrations, 106/106 Realtime rows public in one topic, zero policies on `realtime.messages`, six anon/authenticated table grants on Realtime, 126 client grants on public tables including 18 TRUNCATE, ten RLS/no-policy tables, 24 default ACL entries, three SECURITY DEFINER broadcasts executable by anon/authenticated, public `chat-images` (168 objects) and `profile-images` (20 objects), zero `storage.objects` policies. Bucket MIME allowlists and 20 MiB size caps are configured, but do not inspect file bytes.
+- Production runtimes remain Normal `upstatus` v480 and Team Lite `upstatus-team-lite` v15. Both still use legacy setup `login(req,true)`; the setup-invite rate-limit RPC is not integrated. Deployed chat-wide clear still has the legacy authorization path.
+- Lab `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, 39 migrations, two isolated Edge Functions, no managed branches, no buckets/objects/Realtime rows, zero direct client grants on public tables, 18 RLS/no-policy tables, 25 default ACL entries. It remains an auth/signaling lab, not Full-Product TEST.
+- Production managed branch `main` remains `MIGRATIONS_FAILED`. Four original migration SQLs remain unavailable: `20261023154754_create_upstatus_visual_config.sql`, `20261026195855_add_chat_message_file_name.sql`, `20261027154329_allow_chat_document_mime_types.sql`, `20261027155438_set_upstatus_upload_limits_20mb.sql`.
+- Last 24-hour unified log query returned only PgBouncer/PostgreSQL sources in both projects; no Edge/Function source, so no current HTTP 402 count or quota-recovery claim is supported.
+- SQL in this checkpoint was SELECT/catalog-only. No production/lab write, migration, secret/flag/grant/policy/ACL change, deploy, billing query or workflow dispatch occurred.
+
+### Acceptance, documentation and safety
+- Issue [#78](https://github.com/Reekyi/UpStatus/issues/78) remains OPEN, 0/8 physical acceptance criteria; no physical no-F5 test was performed.
+- Issue [#79](https://github.com/Reekyi/UpStatus/issues/79) remains OPEN; 16/35 in the body is historical. Dedicated Engineering/QA JSON comments are the operational record; QA comment ID 6744331652 was preserved.
+- Read Project Guide, Continuity Handoff, Release Checklist, the current tail of CURRENT_STATE and the latest QA audit. QA reports the full `docs/RELEASE_READINESS.md` blob as 8,423 lines/1,046,356 bytes; this run's large-file fetch returned empty/unsupported content, so the latest QA audit plus live checks were used for the delta. Do not claim a fresh full read of that large blob in this run.
+- No merge into official branches, deploy, release, userscript publication, production SQL write, migration, secret/flag change, workflow dispatch, billing query or destructive operation occurred. No local checkout or local tests were available; Validate cited above ran on isolated GitHub Actions runners.
+
+**Recommendation: NOT READY.** Keep #167 Draft pending independent QA review and byte-validation/Storage design; reconcile #161/#168; correct Team Lite deploy workflow; recover Full-Product TEST and original migration provenance; continue RT-01/AUTH-03/ACL-Storage; keep #78 open until physical acceptance.
