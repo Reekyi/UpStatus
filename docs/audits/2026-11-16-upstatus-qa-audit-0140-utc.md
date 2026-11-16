@@ -1,7 +1,7 @@
 # Auditoria independente de qualidade — UpStatus
 **Execução:** 2026-11-16 01:40 UTC  
 **Repositório:** Reekyi/UpStatus  
-**Projetos Supabase:** produção \`dlfvkawaiqduhlazsszm\`; laboratório \`bfpjtfqlnypisxljoxkb\`  
+**Projetos Supabase:** produção `dlfvkawaiqduhlazsszm`; laboratório `bfpjtfqlnypisxljoxkb`  
 **Recomendação:** **NOT READY**
 
 ## Resumo executivo
@@ -23,14 +23,14 @@ Não foram executados testes físicos, não foi iniciado novo workflow e não ho
 
 | Ref | HEAD |
 |---|---|
-| master | \`9d40461babcec8eb8686c2a04be9c675df7da381\` |
-| develop | \`6b33e1e26ad105143f00372ae6d0f2fa52df60d6\` |
-| team-lite-official | \`9065bc1536fde64f437f6f12b7abb9b072cb8281\` |
-| QA | \`465100b10220b239ac407069cd3dc38c7c9e660f\` |
+| master | `9d40461babcec8eb8686c2a04be9c675df7da381` |
+| develop | `6b33e1e26ad105143f00372ae6d0f2fa52df60d6` |
+| team-lite-official | `9065bc1536fde64f437f6f12b7abb9b072cb8281` |
+| QA | `465100b10220b239ac407069cd3dc38c7c9e660f` |
 
-QA está 353 commits à frente e 1 atrás de master. O único arquivo identificado no lado exclusivo de master é um checkpoint documental de 08/11: \`docs/checkpoints/2026-11-08-production-migration-history-preflight.md\`.
+QA está 353 commits à frente e 1 atrás de master. O único arquivo identificado no lado exclusivo de master é um checkpoint documental de 08/11: `docs/checkpoints/2026-11-08-production-migration-history-preflight.md`.
 
-A branch QA continua sendo a base da PR #82. O arquivo \`docs/RELEASE_READINESS.md\` foi lido por inteiro via blob. Seu último snapshot interno é de **2026-11-15 06:30 UTC**, portanto está desatualizado em relação aos estados consultados nesta execução.
+A branch QA continua sendo a base da PR #82. O arquivo `docs/RELEASE_READINESS.md` foi lido por inteiro via blob. Seu último snapshot interno é de **2026-11-15 06:30 UTC**, portanto está desatualizado em relação aos estados consultados nesta execução.
 
 A leitura de branch protection/rulesets não pôde ser concluída: o endpoint do GitHub retornou HTTP 403, “Resource not accessible by integration”. Esta auditoria não afirma um estado atual de proteção de branches.
 
@@ -38,14 +38,14 @@ A leitura de branch protection/rulesets não pôde ser concluída: o endpoint do
 
 | PR | HEAD | Relação com a base | Evidência observada |
 |---|---|---:|---|
-| #74 Normal | \`dcaf6a072546\` | 887 à frente, 1 atrás de master | Validate e Smoke históricos PASS |
-| #75 Team Lite baseline | \`7bbf9b90b3a7\` | 59 à frente de team-lite-official | Candidate Checks histórico PASS |
-| #76 Team Lite ativa | \`83a6cc4503dd\` | 386 à frente de team-lite-official; 327 commits além de #75 | Candidate Checks PASS |
-| #82 QA | \`465100b10220\` | 353 à frente, 1 atrás de master | Validate FAIL |
-| #161 Normal rate limit | \`557814dc31be\` | candidata baseada na linha #74 | Validate e Smoke PASS |
-| #167 updater/chat/uploads | \`d25b3fbe1bd2\` | 21 à frente de master | Validate PASS; sem Smoke observado |
-| #168 Retry-After | \`c6de3eb29bb4\` | 2 commits sobre #161 | Validate PASS; sem Smoke observado |
-| #170 updater/chat | \`693039eddbd0\` | 12 à frente de master | Validate FAIL |
+| #74 Normal | `dcaf6a072546` | 887 à frente, 1 atrás de master | Validate e Smoke históricos PASS |
+| #75 Team Lite baseline | `7bbf9b90b3a7` | 59 à frente de team-lite-official | Candidate Checks histórico PASS |
+| #76 Team Lite ativa | `83a6cc4503dd` | 386 à frente de team-lite-official; 327 commits além de #75 | Candidate Checks PASS |
+| #82 QA | `465100b10220` | 353 à frente, 1 atrás de master | Validate FAIL |
+| #161 Normal rate limit | `557814dc31be` | candidata baseada na linha #74 | Validate e Smoke PASS |
+| #167 updater/chat/uploads | `d25b3fbe1bd2` | 21 à frente de master | Validate PASS; sem Smoke observado |
+| #168 Retry-After | `c6de3eb29bb4` | 2 commits sobre #161 | Validate PASS; sem Smoke observado |
+| #170 updater/chat | `693039eddbd0` | 12 à frente de master | Validate FAIL |
 
 Evidências principais:
 
@@ -70,11 +70,11 @@ Esses resultados são testes automatizados em ambiente isolado. Não simulam a p
 
 ### #82: falha herdada de master
 
-O log construiu Normal e TEST em 3.4.7 e falhou em \`scripts/validate.mjs:26\`:
+O log construiu Normal e TEST em 3.4.7 e falhou em `scripts/validate.mjs:26`:
 
-\`VALIDATION FAILED: production updateURL mismatch\`
+`VALIDATION FAILED: production updateURL mismatch`
 
-O manifesto master está correto em \`release.json\`, com URL estável em \`/functions/v1/upstatus/upstatus.user.js\`. O \`scripts/build.mjs\` de master ainda define o host de API Normal como beta10 e constrói o updateURL a partir desse host legado. O validator espera o endpoint estável.
+O manifesto master está correto em `release.json`, com URL estável em `/functions/v1/upstatus/upstatus.user.js`. O `scripts/build.mjs` de master ainda define o host de API Normal como beta10 e constrói o updateURL a partir desse host legado. O validator espera o endpoint estável.
 
 A #82 não deve ser usada como atalho para integrar o código: é uma branch QA com 353 commits de divergência e histórico documental extenso, e seu Validate continua falhando.
 
@@ -82,19 +82,19 @@ A #82 não deve ser usada como atalho para integrar o código: é uma branch QA 
 
 A #167 agora contém:
 
-- URL de atualização derivada de \`release.json.scriptUrl\`, separada do host de API.
+- URL de atualização derivada de `release.json.scriptUrl`, separada do host de API.
 - Verificação de consistência do updateURL/downloadURL.
 - Endpoints de upload assinado para chat e avatar.
 - Validação no cliente de rota, bucket, MIME, tamanho, origem, caminho, token de uso único e contrato PUT.
 - Validação no servidor de bucket, caminho, token, MIME, tamanho e origem HTTPS.
-- Autorização de limpeza do chat por conta responsável **e** papel persistido \`implementation_admin\`.
+- Autorização de limpeza do chat por conta responsável **e** papel persistido `implementation_admin`.
 - Regressões de chat e anexos pendentes.
 
 O Validate 43784897392 passou nos testes offline de cliente/servidor, regressão de chat e validação do build. O próprio log informa PROD 3.4.7 / TEST 3.4.7. Não foi observado Smoke para esse HEAD e os testes de upload usam mocks, não Storage real.
 
 A #170 falha na assertion “files are staged instead of uploaded immediately”. A #167 mudou o contrato para anexos pendentes; a #170 ainda testa o fluxo antigo de upload imediato. A correção é reconciliar o teste com o novo contrato e rodar Validate + Smoke no HEAD integrado. Não remover a assertion para forçar verde.
 
-A #167 ainda não resolve sozinha a troca da API Normal: seu build separa a URL de atualização, mas mantém o host beta10 para chamadas de API. A #161 é a candidata que troca esse destino para \`upstatus\`; #168 acrescenta \`Retry-After: 900\` e \`Access-Control-Expose-Headers\`. A integração #167 + #161 + #168 precisa ser feita e testada como uma unidade.
+A #167 ainda não resolve sozinha a troca da API Normal: seu build separa a URL de atualização, mas mantém o host beta10 para chamadas de API. A #161 é a candidata que troca esse destino para `upstatus`; #168 acrescenta `Retry-After: 900` e `Access-Control-Expose-Headers`. A integração #167 + #161 + #168 precisa ser feita e testada como uma unidade.
 
 O bump de versão ainda falta. A #167 valida 3.4.7, igual à versão instalada. Um usuário já em 3.4.7 pode não receber uma atualização que também se anuncia como 3.4.7. O workflow de produção master ainda exige exatamente 3.4.7, então o guard também terá que acompanhar a versão aprovada.
 
@@ -110,9 +110,9 @@ A #167 continua aberta/Draft e sua base é master. A #172 não foi integrada a m
 
 Foram lidos os workflows atuais das três branches:
 
-- [master deploy-production.yml](https://github.com/Reekyi/UpStatus/blob/master/.github/workflows/deploy-production.yml): manual-only, fixa a versão 3.4.7, usa CLI \`latest\`, lê \`SUPABASE_PROJECT_ID\` de secret genérico e não valida explicitamente o project ref esperado nem fixa o ref aprovado no checkout.
-- [team-lite-official deploy-production.yml](https://github.com/Reekyi/UpStatus/blob/team-lite-official/.github/workflows/deploy-production.yml): também usa CLI \`latest\` e project secret genérico; valida o manifesto raiz e executa deploy de \`upstatus\`, não \`upstatus-team-lite\`. Não despachar este workflow.
-- [develop deploy-test.yml](https://github.com/Reekyi/UpStatus/blob/develop/.github/workflows/deploy-test.yml): dispara por push e workflow_dispatch, usa project secret genérico e CLI \`latest\`, sem allowlist explícita do ID do laboratório. O valor do secret não foi lido; não há evidência para afirmar que aponta para produção, mas o destino não está validado no próprio workflow.
+- [master deploy-production.yml](https://github.com/Reekyi/UpStatus/blob/master/.github/workflows/deploy-production.yml): manual-only, fixa a versão 3.4.7, usa CLI `latest`, lê `SUPABASE_PROJECT_ID` de secret genérico e não valida explicitamente o project ref esperado nem fixa o ref aprovado no checkout.
+- [team-lite-official deploy-production.yml](https://github.com/Reekyi/UpStatus/blob/team-lite-official/.github/workflows/deploy-production.yml): também usa CLI `latest` e project secret genérico; valida o manifesto raiz e executa deploy de `upstatus`, não `upstatus-team-lite`. Não despachar este workflow.
+- [develop deploy-test.yml](https://github.com/Reekyi/UpStatus/blob/develop/.github/workflows/deploy-test.yml): dispara por push e workflow_dispatch, usa project secret genérico e CLI `latest`, sem allowlist explícita do ID do laboratório. O valor do secret não foi lido; não há evidência para afirmar que aponta para produção, mas o destino não está validado no próprio workflow.
 
 ## 5. Runtimes instalados e compatibilidade
 
@@ -120,43 +120,43 @@ Os bundles foram extraídos dos códigos implantados, sem publicar ou modificar 
 
 | Runtime | Versão da função | Userscript embutido | Host de API do cliente | Tópico Realtime |
 |---|---:|---|---|---|
-| Normal \`upstatus\` | v480 | 3.4.7 | \`upstatus-screen-share-3-1-1-beta10\` | \`upstatus-screen-share-live-3-1-1-beta10\` |
-| Team Lite \`upstatus-team-lite\` | v15 | 3.4.30 | \`upstatus-team-lite\` | \`upstatus-screen-share-live-3-1-1-beta10\` |
+| Normal `upstatus` | v480 | 3.4.7 | `upstatus-screen-share-3-1-1-beta10` | `upstatus-screen-share-live-3-1-1-beta10` |
+| Team Lite `upstatus-team-lite` | v15 | 3.4.30 | `upstatus-team-lite` | `upstatus-screen-share-live-3-1-1-beta10` |
 | Legacy beta10 | v6 | 3.1.1-beta8 | beta8 | tópico beta8 |
 
-Normal já é distribuído pelo endpoint \`upstatus\`, mas continua chamando a API beta10. Team Lite tem API própria, porém compartilha o tópico público legado. As candidatas ainda não foram publicadas.
+Normal já é distribuído pelo endpoint `upstatus`, mas continua chamando a API beta10. Team Lite tem API própria, porém compartilha o tópico público legado. As candidatas ainda não foram publicadas.
 
-As Edge Functions de produção somam 38 ACTIVE, incluindo funções de teste, versões beta e backups históricos. Os slugs principais são \`upstatus\` v480, \`upstatus-test\` v281, beta10 v6 e \`upstatus-team-lite\` v15. O laboratório tem duas funções ACTIVE: \`upstatus-signal-test\` v32 e \`upstatus-signal-e2e-once\` v3.
+As Edge Functions de produção somam 38 ACTIVE, incluindo funções de teste, versões beta e backups históricos. Os slugs principais são `upstatus` v480, `upstatus-test` v281, beta10 v6 e `upstatus-team-lite` v15. O laboratório tem duas funções ACTIVE: `upstatus-signal-test` v32 e `upstatus-signal-e2e-once` v3.
 
-Todas aparecem com \`verify_jwt=false\` na configuração da plataforma. Isso, isoladamente, não prova acesso anônimo: os handlers principais têm autenticação própria por sessão/token. A quantidade de funções históricas/teste ativas em produção merece inventário e decisão de retenção.
+Todas aparecem com `verify_jwt=false` na configuração da plataforma. Isso, isoladamente, não prova acesso anônimo: os handlers principais têm autenticação própria por sessão/token. A quantidade de funções históricas/teste ativas em produção merece inventário e decisão de retenção.
 
 ## 6. AUTH-03: setup e administração
 
 A inspeção dos handlers implantados Normal v480 e Team Lite v15 encontrou:
 
-- \`/api/account\` revela se uma conta precisa de setup.
-- \`/api/setup\` chama o fluxo legado de login/setup.
-- Nenhuma leitura de \`setupToken\`.
-- Nenhuma chamada a \`consume_upstatus_setup_invite\` ou \`consume_upstatus_setup_invite_rate_limit\`.
-- \`/api/chat/clear\` autoriza por comparação do nome “Ricardo”, sem exigir o papel persistido \`implementation_admin\`.
+- `/api/account` revela se uma conta precisa de setup.
+- `/api/setup` chama o fluxo legado de login/setup.
+- Nenhuma leitura de `setupToken`.
+- Nenhuma chamada a `consume_upstatus_setup_invite` ou `consume_upstatus_setup_invite_rate_limit`.
+- `/api/chat/clear` autoriza por comparação do nome “Ricardo”, sem exigir o papel persistido `implementation_admin`.
 
-O catálogo de produção confirma que não existem colunas \`setup_token_*\`, tabela de rate limit ou RPCs de convite. O banco possui cinco usuários, nenhum com hash de senha vazio e nenhum com papel vazio. Não foi reproduzida tomada de conta; o achado é a permanência do fluxo legado sem convite obrigatório.
+O catálogo de produção confirma que não existem colunas `setup_token_*`, tabela de rate limit ou RPCs de convite. O banco possui cinco usuários, nenhum com hash de senha vazio e nenhum com papel vazio. Não foi reproduzida tomada de conta; o achado é a permanência do fluxo legado sem convite obrigatório.
 
-No laboratório, a tabela \`upstatus_setup_invite_rate_limits\`, as quatro colunas \`setup_token_*\` em \`public.users\` e as duas RPCs de convite/rate limit existem. Não há usuários de teste. Isso comprova preparação isolada, não implantação em produção.
+No laboratório, a tabela `upstatus_setup_invite_rate_limits`, as quatro colunas `setup_token_*` em `public.users` e as duas RPCs de convite/rate limit existem. Não há usuários de teste. Isso comprova preparação isolada, não implantação em produção.
 
 ## 7. Realtime
 
-Consulta SELECT em produção encontrou **106 linhas**, todas com \`private=false\` e no tópico:
+Consulta SELECT em produção encontrou **106 linhas**, todas com `private=false` e no tópico:
 
-\`upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0\`
+`upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`
 
 Distribuição: 72 user_status, 26 db_change, 4 remote_result e 4 remote_command.
 
-Os dois clientes instalados assinam \`upstatus-screen-share-live-3-1-1-beta10\`, sem configuração \`private:true\` e sem \`realtime.setAuth()\`. O tópico dos clientes não coincide com o tópico usado pelos triggers. Isso é uma divergência de contrato; não foi reproduzida entrega ou falha de entrega em navegador nesta auditoria.
+Os dois clientes instalados assinam `upstatus-screen-share-live-3-1-1-beta10`, sem configuração `private:true` e sem `realtime.setAuth()`. O tópico dos clientes não coincide com o tópico usado pelos triggers. Isso é uma divergência de contrato; não foi reproduzida entrega ou falha de entrega em navegador nesta auditoria.
 
-O trigger de mensagens em produção envia \`to_jsonb(OLD/NEW)\` como campo \`record\`, usando \`private=false\`. Os triggers do laboratório reduziram o payload de mensagens/estado para \`{op: TG_OP}\`, mas continuam chamando \`realtime.send(..., false)\`. O laboratório tem zero linhas Realtime.
+O trigger de mensagens em produção envia `to_jsonb(OLD/NEW)` como campo `record`, usando `private=false`. Os triggers do laboratório reduziram o payload de mensagens/estado para `{op: TG_OP}`, mas continuam chamando `realtime.send(..., false)`. O laboratório tem zero linhas Realtime.
 
-Em ambos os projetos, anon/authenticated possuem privilégios efetivos SELECT, INSERT e UPDATE em \`realtime.messages\`, com zero policies na tabela. RT-01 permanece bloqueado.
+Em ambos os projetos, anon/authenticated possuem privilégios efetivos SELECT, INSERT e UPDATE em `realtime.messages`, com zero policies na tabela. RT-01 permanece bloqueado.
 
 ## 8. RLS, grants, SECURITY DEFINER e Storage
 
@@ -176,9 +176,9 @@ No laboratório, os grants diretos nas tabelas public foram removidos, mas isso 
 
 ### SECURITY DEFINER e default ACL
 
-As três funções de broadcast em produção são SECURITY DEFINER, usam \`search_path=public\` e permitem EXECUTE a anon/authenticated/service_role. O Security Advisor reporta três WARN para anon e três WARN para authenticated.
+As três funções de broadcast em produção são SECURITY DEFINER, usam `search_path=public` e permitem EXECUTE a anon/authenticated/service_role. O Security Advisor reporta três WARN para anon e três WARN para authenticated.
 
-No laboratório, as mesmas funções continuam SECURITY DEFINER, mas usam \`search_path=''\` e EXECUTE apenas para service_role. O Advisor retorna zero WARN, porém ainda há privilégios padrão amplos.
+No laboratório, as mesmas funções continuam SECURITY DEFINER, mas usam `search_path=''` e EXECUTE apenas para service_role. O Advisor retorna zero WARN, porém ainda há privilégios padrão amplos.
 
 Privilégios expandidos em default ACLs para anon/authenticated:
 
@@ -196,7 +196,7 @@ Produção:
 | chat-images | Sim | 168 | 20 MiB |
 | profile-images | Sim | 20 | 20 MiB |
 
-Ambos têm allowlist MIME, mas \`storage.objects\` tem zero policies próprias. anon/authenticated têm privilégios efetivos SELECT/INSERT/UPDATE/DELETE na tabela; RLS está habilitado sem policies. O laboratório não tem buckets nem objetos, mas também mantém grants diretos em \`storage.objects\` e zero policies.
+Ambos têm allowlist MIME, mas `storage.objects` tem zero policies próprias. anon/authenticated têm privilégios efetivos SELECT/INSERT/UPDATE/DELETE na tabela; RLS está habilitado sem policies. O laboratório não tem buckets nem objetos, mas também mantém grants diretos em `storage.objects` e zero policies.
 
 A #167 valida MIME e tamanho declarados pelo cliente e emite upload assinado. Isso não é inspeção dos bytes efetivamente enviados. Não há evidência de scanner, validação por assinatura mágica ou quarentena privada. A visibilidade pública dos buckets precisa de decisão explícita antes de fechar ACL-STORAGE.
 
@@ -212,17 +212,16 @@ A #167 valida MIME e tamanho declarados pelo cliente e emite upload assinado. Is
 | Mensagens | 302 | 0 |
 | Buckets Storage | 2 | 0 |
 
-A branch gerenciada \`main\` da produção permanece \`MIGRATIONS_FAILED\`; o preview está \`ACTIVE_HEALTHY\`.
+A branch gerenciada `main` da produção permanece `MIGRATIONS_FAILED`; o preview está `ACTIVE_HEALTHY`.
 
 Quatro SQLs originais continuam ausentes nos refs QA/master consultados:
 
-- \`20261023154754_create_upstatus_visual_config.sql\`
-- \`20261026195855_add_chat_message_file_name.sql\`
-- \`20261027154329_add_chat_message_file_name.sql\` — não confirmado; o ledger reporta \`add_chat_message_file_name\`
-- \`20261027154329_allow_chat_document_mime_types.sql\`
-- \`20261027155438_set_upstatus_upload_limits_20mb.sql\`
+- `20261023154754_create_upstatus_visual_config.sql`
+- `20261026195855_add_chat_message_file_name.sql`
+- `20261027154329_allow_chat_document_mime_types.sql`
+- `20261027155438_set_upstatus_upload_limits_20mb.sql`
 
-**Nota de precisão:** o nome/versão do segundo arquivo deve ser validado contra o ledger antes de qualquer recuperação. Não reconstruir SQL por inferência.
+Não reconstruir SQL por inferência.
 
 Na janela de logs consultada só apareceram pgbouncer_logs e postgres_logs. Não havia fonte Edge/Function suficiente para contar HTTP 402 nem provar recuperação de quota. Nenhuma conclusão de disponibilidade foi inferida a partir da ausência de logs Edge.
 
