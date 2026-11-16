@@ -43,7 +43,7 @@ assert.ok(!user.includes("function clearChatRicardo(){if(member!=='Ricardo')retu
   "client must not retain the display-name-only handler");
 
 const loginStart = server.indexOf("async function login(req:Request,setup:boolean){");
-const loginEnd = server.indexOf("\\nasync function members()", loginStart);
+const loginEnd = server.indexOf("\nasync function members()", loginStart);
 assert.ok(loginStart >= 0 && loginEnd > loginStart, "Team Lite setup login function must exist");
 let loginSource = server.slice(loginStart, loginEnd)
   .replace("async function login(req:Request,setup:boolean)", "async function login(req,setup)")
@@ -72,7 +72,7 @@ const context = vm.createContext({
 });
 context.accountData = null;
 context.account = async () => context.accountData;
-vm.runInContext(loginSource + "\\nglobalThis.__login=login;", context);
+vm.runInContext(loginSource + "\nglobalThis.__login=login;", context);
 
 async function setupAs(name, persistedRole, expectedRole) {
   context.accountData = { name, password_hash: null, role: persistedRole };
@@ -90,4 +90,4 @@ await setupAs("Ricardo", "implementation_user", "implementation_user");
 await setupAs("Ricardo", "implementation_admin", "implementation_admin");
 await setupAs("Ricardo", "unexpected_role", "implementation_user");
 
-process.stdout.write("Team Lite authorization regression passed: setup cannot elevate by name; chat-wide clear requires persisted role on server and client.\\n");
+process.stdout.write("Team Lite authorization regression passed: setup cannot elevate by name; chat-wide clear requires persisted role on server and client.\n");
