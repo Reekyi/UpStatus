@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import vm from "node:vm";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -41,4 +42,52 @@ assert.ok(user.includes("clearBtn.onclick=clearChatAdmin"),
 assert.ok(!user.includes("function clearChatRicardo(){if(member!=='Ricardo')return;"),
   "client must not retain the display-name-only handler");
 
-process.stdout.write("Team Lite chat-clear authorization regression passed.\n");
+const loginStart = server.indexOf("async function login(req:Request,setup:boolean){");
+const loginEnd = server.indexOf("\\nasync function members()", loginStart);
+assert.ok(loginStart >= 0 && loginEnd > loginStart, "Team Lite setup login function must exist");
+let loginSource = server.slice(loginStart, loginEnd)
+  .replace("async function login(req:Request,setup:boolean)", "async function login(req,setup)")
+  .replace("const p:any=", "const p=");
+assert.ok(loginSource.includes('const role=a.role==="implementation_admin"?"implementation_admin":"implementation_user";'),
+  "setup must preserve only the persisted implementation_admin role");
+assert.ok(!loginSource.includes('["Ricardo","Lohan","Guilherme"]'),
+  "setup must not elevate administrators by display name");
+
+const calls = { updates: [] };
+const context = vm.createContext({
+  readBody: async req => req.body || {},
+  response: (body, status = 200) => ({ body, status }),
+  passwordHash: value => "hash:" + value,
+  db: {
+    from: table => ({
+      update: row => ({
+        eq: async (column, value) => {
+          calls.updates.push({ table, row, column, value });
+          return { error: null };
+        }
+      })
+    })
+  },
+  createSession: async (name, known) => ({ name, role: known.role })
+});
+context.accountData = null;
+context.account = async () => context.accountData;
+vm.runInContext(loginSource + "\\nglobalThis.__login=login;", context);
+
+async function setupAs(name, persistedRole, expectedRole) {
+  context.accountData = { name, password_hash: null, role: persistedRole };
+  calls.updates.length = 0;
+  const result = await context.__login({ body: { name, password: "candidate-password" } }, true);
+  assert.equal(result.name, name, name + " session must preserve account identity");
+  assert.equal(result.role, expectedRole, name + " must receive the expected persisted role");
+  assert.equal(calls.updates.length, 1, name + " setup must persist exactly one role update");
+  assert.equal(calls.updates[0].row.role, expectedRole, name + " must persist the non-escalating role");
+}
+
+await setupAs("Ricardo", null, "implementation_user");
+await setupAs("Lohan", null, "implementation_user");
+await setupAs("Ricardo", "implementation_user", "implementation_user");
+await setupAs("Ricardo", "implementation_admin", "implementation_admin");
+await setupAs("Ricardo", "unexpected_role", "implementation_user");
+
+process.stdout.write("Team Lite authorization regression passed: setup cannot elevate by name; chat-wide clear requires persisted role on server and client.\\n");
