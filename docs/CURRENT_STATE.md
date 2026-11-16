@@ -4625,3 +4625,100 @@ Exact 24-hour log window 2026-11-15T10:13:00Z–2026-11-16T10:13:00Z:
 
 **Recommendation: NOT READY.** Next steps: obtain independent reviews for #171/#174/#175; reconcile #174/#175 only after review; resolve #80/#82 without weakening validators; consolidate #161/#167/#168 into one Normal candidate and run Validate + Smoke on the same HEAD; correct Team Lite dispatcher and TEST project isolation; recover original SQLs and provision Full-Product TEST; advance RT-01/AUTH-03/ACL-Storage; keep #78 open until physical acceptance.
 
+
+
+---
+
+## 2026-11-16 11:09 UTC — Engineering automation checkpoint
+
+### Scope and source inspection
+
+Re-read the current continuity material on the isolated documentation branch: `docs/CURRENT_STATE.md`, `docs/PROJECT_GUIDE.md`, `UPSTATUS_HANDOFF.md`, and `RELEASE_CHECKLIST.md`. Read the full QA branch `docs/RELEASE_READINESS.md` (8,422 lines; 1.01 MB) through the raw GitHub source. Its last internal checkpoint is 2026-11-15 06:30 UTC and is stale; the latest independent QA report is `docs/audits/2026-11-16-upstatus-qa-audit-1015-utc.md` (generated 10:19:58 UTC), which concludes NOT READY and records its own full-document review.
+
+This checkpoint was prepared after rechecking branch `docs/engineering-checkpoint-2026-11-15-168` at HEAD `290d4b4f0a939e81e94ddb59f537977208e58a1d`, PR #169 base/head, the current `docs/CURRENT_STATE.md` blob `7521d7ee269dddf49736d00fea43c9042ed648d5`, and the existing PR diff. The PR remains documentation-only; no product source was changed.
+
+### Official refs, required PRs, and CI
+
+Official refs:
+- `master`: `9d40461babcec8eb8686c2a04be9c675df7da381`
+- `develop`: `6b33e1e26ad105143f00372ae6d0f2fa52df60d6`
+- `team-lite-official`: `9065bc1536fde64f437f6f12b7abb9b072cb8281`
+- QA `qa/release-readiness-2026-11-04-master`: `90854c868ceca4fb717e863d25147341359cd415`
+
+GitHub branch objects returned `protected=false` for these refs. Do not assume a required-review protection gate exists; the QA report records that the administrative branch-protection endpoint returned HTTP 403 and the rulesets list was empty.
+
+| PR | HEAD | Ahead / behind current base | Latest exact-head CI observed |
+|---|---|---:|---|
+| [#74 Normal](https://github.com/Reekyi/UpStatus/pull/74) | `dcaf6a072546eda0089e0cee4018c3047011f600` | 887 / 0 | Validate [43376770142](https://github.com/Reekyi/UpStatus/actions/runs/43376770142) PASS; Signaling Smoke [43376770200](https://github.com/Reekyi/UpStatus/actions/runs/43376770200) PASS |
+| [#75 Team Lite baseline](https://github.com/Reekyi/UpStatus/pull/75) | `7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309` | 59 / 0 | Candidate Checks [41674353127](https://github.com/Reekyi/UpStatus/actions/runs/41674353127) historical PASS |
+| [#76 Team Lite](https://github.com/Reekyi/UpStatus/pull/76) | `83a6cc4503ddc01254f6a2abbcc7af5c6803eb94` | 386 / 0 | Candidate Checks [43363871881](https://github.com/Reekyi/UpStatus/actions/runs/43363871881) PASS |
+| [#80 continuity](https://github.com/Reekyi/UpStatus/pull/80) | `46541cad8b5592e183406ed2d78afc2b43c47bff` | 320 / 0 | Validate [43651529898](https://github.com/Reekyi/UpStatus/actions/runs/43651529898) FAIL: `client signed upload helper missing` at validator line 55 |
+| [#82 independent QA](https://github.com/Reekyi/UpStatus/pull/82) | `90854c868ceca4fb717e863d25147341359cd415` | 365 / 0 | Validate [43847909171](https://github.com/Reekyi/UpStatus/actions/runs/43847909171) FAIL: `production updateURL mismatch` at validator line 26 |
+
+All five required PRs remain open and Draft. Review queries returned zero submitted reviews on #74/#75/#76/#80/#82. PR #82 advanced from the QA report's parent `15553612` to documentation HEAD `90854c` after the report was generated; the latest Validate above is on the live PR head. The job log confirms the same inherited updateURL assertion, not a QA-document defect.
+
+### Candidate reconciliation — avoid duplicate fixes
+
+- [#167](https://github.com/Reekyi/UpStatus/pull/167), master-based candidate, HEAD `d25b3fbe1bd28a222d45ead6a467ceb7fd00548a`, 21 commits ahead / 0 behind, seven files changed. Its `scripts/build.mjs` now separates the production userscript distribution URL from the legacy beta10 API URL and derives the update URL from `release.json.scriptUrl`; `scripts/validate.mjs` checks exact production and TEST URLs. It also contains staged attachments and signed-upload routes. Validate [43784897392](https://github.com/Reekyi/UpStatus/actions/runs/43784897392) PASS. No Smoke run on this exact HEAD was found in the recorded checkpoint; no submitted review exists. This is the existing candidate for the #82 build mismatch; do not create another updater PR.
+- [#158](https://github.com/Reekyi/UpStatus/pull/158), HEAD `25775192ed5be4197581b55123cd4f2f78386c51`, and [#170](https://github.com/Reekyi/UpStatus/pull/170), HEAD `693039eddbd01e210fd1344b0196703ca067f374`, contain overlapping updater/admin changes but their Validate runs [43363857861](https://github.com/Reekyi/UpStatus/actions/runs/43363857861) and [43762594686](https://github.com/Reekyi/UpStatus/actions/runs/43762594686) fail on the stale chat regression assertion `files are staged instead of uploaded immediately`. Their updateURL change is superseded by the more complete #167 candidate; do not integrate them independently.
+- [#85](https://github.com/Reekyi/UpStatus/pull/85) has historical Validate PASS [42475230911](https://github.com/Reekyi/UpStatus/actions/runs/42475230911), but its 48-commit / 12-file scope includes broad production workflow changes. Do not treat it as a narrow replacement for #167.
+- [#161](https://github.com/Reekyi/UpStatus/pull/161) Validate [43479685384](https://github.com/Reekyi/UpStatus/actions/runs/43479685384) and Smoke [43479685445](https://github.com/Reekyi/UpStatus/actions/runs/43479685445) PASS; [#168](https://github.com/Reekyi/UpStatus/pull/168) Validate [43755941462](https://github.com/Reekyi/UpStatus/actions/runs/43755941462) PASS and is stacked on #161. There is not yet one Normal candidate containing #161 + #167 + #168 with Validate and Smoke on the same HEAD.
+- [#171](https://github.com/Reekyi/UpStatus/pull/171) exact-head Team Lite authorization regression [43814131143](https://github.com/Reekyi/UpStatus/actions/runs/43814131143) PASS. It removes setup-time name-based admin elevation and requires persisted `implementation_admin` for chat-wide clear. No full Validate/Smoke or review.
+- [#174](https://github.com/Reekyi/UpStatus/pull/174) exact-head offline signed-upload Validate [43802407509](https://github.com/Reekyi/UpStatus/actions/runs/43802407509) PASS. It does not prove a real Storage PUT or byte inspection.
+- [#175](https://github.com/Reekyi/UpStatus/pull/175) dedicated admin-role regression [43808590208](https://github.com/Reekyi/UpStatus/actions/runs/43808590208) PASS, but full Validate [43808590131](https://github.com/Reekyi/UpStatus/actions/runs/43808590131) FAIL on the separate inherited develop upload-helper assertion. It depends on the #174 upload work.
+- Review queries returned zero submitted reviews on #161/#167/#168/#171/#174/#175/#85/#158/#170. All current candidates remain unmerged and Draft.
+
+### QA report and issue state
+
+The latest independent QA report is [2026-11-16 10:15 UTC](https://github.com/Reekyi/UpStatus/blob/qa/release-readiness-2026-11-04-master/docs/audits/2026-11-16-upstatus-qa-audit-1015-utc.md). It concludes NOT READY, reports no physical browser/device tests, and records no production writes. It identifies the master TEST build's use of the production project ID, the Team Lite workflow's wrong function slug, public Realtime, missing production AUTH-03, broad ACL/Storage risks, and absent migration provenance.
+
+- [Issue #78](https://github.com/Reekyi/UpStatus/issues/78) remains OPEN with 0/8 physical reconnect acceptance criteria. No Tampermonkey no-F5 test was performed.
+- [Issue #79](https://github.com/Reekyi/UpStatus/issues/79) remains OPEN; 16/35 in its body is historical. Its Engineering comment and QA-owned comment remain separate.
+
+### Supabase — SELECT/catalog-only snapshot
+
+Only two projects exist:
+- Production `dlfvkawaiqduhlazsszm`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.002, 7 migrations, 38 Edge Functions.
+- Lab `bfpjtfqlnypisxljoxkb`: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, 39 migrations, two test Edge Functions. It has no development branches.
+
+Production SELECT/catalog results:
+- 5 users (3 `implementation_admin`, 2 `implementation_user`); 302 messages.
+- 106/106 `realtime.messages` rows have `private=false`; zero Realtime message policies.
+- Three `public.upstatus_broadcast_*` functions are SECURITY DEFINER, `search_path=public`, and EXECUTE is granted to anon/authenticated/service_role.
+- 10 public tables have RLS enabled with no policies; 126 anon/authenticated public-table grants, including 18 TRUNCATE grants; six public default-ACL entries.
+- Two public Storage buckets (`chat-images`, `profile-images`), 188 objects, zero Storage policies.
+- `upstatus_setup_invite_rate_limits` is absent; the inspected setup/signal rate-limit function names are absent; zero public policies.
+- Deployed functions: Normal `upstatus` v480, Team Lite `upstatus-team-lite` v15, TEST `upstatus-test` v281, legacy beta10 v6. Direct source inspection confirms Normal, Team Lite and TEST still route setup through `login(req,true)`; chat-wide clear still checks the name `Ricardo` without the persisted admin helper.
+- Managed production branch `main` remains `MIGRATIONS_FAILED` (preview ACTIVE_HEALTHY). Four original migration sources remain absent: `20261023154754_create_upstatus_visual_config.sql`, `20261026195855_add_chat_message_file_name.sql`, `20261027154329_allow_chat_document_mime_types.sql`, `20261027155438_set_upstatus_upload_limits_20mb.sql`.
+
+Lab SELECT/catalog results:
+- 0 users, 0 messages, 0 Realtime rows, 0 buckets, 0 Storage objects, 0 client grants, 0 Storage policies, 18 public RLS/no-policy tables.
+- The setup-invite rate-limit table exists and two setup-invite functions exist, but this is not Full-Product TEST.
+
+Exact 24-hour log window 2026-11-15T11:09:00Z–2026-11-16T11:09:00Z:
+- Production: 72 pgbouncer_logs, 21 postgres_logs.
+- Lab: 72 pgbouncer_logs, 17 postgres_logs.
+- No Edge/Function source appeared; do not infer HTTP 402 count or quota recovery.
+
+### Workflows and build target risks
+
+- Master `.github/workflows/deploy-production.yml`: manual-only, generic `SUPABASE_PROJECT_ID`, CLI `latest`, deploys `upstatus`.
+- Develop `.github/workflows/deploy-test.yml`: workflow_dispatch plus push trigger, generic `SUPABASE_PROJECT_ID`, CLI `latest`, deploys `upstatus-test`.
+- `team-lite-official` `.github/workflows/deploy-production.yml`: manual-only but generic project secret, CLI `latest`, and incorrectly deploys `upstatus` instead of `upstatus-team-lite`.
+- Master `scripts/build.mjs` hardcodes the production project ref for both PROD and TEST artifacts and derives the production updateURL from the legacy beta10 API endpoint; master `release.json.scriptUrl` correctly points to `/upstatus/upstatus.user.js`. #167 contains the existing candidate correction. No deployment workflow was dispatched.
+
+### Current gates
+
+| Gate | State | Evidence |
+|---|---|---|
+| RT-01 | BLOCKED | 106 public Realtime rows; three client-executable SECURITY DEFINER broadcasts |
+| TEST-ISOLATION | BLOCKED | Only production + signaling lab exist; TEST build points at production |
+| MIGRATION-PROVENANCE | BLOCKED | Four original SQL sources absent; managed main is MIGRATIONS_FAILED |
+| AUTH-03 | IN PROGRESS | #171/#175 candidate regressions pass, but deployed runtimes remain legacy and production rate-limit schema is absent |
+| ACL-STORAGE | BLOCKED | Broad grants/default ACL, public buckets, zero Storage policies |
+| RECONNECT | PENDING | Issue #78 remains 0/8; physical confirmation required from Ricardo |
+| HUMAN-REVIEW | PENDING | No submitted reviews on required/current candidates; no release authorization |
+
+**Recommendation: NOT READY.** Next steps: independently review #167/#161/#168 and #171/#174/#175; reconcile the Normal candidates and run Validate + Smoke on one exact HEAD; review #174 before #175; resolve #80/#82 without weakening validators; correct TEST project isolation and the Team Lite dispatcher; recover original SQLs and provision Full-Product TEST; advance RT-01/AUTH-03/ACL-Storage; retain #78 until physical no-F5 acceptance.
+
+This checkpoint changes documentation only. No product source, official branch or QA-owned file was changed. No merge, deploy, release, userscript publication, migration, production SQL write, secret/feature-flag/role/grant/policy/ACL change, workflow dispatch, billing query, fixture mutation or destructive operation occurred. Supabase SQL was SELECT/catalog-only. No local checkout or local tests were run; all cited test evidence is from existing GitHub Actions runs.
