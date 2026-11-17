@@ -275,3 +275,14 @@ Next: compare the 34 route handlers for policy and semantic drift, then record t
 - No runtime, database, project, migration, secret, ACL, policy or production configuration was changed.
 
 Next: build a compatibility matrix for Normal/Team Lite/TEST across login, members/status, guest history, media upload and guest portals. Do not redirect API URLs until those contracts are validated in Full-Product TEST.
+
+
+### Signed-upload contract comparison — 2026-11-17
+
+- Compared `signedUploadRoute` across deployed runtimes: Normal, Team Lite and TEST validate a non-empty token and requested path; beta10 does not. None of those four deployed routes validates project origin/public URL consistency.
+- Reviewed PR #161 candidate source: it adds HTTPS project-origin, signed upload route/path, token and public URL checks. Current PR #161 HEAD `557814dc31bed779b84a2094358dc6b2a7e67689` has both associated CI workflows completed successfully (Validate and Signaling Smoke Tests), but remains Draft and unmerged.
+- Normal 3.4.7 client currently calls beta10, so its active signed-upload API path is the weaker legacy handler. Team Lite calls its own backend. Audio remains a separate `/api/chat/audio` media route with a 5 MB limit; signed-upload MIME differences alone do not prove audio regression.
+- Updated `docs/RECONSTRUCTION_FOUNDATION.md` with the contract comparison and compatibility requirement. Documentation-only commit: `3bd3a9279af35947a5017c00c636450253aab1df`.
+- No upload was performed; no Storage object, production function, migration, secret, policy or configuration was changed.
+
+Next: add these differences to the Normal/Team Lite/TEST compatibility matrix and wait for isolated Full-Product TEST before any API endpoint migration.
