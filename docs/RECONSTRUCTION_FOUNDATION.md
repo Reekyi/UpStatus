@@ -474,3 +474,27 @@ Esse addendum é uma descoberta de configuração e proveniência, não uma muda
 A branch team-lite-official foi verificada diretamente em 9065bc1536fde64f437f6f12b7abb9b072cb8281 e seu release.json declara 3.0.40-beta.22. O runtime implantado upstatus-team-lite declara 3.4.30.
 
 A PR #76 é baseada exatamente nessa branch e continua Draft. Portanto, ela é uma candidata de transporte/sinalização, não uma cópia da versão Team Lite 3.4.30 atualmente implantada. Não usar essa PR como substituição direta do runtime atual sem reconciliar as funcionalidades e as diferenças de backend/clientes.
+
+
+## Addendum — split-brain de tópicos Realtime (2026-11-17 13:40 BRT)
+
+A inspeção dos triggers ativos e dos canais inscritos pelos userscripts revelou três tópicos diferentes:
+
+| Origem | Tópico |
+|---|---|
+| Triggers do banco em production (messages, users, upstatus_state) | upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0 |
+| Userscripts Normal 3.4.7, Team Lite 3.4.30 e TEST 3.3.28 | upstatus-screen-share-live-3-1-1-beta10 |
+| Userscript embutido no runtime beta10 (na realidade, script beta8) | upstatus-screen-share-live-3-1-1-beta8 |
+
+O build de develop usa o tópico upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0, que coincide com os triggers do banco, mas não com os userscripts atualmente distribuídos. O build de master usa o tópico beta10, que coincide com os clientes atuais, mas não com os triggers observados.
+
+Os triggers ativos publicam:
+- messages: evento db_change com o registro OLD/NEW completo;
+- users: evento user_status com campos de presença;
+- upstatus_state: eventos remote_command e remote_result.
+
+Os clientes atuais escutam esses eventos no canal beta10. Os eventos enviados diretamente pelo cliente no mesmo canal (por exemplo, call_signal, voice_room_signal, screen-share e chat_presence) são um fluxo diferente e não corrigem o destino dos broadcasts emitidos pelos triggers.
+
+**Conclusão técnica:** existe um split-brain entre a configuração Realtime do banco e a configuração Realtime dos clientes. Isso pode explicar atualizações que dependem de broadcast do banco não chegarem em tempo real, mas o impacto funcional ainda precisa ser confirmado com testes isolados. Também é necessário revisar a exposição do evento db_change, pois ele envia o registro completo em um broadcast configurado como público.
+
+Não trocar o tópico em produção como correção imediata. A próxima etapa deve definir uma matriz de eventos e canais por ambiente/produto e validar os consumidores antes de alterar qualquer identificador.
