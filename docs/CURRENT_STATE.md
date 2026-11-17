@@ -70,3 +70,14 @@ Verified:
 No production writes, migrations, deploys, secret changes, merges or deletions occurred. No local build or tests were run. The architecture document is a draft map, not a readiness declaration.
 
 Next: reconcile the exact source of each deployed runtime, including embedded userscripts and client endpoint consumers; then define the isolated Full-Product TEST contract before beginning modular code changes.
+
+
+### TEST isolation finding — 2026-11-17 13:35 BRT
+
+Decoded the embedded userscripts from production Normal, Team Lite, TEST and legacy beta10:
+- Normal 3.4.7 distributes from upstatus but calls beta10 for API.
+- TEST 3.3.28 distributes from upstatus-test but also calls beta10, uses the Normal Realtime topic and the Normal local storage prefix.
+- Team Lite 3.4.30 calls its own API and has a separate local prefix, but still uses the same Realtime topic as Normal.
+- The beta10 function embeds a beta8 script that points its update/API URLs to the beta8 slug.
+
+The current TEST client is therefore not isolated from production. This is now documented in the reconstruction foundation addendum. No runtime or configuration was changed.
