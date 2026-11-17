@@ -122,3 +122,18 @@ As três funções publicam em `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4
 **Consequência:** o tópico dos triggers do banco não coincide com o tópico assinado pelos clientes atuais. Isso é um split-brain verificável por inspeção. Eventos broadcast enviados diretamente entre clientes no tópico beta10 podem continuar fluindo entre eles, mas os eventos emitidos pelos triggers no tópico `upstatus-live-...` não chegam aos listeners que assinam beta10. O impacto funcional precisa ser validado em ambiente isolado.
 
 Não trocar o tópico em produção como correção imediata. A reconstrução deve definir um contrato de eventos mínimo por ambiente, remover payload sensível de broadcasts públicos e coordenar a troca de triggers e clientes.
+
+
+## 9. Bloqueio real do projeto de teste
+
+O workflow Team Lite Candidate Checks no HEAD `00a578e9174e08238a1289a35feb02d171625421` foi inspecionado por job e log:
+
+- `signed-upload-contracts`: sucesso.
+- No job `candidate-checks`, os testes locais de build target, guard de projeto isolado, adapter de sinalização, enrollment, recuperação de voz/tela e contrato HTTP passaram.
+- O passo de teste de autenticação do endpoint isolado falhou porque o projeto `bfpjtfqlnypisxljoxkb` respondeu HTTP 402.
+- Mensagem exata: `exceed_edge_functions_invocations_quota`; Supabase informa que o projeto precisa de upgrade de plano ou remoção do spend cap para restaurar o serviço.
+- O smoke test registrou 0/16 verificações não autenticadas aprovadas porque todas receberam 402 do gateway. Os passos de Chromium, IIFE completo, integração autenticada e testes concorrentes foram ignorados após a falha.
+
+O estado atual de `upstatus-security-test` é INACTIVE. Isso confirma que o bloqueio observado no CI é de disponibilidade/quota do projeto de teste, não uma falha demonstrada da autenticação implementada. Não alterar spend cap nem plano automaticamente; qualquer mudança pode ter impacto financeiro e deve ser decidida pelo proprietário.
+
+O PR #74 Normal teve Validate e Signaling Smoke Tests concluídos com sucesso no HEAD `dcaf6a072546eda0089e0cee4018c3047011f600`. Isso é evidência de CI daquele candidato e daquela execução; não substitui um ambiente Full-Product TEST ativo nem validação física atual.
