@@ -498,3 +498,15 @@ Os clientes atuais escutam esses eventos no canal beta10. Os eventos enviados di
 **Conclusão técnica:** existe um split-brain entre a configuração Realtime do banco e a configuração Realtime dos clientes. Isso pode explicar atualizações que dependem de broadcast do banco não chegarem em tempo real, mas o impacto funcional ainda precisa ser confirmado com testes isolados. Também é necessário revisar a exposição do evento db_change, pois ele envia o registro completo em um broadcast configurado como público.
 
 Não trocar o tópico em produção como correção imediata. A próxima etapa deve definir uma matriz de eventos e canais por ambiente/produto e validar os consumidores antes de alterar qualquer identificador.
+
+
+## Addendum — build e validator de master se contradizem
+
+A leitura direta dos scripts confirmou uma contradição reproduzível por inspeção:
+
+- master/scripts/build.mjs define o destino de API/atualização do cliente Normal como upstatus-screen-share-3-1-1-beta10.
+- master/scripts/validate.mjs exige que o updateURL do artefato Normal contenha /upstatus/upstatus.user.js.
+
+Assim, o build master produz uma URL que o próprio validator rejeita. O checkpoint de QA da PR #82 já registrou a falha "production updateURL mismatch" no gate herdado. Não foi executado um novo build nesta auditoria.
+
+Além disso, master e develop mantêm apenas três arquivos em supabase/migrations, enquanto o ledger de produção tem sete entradas. A PR #176 propõe adicionar os quatro SQL ausentes, recuperados dos statements do ledger. Isso é recuperação de conteúdo, não prova de que os arquivos originais foram restaurados exatamente.
