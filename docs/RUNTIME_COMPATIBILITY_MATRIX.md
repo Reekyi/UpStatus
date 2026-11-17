@@ -92,3 +92,33 @@ O projeto de produção está ACTIVE_HEALTHY. O laboratório `upstatus-security-
 - Nenhum build local, teste de navegador, teste de bytes Storage ou Full-Product E2E executado nesta rodada.
 - Evidência de CI da PR #161 refere-se somente ao HEAD indicado.
 - Nenhum deploy, merge, migration, alteração de secrets, grants, policies, dados ou funções de produção.
+
+
+## 8. Realtime event contract e divergência de tópicos
+
+Os userscripts Normal, Team Lite e TEST atuais enviam e assinam os mesmos nomes de eventos no tópico `upstatus-screen-share-live-3-1-1-beta10`:
+
+- `call_signal`
+- `chat_fast`
+- `chat_presence`
+- `chat_read`
+- `db_change`
+- `health_ping` / `health_pong`
+- `remote_command` / `remote_result`
+- `user_status`
+
+Os mesmos clientes também declaram `VOICE_ROOM_EVENT=voice_room_signal` e `SCREEN_ROOM_EVENT=upstatus_screen_signal_3_1_1_beta8`. O script embutido no runtime beta10 é cliente beta8 e usa o tópico `upstatus-screen-share-live-3-1-1-beta8`.
+
+A inspeção direta do catálogo PostgreSQL confirmou três triggers:
+
+| Tabela | Trigger | Função |
+|---|---|---|
+| `public.messages` | `upstatus_messages_broadcast` | `upstatus_broadcast_messages` |
+| `public.users` | `upstatus_users_broadcast` | `upstatus_broadcast_users` |
+| `public.upstatus_state` | `upstatus_remote_state_broadcast` | `upstatus_broadcast_remote_state` |
+
+As três funções publicam em `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`, usando o último argumento `false` em `realtime.send`. A função de messages serializa o registro OLD/NEW completo; a de users publica presença; a de remote state publica comandos/resultados.
+
+**Consequência:** o tópico dos triggers do banco não coincide com o tópico assinado pelos clientes atuais. Isso é um split-brain verificável por inspeção. Eventos broadcast enviados diretamente entre clientes no tópico beta10 podem continuar fluindo entre eles, mas os eventos emitidos pelos triggers no tópico `upstatus-live-...` não chegam aos listeners que assinam beta10. O impacto funcional precisa ser validado em ambiente isolado.
+
+Não trocar o tópico em produção como correção imediata. A reconstrução deve definir um contrato de eventos mínimo por ambiente, remover payload sensível de broadcasts públicos e coordenar a troca de triggers e clientes.
