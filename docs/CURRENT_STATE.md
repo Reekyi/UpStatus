@@ -130,3 +130,15 @@ Next: finish source provenance and route/consumer parity across deployed runtime
 - Route comparison is name-level only; it does not prove behavioral parity. Preserve the candidate branches for domain-by-domain review rather than merging them wholesale.
 
 Next: compare runtime and candidate implementations by domain (auth/session, chat/media, presence/Realtime, voice/screen share, guests/admin), then specify a dual-product isolated TEST contract. Production remains unchanged.
+
+
+### Candidate migration inventory — 2026-11-17 15:00 BRT
+
+- Read the 23 candidate application migrations in the Normal #74/#161 line. Grouped them into ACL hardening, Realtime payload minimization, server-mediated signaling, call/voice attempt recovery, atomic chat receipts, and first-access invite/rate-limit work.
+- Confirmed none of the candidate signaling tables/functions exists in production and the production migration ledger has no entries from 20261029170500 onward. These are unapplied architectural changes, not recovery of applied migrations.
+- Preflight for the candidate unique index on users.name: 5 users, 0 NULL/blank names, 0 duplicate groups; users_name_unique index absent. Recheck in isolated TEST and before any approved migration.
+- Identified an ACL hardening gap: candidate migration 20261105150000 only revokes defaults for owner postgres; current production also has broad public-schema default ACLs owned by supabase_admin. That owner needs a separate supported remediation plan.
+- Realtime payload minimization requires coordinated client/backend rollout. Voice attempt singleton and account-scoped lock migrations replace the same RPC in order; setup invite columns, consume RPC, role semantics and rate limit are a dependency chain.
+- No migration, DDL, grant, policy, function or production data was changed. No local tests or browser E2E were run.
+
+Next: build the per-migration dependency/rollback graph and resolve a Full-Product TEST environment for both Normal and Team Lite before any database change.
