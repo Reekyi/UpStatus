@@ -907,3 +907,56 @@ The read-only discovery and architecture-foundation phase has reached a document
 After those prerequisites, create the missing Team Lite TEST build/deploy path, reconcile the TEST baseline migrations in that isolated project, then run domain-level API/browser acceptance for both products. Only after that should a reviewed module extraction and production cutover/rollback plan be prepared.
 
 **Phase 1 handoff status: READY.** This does not mean the production system is repaired, that candidate code is approved, or that any production change is authorized. Production remains untouched.
+
+
+## Addendum — verificação de 402, inventário de hashes e estado do handoff (2026-11-17)
+
+### Respostas HTTP 402 observadas nos logs
+
+Uma nova consulta somente leitura ao fluxo `function_edge_logs`, limitada às últimas 24 horas, retornou:
+
+| Endpoint | Respostas 402 | Tempo médio registrado |
+|---|---:|---:|
+| beta10 `/api/chat` | 40.523 | 2,5 ms |
+| beta10 `/api/status` | 17.204 | 2,5 ms |
+| beta10 `/api/remote-status` | 17.202 | 2,4 ms |
+| beta10 `/api/members` | 17 | 4,1 ms |
+| beta10 `/api/me` | 17 | 19,2 ms |
+| beta10 `/api/account` | 17 | 1,4 ms |
+| Normal `/upstatus/upstatus.user.js` | 6 | 2,3 ms |
+| **Total** | **74.986** | — |
+
+Os registros mostram rejeições 402 em chamadas de API e também no endpoint de distribuição do userscript. Uma consulta separada não encontrou linhas em `edge_logs` nos últimos 60 minutos, enquanto os registros de função mostram tempos médios muito baixos. Isso é compatível com uma rejeição anterior ao processamento normal do handler, mas **não identifica a causa**. Não atribuir o erro a billing, quota ou configuração específica sem a mensagem exibida no Dashboard. A inspeção do proprietário continua necessária; nenhuma configuração foi alterada.
+
+### Inventário dos 38 entrypoints ativos
+
+A listagem foi repetida e confirmou 38 funções em estado ACTIVE:
+
+- 1 Normal oficial;
+- 1 Team Lite oficial;
+- 12 funções TEST/históricas;
+- 13 funções beta de screen share;
+- 11 backups nomeados.
+
+Os 38 valores `ezbr_sha256` dos entrypoints são distintos. Portanto, os nomes de backup não representam cópias idênticas do entrypoint atual. Isso **não** prova que todos sejam consumidos, nem que sejam seguros para remoção: ainda é necessário mapear chamadas externas, clientes antigos e dependências de rollback. Nenhuma função foi alterada ou removida.
+
+### Estado atual da PR #178
+
+A PR #178 permanece aberta e Draft, com alteração somente de documentação. O check `validate` no HEAD `6ac510c3b9334adb3d9a3e6247f47e9c992943e0` falhou em `scripts/validate.mjs:55` com:
+
+`VALIDATION FAILED: client signed upload helper missing`
+
+O workflow chegou a executar o build (PROD 3.0.40 / TEST 3.0.40-beta.22), mas falhou na asserção do validator herdado de `develop`. O check Supabase Preview foi ignorado porque a branch não está associada a uma Supabase Branch. A PR #174 contém a implementação candidata do helper e declara CI bem-sucedido no HEAD `277dd7bbfe87a4e40c0ca62395a83c3fe01c7849`, mas continua aberta e não integrada. Não tratar a validação da PR #178 como aprovada.
+
+### Reconciliação do estado de conclusão
+
+O checkpoint de `CURRENT_STATE.md` que descreve a fase como “ready for owner handoff” é um handoff parcial para solicitar os pré-requisitos do proprietário. Ele não substitui os critérios ainda pendentes na seção 10 deste documento. A fundação **não está concluída**: falta Full-Product TEST operacional, build reproduzível sem mistura de identificadores, validação integrada por domínio e proveniência/consumidores completos dos runtimes legados.
+
+### Próximo trabalho
+
+1. Continuar a matriz de consumidores: pesquisar referências a cada família de função e separar chamadas atuais, chamadas apenas em código histórico e dependências desconhecidas.
+2. Reconciliar os artefatos e os contratos do build Normal/Team Lite/TEST sem alterar os workflows de produção.
+3. Manter a PR #178 Draft e registrar apenas evidências novas.
+4. Aguardar a causa exata do 402 no Dashboard e o Project Ref de um Full-Product TEST isolado antes de qualquer teste integrado.
+
+Nenhum deploy, merge, migration, alteração de segredo, grant, policy, dado ou função ocorreu nesta verificação.
