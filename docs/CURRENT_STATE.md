@@ -181,3 +181,15 @@ Code inspection of Normal #161 and Team Lite #76 shows both product candidates i
 - No local build, test, browser E2E, migration, deploy, merge, secret/config change, grant/policy change, or data/function deletion occurred in this run.
 
 Next: continue domain-level source/provenance comparison and prepare a precise dual-product Full-Product TEST contract. Human unblock remains the owner's inspection of the production Dashboard's explicit 402 reason and restoration/selection of an isolated TEST project. Do not guess the billing/quota cause or alter production to investigate.
+
+
+### TEST contract and release-channel clarification — 2026-11-17 15:40 BRT
+
+- Corrected the Team Lite version interpretation: root `release.json` on `team-lite-official` is 3.0.40-beta.22, but deployed Team Lite 3.4.30 uses the separate `team-lite/release.json` (buildVersion 3.4.30) and `team-lite/upstatus-team-lite.user.js`. The client updater fetches that product manifest and verifies the served script version. No active Team Lite update-channel mismatch was found; the missing source artifact is the corresponding backend template.
+- Re-decoded the deployed clients: Normal 3.4.7 and TEST 3.3.28 share Tampermonkey name/namespace `UpStatus - Sale Smartly / upseller`, API beta10 and Realtime beta10. Team Lite 3.4.30 has its own namespace and API but shares beta10 Realtime. The beta10 function embeds a beta8 client that points API/update/topic to beta8.
+- Formalized the Full-Product TEST contract in RECONSTRUCTION_FOUNDATION.md: separate active Supabase project, two function slugs (`upstatus-test`, `upstatus-team-lite-test`), two unique test client identities, separate local prefixes, a TEST-only Realtime topic, TEST Storage/secrets and synthetic data. The current production-project `upstatus-test` does not meet this contract.
+- Rechecked 24-hour production logs: 73,672 HTTP 402 responses from beta10 and 6 from `upstatus` (all six were script-download requests). The latest hour contained 9,327 beta10 402s. No Team Lite calls appeared in the queried log window. Root cause remains unconfirmed; no billing/quota assumption is made.
+- PR #178 Validate run 44149802579 failed at `client signed upload helper missing` in `scripts/validate.mjs:55`. The PR still changes only documentation. PR #174 contains the missing helper and passed exact-head Validate run 43802407509; PR #175's dedicated admin-role regression passed, while its full Validate failed on the same #174 dependency. No candidate PR was merged.
+- No local build, manual browser test, migration, deploy, merge, secret/config change, grant/policy change, or production data/function mutation occurred.
+
+Next: continue reviewing domain contracts and candidate branch dependencies. Full-Product TEST remains blocked on an owner-provisioned active isolated project; production 402 remains blocked on the owner's read-only Dashboard inspection and confirmation of the displayed cause.
