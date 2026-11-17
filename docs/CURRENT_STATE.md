@@ -380,3 +380,17 @@ Next: obtain the exact `main` branch failure log from the project owner, and an 
 - Rechecked production project `ACTIVE_HEALTHY`, managed `main` branch `MIGRATIONS_FAILED`, and isolated lab `INACTIVE`. No SQL, deploy, merge, permission change, project restore, or data write occurred.
 
 Next: obtain an active Full-Product TEST environment; add explicit ACL and trigger-execution tests; resolve the supported `supabase_admin` default-ACL procedure; decide whether the isolated signaling rate-limit schema needs a separate production migration. Foundation remains in progress.
+
+
+### Proveniência das RPCs e validação de concorrência — 2026-11-17
+
+- Comparei as definições de `consume_upstatus_setup_invite` nas migrations `20261107010000`, `20261107060000` e `20261107062000`. A primeira só preenche role NULL; a segunda corrige NULL e strings vazias/espaços; a terceira tem corpo e ACL idênticos à segunda e altera somente o comentário da função. A migration `07062000` é semanticamente redundante, não uma nova mudança de preservação de role.
+- Comparei a cadeia de voice attempts: `20261106120500` cria open/cancel com locks por attempt e sala; `20261108010000` adiciona singleton por conta mantendo o lock compartilhado durante a varredura; `20261108050751` troca o lock antecipado da sala por lock account-scoped e alinha a ordem de cancelamento (attempt → conta → sala → linha).
+- Localizei a test-migration correta `20261108050802_voice_attempt_account_scoped_lock_test.sql` (não `08050751`): ela verifica ordem por leitura estática de `pg_get_functiondef`, SECURITY INVOKER, search_path e ACL. A integração real está em `scripts/test-signaling-authenticated.mjs`.
+- Verifiquei o SHA exato da PR #74: `dcaf6a072546eda0089e0cee4018c3047011f600`; `refs/pull/74/head` é idêntico. Validate #43376770142 e Signaling Smoke #43376770200 passaram nesse SHA. O log do smoke registra 19/19 checks não autenticados e 136/136 autenticados, incluindo singleton entre aliases, bloqueio/retry da segunda aba, contas distintas abrindo na mesma sala e cancelamentos concorrentes sem deadlock.
+- Essa evidência é de CI histórico no projeto isolado; o laboratório `bfpjtfqlnypisxljoxkb` está atualmente `INACTIVE`. Não é validação da produção nem teste físico de Tampermonkey.
+- Consulta read-only em produção retornou zero para as RPCs candidatas e para as tabelas de signaling/voice attempts; o ledger permanece com sete migrations até `20261027155438`. Nenhuma migration candidata foi aplicada.
+- Risco de identidade a validar: o lock usa `p_user_name`/texto, não um ID imutável. Os runtimes implantados inspecionados não exibem rota de renomeação, mas alterações administrativas externas não foram excluídas.
+- Atualizei a matriz de migrations com a proveniência exata, o status redundante de `07062000`, a distinção entre teste estático e integração concorrente e os SHAs/execuções verificadas. Nenhum código de aplicação ou objeto de produção foi alterado.
+
+Próximo: revisar se o modelo de conta por nome é aceitável para a vida útil das tentativas e completar o mapa de chamadas dos RPCs de signaling contra os handlers Normal/Team Lite. Full-Product TEST continua bloqueado; não promover nem aplicar as migrations até o ambiente isolado ser reativado e aprovado.
