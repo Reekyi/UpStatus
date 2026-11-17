@@ -81,3 +81,8 @@ Decoded the embedded userscripts from production Normal, Team Lite, TEST and leg
 - The beta10 function embeds a beta8 script that points its update/API URLs to the beta8 slug.
 
 The current TEST client is therefore not isolated from production. This is now documented in the reconstruction foundation addendum. No runtime or configuration was changed.
+
+
+### Team Lite source divergence — 2026-11-17
+
+The current team-lite-official branch HEAD is 9065bc1536fde64f437f6f12b7abb9b072cb8281 and its release.json is 3.0.40-beta.22, while the deployed upstatus-team-lite runtime is 3.4.30. PR #76 is based on that older branch and is not a drop-in replacement for the deployed Team Lite runtime. This distinction is recorded in the reconstruction foundation document.
