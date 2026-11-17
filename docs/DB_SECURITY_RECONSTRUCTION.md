@@ -148,3 +148,17 @@ Nenhuma das seis migrations de hardening acima está registrada como aplicada em
 - Não foram feitas tentativas de TRUNCATE, DML, criação de triggers, chamadas de função, uploads ou downloads de objetos.
 - O catálogo prova grants e configurações; não demonstra uma exploração remota.
 - Não foram aplicadas migrations, grants, policies, alterações de search_path, alterações de buckets ou mudanças de billing.
+
+
+## 8. Cobertura das migrations de segurança
+
+Inspeção dos SQLs de teste em `supabase/test-migrations/`:
+
+- `20261105150000_postgres_public_default_privileges_test.sql` cria probes de tabela, sequence e função e verifica que defaults criados por `postgres` não concedem privilégios a anon/authenticated, preservando service_role e owner. Não testa defaults de `supabase_admin`.
+- `20261105170000_postgres_global_function_default_scope_test.sql` verifica que a revogação global de EXECUTE de `PUBLIC` para funções criadas por postgres também vale fora do schema public. Não testa supabase_admin.
+- `20261107170000_pin_empty_search_path_trigger_broadcasts_test.sql` verifica SECURITY DEFINER, search_path vazio, vínculo a trigger, ausência de EXECUTE para anon/authenticated e preservação de service_role.
+- Não encontrei um SQL test-migration dedicado à revogação dos grants já existentes nas nove tabelas de aplicação da migration `20261029183000_revoke_unused_public_table_grants.sql`. A cobertura precisa incluir verificação pós-migration de cada tabela e role.
+- Não há teste de default ACL para objetos criados por `supabase_admin`. Essa é uma lacuna explícita, não algo que o teste de postgres cubra indiretamente.
+- O README de `supabase/test-migrations` avisa que esses arquivos são DDL executável, devem ser aplicados somente ao projeto isolado e não são protegidos pelo guard JavaScript de mutações via API.
+
+O projeto isolado `bfpjtfqlnypisxljoxkb` está INACTIVE e respondeu com quota de Edge Functions excedida no CI. Nenhuma test-migration foi executada nesta rodada. Antes de aplicar qualquer uma, reativar/provisionar um ambiente isolado por decisão do proprietário, conferir o Project Ref e inspecionar o SQL integralmente.
