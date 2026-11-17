@@ -334,15 +334,18 @@ A proposta é separar o núcleo compartilhado das variações Normal e Team Lite
 
 Normal e Team Lite devem compartilhar módulos de domínio, contratos e testes, mas receber configuração e políticas explícitas:
 
-- função de API própria;
-- canal Realtime próprio;
-- prefixos de armazenamento próprios;
+- função de API própria ou contrato de roteamento compartilhado explicitamente versionado;
+- namespace Tampermonkey e prefixo de armazenamento próprios;
 - canal de atualização próprio;
 - regras de roster e convidados próprias;
 - limites de mídia e senha explícitos;
 - testes de compatibilidade entre versões.
 
-Não reutilizar o mesmo tópico público como mecanismo de isolamento. Não confiar em nomes de exibição para conceder papel administrativo. O servidor deve validar o papel persistido e a identidade em toda ação privilegiada.
+**Realtime deve ser isolado por ambiente, não necessariamente por produto.** A leitura das candidatas #161 e #76 mostrou que Normal e Team Lite apontam intencionalmente para o mesmo tópico de produção `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`, que também é o tópico dos triggers do banco. As duas variantes compartilham recursos de voz e aliases de sala. Separar os tópicos por produto sem um contrato de bridge poderia quebrar a interoperabilidade Normal ↔ Team Lite.
+
+A regra segura é: PROD e TEST nunca compartilham projeto, tópico, bucket, secrets ou namespace; dentro de PROD, um tópico pode ser compartilhado pelos dois produtos quando o evento e o fluxo forem comuns. Esse canal público deve transportar apenas avisos mínimos, nunca conteúdo de chat, comandos privilegiados ou estado sensível. Sinalização de voz/tela deve usar transporte autenticado server-mediated quando a migração candidata estiver validada.
+
+Não reutilizar um tópico público como mecanismo de isolamento entre ambientes. Não confiar em nomes de exibição para conceder papel administrativo. O servidor deve validar o papel persistido e a identidade em toda ação privilegiada.
 
 ## 8. Sequência segura de reconstrução
 
@@ -360,7 +363,7 @@ Não reutilizar o mesmo tópico público como mecanismo de isolamento. Não conf
 
 1. Resolver o estado do laboratório atual.
 2. Obter um ambiente Full-Product TEST separado da produção.
-3. Garantir dados fictícios, segredos próprios, função própria, tópicos próprios e buckets próprios.
+3. Garantir dados fictícios, segredos próprios, funções próprias, tópicos/buckets próprios do ambiente; Normal e Team Lite podem compartilhar o tópico PROD se o contrato cross-product exigir.
 4. Impedir que o build TEST use qualquer identificador de produção.
 5. Executar contratos e integração sem tocar em dados reais.
 
