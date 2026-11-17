@@ -394,3 +394,16 @@ Next: obtain an active Full-Product TEST environment; add explicit ACL and trigg
 - Atualizei a matriz de migrations com a proveniência exata, o status redundante de `07062000`, a distinção entre teste estático e integração concorrente e os SHAs/execuções verificadas. Nenhum código de aplicação ou objeto de produção foi alterado.
 
 Próximo: revisar se o modelo de conta por nome é aceitável para a vida útil das tentativas e completar o mapa de chamadas dos RPCs de signaling contra os handlers Normal/Team Lite. Full-Product TEST continua bloqueado; não promover nem aplicar as migrations até o ambiente isolado ser reativado e aprovado.
+
+
+### Endpoint de sinalização de produção e reconciliação da PR #101 — 2026-11-17
+
+- Localizei a PR #101 (`feat(signal): add production server-mediated signaling runtime candidate`), que contém a Edge Function de produção `upstatus-signal` e a migration separada `20261108190000_distributed_signaling_rate_limit.sql`. A migration cria a tabela de rate limit com RLS, sem grants a roles de browser, RPC SECURITY INVOKER com search_path vazio e limpeza limitada a 100 registros.
+- Comparei o handler `upstatus-signal` da PR #101 com o `upstatus-signal-test` da cabeça atual da PR #74: a única diferença é o rótulo do serviço no endpoint `/health`. A PR #101 também possui teste offline de paridade e `verify_jwt = false`, pois a função valida o token customizado `x-upstatus-token`.
+- A PR #101 está no HEAD `2ef7c3324d2eb5443d31a45bd071d154ebeb4aa7`, baseado no antigo HEAD `9c0133e8cf6bd85ac8993888718a408db2f24a3e` da PR #74. A cabeça atual da PR #74 é `dcaf6a072546eda0089e0cee4018c3047011f600`; a comparação mostra branches divergentes, 10 commits à frente e 10 atrás. O conteúdo do handler foi comparado separadamente e está alinhado, mas a branch precisa de reconciliação.
+- O workflow de produção da PR #101 ainda deploya apenas `upstatus`, não `upstatus-signal`. O run offline #42513317464 passou no commit da PR #101, mas não valida deploy, banco ou integração.
+- Confirmei em produção que não existe Edge Function `upstatus-signal` e que a tabela/RPC de rate limit não existem. O ledger permanece em sete migrations até `20261027155438`. O projeto de produção não foi alterado.
+- Os clients candidatos Normal e Team Lite mantêm o transporte autenticado opt-in/default-off e aceitam somente endpoint HTTPS de mesma origem com slug `upstatus-signal` ou `upstatus-signal-test`. O backend Team Lite não implementa diretamente as rotas de sinalização; elas dependem da Edge Function separada.
+- Atualizei a matriz de compatibilidade, a matriz de migrations e este checkpoint. Nenhum deploy, migration, merge, publicação de userscript, alteração de secret, flag ou dado foi realizado.
+
+Próximo: reconciliar a PR #101 com o HEAD atual da PR #74, revisar a migration de rate limit no conjunto completo, e preparar a etapa de deploy/rollback sem executá-la. Full-Product TEST continua inativo; manter transport default-off e fallback Realtime até validação integrada e aprovação humana.
