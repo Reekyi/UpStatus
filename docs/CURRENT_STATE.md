@@ -164,3 +164,8 @@ Human unblock: restore upstatus-security-test service in the Supabase Dashboard 
 - Human action: project owner should inspect UpStatus Dashboard usage/billing/spend caps and Edge Function service state, especially beta10. No plan/spend-cap/function/secret change was made.
 
 All checks were read-only. No production request that writes data, migration, deploy or config change occurred.
+
+
+### Architecture correction — Realtime product sharing vs environment isolation — 2026-11-17 15:25 BRT
+
+Code inspection of Normal #161 and Team Lite #76 shows both product candidates intentionally use the same production topic that database triggers publish to. Their shared voice-room aliases also support cross-product interoperability. Therefore, Realtime isolation must be enforced between PROD and TEST environments, not blindly between Normal and Team Lite. Splitting product topics without an explicit bridge could break Normal ↔ Team Lite voice/presence. Shared public production broadcasts must remain minimal hints only; sensitive signaling should use authenticated server-mediated transport.
