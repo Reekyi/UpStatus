@@ -253,3 +253,13 @@ Next: map external/client references to the 38 active functions and compare cand
 - No local tests, browser tests, deploy, merge, migration, secret/config/ACL/policy change, or production data/function mutation occurred.
 
 Next: map historical callers outside the embedded userscripts and identify exact route-level dependency overlaps. Reconcile the empty backup source through an alternate provenance path. Full-Product TEST and owner Dashboard inspection remain blocked on owner action.
+
+
+### Route parity and lab recheck — 2026-11-17
+
+- Compared literal `/api/*` paths in Normal 3.4.7, Team Lite 3.4.30, TEST 3.3.28 and beta10: all four expose the same 34 path names. Legacy beta8 and backup 3.3.0 expose 32 and lack the signed chat-upload and avatar-upload URL routes. This is route-name parity only; handler semantics remain to be compared.
+- Rechecked Supabase project states: production remains ACTIVE_HEALTHY; `upstatus-security-test` remains INACTIVE. No restore or new project creation was attempted.
+- Updated `docs/RECONSTRUCTION_FOUNDATION.md` with the route matrix and lab status. Documentation-only commit: `bf49a2f4fb8d29e3e0423b2b0dbb250028194531`.
+- No test/build, restore, migration, deploy, merge, secret/config/ACL/policy change, or production data/function mutation occurred.
+
+Next: compare the 34 route handlers for policy and semantic drift, then record the exact compatibility matrix. Integrated validation remains blocked on an active isolated Full-Product TEST project.
