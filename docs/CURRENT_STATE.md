@@ -106,3 +106,16 @@ PR #74's branch already contains an isolated authenticated-signaling vertical sl
 ### TEST userscript identity collision — 2026-11-17
 
 The deployed upstatus-test 3.3.28 script declares the same @name and @namespace as Normal 3.4.7 (UpStatus - Sale Smartly / upseller). Both build scripts currently inspected expect the TEST namespace to be upseller-test, so the deployed TEST artifact is also not reproducible from those build templates. This is documented; no userscript was installed or changed.
+
+
+### Runtime and database ACL verification — 2026-11-17 14:35 BRT
+
+- Re-read the full deployed Edge Function sources for Normal (v480), Team Lite (v15), beta10 (v6), and TEST (v281); decoded the embedded userscripts.
+- Confirmed Normal 3.4.7 and TEST 3.3.28 share the same Tampermonkey name/namespace, local storage prefix, API runtime (beta10), and Realtime topic. Team Lite 3.4.30 uses its own API and local prefix but shares the beta10 Realtime topic. The beta10 function embeds a beta8 client that points to beta8 for API/update and listens on the beta8 topic.
+- Reconfirmed all 10 public tables have RLS enabled and no policies exist in public/realtime/storage. Nine public tables grant broad privileges to anon and authenticated; the public schema has six broad default-ACL entries across tables/functions/sequences for postgres and supabase_admin owners. Three SECURITY DEFINER broadcast trigger functions grant EXECUTE to PUBLIC/anon/authenticated; Security Advisor warns on anon/authenticated access.
+- Confirmed the public database triggers publish full message records to the database topic while deployed clients subscribe to the beta10 topic. No exploit test was performed; no permissions or runtime were changed.
+- Compared all four recovered migration files in PR #176 with the single SQL statements retained in the production migration ledger. SQL statements match; original Git blobs/comments/formatting are not recoverable from the ledger.
+- Rechecked environment status: production managed branch main is MIGRATIONS_FAILED (preview ACTIVE_HEALTHY); isolated upstatus-security-test project is INACTIVE.
+- No local build, automated test, browser E2E, migration, deploy, secret/grant/policy change, merge, or deletion was performed.
+
+Next: finish source provenance and route/consumer parity across deployed runtimes and Git templates, then define a safe Full-Product TEST environment contract. Reconstruction foundation remains in progress.
