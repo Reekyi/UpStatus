@@ -59,6 +59,9 @@ Todas as versões desta tabela são posteriores à última versão do ledger de 
 | `20261108010000_voice_attempt_singleton` | Tabela/RPC de voice attempts | Substitui RPC para impedir múltiplas tentativas ativas por conta/aliases | Test-migration verifica SECURITY INVOKER, search_path vazio, guarda `VOICE_ATTEMPT_ALREADY_ACTIVE`, `FOR UPDATE` e ACL; integração autenticada cobre concorrência entre aliases | É versão intermediária da RPC. Não voltar a permitir múltiplas tentativas; preservar tombstones e a definição final. |
 | `20261108050751_voice_attempt_account_scoped_lock` | Tabela de attempts, RPC de voz e lock compartilhado da sala | Substitui open/cancel para serializar por conta e manter lock compartilhado da sala somente na mutação interna | Test-migration `20261108050802_voice_attempt_account_scoped_lock_test.sql` verifica ordem estática via `pg_get_functiondef`; integração autenticada testa mesma conta, aliases Normal/Team Lite, contas distintas e cancelamentos concorrentes (run exato #43376770200, 136/136) | É a revisão mais recente da RPC nesta cadeia. A chave de conta usa `p_user_name`; validar estabilidade do nome ou migrar para ID imutável antes de consolidar. Reversão para lock anterior pode reintroduzir corrida/deadlock. |
 
+
+**Nota fora da contagem das 22 migrations da PR #74:** a PR #101 acrescenta `20261108190000_distributed_signaling_rate_limit.sql` como pré-requisito do endpoint de produção `upstatus-signal`. Ela deve ser revisada junto com o handler e não pode ser confundida com as fixtures `*_test.sql`.
+
 ## 2. Grafo de dependências
 
 Ordem parcial observada nos arquivos. Não é uma autorização para aplicar migrations e não substitui validação de dependências no banco limpo.
@@ -146,7 +149,7 @@ O README de `supabase/test-migrations/` diz expressamente que os arquivos são D
 Descobertas relevantes:
 
 1. `20261104152847_atomic_chat_read_receipts_and_visual_config_grants_test.sql` cria/substitui a própria RPC `merge_chat_read_receipts` e revoga grants de cliente em `upstatus_visual_config`. Portanto, não é um teste passivo da migration de produção; aplicá-lo antes da validação pode mascarar a ausência/erro da migration candidata.
-2. `20261104154623_distributed_signaling_rate_limit_test.sql` cria `upstatus_signal_rate_limits` e `consume_upstatus_signal_rate_limit`, com grants service_role-only. Essa estrutura aparece apenas em `test-migrations`, não nas 22 migrations de produção da PR #74. A Edge Function `upstatus-signal-test` chama essa RPC. Se esse transporte/proteção for promovido para uma função de produção, será necessária uma migration de produção separada e revisada para tabela, RPC, ACL e limpeza.
+2. `20261104154623_distributed_signaling_rate_limit_test.sql` cria `upstatus_signal_rate_limits` e `consume_upstatus_signal_rate_limit`, com grants service_role-only. Essa estrutura aparece apenas em `test-migrations`, não nas 22 migrations de produção da PR #74. A Edge Function `upstatus-signal-test` chama essa RPC. Uma migration de produção separada já existe como candidata na PR #101: `20261108190000_distributed_signaling_rate_limit.sql`; ela habilita RLS, mantém privilégios service_role-only e limita a limpeza a 100 buckets. Essa migration não está aplicada em produção e a PR #101 precisa ser reconciliada com a cabeça atual da PR #74 antes de ser usada.
 3. `20261106191000_bounded_rate_limit_cleanup_test.sql` substitui a RPC de rate limit no ambiente isolado e limita a limpeza oportunista a 100 linhas com `FOR UPDATE SKIP LOCKED`. Continua sendo DDL de teste; não deve ser movido para `supabase/migrations` sem uma decisão explícita de produto e revisão de produção.
 4. `20261105150000_postgres_public_default_privileges_test.sql` e `20261105170000_postgres_global_function_default_scope_test.sql` testam defaults criados por `postgres`; não cobrem defaults de objetos criados por `supabase_admin`.
 5. `20261107170000_pin_empty_search_path_trigger_broadcasts_test.sql` aplica o ALTER FUNCTION no projeto isolado e verifica catálogo, EXECUTE e vínculo de triggers. Não executa INSERT/UPDATE/DELETE de fixture para comprovar o disparo real do broadcast.
@@ -187,7 +190,7 @@ Nenhuma das 22 migrations candidatas tem um arquivo de rollback pareado na PR #7
 2. Criar um banco limpo descartável nesse ambiente e validar a ordem parcial acima, sem tocar em produção.
 3. Adicionar testes explícitos para grants das nove tabelas e execução real dos três triggers.
 4. Resolver o plano de default ACL de `supabase_admin` com suporte/documentação oficial antes de qualquer tentativa.
-5. Decidir se rate limiting do protótipo `upstatus-signal-test` fará parte do produto. Se sim, separar a migration de produção da DDL exclusiva de teste.
+5. Revisar a migration de produção `20261108190000_distributed_signaling_rate_limit.sql` da PR #101, reconciliar sua branch com a cabeça atual da PR #74 e validar a cadeia completa no Full-Product TEST. A migration é candidata separada; não aplicar em produção.
 6. Só então congelar a sequência de migrations e seu plano de rollback.
 
 **Estado:** matriz documental criada a partir de arquivos e metadados atuais. Não houve execução de SQL, validação de migrations em banco limpo, E2E Full-Product, rollback real ou aprovação humana. A fundação continua em andamento.
