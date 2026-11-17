@@ -680,3 +680,23 @@ A migração candidata `20261105150000_revoke_public_default_privileges_postgres
 - O setup invite é um conjunto: colunas/constraint/índice, RPC de consumo, ajustes de role e rate limit. A API candidata #161 já espera o RPC de rate limit.
 
 Nenhuma migração foi aplicada, nenhum grant foi revogado e nenhuma policy/função de produção foi alterada. A próxima etapa é transformar este inventário em um grafo de dependências com preflight e rollback por migração, e validar a sequência em Full-Product TEST isolado.
+
+
+## Addendum — evidências de CI e bloqueio do laboratório (2026-11-17 15:15 BRT)
+
+Foram consultados os resultados de GitHub Actions associados aos SHAs atuais das PRs candidatas, incluindo jobs e logs das falhas.
+
+| PR | Workflow | Resultado | Interpretação |
+|---|---|---|---|
+| #74 | UpStatus Validate + UpStatus Signaling Smoke Tests | success / success | evidência histórica de validação da linha Normal candidata |
+| #161 | UpStatus Validate + UpStatus Signaling Smoke Tests | success / success | validação mais recente da linha Normal candidata; inclui integração autenticada e navegador real |
+| #76 | Team Lite Candidate Checks | failure | os testes estáticos e contratos iniciais passaram; o smoke endpoint falhou porque o projeto isolado respondeu HTTP 402 por quota de invocações Edge excedida; os testes seguintes foram ignorados |
+| #178 | UpStatus Validate | failure | a validação herdada de develop falhou em client signed upload helper missing; PR #178 altera apenas documentação, portanto a falha está na base develop e não no conteúdo documental |
+
+O log bem-sucedido de #161 registra 136/136 verificações de integração autenticada, negociação WebRTC de áudio e vídeo em navegador real, convites e malha de três participantes, recuperação de sala de voz, rate limit distribuído, receipts atômicos e setup invite. Isso é evidência forte da vertical slice de sinalização na data do workflow, mas não equivale a um teste manual do Sale Smartly nem valida todos os domínios do produto.
+
+O mesmo projeto de laboratório usado por esses testes agora aparece como INACTIVE. A execução mais recente de #76 recebeu a mensagem do Supabase exceed_edge_functions_invocations_quota, que informa que o proprietário precisa aumentar o plano ou remover os spend caps para restaurar o serviço. Portanto, para repetir os testes integrados hoje, o proprietário precisa primeiro resolver essa restrição no Dashboard do Supabase e reativar o projeto. Não compartilhar service keys nem executar qualquer mudança em produção.
+
+**Ação humana necessária para desbloquear E2E:** restaurar o projeto upstatus-security-test no Supabase, resolvendo a quota de invocações (upgrade de plano ou remoção do spend cap, conforme decisão do proprietário). Enquanto isso, a análise estática, a comparação de código e o desenho da arquitetura podem continuar sem esse acesso.
+
+Nenhum workflow foi disparado manualmente nesta rodada. Os resultados acima são históricos, lidos diretamente do GitHub Actions. Nenhum deploy, merge, alteração de plano, spend cap ou projeto foi realizado.
