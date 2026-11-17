@@ -796,3 +796,35 @@ The dependency is already isolated in PR #174: its exact-head Validate run 43802
 Read-only logs over the previous 24 hours showed 73,672 HTTP 402 responses from `upstatus-screen-share-3-1-1-beta10` and 6 from `upstatus`. All six `upstatus` responses were requests for `/upstatus.user.js`. In the latest one-hour window, beta10 returned 9,327 HTTP 402 responses (5,038 chat, 2,144 remote-status, 2,141 status, 2 members, 2 me). No Team Lite function requests appeared in the queried log slice; this is not evidence that Team Lite is healthy.
 
 Some 402 entries show execution times between 0 and single-digit milliseconds. The logs do not expose the gateway's explanatory response body, and no explicit 402 branch was found in the inspected beta10 source. **The cause remains unconfirmed.** Do not call it billing/quota, and do not change billing, spend caps, function configuration or production routing without the owner inspecting the Dashboard and explicitly approving a change.
+
+
+## Addendum: domain dependency matrix and build-output gap (2026-11-17 15:45 BRT)
+
+### Domain-level dependency matrix
+
+This matrix combines deployed backend table references, current client routing, and the candidate Normal/Team Lite branches. It is a dependency map, not a claim of behavioral parity.
+
+| Domain | Current deployed dependencies | Candidate reconstruction direction | Cutover risk / required proof |
+|---|---|---|---|
+| Authentication and sessions | users, upstatus_sessions; custom hashed session tokens and role checks in the Edge Function | Preserve session contract while adding atomic setup-invite consumption/rate-limit RPCs; enforce persisted roles (PR #175) | Test existing account login, expiry, logout, recovery and role semantics before changing session/token format |
+| Presence and history | users, status_history; public Realtime broadcasts | Publish minimal status hints; authenticated client fetches authoritative state | Coordinate DB trigger and all Normal/Team Lite clients; never change the topic or payload on only one side |
+| Chat and receipts | messages, chat_reads, upstatus_typing; reactions are represented in message JSON as well as a separate legacy table | Atomic merge_chat_read_receipts RPC; minimize public message broadcasts; keep history shared | Preserve read/unread semantics, edit/delete/reaction/reply/media history; candidate migration must be tested with old and new clients |
+| Media and profiles | chat-images Storage bucket and profile/avatar endpoints; upstatus_profiles | Signed upload ticket + client helper, strict origin/path/token/size/MIME validation (PR #174) | Both client and backend must ship together; current buckets are public and Storage has no policies, so private/quarantine design remains a separate decision |
+| Voice, calls and screen share | WebRTC in userscript; signaling currently coupled to public Realtime topic | Separate authenticated signaling transport, room/membership/event/binding records, call/voice attempt recovery | Validate old-client compatibility, ICE lifecycle, audio permissions, reconnect without F5, group mesh and Normal ↔ Team Lite interoperability |
+| Remote state/control | upstatus_state plus public remote-command/result broadcasts | Keep sensitive commands server-mediated; broadcast only non-sensitive change hints | Prove role/identity authorization and idempotent command/result handling |
+| Guest portals | Lucca/Ycaro login, me, heartbeat and logout routes; shared chat context | Separate portal clients and explicit guest sessions while preserving shared history | Candidate develop base lacks Ycaro parity; test join/leave/expiry without deleting shared chat or leaking guest sessions |
+| Distribution and identity | Normal script distributed by upstatus but calls beta10; Team Lite has its own API and separate product update manifest; TEST identity collides with Normal | One explicit environment manifest generates API, distribution, namespace, storage prefix, Realtime topic and ringtone channels together | Verify the exact installed artifact, update feed and API target for every product/environment before publishing |
+
+Static backend inspection across deployed Normal, Team Lite, TEST and beta10 found direct references to the same core public tables: users, upstatus_sessions, status_history, upstatus_state, messages, chat_reads, upstatus_typing and upstatus_profiles, plus the chat-images Storage bucket. The deployed backend sources did not contain direct .from("reactions") or .rpc(...) calls. The separate public.reactions table currently has zero rows; do not classify it as safe to remove until client code, triggers and SQL references are checked. Candidate Normal/Team Lite backends add RPC calls for consume_upstatus_setup_invite, consume_upstatus_setup_invite_rate_limit and merge_chat_read_receipts; these require their candidate migrations and backend rollout as one dependency chain.
+
+### Build-level Full-Product TEST gap
+
+Read-only inspection of the exact candidate build and workflow files confirms:
+
+- Normal candidate #74 has an explicit UPSTATUS_TEST_PROJECT_ID guard, rejects the production ref and the isolated signaling fixture, uses a non-deployable sentinel when no test project is configured, and generates a distinct Normal upstatus-test artifact with upseller-test, a TEST topic and a TEST storage prefix.
+- Team Lite candidate #76 adds the Team Lite production backend/function and Team Lite release manifest, but its build still defines only one TEST function: upstatus-test. It does not generate upstatus-team-lite-test, a Team Lite TEST userscript identity, or a Team Lite TEST release manifest.
+- The deploy-test.yml copied into the Team Lite candidate still deploys only upstatus-test. Therefore the current candidate build can test Normal in isolation, but it cannot test both products end-to-end or prove cross-product compatibility in a fully isolated project.
+
+Required follow-up is a coordinated build/workflow extension that generates both product variants for TEST from one environment manifest and deploys both TEST function slugs to the same dedicated TEST project. Do not repurpose the production-project upstatus-test function as this environment.
+
+No source code or workflow was changed by this inspection. No build, migration, deploy or browser test was executed.
