@@ -239,3 +239,17 @@ No local full build, Full-Product TEST, manual Sale Smartly/Tampermonkey accepta
 - No local test/build, browser test, deploy, merge, migration, secret/config/ACL/policy change, or production data/function mutation occurred.
 
 Next: map external/client references to the 38 active functions and compare candidate build manifests for Normal, Team Lite and Full-Product TEST. Continue waiting for the owner-provided 402 Dashboard reason and isolated Full-Product TEST Project Ref before integrated tests.
+
+
+### Runtime consumer map — 2026-11-17
+
+- Decoded the embedded userscripts in all 13 active screen-share beta functions, all 12 TEST functions, and all 11 named backup functions.
+- Confirmed the screen-share beta family contains cross-version routing: beta9-1 uses beta8 topic/prefix; beta9-2 and beta9-3 use beta8 API/topic/prefix; beta10's backend and embedded client are actually 3.1.1-beta8 and the script updates/calls beta8.
+- Confirmed the current deployed TEST 3.3.28 shares Normal's Tampermonkey name/namespace, calls beta10, listens on beta10 topic and uses the beta8 local prefix. Older TEST 3.0.52 variants had per-variant namespace/topic/prefix, but remain in the production Supabase project; several 3.0.51 variants and backup-032 use the production Realtime topic, and backup-032 also uses the production local prefix.
+- Confirmed 3.1.x–3.3.0 backup snapshots generally update via Normal `upstatus` while calling API/topic/prefix beta8. The backup-325 script updates via its own backup slug. The source returned for `upstatus-backup-327-pre328` is 0 bytes despite a non-empty entrypoint hash; provenance remains unresolved.
+- Refined the encoding map: current Normal, Team Lite and TEST 3.3.28 use USERSCRIPT_BASE64; legacy screen-share beta, historical TEST and recoverable backups use USERSCRIPT_HEX.
+- A fixed 24-hour `function_edge_logs` slice returned 74,302 HTTP 402 for beta10 and 6 HTTP 402 for the Normal userscript distribution endpoint; no other function slugs appeared in that slice. This is not proof that the remaining functions have no consumers.
+- Updated `docs/RECONSTRUCTION_FOUNDATION.md` with the full runtime-consumer mapping and corrected the encoding statement. Documentation-only commit: `4df0033d20bb5dbe6fd53de5796807c9f043330e`.
+- No local tests, browser tests, deploy, merge, migration, secret/config/ACL/policy change, or production data/function mutation occurred.
+
+Next: map historical callers outside the embedded userscripts and identify exact route-level dependency overlaps. Reconcile the empty backup source through an alternate provenance path. Full-Product TEST and owner Dashboard inspection remain blocked on owner action.
