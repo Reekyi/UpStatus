@@ -193,3 +193,13 @@ Next: continue domain-level source/provenance comparison and prepare a precise d
 - No local build, manual browser test, migration, deploy, merge, secret/config change, grant/policy change, or production data/function mutation occurred.
 
 Next: continue reviewing domain contracts and candidate branch dependencies. Full-Product TEST remains blocked on an owner-provisioned active isolated project; production 402 remains blocked on the owner's read-only Dashboard inspection and confirmation of the displayed cause.
+
+
+### Domain dependency and TEST build review — 2026-11-17 15:45 BRT
+
+- Added a domain-level matrix to RECONSTRUCTION_FOUNDATION.md covering auth/session, presence, chat/receipts, media, voice/screen share, remote control, guest portals and distribution/update identity.
+- Static inspection confirms the four deployed backends directly reference the same core tables and chat-images bucket. The separate public.reactions table has zero rows and no direct backend .from("reactions") use in the inspected runtimes; it remains only a possible legacy object until client/trigger/SQL references are checked. Candidate backends add three RPC dependencies for setup invites/rate limit and atomic chat receipts.
+- Confirmed the Full-Product TEST gap at build/workflow level: Normal candidate #74 creates only Normal upstatus-test; Team Lite candidate #76 adds the Team Lite production function but still has no upstatus-team-lite-test function, Team Lite TEST client identity or Team Lite TEST manifest. Its deploy-test workflow deploys only upstatus-test.
+- No source code or workflow was changed; no build, test, migration, deploy, merge or production mutation was performed.
+
+Next: inspect client-side references for the legacy reactions table and map the candidate signaling/voice migration dependency order against the exact RPC/function definitions. Full-Product TEST remains an owner-provisioning blocker.
