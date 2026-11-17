@@ -871,3 +871,39 @@ A focused cross-layer check now shows:
 - No inspected deployed userscript contains a direct Supabase .from("reactions") call.
 
 This makes public.reactions a strong candidate for a legacy/unused table, but it is **not authorized for deletion**. Before cleanup, search all historical clients, archived branches, workflows, external scripts and any direct REST consumers, then confirm in isolated TEST that the table is not part of an undocumented compatibility contract.
+
+
+## Handoff checkpoint — reconstruction foundation ready (2026-11-17 15:55 BRT)
+
+The read-only discovery and architecture-foundation phase has reached a documented handoff point. The next phase can begin once the owner supplies the two environment/operations prerequisites below.
+
+### Foundation outputs now documented
+
+- Exact deployed runtime inventory and decoded client identity/API/update/Realtime routing for Normal 3.4.7, Team Lite 3.4.30, TEST 3.3.28 and legacy beta10/beta8.
+- Git branch divergence and candidate provenance across master, develop, Normal #74/#161, Team Lite #76 and migration recovery #176.
+- Domain dependency matrix for auth/session, presence, chat/receipts, media, voice/calls/screen share, remote control, guest portals and distribution.
+- Supabase public schema, RLS/policies, table grants, default ACLs, SECURITY DEFINER functions, Realtime triggers/topics, Storage buckets and migration ledger.
+- Ordered candidate migration dependencies, including the sequential RPC replacements and the unresolved supabase_admin default-ACL gap.
+- Proposed target structure and a dual-product Full-Product TEST contract covering both products, function slugs, client identities, local prefixes, Realtime, Storage, secrets, data and build/deploy guards.
+- Candidate validation evidence and limitations, including the Normal authenticated signaling smoke and the Team Lite TEST build gap.
+
+### Known blockers and limits are explicit
+
+1. Production Normal API and distribution logs continue to show HTTP 402. The Dashboard's explanatory reason is not visible in the read-only logs, so the cause is unconfirmed.
+2. The separate upstatus-security-test project is INACTIVE and does not meet the Full-Product TEST contract.
+3. Candidate Team Lite build #76 still lacks a Team Lite TEST function/client/manifest; both products cannot yet be tested end-to-end in one isolated project.
+4. Production catalog still has the documented RLS/policy/grant/default-ACL and SECURITY DEFINER findings. No security remediation has been applied.
+5. The managed Supabase main branch reports MIGRATIONS_FAILED.
+6. PR #178 is a documentation-only Draft PR. Its Validate workflow fails on the inherited develop assertion "client signed upload helper missing"; the separate candidate PR #174 contains that helper and passed its exact-head Validate. No PR has been merged.
+7. No local build, complete Full-Product TEST, manual Sale Smartly/Tampermonkey acceptance or production cutover has been performed.
+
+### Required owner actions to enter the implementation phase
+
+- Inspect the UpStatus Supabase Dashboard's Usage/Billing/Spend Caps and Edge Function status, especially the beta10 function, and provide the exact 402 explanation shown. Do not change plan, spend caps, function settings or secrets as part of this inspection.
+- Provision or restore a dedicated, active Full-Product TEST Supabase project with working Edge Functions, Realtime and Storage, and provide only its Project Ref. Do not share service-role keys or other secrets.
+
+### Recommended next phase
+
+After those prerequisites, create the missing Team Lite TEST build/deploy path, reconcile the TEST baseline migrations in that isolated project, then run domain-level API/browser acceptance for both products. Only after that should a reviewed module extraction and production cutover/rollback plan be prepared.
+
+**Phase 1 handoff status: READY.** This does not mean the production system is repaired, that candidate code is approved, or that any production change is authorized. Production remains untouched.
