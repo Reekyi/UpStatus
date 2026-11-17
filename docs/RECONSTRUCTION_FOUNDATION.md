@@ -828,3 +828,46 @@ Read-only inspection of the exact candidate build and workflow files confirms:
 Required follow-up is a coordinated build/workflow extension that generates both product variants for TEST from one environment manifest and deploys both TEST function slugs to the same dedicated TEST project. Do not repurpose the production-project upstatus-test function as this environment.
 
 No source code or workflow was changed by this inspection. No build, migration, deploy or browser test was executed.
+
+
+## Addendum — candidate signaling and migration dependency graph (2026-11-17 15:50 BRT)
+
+### Authenticated signaling vertical slice
+
+The candidate signaling implementation is a separate Edge Function, not a route hidden inside the legacy monolithic backend:
+
+- Candidate function: supabase/functions/upstatus-signal-test/index.ts.
+- Candidate client adapter: src/userscript/signaling-transport.mjs.
+- Server endpoints include room status/members/invitations/create, prepare/cancel call, open/cancel voice room, bind/resolve, invite/request-invite/accept/decline/leave/close, and signal delivery.
+- The function uses the custom UpStatus session token and service-role database access on the server. Its database dependencies include upstatus_sessions, users, upstatus_signal_rooms, upstatus_signal_room_members, upstatus_signal_events, upstatus_signal_room_bindings, upstatus_signal_call_attempts and upstatus_signal_voice_room_attempts.
+- The adapter persists retry/recovery state and supports polling/acknowledgement, Retry-After and explicit call/voice lifecycle operations.
+- Crucially, the Normal and Team Lite candidate userscripts read the signaling feature flag from GM storage with a default of false. The transport is therefore opt-in and disabled for existing users until a coordinated rollout explicitly enables it. Passing the candidate CI does not activate it.
+
+### Candidate migration dependency order
+
+The 23 candidate application migrations in the Normal #74/#161 line should be treated as an ordered dependency chain, not as 23 independent SQL files:
+
+1. **Initial privilege containment:** 20261029170500 restricts trigger-function EXECUTE; 20261029183000 revokes unused public-table grants.
+2. **Signaling foundation:** 20261029205000 creates rooms, memberships and event queue, and preflights users.name for NULL/duplicates before adding the unique identity index.
+3. **Membership and envelope compatibility:** 20261030120000 adds invitation consent; 20261030150000 sets legacy membership defaults; 20261030190000 permits the supported legacy envelopes.
+4. **Room bindings:** 20261030192000 creates bindings referencing the signaling rooms and users. 20261103171000 adds the created_by index and therefore follows the binding table.
+5. **Public Realtime minimization:** 20261103160000 changes the chat broadcast function; 20261103170000 changes user/remote-state broadcasts. Both SQL headers explicitly require matching clients to treat events as refresh hints and refetch canonical data through the authenticated API. 20261107170000 later pins the broadcast functions' search_path to empty.
+6. **Read receipts and voice membership:** 20261105160000 adds merge_chat_read_receipts; 20261105190000 adds open/leave voice-room membership RPCs and relies on the signaling rooms/memberships/bindings.
+7. **Call recovery:** 20261106080200 creates call-attempt records and prepare/cancel RPCs; 20261106111000 adds indexes for the call-attempt foreign keys.
+8. **Voice-open recovery:** 20261106120500 creates durable voice-room attempts and open/cancel RPCs. 20261108010000 replaces the open-attempt RPC with a per-account singleton guard; 20261108050751 replaces it again with the account-scoped lock design. Both later replacements are required in timestamp order to reach the final candidate behavior.
+9. **First-access invites:** 20261107010000 adds setup-invite columns and the initial consume RPC; 20261107060000 replaces the RPC with role normalization; 20261107062000 replaces it again while preserving existing role values. 20261109230000 then adds distributed per-admin invite rate limiting and its RPC, which PR #161's backend calls.
+10. **Default ACL hardening:** 20261105150000 revokes default privileges for owner postgres, but the current production catalog also has broad public-schema defaults for supabase_admin. This candidate file alone does not close the full default-ACL finding.
+
+This ordering is based on timestamps plus inspected table/function references. Before any TEST replay, run the candidate migration-layout tests, confirm the exact SQL sequence against the branch, and inspect rollback behavior for each data/constraint change. No candidate migration has been applied to production.
+
+### Legacy reactions table: evidence for review, not deletion
+
+A focused cross-layer check now shows:
+
+- public.reactions has zero rows and only its primary-key index.
+- It has no user-defined trigger and no foreign-key relationship in either direction.
+- No public SQL function definition references reactions.
+- The deployed backend sources do not directly query a reactions table; the Normal and Team Lite userscripts read and render the reactions JSON object embedded in each message record (messages.reactions).
+- No inspected deployed userscript contains a direct Supabase .from("reactions") call.
+
+This makes public.reactions a strong candidate for a legacy/unused table, but it is **not authorized for deletion**. Before cleanup, search all historical clients, archived branches, workflows, external scripts and any direct REST consumers, then confirm in isolated TEST that the table is not part of an undocumented compatibility contract.
