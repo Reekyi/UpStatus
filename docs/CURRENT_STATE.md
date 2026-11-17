@@ -331,3 +331,14 @@ Next: keep the isolated test project blocked pending owner decision; continue st
 - All database work was SELECT/catalog inspection only. No grants, policies, triggers, functions, data, migrations, Storage objects, secrets or billing settings were changed.
 
 Next: review the candidate migration test coverage and ownership constraints, especially the separate supabase_admin default ACL path. Do not apply any SQL until isolated TEST is active and the role/owner matrix is verified.
+
+
+### Security migration test coverage — 2026-11-17
+
+- Reviewed the candidate SQL tests. The postgres default-ACL test creates/drops probe objects and verifies anon/authenticated defaults for objects created by postgres; it does not test supabase_admin. The global function-default test covers postgres outside public. The trigger search_path test checks SECURITY DEFINER, empty search_path, trigger attachment, anon/authenticated denial and service_role preservation.
+- No dedicated test-migration was found for revoking grants on the nine existing public application tables. No test covers supabase_admin default ACLs. Both are explicit coverage gaps.
+- The test-migrations README confirms these are executable DDL fixtures, intended only for the allowlisted isolated project; the JS mutation guard does not authorize SQL DDL. The isolated project remains INACTIVE/quota-restricted, so no SQL test was run.
+- Updated `docs/DB_SECURITY_RECONSTRUCTION.md` with the test coverage and gaps. Documentation-only commit: `03fd03460caf60dff479fc72b8bf98080e03e26f`.
+- No test-migration, DDL, grant, policy, function, trigger, data or production configuration was changed.
+
+Next: define explicit tests for existing-table grants and supabase_admin defaults, and identify a supported administrative path for that role. Continue without applying SQL until isolated TEST is available.
