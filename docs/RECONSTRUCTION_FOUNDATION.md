@@ -700,3 +700,26 @@ O mesmo projeto de laboratório usado por esses testes agora aparece como INACTI
 **Ação humana necessária para desbloquear E2E:** restaurar o projeto upstatus-security-test no Supabase, resolvendo a quota de invocações (upgrade de plano ou remoção do spend cap, conforme decisão do proprietário). Enquanto isso, a análise estática, a comparação de código e o desenho da arquitetura podem continuar sem esse acesso.
 
 Nenhum workflow foi disparado manualmente nesta rodada. Os resultados acima são históricos, lidos diretamente do GitHub Actions. Nenhum deploy, merge, alteração de plano, spend cap ou projeto foi realizado.
+
+
+## Addendum — respostas HTTP 402 no runtime Normal (2026-11-17 15:20 BRT)
+
+Uma consulta read-only aos logs unificados de produção encontrou 67.701 registros de function_edge_logs na janela de 24 horas consultada. A agregação por status/rota mostrou respostas HTTP 402 concentradas no endpoint legado beta10 usado pelo Normal 3.4.7:
+
+| Rota beta10 | HTTP 402 nas últimas 1h consultadas |
+|---|---:|
+| `/api/chat` | 3.205 |
+| `/api/status` | 1.364 |
+| `/api/remote-status` | 1.362 |
+| `/api/members` | 2 |
+| `/api/me` | 2 |
+
+Na mesma janela de uma hora, a consulta não encontrou chamadas registradas para `upstatus-team-lite`; isso não prova que Team Lite esteja saudável, apenas que não houve tráfego visível nessa janela. Também apareceram 402 em health/ready endpoints de infraestrutura do projeto. O projeto continua marcado `ACTIVE_HEALTHY` pela API de gerenciamento, então esse status não é suficiente para concluir que as invocações Edge estão funcionando.
+
+A leitura do source atual beta10 não encontrou um caminho explícito que retorne status 402; o catch geral retorna 500. Isso sugere que a resposta pode estar sendo produzida antes do handler ou por uma camada externa, mas a causa não foi confirmada. Não atribuir automaticamente esses 402 à quota do laboratório: são projetos diferentes e o erro de produção precisa de diagnóstico próprio.
+
+**Impacto provável:** como o Normal instalado aponta chat, status e controle remoto para beta10, esses 402 são compatíveis com a falha de atualização/presença percebida no Normal. Ainda não há prova de que todos os usuários sejam afetados nem de que a causa seja billing/quota.
+
+**Ação humana necessária:** o proprietário deve verificar no Dashboard do projeto UpStatus a seção de uso/billing/spend caps e o estado das Edge Functions, especialmente a função beta10. Não alterar plano, spend cap, função ou segredo automaticamente. Precisamos do motivo exibido pelo Dashboard para confirmar a causa.
+
+Nenhum request de escrita foi enviado à produção. A consulta foi somente a logs agregados e fonte implantada.
