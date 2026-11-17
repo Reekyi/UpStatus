@@ -51,3 +51,22 @@ The current chat is establishing durable continuity docs so a new chat can conti
 ## Last updated
 
 2026-10-09. Updated with the Ycaro stable-release preparation checkpoint. Re-check live GitHub, Supabase, and Vercel state before any merge or deployment.
+
+
+## Reconstruction foundation checkpoint — 2026-11-17 13:30 BRT
+
+A read-only audit was completed and documented in docs/RECONSTRUCTION_FOUNDATION.md on branch docs/reconstruction-foundation-2026-11-17.
+
+Verified:
+- master is at 9d40461; develop is at 6b33e1e; the branches are materially diverged (114 ahead / 147 behind).
+- Production Normal is upstatus v480 / 3.4.7; its distributed userscript calls the legacy beta10 API runtime. Team Lite is upstatus-team-lite v15 / 3.4.30 and calls its own API runtime.
+- The deployed Normal and Team Lite clients share the same public Realtime topic despite separate storage prefixes.
+- Production has 38 active Edge Functions (2 official, 12 TEST/history, 13 screen-share beta, 11 backups); no legacy function was deleted.
+- The production database has 10 public RLS-enabled tables with no policies, 3 client-executable SECURITY DEFINER broadcast functions, 106 public Realtime messages, 2 public Storage buckets, 188 objects and no Storage policies.
+- The production migration ledger has 7 entries; four migration source files are absent from the inspected branches. Supabase managed branch main reports MIGRATIONS_FAILED.
+- The only separate lab project upstatus-security-test is currently INACTIVE and is not a Full-Product TEST environment.
+- Build/deploy configuration has environment-isolation and Team Lite function-slug defects documented in the reconstruction foundation.
+
+No production writes, migrations, deploys, secret changes, merges or deletions occurred. No local build or tests were run. The architecture document is a draft map, not a readiness declaration.
+
+Next: reconcile the exact source of each deployed runtime, including embedded userscripts and client endpoint consumers; then define the isolated Full-Product TEST contract before beginning modular code changes.
