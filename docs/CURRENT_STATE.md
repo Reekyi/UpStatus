@@ -263,3 +263,15 @@ Next: map historical callers outside the embedded userscripts and identify exact
 - No test/build, restore, migration, deploy, merge, secret/config/ACL/policy change, or production data/function mutation occurred.
 
 Next: compare the 34 route handlers for policy and semantic drift, then record the exact compatibility matrix. Integrated validation remains blocked on an active isolated Full-Product TEST project.
+
+
+### API semantic drift — 2026-11-17
+
+- Compared internal `members()`, login and chat-history functions in Normal, Team Lite, TEST and beta10.
+- Confirmed current Normal 3.4.7 client calls beta10. beta10's `/api/members` and GET `/api/status` return all `public.users` names, while the `upstatus` serving backend source has an explicit three-person allowlist. Thus the served Normal source is not the active API behavior for these endpoints.
+- Confirmed Team Lite calls its own backend, enforces a 4-character password minimum, allowlists official names, and applies a guest-join timestamp cutoff to chat history. Normal/beta10 use a 6-character minimum and do not apply that guest cutoff.
+- TEST 3.3.28 source contains Team Lite-style 4-character/allowlist logic, but its embedded client calls beta10; its effective API behavior therefore follows beta10, not its own backend.
+- Updated `docs/RECONSTRUCTION_FOUNDATION.md` with this route-level semantic drift. Documentation-only commit: `e8674b9f693bfd36451b09f21ce271c315bf66af`.
+- No runtime, database, project, migration, secret, ACL, policy or production configuration was changed.
+
+Next: build a compatibility matrix for Normal/Team Lite/TEST across login, members/status, guest history, media upload and guest portals. Do not redirect API URLs until those contracts are validated in Full-Product TEST.
