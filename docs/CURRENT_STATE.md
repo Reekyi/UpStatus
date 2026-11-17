@@ -227,3 +227,15 @@ PR #178 remains a documentation-only Draft PR. Its Validate failure is the inher
 No local full build, Full-Product TEST, manual Sale Smartly/Tampermonkey acceptance, migration, deploy, merge, secret/config/ACL/policy change, or production data/function mutation occurred. Production is not repaired or declared ready. No production changes were made.
 
 **Phase 1 status: READY FOR HANDOFF.** Next: create the dual-product TEST build/deploy path and rehearse migrations only in the owner-provisioned isolated project.
+
+
+### Runtime inventory and 402 verification — 2026-11-17
+
+- Repeated the read-only Supabase Edge Function inventory: 38 ACTIVE functions (1 Normal, 1 Team Lite, 12 TEST/historical, 13 screen-share beta, 11 named backups). All 38 entrypoint SHA-256 values are distinct; backup names do not indicate byte-identical entrypoints. No function was changed or removed.
+- Queried the last 24 hours of `function_edge_logs`: 74,986 HTTP 402 responses across beta10 chat/status/remote-status/members/me/account and the Normal userscript distribution endpoint. Mean recorded execution times were 1.4–19.2 ms by route. A separate last-60-minute query returned no `edge_logs` rows. These observations do not identify the platform cause; owner Dashboard inspection remains required.
+- Rechecked PR #178 exact HEAD `6ac510c3b9334adb3d9a3e6247f47e9c992943e0`: Validate failed at `scripts/validate.mjs:55` because the inherited develop client lacks the signed-upload helper. Build step itself generated PROD 3.0.40 / TEST 3.0.40-beta.22. Supabase Preview was skipped because no Supabase Branch is associated. PR #174 has a separate successful candidate CI run but remains unmerged.
+- Clarification: the earlier “ready for owner handoff” note means the investigation has enough evidence to request the two owner prerequisites; it does **not** mean the reconstruction foundation is complete. Full-Product TEST, complete runtime-consumer provenance, reproducible isolated build, and integrated domain validation remain outstanding.
+- Updated `docs/RECONSTRUCTION_FOUNDATION.md` with the detailed evidence. Documentation-only commit: `3616648dfa449bd144539927ea49a65f13a62e7a`.
+- No local test/build, browser test, deploy, merge, migration, secret/config/ACL/policy change, or production data/function mutation occurred.
+
+Next: map external/client references to the 38 active functions and compare candidate build manifests for Normal, Team Lite and Full-Product TEST. Continue waiting for the owner-provided 402 Dashboard reason and isolated Full-Product TEST Project Ref before integrated tests.
