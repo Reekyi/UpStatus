@@ -446,3 +446,12 @@ Próximo: validar com o requisito de produto se a quota deve permanecer por usu�
 - No application code was changed. The only writes this pass were documentation commits on the isolated reconstruction branch. No tests were run in this pass; no production writes or configuration changes occurred.
 
 Next: reconcile #101/#102 against current #74 on a new isolated branch, review the 14 missing objects' full signatures/owners/ACLs on a clean Full-Product TEST database, and add a separately guarded deploy/rollback step for `upstatus-signal`. Production cutover remains prohibited without explicit approval.
+
+
+### Documentation branch CI recheck — 2026-11-17T23:32:45.737Z
+
+- The reconstruction branch remains 76 commits ahead of `develop`, zero behind; the compare endpoint reports exactly six changed paths and all are under `docs/`. No application source, workflow, migration or production artifact is changed by this branch.
+- Automatic Validate run [#44200246323](https://github.com/Reekyi/UpStatus/actions/runs/44200246323) failed at `scripts/validate.mjs` with `VALIDATION FAILED: client signed upload helper missing`. The failure occurs in the inherited source validator, not in the new documentation. I did not change the validator or application code to mask it.
+- The new dependency map and checkpoint files are present on the isolated branch. PR #178 remains open and Draft.
+
+Next: keep the documentation PR isolated; treat the inherited validator failure as a separate baseline issue, and continue the PR #101/#102 reconciliation and Full-Product TEST readiness work.
