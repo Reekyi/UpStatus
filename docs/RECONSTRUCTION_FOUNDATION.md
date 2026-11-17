@@ -191,7 +191,7 @@ Foram encontradas diferenças relevantes:
 
 - O runtime Normal implantado contém signedUploadRoute; o template master consultado não contém essa função.
 - O template develop contém signedUploadRoute, mas não contém as rotas e o portal Ycaro que aparecem no runtime Normal.
-- Os runtimes implantados usam USERSCRIPT_BASE64; os templates consultados usam USERSCRIPT_HEX.
+- Os runtimes Normal 3.4.7, Team Lite 3.4.30 e TEST 3.3.28 consultados usam USERSCRIPT_BASE64. A família legada screen-share, as variações TEST 3.0.50–3.0.52 e os backups com fonte recuperável usam USERSCRIPT_HEX. Portanto, o encoding varia por geração/família e não deve ser presumido globalmente; a fonte retornada para upstatus-backup-327-pre328 veio vazia e permanece sem classificação.
 - master e develop geram tópicos Realtime, prefixos de armazenamento e destinos de API diferentes.
 - O script Normal implantado aponta a API para beta10, embora a distribuição seja servida por upstatus.
 - O userscript Team Lite e o Normal implantados usam o mesmo tópico Realtime, apesar de possuírem prefixos de armazenamento diferentes.
@@ -960,3 +960,62 @@ O checkpoint de `CURRENT_STATE.md` que descreve a fase como “ready for owner h
 4. Aguardar a causa exata do 402 no Dashboard e o Project Ref de um Full-Product TEST isolado antes de qualquer teste integrado.
 
 Nenhum deploy, merge, migration, alteração de segredo, grant, policy, dado ou função ocorreu nesta verificação.
+
+
+## Addendum — mapa de consumidores embutidos nas famílias beta, TEST e backup (2026-11-17)
+
+A inspeção foi ampliada para decodificar o userscript embutido nas 13 funções screen-share, nas 12 funções TEST e nas 11 funções nomeadas como backup. Foram extraídos apenas metadados de identidade, versão, destino de atualização, API, tópico Realtime e prefixo local; nenhum token público/segredo foi registrado.
+
+### Família screen-share beta
+
+As 13 funções não formam uma sequência de aliases intercambiáveis:
+
+- beta1 a beta8 e beta9 simples têm, em geral, versão do backend/cliente e destinos de API, update, tópico e prefixo coerentes com o próprio sufixo.
+- beta9-1 declara cliente 3.1.1-beta9.1 e chama a própria API, mas já usa tópico e prefixo beta8.
+- beta9-2 declara 3.1.1-beta9.2, mas API, tópico e prefixo apontam para beta8.
+- beta9-3 declara 3.1.1-beta9.6, mas API, tópico e prefixo apontam para beta8.
+- beta10 não contém cliente beta10: backend e userscript embutido declaram 3.1.1-beta8; o script servido atualiza e chama a função beta8, usa tópico beta8 e prefixo beta8.
+
+Isso confirma que o slug da Edge Function não é uma fonte confiável para inferir a versão do cliente ou seu backend real. A função beta10 continua relevante porque os clientes Normal e TEST atuais chamam seu endpoint de API, mesmo que o userscript distribuído por ela seja beta8.
+
+### Família TEST
+
+| Grupo implantado | Identidade/isolamento observado |
+|---|---|
+| `upstatus-test` 3.3.28 | Mesmo @name e @namespace do Normal; API beta10; tópico beta10; prefixo local beta8. Não isolado do Normal. |
+| TEST 3.0.52 beta1–beta6 e TEST beta11 | Namespace, tópico e prefixo específicos por variante. Ainda estão no projeto Supabase de produção, portanto não são Full-Product TEST isolados. |
+| TEST 3.0.51 beta1/beta3 | Namespace/prefixo de teste, mas tópico Realtime de produção; a beta3 atualiza pela beta1. |
+| TEST 3.0.51 beta2 | API/tópico beta2, mas updateURL e namespace apontam para beta1. |
+| `upstatus-test-backup-032` 3.0.32-test | Namespace de teste, porém usa tópico de produção e prefixo local `upstatus_`; API e update apontam para `upstatus-test`. |
+
+O histórico mostra que algumas versões TEST antigas tinham separação lógica melhor do que o TEST 3.3.28 atualmente implantado. Mesmo as variantes com tópico/prefixo próprios continuam compartilhando projeto, banco, Storage e ambiente de execução com produção. Nenhuma delas deve ser tratada como ambiente Full-Product TEST seguro.
+
+### Família backup
+
+Os 11 backups nomeados também guardam snapshots com contratos diferentes:
+
+- 3.1.0, 3.1.1 e 3.1.2: os scripts recuperáveis usam API/tópico/prefixo beta8; os nomes de namespace variam entre `upseller` e `upseller-screen-share-beta8`.
+- 3.2.5, 3.2.6, 3.2.7, 3.2.8, 3.2.9 e 3.3.0: scripts recuperáveis atualizam por `upstatus`, mas continuam chamando API/tópico/prefixo beta8.
+- `upstatus-test-backup-032`: segue o contrato legado TEST descrito acima.
+- `upstatus-backup-327-pre328`: a API de inspeção retornou `index.ts` com zero bytes, apesar de informar um SHA-256 não vazio. Não classificar o conteúdo como vazio de origem nem descartar a função; é necessário recuperar/validar a fonte por outra evidência.
+
+Os 38 entrypoints ativos continuam com hashes distintos. A ausência de hash duplicado, somada a esses destinos cruzados, reforça que os backups são snapshots históricos diferentes, não réplicas descartáveis. Não remover nenhum deles até concluir o mapa de consumidores e a política de rollback.
+
+### Encoding dos userscripts
+
+A afirmação genérica de que todos os runtimes implantados usam o mesmo encoding foi refinada: Normal 3.4.7, Team Lite 3.4.30 e TEST 3.3.28 usam `USERSCRIPT_BASE64`; as famílias beta screen-share, TEST 3.0.50–3.0.52 e backups com fonte recuperável usam `USERSCRIPT_HEX`. O encoding é específico da geração. A fonte vazia de backup-327-pre328 permanece sem classificação.
+
+### Observabilidade de uso recente
+
+Na janela fixa de 24 horas entre 2026-11-16 19:32 UTC e 2026-11-17 19:32 UTC, a consulta agregada de `function_edge_logs` encontrou apenas dois slugs:
+
+- `upstatus-screen-share-3-1-1-beta10`: 74.302 respostas HTTP 402;
+- `upstatus`: 6 respostas HTTP 402, todas no endpoint de distribuição observado.
+
+As outras 36 funções não tiveram linhas nesse recorte. Isso é apenas ausência de registros no intervalo consultado, não prova de que estejam sem consumidores; retenção, telemetria e clientes fora da janela precisam ser considerados. A causa do 402 continua desconhecida e depende da mensagem exibida no Dashboard do proprietário.
+
+### Consequência para a reconstrução
+
+A próxima matriz de proveniência deve identificar três coisas separadamente para cada runtime: (1) quem distribui o script, (2) qual função o script chama para API, e (3) qual tópico/prefixo/namespace ele usa. O slug da função distribuidora, isoladamente, não responde às outras duas perguntas. A estratégia Full-Product TEST precisa usar projeto separado e manifesto que valide todos esses destinos, não apenas sufixos diferentes.
+
+Nenhum deploy, merge, migration, alteração de segredo, grant, policy, dado ou função ocorreu nesta inspeção.
