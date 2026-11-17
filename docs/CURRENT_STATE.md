@@ -119,3 +119,14 @@ The deployed upstatus-test 3.3.28 script declares the same @name and @namespace 
 - No local build, automated test, browser E2E, migration, deploy, secret/grant/policy change, merge, or deletion was performed.
 
 Next: finish source provenance and route/consumer parity across deployed runtimes and Git templates, then define a safe Full-Product TEST environment contract. Reconstruction foundation remains in progress.
+
+
+### Candidate source reconciliation — 2026-11-17 14:45 BRT
+
+- Normal candidate PRs #74/#161: candidate backend template contains all 34 literal route paths observed in deployed Normal plus /api/setup-invite. PR #161 changes the Normal API target from legacy beta10 to the deployed upstatus function and adds validator assertions tying API, update URL and production deploy target together. It remains Draft and unmerged; this API cutover requires isolated Full-Product TEST.
+- Team Lite candidate PR #76: branch team-lite/signaling-transport-candidate adds an 814-line backend template and a Team Lite 3.4.31 script/release manifest. Its backend contains all 34 literal route paths observed in deployed Team Lite plus /api/setup-invite. Its script uses the database Realtime topic and its own upstatus-team-lite API.
+- PR #76 build creates Normal TEST with a separate configured project and production Team Lite, but does not create a Team Lite TEST function/client variant. Full-Product TEST therefore remains incomplete for the two-product system.
+- Candidate PRs #74, #76 and #161 remain Draft; no workflows were triggered and no tests/builds were run in this round.
+- Route comparison is name-level only; it does not prove behavioral parity. Preserve the candidate branches for domain-by-domain review rather than merging them wholesale.
+
+Next: compare runtime and candidate implementations by domain (auth/session, chat/media, presence/Realtime, voice/screen share, guests/admin), then specify a dual-product isolated TEST contract. Production remains unchanged.
