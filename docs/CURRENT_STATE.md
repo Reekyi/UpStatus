@@ -357,3 +357,11 @@ Next: define explicit tests for existing-table grants and supabase_admin default
 - No tests, build, browser run, DDL, SQL write, migration, role change, deploy, merge, secret/billing change, or production data/function mutation occurred.
 
 Next: obtain the exact `main` branch failure log from the project owner, and an active isolated Full-Product TEST Project Ref. Meanwhile continue static comparison of candidate handler semantics and migration contracts; do not attempt a production workaround for the `supabase_admin` owner boundary.
+
+
+### PR #178 CI result for the latest documentation checkpoint — 2026-11-17
+
+- The latest documentation commit `c1852b21ef7ce5f11ec8887177939addf42f645f` triggered Validate run [44171243014](https://github.com/Reekyi/UpStatus/actions/runs/44171243014).
+- The CI runner completed the build step and printed `Built UpStatus 3.0.40 / TEST 3.0.40-beta.22`, then `node scripts/validate.mjs` failed at `scripts/validate.mjs:55` with `VALIDATION FAILED: client signed upload helper missing`.
+- The failure is in the inherited `develop` source/validator contract, not in the four documentation files changed by PR #178. Do not weaken or bypass the validator to make this documentation PR green; reconcile the signed-upload source contract in the appropriate code candidate first.
+- This is a real CI failure, not a local test result. No local build, browser test, SQL write, migration, deploy or production mutation was performed.
