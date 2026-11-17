@@ -510,3 +510,22 @@ A leitura direta dos scripts confirmou uma contradição reproduzível por inspe
 Assim, o build master produz uma URL que o próprio validator rejeita. O checkpoint de QA da PR #82 já registrou a falha "production updateURL mismatch" no gate herdado. Não foi executado um novo build nesta auditoria.
 
 Além disso, master e develop mantêm apenas três arquivos em supabase/migrations, enquanto o ledger de produção tem sete entradas. A PR #176 propõe adicionar os quatro SQL ausentes, recuperados dos statements do ledger. Isso é recuperação de conteúdo, não prova de que os arquivos originais foram restaurados exatamente.
+
+
+## Addendum — trabalho candidato existente que deve ser preservado e revisado
+
+A branch chore/continuity-foundation contém uma quantidade relevante de trabalho ainda não integrado:
+
+- 25 scripts de teste/execução, contra apenas 3 scripts em master e 2 em develop;
+- módulo separado src/userscript/signaling-transport.mjs, com endpoints autenticados para criar/abrir/fechar salas, preparar chamadas, membros, convites, resolução e saída;
+- função isolada upstatus-signal-test, com módulos separados para leitura de corpo e validação de envelopes legados;
+- guard de mutação que só permite o projeto de sinalização bfpjtfqlnypisxljoxkb e exige UPSTATUS_SIGNAL_ALLOW_MUTATION=1, service key e preflight;
+- guard do build que rejeita o projeto de produção e o projeto isolado de sinalização como destino do Full-Product TEST;
+- validações de reconexão, recuperação de chamadas/salas, upload assinado, autenticação, rate limit, receipts e atualização Team Lite;
+- 25 migrations candidatas, incluindo revogação de grants, restrição de execução de funções de trigger, sinalização server-mediated, receipts atômicos, salas/attempts, setup invites, minimização de broadcasts públicos e search_path seguro.
+
+Isso é uma base importante para reaproveitar, mas não é a reconstrução completa do sistema. O backend ainda é um único template monolítico de aproximadamente 807 linhas e o userscript continua sendo um bundle grande. A extração de signaling é uma vertical slice, não uma separação completa dos domínios.
+
+A função upstatus-signal-test e seu projeto isolado são voltados a testes de sinalização/autenticação. O próprio guard do build impede usar esse projeto como Full-Product TEST. Como o projeto está INACTIVE, a smoke test autenticada também depende de recuperar esse laboratório.
+
+As migrations candidatas não estão no ledger de produção consultado. Não aplicar nenhuma delas em produção sem revisão individual, proveniência, ambiente ativo, backup e rollback. O objetivo é reaproveitar o trabalho comprovadamente bom, não importar o branch inteiro em bloco.
