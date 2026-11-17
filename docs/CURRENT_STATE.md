@@ -296,3 +296,13 @@ Next: add these differences to the Normal/Team Lite/TEST compatibility matrix an
 - Documentation-only work. No build, browser test, Storage transfer, deploy, merge, migration or production mutation occurred.
 
 Next: review the matrix for remaining unknown contracts (especially guest portals, call/voice/screen signaling, and legacy external consumers) and continue toward an isolated Full-Product TEST rehearsal.
+
+
+### Realtime event/trigger contract — 2026-11-17
+
+- Decoded Normal, Team Lite and TEST clients: all send/subscribe to the same ten broadcast event names on beta10 topic; voice and screen-share use separate event constants.
+- Queried PostgreSQL trigger catalog and definitions read-only. Confirmed three triggers on messages, users and upstatus_state; all publish to `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`, while current clients subscribe to beta10. The messages trigger sends the full OLD/NEW row. The trigger functions are SECURITY DEFINER and use the public search_path.
+- Updated `docs/RUNTIME_COMPATIBILITY_MATRIX.md` with the exact event and trigger contract. Documentation-only commit: `46967471a1c1fd937fc2e0332f211034c08ef710`.
+- No trigger, function, topic, policy, grant, data, migration or production configuration was changed.
+
+Next: define the minimum event payload and environment-scoped topic plan, then compare it against the candidate authenticated signaling transport. No production topic change before Full-Product TEST.
