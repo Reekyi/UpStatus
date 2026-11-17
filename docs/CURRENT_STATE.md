@@ -342,3 +342,18 @@ Next: review the candidate migration test coverage and ownership constraints, es
 - No test-migration, DDL, grant, policy, function, trigger, data or production configuration was changed.
 
 Next: define explicit tests for existing-table grants and supabase_admin defaults, and identify a supported administrative path for that role. Continue without applying SQL until isolated TEST is available.
+
+
+### Default-ACL owner boundary and managed-branch diagnosis — 2026-11-17
+
+- Rechecked the live catalog with SELECT only. The nine application tables (`chat_reads`, `messages`, `reactions`, `status_history`, `upstatus_profiles`, `upstatus_sessions`, `upstatus_state`, `upstatus_typing`, `users`) grant both `anon` and `authenticated` DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE and UPDATE. `upstatus_visual_config` is the only public application table without those direct grants.
+- Re-read all `pg_default_acl` rows. In schema `public`, both object creators `postgres` and `supabase_admin` have defaults for tables, functions and sequences that grant broad access to `anon` and `authenticated`. In schema `storage`, the observed defaults belong to `postgres`. System schemas were kept outside the UpStatus application-risk classification.
+- Verified role direction: `postgres` is neither a member of nor granted USAGE on `supabase_admin`; `supabase_admin` is a member of `postgres`. This confirms that the existing `postgres` migration executor cannot simply `SET ROLE supabase_admin` to remediate that owner's defaults. No role membership was changed.
+- Re-read the three broadcast function definitions and ACLs. All remain owned by `postgres`, `SECURITY DEFINER`, configured with `search_path=public`, and executable by PUBLIC/anon/authenticated/service_role. The message trigger still publishes the complete OLD/NEW row to the public `upstatus-live-...` topic. This corroborates the existing database security document; no function or trigger was changed.
+- Rechecked environment status: production project `ACTIVE_HEALTHY`; managed branch `main` is `MIGRATIONS_FAILED` while its preview project reports `ACTIVE_HEALTHY`; isolated `upstatus-security-test` is `INACTIVE`. The production migration ledger still has seven versions through `20261027155438`.
+- Supabase's official troubleshooting guide says the detailed branch failure is under Dashboard → Manage Branches → select branch → View logs ([documentation](https://supabase.com/docs/guides/deployment/branching/troubleshooting)). The connector exposes the status but not those detailed branch logs, so the exact failure cause remains unverified.
+- Expanded `DB_SECURITY_RECONSTRUCTION.md` with the role-membership evidence, a minimum acceptance-test matrix, and the distinction between catalog assertions and actual trigger execution. This remains documentation-only.
+- PR #178 remains Draft. Its changed-file list is exactly the four reconstruction documents; the current comparison to `develop` is 59 commits ahead / zero behind, with no application source in the PR diff. The review and review-thread queries returned no submissions.
+- No tests, build, browser run, DDL, SQL write, migration, role change, deploy, merge, secret/billing change, or production data/function mutation occurred.
+
+Next: obtain the exact `main` branch failure log from the project owner, and an active isolated Full-Product TEST Project Ref. Meanwhile continue static comparison of candidate handler semantics and migration contracts; do not attempt a production workaround for the `supabase_admin` owner boundary.
