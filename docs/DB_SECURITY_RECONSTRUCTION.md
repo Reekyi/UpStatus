@@ -162,3 +162,42 @@ Inspeção dos SQLs de teste em `supabase/test-migrations/`:
 - O README de `supabase/test-migrations` avisa que esses arquivos são DDL executável, devem ser aplicados somente ao projeto isolado e não são protegidos pelo guard JavaScript de mutações via API.
 
 O projeto isolado `bfpjtfqlnypisxljoxkb` está INACTIVE e respondeu com quota de Edge Functions excedida no CI. Nenhuma test-migration foi executada nesta rodada. Antes de aplicar qualquer uma, reativar/provisionar um ambiente isolado por decisão do proprietário, conferir o Project Ref e inspecionar o SQL integralmente.
+
+
+## 9. Revalidação do owner de default privileges e lacunas de aceitação (17/11/2026)
+
+Nova consulta somente leitura confirmou a fronteira de ownership:
+
+- `pg_has_role('postgres','supabase_admin','MEMBER')` = false.
+- `pg_has_role('postgres','supabase_admin','USAGE')` = false.
+- `pg_has_role('supabase_admin','postgres','MEMBER')` = true.
+
+Portanto, o executor de migrations `postgres` não pode assumir `supabase_admin` no estado atual. A migration candidata `20261105150000_revoke_public_default_privileges_postgres.sql` está corretamente limitada ao owner `postgres`; ela não fecha os defaults criados por `supabase_admin`. Não tentar contornar isso com `GRANT supabase_admin TO postgres`, mudança de membership ou execução privilegiada improvisada. É necessário identificar um caminho administrativo oficialmente suportado e validá-lo em ambiente isolado.
+
+A mesma consulta catalogou seis default ACLs no schema `public`: tabelas, funções e sequences para os owners `postgres` e `supabase_admin`. Os dois owners ainda concedem privilégios amplos a `anon` e `authenticated`. Em `storage`, os defaults consultados pertencem a `postgres`. Defaults de schemas gerenciados como `graphql` e `graphql_public` não foram classificados como objetos da aplicação UpStatus.
+
+### Matriz mínima de testes ainda necessária
+
+| Área | Asserção de aceitação | Situação da cobertura atual |
+|---|---|---|
+| Grants das nove tabelas existentes | `anon` e `authenticated` não têm SELECT/INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER; `service_role` e owner mantêm somente o acesso necessário | Não há test-migration dedicada |
+| Defaults de objetos criados por `postgres` | Tabela, função e sequence de probe não concedem privilégios de cliente; owner e `service_role` continuam funcionais | Teste isolado existente |
+| Defaults de objetos criados por `supabase_admin` | Repetir a matriz de tabela/função/sequence, inclusive EXECUTE global de PUBLIC, usando executor autorizado para esse owner | Sem teste e sem caminho de execução identificado |
+| Funções trigger | PUBLIC/anon/authenticated não executam diretamente; `service_role` preservado; SECURITY DEFINER, `search_path` vazio e vínculo aos triggers preservados | Teste de catálogo existente |
+| Execução real dos triggers | INSERT/UPDATE/DELETE de fixtures isoladas continuam disparando os três triggers sem erro após revogação e `search_path` vazio | Não coberto pelo teste de catálogo atual |
+| Payload Realtime | Eventos continuam sendo hints mínimos (`op`), sem corpo de mensagem, caminho de anexo, status detalhado ou conteúdo de comando/resultado | Migration candidata minimiza payload; teste de evento ainda necessário |
+| Storage | Upload assinado e leitura de URLs públicas existentes continuam compatíveis; limites e MIME são respeitados | Sem E2E Full-Product TEST atual |
+
+O teste `20261107170000_pin_empty_search_path_trigger_broadcasts_test.sql` confirma configuração, ACL, `realtime.send` qualificado e vínculo dos triggers, mas não insere fixtures nem comprova que os triggers realmente executam após o hardening. A cobertura de catálogo não deve ser apresentada como teste funcional do broadcast.
+
+### Estado de execução e diagnóstico da branch gerenciada
+
+A reconsulta confirmou:
+- projeto de produção `dlfvkawaiqduhlazsszm`: `ACTIVE_HEALTHY`;
+- branch gerenciada `main`: `MIGRATIONS_FAILED`, com `preview_project_status=ACTIVE_HEALTHY`;
+- laboratório `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`): `INACTIVE`;
+- ledger de produção: sete versões, até `20261027155438`.
+
+O conector retorna o estado da branch, mas não a mensagem detalhada da falha. A documentação oficial do Supabase orienta abrir Dashboard → Manage Branches → selecionar a branch → View logs: [Troubleshooting de Supabase Branching](https://supabase.com/docs/guides/deployment/branching/troubleshooting). A causa de `MIGRATIONS_FAILED` permanece desconhecida até que esses logs sejam consultados.
+
+Nenhum SQL foi aplicado, nenhum role/membership foi alterado e nenhum teste DDL ou trigger foi executado nesta revalidação.
