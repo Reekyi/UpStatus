@@ -1,11 +1,11 @@
 # UpStatus — Auditoria independente de prontidão
 
-**Data:** 2026-11-17 03:45 UTC  
+**Data:** 2026-11-17 03:34 UTC  
 **Escopo:** GitHub Reekyi/UpStatus; Supabase produção dlfvkawaiqduhlazsszm; laboratório bfpjtfqlnypisxljoxkb.  
 **Método:** inspeção read-only de refs, PRs, workflows e logs; leitura integral de docs/RELEASE_READINESS.md; inspeção de bundles implantados, catálogos PostgreSQL, migrations, Edge Functions e Security Advisors.  
 **Veredito:** **NOT READY**.
 
-Nenhum teste foi iniciado manualmente pela QA. Os resultados de CI abaixo são execuções existentes e foram inspecionados, não repetidos. Nenhuma escrita SQL, migration, deploy, merge, release, publicação de userscript, alteração de secret/flag/permissão ou operação destrutiva foi realizada. A única escrita desta rodada é este relatório novo na branch QA.
+Nenhum teste foi iniciado manualmente pela QA. Os resultados de CI abaixo são execuções existentes e foram inspecionados, não repetidos. O commit documental 68890b foi seguido automaticamente pelo Validate 44011179240, que repetiu o erro de updateURL; não houve rerun manual. Nenhuma escrita SQL, migration, deploy, merge, release, publicação de userscript, alteração de secret/flag/permissão ou operação destrutiva foi realizada. A única escrita desta rodada é este relatório novo na branch QA.
 
 ## 1. Documento de prontidão e integridade das refs
 
@@ -18,9 +18,9 @@ Heads observados:
 | master | 9d40461babcec8eb8686c2a04be9c675df7da381 |
 | develop | 6b33e1e26ad105143f00372ae6d0f2fa52df60d6 |
 | team-lite-official | 9065bc1536fde64f437f6f12b7abb9b072cb8281 |
-| QA qa/release-readiness-2026-11-04-master | 9c2dc8d3e749abd706f3571701a5ca6a3b668214 |
+| QA qa/release-readiness-2026-11-04-master | 68890b33619c4b8d2c98675399c8bc5d16d26bab |
 
-A QA está 385 commits à frente e 1 atrás de master. O único commit master-only é 9d40461, que adiciona apenas docs/checkpoints/2026-11-08-production-migration-history-preflight.md (66 linhas, sem mudança de runtime). Não fiz rebase nem incorporei esse commit automaticamente.
+Antes da gravação deste relatório, QA estava 385 commits à frente e 1 atrás de master. O único commit master-only é 9d40461, que adiciona apenas docs/checkpoints/2026-11-08-production-migration-history-preflight.md (66 linhas, sem mudança de runtime). O commit 68890b33619c4b8d2c98675399c8bc5d16d26bab gravou a primeira versão deste relatório e passou a ser o novo HEAD QA; não fiz rebase nem incorporei o commit master-only.
 
 PRs obrigatórias, todas abertas, Draft e sem reviews humanas:
 
@@ -29,7 +29,7 @@ PRs obrigatórias, todas abertas, Draft e sem reviews humanas:
 | #74 Normal | dcaf6a072546eda0089e0cee4018c3047011f600 | master em a9288cc | CI PASS |
 | #75 Team Lite | 7bbf9b90b3a7a04301cf4f7ed32d340dce3d4309 | team-lite-official em 9065bc1 | PASS histórico limitado |
 | #76 Team Lite | 00a578e9174e08238a1289a35feb02d171625421 | team-lite-official em 9065bc1 | bloqueada por quota |
-| #82 QA | 9c2dc8d3e749abd706f3571701a5ca6a3b668214 | master em a9288cc | Validate FAIL |
+| #82 QA | 68890b33619c4b8d2c98675399c8bc5d16d26bab | master em a9288cc | Validate FAIL |
 
 A #76 é continuação da #75: 330 commits à frente e zero atrás. Tratar #75 como entrega independente para integração duplicaria o baseline contido na #76. #74 e #82 usam base master antiga; master avançou somente com o checkpoint documental acima. Nenhuma atualização de branch foi feita.
 
@@ -70,11 +70,10 @@ Classificação: BLOCKED por infraestrutura; não é prova de defeito funcional 
 
 ### PR #82 — QA
 
-- [Validate run 44004509846](https://github.com/Reekyi/UpStatus/actions/runs/44004509846), FAILURE.
-- O job fez checkout do merge ref 9524683503a9af134a19febcb3eb49444260e2f1.
-- Build informou PROD 3.4.7 / TEST 3.4.7 e falhou em scripts/validate.mjs:26: production updateURL mismatch.
-- O diff da PR é documental; a falha vem do validador/build herdado da base, não de alteração funcional desta auditoria.
-- Não iniciei rerun.
+- [Validate run 44011179240](https://github.com/Reekyi/UpStatus/actions/runs/44011179240), FAILURE no novo HEAD documental 68890b.
+- O job fez checkout do merge ref e construiu PROD 3.4.7 / TEST 3.4.7; scripts/validate.mjs:26 reportou production updateURL mismatch.
+- O commit 68890b alterou somente documentação; o erro continua no validador/build herdado da base.
+- Não iniciei rerun manual.
 
 Classificação: CI FAILURE confirmado.
 
