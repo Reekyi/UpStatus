@@ -536,3 +536,52 @@ As migrations candidatas não estão no ledger de produção consultado. Não ap
 O script servido por upstatus-test declara o mesmo @name ("UpStatus - Sale Smartly") e @namespace ("upseller") do Normal 3.4.7. Os dois têm updateURL diferente, mas a identidade do userscript não está separada. Isso cria risco de confusão/atualização do artefato errado quando os dois forem instalados ou administrados no mesmo navegador.
 
 Os build scripts master e develop consultados geram namespace upseller-test para TEST, mas o artefato implantado 3.3.28 usa upseller. É mais uma prova de que o TEST implantado não corresponde aos artefatos esperados pelos templates atuais.
+
+
+## Addendum — confirmação direta dos runtimes e ACLs (2026-11-17 14:35 BRT)
+
+Esta rodada consultou novamente os fontes completos das quatro Edge Functions diretamente no projeto Supabase e decodificou os userscripts embutidos. Também repetiu a auditoria de ACLs e conferiu os quatro SQL recuperados pela PR #176 contra os statements do ledger.
+
+### Matriz de runtime confirmada
+
+| Função que distribui | Script embutido | API usada | Realtime | Identidade Tampermonkey |
+|---|---|---|---|---|
+| upstatus v480 | Normal 3.4.7 | upstatus-screen-share-3-1-1-beta10 | beta10 | `UpStatus - Sale Smartly` / `upseller` |
+| upstatus-test v281 | TEST 3.3.28 | upstatus-screen-share-3-1-1-beta10 | beta10 | **igual ao Normal**: `UpStatus - Sale Smartly` / `upseller` |
+| upstatus-team-lite v15 | Team Lite 3.4.30 | upstatus-team-lite | beta10 | `UpStatus Team Lite - Sale Smartly` / `upseller-team-lite` |
+| beta10 v6 | script 3.1.1-beta8 | beta8 | beta8 | `UpStatus Screen Share Beta 3.1.1-beta8` / `upseller-screen-share-beta8` |
+
+O Normal e o TEST usam prefixo local `upstatus_screen_share_beta8_`; Team Lite usa `upstatus_team_lite_`. O cabeçalho do Normal aponta update/download para `upstatus`, enquanto o TEST aponta para `upstatus-test`. Isso confirma que a identidade e o backend usados pelo TEST não estão isolados, mesmo que o endpoint de distribuição seja diferente.
+
+A função beta10 contém um script beta8 que aponta seu próprio update/API para o slug beta8. Portanto, o nome do endpoint não identifica de forma confiável a versão do cliente nele embutida.
+
+### ACLs: confirmação e limites da conclusão
+
+Consulta direta ao catálogo PostgreSQL confirmou:
+
+- 10/10 tabelas `public` estão com RLS habilitado e 0 policies existem em `public`, `realtime` e `storage`.
+- 9/10 tabelas `public` concedem a `anon` e `authenticated` os privilégios SELECT, INSERT, UPDATE, DELETE, REFERENCES, TRIGGER e TRUNCATE. A exceção é `upstatus_visual_config`, cuja migração recuperada revoga os privilégios dessas duas roles.
+- Existem 6 entradas de default ACL no schema `public`: para objetos futuros de owners `postgres` e `supabase_admin`, as roles `anon`, `authenticated` e `service_role` recebem privilégios amplos em tabelas, funções e sequências.
+- As três funções `upstatus_broadcast_*` são `SECURITY DEFINER`, têm `search_path=public` e grants EXECUTE para PUBLIC, anon e authenticated. O Security Advisor registra alertas para anon e authenticated.
+- Os dois buckets Storage observados são públicos e não há policies no schema Storage. O projeto mantém também grants amplos em objetos Storage; leitura pública dos buckets e autorização de escrita precisam ser tratadas separadamente.
+
+RLS sem policies normalmente bloqueia operações de linha via roles comuns, portanto os grants não provam, por si só, leitura/escrita irrestrita das linhas. Porém TRUNCATE não é filtrado por RLS, default privileges amplos afetam objetos futuros e as funções SECURITY DEFINER expostas exigem revisão. Não foi executado teste de exploração nem alterado qualquer grant/policy.
+
+Os triggers atuais continuam enviando o registro completo de `messages` no evento público `db_change`, para `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`. Como os clientes atuais escutam beta10, existe simultaneamente uma divergência de destino e um risco de exposição de payload que deve ser resolvido na matriz de eventos/canais, não com uma troca improvisada em produção.
+
+### Proveniência das migrações recuperadas
+
+A consulta ao ledger retornou uma única statement para cada uma das quatro migrações ausentes. Os quatro arquivos da PR #176 foram comparados com os respectivos statements recuperados: os comandos SQL correspondem ao conteúdo do ledger. Isso valida a recuperação do texto executado, mas não recupera os blobs Git originais, comentários ou formatação anterior. A PR #176 continua Draft e não deve ser aplicada novamente em produção.
+
+### Estado dos ambientes
+
+A consulta atual confirma que a branch gerenciada `main` do projeto de produção está em `MIGRATIONS_FAILED`, embora o preview associado apareça `ACTIVE_HEALTHY`. O projeto isolado `upstatus-security-test` segue `INACTIVE`. Nenhum dos dois é, neste momento, um Full-Product TEST validado e operacional.
+
+### Resultado desta rodada
+
+- Leitura direta dos quatro runtimes e decodificação dos scripts embutidos concluídas.
+- ACLs, policies, funções SECURITY DEFINER e default privileges rechecados.
+- Texto das quatro migrações recuperadas confrontado com o ledger.
+- Nenhum teste local, browser E2E, migration, deploy, alteração de segredo, grant, policy, dado ou função executado.
+
+**Próximo passo:** fechar a matriz de proveniência dos runtimes (incluindo SHA dos scripts extraídos e comparação de consumidores/rotas com os templates Git) e desenhar um contrato de Full-Product TEST que não dependa do projeto de produção nem do laboratório de sinalização. A fundação permanece em andamento.
