@@ -365,3 +365,18 @@ Next: obtain the exact `main` branch failure log from the project owner, and an 
 - The CI runner completed the build step and printed `Built UpStatus 3.0.40 / TEST 3.0.40-beta.22`, then `node scripts/validate.mjs` failed at `scripts/validate.mjs:55` with `VALIDATION FAILED: client signed upload helper missing`.
 - The failure is in the inherited `develop` source/validator contract, not in the four documentation files changed by PR #178. Do not weaken or bypass the validator to make this documentation PR green; reconcile the signed-upload source contract in the appropriate code candidate first.
 - This is a real CI failure, not a local test result. No local build, browser test, SQL write, migration, deploy or production mutation was performed.
+
+
+### Migration dependency and rollback matrix — 2026-11-17
+
+- Created [docs/MIGRATION_DEPENDENCY_ROLLBACK_MATRIX.md](MIGRATION_DEPENDENCY_ROLLBACK_MATRIX.md) on the isolated documentation branch; commit `1c7adfb55def067e2e46c4ca3d94c21a3afc521c`.
+- Reviewed all 22 candidate SQL migrations in PR #74 and all 14 test-migration files. Documented the dependency graph, effects, coverage, rollback risks, and preconditions.
+- Confirmed production migration ledger still contains seven entries through `20261027155438`. The four SQL files in PR #176 are ledger recoveries already applied in production, not new migrations to replay. None of the 22 PR #74 candidate migrations appears in the production ledger.
+- Important test-only DDL finding: `20261104154623_distributed_signaling_rate_limit_test.sql` creates the rate-limit table/RPC consumed by the isolated `upstatus-signal-test` function, but no matching production migration exists in the 22-file candidate production migration set. If that transport is promoted, author and validate a separate production migration. `20261106191000_bounded_rate_limit_cleanup_test.sql` is also test-only.
+- `20261104152847_atomic_chat_read_receipts_and_visual_config_grants_test.sql` creates/replaces the chat-read RPC and changes visual-config grants; it is executable DDL, not a passive assertion. Applying it before testing the production migration could mask a missing/broken candidate.
+- Test README restricts test-migrations to isolated project `bfpjtfqlnypisxljoxkb`, which currently reports `INACTIVE`. The migration-layout guard checks file placement/static content, not real migration execution or rollback.
+- Gaps: no dedicated SQL test for revoking grants from the nine existing application tables; no real fixture INSERT/UPDATE/DELETE proving all three minimized broadcast triggers execute; no test for `supabase_admin` default ACLs. Existing search_path test verifies catalog/trigger binding but not trigger execution.
+- No candidate migration has a paired down migration. Recommended rollback is forward-fix/compensating migration, preserve attempt tombstones and invite tokens, never restore broad public grants or full broadcast payloads as a generic rollback.
+- Rechecked production project `ACTIVE_HEALTHY`, managed `main` branch `MIGRATIONS_FAILED`, and isolated lab `INACTIVE`. No SQL, deploy, merge, permission change, project restore, or data write occurred.
+
+Next: obtain an active Full-Product TEST environment; add explicit ACL and trigger-execution tests; resolve the supported `supabase_admin` default-ACL procedure; decide whether the isolated signaling rate-limit schema needs a separate production migration. Foundation remains in progress.
