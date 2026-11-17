@@ -318,3 +318,16 @@ Next: define the minimum event payload and environment-scoped topic plan, then c
 - No plan, spend cap, project, production function, secret, database, migration or data was changed.
 
 Next: keep the isolated test project blocked pending owner decision; continue static candidate review and prepare a no-cost/offline validation path where possible. Production 402 cause still needs independent confirmation; do not assume it is the same quota.
+
+
+### Database security inventory — 2026-11-17
+
+- Requeried all 10 public tables: RLS enabled, FORCE RLS false, zero policies. Nine tables grant anon/authenticated DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE and UPDATE; `upstatus_visual_config` has no such grants. `has_table_privilege` confirmed TRUNCATE/TRIGGER on messages, users, sessions and state for both roles. This is a high-risk privilege grant; RLS does not row-filter TRUNCATE. No exploit or destructive operation was attempted.
+- Confirmed default privileges for objects created by both `postgres` and `supabase_admin`: broad table privileges (including MAINTAIN/TRUNCATE/TRIGGER), function EXECUTE and sequence SELECT/UPDATE/USAGE for anon/authenticated. The candidate migration only covers postgres and explicitly excludes supabase_admin.
+- Confirmed three SECURITY DEFINER trigger functions remain executable by anon/authenticated and use search_path public. Production triggers still publish full messages rows/status/remote payloads to the public `upstatus-live-...` topic.
+- Storage buckets `chat-images` and `profile-images` are public, 20 MB; storage.objects/buckets have RLS enabled and no policies. Public URL reads are part of the current bucket contract; do not make buckets private without URL compatibility planning.
+- Production migration ledger still contains only seven baseline migrations through 2026-10-27; none of the six hardening migrations in `chore/continuity-foundation` is recorded as applied.
+- Created `docs/DB_SECURITY_RECONSTRUCTION.md` and linked it from `docs/RECONSTRUCTION_FOUNDATION.md`. File creation commit `9b3d6188fc9e5e6f18341d5f9466400107eea867`; terminology correction `53999c872e15b00dfad9aa812b1579ff2cddbdb6`; foundation link `8dc911d13ca85ba3799d4310fab7076a2b452a35`.
+- All database work was SELECT/catalog inspection only. No grants, policies, triggers, functions, data, migrations, Storage objects, secrets or billing settings were changed.
+
+Next: review the candidate migration test coverage and ownership constraints, especially the separate supabase_admin default ACL path. Do not apply any SQL until isolated TEST is active and the role/owner matrix is verified.
