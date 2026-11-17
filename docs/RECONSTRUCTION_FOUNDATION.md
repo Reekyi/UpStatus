@@ -1107,3 +1107,8 @@ Observação: `/api/chat/audio` é um fluxo separado via `mediaRoute`, com limit
 **Regra de reconstrução:** não redirecionar o Normal de beta10 para `upstatus` até testar no Full-Product TEST os fluxos de upload de imagem, vídeo, documento, avatar e áudio, além de validar URLs antigas já persistidas.
 
 Nenhum upload, objeto Storage, runtime, migration, deploy ou configuração de produção foi alterado nesta comparação.
+
+
+## Referência consolidada
+
+A matriz comparativa de distribuição, API efetiva, identidade Tampermonkey, Realtime, políticas de produto, upload e dependências de ambiente foi separada em [RUNTIME_COMPATIBILITY_MATRIX.md](./RUNTIME_COMPATIBILITY_MATRIX.md). Use a matriz como referência rápida e este documento como histórico detalhado da investigação e da sequência de reconstrução.
