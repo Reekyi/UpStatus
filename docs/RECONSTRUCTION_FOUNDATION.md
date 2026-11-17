@@ -529,3 +529,10 @@ Isso é uma base importante para reaproveitar, mas não é a reconstrução comp
 A função upstatus-signal-test e seu projeto isolado são voltados a testes de sinalização/autenticação. O próprio guard do build impede usar esse projeto como Full-Product TEST. Como o projeto está INACTIVE, a smoke test autenticada também depende de recuperar esse laboratório.
 
 As migrations candidatas não estão no ledger de produção consultado. Não aplicar nenhuma delas em produção sem revisão individual, proveniência, ambiente ativo, backup e rollback. O objetivo é reaproveitar o trabalho comprovadamente bom, não importar o branch inteiro em bloco.
+
+
+### TEST também colide na identidade Tampermonkey
+
+O script servido por upstatus-test declara o mesmo @name ("UpStatus - Sale Smartly") e @namespace ("upseller") do Normal 3.4.7. Os dois têm updateURL diferente, mas a identidade do userscript não está separada. Isso cria risco de confusão/atualização do artefato errado quando os dois forem instalados ou administrados no mesmo navegador.
+
+Os build scripts master e develop consultados geram namespace upseller-test para TEST, mas o artefato implantado 3.3.28 usa upseller. É mais uma prova de que o TEST implantado não corresponde aos artefatos esperados pelos templates atuais.
