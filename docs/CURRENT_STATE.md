@@ -86,3 +86,8 @@ The current TEST client is therefore not isolated from production. This is now d
 ### Team Lite source divergence — 2026-11-17
 
 The current team-lite-official branch HEAD is 9065bc1536fde64f437f6f12b7abb9b072cb8281 and its release.json is 3.0.40-beta.22, while the deployed upstatus-team-lite runtime is 3.4.30. PR #76 is based on that older branch and is not a drop-in replacement for the deployed Team Lite runtime. This distinction is recorded in the reconstruction foundation document.
+
+
+### Realtime topic split-brain — 2026-11-17 13:40 BRT
+
+Active database triggers publish db_change, user_status, remote_command and remote_result to upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0. Current Normal, Team Lite and TEST userscripts subscribe to upstatus-screen-share-live-3-1-1-beta10; the embedded beta10 script is actually beta8 and subscribes to the beta8 topic. Develop's build topic matches the database triggers, while master/current clients use beta10. This split-brain is documented in the reconstruction foundation. No channel or trigger was changed.
