@@ -633,3 +633,50 @@ Há duas bases candidatas que devem ser preservadas e comparadas por domínio, e
 A próxima decisão técnica não é escolher uma branch inteira como “a nova produção”. É criar uma matriz de capacidades e dependências entre runtime 3.4.7, runtime 3.4.30, Normal #74/#161 e Team Lite #76, e só então definir a composição modular comum e as diferenças de produto.
 
 Nenhuma dessas PRs foi mesclada. Nenhum workflow foi disparado. Nenhum build, teste local, deploy ou migration foi executado nesta rodada.
+
+
+## Addendum — inventário das migrações candidatas e preflight (2026-11-17 15:00 BRT)
+
+Foi feita uma leitura estática das 23 migrações de aplicação presentes na linha candidata Normal #74/#161. Nenhuma foi aplicada nesta rodada.
+
+### Grupos funcionais
+
+| Grupo | Migrações/objetos principais | Dependência de rollout |
+|---|---|---|
+| ACL e hardening | revogar EXECUTE dos broadcasts, grants desnecessários nas tabelas públicas, defaults de privilégios, search_path vazio | revisar permissões atuais e tratar também defaults do owner `supabase_admin` |
+| Realtime seguro | reduzir `db_change` a um aviso sem payload e reduzir broadcasts de presença/controle remoto | cliente correspondente deve refazer leitura pelo backend autenticado antes de reduzir o payload |
+| Sinalização server-mediated | rooms, memberships, events, bindings e RPCs de abrir/sair | depende de identidade única em `users.name`; substitui parte do transporte Realtime por fila autenticada |
+| Chamadas e voz resilientes | call attempts, voice attempts, índices, singleton por conta e cancelamento durável | aplicar em ordem; as duas últimas migrações substituem a mesma função de abertura de voice attempt |
+| Chat | RPC `merge_chat_read_receipts` monotônica e atômica | backend candidato precisa chamar a RPC; grant previsto somente para service_role |
+| Primeiro acesso | colunas de setup invite, consumo atômico, preservação/normalização de role e rate limit distribuído | backend e banco devem ser publicados juntos; a PR #161 usa a função de rate limit |
+
+### Preflight de identidade no banco atual
+
+A migração de sinalização cria um índice único em `public.users(name)` e aborta se houver nomes nulos ou duplicados. Consulta agregada de produção encontrou:
+
+- 5 registros em `users`;
+- 0 nomes nulos;
+- 0 nomes vazios;
+- 0 grupos duplicados;
+- índice `users_name_unique` ainda ausente.
+
+O preflight de dados atual não aponta bloqueio para esse índice, mas deve ser repetido no Full-Product TEST e imediatamente antes de qualquer migração aprovada.
+
+### Confirmação de que as migrações candidatas não estão na produção
+
+Consulta direta ao catálogo confirmou que as tabelas de sinalização, bindings, call attempts, voice attempts e rate limits ainda não existem no projeto de produção. As RPCs candidatas de receipts, sala de voz, setup invite e rate limit também não existem. O ledger não contém migrações a partir de `20261029170500`.
+
+Isso confirma que a PR #74/#161 representa uma mudança de arquitetura de banco ainda não aplicada, não uma simples restauração de SQL já executado. Não importar a sequência inteira sem testar dependências e comportamento.
+
+### Lacuna de segurança que continua aberta
+
+A migração candidata `20261105150000_revoke_public_default_privileges_postgres.sql` remove defaults do owner `postgres`, mas declara explicitamente que não altera os defaults de `supabase_admin`. A auditoria atual encontrou ACLs padrão amplas para ambos os owners no schema `public`. Portanto, mesmo que essa migração seja aplicada corretamente, os defaults de `supabase_admin` continuam exigindo um plano separado e suportado. Não considerar o hardening de defaults concluído apenas com essa migration.
+
+### Cuidados de sequência
+
+- As migrations de minimização de broadcast têm comentário explícito exigindo deploy coordenado com clientes que tratem eventos como avisos e consultem o backend autenticado.
+- `20261105190000_open_voice_room_membership` depende das tabelas `upstatus_signal_rooms`, `upstatus_signal_room_members` e `upstatus_signal_room_bindings`.
+- `20261108010000_voice_attempt_singleton` e `20261108050751_voice_attempt_account_scoped_lock` substituem a mesma RPC em sequência; não reordenar nem aplicar apenas a primeira como estado final.
+- O setup invite é um conjunto: colunas/constraint/índice, RPC de consumo, ajustes de role e rate limit. A API candidata #161 já espera o RPC de rate limit.
+
+Nenhuma migração foi aplicada, nenhum grant foi revogado e nenhuma policy/função de produção foi alterada. A próxima etapa é transformar este inventário em um grafo de dependências com preflight e rollback por migração, e validar a sequência em Full-Product TEST isolado.
