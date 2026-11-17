@@ -142,3 +142,14 @@ Next: compare runtime and candidate implementations by domain (auth/session, cha
 - No migration, DDL, grant, policy, function or production data was changed. No local tests or browser E2E were run.
 
 Next: build the per-migration dependency/rollback graph and resolve a Full-Product TEST environment for both Normal and Team Lite before any database change.
+
+
+### CI evidence and isolated lab blocker — 2026-11-17 15:15 BRT
+
+- PR #74 and PR #161 exact-head GitHub Actions runs: UpStatus Validate and UpStatus Signaling Smoke Tests both succeeded. PR #161 smoke logs include 136/136 authenticated integration checks, real-browser WebRTC audio/video negotiation, three-member group mesh, signaling rate-limit, atomic read receipts and setup-invite checks. This is historical CI evidence, not a manual Sale Smartly test or full product validation.
+- PR #76 Team Lite Candidate Checks: static/contract steps passed, but isolated endpoint smoke failed with HTTP 402 exceed_edge_functions_invocations_quota; later authenticated/browser tests were skipped.
+- Current Supabase project status for upstatus-security-test is INACTIVE. The Supabase error says the owner must upgrade the plan or remove spend caps to restore Edge Function service. Human action is required before rerunning isolated E2E; no credentials should be shared.
+- PR #178 documentation-only validation failed on develop with client signed upload helper missing, an inherited base-branch validator inconsistency. The PR changes only docs and remains Draft.
+- No workflow was manually dispatched, no plan/spend cap/project setting was changed, and no deploy/merge/production mutation occurred.
+
+Human unblock: restore upstatus-security-test service in the Supabase Dashboard by resolving the invocation quota (owner decision: plan upgrade or spend-cap adjustment). Static review can continue meanwhile.
