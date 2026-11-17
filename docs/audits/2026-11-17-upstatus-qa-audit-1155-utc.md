@@ -157,7 +157,6 @@ A PR #176 recupera quatro arquivos SQL a partir do ledger de produção. A compa
 
 - `20261023154754_create_upstatus_visual_config.sql`
 - `20261026195855_add_chat_message_file_name.sql`
-- `20261027154329_allow_chat_message_file_name.sql` (nome do arquivo no patch: `20261026195855_add_chat_message_file_name.sql`)
 - `20261027154329_allow_chat_document_mime_types.sql`
 - `20261027155438_set_upstatus_upload_limits_20mb.sql`
 
