@@ -306,3 +306,15 @@ Next: review the matrix for remaining unknown contracts (especially guest portal
 - No trigger, function, topic, policy, grant, data, migration or production configuration was changed.
 
 Next: define the minimum event payload and environment-scoped topic plan, then compare it against the candidate authenticated signaling transport. No production topic change before Full-Product TEST.
+
+
+### Isolated test quota blocker — 2026-11-17
+
+- Inspected PR #76 Team Lite Candidate Checks at HEAD `00a578e9174e08238a1289a35feb02d171625421` job-by-job. Signed-upload contract job passed. Local candidate checks passed through the HTTP contract test.
+- The isolated endpoint-auth test then received HTTP 402 from `https://bfpjtfqlnypisxljoxkb.supabase.co/functions/v1/upstatus-signal-test`. Exact gateway reason: `exceed_edge_functions_invocations_quota`; Supabase says the project owner must upgrade the plan or remove spend caps. Result: 0/16 unauthenticated endpoint checks could reach the handler; Chromium/integration/concurrency steps were skipped.
+- `upstatus-security-test` is still INACTIVE. This is an infrastructure/quota block, not evidence that the candidate authentication logic failed. Do not change plan/spend cap automatically because of financial impact.
+- PR #74 Normal at HEAD `dcaf6a072546eda0089e0cee4018c3047011f600` has successful Validate and Signaling Smoke Tests in its recorded CI run; this does not replace current Full-Product TEST.
+- Updated `docs/RUNTIME_COMPATIBILITY_MATRIX.md` with the exact failure and CI distinction. Documentation-only commit: `11a3217147bec7f860092501cecf350e00e96b57`.
+- No plan, spend cap, project, production function, secret, database, migration or data was changed.
+
+Next: keep the isolated test project blocked pending owner decision; continue static candidate review and prepare a no-cost/offline validation path where possible. Production 402 cause still needs independent confirmation; do not assume it is the same quota.
