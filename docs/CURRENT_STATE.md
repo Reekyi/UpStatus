@@ -407,3 +407,14 @@ Próximo: revisar se o modelo de conta por nome é aceitável para a vida útil 
 - Atualizei a matriz de compatibilidade, a matriz de migrations e este checkpoint. Nenhum deploy, migration, merge, publicação de userscript, alteração de secret, flag ou dado foi realizado.
 
 Próximo: reconciliar a PR #101 com o HEAD atual da PR #74, revisar a migration de rate limit no conjunto completo, e preparar a etapa de deploy/rollback sem executá-la. Full-Product TEST continua inativo; manter transport default-off e fallback Realtime até validação integrada e aprovação humana.
+
+
+### Rate limit do signaling: escopo e Retry-After verificados — 2026-11-17
+
+- Inspecionei o handler de produção candidato da PR #101 e o adapter. O handler usa limites de 90 writes/min e 240 reads/min, janela de 60 segundos, retorna HTTP 429 com `Retry-After: 60` e expõe o cabeçalho via CORS. O adapter preserva o header e aplica backoff.
+- A chave real é `sender + ':read'` ou `sender + ':write'`: a cota é por usuário autenticado, compartilhada entre sessões, e não por sessão ou sala. Isso precisa ser confirmado contra o modelo de abuso esperado; não alterei o contrato.
+- O runner `scripts/run-signaling-authenticated.mjs` contém teste real de endpoint para 90 aceitas e 1 rejeitada com `Retry-After: 60`; o run exato #43376770200 registrou PASS. O mesmo job registrou CORS expondo o header e testes de backoff. O teste RPC isolado também verifica contagem concorrente.
+- O documento `docs/RELEASE_CUTOVER_PLAN.md` da branch da PR #101 ainda diz que não há Retry-After em HTTP 429; esse trecho está obsoleto e deve ser corrigido durante a reconciliação.
+- Atualizei a matriz de migrations para refletir a granularidade real da cota e a evidência de 429/Retry-After, além de corrigir a descrição da cadeia de setup invite na fundação.
+
+Próximo: validar com o requisito de produto se a quota deve permanecer por usuário/read-write ou ser refinada por sessão/sala; em paralelo, reconciliar PR #101 com PR #74. Não aplicar migrations nem habilitar o transport enquanto o Full-Product TEST estiver inativo.
