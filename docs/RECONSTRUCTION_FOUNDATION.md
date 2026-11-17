@@ -585,3 +585,51 @@ A consulta atual confirma que a branch gerenciada `main` do projeto de produçã
 - Nenhum teste local, browser E2E, migration, deploy, alteração de segredo, grant, policy, dado ou função executado.
 
 **Próximo passo:** fechar a matriz de proveniência dos runtimes (incluindo SHA dos scripts extraídos e comparação de consumidores/rotas com os templates Git) e desenhar um contrato de Full-Product TEST que não dependa do projeto de produção nem do laboratório de sinalização. A fundação permanece em andamento.
+
+
+## Addendum — candidatos de código e paridade de rotas (2026-11-17 14:45 BRT)
+
+A reconciliação foi ampliada para as branches candidatas de Normal e Team Lite. O objetivo aqui foi descobrir se existe trabalho versionado que cubra os contratos atualmente implantados, sem assumir que uma PR Draft pode substituir produção.
+
+### Normal: PRs #74 e #161
+
+A branch `chore/continuity-foundation` (PR #74, base master) contém templates maiores e mais recentes que o master atual:
+
+- backend: 807 linhas, com signed upload, rotas Lucca/Ycaro e setup invite;
+- userscript: 5.562 linhas, com adaptadores de ambiente e mais permissões Tampermonkey;
+- build guard para exigir um projeto TEST separado e rejeitar produção e o laboratório de sinalização como destino Full-Product TEST;
+- suíte extensa de testes unitários, contratos e integração autenticada/browser.
+
+A comparação de rotas literais entre o backend candidato e o Normal implantado encontrou todas as 34 rotas observadas na produção, mais `/api/setup-invite`. Isso é paridade de nomes de rotas, não prova de equivalência semântica.
+
+A PR #161, empilhada sobre #74, corrige um ponto importante do build: troca o destino de API Normal de beta10 para a própria função `upstatus`. Também adiciona validações que exigem que API, updateURL e workflow de deploy apontem para a mesma função e rejeitam o endpoint beta10 no artefato Normal. A PR inclui ainda rate limit distribuído para emissão de setup invites.
+
+**Leitura:** #74/#161 são a melhor linha candidata Normal encontrada até agora para recuperar fonte versionada e reduzir o acoplamento beta10. Ambas continuam Draft e não foram integradas nem implantadas. A mudança de API para `upstatus` precisa passar por Full-Product TEST, pois o Normal em produção hoje ainda chama beta10.
+
+### Team Lite: PR #76
+
+A branch `team-lite/signaling-transport-candidate` (PR #76, base `team-lite-official`) contém:
+
+- backend próprio `src/server/team-lite-index.template.ts` (814 linhas);
+- userscript Team Lite 3.4.31;
+- manifesto separado `team-lite/release.json` com `buildVersion=3.4.31`;
+- configuração do cliente para chamar `upstatus-team-lite` e escutar o tópico do banco `upstatus-live-6f5e7b31-3f8c-4d8f-ae5a-91c7b2d6e4f0`.
+
+A comparação encontrou todas as 34 rotas observadas no backend Team Lite implantado, mais `/api/setup-invite`. Novamente, isso confirma cobertura nominal, não equivalência completa de lógica.
+
+A PR #76 é um candidato melhor que a branch `team-lite-official` isolada para reconstruir a origem do backend Team Lite: a branch oficial contém o script 3.4.30, mas não o template de backend correspondente. A PR traz uma versão 3.4.31 e um backend versionado próprio.
+
+**Gap de ambiente:** o build candidato gera `upstatus`, `upstatus-test` e `upstatus-team-lite`, mas não gera uma função Team Lite TEST nem um userscript Team Lite com projeto, tópico, prefixo e namespace próprios de TEST. Portanto, ainda não permite validar os dois produtos de ponta a ponta em isolamento.
+
+O updateURL do script candidato aponta para `team-lite-official`; isso só é seguro para distribuição depois que o conteúdo 3.4.31 correspondente estiver publicado nesse canal, ou quando o destino de atualização for explicitamente versionado.
+
+### Consequência para a arquitetura-alvo
+
+Há duas bases candidatas que devem ser preservadas e comparadas por domínio, em vez de tentar fazer merge amplo entre master, develop e Team Lite:
+
+1. Normal: #74/#161, com API alinhada ao `upstatus` e teste Full-Product guardado por projeto separado.
+2. Team Lite: #76, com backend próprio e release 3.4.31, mas ainda sem variante Full-Product TEST.
+
+A próxima decisão técnica não é escolher uma branch inteira como “a nova produção”. É criar uma matriz de capacidades e dependências entre runtime 3.4.7, runtime 3.4.30, Normal #74/#161 e Team Lite #76, e só então definir a composição modular comum e as diferenças de produto.
+
+Nenhuma dessas PRs foi mesclada. Nenhum workflow foi disparado. Nenhum build, teste local, deploy ou migration foi executado nesta rodada.
