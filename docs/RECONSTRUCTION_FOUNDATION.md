@@ -33,7 +33,7 @@ A arquitetura atual é funcionalmente rica, mas tecnicamente acoplada:
 |---|---|---|
 | master | 9d40461babcec8eb868c2a04be9c675df7da381 | 3.4.7 |
 | develop | 6b33e1e26ad105143f00372ae6d0f2fa52df60d6 | 3.0.40-beta.22 |
-| team-lite-official | base consultada: 9065bc1536fde64f437f6f12b7abb9b072cb8281 | linha separada |
+| team-lite-official | 9065bc1536fde64f437f6f12b7abb9b072cb8281 | 3.0.40-beta.22 |
 
 A comparação master...develop retornou **divergência**: develop está 114 commits à frente e 147 atrás de master, com ancestral comum em 80787eda3d96039191d921b6150b3e4ac84e6a52.
 
@@ -467,3 +467,10 @@ Também existe uma diferença entre o nome do runtime beta10 e o conteúdo que e
 **Impacto:** não considerar o TEST atual seguro para validação com dados reais. A próxima arquitetura deve impor isolamento de projeto, endpoint, tópico, storage e namespace, e deve validar esses valores automaticamente no build e no CI.
 
 Esse addendum é uma descoberta de configuração e proveniência, não uma mudança de runtime. Nenhuma função foi modificada.
+
+
+### Addendum — Team Lite também não tem a versão implantada representada na branch oficial
+
+A branch team-lite-official foi verificada diretamente em 9065bc1536fde64f437f6f12b7abb9b072cb8281 e seu release.json declara 3.0.40-beta.22. O runtime implantado upstatus-team-lite declara 3.4.30.
+
+A PR #76 é baseada exatamente nessa branch e continua Draft. Portanto, ela é uma candidata de transporte/sinalização, não uma cópia da versão Team Lite 3.4.30 atualmente implantada. Não usar essa PR como substituição direta do runtime atual sem reconciliar as funcionalidades e as diferenças de backend/clientes.
