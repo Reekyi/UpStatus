@@ -1112,3 +1112,8 @@ Nenhum upload, objeto Storage, runtime, migration, deploy ou configuração de p
 ## Referência consolidada
 
 A matriz comparativa de distribuição, API efetiva, identidade Tampermonkey, Realtime, políticas de produto, upload e dependências de ambiente foi separada em [RUNTIME_COMPATIBILITY_MATRIX.md](./RUNTIME_COMPATIBILITY_MATRIX.md). Use a matriz como referência rápida e este documento como histórico detalhado da investigação e da sequência de reconstrução.
+
+
+## Referência de segurança do banco
+
+O inventário read-only de RLS, grants, default privileges, SECURITY DEFINER, triggers, Storage e migrations candidatas está em [DB_SECURITY_RECONSTRUCTION.md](./DB_SECURITY_RECONSTRUCTION.md). A análise confirma divergências entre migrations de hardening versionadas e o catálogo atual de produção. Não aplicar as migrations sem Full-Product TEST, revisão dos owners de default privileges e aprovação explícita.
