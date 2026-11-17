@@ -167,7 +167,7 @@ Descobertas relevantes:
 | Default ACL | Resolver o owner `supabase_admin` por procedimento suportado; testar tabela/função/sequence e EXECUTE global sem elevar role improvisadamente. |
 | Broadcast | Executar INSERT/UPDATE/DELETE reais em fixtures e verificar que os três triggers enviam somente hints mínimos no tópico correto; confirmar cliente refetch autenticado. |
 | Sinalização | Testar convite pendente/aceito/recusado, envelopes legados, binding único, expiração, cancel-before-open e limpeza com concorrência. |
-| Rate limit | Se o transporte server-mediated for promovido, adicionar migration de produção própria; testar atomicidade, HTTP 429, Retry-After, limites por sessão/sala e limpeza limitada. |
+| Rate limit | A migration de produção candidata existe na PR #101; validar atomicidade, HTTP 429/Retry-After e limpeza limitada. O handler atual limita por sender com buckets separados read/write (90 writes/min, 240 reads/min), não por sessão ou sala; confirmar se essa granularidade atende ao modelo de abuso antes de congelar o contrato. |
 | Setup invite | Testar token único/expirado, concorrência, hash, role nula/vazia e role explícita, incluindo auditoria de quem emitiu o convite. |
 | Rollback | Para cada função substituída, guardar definição anterior exata; para tabelas/colunas, preservar dados/tombstones; demonstrar rollback/forward-fix no banco isolado. |
 | Full-Product TEST | Projeto ativo e separado, com funções Normal/Team Lite, tópicos, Storage, secrets e namespaces exclusivos; nenhuma referência a produção. |
