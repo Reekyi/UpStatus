@@ -34,7 +34,7 @@ A consulta de privilégios efetivos confirmou `has_table_privilege(..., 'TRUNCAT
 
 ## 2. Default privileges para objetos futuros
 
-A consulta de `pg_default_acl` no schema `public` encontrou defaults amplos para **dois grantors**:
+A consulta de `pg_default_acl` no schema `public` encontrou defaults amplos para **dois roles criadores de objetos** (os roles para os quais os defaults se aplicam):
 
 - `postgres`;
 - `supabase_admin`.
