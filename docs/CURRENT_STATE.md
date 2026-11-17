@@ -153,3 +153,14 @@ Next: build the per-migration dependency/rollback graph and resolve a Full-Produ
 - No workflow was manually dispatched, no plan/spend cap/project setting was changed, and no deploy/merge/production mutation occurred.
 
 Human unblock: restore upstatus-security-test service in the Supabase Dashboard by resolving the invocation quota (owner decision: plan upgrade or spend-cap adjustment). Static review can continue meanwhile.
+
+
+### Production Normal HTTP 402 log check — 2026-11-17 15:20 BRT
+
+- Read-only ClickHouse logs query: 67,701 function_edge_logs rows in the 24-hour window; HTTP 402s are concentrated on the legacy beta10 API used by Normal 3.4.7.
+- In the latest one-hour window queried: /api/chat 3,205; /api/status 1,364; /api/remote-status 1,362; /api/members 2; /api/me 2, all HTTP 402. No upstatus-team-lite requests appeared in that hour; this is not proof Team Lite is healthy.
+- The production project management status still reads ACTIVE_HEALTHY, but edge logs also show 402 from infrastructure health/ready endpoints. Current beta10 source has no explicit 402 response branch; its general catch returns 500. Root cause is not confirmed and must not be conflated with the separate lab quota error.
+- Likely impact: the Normal client sends chat/status/remote-status requests to beta10, so these failures are consistent with the reported Normal presence/chat problem. Scope and root cause remain unverified.
+- Human action: project owner should inspect UpStatus Dashboard usage/billing/spend caps and Edge Function service state, especially beta10. No plan/spend-cap/function/secret change was made.
+
+All checks were read-only. No production request that writes data, migration, deploy or config change occurred.
