@@ -1057,3 +1057,30 @@ O laboratório continua indisponível para SQL e testes integrados. Não foi ten
 A próxima revisão de paridade deve comparar o corpo dos 34 handlers entre Normal, Team Lite, TEST e beta10, destacando diferenças de política Normal/Team Lite e dependências RPC/Storage. Não considerar a igualdade dos nomes das rotas como prova de que os runtimes são substitutos seguros.
 
 Nenhuma restauração de projeto, alteração de billing, migration, deploy ou modificação de produção ocorreu.
+
+
+## Addendum — divergência semântica entre API distribuída e API ativa (2026-11-17)
+
+A comparação de funções internas confirmou que os 34 nomes de rotas não significam o mesmo comportamento em todos os runtimes.
+
+### O Normal servido não é o backend usado pelo Normal
+
+O userscript Normal 3.4.7 servido por `upstatus` aponta sua API para beta10. O endpoint `/api/members` em beta10 chama `members()`, que lê todos os nomes de `public.users` sem a allowlist. O `statusRoute(GET)` de beta10 também consulta todos os usuários.
+
+Já o backend `upstatus` 3.4.7, quando comparado diretamente, restringe `members()` à allowlist `Ricardo`, `Guilherme` e `Lohan`. Portanto, o código da função que distribui o Normal não representa o comportamento efetivo de suas chamadas de API nesses endpoints. A resposta real vem do beta10 legado.
+
+### Políticas de senha e identidade
+
+- Normal 3.4.7 source e beta10 exigem senha com pelo menos 6 caracteres.
+- Team Lite 3.4.30 exige pelo menos 4 caracteres e responde com erro específico quando a conta não pertence ao Team Lite.
+- TEST 3.3.28 source também exige 4 caracteres e contém allowlist, mas o userscript TEST atualmente chama beta10; logo, na prática, o login do cliente TEST é validado pela regra de 6 caracteres do beta10, não pela regra do próprio `upstatus-test`.
+
+### Histórico de convidados
+
+Team Lite possui um caminho explícito de `guestJoinedAt` em `chatRoute` e `chatRows`, aplicando corte temporal às mensagens retornadas. Normal e beta10 não recebem esse limite. O TEST 3.3.28 tem um parâmetro parcial de `guestJoinedAt` em `chatRoute`, mas seu `chatRows` não possui o mesmo argumento; além disso, o cliente atual não chama esse backend.
+
+### Implicação
+
+A compatibilidade deve ser medida por fluxo e runtime efetivamente chamado, não só pelo arquivo que distribui o userscript nem pela lista de rotas. Antes de trocar Normal para sua própria API ou redirecionar TEST para `upstatus-test`, validar login, membros/status, histórico de convidados, permissões e compatibilidade com contas existentes em Full-Product TEST.
+
+Nenhuma configuração ou código de produção foi alterado.
