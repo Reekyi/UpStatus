@@ -726,3 +726,73 @@ A leitura do source atual beta10 não encontrou um caminho explícito que retorn
 **Ação humana necessária:** o proprietário deve verificar no Dashboard do projeto UpStatus a seção de uso/billing/spend caps e o estado das Edge Functions, especialmente a função beta10. Não alterar plano, spend cap, função ou segredo automaticamente. Precisamos do motivo exibido pelo Dashboard para confirmar a causa.
 
 Nenhum request de escrita foi enviado à produção. A consulta foi somente a logs agregados e fonte implantada.
+
+
+## Addendum — Team Lite channel metadata, TEST contract and validation dependency (2026-11-17 15:40 BRT)
+
+### Team Lite update channel: root manifest is not the product manifest
+
+A fresh read of `team-lite-official` clarified an apparent version discrepancy:
+
+- The repository-root `release.json` remains `3.0.40-beta.22`, but the deployed Team Lite client does not use that file for its update check.
+- The deployed Team Lite 3.4.30 script points its Tampermonkey update/download URLs to `team-lite/upstatus-team-lite.user.js`.
+- That script's updater explicitly fetches `team-lite/release.json`; the product manifest declares `product=UpStatus Team Lite`, `coreVersion=3.4.7`, `buildVersion=3.4.30`, `channel=stable`, and the same script URL.
+- The served script header is also 3.4.30, and the updater compares the served script version with `buildVersion` before allowing the update.
+
+Therefore, **there is no observed Team Lite update-channel version mismatch**. The root manifest is for the main repository line; the separate Team Lite manifest is the active product channel. The actual source gap remains the backend: `team-lite-official` has the 3.4.30 client and product manifest, but no corresponding versioned backend template. PR #76 supplies a 3.4.31 candidate backend and must be reviewed by domain; it is not a drop-in production replacement.
+
+### Exact client identity and runtime routing recheck
+
+Decoded the embedded userscripts from the currently deployed functions:
+
+| Runtime | Client version | Tampermonkey namespace | API target | Realtime topic |
+|---|---|---|---|---|
+| `upstatus` | 3.4.7 | `upseller` | legacy beta10 | beta10 |
+| `upstatus-test` | 3.3.28 | `upseller` | legacy beta10 | beta10 |
+| `upstatus-team-lite` | 3.4.30 | `upseller-team-lite` | `upstatus-team-lite` | beta10 |
+| `upstatus-screen-share-3-1-1-beta10` | 3.1.1-beta8 embedded client | `upseller-screen-share-beta8` | beta8 | beta8 |
+
+The Normal and TEST scripts therefore still collide on Tampermonkey identity and API/Realtime routing. Team Lite has its own client identity and API, but shares the beta10 Realtime topic with Normal. The beta10 function's embedded client itself points to beta8. These are routing/provenance facts, not proof that each legacy slug is still required by an active human client.
+
+### Full-Product TEST contract — proposed, not provisioned
+
+A valid test environment must be a **separate active Supabase project**, not the production project and not the inactive `upstatus-security-test` lab. The project reference, database, Storage, Realtime, publishable key, Edge Function secrets and quotas must all be independent.
+
+| Surface | Required TEST contract |
+|---|---|
+| Normal API | Dedicated function `upstatus-test` inside the TEST project |
+| Team Lite API | Dedicated function `upstatus-team-lite-test` inside the TEST project |
+| Normal client | Unique test name/namespace (e.g. `UpStatus TEST` / `upseller-test`); update/download URLs and API URL must resolve only to TEST |
+| Team Lite client | Unique test name/namespace (e.g. `UpStatus Team Lite TEST` / `upseller-team-lite-test`); its own manifest and update channel |
+| Local state | Unique Normal and Team Lite TEST storage prefixes; never reuse `upstatus_` or `upstatus_team_lite_` production keys |
+| Realtime | New TEST topic, different from every production topic; it may be shared by the two TEST products only if cross-product voice/presence interoperability is part of the acceptance suite |
+| Storage | Buckets in the TEST project only, with signed uploads and explicit MIME/size/path checks; no production object URL in a test artifact |
+| Secrets | TEST-only server secrets; never copy a production service-role key into client code, CI artifacts or the test project |
+| Data | Synthetic users/messages/files only; do not clone production credentials or customer data |
+| Build/deploy | Explicit TEST project ref and explicit two-function mapping; fail closed if project ref equals production or a TEST artifact contains a production URL, topic, key, namespace or storage prefix |
+
+The currently deployed `upstatus-test` function is in the production project and its embedded script points back to beta10. It does **not** satisfy this contract.
+
+### Proposed validation and migration order
+
+1. Provision/activate the dedicated TEST project and confirm Edge Functions, Realtime and Storage are usable without quota errors.
+2. Establish the baseline schema from the seven production ledger migrations in order. PR #176 recovers the four absent SQL statements from the ledger; the text matches those statements, but original Git blobs/comments are unavailable.
+3. Verify the baseline catalog, Storage buckets, triggers and function grants in TEST before adding candidate architecture.
+4. Apply the 23 candidate application migrations only in TEST, following their dependency graph: ACL hardening and broadcast minimization; signaling rooms/memberships/events; call/voice attempt lifecycle; chat receipt RPC; setup-invite and rate-limit chain. Add a separate supported plan for the `supabase_admin` default ACL gap; the existing candidate migration only addresses owner `postgres`.
+5. Deploy both TEST backends and both TEST clients from one explicit environment manifest. Verify that no built artifact points to production.
+6. Run authenticated API contracts, login/session expiry, role checks, presence, chat/history/read receipts, signed image/document/avatar uploads, remote state, individual calls, voice rooms, screen share, group mesh, Normal ↔ Team Lite interoperability, update-channel identity and reconnect without F5.
+7. Only after TEST passes, perform manual Sale Smartly/Tampermonkey acceptance and prepare a reviewed cutover/rollback plan. No production action is implied by a green TEST run.
+
+No project was created, no migration was replayed, and no deployment was performed.
+
+### PR #178 validator dependency recheck
+
+The new documentation commit triggered Validate run 44149802579, which failed at `scripts/validate.mjs:55` with `client signed upload helper missing`. The PR diff remains limited to the two documentation files, so this is an inherited `develop` baseline dependency, not a change introduced by the documentation.
+
+The dependency is already isolated in PR #174: its exact-head Validate run 43802407509 succeeded and includes the signed-upload client helper plus client/server contract tests. PR #175's dedicated persisted-admin-role regression also succeeded (43808590208), while its full Validate failed at the same missing-helper assertion (43808590131). These PRs remain unmerged and unreviewed. Do not weaken the validator to make the documentation PR green; review/integrate the #174 dependency through the normal human review path first.
+
+### Production HTTP 402 recheck — 2026-11-17 15:40 BRT
+
+Read-only logs over the previous 24 hours showed 73,672 HTTP 402 responses from `upstatus-screen-share-3-1-1-beta10` and 6 from `upstatus`. All six `upstatus` responses were requests for `/upstatus.user.js`. In the latest one-hour window, beta10 returned 9,327 HTTP 402 responses (5,038 chat, 2,144 remote-status, 2,141 status, 2 members, 2 me). No Team Lite function requests appeared in the queried log slice; this is not evidence that Team Lite is healthy.
+
+Some 402 entries show execution times between 0 and single-digit milliseconds. The logs do not expose the gateway's explanatory response body, and no explicit 402 branch was found in the inspected beta10 source. **The cause remains unconfirmed.** Do not call it billing/quota, and do not change billing, spend caps, function configuration or production routing without the owner inspecting the Dashboard and explicitly approving a change.
