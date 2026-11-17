@@ -1084,3 +1084,26 @@ Team Lite possui um caminho explícito de `guestJoinedAt` em `chatRoute` e `chat
 A compatibilidade deve ser medida por fluxo e runtime efetivamente chamado, não só pelo arquivo que distribui o userscript nem pela lista de rotas. Antes de trocar Normal para sua própria API ou redirecionar TEST para `upstatus-test`, validar login, membros/status, histórico de convidados, permissões e compatibilidade com contas existentes em Full-Product TEST.
 
 Nenhuma configuração ou código de produção foi alterado.
+
+
+## Addendum — contrato de upload assinado e risco do destino beta10 (2026-11-17)
+
+A comparação direta de `signedUploadRoute` em produção encontrou três níveis de validação:
+
+| Runtime | Valida token não vazio | Confere caminho assinado | Valida origem HTTPS e URL pública |
+|---|---|---|---|
+| `upstatus` 3.4.7 | Sim | Sim | Não |
+| `upstatus-team-lite` 3.4.30 | Sim | Sim | Não |
+| `upstatus-test` 3.3.28 | Sim | Sim | Não |
+| beta10 3.1.1-beta8 | Não | Não | Não |
+| PR #161 candidata | Sim | Sim | Sim |
+
+O userscript Normal atual chama beta10 para API. Portanto, seu fluxo de ticket de upload é atendido pelo handler legado que apenas cria a URL assinada e devolve URL/token/public URL, sem as verificações de consistência de token/caminho/origem presentes nos fontes Normal/Team Lite. A PR #161 candidata adiciona verificações da origem do projeto, rota de upload, caminho, token e URL pública antes de devolver o ticket.
+
+O HEAD atual da PR #161 é `557814dc31bed779b84a2094358dc6b2a7e67689`; os dois workflows associados (Validate e Signaling Smoke Tests) estão concluídos com sucesso nesse SHA. A PR permanece Draft, baseada em `chore/continuity-foundation`, e não foi integrada nem implantada. Isso é evidência de CI da candidata, não teste no ambiente Full-Product TEST nem aprovação para produção.
+
+Observação: `/api/chat/audio` é um fluxo separado via `mediaRoute`, com limite de 5 MB. A diferença de allowlist em `signedUploadRoute` não prova, sozinha, quebra de áudio; os dois caminhos precisam permanecer separados na matriz de compatibilidade.
+
+**Regra de reconstrução:** não redirecionar o Normal de beta10 para `upstatus` até testar no Full-Product TEST os fluxos de upload de imagem, vídeo, documento, avatar e áudio, além de validar URLs antigas já persistidas.
+
+Nenhum upload, objeto Storage, runtime, migration, deploy ou configuração de produção foi alterado nesta comparação.
