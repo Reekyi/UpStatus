@@ -1,5 +1,5 @@
 # Auditoria independente de QA — UpStatus
-**Data da execução:** 17/11/2026, 10:35–11:00 UTC (07:35–08:00 BRT)  
+**Data da execução:** 17/11/2026, 10:33–10:48 UTC (07:33–07:48 BRT)  
 **Recomendação:** NOT READY — não liberar Normal nem Team Lite.
 
 ## Escopo e método
