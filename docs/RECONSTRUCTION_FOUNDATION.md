@@ -1019,3 +1019,41 @@ As outras 36 funções não tiveram linhas nesse recorte. Isso é apenas ausênc
 A próxima matriz de proveniência deve identificar três coisas separadamente para cada runtime: (1) quem distribui o script, (2) qual função o script chama para API, e (3) qual tópico/prefixo/namespace ele usa. O slug da função distribuidora, isoladamente, não responde às outras duas perguntas. A estratégia Full-Product TEST precisa usar projeto separado e manifesto que valide todos esses destinos, não apenas sufixos diferentes.
 
 Nenhum deploy, merge, migration, alteração de segredo, grant, policy, dado ou função ocorreu nesta inspeção.
+
+
+## Addendum — paridade de rotas e rechecagem do laboratório (2026-11-17)
+
+### Paridade literal de endpoints
+
+A comparação dos caminhos `/api/*` encontrados diretamente nos fontes dos seis runtimes retornou:
+
+| Runtime | Versão declarada | Rotas literais |
+|---|---:|---:|
+| `upstatus` | 3.4.7 | 34 |
+| `upstatus-team-lite` | 3.4.30 | 34 |
+| `upstatus-test` | 3.3.28 | 34 |
+| beta10 | 3.1.1-beta8 | 34 |
+| beta8 | 3.1.1-beta8 | 32 |
+| backup 330 | 3.3.0 | 32 |
+
+Os quatro runtimes atuais têm os mesmos 34 caminhos literais. beta8 e backup 330 não têm:
+
+- `/api/chat/upload-url`;
+- `/api/profile/avatar-upload-url`.
+
+Isso mostra que os endpoints de upload assinado chegaram aos quatro runtimes atuais, mas não aos snapshots beta8/3.3.0. Paridade de caminho não prova paridade semântica: regras de papel, limites, autorização, sessão, payload e efeitos no banco ainda precisam ser comparados por handler e testados no ambiente isolado.
+
+### Estado dos projetos Supabase
+
+Rechecagem direta de `get_project`:
+
+- Produção `dlfvkawaiqduhlazsszm`: `ACTIVE_HEALTHY`.
+- Laboratório `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`): `INACTIVE`.
+
+O laboratório continua indisponível para SQL e testes integrados. Não foi tentada restauração nem criação de projeto, pois isso pode envolver custo/compute e requer ação/decisão do proprietário. O projeto de sinalização também não atende ao contrato Full-Product TEST.
+
+### Consequência
+
+A próxima revisão de paridade deve comparar o corpo dos 34 handlers entre Normal, Team Lite, TEST e beta10, destacando diferenças de política Normal/Team Lite e dependências RPC/Storage. Não considerar a igualdade dos nomes das rotas como prova de que os runtimes são substitutos seguros.
+
+Nenhuma restauração de projeto, alteração de billing, migration, deploy ou modificação de produção ocorreu.
