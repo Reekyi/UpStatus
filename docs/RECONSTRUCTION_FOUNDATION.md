@@ -447,3 +447,23 @@ A etapa de reestruturação só deve ser encerrada quando todos os pontos abaixo
 - Nenhum teste local foi executado nesta etapa.
 - Resultados de CI citados em PRs são evidências históricas dos respectivos commits, não testes executados nesta auditoria.
 - Produção permanece intocada.
+
+
+## Addendum — descoberta de isolamento do cliente TEST (2026-11-17 13:35 BRT)
+
+Foi feita uma decodificação dos userscripts embutidos nos quatro runtimes. O resultado deixa o problema de isolamento mais concreto:
+
+| Função que serve o script | Versão do script | updateURL | API usada pelo cliente | Tópico Realtime | Prefixo local |
+|---|---|---|---|---|---|
+| upstatus | 3.4.7 | upstatus | beta10 | upstatus-screen-share-live-3-1-1-beta10 | upstatus_screen_share_beta8_ |
+| upstatus-test | 3.3.28 | upstatus-test | beta10 | upstatus-screen-share-live-3-1-1-beta10 | upstatus_screen_share_beta8_ |
+| upstatus-team-lite | 3.4.30 | team-lite-official | upstatus-team-lite | upstatus-screen-share-live-3-1-1-beta10 | upstatus_team_lite_ |
+| upstatus-screen-share-3-1-1-beta10 | 3.1.1-beta8 | beta8 | beta8 | upstatus-screen-share-live-3-1-1-beta8 | upstatus_screen_share_beta8_ |
+
+O ponto mais importante: o userscript servido por upstatus-test não usa a própria função upstatus-test para API. Ele chama beta10, usa o mesmo tópico Realtime do Normal e usa o mesmo prefixo local do Normal. Como a função upstatus-test também está hospedada no projeto de produção, ela não representa um ambiente isolado de teste.
+
+Também existe uma diferença entre o nome do runtime beta10 e o conteúdo que ele próprio distribui: a função implantada tem slug beta10, mas seu userscript embutido é beta8 e aponta update/API para a função beta8.
+
+**Impacto:** não considerar o TEST atual seguro para validação com dados reais. A próxima arquitetura deve impor isolamento de projeto, endpoint, tópico, storage e namespace, e deve validar esses valores automaticamente no build e no CI.
+
+Esse addendum é uma descoberta de configuração e proveniência, não uma mudança de runtime. Nenhuma função foi modificada.
