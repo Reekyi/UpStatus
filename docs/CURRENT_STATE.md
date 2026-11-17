@@ -203,3 +203,14 @@ Next: continue reviewing domain contracts and candidate branch dependencies. Ful
 - No source code or workflow was changed; no build, test, migration, deploy, merge or production mutation was performed.
 
 Next: inspect client-side references for the legacy reactions table and map the candidate signaling/voice migration dependency order against the exact RPC/function definitions. Full-Product TEST remains an owner-provisioning blocker.
+
+
+### Signaling, migration and legacy table dependency review — 2026-11-17 15:50 BRT
+
+- Mapped the candidate authenticated signaling function and client adapter. It is a separate Edge Function with room/call/voice/screen endpoints and custom-session authentication; its database dependencies are the new signaling rooms, memberships, events, bindings and call/voice attempt tables.
+- Verified that Normal and Team Lite candidate userscripts keep the signaling feature flag disabled by default (GM storage default false). Candidate CI does not activate this transport for existing users.
+- Expanded the migration dependency graph in RECONSTRUCTION_FOUNDATION.md. Key ordered replacements: setup-invite consume RPC is replaced twice before rate limiting; voice-room attempt open RPC is replaced by singleton and then account-scoped-lock versions. Public broadcast minimization requires coordinated client rollout. The postgres default-ACL migration does not fix supabase_admin defaults.
+- Investigated public.reactions: zero rows, only primary-key index, no triggers/FKs, no public SQL functions or direct backend/client table calls in the inspected runtimes. Current client reactions are carried in messages.reactions JSON. Treat the table as a possible legacy object only; no deletion is authorized.
+- No migration, build, deploy, merge, ACL change, data mutation or browser test was performed.
+
+Next: continue historical-client/external-consumer search before classifying any legacy function/table as removable, then finalize the isolated TEST migration rehearsal checklist.
