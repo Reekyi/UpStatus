@@ -214,3 +214,16 @@ Next: inspect client-side references for the legacy reactions table and map the 
 - No migration, build, deploy, merge, ACL change, data mutation or browser test was performed.
 
 Next: continue historical-client/external-consumer search before classifying any legacy function/table as removable, then finalize the isolated TEST migration rehearsal checklist.
+
+
+### Reconstruction foundation handoff — 2026-11-17 15:55 BRT
+
+Phase 1 discovery/architecture foundation is ready for owner handoff. The architecture map, runtime/source divergence, domain dependencies, migration order, risks and dual-product Full-Product TEST contract are documented in RECONSTRUCTION_FOUNDATION.md.
+
+The next phase is blocked on two owner actions: (1) inspect the UpStatus Supabase Dashboard and share the exact reason shown for the beta10/Normal HTTP 402 responses, without changing billing or production settings; (2) provision/restore a dedicated active Full-Product TEST project with Edge Functions, Realtime and Storage, and provide only its Project Ref. No service-role keys are needed in chat.
+
+PR #178 remains a documentation-only Draft PR. Its Validate failure is the inherited develop assertion client signed upload helper missing; PR #174 contains the separate candidate fix and has a successful exact-head Validate run. No candidate was merged.
+
+No local full build, Full-Product TEST, manual Sale Smartly/Tampermonkey acceptance, migration, deploy, merge, secret/config/ACL/policy change, or production data/function mutation occurred. Production is not repaired or declared ready. No production changes were made.
+
+**Phase 1 status: READY FOR HANDOFF.** Next: create the dual-product TEST build/deploy path and rehearse migrations only in the owner-provisioned isolated project.
