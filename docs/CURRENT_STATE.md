@@ -286,3 +286,13 @@ Next: build a compatibility matrix for Normal/Team Lite/TEST across login, membe
 - No upload was performed; no Storage object, production function, migration, secret, policy or configuration was changed.
 
 Next: add these differences to the Normal/Team Lite/TEST compatibility matrix and wait for isolated Full-Product TEST before any API endpoint migration.
+
+
+### Runtime compatibility matrix — 2026-11-17
+
+- Created `docs/RUNTIME_COMPATIBILITY_MATRIX.md`, consolidating the observed Normal 3.4.7, Team Lite 3.4.30, TEST 3.3.28 and beta10 contracts: distribution/update/API targets, script identity, Realtime topic, local prefix, effective login/roster/history behavior, signed upload validation, historical families and environment dependencies.
+- Linked the matrix from `docs/RECONSTRUCTION_FOUNDATION.md`.
+- Matrix creation commit: `08aa9ac8fc57a616ff10bc667a0dcd190f2d3804`; table-count correction: `5bad0d29c365bd2c0772ac5fd51b7bc7d79320b1`; foundation link: `264cb3cde974601c8923c366a4eabac7c69e381b`.
+- Documentation-only work. No build, browser test, Storage transfer, deploy, merge, migration or production mutation occurred.
+
+Next: review the matrix for remaining unknown contracts (especially guest portals, call/voice/screen signaling, and legacy external consumers) and continue toward an isolated Full-Product TEST rehearsal.
