@@ -435,3 +435,14 @@ Próximo: validar com o requisito de produto se a quota deve permanecer por usu�
 **Work performed:** GitHub source/ancestry comparisons, deployed-function inspection, userscript decoding, Edge Function inventory, migration/table inventory, and SELECT-only PostgreSQL catalog checks. No tests were run in this pass. No SQL writes, migrations, deployments, merges, secret/flag changes, data changes, or userscript publication occurred.
 
 **Next:** reconcile PR #101 and PR #102 with the current PR #74 HEAD on an isolated candidate branch; produce a complete preflight mapping each of the 14 missing objects to its exact migration and owner/ACL; then add and validate a dedicated `upstatus-signal` deploy/rollback step in a candidate workflow. Keep the transport default-off and do not touch production until a Full-Product TEST project is active and Ricardo explicitly authorizes a cutover.
+
+
+### Signaling dependency map completed — 2026-11-17T23:32:16.719Z
+
+- Added [`PRODUCTION_SIGNAL_DEPENDENCY_MAP.md`](./PRODUCTION_SIGNAL_DEPENDENCY_MAP.md), mapping all seven handler tables and seven RPCs to their candidate migrations, the PR #74/#101 ancestry split, the exact static source-parity result, and the missing production deployment step.
+- Migration extraction confirmed the direct object provenance: initial rooms/members/events in `20261029205000`; room bindings in `20261030192000`; call-attempt table and prepare/cancel RPCs in `20261106080200`; voice-attempt table and initial RPCs in `20261106120500`; later singleton/account-scoped function replacements in `20261108010000` and `20261108050751`; rate-limit table/RPC in `20261108190000`.
+- Historical workflow jobs were rechecked: #42513317464 (PR #101) and #42519210669 (PR #102) both completed successfully for offline source-parity and Normal validation. These runs did not exercise production or Full-Product TEST.
+- Found a stale statement in PR #101's `docs/RELEASE_CUTOVER_PLAN.md`: it says HTTP 429 has no `Retry-After`, while the candidate handler currently returns `Retry-After: 60` and exposes it through CORS. Correct this during branch reconciliation; do not treat the old text as current behavior.
+- No application code was changed. The only writes this pass were documentation commits on the isolated reconstruction branch. No tests were run in this pass; no production writes or configuration changes occurred.
+
+Next: reconcile #101/#102 against current #74 on a new isolated branch, review the 14 missing objects' full signatures/owners/ACLs on a clean Full-Product TEST database, and add a separately guarded deploy/rollback step for `upstatus-signal`. Production cutover remains prohibited without explicit approval.
