@@ -54,10 +54,10 @@ Todas as versões desta tabela são posteriores à última versão do ledger de 
 | `20261106120500_voice_room_attempt_recovery` | Rooms, members, bindings e RPC de abrir/sair da sala | Cria tabela de tentativas de voz e RPCs open/cancel duráveis | Test-migration de voice attempts + integração autenticada | Dropar tabela perde tentativas/tombstones e pode permitir reabertura atrasada. Preservar registros até expiração e validar cancel-before-open. |
 | `20261107010000_setup_invites` | Tabela `public.users` e fluxo de primeiro acesso | Adiciona colunas de token hash/expiração/emissor e RPC atômica de consumo | Test-migration verifica colunas, índice, SECURITY INVOKER e grants; harness testa consumo/expiração | Dropar colunas perde convites pendentes e rastreio. Antes de remover, invalidar/consumir convites por processo aprovado e arquivar metadados necessários. |
 | `20261107060000_normalize_setup_invite_role` | RPC criada pela migration anterior | Substitui RPC para normalizar roles nulas/vazias | Teste específico de role normalization | É uma revisão intermediária da mesma RPC. Não reverter sem preservar definição anterior e conferir contas criadas durante a janela. |
-| `20261107062000_preserve_setup_invite_roles_verbatim` | RPC da migration anterior | Mantém default apenas para role vazia; preserva todo valor não vazio literalmente | Teste específico de preservação de role | É a definição final atual da cadeia. Reversão para normalização anterior pode mudar roles já emitidas; revisar dados e consumidores antes. |
+| `20261107062000_preserve_setup_invite_roles_verbatim` | RPC da migration anterior | Reemite a mesma expressão de role de `20261107060000`; altera apenas o comentário descritivo | Teste de preservação verifica o texto da definição/ACL; a comparação dos corpos SQL mostra igualdade com `20261107060000` | Migration semanticamente redundante na cadeia atual; preservar o histórico versionado, mas não descrevê-la como nova correção funcional. |
 | `20261107170000_pin_empty_search_path_trigger_broadcasts` | Três funções de broadcast e seus corpos schema-qualified | Define search_path vazio nas funções SECURITY DEFINER | Teste de catálogo verifica config, EXECUTE e trigger binding; não executa trigger com fixtures | Manter search_path vazio. Não reverter para caminho implícito; se houver falha, qualificar objetos e corrigir a função. |
-| `20261108010000_voice_attempt_singleton` | Tabela/RPC de voice attempts | Substitui RPC para impedir múltiplas tentativas ativas por conta/aliases | Teste de contrato singleton + corrida de integração | É versão intermediária da RPC. Não voltar a permitir múltiplas tentativas; preservar tombstones e a definição final. |
-| `20261108050751_voice_attempt_account_scoped_lock` | Tabela de attempts, RPC de voz e lock compartilhado da sala | Substitui open/cancel para serializar por conta e manter lock da sala na mutação interna | Teste de ordem de locks + concorrência entre contas e mesma conta | É a revisão mais recente da RPC nesta cadeia. Reversão para lock anterior pode reintroduzir corrida/deadlock; não reverter sem teste concorrente reproduzível. |
+| `20261108010000_voice_attempt_singleton` | Tabela/RPC de voice attempts | Substitui RPC para impedir múltiplas tentativas ativas por conta/aliases | Test-migration verifica SECURITY INVOKER, search_path vazio, guarda `VOICE_ATTEMPT_ALREADY_ACTIVE`, `FOR UPDATE` e ACL; integração autenticada cobre concorrência entre aliases | É versão intermediária da RPC. Não voltar a permitir múltiplas tentativas; preservar tombstones e a definição final. |
+| `20261108050751_voice_attempt_account_scoped_lock` | Tabela de attempts, RPC de voz e lock compartilhado da sala | Substitui open/cancel para serializar por conta e manter lock compartilhado da sala somente na mutação interna | Test-migration `20261108050802_voice_attempt_account_scoped_lock_test.sql` verifica ordem estática via `pg_get_functiondef`; integração autenticada testa mesma conta, aliases Normal/Team Lite, contas distintas e cancelamentos concorrentes (run exato #43376770200, 136/136) | É a revisão mais recente da RPC nesta cadeia. A chave de conta usa `p_user_name`; validar estabilidade do nome ou migrar para ID imutável antes de consolidar. Reversão para lock anterior pode reintroduzir corrida/deadlock. |
 
 ## 2. Grafo de dependências
 
@@ -94,6 +94,50 @@ Fluxos independentes ou com dependência própria
 ```
 
 A migration `20261029205000` tem preflight explícito para nomes nulos/duplicados em `public.users` antes de criar o índice único. A auditoria anterior encontrou cinco usuários, nenhum nome nulo/vazio e nenhum grupo duplicado naquele instante; isso deve ser reconsultado no ambiente isolado imediatamente antes do teste.
+
+
+## 2A. Proveniência das RPCs substituídas por migrations posteriores
+
+A revisão abaixo compara as definições SQL efetivas, não apenas os nomes dos arquivos. Todas as versões citadas pertencem à cabeça exata da PR #74 (`dcaf6a072546eda0089e0cee4018c3047011f600`), confirmada idêntica a `refs/pull/74/head` nesta auditoria.
+
+### `public.consume_upstatus_setup_invite(text,text,text)`
+
+| Migration | Alteração observada | Leitura de proveniência |
+|---|---|---|
+| `20261107010000_setup_invites.sql` | Define `role = coalesce(u.role, 'implementation_user')`. | Só substitui NULL; string vazia ou composta por espaços permanece como está. |
+| `20261107060000_normalize_setup_invite_role.sql` | Troca para CASE: NULL ou valor vazio após `btrim(..., E' \\t\\n\\r')` recebe `implementation_user`; qualquer valor não vazio é preservado literalmente. | É a mudança funcional real da cadeia. |
+| `20261107062000_preserve_setup_invite_roles_verbatim.sql` | Repete a mesma expressão CASE, o mesmo corpo da função e os mesmos REVOKE/GRANT da migration anterior; muda somente o texto de `COMMENT ON FUNCTION`. | Não introduz nova semântica. É uma reemissão documental/idempotente da definição já instalada pela migration anterior. |
+
+Comparação de conteúdo:
+- Blob `07060000`: `5444af10d257e6edec5ec0058ff4cd510248c0bc`.
+- Blob `07062000`: `1a29a4baa097ca7108de2982a9f1c0f2a02b7f3b`.
+- A comparação linha a linha dos corpos de `consume_upstatus_setup_invite` não encontrou diferenças.
+- As test-migrations `20261107060000_setup_invite_role_normalization_test.sql` e `20261107062000_setup_invite_role_preservation_test.sql` inspecionam a definição armazenada e privilégios; isoladamente, não executam a RPC contra registros com NULL/vazio/role explícita. A suíte autenticada do commit abaixo contém a validação comportamental de NULL/vazio/espaços e preservação de role explícita.
+
+### `public.open_upstatus_signal_voice_room_attempt` e `cancel_upstatus_signal_voice_room_attempt`
+
+| Migration | Mudança funcional | Consequência |
+|---|---|---|
+| `20261106120500_voice_room_attempt_recovery.sql` | Cria open/cancel duráveis, valida owner/logical ID, usa tombstone de cancel-before-open e locks advisory por attempt ID e par de aliases da sala. | Primeira versão com recuperação server-side; o lock compartilhado da sala é adquirido antes da varredura de tentativas. |
+| `20261108010000_voice_attempt_singleton.sql` | Adiciona varredura `FOR UPDATE` das tentativas ativas do mesmo `p_user_name`; retorna `VOICE_ATTEMPT_ALREADY_ACTIVE` quando já existe membership ativa válida, inclusive entre aliases Normal/Team Lite. | Corrige múltiplas tentativas por usuário, mas ainda mantém o lock global do par lógico durante a varredura por conta. |
+| `20261108050751_voice_attempt_account_scoped_lock.sql` | No open, troca o lock global antecipado por lock advisory `upstatus-voice-account:<p_user_name>`; mantém o lock por attempt ID e delega o lock do par lógico à RPC interna `open_upstatus_signal_voice_room`. No cancel, adquire attempt ID → conta → par lógico → linha da tentativa. | Serializa operações da mesma conta sem manter o lock global da sala durante a varredura; a mutação da sala continua protegida pela RPC interna. A ordem explícita de locks reduz o risco de deadlock entre open/cancel. |
+
+### Cobertura realmente encontrada
+
+- `20261108010000_voice_attempt_singleton_test.sql` verifica catálogo, SECURITY INVOKER, search_path vazio, presença da guarda e ACL; não executa concorrência por si só.
+- `20261108050802_voice_attempt_account_scoped_lock_test.sql` compara posições de trechos em `pg_get_functiondef` para garantir a ordem dos locks e verifica SECURITY INVOKER/ACL. É uma asserção estática da ordem, não uma corrida real.
+- `scripts/test-signaling-authenticated.mjs` executa os cenários de integração: duas tentativas simultâneas da mesma conta em aliases diferentes; bloqueio da segunda aba; liberação após cancelamento; abertura concorrente por contas distintas na mesma sala lógica; cancelamentos concorrentes sem deadlock.
+- O commit exato da PR #74 é `dcaf6a072546eda0089e0cee4018c3047011f600`. A comparação com `refs/pull/74/head` retornou `identical`.
+- Nesse SHA, Validate run [43376770142](https://github.com/Reekyi/UpStatus/actions/runs/43376770142) e Signaling Smoke run [43376770200](https://github.com/Reekyi/UpStatus/actions/runs/43376770200) concluíram com sucesso. O job de smoke registrou 19/19 checks não autenticados e 136/136 checks autenticados; os cenários de singleton da mesma conta, abertura por contas distintas e cancelamentos concorrentes aparecem como PASS nos logs. Esta é evidência histórica do projeto isolado, não teste físico de Tampermonkey nem validação da produção atual.
+- O projeto isolado usado pela suíte está atualmente `INACTIVE`; portanto, a execução não é reproduzível agora sem resolver a quota/estado do projeto.
+
+### Premissa de identidade ainda aberta
+
+A chave de serialização é derivada de `p_user_name`, e a tabela de tentativas armazena `created_by` como texto. A migration base cria unicidade em `public.users.name`, mas isso não equivale a uma identidade imutável. Os runtimes Normal e Team Lite implantados inspecionados não mostram uma rota de renomeação de `users.name`; isso não prova que alterações administrativas/SQL externas sejam impossíveis. Antes de consolidar o modelo, validar que nomes não mudam enquanto houver tentativa ativa ou planejar migração para um identificador imutável.
+
+### Fronteira com produção
+
+Consulta read-only ao catálogo de produção retornou zero linhas para as três RPCs de setup/voice candidatas e zero linhas para as tabelas de sinalização/attempts. O ledger continua com sete migrations até `20261027155438`. Portanto, essas definições são candidatas da PR #74, não funções instaladas na produção. Nenhuma migration foi aplicada nesta auditoria.
 
 ## 3. Test-migrations não são fixtures inertes
 
