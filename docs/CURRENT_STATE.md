@@ -96,3 +96,8 @@ Active database triggers publish db_change, user_status, remote_command and remo
 ### Build/validator contradiction — 2026-11-17
 
 master build.mjs points the Normal update/API URL at beta10, while master validate.mjs requires the update URL to use /upstatus/. The existing QA checkpoint for PR #82 recorded the resulting production updateURL mismatch. The production ledger also has seven migrations while master/develop contain only the first three SQL files; PR #176 recovers the remaining four statements from the ledger. Details are in RECONSTRUCTION_FOUNDATION.md.
+
+
+### Existing candidate test/signaling foundation — 2026-11-17
+
+PR #74's branch already contains an isolated authenticated-signaling vertical slice: 25 test scripts, a separate signaling transport module and Edge Function, explicit project guards, and candidate migrations for grants, broadcast minimization, call/voice room lifecycle and setup invites. The lab project used by its smoke tests is INACTIVE, and the candidate guard correctly rejects using that lab as the Full-Product TEST project. The candidate is useful groundwork but remains Draft and is not a complete modular reconstruction. No candidate migrations were applied.
