@@ -72,7 +72,7 @@ Os quatro runtimes atuais consultados usam os mesmos nomes de variáveis de ambi
 - `LUCCA_PASSWORD`
 - `YCARO_PASSWORD`
 
-Também compartilham as nove tabelas de aplicação diretamente referenciadas: `users`, `upstatus_sessions`, `status_history`, `upstatus_state`, `messages`, `chat_reads`, `upstatus_typing`, `upstatus_profiles`; `chat-images` é bucket Storage referenciado pelo código. O fluxo de avatar usa também `profile-images`.
+Também compartilham oito tabelas públicas diretamente referenciadas: `users`, `upstatus_sessions`, `status_history`, `upstatus_state`, `messages`, `chat_reads`, `upstatus_typing`, `upstatus_profiles`; `chat-images` é bucket Storage referenciado pelo código. O fluxo de avatar usa também `profile-images`.
 
 O projeto de produção está ACTIVE_HEALTHY. O laboratório `upstatus-security-test` (`bfpjtfqlnypisxljoxkb`) continua INACTIVE e não é Full-Product TEST. Os artefatos TEST atuais ainda não possuem isolamento real de projeto, dados, secrets, Storage, Realtime e identidade Tampermonkey.
 
