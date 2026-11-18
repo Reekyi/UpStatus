@@ -455,3 +455,43 @@ Next: reconcile #101/#102 against current #74 on a new isolated branch, review t
 - The new dependency map and checkpoint files are present on the isolated branch. PR #178 remains open and Draft.
 
 Next: keep the documentation PR isolated; treat the inherited validator failure as a separate baseline issue, and continue the PR #101/#102 reconciliation and Full-Product TEST readiness work.
+
+
+## Final reconstruction handoff checkpoint — 2026-11-18
+
+### GitHub state revalidated
+- master: 9d40461babcec8eb8686c2a04be9c675df7da381; develop: 6b33e1e26ad105143f00372ae6d0f2fa52df60d6. The branches remain diverged (master→develop comparison: 114 commits ahead on develop, 147 behind; file-level differences include release/build/server/userscript paths).
+- PR #76 Team Lite candidate: head 00a578e9174e08238a1289a35feb02d171625421, Draft.
+- PR #101 production signaling candidate: head 2ef7c3324d2eb5443d31a45bd071d154ebeb4aa7, Draft.
+- PR #102 Normal provenance correction: head c4a5cae1271147204ab3b0c79b8916235f0799aa, Draft.
+- PR #161 Normal API/rate-limit candidate: head 557814dc31bed779b84a2094358dc6b2a7e67689, Draft.
+- PR #178 documentation handoff: head aa80c4d5c0b00847f97b0fcae4a6988c67f8fa88 before this checkpoint, open Draft, seven documentation files only. The docs branch is based on develop.
+
+### Direct production artifact provenance and signaling
+- Supabase project dlfvkawaiqduhlazsszm is ACTIVE_HEALTHY.
+- Deployed Normal upstatus v480 / 3.4.7 embeds a userscript byte-for-byte identical (after UTF-8 decoding) to master/UpStatus.user.js.
+- Deployed Team Lite upstatus-team-lite v15 / 3.4.30 embeds a userscript byte-for-byte identical to team-lite-official/team-lite/upstatus-team-lite.user.js.
+- Both live clients use upstatus-screen-share-live-3-1-1-beta10 and pass the public Realtime call_signal payload directly to one-argument receiveCallSignal(p). Neither live script contains signaling_transport_enabled or _authenticatedTransport. Team Lite's local auth/generation check is not per-message sender provenance.
+- No external publish attempt or exploit reproduction was performed; actual topic publish authorization and impact remain an isolated-test gate.
+- The deployed beta10 Edge Function v6 embeds a userscript identical to the beta8 artifact, declares client version beta8, and points that artifact's update/API URLs to beta8. Normal's current client separately calls the beta10 slug as its API.
+- Team Lite PR #76 still trusts p._authenticatedTransport when its opt-in transport is enabled. Its inline discovery exception includes join_declined with discoveryOnly, while the shared guard in PR #102 expects an out-of-band source flag and only presence/ended discovery hints. Team Lite workflow does not invoke the guard.
+
+### Runtime and database snapshot
+- 38 Edge Functions are ACTIVE: 2 official, 11 TEST-family (current TEST + 10 historical variants), 13 screen-share beta, 12 backups (including upstatus-test-backup-032). All 12 backup entrypoint hashes are distinct; this does not establish consumers or justify deletion.
+- upstatus-backup-327-pre328 returns an empty index.ts through the inspection API despite a non-empty entrypoint SHA; source provenance remains unresolved.
+- Production migration ledger: 7 entries. Public schema: 10 RLS-enabled tables with no policies. Security Advisor: three SECURITY DEFINER broadcast RPCs executable by both anon and authenticated.
+- Managed Supabase branch main remains MIGRATIONS_FAILED; the isolated upstatus-security-test project remains inactive. No migration was applied.
+
+### Validation and safety
+- This checkpoint performed static source extraction, byte-for-byte artifact comparisons, Git branch/PR metadata reads, schema/migration/function inventory reads and Security Advisor reads.
+- No tests, local build, external Realtime publish, browser/device acceptance, SQL write, migration, deploy, merge, secret/flag/policy/grant change, function deletion or data mutation was performed.
+- PR #178 remains Draft. The documentation branch has not been merged.
+
+### Handoff decision
+**Phase 1 — reconstruction investigation and preparation: HANDOFF READY.** Architecture, product/runtime differences, target module boundaries, migration order/rollback, critical dependencies, known risks and unresolved evidence are documented. This is not a claim that production is repaired or ready.
+
+Exact owner prerequisites for Phase 2:
+1. Inspect Supabase Dashboard Usage/Billing/Spend Caps and Edge Function status for the beta10 HTTP 402 cause; report the exact displayed explanation without changing plan, limits, secrets or function settings.
+2. Provision/restore a dedicated active Full-Product TEST Supabase project with isolated data, secrets, Edge Functions, Realtime and Storage; provide only its Project Ref. Do not send service-role keys.
+
+Recommended next technical step after those prerequisites: create a Team Lite TEST build/deploy path, reconcile the minimum required changes from #101/#102/#161, port strict out-of-band signaling provenance to Team Lite, then run database/API/browser compatibility tests in the isolated project. Production cutover remains a separate future decision requiring explicit approval.
