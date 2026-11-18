@@ -25,6 +25,28 @@
 
 **Leitura importante:** Normal e TEST distribuem por uma função e usam outra para API. O TEST atual compartilha nome, namespace, tópico e prefixo local com o Normal, e sua API chama beta10. A função beta10, por sua vez, embute um cliente beta8 que aponta para a função beta8. Slug, versão do backend e versão do cliente não são intercambiáveis.
 
+## 1A. Revalidação dos artefatos implantados e do transporte de chamadas (2026-11-18)
+
+Os userscripts embutidos nas duas funções oficiais foram extraídos e comparados com as fontes de distribuição do GitHub, após decodificação UTF-8:
+
+| Runtime implantado | Artefato de origem | Comparação |
+|---|---|---|
+| Normal upstatus v480 / 3.4.7 | master/UpStatus.user.js | Idêntico byte a byte |
+| Team Lite upstatus-team-lite v15 / 3.4.30 | team-lite-official/team-lite/upstatus-team-lite.user.js | Idêntico byte a byte |
+
+Isso confirma a proveniência dos artefatos clientes nos refs inspecionados. Não confirma paridade integral dos handlers backend, secrets ou configuração de runtime.
+
+**Transporte de chamadas atualmente implantado:**
+- Normal chama a API beta10; Team Lite chama a própria função upstatus-team-lite.
+- Ambos usam o tópico compartilhado upstatus-screen-share-live-3-1-1-beta10.
+- Ambos recebem call_signal do Realtime e chamam diretamente receiveCallSignal(p).
+- Nenhum dos dois userscripts implantados contém signaling_transport_enabled ou _authenticatedTransport.
+- O Team Lite valida sessão local e geração antes de processar o callback; isso não autentica a origem de cada mensagem Realtime.
+
+O runtime implantado, portanto, continua no transporte legado de broadcast para controle de chamadas. A inspeção não tentou publicar como cliente externo e não prova que qualquer origem consiga escrever no tópico. A autorização efetiva de publicação e o impacto precisam de reprodução isolada.
+
+**Beta10:** a função implantada upstatus-screen-share-3-1-1-beta10 v6 declara VERSION 3.1.1-beta8 e embute um userscript byte a byte idêntico ao artefato embutido na função beta8. Esse script mantém update/API URL para o slug beta8. O slug beta10 é usado pelos clientes Normal como API; não deve ser confundido com a versão do userscript servido por esse endpoint.
+
 ## 2. Contratos efetivos observados
 
 | Contrato | Normal efetivo (beta10) | Team Lite efetivo | TEST efetivo (beta10) | beta10 |
@@ -57,8 +79,8 @@ A PR #161 muda o destino de API Normal para `upstatus` e adiciona verificações
 ## 4. Famílias históricas
 
 - **Screen-share beta:** 13 funções ativas. beta1–beta8 e beta9 simples são em geral coerentes com seu próprio sufixo. beta9-1 já usa tópico/prefixo beta8; beta9-2 e beta9-3 usam API/tópico/prefixo beta8; beta10 embute cliente beta8 e aponta para beta8.
-- **TEST histórico:** 12 funções ativas. As variantes 3.0.52 beta1–beta6 e beta11 têm namespace/tópico/prefixo específicos, mas ainda estão no projeto de produção. Algumas 3.0.51 usam o tópico Realtime de produção. `upstatus-test-backup-032` usa também o prefixo local `upstatus_`.
-- **Backups:** 11 funções ativas com hashes de entrypoint distintos. Snapshots 3.1.x–3.3.0 geralmente atualizam por `upstatus` mas chamam API/tópico/prefixo beta8. `upstatus-backup-327-pre328` retorna `index.ts` vazio pela API de inspeção, apesar de SHA não vazio; proveniência não resolvida.
+- **Família TEST:** 11 funções ativas: upstatus-test mais 10 variantes históricas (3.0.51 beta1–beta3, 3.0.52 beta1–beta6 e beta11). Algumas 3.0.51 usam o tópico Realtime de produção. upstatus-test-backup-032 é contado na família de backups, não aqui.
+- **Backups:** 12 funções ativas com hashes de entrypoint distintos, incluindo upstatus-test-backup-032. Snapshots 3.1.x–3.3.0 geralmente atualizam por upstatus mas chamam API/tópico/prefixo beta8. upstatus-backup-327-pre328 retorna index.ts vazio pela API de inspeção, apesar de SHA não vazio; proveniência não resolvida.
 
 Nenhuma função pode ser classificada como removível apenas pelo nome ou por ausência de log recente. A janela fixa de 24h consultada mostrou registros apenas para beta10 (74.302 respostas 402) e `upstatus` (6 respostas 402 no endpoint do userscript); isso não prova ausência de consumidores nos outros runtimes.
 
