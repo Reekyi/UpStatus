@@ -426,21 +426,28 @@ Não reutilizar um tópico público como mecanismo de isolamento entre ambientes
 | Revisão humana | PENDING | PRs relevantes sem reviews submetidas |
 | Publicação | NOT AUTHORIZED | exige aprovação explícita do proprietário |
 
-## 10. Critérios para declarar a fundação pronta
+## 10. Critérios para declarar a fundação pronta (handoff)
 
-A etapa de reestruturação só deve ser encerrada quando todos os pontos abaixo tiverem evidência:
+A fase de investigação e preparação pode ser encerrada quando houver evidência suficiente para que a implementação seguinte comece sem adivinhar qual runtime, fonte, contrato ou sequência deve ser usada:
 
-- [ ] Cada runtime ativo e legado relevante tem fonte extraída, hash e consumidores conhecidos.
-- [ ] Normal e Team Lite têm inventário funcional completo e diferenças documentadas.
-- [ ] A arquitetura-alvo está dividida em módulos, contratos, ambientes e responsabilidades.
-- [ ] A estratégia de banco, RLS, Realtime e Storage tem plano de migração e rollback.
-- [ ] Existe Full-Product TEST isolado e operacional.
-- [ ] O build reproduz artefatos e não mistura identificadores de produção e teste.
-- [ ] Os testes necessários estão definidos, executáveis e associados a cada domínio.
-- [ ] Os riscos de corte e as dependências manuais estão explicitados.
-- [ ] O próximo passo pode começar sem adivinhar qual código é o oficial.
+- [x] Inventário dos runtimes oficiais, TEST e legados relevantes, com versões, fontes embutidas, endpoints, tópicos e limites conhecidos.
+- [x] Normal e Team Lite comparados como produtos distintos, incluindo diferenças de API, sessão, convidados, mídia e signaling.
+- [x] Arquitetura-alvo proposta por módulos, contratos, ambientes e responsabilidades.
+- [x] Dependências de banco, RLS, grants, SECURITY DEFINER, Realtime, Storage e migrations documentadas.
+- [x] Sequência candidata de migrations, dependências, cobertura e rollback documentados.
+- [x] Riscos, proveniência ainda não resolvida e consumidores de funções históricas não comprovados explicitamente registrados; nenhum runtime legado é classificado como removível apenas pelo nome.
+- [x] Próxima fase e pré-requisitos do proprietário descritos de forma executável.
 
-**Estado atual: fundação em andamento.** Este documento é um mapa inicial, não uma declaração de prontidão. As principais pendências são a reconciliação exata dos runtimes, a restauração de um ambiente Full-Product TEST e a definição do plano de migração do banco.
+**Estado em 2026-11-18: HANDOFF DA FUNDAÇÃO PRONTO.** A arquitetura e a sequência de reconstrução estão documentadas, e as evidências de runtime foram revalidadas. Isso encerra a etapa de investigação/preparação, não a implementação, a validação integrada ou a prontidão de produção.
+
+### Gates da fase seguinte — ainda pendentes
+
+- Full-Product TEST isolado, ativo e com Edge Functions, Realtime e Storage operacionais.
+- Build reproduzível com identificadores, secrets, namespaces, tópicos e buckets separados entre produção e teste.
+- Reconciliação seletiva das candidatas #101/#102/#161 e correção equivalente no Team Lite #76.
+- Testes de autorização de publicação Realtime, proveniência autenticada, migrations, RLS/grants, Storage, chamadas, voz, tela e compatibilidade Normal ↔ Team Lite no ambiente isolado.
+- Teste manual de Tampermonkey, permissões reais de microfone/captura de tela e reconexão sem F5.
+- Revisão humana e autorização explícita antes de qualquer corte ou alteração de produção.
 
 ## 11. Integridade desta auditoria
 
@@ -934,9 +941,9 @@ A listagem foi repetida e confirmou 38 funções em estado ACTIVE:
 
 - 1 Normal oficial;
 - 1 Team Lite oficial;
-- 12 funções TEST/históricas;
+- 11 funções da família TEST (a função TEST atual mais 10 variantes históricas);
 - 13 funções beta de screen share;
-- 11 backups nomeados.
+- 12 backups nomeados, incluindo o snapshot TEST legado;
 
 Os 38 valores `ezbr_sha256` dos entrypoints são distintos. Portanto, os nomes de backup não representam cópias idênticas do entrypoint atual. Isso **não** prova que todos sejam consumidos, nem que sejam seguros para remoção: ainda é necessário mapear chamadas externas, clientes antigos e dependências de rollback. Nenhuma função foi alterada ou removida.
 
@@ -992,7 +999,7 @@ O histórico mostra que algumas versões TEST antigas tinham separação lógica
 
 ### Família backup
 
-Os 11 backups nomeados também guardam snapshots com contratos diferentes:
+Os 12 backups nomeados também guardam snapshots com contratos diferentes:
 
 - 3.1.0, 3.1.1 e 3.1.2: os scripts recuperáveis usam API/tópico/prefixo beta8; os nomes de namespace variam entre `upseller` e `upseller-screen-share-beta8`.
 - 3.2.5, 3.2.6, 3.2.7, 3.2.8, 3.2.9 e 3.3.0: scripts recuperáveis atualizam por `upstatus`, mas continuam chamando API/tópico/prefixo beta8.
@@ -1117,3 +1124,22 @@ A matriz comparativa de distribuição, API efetiva, identidade Tampermonkey, Re
 ## Referência de segurança do banco
 
 O inventário read-only de RLS, grants, default privileges, SECURITY DEFINER, triggers, Storage e migrations candidatas está em [DB_SECURITY_RECONSTRUCTION.md](./DB_SECURITY_RECONSTRUCTION.md). A análise confirma divergências entre migrations de hardening versionadas e o catálogo atual de produção. Não aplicar as migrations sem Full-Product TEST, revisão dos owners de default privileges e aprovação explícita.
+
+
+## Addendum — proveniência exata dos clientes e sinalização legada (2026-11-18)
+
+A extração direta das funções implantadas confirmou que o userscript Normal 3.4.7 é byte a byte idêntico a master/UpStatus.user.js, e o Team Lite 3.4.30 é byte a byte idêntico a team-lite-official/team-lite/upstatus-team-lite.user.js. Os clientes implantados, porém, ainda usam o tópico Realtime compartilhado e encaminham o payload call_signal diretamente a receiveCallSignal(p), sem proveniência de transporte fora do payload. Nenhum dos dois contém o flag de transporte autenticado candidato. A capacidade de publicação por clientes externos não foi testada.
+
+A função upstatus-screen-share-3-1-1-beta10 v6 embute o mesmo userscript beta8 da função beta8 e conserva URLs do slug beta8. Isso confirma uma distinção entre nome do runtime API e identidade do artefato cliente.
+
+### Correção do inventário de Edge Functions
+
+A lista atual contém 38 funções ACTIVE, classificadas sem sobreposição:
+- 2 oficiais (Normal e Team Lite);
+- 11 da família TEST (upstatus-test e 10 variantes históricas);
+- 13 da família screen-share beta;
+- 12 backups nomeados (incluindo upstatus-test-backup-032).
+
+Os 12 backups têm hashes de entrypoint distintos. Isso não prova consumo, mas impede tratá-los como cópias idênticas ou descartáveis. A inspeção de upstatus-backup-327-pre328 continua retornando index.ts de zero bytes apesar de SHA não vazio; sua proveniência permanece não resolvida.
+
+Nenhum teste de publicação externa, integração ou navegador foi executado nesta revalidação. Nenhum recurso de produção foi alterado.
