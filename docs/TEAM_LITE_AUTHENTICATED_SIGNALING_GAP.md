@@ -1,6 +1,6 @@
 # Team Lite authenticated-signaling trust-boundary review
 
-**Verified:** 2026-11-17 (current repository and Supabase inspection)  
+**Verified:** 2026-11-18 (current repository and Supabase inspection)  
 **Scope:** static source comparison only. No tests were executed in this review; no production runtime, database, secret, or deployment was changed.
 
 ## Executive finding
@@ -8,6 +8,32 @@
 The Normal authenticated-signaling candidate has a source-provenance correction in PR #102, but the Team Lite candidate in PR #76 still uses a payload-controlled marker to distinguish authenticated polling from public Realtime messages.
 
 This is a **candidate release blocker when the authenticated transport flag is enabled**, not evidence that deployed Team Lite 3.4.30 is currently exposed to this candidate-specific path. The deployed production function remains `upstatus-team-lite` version 15; the reviewed Team Lite candidate is on a separate Git branch and is not deployed.
+
+## Live production state — legacy Realtime call signaling (2026-11-18)
+
+A direct read-only extraction of the deployed userscripts changes the risk framing: the candidate-only marker flaw described below is real, but it is not the only trust-boundary concern.
+
+### Exact deployed artifact provenance
+
+- Production upstatus v480 reports backend VERSION 3.4.7. Its embedded Base64 userscript, decoded as UTF-8, is byte-for-byte identical to master/UpStatus.user.js.
+- Production upstatus-team-lite v15 reports VERSION 3.4.30. Its embedded Base64 userscript, decoded as UTF-8, is byte-for-byte identical to team-lite-official/team-lite/upstatus-team-lite.user.js.
+- This confirms the currently distributed Normal and Team Lite client artifacts match their respective GitHub source files at the inspected refs. It does not prove every server-side handler or secret matches a branch template.
+
+### Current deployed call-signal path
+
+Both deployed scripts:
+- use the shared Realtime topic upstatus-screen-share-live-3-1-1-beta10;
+- define receiveCallSignal(p) with no out-of-band transport-provenance argument;
+- pass the public Realtime call_signal payload directly into that handler;
+- contain neither signaling_transport_enabled nor _authenticatedTransport.
+
+Normal 3.4.7 calls the beta10 Edge Function for its API. Team Lite 3.4.30 calls upstatus-team-lite. Team Lite additionally checks its local authenticated session and generation before handling the callback; that protects local session lifecycle, but does not independently establish who originated an individual broadcast payload.
+
+Therefore the deployed clients still use the legacy shared Realtime broadcast path for call control. This is distinct from the opt-in authenticated-transport candidate path in PR #76. No external publish attempt or exploit reproduction was performed, so this inspection does not prove that an arbitrary Internet client can publish to the topic or trigger a specific action. The channel's effective publish authorization and impact must be tested in an isolated project.
+
+### Candidate-only gap remains separate
+
+PR #76 still uses the payload-controlled _authenticatedTransport marker when its opt-in signaling flag is enabled. The shared guard test expects out-of-band provenance and a strict public discovery allowlist. The Team Lite candidate's current inline exception also includes join_declined when discoveryOnly === true, whereas the shared guard's expected public discovery set is only presence and ended. Resolve this policy mismatch before porting the Normal correction.
 
 ## Evidence
 
@@ -64,7 +90,12 @@ No claim is made that the Team Lite guard was run; this conclusion comes from co
 
 - Production Supabase project is still reported `ACTIVE_HEALTHY`.
 - Deployed Team Lite is `upstatus-team-lite` version 15; no production deploy was performed.
-- Production has 38 active Edge Functions and seven applied migration-ledger entries in the latest read-only snapshot.
+- Production has 38 active Edge Functions (2 official, 11 TEST-family, 13 screen-share beta, 12 backups) and seven applied migration-ledger entries in the latest read-only snapshot.
 - The isolated `upstatus-security-test` project remains `INACTIVE`; full integration validation is blocked.
 - The production Security Advisor still reports ten public tables with RLS but no policies and three publicly executable `SECURITY DEFINER` broadcast functions.
 - No tests were run in this review. No SQL, migration, deploy, merge, secret, permission, or data change occurred.
+
+
+## Handoff clarification
+
+The reconstruction investigation can hand off with the live legacy Realtime path documented as an unresolved security gate. This is not a production remediation or an authorization to change the topic. The next phase must first provision an isolated Full-Product TEST project, then test publish authorization and port the strict provenance guard to both product candidates. Production remains untouched.
