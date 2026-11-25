@@ -4,7 +4,7 @@ import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypt
 
 const PROJECT_URL = Deno.env.get("SUPABASE_URL")!;
 const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}");
-const ADMIN_KEY = secretKeys.default || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const ADMIN_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || secretKeys.default || "";
 const db = createClient(PROJECT_URL, ADMIN_KEY, { auth: { persistSession: false } });
 const sessionCache = new Map<string,{name:string,expiresAt:number,checkedAt:number}>();
 let membersCache:{at:number,data:Array<{name:string}>}|null=null;
