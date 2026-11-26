@@ -6,10 +6,11 @@ export function createClient(_url: string, _key: string, _options: unknown = {})
   return {
     from(table: string) {
       const filters: Array<[string, unknown]> = [];
+      let orderBy = "";
       const builder: any = {
         select(_columns?: string) { return this; },
         eq(column: string, value: unknown) { filters.push([column, value]); return this; },
-        order(_column: string, _options?: unknown) { return this; },
+        order(column: string, _options?: unknown) { orderBy = column; return this; },
         maybeSingle(): Promise<QueryResult> {
           if (globalThis.__upstatusMockDbError && table === "users") {
             return Promise.resolve({ data: null, error: new Error("mock database failure") });
@@ -32,6 +33,7 @@ export function createClient(_url: string, _key: string, _options: unknown = {})
           const data = table === "users"
             ? [{ name: "Ricardo" }, { name: "Guilherme" }, { name: "Lohan" }]
             : [];
+          if (orderBy) data.sort((a: any, b: any) => String(a[orderBy]).localeCompare(String(b[orderBy])));
           return Promise.resolve({ data, error: null }).then(resolve, reject);
         }
       };
