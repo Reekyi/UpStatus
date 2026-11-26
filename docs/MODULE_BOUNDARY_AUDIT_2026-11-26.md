@@ -145,3 +145,19 @@ Foi extraído `modules/auth-crypto.js`, criado por `createAuthCrypto({ Buffer, c
 As primitivas criptográficas são injetadas, sem trocar algoritmos, parâmetros, encoding ou formato persistido `salt:hash`. O teste `scripts/test-normal-auth-crypto.mjs` cobre hash SHA-256, senha correta/incorreta, hash com salt fixo e aleatório e entradas inválidas. Executado localmente em Node v22.16.0: passou.
 
 O builder foi atualizado para extrair os três blocos (HTTP, state e auth crypto) e agora reconstrói o template original exatamente quando os três blocos e os imports são revertidos. A verificação dessa reversão foi executada diretamente e passou. O candidato continua isolado em `dist/`, sem deploy.
+
+
+## 12. Quarto módulo real — sessões de convidados
+
+Foi extraído `modules/guest-sessions.js` com `createGuestSessionStore({ stateValue, setState, db, randomBytes })`. O módulo reúne:
+- leitura de cookies e tokens Bearer;
+- leitura de estado Lucca/Ycaro;
+- expiração de sessão após o mesmo limite de 12 segundos;
+- atualização do mesmo registro de estado;
+- inserção das mesmas mensagens de saída no chat.
+
+Estado, cliente DB e gerador aleatório são injetados. Os dois fluxos continuam separados, com os mesmos nomes de cookie, chaves de estado, mensagens, `system_type` e IDs aleatórios.
+
+O teste `scripts/test-normal-guest-sessions.mjs` usa Request nativo, state store falso e DB falso; cobre cookies codificados, Bearer, expiração e não expiração. Executado localmente em Node v22.16.0: passou.
+
+O builder agora extrai quatro blocos (HTTP, state, auth crypto e guest sessions). A reversão dos quatro blocos e imports reconstrói exatamente o template recuperado. A verificação direta foi executada e passou.
