@@ -133,3 +133,17 @@ A reconstrução integral foi comparada com o snapshot original do Supabase: **8
 Foi criado o verificador offline `scripts/verify-normal-runtime-recovery.mjs`, que escreve somente em `dist/recovered-normal-3.4.7/index.ts` e compara o resultado ao snapshot. Workflow dedicado adicionado em `.github/workflows/verify-runtime-recovery.yml`. O CI ainda não foi confirmado; a igualdade foi verificada diretamente no processo de reconstrução.
 
 Auditoria dos limites de módulos: `docs/MODULE_BOUNDARY_AUDIT_2026-11-26.md`. A primeira extração sugerida é de helpers HTTP puros, depois do CI verde. Nenhum módulo funcional foi movido ainda.
+
+
+## Primeira reorganização de código concluída, sem alteração funcional
+
+O backend Normal 3.4.7 recuperado foi dividido em 13 fragmentos nomeados em `src/server/normal-3.4.7/fragments/`. A ordem é fixa e documentada no README da pasta. Os fragmentos mantêm o mesmo escopo lexical e não alteram nenhuma função ou contrato; são uma etapa intermediária antes de módulos ES isolados.
+
+Verificação direta:
+- 13 fragmentos montam exatamente o template recuperado (105.120 caracteres).
+- A renderização final gera 894.196 caracteres.
+- O resultado é exatamente igual ao snapshot do runtime original, sem diferença de conteúdo.
+
+O script `scripts/verify-normal-runtime-recovery.mjs` agora verifica fragmentos → template → runtime snapshot e escreve somente em `dist/`. O workflow offline foi ajustado para disparar também quando os fragmentos mudarem. Ainda não foi possível confirmar o resultado do GitHub Actions nesta execução.
+
+**Estado:** primeira divisão estrutural feita e igualdade exata comprovada; nenhuma mudança de lógica, produção ou banco. Próxima etapa: executar o verificador no CI e então extrair helpers HTTP como primeiro módulo real com dependências explícitas.
