@@ -249,3 +249,13 @@ A comparação estática também confirmou os contratos do bloco original: GET n
 **Validação pendente:** o CI mais recente ainda é do commit anterior à extração de chat. O workflow dedicado passou no run #68; o teste de chat precisa de execução no novo HEAD. O `UpStatus Validate` legado continua falhando pela divergência conhecida `production updateURL mismatch` em `scripts/validate.mjs:26`, sem relação com esta refatoração.
 
 Nenhum deploy, Supabase write, migration, alteração de schema, RLS, secrets, workflow de deploy ou runtime ativo foi realizado.
+
+## Validação do décimo primeiro módulo — CI verde
+
+Após corrigir a fronteira entre os ramos GET e POST no módulo extraído e ajustar uma expectativa incorreta no teste de fallback `since` inválido, o workflow `Verify Recovered Normal Runtime` passou no GitHub Actions para o HEAD `d4ae058db56550fa4c75896cb240ce2593566724` (run #82).
+
+O run confirmou: reconstrução exata do runtime original; os onze testes de módulos; e geração do candidato modular isolado. Em particular, o teste da rota de chat passou cobrindo polling normal/rápido, estado de leitura, envio, anexo, reply e validações. O builder ainda valida a reversão dos onze blocos para o template original antes de escrever em `dist/modular-normal-candidate/`.
+
+O workflow legado `UpStatus Validate` continua sendo acompanhado separadamente; sua falha histórica é a divergência `production updateURL mismatch`, não a validação estrutural do runtime recuperado.
+
+O PR permanece Draft. Nenhuma integração, deploy ou alteração no Supabase foi feita.
