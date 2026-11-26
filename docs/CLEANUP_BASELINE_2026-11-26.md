@@ -259,3 +259,15 @@ O run confirmou: reconstrução exata do runtime original; os onze testes de mó
 O workflow legado `UpStatus Validate` continua sendo acompanhado separadamente; sua falha histórica é a divergência `production updateURL mismatch`, não a validação estrutural do runtime recuperado.
 
 O PR permanece Draft. Nenhuma integração, deploy ou alteração no Supabase foi feita.
+
+## Décimo segundo módulo real extraído: rotas de mídia e perfil
+
+Foi isolado `modules/media-routes.js`, com as rotas de perfil/avatar, upload direto de imagem/áudio/documento e geração de URL assinada para upload. As dependências de resposta HTTP, leitura do body, Storage, DB, helpers de mídia, bytes aleatórios e URL do projeto são injetadas. O corpo das três rotas foi preservado a partir do fragmento original; somente anotações de tipo TypeScript foram removidas para que o módulo seja JavaScript executável pelo Node usado nos testes.
+
+Foi adicionado `scripts/test-normal-media-routes.mjs`, cobrindo GET de perfis, upload de avatar e upsert, limites por tipo de mídia, upload de vídeo/áudio, sanitização de nome, bucket de avatar, resposta assinada, rejeição de MIME/tamanho inválido e divergência de path retornado pelo Storage.
+
+O builder agora extrai/restaura as três rotas, importa o factory no candidato modular e valida que a reconstrução integral do template não sofreu alterações fora dos blocos extraídos.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no HEAD `469649df8a1d5151263cd40faf1ff39d8d572fa2` (run #85). Reconstrução exata, testes dos doze módulos e build isolado do candidato passaram. O workflow legado `UpStatus Validate` continua falhando separadamente por `production updateURL mismatch`.
+
+Nenhum deploy, alteração no Supabase, migration, schema, RLS, secrets ou runtime ativo foi realizado. A PR continua Draft.
