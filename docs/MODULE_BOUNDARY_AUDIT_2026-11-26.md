@@ -348,3 +348,15 @@ O mock Supabase implementa operações em memória para os dados e Storage. Os t
 **Validação:** `Verify Recovered Normal Runtime` passou no run #219, commit `cc97676d3d482f583cdc6ff5e3bfe658726161c1`. Passaram reconstrução exata, 17 testes unitários, quatro integrações de domínio, build, execução HTTP em Deno e parse/bundle.
 
 A cobertura comprova o fluxo do dispatcher no Deno local com dependências simuladas, não a integração com Supabase real nem o ambiente gerenciado. Próximo passo: reforçar contratos negativos e autorização em rotas protegidas restantes. Nenhum deploy ou Supabase write foi realizado.
+
+## 28. Matriz negativa e falhas no dispatcher Deno
+
+Adicionada conta padrão `Tester` para testar as fronteiras por role. O Deno local comprova bloqueio de health/histórico, consulta de resultados e criação de remote status por usuário padrão; edição/exclusão de mensagem de terceiros; e regra exclusiva de Ricardo para limpar chat, inclusive quando o solicitante possui role admin. Também valida proteção contra spoofing de `actor`/`target` no status.
+
+O mock foi ampliado com falhas injetáveis de DB e Storage. O servidor Deno retorna o contrato 500 esperado para JSON malformado e falhas de insert/upsert/select, upload direto e URL assinada. A falha de Storage ao remover mídias durante a limpeza mantém o contrato atual de resposta 200 com `removedFiles: 0`.
+
+Também entram `/api/update-info`, perfil, formatos imagem/documento/áudio/vídeo, limites e MIME, guest invalid credentials/heartbeat, e 12 mensagens concorrentes com IDs únicos.
+
+**Validação:** workflow `Verify Recovered Normal Runtime` passou no run #231, commit `c7afa1bc76f9ec5de19895852956ce4069df7dfa`, incluindo recuperação exata, 17 testes unitários, quatro integrações, build, execução Deno e esbuild.
+
+As falhas são simuladas em memória, sem rede ao Supabase. Próximo gate: execução diferencial da referência monolítica e do candidato modular nos mesmos cenários HTTP.
