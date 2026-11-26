@@ -310,3 +310,11 @@ Foi adicionado `scripts/test-normal-chat-integration.mjs`. Ele liga `createMembe
 **Validação:** `Verify Recovered Normal Runtime` passou no run #179, commit `b82154a8e887062087c6cf9bd951c06a0343e73e`, incluindo recuperação exata, todos os testes unitários, integração auth/guest, integração chat, build modular e parse/bundle. Essa cobertura é uma composição simulada dos domínios de chat, não execução completa do dispatcher Deno ou teste de produção.
 
 Próximos gates: composição integrada de mídia/status e comparação de contratos HTTP. Nenhum deploy ou Supabase write foi realizado.
+
+## 24. Integração de mídia e status
+
+Foram criados `scripts/test-normal-media-integration.mjs` e `scripts/test-normal-status-integration.mjs`. O primeiro compõe media store e routes, validando perfis, upload direto, MIME, URL assinada, token e sanitização de caminho. O segundo compõe status handlers e remote status, cobrindo mudança de presença/status, histórico, health check, fila remota, confirmação e consulta de resultados. Ambos usam DB/Storage simulados, sem conexão ao Supabase.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #189, commit `17bfe9a788c6fd2ddcdf82962edd8e8ad2fcf64d`. Recuperação exata, 17 testes unitários, quatro composições integradas (auth/guest, chat, mídia e status), build modular e parse/bundle passaram.
+
+Esses testes não equivalem à execução integral do dispatcher Deno ou a um teste com o projeto Supabase real. Próximo gate: caracterização transversal de contratos HTTP e boundary de erros, seguida de execução isolada em Deno. Nenhum deploy ou Supabase write foi realizado.
