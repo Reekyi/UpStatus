@@ -259,3 +259,13 @@ A ordem de resolução permanece:
 A expiração é executada antes de validar cada token de convidado, e Ycaro só é consultado quando Lucca não autenticou. O shape `{ name, guest, joinedAt }` foi preservado.
 
 O teste `scripts/test-normal-auth-context.mjs` passou localmente em Node v22.16.0 e cobre precedência, short-circuit e sessão de convidado. O builder foi atualizado; a reversão dos dez blocos e imports restaura exatamente o template original.
+
+
+## 20. CI após a extração de mídia e contexto
+
+O workflow dedicado `Verify Recovered Normal Runtime` passou novamente no GitHub Actions (run #60, commit `4ba5486`). Foram aprovados:
+- reconstrução exata do runtime Normal 3.4.7;
+- testes de HTTP, state, auth crypto, guest sessions, members, status, remote status, chat data, media e auth context;
+- montagem do candidato modular isolado.
+
+O workflow legado `UpStatus Validate` segue falhando exclusivamente na verificação de `production updateURL mismatch` em `scripts/validate.mjs:26`. Essa divergência preexistente permanece fora do escopo da reorganização e não foi alterada.
