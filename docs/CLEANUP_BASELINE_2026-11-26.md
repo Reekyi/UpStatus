@@ -435,3 +435,15 @@ O mock Supabase suporta as operações necessárias em tabelas locais e Storage 
 **Validação:** `Verify Recovered Normal Runtime` passou no run #219, commit `cc97676d3d482f583cdc6ff5e3bfe658726161c1`. Passaram recuperação exata, 17 testes individuais, quatro integrações de domínio, build modular, execução Deno HTTP ampliada e parse/bundle.
 
 A execução cobre o entrypoint e os principais endpoints com DB/Storage simulados. Não cobre a integração de rede com Supabase real, concorrência/latência de produção, nem Edge Runtime gerenciado. Próximo gate: contratos HTTP negativos e autorização entre usuários/roles nos endpoints restantes, e revisar o comportamento do candidato sob cenários de falha do DB/Storage. Nenhum deploy, Supabase write ou runtime ativo foi tocado.
+
+## Matriz de autorização, falhas e concorrência no Deno
+
+O harness foi ampliado com uma conta de teste `Tester` (role `implementation_user`) além das contas de implementação/admin. A matriz comprova que a conta padrão não consulta health/histórico, não lê resultados nem cria comandos de status remoto, não altera ou exclui mensagens alheias e não limpa o chat. Também verifica que um admin de implementação diferente de Ricardo não ultrapassa a regra específica de `/api/chat/clear`, que permite somente Ricardo. Um usuário padrão consegue atualizar o próprio status, mas não consegue falsificar `actor`/`target` no histórico.
+
+Foram adicionadas injeções determinísticas de falha no mock para DB e Storage. O entrypoint foi exercitado com JSON inválido, falhas de insert/upsert/select no DB, falha ao salvar imagem, falha ao gerar URL assinada e falha ao remover mídia. As respostas 500 e mensagens de erro foram verificadas; a limpeza de mídia mantém o comportamento existente de retornar sucesso com `removedFiles: 0` quando o Storage remove falha.
+
+Cobertura adicional: `/api/update-info`, mapa de perfil, upload direto de imagem/documento/áudio/vídeo, MIME/tamanho inválido, senha e heartbeat de convidados inválidos e 12 mensagens concorrentes com IDs únicos.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #231, commit `c7afa1bc76f9ec5de19895852956ce4069df7dfa`, incluindo reconstrução exata, 17 testes individuais, quatro integrações, build modular, execução HTTP Deno ampliada e parse/bundle.
+
+Toda a matriz continua usando DB/Storage em memória. Isso confirma os contratos exercitados no Deno local, não permissões reais do Supabase, isolamento RLS do projeto remoto ou comportamento sob carga de produção. Próximo gate: comparação diferencial do candidato modular contra a referência monolítica recuperada, para verificar equivalência HTTP nos mesmos cenários. Nenhum deploy, Supabase write ou runtime ativo foi tocado.
