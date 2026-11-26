@@ -11,7 +11,7 @@ const moduleFiles = [
   "status.js", "remote-status.js", "chat-data.js", "media.js", "auth-context.js", "chat-route.js", "media-routes.js", "guest-routes.js", "chat-interaction-routes.js", "auth-core.js", "auth-routes.js", "chat-maintenance.js"
 ];
 const modulePaths = Object.fromEntries(moduleFiles.map((file) => [file, path.join(modulesDir, file)]));
-const userscriptPath = path.join(ROOT, "recovery/runtime-2026-11-26/userscripts/original-project-normal-3.4.7.user.js");
+const userscriptPath = path.join(ROOT, "src/userscript/normal-3.4.7.user.template.js");
 const ycaroPath = path.join(ROOT, "ycaro.html");
 const outputRoot = path.join(ROOT, "dist/modular-normal-candidate");
 const outputPath = path.join(outputRoot, "index.ts");
