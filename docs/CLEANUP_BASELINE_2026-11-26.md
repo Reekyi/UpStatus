@@ -457,3 +457,13 @@ Antes dos testes extensos do candidato, o harness dispara os mesmos requests con
 **Validação:** `Verify Recovered Normal Runtime` passou no run #252, commit `72dbbd0868700a944a5113c703cd0749feea8de8`. Passaram reconstrução exata, 17 testes unitários, quatro integrações, geração dos dois servidores, comparação HTTP diferencial, matriz Deno de autorização/falhas/concorrência e parse/bundle.
 
 A comparação diferencial atual cobre contratos públicos e sem autenticação; as rotas autenticadas continuam cobertas em profundidade pelo harness modular e testes integrados por domínio. Próximo passo: ampliar a comparação diferencial para fluxos autenticados determinísticos (setup/login, sessão, status e chat) e documentar o limite final de cutover. Nenhum deploy, Supabase write ou runtime ativo foi tocado.
+
+## Comparação diferencial autenticada
+
+O harness agora compara fluxos autenticados entre os dois servidores isolados, mantendo banco separado para cada um. Como as credenciais iniciais são diferentes entre os ambientes por construção, a conta Ricardo é criada com setup na referência monolítica e autenticada por login no candidato modular; a resposta é comparada após remover somente o token aleatório.
+
+Foram comparados exatamente `/api/me`, mudança e leitura de status/presença, entrada específica no histórico, criação e interação de chat (read receipt, reação, edição e exclusão) e o ciclo de remote status (comando, leitura pendente, ACK por outra conta e consulta do resultado). Apenas IDs aleatórios e timestamps são normalizados; os demais campos e contratos são comparados. Os IDs de mensagem/comando de cada servidor são usados contra seu próprio servidor.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #261, commit `0692e9bd3fa854ecff5ae0a72c7f3ddcd534900d`. Passaram recuperação exata, 17 testes unitários, quatro integrações, build dos dois servidores, diferencial público e autenticado, matriz Deno completa e esbuild.
+
+A evidência de equivalência agora cobre os fluxos públicos e os principais fluxos autenticados de negócio. Ainda faltam comparação diferencial de sessão/cookies dos convidados e uploads de mídia, além de validação com Supabase/Edge Runtime gerenciado real. Nenhum deploy, Supabase write ou runtime ativo foi tocado.
