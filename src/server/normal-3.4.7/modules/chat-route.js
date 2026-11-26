@@ -64,6 +64,7 @@ export function createChatRouteHandler({ db, response, readBody, chatRows, menti
       });
     }
 
+      }
     const p = await readBody(req);
     const message = String(p.message || "").trim();
     const imageUrl = String(p.imageUrl || "").trim();
