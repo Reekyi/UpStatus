@@ -286,3 +286,16 @@ A extração é estrutural: o builder remove os dois handlers do template e os r
 **Validação:** o GitHub Actions `Verify Recovered Normal Runtime` passou no HEAD `6d338e7c96cd1e12c27bbfacffc1d3b50224c1b5` (run #111). A reconstrução exata do runtime, os treze testes de módulos e o build do candidato modular isolado passaram. O primeiro run desta extração apontou apenas um matcher incorreto no teste de autorização; o fixture foi corrigido e o run #111 passou integralmente. O workflow legado `UpStatus Validate` continua falhando separadamente por `production updateURL mismatch` em `scripts/validate.mjs:26`.
 
 O PR permanece Draft. Nenhum deploy, alteração no Supabase, migration, schema, RLS, secrets ou runtime ativo foi realizado.
+
+
+## Décimo quarto módulo real extraído: rotas de interação do chat
+
+Foi isolado `modules/chat-interaction-routes.js`, cobrindo leitura/recibos, presença de digitação, reações, edição e exclusão de mensagens. DB, helpers HTTP, leitura do body e verificação administrativa são injetados.
+
+Foram mantidos os contratos de `chat_reads`, limite de 1.000 IDs, exclusão de auto-leitura dos recibos, TTL de digitação de 4,5 segundos, allow-list de emojis, alternância de reações, validações de edição, propriedade da mensagem e regra administrativa de exclusão. O handler original considera Ricardo administrador diretamente; o teste de negação usa outro usuário para não confundir essa regra com o callback administrativo.
+
+Foi adicionado `scripts/test-normal-chat-interaction-routes.mjs`, com DB encadeável falso e testes para recibos, digitação GET/POST, adicionar/remover reações, edição e exclusão permitida/negada. O builder extrai os cinco handlers e exige reconstrução exata do template ao restaurá-los.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no HEAD `c1d823d5080e7ba3ee1b412814a057e733fd8781` (run #122). Reconstrução exata, quatorze testes de módulos e build isolado do candidato modular passaram. Os dois primeiros runs desta extração revelaram apenas lacunas no mock de teste (`maybeSingle` ausente e identidade Ricardo já privilegiada); os fixtures foram corrigidos antes do run verde.
+
+Nenhum deploy, Supabase write, migration, alteração de schema/RLS/secrets ou runtime ativo foi realizado. O PR continua Draft.
