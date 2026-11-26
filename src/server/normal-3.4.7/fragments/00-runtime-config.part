@@ -1,0 +1,20 @@
+import { Buffer } from "node:buffer";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+
+const PROJECT_URL = Deno.env.get("SUPABASE_URL")!;
+const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}");
+const ADMIN_KEY = secretKeys.default || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const db = createClient(PROJECT_URL, ADMIN_KEY, { auth: { persistSession: false } });
+const sessionCache = new Map<string,{name:string,expiresAt:number,checkedAt:number}>();
+let membersCache:{at:number,data:Array<{name:string}>}|null=null;
+
+const VERSION = "__UPSTATUS_VERSION__";
+const USERSCRIPT_BASE64 = "__UPSTATUS_USERSCRIPT_BASE64__";
+function userscriptText(){ const binary=atob(USERSCRIPT_BASE64); const bytes=Uint8Array.from(binary,function(c){return c.charCodeAt(0);}); return new TextDecoder().decode(bytes); }
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "content-type, x-upstatus-token, authorization, apikey",
+  "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
+  "Cache-Control": "no-store"
+};
