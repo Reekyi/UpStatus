@@ -1,4 +1,14 @@
-import { assert, assertEquals, assertStringIncludes } from "https://deno.land/std@0.224.0/assert/mod.ts";
+function assert(condition: unknown, message = "Assertion failed"): asserts condition {
+  if (!condition) throw new Error(message);
+}
+function assertEquals(actual: unknown, expected: unknown) {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error("Expected " + JSON.stringify(expected) + ", received " + JSON.stringify(actual));
+  }
+}
+function assertStringIncludes(actual: string, expected: string) {
+  if (!actual.includes(expected)) throw new Error("Expected string to include: " + expected);
+}
 
 (globalThis as any).EdgeRuntime = {
   waitUntil(promise: Promise<unknown>) { void promise; }
