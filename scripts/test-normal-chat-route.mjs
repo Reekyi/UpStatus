@@ -159,4 +159,33 @@ function makeDb(dataByTable = {}, unreadCount = 0) {
   assert.deepEqual(await result.json(), { error: "A mensagem deve ter no máximo 1000 caracteres." });
 }
 
+
+{
+  const db = makeDb();
+  const handler = createChatRouteHandler({
+    db, response, readBody: async () => ({ message: "   ", imageUrl: "https://cdn.example.test/photo.png", type: "image" }),
+    chatRows: async () => [], mentions: async () => [], expireLucca: async () => ({ online: false }),
+    randomBytes: () => Buffer.from("12345678")
+  });
+  const result = await handler.chatRoute(new Request("https://example.test/api/chat", { method: "POST" }), "Ricardo");
+  const body = await result.json();
+  assert.equal(result.status, 200);
+  assert.equal(body.message.type, "image");
+  assert.equal(body.message.imageUrl, "https://cdn.example.test/photo.png");
+}
+{
+  let queriedChatRows = false;
+  const db = makeDb();
+  const handler = createChatRouteHandler({
+    db, response, readBody: async () => ({ message: "resposta", replyTo: { id: "missing" } }),
+    chatRows: async () => { queriedChatRows = true; return []; }, mentions: async () => [],
+    expireLucca: async () => ({ online: false }), randomBytes: () => Buffer.from("12345678")
+  });
+  const result = await handler.chatRoute(new Request("https://example.test/api/chat", { method: "POST" }), "Ricardo");
+  const body = await result.json();
+  assert.equal(result.status, 200);
+  assert.equal(queriedChatRows, true);
+  assert.equal(body.message.replyTo, null);
+}
+
 console.log("PASS: chat route read, fast sync, and message creation");
