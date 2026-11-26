@@ -108,3 +108,28 @@ A montagem foi verificada diretamente:
 O verificador Node foi atualizado para montar os 13 fragmentos, comparar com o template e comparar o runtime final com o snapshot. O workflow dedicado agora observa também `src/server/normal-3.4.7/**`.
 
 Esta é uma reorganização estrutural de fonte, sem mudança de lógica. Ainda não foram criados imports, exports ou novos limites de estado; isso fica para a etapa seguinte, com injeção de dependências e testes específicos.
+
+
+## 10. Primeiros módulos reais extraídos
+
+Dois módulos pequenos foram extraídos do baseline:
+
+### `modules/http.js`
+- `createHttpHelpers(CORS)` fornece `response` e `readBody`.
+- Não mantém estado nem acessa rede/DB.
+- O CORS é injetado, mantendo o mesmo objeto e a mesma precedência de headers.
+
+### `modules/state.js`
+- `createStateStore(db)` fornece `stateValue` e `setState`.
+- A instância Supabase é injetada, evitando criar um segundo cliente.
+- Mantém a tabela `upstatus_state`, colunas `state_key`, `value`, `updated_at`, operação `maybeSingle` e conflito `state_key`.
+
+Testes offline adicionados:
+- `scripts/test-normal-http-helpers.mjs`;
+- `scripts/test-normal-state-store.mjs`.
+
+Ambos foram executados localmente com Node v22.16.0 e passaram. O state store usa DB falso em memória; nenhum Supabase foi chamado.
+
+O builder `scripts/build-normal-modular-candidate.mjs` cria um candidato isolado em `dist/modular-normal-candidate/`, copia os módulos e prova que, ao reverter apenas os dois blocos extraídos e os imports, o restante do template recuperado permanece exatamente igual. A verificação dessa reversão foi executada diretamente e passou.
+
+O candidato não foi publicado nem colocado em `supabase/functions`. O workflow dedicado inclui os dois testes e a montagem isolada, mas o resultado do GitHub Actions ainda não foi confirmado.
