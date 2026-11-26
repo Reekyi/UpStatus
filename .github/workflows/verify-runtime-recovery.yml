@@ -33,6 +33,8 @@ on:
       - "src/userscript/normal-3.4.7.user.template.js"
       - "scripts/test-normal-updater-transport.mjs"
       - "release.json"
+      - "src/userscript/normal-staging.user.js"
+      - "release-beta.json"
       - "scripts/build-normal-modular-candidate.mjs"
       - "src/server/normal-3.4.7/modules/**"
       - "ycaro.html"
@@ -48,6 +50,8 @@ on:
       - "scripts/test-normal-updater-transport.mjs"
       - "scripts/build-normal-modular-candidate.mjs"
       - "release.json"
+      - "src/userscript/normal-staging.user.js"
+      - "release-beta.json"
       - ".github/workflows/verify-runtime-recovery.yml"
 
 permissions:
