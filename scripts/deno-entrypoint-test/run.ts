@@ -91,7 +91,8 @@ try {
   for (const path of [
     "/health", "/api/me", "/api/status", "/api/not-a-route",
     "/api/account?name=Ricardo", "/api/members", "/api/update-info",
-    "/upstatus.user.js", "/lucca", "/ycaro", "/upstatus/health"
+    "/upstatus.user.js", "/lucca", "/lucca.html", "/ycaro", "/ycaro.html", "/upstatus/health",
+    "/api/account?name=Unknown"
   ]) await compareWithRecovered(path);
   await compareWithRecovered("/api/chat", { method: "OPTIONS" });
   await compareWithRecovered("/api/lucca/login", {
@@ -735,6 +736,44 @@ try {
       return { entry: { ...entry, createdAt: "<timestamp>" } };
     }
   );
+  await compareJsonPair("/api/health",
+    { headers: modularAdminHeaders }, { headers: referenceAdminHeaders },
+    body => ({
+      ok: body.ok,
+      service: body.service,
+      version: body.version,
+      db: { ok: body.db.ok, error: body.db.error },
+      chat: { ok: body.chat.ok, error: body.chat.error },
+      state: { ok: body.state.ok, error: body.state.error },
+      members: body.members
+        .filter((member: any) => ["Ricardo", "Guilherme", "Lohan"].includes(member.name))
+        .map((member: any) => ({
+          name: member.name, status: member.status, version: member.version, connected: member.connected
+        }))
+    })
+  );
+  await compareJsonPair("/api/account?name=Ricardo", {}, {});
+  await compareJsonPair("/api/setup",
+    {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Ricardo", password: "another-password" })
+    },
+    {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Ricardo", password: "another-password" })
+    }
+  );
+  await compareJsonPair("/api/login",
+    {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Ricardo", password: "wrong-differential-password" })
+    },
+    {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Ricardo", password: "wrong-differential-password" })
+    }
+  );
+  await compareJsonPair("/api/not-a-route", { headers: modularAdminHeaders }, { headers: referenceAdminHeaders });
 
   const referenceGuilhermeSetup = await requestReference("/api/setup", {
     method: "POST", headers: { "content-type": "application/json" },
@@ -1101,7 +1140,7 @@ try {
     assertEquals(response.headers.get("access-control-allow-origin"), "*");
   }
 
-  console.log("PASS: Deno route matrix plus public, authenticated, guest-cookie, media, typing, fast-sync and cleanup differential contracts against recovered monolith");
+  console.log("PASS: Deno route matrix plus public, authenticated, guest-cookie, media, typing, fast-sync, cleanup, health and fallback differential contracts against recovered monolith");
 } catch (error) {
   console.error(error);
   throw error;
