@@ -405,3 +405,13 @@ Ambos foram integrados ao workflow dedicado. A validação inicial revelou duas 
 **Validação:** `Verify Recovered Normal Runtime` passou no run #189, commit `17bfe9a788c6fd2ddcdf82962edd8e8ad2fcf64d`. Passaram recuperação exata, 17 testes individuais, integrações auth/guest, chat, mídia e status, build do candidato modular e parse/bundle com esbuild.
 
 A cobertura integrada agora atravessa os principais domínios funcionais com DB/Storage simulados. Ainda não representa execução completa do dispatcher Deno nem validação contra Supabase real. Próximo gate: contratos HTTP transversais (status codes, headers, cookies, payloads e boundary de erros), depois execução Deno isolada. Nenhum deploy, Supabase write ou alteração do runtime ativo foi realizado.
+
+## Contrato e precedência do dispatcher HTTP
+
+O builder `scripts/build-normal-modular-candidate.mjs` foi fortalecido para verificar não apenas a presença das rotas, mas também sua ordem efetiva dentro de `Deno.serve`. A auditoria agora cobre preflight OPTIONS, entrega do userscript, normalização do path, endpoints públicos, páginas Lucca/Ycaro, rotas de convidado, setup/login, resolução de contexto, `/api/me` antes da exigência de autenticação, logout, rotas autenticadas por domínio, fallback 404 e boundary global de erro 500.
+
+A primeira execução da nova verificação identificou uma colisão de texto com blocos JavaScript embutidos no HTML de convidado: o primeiro `catch` encontrado não era o boundary do dispatcher. Ajustei a auditoria para localizar o `catch` final do `Deno.serve`, sem modificar o runtime. A execução seguinte passou.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #196, commit `bf458086b479cb9d54798e8ad192c61017f961ea`. Recuperação exata, 17 testes individuais, quatro integrações por domínio, build modular e parse/bundle passaram. O workflow legado `UpStatus Validate` permanece uma falha independente por `production updateURL mismatch`.
+
+A verificação da ordem é estática e complementa, mas não substitui, execução do dispatcher Deno. Próximo gate: exercitar o entrypoint em Deno isolado com Supabase/EdgeRuntime simulados, sem credenciais ou writes reais. Nenhum deploy, Supabase write ou alteração do runtime ativo foi realizado.
