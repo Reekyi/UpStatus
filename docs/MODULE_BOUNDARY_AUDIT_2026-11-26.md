@@ -293,3 +293,12 @@ O workflow dedicado passou no run #161, commit `cc44f6378f49ca2f950bffee144ce644
 O workflow legado `UpStatus Validate` continua com a divergência conhecida `production updateURL mismatch`, separada deste trabalho. Não alterar essa validação dentro da reorganização.
 
 Nenhum deploy, Supabase write, migration, schema/RLS/grant/secret/config change ou Edge Function update foi realizado.
+
+
+## 22. Wiring do dispatcher e composição integrada
+
+O builder agora valida os marcadores de wiring do dispatcher para as rotas de convidado, autenticação, status, chat, mídia, remote status e manutenção. O entrypoint `Deno.serve` e o boundary global de erros permanecem no mesmo local e com a mesma estrutura.
+
+Foi criado `scripts/test-normal-modular-integration.mjs`, que compõe os módulos reais de HTTP, estado, criptografia, auth core, sessões de convidados, contexto e endpoints de autenticação com DB em memória. Cobre setup, criação e validação de sessão, resolução de contexto, endpoint `/api/me`, logout e sessão Lucca por cookie.
+
+**Validação:** workflow #173 passou no commit `556f60fcb642706bccb3e8a30ab576d96896b633`. O resultado demonstra composição integrada desses domínios e wiring estático do dispatcher, mas não equivale a execução Deno integral ou cobertura de todos os endpoints. Próximo gate: ampliar testes integrados por domínio e contratos HTTP, sem migrar o dispatcher para fora do entrypoint.
