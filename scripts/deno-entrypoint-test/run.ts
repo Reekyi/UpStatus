@@ -465,14 +465,6 @@ try {
     (globalThis as any).__upstatusMockStorageFailure = undefined;
   }
   {
-    const logout = await request("/api/logout", {
-      method: "POST", headers: authHeaders
-    });
-    assertEquals(logout.status, 200);
-    const protectedAfterLogout = await request("/api/status", { headers: authHeaders });
-    assertEquals(protectedAfterLogout.status, 401);
-  }
-  {
     const malformed = await request("/api/chat", {
       method: "POST", headers: { ...authHeaders, "content-type": "application/json" }, body: "{"
     });
@@ -537,6 +529,14 @@ try {
     assertEquals(response.status, 500);
     assertEquals(await response.json(), { error: "mock chat-images signed-upload failure" });
     (globalThis as any).__upstatusMockStorageFailure = undefined;
+  }
+  {
+    const logout = await request("/api/logout", {
+      method: "POST", headers: authHeaders
+    });
+    assertEquals(logout.status, 200);
+    const protectedAfterLogout = await request("/api/status", { headers: authHeaders });
+    assertEquals(protectedAfterLogout.status, 401);
   }
   {
     (globalThis as any).__upstatusMockDbError = true;
