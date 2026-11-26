@@ -335,3 +335,16 @@ Foi adicionado `scripts/test-normal-auth-routes.mjs`, cobrindo conta configurada
 **Validação:** `Verify Recovered Normal Runtime` passou no HEAD `305c2038f52361242c177ed51748e8d424bdabf1` (run #145). Reconstrução exata, dezesseis testes de módulos e build isolado do candidato modular passaram. O primeiro build desta extração detectou que três blocos inline ainda precisavam ser reinseridos no comparador de equivalência; os marcadores de restauração foram adicionados e a execução posterior passou.
 
 Nenhum deploy, Supabase write, migration, alteração de schema/RLS/secrets ou runtime ativo foi realizado. O PR continua Draft.
+
+
+## Décimo sétimo módulo real extraído: manutenção do chat
+
+Foi isolado `modules/chat-maintenance.js`, com o handler de limpeza do chat. O módulo mantém a autorização exclusiva de Ricardo, leitura e exclusão das mensagens, identificação de objetos do bucket `chat-images`, filtragem de caminhos inválidos, remoção em lotes de 100 e inserção da mensagem de sistema após a limpeza.
+
+O cliente DB, URL do projeto, gerador aleatório, resposta HTTP e logger são injetados. Não houve mudança em bucket, prefixo de Storage, tabela, payload ou texto da mensagem.
+
+Foi adicionado `scripts/test-normal-chat-maintenance.mjs`, cobrindo bloqueio de usuário comum, deduplicação e filtragem de caminhos, lotes de Storage, falha parcial de remoção, mensagem de sistema e propagação de erros de leitura/exclusão.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no HEAD `f3a188cdb30b2323b06d0ca7d47835b6decb424e` (run #154). Reconstrução exata, dezessete testes de módulos e build isolado do candidato modular passaram. O workflow legado `UpStatus Validate` continua falhando separadamente na divergência conhecida de `production updateURL mismatch`.
+
+Nenhum deploy, Supabase write, migration, alteração de schema/RLS/secrets ou runtime ativo foi realizado. O PR continua Draft.
