@@ -946,13 +946,14 @@ try {
       }
     })
   );
+  let differentialImageUrls: { modular: string; reference: string } | null = null;
   for (const [route, dataUrl, expectedType] of [
     ["/api/chat/image", differentialPng, "image"],
     ["/api/chat/document", differentialPdf, "document"],
     ["/api/chat/audio", differentialOgg, "audio"],
     ["/api/chat/image", differentialMp4, "video"]
   ] as const) {
-    await compareJsonPair(route,
+    const pair = await compareJsonPair(route,
       {
         method: "POST", headers: { ...modularGuilhermeHeaders, "content-type": "application/json" },
         body: JSON.stringify({ dataUrl })
@@ -966,7 +967,14 @@ try {
         return normalizeUploadUrl(body);
       }
     );
+    if (route === "/api/chat/image" && expectedType === "image") {
+      differentialImageUrls = {
+        modular: pair.modularBody.imageUrl,
+        reference: pair.recoveredBody.imageUrl
+      };
+    }
   }
+  assert(differentialImageUrls, "differential image uploads should return public URLs");
   for (const [route, mime] of [
     ["/api/profile/avatar-upload-url", "image/png"],
     ["/api/chat/upload-url", "application/pdf"]
@@ -984,6 +992,107 @@ try {
     );
   }
 
+  // Differential typing, fast-sync and chat cleanup contracts.
+  const referenceTesterSetup = await requestReference("/api/setup", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "Tester", password: "diff-tester-password" })
+  });
+  const modularTesterLogin = await request("/api/login", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "Tester", password: "tester-test-password" })
+  });
+  assertEquals(referenceTesterSetup.status, 200);
+  assertEquals(modularTesterLogin.status, 200);
+  const referenceTester = await referenceTesterSetup.json();
+  const modularTester = await modularTesterLogin.json();
+  assertEquals(omitToken(modularTester), omitToken(referenceTester));
+  const modularTesterHeaders = { "x-upstatus-token": modularTester.token };
+  const referenceTesterHeaders = { "x-upstatus-token": referenceTester.token };
+
+  const finalAdminPair = await compareJsonPair("/api/login",
+    {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Ricardo", password: "deno-test-password" })
+    },
+    {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Ricardo", password: "diff-test-password" })
+    },
+    omitToken
+  );
+  const finalModularAdminHeaders = { "x-upstatus-token": finalAdminPair.modularBody.token };
+  const finalReferenceAdminHeaders = { "x-upstatus-token": finalAdminPair.recoveredBody.token };
+
+  const fastMessageText = "DIFFERENTIAL_FAST_SYNC_MARKER";
+  const fastSince = new Date(Date.now() - 60_000).toISOString();
+  await compareJsonPair("/api/chat",
+    {
+      method: "POST", headers: { ...modularTesterHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: fastMessageText })
+    },
+    {
+      method: "POST", headers: { ...referenceTesterHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: fastMessageText })
+    },
+    body => ({ ...body, message: { ...body.message, id: "<id>", createdAt: "<timestamp>" } })
+  );
+  await compareJsonPair("/api/chat/typing",
+    {
+      method: "POST", headers: { ...modularTesterHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ typing: true })
+    },
+    {
+      method: "POST", headers: { ...referenceTesterHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ typing: true })
+    }
+  );
+  await compareJsonPair("/api/chat/typing",
+    { headers: finalModularAdminHeaders }, { headers: finalReferenceAdminHeaders });
+  await compareJsonPair("/api/chat?fast=1&since=" + encodeURIComponent(fastSince),
+    { headers: finalModularAdminHeaders }, { headers: finalReferenceAdminHeaders },
+    body => {
+      const message = body.messages.find((item: any) => item.message === fastMessageText);
+      assert(message, "fast sync should include the differential message");
+      return {
+        message: { ...message, id: "<id>", createdAt: "<timestamp>" },
+        unreadCount: body.unreadCount,
+        typing: body.typing,
+        luccaOnline: body.luccaOnline,
+        profile: body.profiles.Guilherme ? "<avatar-url>" : null
+      };
+    }
+  );
+  await compareJsonPair("/api/chat/typing",
+    {
+      method: "POST", headers: { ...modularTesterHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ typing: false })
+    },
+    {
+      method: "POST", headers: { ...referenceTesterHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ typing: false })
+    }
+  );
+
+  const imageMessagePair = await compareJsonPair("/api/chat",
+    {
+      method: "POST", headers: { ...finalModularAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "", imageUrl: differentialImageUrls.modular })
+    },
+    {
+      method: "POST", headers: { ...finalReferenceAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "", imageUrl: differentialImageUrls.reference })
+    },
+    body => ({
+      ...body,
+      message: { ...body.message, id: "<id>", createdAt: "<timestamp>", imageUrl: "<public-url>", image_url: "<public-url>" }
+    })
+  );
+  assert(imageMessagePair.modularBody.message.imageUrl);
+  await compareJsonPair("/api/chat/clear",
+    { method: "POST", headers: finalModularAdminHeaders },
+    { method: "POST", headers: finalReferenceAdminHeaders }
+  );
+
   {
     (globalThis as any).__upstatusMockDbError = true;
     const response = await request("/api/account?name=Ricardo");
@@ -992,7 +1101,7 @@ try {
     assertEquals(response.headers.get("access-control-allow-origin"), "*");
   }
 
-  console.log("PASS: Deno route matrix plus public, authenticated, guest-cookie and media differential contracts against recovered monolith");
+  console.log("PASS: Deno route matrix plus public, authenticated, guest-cookie, media, typing, fast-sync and cleanup differential contracts against recovered monolith");
 } catch (error) {
   console.error(error);
   throw error;
