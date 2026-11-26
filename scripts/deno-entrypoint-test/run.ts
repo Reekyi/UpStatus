@@ -178,12 +178,24 @@ try {
     assertEquals(history.status, 200);
     assertEquals((await history.json()).history.length, 1);
 
+    const outsiderChange = await request("/api/status", {
+      method: "POST", headers: { ...testerHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ status: "away", reason: "Tester presence", actor: "Ricardo", target: "Tester" })
+    });
+    assertEquals(outsiderChange.status, 200);
+    assertEquals((await outsiderChange.json()).status, "away");
+    const afterOutsider = await request("/api/history?limit=10", { headers: authHeaders });
+    const entries = (await afterOutsider.json()).history;
+    const testerEntry = entries.find((entry: any) => entry.user === "Tester");
+    assertEquals(testerEntry.actor, "Tester");
+    assertEquals(testerEntry.target, "Tester");
+
     const health = await request("/api/health", { headers: authHeaders });
     assertEquals(health.status, 200);
     const healthBody = await health.json();
     assertEquals(healthBody.ok, true);
     assertEquals(healthBody.service, "UpStatus");
-    assertEquals(healthBody.members.length, 3);
+    assertEquals(healthBody.members.length, 4);
   }
   let guilhermeToken = "";
   {
@@ -194,6 +206,48 @@ try {
     assertEquals(setup.status, 200);
     guilhermeToken = (await setup.json()).token;
     assert(typeof guilhermeToken === "string" && guilhermeToken.length > 20);
+  }
+  let testerToken = "";
+  {
+    const setup = await request("/api/setup", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Tester", password: "tester-test-password" })
+    });
+    assertEquals(setup.status, 200);
+    const body = await setup.json();
+    assertEquals(body.role, "implementation_user");
+    assertEquals(body.canViewHistory, false);
+    testerToken = body.token;
+  }
+  const testerHeaders = { "x-upstatus-token": testerToken };
+  {
+    const me = await request("/api/me", { headers: testerHeaders });
+    assertEquals((await me.json()).role, "implementation_user");
+
+    const health = await request("/api/health", { headers: testerHeaders });
+    assertEquals(health.status, 403);
+    assertEquals(await health.json(), { error: "Seu perfil não possui acesso à saúde do sistema." });
+
+    const history = await request("/api/history", { headers: testerHeaders });
+    assertEquals(history.status, 403);
+    assertEquals(await history.json(), { error: "Seu perfil não possui acesso ao histórico." });
+
+    const remoteRead = await request("/api/remote-status/result?id=missing", { headers: testerHeaders });
+    assertEquals(remoteRead.status, 403);
+    assertEquals(await remoteRead.json(), { error: "Somente administradores podem consultar resultados." });
+
+    const remoteWrite = await request("/api/remote-status", {
+      method: "POST", headers: { ...testerHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ target: "Guilherme", status: "busy", reason: "spoof attempt" })
+    });
+    assertEquals(remoteWrite.status, 403);
+    assertEquals(await remoteWrite.json(), { error: "Somente administradores podem controlar a fila de outro usuário." });
+
+    const nonRicardoAdminClear = await request("/api/chat/clear", {
+      method: "POST", headers: { "x-upstatus-token": guilhermeToken }
+    });
+    assertEquals(nonRicardoAdminClear.status, 403);
+    assertEquals(await nonRicardoAdminClear.json(), { error: "Somente Ricardo pode limpar o chat." });
   }
   {
     const command = await request("/api/remote-status", {
@@ -262,6 +316,32 @@ try {
     assertEquals(await typing.json(), { ok: true });
     const typingList = await request("/api/chat/typing", { headers: authHeaders });
     assertEquals((await typingList.json()).typing, []);
+
+    const forbiddenEdit = await request("/api/chat/" + messageId, {
+      method: "PATCH", headers: { ...testerHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "unauthorized edit" })
+    });
+    assertEquals(forbiddenEdit.status, 403);
+    assertEquals(await forbiddenEdit.json(), { error: "Você só pode editar suas próprias mensagens." });
+
+    const forbiddenDelete = await request("/api/chat/" + messageId, {
+      method: "DELETE", headers: testerHeaders
+    });
+    assertEquals(forbiddenDelete.status, 403);
+    assertEquals(await forbiddenDelete.json(), { error: "Você só pode excluir suas próprias mensagens." });
+
+    const outsiderPost = await request("/api/chat", {
+      method: "POST", headers: { ...testerHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "Mensagem criada por conta padrão" })
+    });
+    assertEquals(outsiderPost.status, 200);
+    const outsiderMessageId = (await outsiderPost.json()).message.id;
+
+    const adminDelete = await request("/api/chat/" + outsiderMessageId, {
+      method: "DELETE", headers: { "x-upstatus-token": guilhermeToken }
+    });
+    assertEquals(adminDelete.status, 200);
+    assertEquals(await adminDelete.json(), { ok: true, id: outsiderMessageId, deletedByAdmin: true });
   }
   {
     const reaction = await request("/api/chat/reaction", {
@@ -284,6 +364,7 @@ try {
     assertEquals(deleted.status, 200);
     assertEquals(await deleted.json(), { ok: true, id: messageId, deletedByAdmin: false });
   }
+  let uploadedImageUrl = "";
   {
     const pngBytes = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3];
     const pngDataUrl = "data:image/png;base64," + btoa(String.fromCharCode(...pngBytes));
@@ -299,7 +380,14 @@ try {
       body: JSON.stringify({ dataUrl: pngDataUrl })
     });
     assertEquals(image.status, 200);
-    assertEquals((await image.json()).type, "image");
+    const imageBody = await image.json();
+    assertEquals(imageBody.type, "image");
+    uploadedImageUrl = imageBody.imageUrl;
+    const imageMessage = await request("/api/chat", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "", imageUrl: uploadedImageUrl })
+    });
+    assertEquals(imageMessage.status, 200);
   }
   {
     const signed = await request("/api/chat/upload-url", {
@@ -367,11 +455,13 @@ try {
     assertStringIncludes(logout.headers.get("set-cookie") || "", "Max-Age=0");
   }
   {
+    (globalThis as any).__upstatusMockStorageFailure = { bucket: "chat-images", operation: "remove" };
     const clear = await request("/api/chat/clear", {
       method: "POST", headers: authHeaders
     });
     assertEquals(clear.status, 200);
-    assertEquals((await clear.json()).ok, true);
+    assertEquals(await clear.json(), { ok: true, removedFiles: 0 });
+    (globalThis as any).__upstatusMockStorageFailure = undefined;
   }
   {
     const logout = await request("/api/logout", {
@@ -382,6 +472,72 @@ try {
     assertEquals(protectedAfterLogout.status, 401);
   }
   {
+    const malformed = await request("/api/chat", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" }, body: "{"
+    });
+    assertEquals(malformed.status, 500);
+    assertEquals(await malformed.json(), { error: "Pedido inválido." });
+  }
+  {
+    (globalThis as any).__upstatusMockDbFailure = { table: "messages", operation: "insert" };
+    const response = await request("/api/chat", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "DB insert failure" })
+    });
+    assertEquals(response.status, 500);
+    assertEquals(await response.json(), { error: "mock messages insert failure" });
+    (globalThis as any).__upstatusMockDbFailure = undefined;
+  }
+  {
+    (globalThis as any).__upstatusMockDbFailure = { table: "chat_reads", operation: "upsert" };
+    const response = await request("/api/chat/read", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ messageIds: [] })
+    });
+    assertEquals(response.status, 500);
+    assertEquals(await response.json(), { error: "mock chat_reads upsert failure" });
+    (globalThis as any).__upstatusMockDbFailure = undefined;
+  }
+  {
+    (globalThis as any).__upstatusMockDbFailure = { table: "status_history", operation: "select" };
+    const response = await request("/api/history", { headers: authHeaders });
+    assertEquals(response.status, 500);
+    assertEquals(await response.json(), { error: "mock status_history select failure" });
+    (globalThis as any).__upstatusMockDbFailure = undefined;
+  }
+  {
+    (globalThis as any).__upstatusMockDbFailure = { table: "upstatus_state", operation: "upsert" };
+    const response = await request("/api/remote-status", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ target: "Guilherme", status: "busy", reason: "DB failure" })
+    });
+    assertEquals(response.status, 500);
+    assertEquals(await response.json(), { error: "mock upstatus_state upsert failure" });
+    (globalThis as any).__upstatusMockDbFailure = undefined;
+  }
+  {
+    const pngBytes = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3];
+    const pngDataUrl = "data:image/png;base64," + btoa(String.fromCharCode(...pngBytes));
+    (globalThis as any).__upstatusMockStorageFailure = { bucket: "chat-images", operation: "upload" };
+    const response = await request("/api/chat/image", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ dataUrl: pngDataUrl })
+    });
+    assertEquals(response.status, 500);
+    assertEquals(await response.json(), { error: "mock chat-images upload failure" });
+    (globalThis as any).__upstatusMockStorageFailure = undefined;
+  }
+  {
+    (globalThis as any).__upstatusMockStorageFailure = { bucket: "chat-images", operation: "signed-upload" };
+    const response = await request("/api/chat/upload-url", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ mime: "application/pdf", size: 1024, name: "fail.pdf" })
+    });
+    assertEquals(response.status, 500);
+    assertEquals(await response.json(), { error: "mock chat-images signed-upload failure" });
+    (globalThis as any).__upstatusMockStorageFailure = undefined;
+  }
+  {
     (globalThis as any).__upstatusMockDbError = true;
     const response = await request("/api/account?name=Ricardo");
     assertEquals(response.status, 500);
@@ -389,7 +545,7 @@ try {
     assertEquals(response.headers.get("access-control-allow-origin"), "*");
   }
 
-  console.log("PASS: isolated Deno dispatcher auth/session, status/history/health, remote status, chat, media/storage, guest cookies, HTTP contracts and global error boundary");
+  console.log("PASS: isolated Deno dispatcher authorization matrix, auth/session, status/history/health, remote status, chat, media/storage, guest cookies, DB/Storage failures and global error boundary");
 } catch (error) {
   console.error(error);
   Deno.exit(1);
