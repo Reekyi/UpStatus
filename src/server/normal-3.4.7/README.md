@@ -80,3 +80,7 @@ The modular candidate builder verifies both the presence and the order of the cr
 
 
 The isolated Deno harness now also exercises setup/login and session invalidation, authenticated `/api/me`, status/presence/history/health, remote-status command and acknowledgement across two accounts, chat create/read/typing/reaction/edit/delete, avatar and image uploads, signed uploads, Lucca/Ycaro login/heartbeat/logout cookies, chat cleanup, and the global error boundary. All data and Storage operations are handled by in-memory mocks; credentials are test-only. Run #219 passed on `cc97676d3d482f583cdc6ff5e3bfe658726161c1`. This is still not a live Supabase or managed Edge Runtime test.
+
+
+
+The Deno harness now includes a negative authorization matrix for a standard user and a second admin identity, actor/target spoof prevention, DB/Storage fault injection, malformed JSON, `/api/update-info`, profile lookup, direct image/document/audio/video uploads, invalid MIME/size, invalid guest credentials/heartbeat, and twelve concurrent chat inserts with unique IDs. Run #231 passed on `c7afa1bc76f9ec5de19895852956ce4069df7dfa`. Failures are simulated in memory and do not test live Supabase RLS or production load.
