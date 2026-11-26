@@ -9,6 +9,7 @@ on:
       - "recovery/runtime-2026-11-26/**"
       - "scripts/verify-normal-runtime-recovery.mjs"
       - "scripts/test-normal-http-helpers.mjs"
+      - "scripts/test-normal-state-store.mjs"
       - "scripts/build-normal-modular-candidate.mjs"
       - "src/server/normal-3.4.7/modules/**"
       - "ycaro.html"
@@ -36,5 +37,7 @@ jobs:
         run: node scripts/verify-normal-runtime-recovery.mjs
       - name: Test extracted HTTP helpers
         run: node scripts/test-normal-http-helpers.mjs
+      - name: Test shared state module
+        run: node scripts/test-normal-state-store.mjs
       - name: Build isolated modular candidate
         run: node scripts/build-normal-modular-candidate.mjs
