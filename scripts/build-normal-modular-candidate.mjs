@@ -327,6 +327,61 @@ for (const marker of dispatchMarkers) {
   if (!candidate.includes(marker)) throw new Error("Missing or changed entrypoint dispatch contract: " + marker);
 }
 
+// Presence alone is insufficient: preserve the dispatch precedence as well.
+// Scope the checks to Deno.serve so similarly named helpers cannot satisfy them.
+const dispatcherStart = candidate.indexOf("Deno.serve(async(req)=>{");
+if (dispatcherStart < 0) throw new Error("Deno HTTP entrypoint not found.");
+const dispatcherSource = candidate.slice(dispatcherStart);
+const orderedDispatchMarkers = [
+  'if(req.method==="OPTIONS")return new Response("ok",{headers:CORS});',
+  "  try{",
+  'if(req.method==="GET" && requestUrl.pathname.endsWith("/upstatus.user.js"))',
+  'const rawPath=new URL(req.url).pathname;',
+  'if(path==="/upstatus.user.js"&&req.method==="GET")',
+  'if(path==="/health"&&req.method==="GET")',
+  'if(path==="/api/members"&&req.method==="GET")',
+  'if(path==="/api/update-info"&&req.method==="GET")',
+  'if(path==="/lucca"||path==="/lucca.html")',
+  'if(path==="/ycaro"||path==="/ycaro.html")',
+  'if(path.startsWith("/api/ycaro/"))return await ycaroRoute(req);',
+  'if(path.startsWith("/api/lucca/"))return await luccaRoute(req);',
+  'if(path==="/api/account"&&req.method==="GET")return await accountRoute(req);',
+  'if(path==="/api/setup"&&req.method==="POST")return await login(req,true);',
+  'if(path==="/api/login"&&req.method==="POST")return await login(req,false);',
+  "const ctx=await contextName(req);",
+  'if(path==="/api/me"&&req.method==="GET")return await meRoute(name);',
+  'if(!ctx)return response({error:"Faça login para continuar."},401);',
+  'if(path==="/api/logout"&&req.method==="POST")return await logoutRoute(req);',
+  'if(path==="/api/health"&&req.method==="GET")return await healthRoute(req,name);',
+  'if(path==="/api/status")return await statusRoute(req,name);',
+  'if(path==="/api/history")return await historyRoute(req,name);',
+  'if(path==="/api/chat")return await chatRoute(req,name);',
+  'if(path==="/api/chat/read"&&req.method==="POST")return await readRoute(req,name);',
+  'if(path==="/api/chat/typing")return await typingRoute(req,name);',
+  'if(path==="/api/chat/reaction"&&req.method==="POST")return await reactionRoute(req,name);',
+  'if(path.startsWith("/api/chat/")&&req.method==="PATCH")return await editRoute(req,name,path.slice("/api/chat/".length));',
+  'if(path.startsWith("/api/chat/")&&req.method==="DELETE")return await deleteRoute(name,path.slice("/api/chat/".length));',
+  'if(path==="/api/profiles")return await profileRoute(req,name);',
+  'if(path==="/api/profile/avatar"&&req.method==="POST")return await profileRoute(req,name);',
+  'if(path==="/api/profile/avatar-upload-url"&&req.method==="POST")return await signedUploadRoute(req,"avatar");',
+  'if(path==="/api/chat/upload-url"&&req.method==="POST")return await signedUploadRoute(req,"chat");',
+  'if(path==="/api/chat/image"&&req.method==="POST")return await mediaRoute(req,"image");',
+  'if(path==="/api/chat/document"&&req.method==="POST")return await mediaRoute(req,"document");',
+  'if(path==="/api/chat/audio"&&req.method==="POST")return await mediaRoute(req,"audio");',
+  'if(path.startsWith("/api/remote-status"))return await remoteRoute(req,name);',
+  'if(path==="/api/chat/clear"&&req.method==="POST")return await clearChatRoute(name);',
+  'return response({error:"Não encontrado."},404);',
+  "}catch(e){",
+  "return response({error:e instanceof Error?e.message:\"Erro interno.\"},500);"
+];
+let previous = -1;
+for (const marker of orderedDispatchMarkers) {
+  const position = dispatcherSource.indexOf(marker);
+  if (position < 0) throw new Error("Missing HTTP contract marker in dispatcher: " + marker);
+  if (position <= previous) throw new Error("HTTP dispatch precedence changed near: " + marker);
+  previous = position;
+}
+
 fs.mkdirSync(path.join(outputRoot, "modules"), { recursive: true });
 fs.writeFileSync(outputPath, candidate, "utf8");
 for (const file of moduleFiles) {
