@@ -136,7 +136,7 @@ const post = (body) => new Request("https://upstatus.test/api/chat", {
   assert.equal(created.status, 200);
   const body = await created.json();
   assert.equal(body.message.id, Buffer.from("chat-msg1").toString("hex"));
-  assert.deepEqual(body.message.mentions, ["Guilherme", "Ricardo", "Lohan"]);
+  assert.deepEqual(body.message.mentions, ["Guilherme", "Lohan", "Ricardo"]);
   assert.equal(db.tables.messages.length, 1);
 }
 
@@ -144,7 +144,7 @@ const post = (body) => new Request("https://upstatus.test/api/chat", {
   const full = await chat.chatRoute(new Request("https://upstatus.test/api/chat"), "Guilherme");
   const body = await full.json();
   assert.equal(body.messages.length, 1);
-  assert.deepEqual(body.messages[0].mentions, ["Guilherme", "Ricardo", "Lohan"]);
+  assert.deepEqual(body.messages[0].mentions, ["Guilherme", "Lohan", "Ricardo"]);
   assert.deepEqual(body.profiles, { Guilherme: "https://cdn.test/guilherme.png" });
   assert.equal(body.unreadCount, 1);
   assert.equal(body.luccaOnline, false);
