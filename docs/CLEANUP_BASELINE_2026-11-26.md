@@ -361,3 +361,14 @@ Após a comparação exata, o artefato em `dist/modular-normal-candidate/index.t
 **Validação:** `Verify Recovered Normal Runtime` passou no HEAD `79ed055a3d441ff3f481dc6fa5d98f44f9d6abd4` (run #157). Os testes de módulos, prova de reconstrução exata e geração do candidato modular integrado passaram.
 
 Este é um candidato offline para revisão, não um deploy nem prova de execução em produção. A próxima etapa é validação de sintaxe/tipos e caracterização integrada do entrypoint modular. O entrypoint Deno, dispatch global, HTML embutido e boundary de erros continuam preservados; não foram reescritos. Nenhum deploy ou alteração no Supabase/runtime ativo foi realizado.
+
+
+## Validação estrutural ampliada: parse e bundle do candidato
+
+O builder passou a validar explicitamente as 17 chamadas de factory, além dos 17 imports. O workflow dedicado adicionou um passo de parse/bundle com esbuild para o entrypoint modular e todo o grafo local de módulos. Isso complementa a prova de reconstrução exata: não basta reverter para o original, a versão modular emitida também precisa formar um grafo de módulos sintaticamente válido.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no HEAD `cc44f6378f49ca2f950bffee144ce6449218557a` (run #161). Build do candidato, 17 testes, imports/factories e parse/bundle passaram.
+
+A documentação `src/server/normal-3.4.7/README.md` foi atualizada com a lista dos 17 módulos e os limites do entrypoint. `docs/MODULE_BOUNDARY_AUDIT_2026-11-26.md` agora registra o estado atual e distingue parse/bundle de execução integrada.
+
+Próximo gate: caracterização integrada do entrypoint com dependências simuladas e comparação de contratos HTTP. Não extrair o dispatcher apenas para aumentar a contagem de módulos. Nenhuma ação Supabase/deploy foi realizada.
