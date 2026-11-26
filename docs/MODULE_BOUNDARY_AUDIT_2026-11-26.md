@@ -328,3 +328,13 @@ A primeira execução encontrou um falso positivo da auditoria: scripts JavaScri
 **Validação:** `Verify Recovered Normal Runtime` passou no run #196, commit `bf458086b479cb9d54798e8ad192c61017f961ea`, incluindo recuperação exata, 17 testes individuais, quatro integrações de domínio, build modular e parse/bundle.
 
 A checagem confirma precedência textual/estrutural, não execução real do servidor Deno. Próximo gate: harness isolado de execução do entrypoint com dependências simuladas. Nenhum deploy ou Supabase write foi realizado.
+
+## 26. Execução isolada do entrypoint Deno
+
+Foi adicionado um harness Deno em `scripts/deno-entrypoint-test/`. Um import map injeta um cliente Supabase falso, e o teste inicia o candidato modular por meio do `Deno.serve` real. As requisições HTTP locais validam saúde, CORS, OPTIONS, `/api/me`, gate de autenticação, precedência 401/404, account lookup, roster, userscript, páginas de convidados e boundary global 500.
+
+O harness usa URL/chave Supabase fictícias, Storage/DB simulados e permissões de rede limitadas ao bind local. Nenhuma chamada externa ao Supabase é possível por esse mock.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #207, commit `223a24564b35649130b8c1ad66a72ffeeab470e7`, incluindo recuperação exata, 17 testes unitários, quatro integrações de domínio, build modular, execução Deno isolada e parse/bundle.
+
+A evidência agora inclui execução HTTP do entrypoint em Deno, mas não compatibilidade com o Supabase real nem com o ambiente gerenciado de produção. Próximo gate: autenticação/setup/login e rotas protegidas no harness isolado. Nenhum deploy ou Supabase write foi realizado.
