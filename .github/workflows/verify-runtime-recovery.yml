@@ -86,3 +86,5 @@ jobs:
         run: node scripts/test-normal-chat-maintenance.mjs
       - name: Build isolated modular candidate
         run: node scripts/build-normal-modular-candidate.mjs
+      - name: Parse and bundle integrated modular candidate
+        run: npx --yes esbuild@0.25.12 dist/modular-normal-candidate/index.ts --bundle --format=esm --platform=neutral --external:npm:* --external:node:* --outfile=/tmp/upstatus-modular-syntax-check.js
