@@ -271,3 +271,16 @@ O builder agora extrai/restaura as três rotas, importa o factory no candidato m
 **Validação:** `Verify Recovered Normal Runtime` passou no HEAD `469649df8a1d5151263cd40faf1ff39d8d572fa2` (run #85). Reconstrução exata, testes dos doze módulos e build isolado do candidato passaram. O workflow legado `UpStatus Validate` continua falhando separadamente por `production updateURL mismatch`.
 
 Nenhum deploy, alteração no Supabase, migration, schema, RLS, secrets ou runtime ativo foi realizado. A PR continua Draft.
+
+
+## Décimo terceiro módulo real extraído: rotas HTTP de convidados
+
+Foi isolado `modules/guest-routes.js`, cobrindo os endpoints Lucca e Ycaro de login, consulta de sessão, heartbeat e logout. O módulo recebe por injeção os helpers HTTP, estado/sessão, DB, geração de bytes aleatórios, leitura das senhas de ambiente e `EdgeRuntime.waitUntil`.
+
+Foram preservados os caminhos e normalização de URL, nomes de cookies, atributos `HttpOnly; SameSite=Lax; Secure`, validade de 24 horas, payloads, códigos HTTP, verificação de senha, persistência de sessão e mensagens de entrada/saída em background. As senhas continuam sendo lidas de `LUCCA_PASSWORD` e `YCARO_PASSWORD` no runtime, sem copiar ou registrar valores em arquivos.
+
+Foi adicionado `scripts/test-normal-guest-routes.mjs`, cobrindo senha incorreta, login, cookie, token, estado online, mensagem de entrada, endpoint `me`, heartbeat autorizado e não autorizado, logout, limpeza do cookie e rota inexistente para ambos os convidados. O workflow dedicado executa esse teste antes de gerar o candidato modular.
+
+A extração é estrutural: o builder remove os dois handlers do template e os restaura antes de comparar o resultado integral, exigindo igualdade exata do template fora dos blocos extraídos. O candidato permanece isolado em `dist/modular-normal-candidate/`.
+
+**Validação pendente:** aguardar o GitHub Actions para o novo HEAD. O PR permanece Draft. Nenhum deploy, alteração no Supabase, migration, schema, RLS, secrets ou runtime ativo foi realizado.
