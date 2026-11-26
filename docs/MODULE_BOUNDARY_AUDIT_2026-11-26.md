@@ -75,3 +75,21 @@ A primeira extração só deve começar depois de existir:
 5. confirmação de que o processo não acessa Supabase nem executa deploy.
 
 A primeira entrega deve ser apenas reorganização estrutural. Nenhuma alteração de lógica ou melhoria funcional entra no mesmo diff.
+
+
+## 7. Baseline recuperada e prova de reconstrução
+
+Foi criado `src/server/normal-3.4.7.recovered.template.ts`, derivado diretamente do snapshot do runtime original v480. Foram parametrizados somente:
+- versão `3.4.7`;
+- userscript Base64 embutido;
+- HTML Ycaro embutido.
+
+O userscript usado é o extraído do runtime original; o HTML Ycaro vem de `ycaro.html`. A reconstrução foi verificada por comparação integral de strings no processo de análise: o arquivo gerado tem 894.196 caracteres e é exatamente igual ao snapshot original, sem diferença de byte após a codificação UTF-8.
+
+Foi adicionado `scripts/verify-normal-runtime-recovery.mjs`, que repete essa prova em Node e escreve o artefato somente em `dist/recovered-normal-3.4.7/index.ts`. O script não acessa Supabase, não escreve em `supabase/functions` e não executa deploy.
+
+Também foi adicionado o workflow `.github/workflows/verify-runtime-recovery.yml`, dedicado a executar apenas esse teste offline. O resultado do GitHub Actions ainda não foi confirmado nesta execução; a equivalência foi verificada diretamente durante a construção do baseline.
+
+## 8. Próximo passo técnico
+
+A primeira extração deve partir do template recuperado, não de `master/src/server/index.template.ts`. O módulo inicial recomendado continua sendo o conjunto de helpers HTTP puros, mas somente depois de executar o script Node no CI e registrar o resultado verde.
