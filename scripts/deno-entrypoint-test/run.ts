@@ -685,3 +685,4 @@ try {
 } finally {
   try { referenceServer.kill("SIGTERM"); } catch { /* already exited */ }
 }
+Deno.exit(0);
