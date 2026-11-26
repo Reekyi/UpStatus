@@ -235,3 +235,15 @@ O teste offline `scripts/test-normal-auth-context.mjs` passou localmente em Node
 O workflow dedicado passou no GitHub Actions (run #60). Foram aprovados a reconstrução exata do Normal 3.4.7, os dez testes de módulos e o build isolado do candidato modular.
 
 O workflow legado continua com a falha conhecida de `production updateURL mismatch` em `scripts/validate.mjs:26`; nenhum arquivo de build/release foi alterado para mascarar essa divergência.
+
+## Décimo primeiro módulo real extraído: rota principal de chat
+
+Foi isolado `modules/chat-route.js`, cobrindo leitura normal/rápida, contagem de não lidas, perfis, digitação, presença Lucca e criação de mensagens com menções/resposta.
+
+Antes de aceitar a extração, o bloco completo foi comparado diretamente com `src/server/normal-3.4.7/fragments/08-chat-routes.part`: **4.384 caracteres, igualdade exata**. A extração apenas encapsula o mesmo bloco em uma factory e injeta DB, helpers, leitura de chat, menções, expiração Lucca e randomBytes. O builder continua verificando que a reversão dos onze blocos restaura o template integralmente.
+
+Foi adicionado `scripts/test-normal-chat-route.mjs`, com mocks do DB e verificações dos modos fast/normal, recibos de leitura, não lidas, resposta e envio. O workflow offline agora executa esse teste antes de gerar o candidato isolado.
+
+**Validação pendente:** o CI mais recente ainda é do commit anterior à extração de chat. O workflow dedicado passou no run #68; o teste de chat precisa de execução no novo HEAD. O `UpStatus Validate` legado continua falhando pela divergência conhecida `production updateURL mismatch` em `scripts/validate.mjs:26`, sem relação com esta refatoração.
+
+Nenhum deploy, Supabase write, migration, alteração de schema, RLS, secrets, workflow de deploy ou runtime ativo foi realizado.
