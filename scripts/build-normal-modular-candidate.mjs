@@ -6,7 +6,10 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const templatePath = path.join(ROOT, "src/server/normal-3.4.7.recovered.template.ts");
 const modulesDir = path.join(ROOT, "src/server/normal-3.4.7/modules");
-const moduleFiles = ["http.js", "state.js", "auth-crypto.js", "guest-sessions.js", "members.js", "status.js", "remote-status.js", "chat-data.js", "media.js", "auth-context.js"];
+const moduleFiles = [
+  "http.js", "state.js", "auth-crypto.js", "guest-sessions.js", "members.js",
+  "status.js", "remote-status.js", "chat-data.js", "media.js", "auth-context.js", "chat-route.js"
+];
 const modulePaths = Object.fromEntries(moduleFiles.map((file) => [file, path.join(modulesDir, file)]));
 const userscriptPath = path.join(ROOT, "recovery/runtime-2026-11-26/userscripts/original-project-normal-3.4.7.user.js");
 const ycaroPath = path.join(ROOT, "ycaro.html");
@@ -26,7 +29,8 @@ const expectedExports = {
   "remote-status.js": "export function createRemoteStatusHandler",
   "chat-data.js": "export function createChatDataStore",
   "media.js": "export function createMediaStore",
-  "auth-context.js": "export function createAuthContext"
+  "auth-context.js": "export function createAuthContext",
+  "chat-route.js": "export function createChatRouteHandler"
 };
 for (const [file, marker] of Object.entries(expectedExports)) {
   if (!moduleContents[file].includes(marker)) throw new Error("Expected export missing from " + file);
@@ -38,70 +42,92 @@ const cacheDeclaration = "let membersCache:{at:number,data:Array<{name:string}>}
 if (!source.includes(cacheDeclaration)) throw new Error("Members cache declaration not found.");
 source = source.replace(cacheDeclaration, () => "const { members } = createMembersStore(db);");
 
-function replaceBlock(startNeedle, endNeedle, replacement, label) {
+const extracted = {};
+function extract(name, startNeedle, endNeedle, replacement, label) {
   const start = source.indexOf(startNeedle);
   const end = source.indexOf(endNeedle, start);
   if (start < 0 || end < 0) throw new Error("Could not isolate " + label + ".");
-  const original = source.slice(start, end);
+  extracted[name] = source.slice(start, end);
   source = source.slice(0, start) + replacement + "\n" + source.slice(end);
-  return original;
+}
+function restore(name, marker) {
+  const needle = marker + "\n";
+  if (!source.includes(needle)) throw new Error("Could not restore " + name + ".");
+  source = source.replace(needle, () => extracted[name]);
 }
 
-const originalHttpBlock = replaceBlock(
+extract(
+  "http",
   "function response(body:unknown",
   "function token(req:Request)",
   "const { response, readBody } = createHttpHelpers(CORS);",
   "HTTP helper block"
 );
-const originalChatDataBlock = replaceBlock(
+extract(
+  "chatData",
   "async function mentions(text:string){",
   "async function stateValue(key:string, fallback:any) {",
   "const { mentions, chatRows } = createChatDataStore({ db, members });",
   "chat data block"
 );
-const originalStateBlock = replaceBlock(
+extract(
+  "state",
   "async function stateValue(key:string, fallback:any) {",
   "function cookie(req:Request,name:string)",
   "const { stateValue, setState } = createStateStore(db);",
   "shared state block"
 );
-const originalGuestBlock = replaceBlock(
+extract(
+  "guest",
   "function cookie(req:Request,name:string)",
   "async function profileMap()",
   "const { cookie, luccaToken, luccaState, expireLucca, ycaroToken, ycaroState, expireYcaro } = createGuestSessionStore({ stateValue, setState, db, randomBytes });",
   "guest session block"
 );
-const originalMediaBlock = replaceBlock(
+extract(
+  "media",
   "async function profileMap()",
   "async function contextName(req:Request)",
   "const { profileMap, decodeDataUrl, sniffMime, ext, uploadFile } = createMediaStore({ db, randomBytes });",
   "media primitives block"
 );
-const originalAuthContextBlock = replaceBlock(
+extract(
+  "authContext",
   "async function contextName(req:Request)",
   "async function chatRoute(req:Request,name:string)",
   "const { contextName } = createAuthContext({ userFromToken, expireLucca, luccaToken, expireYcaro, ycaroToken });",
   "authentication context block"
 );
-const originalMembersBlock = replaceBlock(
+extract(
+  "chatRoute",
+  "async function chatRoute(req:Request,name:string){",
+  "async function readRoute(req:Request,name:string){",
+  "const { chatRoute } = createChatRouteHandler({ db, response, readBody, chatRows, mentions, expireLucca, randomBytes });",
+  "chat route block"
+);
+extract(
+  "members",
   "async function members(){",
   "async function healthRoute(req:Request,name:string){",
   "/* MEMBERS_MODULE */",
   "members block"
 );
-const originalStatusBlock = replaceBlock(
+extract(
+  "status",
   "async function healthRoute(req:Request,name:string){",
   "const { mentions, chatRows } = createChatDataStore({ db, members });",
   "const { healthRoute, statusRoute, historyRoute } = createStatusHandlers({ db, response, readBody, account, admin, version: VERSION });",
   "status handler block"
 );
-const originalRemoteBlock = replaceBlock(
+extract(
+  "remote",
   "async function remoteRoute(req:Request,name:string) {",
   "async function luccaRoute(req:Request) {",
   "const { remoteRoute } = createRemoteStatusHandler({ stateValue, setState, admin, response, readBody, members, randomBytes });",
   "remote status block"
 );
-const originalAuthCryptoBlock = replaceBlock(
+extract(
+  "authCrypto",
   "function tokenHash(t:string)",
   "async function userFromToken(req:Request)",
   "const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });",
@@ -120,24 +146,25 @@ const importedBlock = importAnchor +
   '\nimport { createRemoteStatusHandler } from "./modules/remote-status.js";' +
   '\nimport { createChatDataStore } from "./modules/chat-data.js";' +
   '\nimport { createMediaStore } from "./modules/media.js";' +
-  '\nimport { createAuthContext } from "./modules/auth-context.js";';
+  '\nimport { createAuthContext } from "./modules/auth-context.js";' +
+  '\nimport { createChatRouteHandler } from "./modules/chat-route.js";';
 source = source.replace(importAnchor, () => importedBlock);
 
-const restored = source
-  .replace("const { response, readBody } = createHttpHelpers(CORS);\n", () => originalHttpBlock)
-  .replace("const { mentions, chatRows } = createChatDataStore({ db, members });\n", () => originalChatDataBlock)
-  .replace("const { stateValue, setState } = createStateStore(db);\n", () => originalStateBlock)
-  .replace("const { cookie, luccaToken, luccaState, expireLucca, ycaroToken, ycaroState, expireYcaro } = createGuestSessionStore({ stateValue, setState, db, randomBytes });\n", () => originalGuestBlock)
-  .replace("const { profileMap, decodeDataUrl, sniffMime, ext, uploadFile } = createMediaStore({ db, randomBytes });\n", () => originalMediaBlock)
-  .replace("const { contextName } = createAuthContext({ userFromToken, expireLucca, luccaToken, expireYcaro, ycaroToken });\n", () => originalAuthContextBlock)
-  .replace("/* MEMBERS_MODULE */\n", () => originalMembersBlock)
-  .replace("const { healthRoute, statusRoute, historyRoute } = createStatusHandlers({ db, response, readBody, account, admin, version: VERSION });\n", () => originalStatusBlock)
-  .replace("const { remoteRoute } = createRemoteStatusHandler({ stateValue, setState, admin, response, readBody, members, randomBytes });\n", () => originalRemoteBlock)
-  .replace("const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });\n", () => originalAuthCryptoBlock)
-  .replace("const { members } = createMembersStore(db);", () => cacheDeclaration)
-  .replace(importedBlock, () => importAnchor);
-if (restored !== template) {
-  throw new Error("Modular candidate changed code outside the ten extracted blocks.");
+restore("authCrypto", "const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });");
+restore("remote", "const { remoteRoute } = createRemoteStatusHandler({ stateValue, setState, admin, response, readBody, members, randomBytes });");
+restore("status", "const { healthRoute, statusRoute, historyRoute } = createStatusHandlers({ db, response, readBody, account, admin, version: VERSION });");
+restore("members", "/* MEMBERS_MODULE */");
+restore("chatRoute", "const { chatRoute } = createChatRouteHandler({ db, response, readBody, chatRows, mentions, expireLucca, randomBytes });");
+restore("authContext", "const { contextName } = createAuthContext({ userFromToken, expireLucca, luccaToken, expireYcaro, ycaroToken });");
+restore("media", "const { profileMap, decodeDataUrl, sniffMime, ext, uploadFile } = createMediaStore({ db, randomBytes });");
+restore("guest", "const { cookie, luccaToken, luccaState, expireLucca, ycaroToken, ycaroState, expireYcaro } = createGuestSessionStore({ stateValue, setState, db, randomBytes });");
+restore("state", "const { stateValue, setState } = createStateStore(db);");
+restore("chatData", "const { mentions, chatRows } = createChatDataStore({ db, members });");
+restore("http", "const { response, readBody } = createHttpHelpers(CORS);");
+source = source.replace("const { members } = createMembersStore(db);", () => cacheDeclaration);
+source = source.replace(importedBlock, () => importAnchor);
+if (source !== template) {
+  throw new Error("Modular candidate changed code outside the eleven extracted blocks.");
 }
 
 const replacements = {
@@ -164,6 +191,6 @@ fs.writeFileSync(
 
 console.log("Built isolated modular Normal candidate.");
 console.log("Output: " + path.relative(ROOT, outputPath));
-console.log("Extracted modules: HTTP, shared state, auth crypto, guest sessions, members, status, remote status, chat data, media, auth context");
+console.log("Extracted modules: HTTP, shared state, auth crypto, guest sessions, members, status, remote status, chat data, media, auth context, chat route");
 console.log("Outside extracted blocks: unchanged");
 console.log("Supabase/deploy actions: none");
