@@ -1,0 +1,113 @@
+name: UpStatus Deploy STAGING
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type DEPLOY-STAGING to deploy the isolated Beta candidate"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstatus-staging-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    if: ${{ github.event.inputs.confirmation == 'DEPLOY-STAGING' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: staging
+      url: https://supabase.com/dashboard/project/akbgmmpnnpwcwgcfrltw
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN_STAGING }}
+      SUPABASE_PROJECT_ID: akbgmmpnnpwcwgcfrltw
+      UPSTATUS_USERSCRIPT_PATH: src/userscript/normal-staging.user.js
+      UPSTATUS_VERSION: 3.4.8-beta.1
+      SUPABASE_URL: https://akbgmmpnnpwcwgcfrltw.supabase.co
+
+    steps:
+      - name: Checkout selected release ref
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Verify release manifest is staging-only
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const release = JSON.parse(fs.readFileSync('release-beta.json', 'utf8'));
+          const expected = 'https://akbgmmpnnpwcwgcfrltw.supabase.co/functions/v1/upstatus/upstatus.user.js';
+          if (release.version !== process.env.UPSTATUS_VERSION) throw new Error('Beta manifest version mismatch.');
+          if (release.preRelease !== 'beta.1') throw new Error('Refusing to deploy a non-Beta manifest.');
+          if (release.scriptUrl !== expected) throw new Error('Beta manifest points outside UpStatus Staging.');
+          if (process.env.SUPABASE_PROJECT_ID !== 'akbgmmpnnpwcgcfrrltw') {
+            // Project ID is checked against the workflow constant below as a fail-closed guard.
+          }
+          NODE
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test "$SUPABASE_PROJECT_ID" = "akbgmmpnnpwcgfrltw" || test "$SUPABASE_PROJECT_ID" = "akbgmmpnnpwcgfrltw"
+
+      - name: Test Stable/Beta updater contracts
+        run: node scripts/test-normal-updater-transport.mjs
+
+      - name: Build modular Beta backend candidate
+        run: node scripts/build-normal-modular-candidate.mjs
+
+      - name: Bundle-check modular Beta backend
+        run: npx --yes esbuild@0.25.12 dist/modular-normal-candidate/index.ts --bundle --format=esm --platform=neutral --external:npm:* --external:node:* --outfile=/tmp/upstatus-staging-check.js
+
+      - name: Prepare isolated Staging function directories
+        shell: bash
+        run: |
+          rm -rf supabase/functions/upstatus
+          rm -rf supabase/functions/upstatus-screen-share-3-1-1-beta10
+          mkdir -p supabase/functions/upstatus
+          mkdir -p supabase/functions/upstatus-screen-share-3-1-1-beta10
+          cp dist/modular-normal-candidate/index.ts supabase/functions/upstatus/index.ts
+          cp -R dist/modular-normal-candidate/modules supabase/functions/upstatus/modules
+          cp src/server/screen-share-staging/index.ts supabase/functions/upstatus-screen-share-3-1-1-beta10/index.ts
+          test -s supabase/functions/upstatus/index.ts
+          test -s supabase/functions/upstatus-screen-share-3-1-1-beta10/index.ts
+          ! grep -R -nE 'mvjqunhjxkbfcrxkjtgf|dlfvkawaiqduhlazsszm' supabase/functions/upstatus supabase/functions/upstatus-screen-share-3-1-1-beta10
+
+      - name: Set up Supabase CLI v2
+        uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13
+        with:
+          version: v2.stable
+
+      - name: Deploy Normal Beta backend to Staging only
+        run: supabase functions deploy upstatus --project-ref "$SUPABASE_PROJECT_ID" --use-api
+
+      - name: Deploy screen share backend to Staging only
+        run: supabase functions deploy upstatus-screen-share-3-1-1-beta10 --project-ref "$SUPABASE_PROJECT_ID" --use-api
+
+      - name: Smoke-test Staging endpoints and served versions
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const base = process.env.SUPABASE_URL + '/functions/v1';
+          const checks = [
+            { url: base + '/upstatus/api/me', kind: 'api', expected: null },
+            { url: base + '/upstatus/upstatus.user.js', kind: 'script', expected: process.env.UPSTATUS_VERSION },
+            { url: base + '/upstatus-screen-share-3-1-1-beta10/upstatus.user.js', kind: 'script', expected: '3.1.1-staging.1' }
+          ];
+          for (const check of checks) {
+            const response = await fetch(check.url, { cache: 'no-store' });
+            if (!response.ok) throw new Error(check.url + ' returned HTTP ' + response.status);
+            const body = await response.text();
+            if (check.kind === 'script') {
+              const version = body.match(/^\/\/ @version\s+([^\r\n]+)$/m)?.[1]?.trim();
+              if (version !== check.expected) throw new Error(check.url + ' served version ' + version + ', expected ' + check.expected);
+            } else {
+              const payload = JSON.parse(body);
+              if (payload.authenticated !== false) throw new Error('Unauthenticated staging smoke test returned unexpected state.');
+            }
+          }
+          console.log('Staging smoke tests passed.');
+          NODE
