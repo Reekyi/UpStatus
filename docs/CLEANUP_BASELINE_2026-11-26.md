@@ -147,3 +147,8 @@ Verificação direta:
 O script `scripts/verify-normal-runtime-recovery.mjs` agora verifica fragmentos → template → runtime snapshot e escreve somente em `dist/`. O workflow offline foi ajustado para disparar também quando os fragmentos mudarem. Ainda não foi possível confirmar o resultado do GitHub Actions nesta execução.
 
 **Estado:** primeira divisão estrutural feita e igualdade exata comprovada; nenhuma mudança de lógica, produção ou banco. Próxima etapa: executar o verificador no CI e então extrair helpers HTTP como primeiro módulo real com dependências explícitas.
+
+
+## Contratos HTTP Normal 3.4.7 mapeados
+
+Foi criado `docs/NORMAL_347_HTTP_CONTRACTS_2026-11-26.md` com rotas públicas, autenticadas, convidados, métodos e guardrails. Esse mapa deve ser usado como contrato para a próxima etapa; paths, métodos, payloads, status HTTP, cookies, headers, buckets, autorização e tópicos Realtime não podem mudar durante a refatoração.
