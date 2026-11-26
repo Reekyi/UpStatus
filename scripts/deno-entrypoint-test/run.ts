@@ -1076,42 +1076,42 @@ try {
   ]) {
     await compareJsonPair("/api/status",
       {
-        method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+        method: "POST", headers: { ...modularGuilhermeHeaders, "content-type": "application/json" },
         body: JSON.stringify(statusPayload)
       },
       {
-        method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+        method: "POST", headers: { ...referenceGuilhermeHeaders, "content-type": "application/json" },
         body: JSON.stringify(statusPayload)
       }
     );
   }
   await compareJsonPair("/api/chat",
     {
-      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      method: "POST", headers: { ...modularGuilhermeHeaders, "content-type": "application/json" },
       body: JSON.stringify({ message: " " })
     },
     {
-      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      method: "POST", headers: { ...referenceGuilhermeHeaders, "content-type": "application/json" },
       body: JSON.stringify({ message: " " })
     }
   );
   await compareJsonPair("/api/chat/reaction",
     {
-      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      method: "POST", headers: { ...modularGuilhermeHeaders, "content-type": "application/json" },
       body: JSON.stringify({ messageId: "missing", emoji: "🤡" })
     },
     {
-      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      method: "POST", headers: { ...referenceGuilhermeHeaders, "content-type": "application/json" },
       body: JSON.stringify({ messageId: "missing", emoji: "🤡" })
     }
   );
   const forbiddenMessagePair = await compareJsonPair("/api/chat",
     {
-      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      method: "POST", headers: { ...modularGuilhermeHeaders, "content-type": "application/json" },
       body: JSON.stringify({ message: "DIFFERENTIAL_FORBIDDEN_EDIT" })
     },
     {
-      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      method: "POST", headers: { ...referenceGuilhermeHeaders, "content-type": "application/json" },
       body: JSON.stringify({ message: "DIFFERENTIAL_FORBIDDEN_EDIT" })
     },
     body => ({ ...body, message: { ...body.message, id: "<id>", createdAt: "<timestamp>" } })
@@ -1136,21 +1136,21 @@ try {
   );
   await compareJsonPair("/api/chat/upload-url",
     {
-      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      method: "POST", headers: { ...modularGuilhermeHeaders, "content-type": "application/json" },
       body: JSON.stringify({ mime: "application/x-msdownload", size: 1024, name: "invalid.exe" })
     },
     {
-      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      method: "POST", headers: { ...referenceGuilhermeHeaders, "content-type": "application/json" },
       body: JSON.stringify({ mime: "application/x-msdownload", size: 1024, name: "invalid.exe" })
     }
   );
   await compareJsonPair("/api/chat/upload-url",
     {
-      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      method: "POST", headers: { ...modularGuilhermeHeaders, "content-type": "application/json" },
       body: JSON.stringify({ mime: "application/pdf", size: 20 * 1024 * 1024 + 1, name: "oversized.pdf" })
     },
     {
-      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      method: "POST", headers: { ...referenceGuilhermeHeaders, "content-type": "application/json" },
       body: JSON.stringify({ mime: "application/pdf", size: 20 * 1024 * 1024 + 1, name: "oversized.pdf" })
     }
   );
