@@ -214,3 +214,10 @@ O workflow legado `UpStatus Validate` continua falhando em `scripts/validate.mjs
 Foi isolado `modules/chat-data.js` para menções e leitura/normalização de mensagens. Foram preservados `@todos`, deduplicação de menções, janela de 48h, limites de 200/1.000 mensagens e shape de resposta. O teste offline `scripts/test-normal-chat-data.mjs` passou localmente em Node v22.16.0 com DB falso.
 
 O builder modular agora extrai oito módulos e a reversão dos oito blocos e imports restaura exatamente o template recuperado. Os handlers de chat que escrevem/alteram mensagens ainda não foram extraídos, por serem a parte mais sensível para desempenho e comportamento.
+
+
+## Nono módulo real extraído: mídia e perfis
+
+Foi criado `modules/media.js` para perfis, decodificação Data URL, detecção MIME, extensões e upload Storage. DB e randomBytes são injetados. Foram preservados buckets, assinaturas de arquivos, erros, cacheControl e upsert.
+
+O teste offline `scripts/test-normal-media.mjs` passou localmente em Node v22.16.0 usando Storage falso. O builder modular agora extrai nove módulos reais e a reversão dos nove blocos e imports reconstrói exatamente o template original.
