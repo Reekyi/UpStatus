@@ -25,16 +25,16 @@ export function createGuestRoutes({ response, readBody, expireLucca, luccaToken,
       return response({ok:true,name:"Lucca",joinedAt,token:session},200,{"Set-Cookie":"lucca_session="+encodeURIComponent(session)+"; HttpOnly; SameSite=Lax; Secure; Path=/; Max-Age=86400"});
     }
     if(path==="/api/lucca/me") {
-      const s:any=await expireLucca(),c=luccaToken(req);
+      const s=await expireLucca(),c=luccaToken(req);
       return response(c&&s.online&&s.session===c?{authenticated:true,name:"Lucca",joinedAt:s.joinedAt,online:true}:{authenticated:false,name:null,online:!!s.online});
     }
     if(path==="/api/lucca/heartbeat") {
-      const s:any=await expireLucca(),c=luccaToken(req);
+      const s=await expireLucca(),c=luccaToken(req);
       if(!c||!s.online||s.session!==c)return response({error:"Sessão do Lucca encerrada."},401);
       await setState("lucca",{...s,lastSeen:new Date().toISOString()});return response({ok:true,online:true});
     }
     if(path==="/api/lucca/logout") {
-      const s:any=await expireLucca(),c=luccaToken(req);
+      const s=await expireLucca(),c=luccaToken(req);
       if(c&&s.online&&s.session===c){await setState("lucca",{...s,online:false,session:null,lastSeen:new Date().toISOString()});await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🔴 Lucca Maluco saiu do chat.",type:"system",system_type:"lucca_leave",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});}
       return response({ok:true},200,{"Set-Cookie":"lucca_session=; HttpOnly; SameSite=Lax; Secure; Path=/; Max-Age=0"});
     }
@@ -66,16 +66,16 @@ export function createGuestRoutes({ response, readBody, expireLucca, luccaToken,
       return response({ok:true,name:"Ycaro",joinedAt,token:session},200,{"Set-Cookie":"ycaro_session="+encodeURIComponent(session)+"; HttpOnly; SameSite=Lax; Secure; Path=/; Max-Age=86400"});
     }
     if(path==="/api/ycaro/me") {
-      const s:any=await expireYcaro(),c=ycaroToken(req);
+      const s=await expireYcaro(),c=ycaroToken(req);
       return response(c&&s.online&&s.session===c?{authenticated:true,name:"Ycaro",joinedAt:s.joinedAt,online:true}:{authenticated:false,name:null,online:!!s.online});
     }
     if(path==="/api/ycaro/heartbeat") {
-      const s:any=await expireYcaro(),c=ycaroToken(req);
+      const s=await expireYcaro(),c=ycaroToken(req);
       if(!c||!s.online||s.session!==c)return response({error:"Sessão do Ycaro encerrada."},401);
       await setState("ycaro",{...s,lastSeen:new Date().toISOString()});return response({ok:true,online:true});
     }
     if(path==="/api/ycaro/logout") {
-      const s:any=await expireYcaro(),c=ycaroToken(req);
+      const s=await expireYcaro(),c=ycaroToken(req);
       if(c&&s.online&&s.session===c){await setState("ycaro",{...s,online:false,session:null,lastSeen:new Date().toISOString()});await db.from("messages").insert({id:randomBytes(8).toString("hex"),user_name:"Sistema",message:"🟠 Ycaro Maluco saiu do chat.",type:"system",system_type:"ycaro_leave",created_at:new Date().toISOString(),image_url:"",mentions:[],reply_to:null,reactions:{}});}
       return response({ok:true},200,{"Set-Cookie":"ycaro_session=; HttpOnly; SameSite=Lax; Secure; Path=/; Max-Age=0"});
     }
