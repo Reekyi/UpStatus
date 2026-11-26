@@ -283,4 +283,6 @@ Foi adicionado `scripts/test-normal-guest-routes.mjs`, cobrindo senha incorreta,
 
 A extração é estrutural: o builder remove os dois handlers do template e os restaura antes de comparar o resultado integral, exigindo igualdade exata do template fora dos blocos extraídos. O candidato permanece isolado em `dist/modular-normal-candidate/`.
 
-**Validação pendente:** aguardar o GitHub Actions para o novo HEAD. O PR permanece Draft. Nenhum deploy, alteração no Supabase, migration, schema, RLS, secrets ou runtime ativo foi realizado.
+**Validação:** o GitHub Actions `Verify Recovered Normal Runtime` passou no HEAD `6d338e7c96cd1e12c27bbfacffc1d3b50224c1b5` (run #111). A reconstrução exata do runtime, os treze testes de módulos e o build do candidato modular isolado passaram. O primeiro run desta extração apontou apenas um matcher incorreto no teste de autorização; o fixture foi corrigido e o run #111 passou integralmente. O workflow legado `UpStatus Validate` continua falhando separadamente por `production updateURL mismatch` em `scripts/validate.mjs:26`.
+
+O PR permanece Draft. Nenhum deploy, alteração no Supabase, migration, schema, RLS, secrets ou runtime ativo foi realizado.
