@@ -393,3 +393,15 @@ A primeira execução encontrou apenas uma expectativa de ordenação incorreta 
 **Validação:** `Verify Recovered Normal Runtime` passou no run #179, commit `b82154a8e887062087c6cf9bd951c06a0343e73e`. Passaram reconstrução byte a byte, 17 testes individuais, integração auth/guest, integração do chat, build modular real e parse/bundle com esbuild. O workflow legado `UpStatus Validate` continua uma verificação separada e não é mascarado.
 
 O teste integrado cobre o caminho de chat e suas interações em dependências simuladas; ainda não prova execução completa do dispatcher Deno nem integração com o Supabase real. Próxima etapa: caracterização integrada de mídia e status, depois contratos HTTP/erros/headers/cookies e validação de runtime em ambiente isolado. Nenhum deploy, Supabase write ou alteração do runtime ativo foi realizado.
+
+## Integração de mídia e status concluída
+
+Foram adicionados dois testes de composição com dependências simuladas:
+- `scripts/test-normal-media-integration.mjs`: combina media store e media routes; cobre mapa de perfis, upload direto de avatar/imagem, validação de MIME, URL assinada, token, bucket, caminho sanitizado e limites de arquivo.
+- `scripts/test-normal-status-integration.mjs`: combina status handlers e remote status; cobre alteração de status, histórico, leitura de membros/presença, health check, fila de comando remoto, confirmação e consulta de resultado.
+
+Ambos foram integrados ao workflow dedicado. A validação inicial revelou duas expectativas incorretas no teste de mídia (boundary de erro pertence ao dispatcher e o segundo argumento de mediaRoute é o tipo de mídia); as expectativas foram corrigidas sem alterar módulos de runtime.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #189, commit `17bfe9a788c6fd2ddcdf82962edd8e8ad2fcf64d`. Passaram recuperação exata, 17 testes individuais, integrações auth/guest, chat, mídia e status, build do candidato modular e parse/bundle com esbuild.
+
+A cobertura integrada agora atravessa os principais domínios funcionais com DB/Storage simulados. Ainda não representa execução completa do dispatcher Deno nem validação contra Supabase real. Próximo gate: contratos HTTP transversais (status codes, headers, cookies, payloads e boundary de erros), depois execução Deno isolada. Nenhum deploy, Supabase write ou alteração do runtime ativo foi realizado.
