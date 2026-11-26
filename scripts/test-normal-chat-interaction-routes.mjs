@@ -11,6 +11,7 @@ function makeDb(results = []) {
       const result = results.shift() || { data: null, error: null };
       const query = {
         select(columns) { call.columns = columns; return this; },
+        maybeSingle() { return this; },
         eq(column, value) { call.filters.push(["eq", column, value]); return this; },
         in(column, value) { call.filters.push(["in", column, value]); return this; },
         gt(column, value) { call.filters.push(["gt", column, value]); return this; },
