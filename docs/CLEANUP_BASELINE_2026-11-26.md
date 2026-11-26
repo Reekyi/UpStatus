@@ -77,3 +77,16 @@ Este arquivo é o checkpoint durável do projeto. Se a conversa atingir o limite
 A proveniência dos runtimes ativos foi registrada em `docs/RUNTIME_PROVENANCE_2026-11-26.md`. A descoberta principal é que o Normal 3.4.7 é distribuído por `upstatus`, mas utiliza o backend/API beta10, cuja identidade interna é beta8. Não tratar o runtime `upstatus` como o backend completo do cliente nem refatorar os slugs por aparência.
 
 Nenhuma mudança de aplicação foi feita. O próximo passo é comparar as páginas de convidados e mapear os contratos cliente/API antes da primeira extração modular.
+
+
+## Atualização adicional — contratos e candidato beta (2026-11-26)
+
+A análise comparativa foi aprofundada e registrada em `docs/ROUTE_CONTRACTS_AND_BETA_SOURCE_2026-11-26.md`.
+
+Descobertas:
+- O userscript Normal extraído do runtime é idêntico ao `master/UpStatus.user.js` após normalizar apenas project refs e publishable key.
+- O template do backend Normal não é equivalente ao runtime: há diferenças de comportamento em chat, upload assinado, avatar, administração e páginas de convidados.
+- Para o backend beta, `beta/3.1.1-beta8-loader-fix` é o candidato versionado mais próximo entre as branches examinadas (8 regiões de divergência por comparação de linhas), mas ainda não é fonte idêntica.
+- A função beta implantada tem slug beta10, mas executa e embute beta8, e o userscript beta8 aponta internamente para o endpoint beta8. Preservar os nomes/URLs até rastrear o histórico e a utilização pelos clientes.
+
+Nenhuma refatoração de aplicação foi iniciada. O próximo passo é rastrear commits da linha beta8 e mapear contratos HTTP completos antes de escrever testes de caracterização.
