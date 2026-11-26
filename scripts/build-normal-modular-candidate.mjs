@@ -9,6 +9,7 @@ const modulesDir = path.join(ROOT, "src/server/normal-3.4.7/modules");
 const helperPath = path.join(modulesDir, "http.js");
 const statePath = path.join(modulesDir, "state.js");
 const authCryptoPath = path.join(modulesDir, "auth-crypto.js");
+const guestSessionsPath = path.join(modulesDir, "guest-sessions.js");
 const userscriptPath = path.join(ROOT, "recovery/runtime-2026-11-26/userscripts/original-project-normal-3.4.7.user.js");
 const ycaroPath = path.join(ROOT, "ycaro.html");
 const outputRoot = path.join(ROOT, "dist/modular-normal-candidate");
@@ -22,6 +23,8 @@ const stateModule = fs.readFileSync(statePath, "utf8");
 if (!stateModule.includes("export function createStateStore")) throw new Error("State store module export not found.");
 const authCryptoModule = fs.readFileSync(authCryptoPath, "utf8");
 if (!authCryptoModule.includes("export function createAuthCrypto")) throw new Error("Auth crypto module export not found.");
+const guestSessionsModule = fs.readFileSync(guestSessionsPath, "utf8");
+if (!guestSessionsModule.includes("export function createGuestSessionStore")) throw new Error("Guest session module export not found.");
 const userscript = fs.readFileSync(userscriptPath, "utf8");
 const ycaro = fs.readFileSync(ycaroPath, "utf8");
 
@@ -41,6 +44,14 @@ source = source.slice(0, stateStart) +
   "const { stateValue, setState } = createStateStore(db);\n" +
   source.slice(stateEnd);
 
+const guestStart = source.indexOf("function cookie(req:Request,name:string)");
+const guestEnd = source.indexOf("async function profileMap()", guestStart);
+if (guestStart < 0 || guestEnd < 0) throw new Error("Could not isolate the original guest session block.");
+const originalGuestBlock = source.slice(guestStart, guestEnd);
+source = source.slice(0, guestStart) +
+  "const { cookie, luccaToken, luccaState, expireLucca, ycaroToken, ycaroState, expireYcaro } = createGuestSessionStore({ stateValue, setState, db, randomBytes });\n" +
+  source.slice(guestEnd);
+
 const authCryptoStart = source.indexOf("function tokenHash(t:string)");
 const authCryptoEnd = source.indexOf("async function userFromToken(req:Request)", authCryptoStart);
 if (authCryptoStart < 0 || authCryptoEnd < 0) throw new Error("Could not isolate the original auth crypto block.");
@@ -54,16 +65,18 @@ if (!source.includes(importAnchor)) throw new Error("Crypto import anchor not fo
 const importedBlock = importAnchor +
   '\nimport { createHttpHelpers } from "./modules/http.js";' +
   '\nimport { createStateStore } from "./modules/state.js";' +
-  '\nimport { createAuthCrypto } from "./modules/auth-crypto.js";';
+  '\nimport { createAuthCrypto } from "./modules/auth-crypto.js";' +
+  '\nimport { createGuestSessionStore } from "./modules/guest-sessions.js";';
 source = source.replace(importAnchor, () => importedBlock);
 
 const restored = source
   .replace("const { response, readBody } = createHttpHelpers(CORS);\n", () => originalHttpBlock)
   .replace("const { stateValue, setState } = createStateStore(db);\n", () => originalStateBlock)
+  .replace("const { cookie, luccaToken, luccaState, expireLucca, ycaroToken, ycaroState, expireYcaro } = createGuestSessionStore({ stateValue, setState, db, randomBytes });\n", () => originalGuestBlock)
   .replace("const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });\n", () => originalAuthCryptoBlock)
   .replace(importedBlock, () => importAnchor);
 if (restored !== template) {
-  throw new Error("Modular candidate changed code outside the three extracted helper blocks.");
+  throw new Error("Modular candidate changed code outside the four extracted helper blocks.");
 }
 
 const replacements = {
@@ -82,6 +95,7 @@ fs.writeFileSync(outputPath, source, "utf8");
 fs.copyFileSync(helperPath, path.join(outputRoot, "modules/http.js"));
 fs.copyFileSync(statePath, path.join(outputRoot, "modules/state.js"));
 fs.copyFileSync(authCryptoPath, path.join(outputRoot, "modules/auth-crypto.js"));
+fs.copyFileSync(guestSessionsPath, path.join(outputRoot, "modules/guest-sessions.js"));
 fs.writeFileSync(
   path.join(outputRoot, "README.txt"),
   "NON-PRODUCTION CANDIDATE. Generated offline for review only. Never deploy this output automatically.\n",
@@ -90,6 +104,6 @@ fs.writeFileSync(
 
 console.log("Built isolated modular Normal candidate.");
 console.log("Output: " + path.relative(ROOT, outputPath));
-console.log("Extracted modules: HTTP, shared state, auth crypto");
+console.log("Extracted modules: HTTP, shared state, auth crypto, guest sessions");
 console.log("Outside extracted blocks: unchanged");
 console.log("Supabase/deploy actions: none");
