@@ -1,13 +1,16 @@
 type QueryResult = { data: any; error: Error | null; count?: number };
 declare global {
   var __upstatusMockDbError: boolean | undefined;
+  var __upstatusMockDbFailure: { table: string; operation: string } | undefined;
+  var __upstatusMockStorageFailure: { bucket: string; operation: string } | undefined;
 }
 
 const tables: Record<string, any[]> = {
   users: [
     { name: "Ricardo", password_hash: null, role: null, status: "offline", reason: "", sync: "not_configured" },
     { name: "Guilherme", password_hash: null, role: null, status: "offline", reason: "", sync: "not_configured" },
-    { name: "Lohan", password_hash: null, role: null, status: "offline", reason: "", sync: "not_configured" }
+    { name: "Lohan", password_hash: null, role: null, status: "offline", reason: "", sync: "not_configured" },
+    { name: "Tester", password_hash: null, role: null, status: "offline", reason: "", sync: "not_configured" }
   ],
   upstatus_sessions: [],
   upstatus_state: [],
@@ -17,6 +20,15 @@ const tables: Record<string, any[]> = {
   upstatus_typing: [],
   chat_reads: []
 };
+
+function dbFailure(table: string, operation: string) {
+  return globalThis.__upstatusMockDbFailure?.table === table &&
+    globalThis.__upstatusMockDbFailure?.operation === operation;
+}
+function storageFailure(bucket: string, operation: string) {
+  return globalThis.__upstatusMockStorageFailure?.bucket === bucket &&
+    globalThis.__upstatusMockStorageFailure?.operation === operation;
+}
 
 function matches(row: any, filters: Array<[string, string, unknown]>) {
   return filters.every(([op, column, value]) => {
@@ -67,6 +79,9 @@ export function createClient(_url: string, _key: string, _options: unknown = {})
         },
         limit(value: number) { query.limitValue = value; return this; },
         maybeSingle(): Promise<QueryResult> {
+          if (dbFailure(table, "select")) {
+            return Promise.resolve({ data: null, error: new Error("mock " + table + " select failure") });
+          }
           if (globalThis.__upstatusMockDbError && table === "users") {
             return Promise.resolve({ data: null, error: new Error("mock database failure") });
           }
@@ -75,6 +90,9 @@ export function createClient(_url: string, _key: string, _options: unknown = {})
         single(): Promise<QueryResult> { return this.maybeSingle(); },
         insert(payload: any) {
           query.action = "insert";
+          if (dbFailure(table, "insert")) {
+            return Promise.resolve({ data: null, error: new Error("mock " + table + " insert failure") });
+          }
           const items = Array.isArray(payload) ? payload : [payload];
           rows().push(...items.map(item => structuredClone(item)));
           return Promise.resolve({ data: items, error: null });
@@ -82,6 +100,9 @@ export function createClient(_url: string, _key: string, _options: unknown = {})
         update(payload: any) { query.action = "update"; query.payload = payload; return this; },
         delete() { query.action = "delete"; return this; },
         upsert(payload: any, options?: { onConflict?: string }) {
+          if (dbFailure(table, "upsert")) {
+            return Promise.resolve({ error: new Error("mock " + table + " upsert failure") });
+          }
           const items = Array.isArray(payload) ? payload : [payload];
           const key = options?.onConflict || (
             table === "upstatus_state" ? "state_key" :
@@ -96,6 +117,9 @@ export function createClient(_url: string, _key: string, _options: unknown = {})
           return Promise.resolve({ error: null });
         },
         then(resolve: (value: QueryResult) => unknown, reject: (reason: unknown) => unknown) {
+          if (dbFailure(table, query.action)) {
+            return Promise.resolve({ data: null, error: new Error("mock " + table + " " + query.action + " failure") }).then(resolve, reject);
+          }
           if (globalThis.__upstatusMockDbError && table === "users") {
             return Promise.resolve({ data: null, error: new Error("mock database failure") }).then(resolve, reject);
           }
@@ -127,17 +151,21 @@ export function createClient(_url: string, _key: string, _options: unknown = {})
     storage: {
       from(bucket: string) {
         return {
-          upload: async (path: string, body: ArrayBuffer, options: unknown) => ({
-            data: { path }, error: null
-          }),
-          createSignedUploadUrl: async (path: string) => ({
-            data: { token: "deno-test-upload-token", path, signedUrl: "/storage/v1/object/upload/sign/" + bucket + "/" + path },
-            error: null
-          }),
+          upload: async (path: string, body: ArrayBuffer, options: unknown) => storageFailure(bucket, "upload")
+            ? ({ data: null, error: new Error("mock " + bucket + " upload failure") })
+            : ({ data: { path }, error: null }),
+          createSignedUploadUrl: async (path: string) => storageFailure(bucket, "signed-upload")
+            ? ({ data: null, error: new Error("mock " + bucket + " signed-upload failure") })
+            : ({
+              data: { token: "deno-test-upload-token", path, signedUrl: "/storage/v1/object/upload/sign/" + bucket + "/" + path },
+              error: null
+            }),
           getPublicUrl: (path: string) => ({
             data: { publicUrl: "https://mock-project.supabase.co/storage/v1/object/public/" + bucket + "/" + path }
           }),
-          remove: async (_paths: string[]) => ({ data: [], error: null })
+          remove: async (_paths: string[]) => storageFailure(bucket, "remove")
+            ? ({ data: null, error: new Error("mock " + bucket + " remove failure") })
+            : ({ data: [], error: null })
         };
       }
     }
