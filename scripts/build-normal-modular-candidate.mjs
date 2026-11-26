@@ -12,7 +12,8 @@ const ycaroPath = path.join(ROOT, "ycaro.html");
 const outputRoot = path.join(ROOT, "dist/modular-normal-candidate");
 const outputPath = path.join(outputRoot, "index.ts");
 
-let source = fs.readFileSync(templatePath, "utf8");
+const template = fs.readFileSync(templatePath, "utf8");
+let source = template;
 const helperModule = fs.readFileSync(helperPath, "utf8");
 if (!helperModule.includes("export function createHttpHelpers")) throw new Error("HTTP helper module export not found.");
 const stateModule = fs.readFileSync(statePath, "utf8");
@@ -23,6 +24,7 @@ const ycaro = fs.readFileSync(ycaroPath, "utf8");
 const httpStart = source.indexOf("function response(body:unknown");
 const httpEnd = source.indexOf("function token(req:Request)", httpStart);
 if (httpStart < 0 || httpEnd < 0) throw new Error("Could not isolate the original HTTP helper block.");
+const originalHttpBlock = source.slice(httpStart, httpEnd);
 source = source.slice(0, httpStart) +
   "const { response, readBody } = createHttpHelpers(CORS);\n" +
   source.slice(httpEnd);
@@ -30,17 +32,25 @@ source = source.slice(0, httpStart) +
 const stateStart = source.indexOf("async function stateValue(key:string, fallback:any) {");
 const stateEnd = source.indexOf("function cookie(req:Request,name:string)", stateStart);
 if (stateStart < 0 || stateEnd < 0) throw new Error("Could not isolate the original shared state block.");
+const originalStateBlock = source.slice(stateStart, stateEnd);
 source = source.slice(0, stateStart) +
   "const { stateValue, setState } = createStateStore(db);\n" +
   source.slice(stateEnd);
 
 const importAnchor = 'import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";';
 if (!source.includes(importAnchor)) throw new Error("Crypto import anchor not found.");
-source = source.replace(importAnchor, () =>
-  importAnchor +
+const importedBlock = importAnchor +
   '\nimport { createHttpHelpers } from "./modules/http.js";' +
-  '\nimport { createStateStore } from "./modules/state.js";'
-);
+  '\nimport { createStateStore } from "./modules/state.js";';
+source = source.replace(importAnchor, () => importedBlock);
+
+const restored = source
+  .replace("const { response, readBody } = createHttpHelpers(CORS);\n", () => originalHttpBlock)
+  .replace("const { stateValue, setState } = createStateStore(db);\n", () => originalStateBlock)
+  .replace(importedBlock, () => importAnchor);
+if (restored !== template) {
+  throw new Error("Modular candidate changed code outside the two extracted helper blocks.");
+}
 
 const replacements = {
   "__UPSTATUS_VERSION__": "3.4.7",
@@ -67,4 +77,5 @@ console.log("Built isolated modular Normal candidate.");
 console.log("Output: " + path.relative(ROOT, outputPath));
 console.log("HTTP helpers: " + (source.includes('createHttpHelpers(CORS)') ? "extracted" : "missing"));
 console.log("State store: " + (source.includes('createStateStore(db)') ? "extracted" : "missing"));
+console.log("Outside extracted blocks: unchanged");
 console.log("Supabase/deploy actions: none");
