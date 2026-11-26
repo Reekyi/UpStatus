@@ -376,7 +376,11 @@ const orderedDispatchMarkers = [
 ];
 let previous = -1;
 for (const marker of orderedDispatchMarkers) {
-  const position = dispatcherSource.indexOf(marker);
+  // Embedded guest HTML contains its own JavaScript catch blocks. The runtime
+  // error boundary is the final catch in the Deno.serve source.
+  const position = marker === "}catch(e){" || marker.startsWith("return response({error:e instanceof Error?")
+    ? dispatcherSource.lastIndexOf(marker)
+    : dispatcherSource.indexOf(marker);
   if (position < 0) throw new Error("Missing HTTP contract marker in dispatcher: " + marker);
   if (position <= previous) throw new Error("HTTP dispatch precedence changed near: " + marker);
   previous = position;
