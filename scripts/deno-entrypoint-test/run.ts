@@ -63,6 +63,31 @@ try {
   }
   assert(ready, "Deno.serve entrypoint did not become available on port 8000");
 
+  let referenceReady = false;
+  for (let attempt = 0; attempt < 40; attempt++) {
+    try {
+      const response = await requestReference("/health");
+      if (response.status === 200) { referenceReady = true; break; }
+    } catch { await sleep(100); }
+  }
+  assert(referenceReady, "Recovered monolith reference server did not become available on port 8001");
+
+  // Compare the same HTTP contracts against the exact recovered monolith.
+  for (const path of [
+    "/health", "/api/me", "/api/status", "/api/not-a-route",
+    "/api/account?name=Ricardo", "/api/members", "/api/update-info",
+    "/upstatus.user.js", "/lucca", "/ycaro", "/upstatus/health"
+  ]) await compareWithRecovered(path);
+  await compareWithRecovered("/api/chat", { method: "OPTIONS" });
+  await compareWithRecovered("/api/lucca/login", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ password: "wrong-reference-password" })
+  });
+  await compareWithRecovered("/api/ycaro/login", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ password: "wrong-reference-password" })
+  });
+
   {
     const response = await request("/health");
     assertEquals(response.status, 200);
