@@ -20,6 +20,7 @@ on:
       - "scripts/test-normal-auth-context.mjs"
       - "scripts/test-normal-chat-route.mjs"
       - "scripts/test-normal-media-routes.mjs"
+      - "scripts/test-normal-guest-routes.mjs"
       - "scripts/build-normal-modular-candidate.mjs"
       - "src/server/normal-3.4.7/modules/**"
       - "ycaro.html"
@@ -69,5 +70,7 @@ jobs:
         run: node scripts/test-normal-chat-route.mjs
       - name: Test media routes module
         run: node scripts/test-normal-media-routes.mjs
+      - name: Test guest HTTP routes module
+        run: node scripts/test-normal-guest-routes.mjs
       - name: Build isolated modular candidate
         run: node scripts/build-normal-modular-candidate.mjs
