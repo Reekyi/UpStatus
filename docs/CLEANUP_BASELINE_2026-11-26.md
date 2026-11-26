@@ -108,3 +108,17 @@ A documentação detalhada está em `docs/SUPABASE_ENVIRONMENT_RECONCILIATION_20
 
 A PR #26 documenta um candidato TEST beta.8 separado, implantado somente em `upstatus-test` no projeto original. Seu corpo registra explicitamente que a produção `upstatus` permaneceu ativa e não foi alterada. Isso reforça que branches e candidatas beta/test não podem ser tratadas como fonte da produção Normal.
 
+
+
+## Inventário ampliado de runtimes ativos do projeto original
+
+Além de Normal e beta10, foram lidos e preservados:
+- `upstatus-test` implantação v281 / versão declarada 3.3.28;
+- `upstatus-team-lite` implantação v15 / versão declarada 3.4.30;
+- `upstatus-screen-share-3-1-1-beta8` implantação v2 / versão declarada 3.1.1-beta8.
+
+A função beta10 embute um userscript beta8 que aponta para o slug beta8. Esse slug existe no projeto original, mas não existe em Revived. O projeto Revived também não contém TEST nem Team Lite. Portanto o novo projeto não replica todos os runtimes e dependências do original.
+
+A branch `team-lite/3.4.31-candidate` foi comparada com o Team Lite ativo 3.4.30 e apresentou muitas diferenças comportamentais. Não é substituta comprovada.
+
+Detalhes e snapshots em `docs/SUPABASE_ENVIRONMENT_RECONCILIATION_2026-11-26.md` e diretórios `recovery/runtime-2026-11-26/original-project-*/`.
