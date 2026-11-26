@@ -5,6 +5,7 @@ on:
     branches: [chore/cleanup-structure-347]
     paths:
       - "src/server/normal-3.4.7.recovered.template.ts"
+      - "src/server/normal-3.4.7/**"
       - "recovery/runtime-2026-11-26/**"
       - "scripts/verify-normal-runtime-recovery.mjs"
       - "ycaro.html"
