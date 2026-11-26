@@ -98,3 +98,7 @@ Differential comparison now also covers normalized authenticated setup/login, `/
 
 
 Differential HTTP coverage now includes Lucca/Ycaro valid login, cookie attributes, session lookup, heartbeat and logout, plus profile map, avatar upload, direct image/document/audio/video uploads and signed avatar/chat upload URLs. Tokens, timestamps and generated URLs/paths are normalized; the other response contracts are compared. Run #268 passed on `43eb054fe7d82fd1e872e3664e680e6617c94a4a`. Live Supabase and managed Edge Runtime validation remain external release gates.
+
+
+
+Final offline differential coverage also checks negative contracts: standard-user/admin authorization, Ricardo-only chat clear, invalid/missing status reasons, empty chat messages, invalid reactions, forbidden edit/delete, rejected MIME and oversized files, invalid guest credentials/heartbeats, unknown account, duplicate setup (409), invalid login (401), authenticated health and authenticated 404 fallback. `Verify Recovered Normal Runtime` passed all 27 steps in run #278 on `a3aa766b00e30d6282bf26b85a9c9b5b8a242207`. Offline refactor validation is complete; live Supabase/managed Edge Runtime and cutover approval remain external gates and were not attempted.
