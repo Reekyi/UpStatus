@@ -383,3 +383,13 @@ O builder também passou a exigir marcadores explícitos do dispatcher: entrypoi
 **Validação:** `Verify Recovered Normal Runtime` passou no HEAD `556f60fcb642706bccb3e8a30ab576d96896b633` (run #173). A caracterização integrada, 17 testes unitários, prova de reconstrução exata, verificações de wiring do dispatcher e parse/bundle do grafo modular passaram.
 
 O teste integrado cobre composição de autenticação e convidados; não deve ser confundido com teste completo de todos os endpoints ou execução Deno em produção. O próximo passo é ampliar contratos integrados por domínio, mantendo o dispatcher no entrypoint. Nenhum deploy ou Supabase write foi realizado.
+
+## Caracterização integrada do chat
+
+Foi adicionado `scripts/test-normal-chat-integration.mjs`, compondo os módulos reais de roster/cache de membros, normalização e consulta de mensagens, rota principal de chat e rotas de interação com um DB em memória. O fluxo cobre roster oficial ordenado, criação de mensagem com menções (`@nome` e `@todos`), leitura de histórico e perfis, contagem de não lidas, read receipts, sincronização rápida, reação, edição e exclusão com autorização. O teste não conecta ao Supabase.
+
+A primeira execução encontrou apenas uma expectativa de ordenação incorreta no próprio teste: `members()` aplica `.order("name")`, portanto `@todos` segue a ordem alfabética retornada pelo banco. A expectativa foi corrigida sem alterar código de runtime.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #179, commit `b82154a8e887062087c6cf9bd951c06a0343e73e`. Passaram reconstrução byte a byte, 17 testes individuais, integração auth/guest, integração do chat, build modular real e parse/bundle com esbuild. O workflow legado `UpStatus Validate` continua uma verificação separada e não é mascarado.
+
+O teste integrado cobre o caminho de chat e suas interações em dependências simuladas; ainda não prova execução completa do dispatcher Deno nem integração com o Supabase real. Próxima etapa: caracterização integrada de mídia e status, depois contratos HTTP/erros/headers/cookies e validação de runtime em ambiente isolado. Nenhum deploy, Supabase write ou alteração do runtime ativo foi realizado.
