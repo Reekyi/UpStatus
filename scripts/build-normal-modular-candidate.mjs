@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const templatePath = path.join(ROOT, "src/server/normal-3.4.7.recovered.template.ts");
 const modulesDir = path.join(ROOT, "src/server/normal-3.4.7/modules");
-const moduleFiles = ["http.js", "state.js", "auth-crypto.js", "guest-sessions.js", "members.js", "status.js", "remote-status.js"];
+const moduleFiles = ["http.js", "state.js", "auth-crypto.js", "guest-sessions.js", "members.js", "status.js", "remote-status.js", "chat-data.js"];
 const modulePaths = Object.fromEntries(moduleFiles.map((file) => [file, path.join(modulesDir, file)]));
 const userscriptPath = path.join(ROOT, "recovery/runtime-2026-11-26/userscripts/original-project-normal-3.4.7.user.js");
 const ycaroPath = path.join(ROOT, "ycaro.html");
@@ -23,7 +23,8 @@ const expectedExports = {
   "guest-sessions.js": "export function createGuestSessionStore",
   "members.js": "export function createMembersStore",
   "status.js": "export function createStatusHandlers",
-  "remote-status.js": "export function createRemoteStatusHandler"
+  "remote-status.js": "export function createRemoteStatusHandler",
+  "chat-data.js": "export function createChatDataStore"
 };
 for (const [file, marker] of Object.entries(expectedExports)) {
   if (!moduleContents[file].includes(marker)) throw new Error("Expected export missing from " + file);
@@ -74,6 +75,12 @@ const originalStatusBlock = replaceBlock(
   "const { healthRoute, statusRoute, historyRoute } = createStatusHandlers({ db, response, readBody, account, admin, version: VERSION });",
   "status handler block"
 );
+const originalChatDataBlock = replaceBlock(
+  "async function mentions(text:string){",
+  "async function stateValue(key:string, fallback:any) {",
+  "const { mentions, chatRows } = createChatDataStore({ db, members });",
+  "chat data block"
+);
 const originalRemoteBlock = replaceBlock(
   "async function remoteRoute(req:Request,name:string) {",
   "async function luccaRoute(req:Request) {",
@@ -96,7 +103,8 @@ const importedBlock = importAnchor +
   '\nimport { createGuestSessionStore } from "./modules/guest-sessions.js";' +
   '\nimport { createMembersStore } from "./modules/members.js";' +
   '\nimport { createStatusHandlers } from "./modules/status.js";' +
-  '\nimport { createRemoteStatusHandler } from "./modules/remote-status.js";';
+  '\nimport { createRemoteStatusHandler } from "./modules/remote-status.js";' +
+  '\nimport { createChatDataStore } from "./modules/chat-data.js";';
 source = source.replace(importAnchor, () => importedBlock);
 
 const restored = source
@@ -105,12 +113,13 @@ const restored = source
   .replace("const { cookie, luccaToken, luccaState, expireLucca, ycaroToken, ycaroState, expireYcaro } = createGuestSessionStore({ stateValue, setState, db, randomBytes });\n", () => originalGuestBlock)
   .replace("/* MEMBERS_MODULE */\n", () => originalMembersBlock)
   .replace("const { healthRoute, statusRoute, historyRoute } = createStatusHandlers({ db, response, readBody, account, admin, version: VERSION });\n", () => originalStatusBlock)
+  .replace("const { mentions, chatRows } = createChatDataStore({ db, members });\n", () => originalChatDataBlock)
   .replace("const { remoteRoute } = createRemoteStatusHandler({ stateValue, setState, admin, response, readBody, members, randomBytes });\n", () => originalRemoteBlock)
   .replace("const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });\n", () => originalAuthCryptoBlock)
   .replace("const { members } = createMembersStore(db);", () => cacheDeclaration)
   .replace(importedBlock, () => importAnchor);
 if (restored !== template) {
-  throw new Error("Modular candidate changed code outside the seven extracted blocks.");
+  throw new Error("Modular candidate changed code outside the eight extracted blocks.");
 }
 
 const replacements = {
@@ -137,6 +146,6 @@ fs.writeFileSync(
 
 console.log("Built isolated modular Normal candidate.");
 console.log("Output: " + path.relative(ROOT, outputPath));
-console.log("Extracted modules: HTTP, shared state, auth crypto, guest sessions, members, status, remote status");
+console.log("Extracted modules: HTTP, shared state, auth crypto, guest sessions, members, status, remote status, chat data");
 console.log("Outside extracted blocks: unchanged");
 console.log("Supabase/deploy actions: none");
