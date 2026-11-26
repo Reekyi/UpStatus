@@ -11,6 +11,7 @@ on:
       - "scripts/test-normal-http-helpers.mjs"
       - "scripts/test-normal-state-store.mjs"
       - "scripts/test-normal-auth-crypto.mjs"
+      - "scripts/test-normal-guest-sessions.mjs"
       - "scripts/build-normal-modular-candidate.mjs"
       - "src/server/normal-3.4.7/modules/**"
       - "ycaro.html"
@@ -42,5 +43,7 @@ jobs:
         run: node scripts/test-normal-state-store.mjs
       - name: Test authentication crypto module
         run: node scripts/test-normal-auth-crypto.mjs
+      - name: Test guest session module
+        run: node scripts/test-normal-guest-sessions.mjs
       - name: Build isolated modular candidate
         run: node scripts/build-normal-modular-candidate.mjs
