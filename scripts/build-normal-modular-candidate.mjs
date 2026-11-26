@@ -13,6 +13,7 @@ const outputPath = path.join(outputRoot, "index.ts");
 
 let source = fs.readFileSync(templatePath, "utf8");
 const helperModule = fs.readFileSync(helperPath, "utf8");
+if (!helperModule.includes("export function createHttpHelpers")) throw new Error("HTTP helper module export not found.");
 const userscript = fs.readFileSync(userscriptPath, "utf8");
 const ycaro = fs.readFileSync(ycaroPath, "utf8");
 
