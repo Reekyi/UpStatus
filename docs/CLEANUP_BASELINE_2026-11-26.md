@@ -122,3 +122,14 @@ A função beta10 embute um userscript beta8 que aponta para o slug beta8. Esse 
 A branch `team-lite/3.4.31-candidate` foi comparada com o Team Lite ativo 3.4.30 e apresentou muitas diferenças comportamentais. Não é substituta comprovada.
 
 Detalhes e snapshots em `docs/SUPABASE_ENVIRONMENT_RECONCILIATION_2026-11-26.md` e diretórios `recovery/runtime-2026-11-26/original-project-*/`.
+
+
+## Marco técnico — baseline Normal recuperada
+
+Foi criado `src/server/normal-3.4.7.recovered.template.ts`, a partir do snapshot do runtime original. Ele parametriza apenas versão, userscript Base64 e HTML Ycaro.
+
+A reconstrução integral foi comparada com o snapshot original do Supabase: **894.196 caracteres, igualdade exata**. Isso estabelece uma fonte reproduzível do backend Normal 3.4.7, sem depender do template divergente de `master`.
+
+Foi criado o verificador offline `scripts/verify-normal-runtime-recovery.mjs`, que escreve somente em `dist/recovered-normal-3.4.7/index.ts` e compara o resultado ao snapshot. Workflow dedicado adicionado em `.github/workflows/verify-runtime-recovery.yml`. O CI ainda não foi confirmado; a igualdade foi verificada diretamente no processo de reconstrução.
+
+Auditoria dos limites de módulos: `docs/MODULE_BOUNDARY_AUDIT_2026-11-26.md`. A primeira extração sugerida é de helpers HTTP puros, depois do CI verde. Nenhum módulo funcional foi movido ainda.
