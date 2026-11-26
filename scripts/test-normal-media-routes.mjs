@@ -21,7 +21,7 @@ function harness({ body = {}, profile = {}, upload = { url: "https://storage.tes
   const r = await routes.profileRoute(new Request("https://example.test/api/profile", { method: "POST" }), "Ricardo");
   assert.deepEqual(await r.json(), { ok: true, avatarUrl: "https://storage.test/file" });
   assert.equal(calls.find(x => x[0] === "uploadFile")[3], 2 * 1024 * 1024);
-  assert.equal(calls.find(x => x[0] === "upsert")[2].user_name, "Ricardo");
+  assert.equal(calls.find(x => x[0] === "upsert")[1].user_name, "Ricardo");
 }
 {
   const { routes, calls } = harness({ body: { dataUrl: "data:video/mp4;base64,AAAA" }, upload: { url: "https://storage.test/video", mime: "video/mp4" } });
