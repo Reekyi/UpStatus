@@ -84,3 +84,9 @@ The isolated Deno harness now also exercises setup/login and session invalidatio
 
 
 The Deno harness now includes a negative authorization matrix for a standard user and a second admin identity, actor/target spoof prevention, DB/Storage fault injection, malformed JSON, `/api/update-info`, profile lookup, direct image/document/audio/video uploads, invalid MIME/size, invalid guest credentials/heartbeat, and twelve concurrent chat inserts with unique IDs. Run #231 passed on `c7afa1bc76f9ec5de19895852956ce4069df7dfa`. Failures are simulated in memory and do not test live Supabase RLS or production load.
+
+
+
+## Differential reference server
+
+The builder now emits `dist/recovered-normal-reference/index.ts`, a test-only copy of the exact recovered monolith with only its local `Deno.serve` port changed to 8001. The Deno harness runs that reference and the modular candidate in separate processes with isolated in-memory Supabase mocks, then compares status, selected headers and response bodies exactly for public/unauthenticated routes, OPTIONS, static userscript/guest pages and invalid guest credentials. Run #252 passed on `72dbbd0868700a944a5113c703cd0749feea8de8`. Differential coverage of authenticated flows remains a follow-on gate; neither artifact is deployable.
