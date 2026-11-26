@@ -46,12 +46,10 @@ jobs:
           if (release.version !== process.env.UPSTATUS_VERSION) throw new Error('Beta manifest version mismatch.');
           if (release.preRelease !== 'beta.1') throw new Error('Refusing to deploy a non-Beta manifest.');
           if (release.scriptUrl !== expected) throw new Error('Beta manifest points outside UpStatus Staging.');
-          if (process.env.SUPABASE_PROJECT_ID !== 'akbgmmpnnpwcgcfrrltw') {
-            // Project ID is checked against the workflow constant below as a fail-closed guard.
-          }
+          if (process.env.SUPABASE_PROJECT_ID !== 'akbgmmpnnpwcwgcfrltw') throw new Error('Refusing to deploy outside UpStatus Staging.');
           NODE
           test -n "$SUPABASE_ACCESS_TOKEN"
-          test "$SUPABASE_PROJECT_ID" = "akbgmmpnnpwcgfrltw" || test "$SUPABASE_PROJECT_ID" = "akbgmmpnnpwcgfrltw"
+          test "$SUPABASE_PROJECT_ID" = "akbgmmpnnpwcwgcfrltw"
 
       - name: Test Stable/Beta updater contracts
         run: node scripts/test-normal-updater-transport.mjs
