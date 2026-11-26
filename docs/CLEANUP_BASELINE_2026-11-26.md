@@ -319,3 +319,19 @@ Foi adicionado `scripts/test-normal-auth-core.mjs`, cobrindo cache quente/expira
 **Validação:** `Verify Recovered Normal Runtime` passou no HEAD `d854e399aeb06d7599aa2f288691f2c655ef08f9` (run #134). Reconstrução exata, quinze testes de módulos e build isolado do candidato modular passaram. O workflow legado `UpStatus Validate` segue falhando separadamente por `production updateURL mismatch`, já conhecido e não mascarado.
 
 Nenhum deploy, Supabase write, migration, alteração de schema/RLS/secrets ou runtime ativo foi realizado. O PR continua Draft.
+
+
+## Décimo sexto módulo real extraído: endpoints de autenticação
+
+Foi isolado `modules/auth-routes.js`, reunindo:
+- `accountRoute`: consulta se uma conta ainda precisa de configuração;
+- `meRoute`: resposta do contexto autenticado, role e permissões;
+- `logoutRoute`: remoção do token persistido e do cache local.
+
+As dependências são injetadas: resposta HTTP, consulta de conta, DB, extração do token, hash do token e cache compartilhado. O dispatcher mantém os mesmos caminhos, métodos e posição relativa das verificações de autenticação.
+
+Foi adicionado `scripts/test-normal-auth-routes.mjs`, cobrindo conta configurada/não configurada/inexistente, payload de `/api/me` para anônimo/admin/usuário sem setup, logout com token e logout sem token.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no HEAD `305c2038f52361242c177ed51748e8d424bdabf1` (run #145). Reconstrução exata, dezesseis testes de módulos e build isolado do candidato modular passaram. O primeiro build desta extração detectou que três blocos inline ainda precisavam ser reinseridos no comparador de equivalência; os marcadores de restauração foram adicionados e a execução posterior passou.
+
+Nenhum deploy, Supabase write, migration, alteração de schema/RLS/secrets ou runtime ativo foi realizado. O PR continua Draft.
