@@ -16,6 +16,7 @@ on:
       - "scripts/test-normal-status.mjs"
       - "scripts/test-normal-remote-status.mjs"
       - "scripts/test-normal-chat-data.mjs"
+      - "scripts/test-normal-media.mjs"
       - "scripts/build-normal-modular-candidate.mjs"
       - "src/server/normal-3.4.7/modules/**"
       - "ycaro.html"
@@ -57,5 +58,7 @@ jobs:
         run: node scripts/test-normal-remote-status.mjs
       - name: Test chat data module
         run: node scripts/test-normal-chat-data.mjs
+      - name: Test media module
+        run: node scripts/test-normal-media.mjs
       - name: Build isolated modular candidate
         run: node scripts/build-normal-modular-candidate.mjs
