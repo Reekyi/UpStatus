@@ -105,4 +105,47 @@ const requestOnce = loadHelper((options) => {
 });
 assert.equal(await requestOnce(manifestUrl, "manifesto"), "first", "Transport must settle once.");
 
-console.log("Updater transport OK: syntax, channel pinning, manifest validation and 8 GM_xmlhttpRequest scenarios.");
+
+const versionParts = extractFunction(source, "versionParts");
+const compareVersions = extractFunction(source, "compareVersions");
+const versionContext = {};
+vm.runInNewContext(versionParts + "\n" + compareVersions + "\nthis.compareVersions = compareVersions;", versionContext);
+assert.equal(versionContext.compareVersions("3.4.8-beta.2", "3.4.8-beta.1"), 1);
+assert.equal(versionContext.compareVersions("3.4.8-beta.1", "3.4.8-beta.10"), -1);
+assert.equal(versionContext.compareVersions("3.4.8", "3.4.8-beta.99"), 1);
+assert.equal(versionContext.compareVersions("3.4.7", "3.4.8-beta.1"), -1);
+assert.equal(versionContext.compareVersions("3.4.8-beta.1", "3.4.8-beta.1"), 0);
+
+const stagingPath = new URL("../src/userscript/normal-staging.user.js", import.meta.url);
+const betaReleasePath = new URL("../release-beta.json", import.meta.url);
+const staging = fs.readFileSync(stagingPath, "utf8");
+const betaRelease = JSON.parse(fs.readFileSync(betaReleasePath, "utf8"));
+const stagingUrl = "https://akbgmmpnnpwcwgcfrltw.supabase.co/functions/v1/upstatus/upstatus.user.js";
+const stagingManifestUrl = "https://raw.githubusercontent.com/Reekyi/UpStatus/feat/release-pipeline-foundation/release-beta.json";
+function assertStagingHeader(name, expected) {
+  const match = staging.match(new RegExp("^// @" + name + "\\s+([^\\r\\n]+)$", "m"));
+  assert.ok(match, "Missing staging userscript header @" + name);
+  assert.equal(match[1].trim(), expected, "Unexpected staging @" + name);
+}
+assert.equal(betaRelease.version, "3.4.8-beta.1");
+assert.equal(betaRelease.preRelease, "beta.1");
+assert.equal(betaRelease.scriptUrl, stagingUrl);
+assertStagingHeader("version", "3.4.8-beta.1");
+assertStagingHeader("namespace", "upseller-staging");
+assertStagingHeader("updateURL", stagingUrl);
+assertStagingHeader("downloadURL", stagingUrl);
+assert.ok(staging.includes("https://akbgmmpnnpwcwgcfrltw.supabase.co/functions/v1/upstatus-screen-share-3-1-1-beta10"));
+assert.ok(staging.includes("sb_publishable_YZKmAyA19mkOfByJ5Y-Cmg_VbNnNkbA"));
+assert.ok(staging.includes("upstatus-screen-share-staging-live-v1"));
+assert.ok(!staging.includes("mvjqunhjxkbfcrxkjtgf"));
+assert.ok(!staging.includes("dlfvkawaiqduhlazsszm"));
+assert.doesNotThrow(() => new vm.Script(staging, { filename: "normal-staging.user.js" }));
+const stagingChecker = extractFunction(staging, "checkUpdate");
+assert.ok(stagingChecker.includes(stagingManifestUrl));
+assert.ok(stagingChecker.includes("betaScriptUrl"));
+assert.ok(stagingChecker.includes("requestUpdateResource"));
+assert.ok(!stagingChecker.includes("fetch("));
+assert.ok(stagingChecker.includes("manifest.preRelease"));
+assert.ok(stagingChecker.includes("served!==result.remote"));
+
+console.log("Updater transport and channels OK: stable + staging manifests, semver prereleases, syntax and GM_xmlhttpRequest error paths.");
