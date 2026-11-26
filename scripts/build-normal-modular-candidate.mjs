@@ -155,8 +155,8 @@ const importedBlock = importAnchor +
   '\nimport { createChatDataStore } from "./modules/chat-data.js";' +
   '\nimport { createMediaStore } from "./modules/media.js";' +
   '\nimport { createAuthContext } from "./modules/auth-context.js";' +
-  '\nimport { createChatRouteHandler } from "./modules/chat-route.js"';
-  '\\nimport { createMediaRoutes } from "./modules/media-routes.js";' +
+  '\nimport { createChatRouteHandler } from "./modules/chat-route.js";' +
+  '\nimport { createMediaRoutes } from "./modules/media-routes.js";';
 source = source.replace(importAnchor, () => importedBlock);
 
 restore("authCrypto", "const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });");
