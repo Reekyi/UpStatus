@@ -221,3 +221,10 @@ O builder modular agora extrai oito módulos e a reversão dos oito blocos e imp
 Foi criado `modules/media.js` para perfis, decodificação Data URL, detecção MIME, extensões e upload Storage. DB e randomBytes são injetados. Foram preservados buckets, assinaturas de arquivos, erros, cacheControl e upsert.
 
 O teste offline `scripts/test-normal-media.mjs` passou localmente em Node v22.16.0 usando Storage falso. O builder modular agora extrai nove módulos reais e a reversão dos nove blocos e imports reconstrói exatamente o template original.
+
+
+## Décimo módulo real extraído: contexto de autenticação
+
+Foi criado `modules/auth-context.js` para resolução de usuário normal, Lucca, Ycaro ou ausência de sessão. A ordem, expiração prévia de convidados, short-circuit e formato `{ name, guest, joinedAt }` foram preservados.
+
+O teste offline `scripts/test-normal-auth-context.mjs` passou localmente em Node v22.16.0. O builder modular agora extrai dez módulos reais e a reversão dos dez blocos e imports reconstrói exatamente o template original.
