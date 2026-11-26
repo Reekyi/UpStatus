@@ -1048,6 +1048,129 @@ try {
   const modularTesterHeaders = { "x-upstatus-token": modularTester.token };
   const referenceTesterHeaders = { "x-upstatus-token": referenceTester.token };
 
+  // Differential negative authorization and validation contracts.
+  await compareJsonPair("/api/health",
+    { headers: modularTesterHeaders }, { headers: referenceTesterHeaders });
+  await compareJsonPair("/api/history",
+    { headers: modularTesterHeaders }, { headers: referenceTesterHeaders });
+  await compareJsonPair("/api/remote-status/result?id=missing",
+    { headers: modularTesterHeaders }, { headers: referenceTesterHeaders });
+  await compareJsonPair("/api/remote-status",
+    {
+      method: "POST", headers: { ...modularTesterHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ target: "Lohan", status: "busy", reason: "unauthorized" })
+    },
+    {
+      method: "POST", headers: { ...referenceTesterHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ target: "Lohan", status: "busy", reason: "unauthorized" })
+    }
+  );
+  await compareJsonPair("/api/chat/clear",
+    { method: "POST", headers: modularGuilhermeHeaders },
+    { method: "POST", headers: referenceGuilhermeHeaders }
+  );
+
+  for (const statusPayload of [
+    { status: "not-a-status" },
+    { status: "busy", reason: "   " }
+  ]) {
+    await compareJsonPair("/api/status",
+      {
+        method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+        body: JSON.stringify(statusPayload)
+      },
+      {
+        method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+        body: JSON.stringify(statusPayload)
+      }
+    );
+  }
+  await compareJsonPair("/api/chat",
+    {
+      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: " " })
+    },
+    {
+      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: " " })
+    }
+  );
+  await compareJsonPair("/api/chat/reaction",
+    {
+      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ messageId: "missing", emoji: "🤡" })
+    },
+    {
+      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ messageId: "missing", emoji: "🤡" })
+    }
+  );
+  const forbiddenMessagePair = await compareJsonPair("/api/chat",
+    {
+      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "DIFFERENTIAL_FORBIDDEN_EDIT" })
+    },
+    {
+      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "DIFFERENTIAL_FORBIDDEN_EDIT" })
+    },
+    body => ({ ...body, message: { ...body.message, id: "<id>", createdAt: "<timestamp>" } })
+  );
+  await compareJsonPair("/api/chat/" + forbiddenMessagePair.modularBody.message.id,
+    {
+      method: "PATCH", headers: { ...modularTesterHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "spoofed edit" })
+    },
+    {
+      method: "PATCH", headers: { ...referenceTesterHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "spoofed edit" })
+    },
+    undefined,
+    "/api/chat/" + forbiddenMessagePair.recoveredBody.message.id
+  );
+  await compareJsonPair("/api/chat/" + forbiddenMessagePair.modularBody.message.id,
+    { method: "DELETE", headers: modularTesterHeaders },
+    { method: "DELETE", headers: referenceTesterHeaders },
+    undefined,
+    "/api/chat/" + forbiddenMessagePair.recoveredBody.message.id
+  );
+  await compareJsonPair("/api/chat/upload-url",
+    {
+      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ mime: "application/x-msdownload", size: 1024, name: "invalid.exe" })
+    },
+    {
+      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ mime: "application/x-msdownload", size: 1024, name: "invalid.exe" })
+    }
+  );
+  await compareJsonPair("/api/chat/upload-url",
+    {
+      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ mime: "application/pdf", size: 20 * 1024 * 1024 + 1, name: "oversized.pdf" })
+    },
+    {
+      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ mime: "application/pdf", size: 20 * 1024 * 1024 + 1, name: "oversized.pdf" })
+    }
+  );
+  for (const guest of ["lucca", "ycaro"] as const) {
+    await compareJsonPair("/api/" + guest + "/heartbeat",
+      { method: "POST", headers: { "content-type": "application/json" }, body: "{}" },
+      { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }
+    );
+    await compareJsonPair("/api/" + guest + "/login",
+      {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password: "invalid-guest-password" })
+      },
+      {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password: "invalid-guest-password" })
+      }
+    );
+  }
+
   const finalAdminPair = await compareJsonPair("/api/login",
     {
       method: "POST", headers: { "content-type": "application/json" },
@@ -1140,7 +1263,7 @@ try {
     assertEquals(response.headers.get("access-control-allow-origin"), "*");
   }
 
-  console.log("PASS: Deno route matrix plus public, authenticated, guest-cookie, media, typing, fast-sync, cleanup, health and fallback differential contracts against recovered monolith");
+  console.log("PASS: Deno route matrix plus positive/negative public, authenticated, guest-cookie, media, typing, fast-sync, cleanup, health and fallback differential contracts against recovered monolith");
 } catch (error) {
   console.error(error);
   throw error;
