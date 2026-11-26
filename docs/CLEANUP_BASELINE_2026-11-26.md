@@ -447,3 +447,13 @@ Cobertura adicional: `/api/update-info`, mapa de perfil, upload direto de imagem
 **Validação:** `Verify Recovered Normal Runtime` passou no run #231, commit `c7afa1bc76f9ec5de19895852956ce4069df7dfa`, incluindo reconstrução exata, 17 testes individuais, quatro integrações, build modular, execução HTTP Deno ampliada e parse/bundle.
 
 Toda a matriz continua usando DB/Storage em memória. Isso confirma os contratos exercitados no Deno local, não permissões reais do Supabase, isolamento RLS do projeto remoto ou comportamento sob carga de produção. Próximo gate: comparação diferencial do candidato modular contra a referência monolítica recuperada, para verificar equivalência HTTP nos mesmos cenários. Nenhum deploy, Supabase write ou runtime ativo foi tocado.
+
+## Comparação HTTP diferencial: monólito recuperado × candidato modular
+
+O builder agora gera dois artefatos isolados para testes: o candidato modular com 17 módulos e uma cópia de referência do monólito recuperado. A única diferença aplicada à referência é a porta local do `Deno.serve` (8001); versão, userscript, HTML e lógica de rotas são os mesmos artefatos recuperados. O harness inicia os dois servidores Deno em processos separados, cada um com mock Supabase próprio e dados iniciais equivalentes.
+
+Antes dos testes extensos do candidato, o harness dispara os mesmos requests contra os dois servidores e compara status HTTP, headers relevantes e body byte a byte em health, `/api/me`, rotas protegidas sem sessão, account, members, update-info, userscript, páginas Lucca/Ycaro, prefixo `/upstatus`, preflight OPTIONS e credenciais de convidado inválidas.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #252, commit `72dbbd0868700a944a5113c703cd0749feea8de8`. Passaram reconstrução exata, 17 testes unitários, quatro integrações, geração dos dois servidores, comparação HTTP diferencial, matriz Deno de autorização/falhas/concorrência e parse/bundle.
+
+A comparação diferencial atual cobre contratos públicos e sem autenticação; as rotas autenticadas continuam cobertas em profundidade pelo harness modular e testes integrados por domínio. Próximo passo: ampliar a comparação diferencial para fluxos autenticados determinísticos (setup/login, sessão, status e chat) e documentar o limite final de cutover. Nenhum deploy, Supabase write ou runtime ativo foi tocado.
