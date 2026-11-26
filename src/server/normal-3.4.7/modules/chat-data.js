@@ -2,7 +2,7 @@ export function createChatDataStore({ db, members }) {
   async function mentions(text) {
     const names = (await members()).map((x) => x.name);
     const found = [];
-    for (const match of String(text).matchAll(/@([\\p{L}\\p{N}_-]+)/gu)) {
+    for (const match of String(text).matchAll(/@([\p{L}\p{N}_-]+)/gu)) {
       const raw = match[1].toLowerCase();
       if (raw === "todos") {
         for (const name of names) if (!found.includes(name)) found.push(name);
