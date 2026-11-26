@@ -7,7 +7,7 @@ export function createGuestSessionStore({ stateValue, setState, db, randomBytes 
 
   function luccaToken(req) {
     const auth = req.headers.get("authorization") || "";
-    if (/^Bearer\\s+/i.test(auth)) return auth.replace(/^Bearer\\s+/i, "").trim();
+    if (/^Bearer\s+/i.test(auth)) return auth.replace(/^Bearer\s+/i, "").trim();
     return cookie(req, "lucca_session");
   }
 
@@ -38,7 +38,7 @@ export function createGuestSessionStore({ stateValue, setState, db, randomBytes 
 
   function ycaroToken(req) {
     const auth = req.headers.get("authorization") || "";
-    if (/^Bearer\\s+/i.test(auth)) return auth.replace(/^Bearer\\s+/i, "").trim();
+    if (/^Bearer\s+/i.test(auth)) return auth.replace(/^Bearer\s+/i, "").trim();
     return cookie(req, "ycaro_session");
   }
 
