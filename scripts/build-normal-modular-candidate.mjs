@@ -223,6 +223,8 @@ const importedBlock = importAnchor +
   '\nimport { createChatMaintenanceRoutes } from "./modules/chat-maintenance.js";';
 source = source.replace(importAnchor, () => importedBlock);
 
+const modularSource = source;
+
 restore("authCrypto", "const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });");
 restore("authCore", "const { userFromToken, account, admin, createSession, login } = createAuthCore({ db, sessionCache, token, tokenHash, randomBytes, response, readBody, passwordHash, checkPassword });");
 restore("authRoutes", 'const { accountRoute, meRoute, logoutRoute } = createAuthRoutes({ response, account, db, token, tokenHash, sessionCache });\n    if(path==="/api/account"&&req.method==="GET")return await accountRoute(req);');
@@ -250,25 +252,31 @@ if (source !== template) {
   throw new Error("Modular candidate changed code outside the extracted blocks.");
 }
 
+let candidate = modularSource;
+
 const replacements = {
   "__UPSTATUS_VERSION__": "3.4.7",
   "__UPSTATUS_USERSCRIPT_BASE64__": Buffer.from(userscript, "utf8").toString("base64"),
   "__UPSTATUS_YCARO_HTML_EXPR__": JSON.stringify(ycaro)
 };
 for (const [placeholder, value] of Object.entries(replacements)) {
-  if (!source.includes(placeholder)) throw new Error("Missing placeholder: " + placeholder);
-  source = source.replaceAll(placeholder, () => value);
+  if (!candidate.includes(placeholder)) throw new Error("Missing placeholder: " + placeholder);
+  candidate = candidate.replaceAll(placeholder, () => value);
 }
-if (/__UPSTATUS_[A-Z0-9_]+__/.test(source)) throw new Error("Unresolved runtime placeholder detected.");
+if (/__UPSTATUS_[A-Z0-9_]+__/.test(candidate)) throw new Error("Unresolved runtime placeholder detected.");
+if (candidate === template) throw new Error("Modular candidate unexpectedly equals the recovered monolith.");
+for (const file of moduleFiles) {
+  if (!candidate.includes("./modules/" + file)) throw new Error("Missing modular import for " + file);
+}
 
 fs.mkdirSync(path.join(outputRoot, "modules"), { recursive: true });
-fs.writeFileSync(outputPath, source, "utf8");
+fs.writeFileSync(outputPath, candidate, "utf8");
 for (const file of moduleFiles) {
   fs.copyFileSync(modulePaths[file], path.join(outputRoot, "modules", file));
 }
 fs.writeFileSync(
   path.join(outputRoot, "README.txt"),
-  "NON-PRODUCTION CANDIDATE. Generated offline for review only. Never deploy this output automatically.\n",
+  "NON-PRODUCTION MODULAR CANDIDATE. Generated offline for review only. The Deno entrypoint is wired to dependency-injected modules. Never deploy this output automatically.\n",
   "utf8"
 );
 
