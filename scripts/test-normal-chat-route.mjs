@@ -128,7 +128,7 @@ function makeDb(dataByTable = {}, unreadCount = 0) {
   const result = await handler.chatRoute(new Request("https://example.test/api/chat?fast=1&since=invalid", { method: "GET" }), "Ricardo");
   assert.equal(result.status, 200);
   const chatRead = db.calls.filter((x) => x[0] === "from" && x[1] === "messages").length;
-  assert.equal(chatRead, 2);
+  assert.equal(chatRead, 1); // invalid since is ignored, so only the unread-count query touches messages.
   assert.ok(db.calls.some((x) => x[0] === "gte" && x[1] === "messages" && x[2] === "created_at"));
 }
 
