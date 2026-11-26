@@ -299,3 +299,23 @@ Foi adicionado `scripts/test-normal-chat-interaction-routes.mjs`, com DB encade�
 **Validação:** `Verify Recovered Normal Runtime` passou no HEAD `c1d823d5080e7ba3ee1b412814a057e733fd8781` (run #122). Reconstrução exata, quatorze testes de módulos e build isolado do candidato modular passaram. Os dois primeiros runs desta extração revelaram apenas lacunas no mock de teste (`maybeSingle` ausente e identidade Ricardo já privilegiada); os fixtures foram corrigidos antes do run verde.
 
 Nenhum deploy, Supabase write, migration, alteração de schema/RLS/secrets ou runtime ativo foi realizado. O PR continua Draft.
+
+
+## Décimo quinto módulo real extraído: núcleo de autenticação
+
+Foi isolado `modules/auth-core.js`, contendo resolução de sessão por token, consulta de contas, verificação de administrador, criação de sessão e login/setup. As dependências de DB, cache de sessão, leitura do token, hash de token, aleatoriedade, helpers HTTP e verificação/hash de senha são injetadas.
+
+Foram preservados:
+- Cache de sessão em memória, expiração e janela de revalidação de 30 segundos.
+- Consulta por `token_hash`, remoção de sessões expiradas e persistência no cache.
+- Seleção de campos da tabela `users` e regra de role `implementation_admin`.
+- Limpeza de sessões expiradas antes de criar nova sessão.
+- Token aleatório de 32 bytes, hash persistido e validade de 30 dias.
+- Validação de login/setup, mensagens e códigos HTTP.
+- Regra de role inicial: Ricardo, Lohan e Guilherme recebem `implementation_admin`; demais contas recebem `implementation_user` quando não há role preexistente.
+
+Foi adicionado `scripts/test-normal-auth-core.mjs`, cobrindo cache quente/expirado, lookup de sessão no DB, expiração persistida, conta/admin, login válido/inválido, setup já configurado, setup inicial de equipe e usuário comum, além da criação de sessão.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no HEAD `d854e399aeb06d7599aa2f288691f2c655ef08f9` (run #134). Reconstrução exata, quinze testes de módulos e build isolado do candidato modular passaram. O workflow legado `UpStatus Validate` segue falhando separadamente por `production updateURL mismatch`, já conhecido e não mascarado.
+
+Nenhum deploy, Supabase write, migration, alteração de schema/RLS/secrets ou runtime ativo foi realizado. O PR continua Draft.
