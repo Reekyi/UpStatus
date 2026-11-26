@@ -163,3 +163,10 @@ Foram extraídos dois módulos com dependências explícitas:
 Testes offline para ambos passaram localmente em Node v22.16.0, usando apenas Request/Response nativos e DB falso. O builder `scripts/build-normal-modular-candidate.mjs` monta um candidato isolado em `dist/modular-normal-candidate/`. A reversão dos dois blocos e imports restaura exatamente o template original, provando que o restante do código não foi alterado.
 
 O workflow dedicado foi ampliado para executar os testes e gerar o candidato. Ainda não há confirmação de execução do GitHub Actions. Nenhum arquivo em `supabase/functions` foi alterado; nenhum deploy ou acesso ao Supabase foi realizado.
+
+
+## Terceiro módulo real extraído
+
+Foi isolado `modules/auth-crypto.js` com `tokenHash`, `passwordHash` e `checkPassword`, recebendo por injeção as mesmas primitivas de `node:crypto` e `Buffer`. O algoritmo scrypt, salt, formato `salt:hash` e comparação timing-safe foram preservados.
+
+O teste `scripts/test-normal-auth-crypto.mjs` passou localmente em Node v22.16.0. O builder modular agora extrai HTTP, state e auth crypto; uma reversão dos três blocos e imports reconstrói exatamente o template recuperado. O candidato segue isolado em `dist/`, não publicado.
