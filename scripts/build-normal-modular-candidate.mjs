@@ -6,12 +6,8 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const templatePath = path.join(ROOT, "src/server/normal-3.4.7.recovered.template.ts");
 const modulesDir = path.join(ROOT, "src/server/normal-3.4.7/modules");
-const helperPath = path.join(modulesDir, "http.js");
-const statePath = path.join(modulesDir, "state.js");
-const authCryptoPath = path.join(modulesDir, "auth-crypto.js");
-const guestSessionsPath = path.join(modulesDir, "guest-sessions.js");
-const membersPath = path.join(modulesDir, "members.js");
-const statusPath = path.join(modulesDir, "status.js");
+const moduleFiles = ["http.js", "state.js", "auth-crypto.js", "guest-sessions.js", "members.js", "status.js", "remote-status.js"];
+const modulePaths = Object.fromEntries(moduleFiles.map((file) => [file, path.join(modulesDir, file)]));
 const userscriptPath = path.join(ROOT, "recovery/runtime-2026-11-26/userscripts/original-project-normal-3.4.7.user.js");
 const ycaroPath = path.join(ROOT, "ycaro.html");
 const outputRoot = path.join(ROOT, "dist/modular-normal-candidate");
@@ -19,18 +15,19 @@ const outputPath = path.join(outputRoot, "index.ts");
 
 const template = fs.readFileSync(templatePath, "utf8");
 let source = template;
-const helperModule = fs.readFileSync(helperPath, "utf8");
-if (!helperModule.includes("export function createHttpHelpers")) throw new Error("HTTP helper module export not found.");
-const stateModule = fs.readFileSync(statePath, "utf8");
-if (!stateModule.includes("export function createStateStore")) throw new Error("State store module export not found.");
-const authCryptoModule = fs.readFileSync(authCryptoPath, "utf8");
-if (!authCryptoModule.includes("export function createAuthCrypto")) throw new Error("Auth crypto module export not found.");
-const guestSessionsModule = fs.readFileSync(guestSessionsPath, "utf8");
-if (!guestSessionsModule.includes("export function createGuestSessionStore")) throw new Error("Guest session module export not found.");
-const membersModule = fs.readFileSync(membersPath, "utf8");
-if (!membersModule.includes("export function createMembersStore")) throw new Error("Members module export not found.");
-const statusModule = fs.readFileSync(statusPath, "utf8");
-if (!statusModule.includes("export function createStatusHandlers")) throw new Error("Status handlers module export not found.");
+const moduleContents = Object.fromEntries(moduleFiles.map((file) => [file, fs.readFileSync(modulePaths[file], "utf8")]));
+const expectedExports = {
+  "http.js": "export function createHttpHelpers",
+  "state.js": "export function createStateStore",
+  "auth-crypto.js": "export function createAuthCrypto",
+  "guest-sessions.js": "export function createGuestSessionStore",
+  "members.js": "export function createMembersStore",
+  "status.js": "export function createStatusHandlers",
+  "remote-status.js": "export function createRemoteStatusHandler"
+};
+for (const [file, marker] of Object.entries(expectedExports)) {
+  if (!moduleContents[file].includes(marker)) throw new Error("Expected export missing from " + file);
+}
 const userscript = fs.readFileSync(userscriptPath, "utf8");
 const ycaro = fs.readFileSync(ycaroPath, "utf8");
 
@@ -38,51 +35,57 @@ const cacheDeclaration = "let membersCache:{at:number,data:Array<{name:string}>}
 if (!source.includes(cacheDeclaration)) throw new Error("Members cache declaration not found.");
 source = source.replace(cacheDeclaration, () => "const { members } = createMembersStore(db);");
 
-const httpStart = source.indexOf("function response(body:unknown");
-const httpEnd = source.indexOf("function token(req:Request)", httpStart);
-if (httpStart < 0 || httpEnd < 0) throw new Error("Could not isolate the original HTTP helper block.");
-const originalHttpBlock = source.slice(httpStart, httpEnd);
-source = source.slice(0, httpStart) +
-  "const { response, readBody } = createHttpHelpers(CORS);\n" +
-  source.slice(httpEnd);
+function replaceBlock(startNeedle, endNeedle, replacement, label) {
+  const start = source.indexOf(startNeedle);
+  const end = source.indexOf(endNeedle, start);
+  if (start < 0 || end < 0) throw new Error("Could not isolate " + label + ".");
+  const original = source.slice(start, end);
+  source = source.slice(0, start) + replacement + "\n" + source.slice(end);
+  return original;
+}
 
-const stateStart = source.indexOf("async function stateValue(key:string, fallback:any) {");
-const stateEnd = source.indexOf("function cookie(req:Request,name:string)", stateStart);
-if (stateStart < 0 || stateEnd < 0) throw new Error("Could not isolate the original shared state block.");
-const originalStateBlock = source.slice(stateStart, stateEnd);
-source = source.slice(0, stateStart) +
-  "const { stateValue, setState } = createStateStore(db);\n" +
-  source.slice(stateEnd);
-
-const guestStart = source.indexOf("function cookie(req:Request,name:string)");
-const guestEnd = source.indexOf("async function profileMap()", guestStart);
-if (guestStart < 0 || guestEnd < 0) throw new Error("Could not isolate the original guest session block.");
-const originalGuestBlock = source.slice(guestStart, guestEnd);
-source = source.slice(0, guestStart) +
-  "const { cookie, luccaToken, luccaState, expireLucca, ycaroToken, ycaroState, expireYcaro } = createGuestSessionStore({ stateValue, setState, db, randomBytes });\n" +
-  source.slice(guestEnd);
-
-const membersStart = source.indexOf("async function members(){");
-const membersEnd = source.indexOf("async function healthRoute(req:Request,name:string){", membersStart);
-if (membersStart < 0 || membersEnd < 0) throw new Error("Could not isolate the original members function.");
-const originalMembersBlock = source.slice(membersStart, membersEnd);
-source = source.slice(0, membersStart) + "/* MEMBERS_MODULE */\n" + source.slice(membersEnd);
-
-const statusStart = source.indexOf("async function healthRoute(req:Request,name:string){");
-const statusEnd = source.indexOf("async function mentions(text:string){", statusStart);
-if (statusStart < 0 || statusEnd < 0) throw new Error("Could not isolate the original status handlers.");
-const originalStatusBlock = source.slice(statusStart, statusEnd);
-source = source.slice(0, statusStart) +
-  "const { healthRoute, statusRoute, historyRoute } = createStatusHandlers({ db, response, readBody, account, admin, version: VERSION });\n" +
-  source.slice(statusEnd);
-
-const authCryptoStart = source.indexOf("function tokenHash(t:string)");
-const authCryptoEnd = source.indexOf("async function userFromToken(req:Request)", authCryptoStart);
-if (authCryptoStart < 0 || authCryptoEnd < 0) throw new Error("Could not isolate the original auth crypto block.");
-const originalAuthCryptoBlock = source.slice(authCryptoStart, authCryptoEnd);
-source = source.slice(0, authCryptoStart) +
-  "const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });\n" +
-  source.slice(authCryptoEnd);
+const originalHttpBlock = replaceBlock(
+  "function response(body:unknown",
+  "function token(req:Request)",
+  "const { response, readBody } = createHttpHelpers(CORS);",
+  "HTTP helper block"
+);
+const originalStateBlock = replaceBlock(
+  "async function stateValue(key:string, fallback:any) {",
+  "function cookie(req:Request,name:string)",
+  "const { stateValue, setState } = createStateStore(db);",
+  "shared state block"
+);
+const originalGuestBlock = replaceBlock(
+  "function cookie(req:Request,name:string)",
+  "async function profileMap()",
+  "const { cookie, luccaToken, luccaState, expireLucca, ycaroToken, ycaroState, expireYcaro } = createGuestSessionStore({ stateValue, setState, db, randomBytes });",
+  "guest session block"
+);
+const originalMembersBlock = replaceBlock(
+  "async function members(){",
+  "async function healthRoute(req:Request,name:string){",
+  "/* MEMBERS_MODULE */",
+  "members block"
+);
+const originalStatusBlock = replaceBlock(
+  "async function healthRoute(req:Request,name:string){",
+  "async function mentions(text:string){",
+  "const { healthRoute, statusRoute, historyRoute } = createStatusHandlers({ db, response, readBody, account, admin, version: VERSION });",
+  "status handler block"
+);
+const originalRemoteBlock = replaceBlock(
+  "async function remoteRoute(req:Request,name:string) {",
+  "async function luccaRoute(req:Request) {",
+  "const { remoteRoute } = createRemoteStatusHandler({ stateValue, setState, admin, response, readBody, members, randomBytes });",
+  "remote status block"
+);
+const originalAuthCryptoBlock = replaceBlock(
+  "function tokenHash(t:string)",
+  "async function userFromToken(req:Request)",
+  "const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });",
+  "auth crypto block"
+);
 
 const importAnchor = 'import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";';
 if (!source.includes(importAnchor)) throw new Error("Crypto import anchor not found.");
@@ -92,7 +95,8 @@ const importedBlock = importAnchor +
   '\nimport { createAuthCrypto } from "./modules/auth-crypto.js";' +
   '\nimport { createGuestSessionStore } from "./modules/guest-sessions.js";' +
   '\nimport { createMembersStore } from "./modules/members.js";' +
-  '\nimport { createStatusHandlers } from "./modules/status.js";';
+  '\nimport { createStatusHandlers } from "./modules/status.js";' +
+  '\nimport { createRemoteStatusHandler } from "./modules/remote-status.js";';
 source = source.replace(importAnchor, () => importedBlock);
 
 const restored = source
@@ -101,11 +105,12 @@ const restored = source
   .replace("const { cookie, luccaToken, luccaState, expireLucca, ycaroToken, ycaroState, expireYcaro } = createGuestSessionStore({ stateValue, setState, db, randomBytes });\n", () => originalGuestBlock)
   .replace("/* MEMBERS_MODULE */\n", () => originalMembersBlock)
   .replace("const { healthRoute, statusRoute, historyRoute } = createStatusHandlers({ db, response, readBody, account, admin, version: VERSION });\n", () => originalStatusBlock)
+  .replace("const { remoteRoute } = createRemoteStatusHandler({ stateValue, setState, admin, response, readBody, members, randomBytes });\n", () => originalRemoteBlock)
   .replace("const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });\n", () => originalAuthCryptoBlock)
   .replace("const { members } = createMembersStore(db);", () => cacheDeclaration)
   .replace(importedBlock, () => importAnchor);
 if (restored !== template) {
-  throw new Error("Modular candidate changed code outside the six extracted helper blocks.");
+  throw new Error("Modular candidate changed code outside the seven extracted blocks.");
 }
 
 const replacements = {
@@ -121,8 +126,8 @@ if (/__UPSTATUS_[A-Z0-9_]+__/.test(source)) throw new Error("Unresolved runtime 
 
 fs.mkdirSync(path.join(outputRoot, "modules"), { recursive: true });
 fs.writeFileSync(outputPath, source, "utf8");
-for (const file of [helperPath, statePath, authCryptoPath, guestSessionsPath, membersPath, statusPath]) {
-  fs.copyFileSync(file, path.join(outputRoot, "modules", path.basename(file)));
+for (const file of moduleFiles) {
+  fs.copyFileSync(modulePaths[file], path.join(outputRoot, "modules", file));
 }
 fs.writeFileSync(
   path.join(outputRoot, "README.txt"),
@@ -132,6 +137,6 @@ fs.writeFileSync(
 
 console.log("Built isolated modular Normal candidate.");
 console.log("Output: " + path.relative(ROOT, outputPath));
-console.log("Extracted modules: HTTP, shared state, auth crypto, guest sessions, members, status");
+console.log("Extracted modules: HTTP, shared state, auth crypto, guest sessions, members, status, remote status");
 console.log("Outside extracted blocks: unchanged");
 console.log("Supabase/deploy actions: none");
