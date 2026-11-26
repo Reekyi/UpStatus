@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import assert from "node:assert/strict";
 import { createChatMaintenanceRoutes } from "../src/server/normal-3.4.7/modules/chat-maintenance.js";
 
