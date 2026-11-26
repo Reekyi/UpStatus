@@ -54,10 +54,11 @@ async function compareJsonPair(
   path: string,
   modularInit: RequestInit,
   referenceInit: RequestInit,
-  normalize: (value: any) => unknown = value => value
+  normalize: (value: any) => unknown = value => value,
+  referencePath: string = path
 ) {
   const [modular, recovered] = await Promise.all([
-    request(path, modularInit), requestReference(path, referenceInit)
+    request(path, modularInit), requestReference(referencePath, referenceInit)
   ]);
   assertEquals(modular.status, recovered.status);
   const [modularBody, recoveredBody] = await Promise.all([modular.json(), recovered.json()]);
@@ -791,16 +792,8 @@ try {
     body => ({
       ready: body.ready,
       result: { ...body.result, commandId: "<id>", createdAt: "<timestamp>" }
-    })
-  );
-  await compareJsonPair(
-    "/api/remote-status/result?id=" + encodeURIComponent(remotePair.recoveredBody.commandId),
-    { headers: referenceAdminHeaders },
-    { headers: referenceAdminHeaders },
-    body => ({
-      ready: body.ready,
-      result: { ...body.result, commandId: "<id>", createdAt: "<timestamp>" }
-    })
+    }),
+    "/api/remote-status/result?id=" + encodeURIComponent(remotePair.recoveredBody.commandId)
   );
 
   const differentialMessage = "DIFFERENTIAL_CHAT_CONTRACT @Lohan";
@@ -849,12 +842,14 @@ try {
       method: "PATCH", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
       body: JSON.stringify({ message: "DIFFERENTIAL_CHAT_EDIT" })
     },
-    body => ({ ...body, message: { ...body.message, id: "<id>", editedAt: "<timestamp>" } })
+    body => ({ ...body, message: { ...body.message, id: "<id>", editedAt: "<timestamp>" } }),
+    "/api/chat/" + referenceMessageId
   );
   await compareJsonPair("/api/chat/" + modularMessageId,
     { method: "DELETE", headers: modularAdminHeaders },
     { method: "DELETE", headers: referenceAdminHeaders },
-    body => ({ ...body, id: "<id>" })
+    body => ({ ...body, id: "<id>" }),
+    "/api/chat/" + referenceMessageId
   );
 
   const [modularLogout, referenceLogout] = await Promise.all([
