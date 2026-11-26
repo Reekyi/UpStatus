@@ -54,6 +54,9 @@ jobs:
       - name: Test Stable/Beta updater contracts
         run: node scripts/test-normal-updater-transport.mjs
 
+      - name: Test Staging runtime isolation
+        run: node scripts/test-staging-runtime.mjs
+
       - name: Build modular Beta backend candidate
         run: node scripts/build-normal-modular-candidate.mjs
 
