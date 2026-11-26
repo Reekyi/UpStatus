@@ -360,3 +360,13 @@ Também entram `/api/update-info`, perfil, formatos imagem/documento/áudio/víd
 **Validação:** workflow `Verify Recovered Normal Runtime` passou no run #231, commit `c7afa1bc76f9ec5de19895852956ce4069df7dfa`, incluindo recuperação exata, 17 testes unitários, quatro integrações, build, execução Deno e esbuild.
 
 As falhas são simuladas em memória, sem rede ao Supabase. Próximo gate: execução diferencial da referência monolítica e do candidato modular nos mesmos cenários HTTP.
+
+## 29. Comparação diferencial com o monólito recuperado
+
+O builder também emite `dist/recovered-normal-reference/index.ts`, derivado do template recuperado com placeholders resolvidos e listener local na porta 8001. O harness inicia a referência e o candidato modular em processos Deno separados, ambos com o mesmo mock Supabase e dados iniciais equivalentes.
+
+Os mesmos requests públicos/sem autenticação são enviados aos dois e os status, headers relevantes e bodies são comparados exatamente: health, `/api/me`, gate de auth, account, roster, update-info, userscript, páginas Lucca/Ycaro, prefixo `/upstatus`, OPTIONS e login de convidado com senha inválida.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #252, commit `72dbbd0868700a944a5113c703cd0749feea8de8`, incluindo recuperação exata, testes unitários, quatro integrações, build, execução Deno, comparação diferencial e esbuild.
+
+A comparação exata ainda é restrita a rotas públicas/sem autenticação; os fluxos protegidos são testados no candidato modular contra asserts contratuais e mocks em memória. Próximo gate: comparar também fluxos autenticados selecionados com normalização de tokens, IDs e timestamps.
