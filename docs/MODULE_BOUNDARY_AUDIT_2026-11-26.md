@@ -174,3 +174,20 @@ Foi extraído `modules/members.js` por meio de `createMembersStore(db)`. O módu
 O cache, antes global no entrypoint, agora pertence à instância do módulo, criada uma vez por runtime. Isso mantém o mesmo ciclo de vida e evita cache duplicado.
 
 O teste `scripts/test-normal-members.mjs` passou localmente em Node v22.16.0. Cobre filtro, ordem, cache/TTL e erro do DB usando mock. O builder foi atualizado e a reversão dos cinco blocos extraídos restaura exatamente o template original.
+
+
+## 14. Sexto módulo real — saúde, status e histórico
+
+Foi extraído `modules/status.js` com `createStatusHandlers({ db, response, readBody, account, admin, version })`, fornecendo `healthRoute`, `statusRoute` e `historyRoute`.
+
+Dependências explícitas:
+- cliente Supabase existente;
+- helpers HTTP existentes;
+- `account` e `admin` existentes;
+- versão do runtime.
+
+Os contratos foram preservados: permissões, allow-list de saúde, cabeçalho `x-upstatus-version`, TTL de presença de 15 segundos, validação de status/motivo, regra de actor/target, tabela `status_history` e limite de histórico entre 1 e 500.
+
+O teste `scripts/test-normal-status.mjs` passou localmente em Node v22.16.0 com DB falso. Cobre bloqueio de saúde, GET de presença, POST inválido, atualização com actor/target e clamp do histórico.
+
+O builder foi atualizado para seis módulos reais e a reversão dos seis blocos mais imports reconstrói exatamente o template original. Nenhuma chamada ao Supabase foi feita pelos testes.
