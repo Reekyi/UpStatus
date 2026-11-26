@@ -76,3 +76,8 @@ Também não existe baseline automatizado de latência para os números relatado
 6. Refatorar apenas um módulo por vez, com diff pequeno e rollback simples.
 
 Nenhum deploy, migration ou teste integrado em produção foi realizado nesta investigação.
+
+
+## Complemento de escopo — dois projetos Supabase
+
+As comparações de cobertura deste documento foram feitas inicialmente sobre o projeto Revived e os arquivos de `master`. O projeto original `UpStatus` também foi consultado: seus runtimes centrais Normal 3.4.7 e beta10/beta8 têm snapshots preservados, e há funções adicionais ativas para TEST 3.3.28 e Team Lite 3.4.30. O projeto Revived não contém esses runtimes adicionais. Ver `docs/SUPABASE_ENVIRONMENT_RECONCILIATION_2026-11-26.md` antes de definir cobertura final ou fonte canônica.
