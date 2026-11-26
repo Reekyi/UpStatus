@@ -338,3 +338,13 @@ O harness usa URL/chave Supabase fictícias, Storage/DB simulados e permissões 
 **Validação:** `Verify Recovered Normal Runtime` passou no run #207, commit `223a24564b35649130b8c1ad66a72ffeeab470e7`, incluindo recuperação exata, 17 testes unitários, quatro integrações de domínio, build modular, execução Deno isolada e parse/bundle.
 
 A evidência agora inclui execução HTTP do entrypoint em Deno, mas não compatibilidade com o Supabase real nem com o ambiente gerenciado de produção. Próximo gate: autenticação/setup/login e rotas protegidas no harness isolado. Nenhum deploy ou Supabase write foi realizado.
+
+## 27. Rotas protegidas no servidor Deno isolado
+
+O harness `scripts/deno-entrypoint-test/` agora executa pelo HTTP real setup/login, validação de credenciais, emissão e invalidação de sessão, `/api/me` autenticado, status/presença, histórico, health, fila de remote status com ACK por outra conta, chat (criação, leitura, typing, reação, edição e exclusão), upload de avatar/imagem, URL assinada, sessões/cookies Lucca e Ycaro e limpeza do chat.
+
+O mock Supabase implementa operações em memória para os dados e Storage. Os tokens e senhas usados são apenas de teste.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #219, commit `cc97676d3d482f583cdc6ff5e3bfe658726161c1`. Passaram reconstrução exata, 17 testes unitários, quatro integrações de domínio, build, execução HTTP em Deno e parse/bundle.
+
+A cobertura comprova o fluxo do dispatcher no Deno local com dependências simuladas, não a integração com Supabase real nem o ambiente gerenciado. Próximo passo: reforçar contratos negativos e autorização em rotas protegidas restantes. Nenhum deploy ou Supabase write foi realizado.
