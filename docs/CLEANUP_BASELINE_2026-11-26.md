@@ -152,3 +152,14 @@ O script `scripts/verify-normal-runtime-recovery.mjs` agora verifica fragmentos 
 ## Contratos HTTP Normal 3.4.7 mapeados
 
 Foi criado `docs/NORMAL_347_HTTP_CONTRACTS_2026-11-26.md` com rotas públicas, autenticadas, convidados, métodos e guardrails. Esse mapa deve ser usado como contrato para a próxima etapa; paths, métodos, payloads, status HTTP, cookies, headers, buckets, autorização e tópicos Realtime não podem mudar durante a refatoração.
+
+
+## Primeiros módulos reais extraídos
+
+Foram extraídos dois módulos com dependências explícitas:
+- `modules/http.js`: `response` e `readBody`, com CORS injetado.
+- `modules/state.js`: `stateValue` e `setState`, com o cliente DB injetado.
+
+Testes offline para ambos passaram localmente em Node v22.16.0, usando apenas Request/Response nativos e DB falso. O builder `scripts/build-normal-modular-candidate.mjs` monta um candidato isolado em `dist/modular-normal-candidate/`. A reversão dos dois blocos e imports restaura exatamente o template original, provando que o restante do código não foi alterado.
+
+O workflow dedicado foi ampliado para executar os testes e gerar o candidato. Ainda não há confirmação de execução do GitHub Actions. Nenhum arquivo em `supabase/functions` foi alterado; nenhum deploy ou acesso ao Supabase foi realizado.
