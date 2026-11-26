@@ -1,0 +1,46 @@
+name: QA UpdateURL Candidate Validation
+
+on:
+  push:
+    branches:
+      - fix/qa-updateurl-reconciled-20261112
+  pull_request:
+    branches:
+      - qa/release-readiness-2026-11-04-master
+      - fix/qa-updateurl-reconciled-20261112
+    paths:
+      - "scripts/build.mjs"
+      - "scripts/validate.mjs"
+      - "scripts/chat-regression.test.mjs"
+      - "scripts/test-qa-release-target.mjs"
+      - "scripts/signed-upload-parity.test.mjs"
+      - "scripts/test-build-target-guard.mjs"
+      - "src/server/index.template.ts"
+      - "src/userscript/upstatus.user.template.js"
+      - ".github/workflows/qa-updateurl-candidate.yml"
+      - "release.json"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout candidate without persisted credentials
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check build and validator syntax
+        run: |
+          node --check scripts/build.mjs
+          node --check scripts/validate.mjs
+          node --check scripts/test-build-target-guard.mjs
+      - name: Test TEST project and publishable-key isolation
+        run: node scripts/test-build-target-guard.mjs
+      - name: Validate release target and chat authorization contracts
+        run: node scripts/test-qa-release-target.mjs
+      - name: Run full offline build and chat regressions
+        run: node scripts/validate.mjs
