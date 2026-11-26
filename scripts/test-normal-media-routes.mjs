@@ -41,7 +41,7 @@ function harness({ body = {}, profile = {}, upload = { url: "https://storage.tes
   const body = await r.json();
   assert.equal(r.status, 200);
   assert.equal(body.bucket, "profile-images");
-  assert.match(body.path, /^[0-9]+-313233343536-hello_world\.png$/);
+  assert.match(body.path, /^[0-9]+-3132333435363738-hello_world\.png$/);
   assert.equal(body.uploadUrl, "https://storage.test/upload/" + body.path + "?token=token-123");
   assert.equal(body.expiresIn, 7200);
 }
