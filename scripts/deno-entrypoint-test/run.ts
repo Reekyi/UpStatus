@@ -684,6 +684,187 @@ try {
     const protectedAfterLogout = await request("/api/status", { headers: authHeaders });
     assertEquals(protectedAfterLogout.status, 401);
   }
+  // Differential authenticated flows: each server owns an independent DB mock,
+  // so only volatile tokens, IDs and timestamps are normalized.
+  const referenceSetup = await requestReference("/api/setup", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "Ricardo", password: "diff-test-password" })
+  });
+  const modularLogin = await request("/api/login", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "Ricardo", password: "deno-test-password" })
+  });
+  assertEquals(referenceSetup.status, 200);
+  assertEquals(modularLogin.status, 200);
+  const referenceAdminBody = await referenceSetup.json();
+  const modularAdminBody = await modularLogin.json();
+  const omitToken = ({ token, ...rest }: any) => rest;
+  assertEquals(omitToken(modularAdminBody), omitToken(referenceAdminBody));
+  const modularAdminHeaders = { "x-upstatus-token": modularAdminBody.token };
+  const referenceAdminHeaders = { "x-upstatus-token": referenceAdminBody.token };
+
+  await compareJsonPair("/api/me",
+    { headers: modularAdminHeaders }, { headers: referenceAdminHeaders });
+
+  const differentialReason = "DIFFERENTIAL_STATUS_CONTRACT";
+  await compareJsonPair("/api/status",
+    {
+      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ status: "away", reason: differentialReason })
+    },
+    {
+      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ status: "away", reason: differentialReason })
+    },
+    body => ({ ...body, updatedAt: "<timestamp>" })
+  );
+  await compareJsonPair("/api/status",
+    { headers: { ...modularAdminHeaders, "x-upstatus-version": "3.4.7" } },
+    { headers: { ...referenceAdminHeaders, "x-upstatus-version": "3.4.7" } },
+    body => {
+      const member = { ...body.members.Ricardo, updatedAt: "<timestamp>", seenAt: "<timestamp>" };
+      return { member };
+    }
+  );
+  await compareJsonPair("/api/history?limit=500",
+    { headers: modularAdminHeaders }, { headers: referenceAdminHeaders },
+    body => {
+      const entry = body.history.find((item: any) => item.reason === differentialReason);
+      assert(entry, "modular status history should contain the differential event");
+      return { entry: { ...entry, createdAt: "<timestamp>" } };
+    }
+  );
+
+  const referenceGuilhermeSetup = await requestReference("/api/setup", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "Guilherme", password: "diff-guilherme-password" })
+  });
+  const modularGuilhermeLogin = await request("/api/login", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "Guilherme", password: "guilherme-test-password" })
+  });
+  assertEquals(referenceGuilhermeSetup.status, 200);
+  assertEquals(modularGuilhermeLogin.status, 200);
+  const referenceGuilherme = await referenceGuilhermeSetup.json();
+  const modularGuilherme = await modularGuilhermeLogin.json();
+  assertEquals(omitToken(modularGuilherme), omitToken(referenceGuilherme));
+  const modularGuilhermeHeaders = { "x-upstatus-token": modularGuilherme.token };
+  const referenceGuilhermeHeaders = { "x-upstatus-token": referenceGuilherme.token };
+
+  const remoteReason = "DIFFERENTIAL_REMOTE_CONTRACT";
+  const remotePair = await compareJsonPair("/api/remote-status",
+    {
+      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ target: "Guilherme", status: "busy", reason: remoteReason })
+    },
+    {
+      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ target: "Guilherme", status: "busy", reason: remoteReason })
+    },
+    body => ({
+      ok: body.ok,
+      commandId: "<id>",
+      command: { ...body.command, id: "<id>", createdAt: "<timestamp>" }
+    })
+  );
+  await compareJsonPair("/api/remote-status",
+    { headers: modularGuilhermeHeaders }, { headers: referenceGuilhermeHeaders },
+    body => ({
+      pending: body.pending,
+      command: { ...body.command, id: "<id>", createdAt: "<timestamp>" }
+    })
+  );
+  await compareJsonPair("/api/remote-status/result",
+    {
+      method: "POST", headers: { ...modularGuilhermeHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ commandId: remotePair.modularBody.commandId, ok: true })
+    },
+    {
+      method: "POST", headers: { ...referenceGuilhermeHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ commandId: remotePair.recoveredBody.commandId, ok: true })
+    }
+  );
+  await compareJsonPair(
+    "/api/remote-status/result?id=" + encodeURIComponent(remotePair.modularBody.commandId),
+    { headers: modularAdminHeaders },
+    { headers: referenceAdminHeaders },
+    body => ({
+      ready: body.ready,
+      result: { ...body.result, commandId: "<id>", createdAt: "<timestamp>" }
+    })
+  );
+  await compareJsonPair(
+    "/api/remote-status/result?id=" + encodeURIComponent(remotePair.recoveredBody.commandId),
+    { headers: referenceAdminHeaders },
+    { headers: referenceAdminHeaders },
+    body => ({
+      ready: body.ready,
+      result: { ...body.result, commandId: "<id>", createdAt: "<timestamp>" }
+    })
+  );
+
+  const differentialMessage = "DIFFERENTIAL_CHAT_CONTRACT @Lohan";
+  const chatPair = await compareJsonPair("/api/chat",
+    {
+      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: differentialMessage })
+    },
+    {
+      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: differentialMessage })
+    },
+    body => ({
+      ok: body.ok,
+      message: { ...body.message, id: "<id>", createdAt: "<timestamp>" }
+    })
+  );
+  const modularMessageId = chatPair.modularBody.message.id;
+  const referenceMessageId = chatPair.recoveredBody.message.id;
+  await compareJsonPair("/api/chat/read",
+    {
+      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ messageIds: [modularMessageId] })
+    },
+    {
+      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ messageIds: [referenceMessageId] })
+    }
+  );
+  await compareJsonPair("/api/chat/reaction",
+    {
+      method: "POST", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ messageId: modularMessageId, emoji: "👍" })
+    },
+    {
+      method: "POST", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ messageId: referenceMessageId, emoji: "👍" })
+    }
+  );
+  await compareJsonPair("/api/chat/" + modularMessageId,
+    {
+      method: "PATCH", headers: { ...modularAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "DIFFERENTIAL_CHAT_EDIT" })
+    },
+    {
+      method: "PATCH", headers: { ...referenceAdminHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "DIFFERENTIAL_CHAT_EDIT" })
+    },
+    body => ({ ...body, message: { ...body.message, id: "<id>", editedAt: "<timestamp>" } })
+  );
+  await compareJsonPair("/api/chat/" + modularMessageId,
+    { method: "DELETE", headers: modularAdminHeaders },
+    { method: "DELETE", headers: referenceAdminHeaders },
+    body => ({ ...body, id: "<id>" })
+  );
+
+  const [modularLogout, referenceLogout] = await Promise.all([
+    request("/api/logout", { method: "POST", headers: modularAdminHeaders }),
+    requestReference("/api/logout", { method: "POST", headers: referenceAdminHeaders })
+  ]);
+  assertEquals(modularLogout.status, referenceLogout.status);
+  assertEquals(await modularLogout.json(), await referenceLogout.json());
+  await compareJsonPair("/api/me", {}, {});
+
   {
     (globalThis as any).__upstatusMockDbError = true;
     const response = await request("/api/account?name=Ricardo");
@@ -692,7 +873,7 @@ try {
     assertEquals(response.headers.get("access-control-allow-origin"), "*");
   }
 
-  console.log("PASS: isolated Deno dispatcher authorization matrix, auth/session, status/history/health, remote status, chat concurrency, image/document/audio/video, media/storage, guest cookies, DB/Storage failures and global error boundary");
+  console.log("PASS: Deno route matrix plus byte-exact public and normalized authenticated differential contracts against recovered monolith");
 } catch (error) {
   console.error(error);
   throw error;
