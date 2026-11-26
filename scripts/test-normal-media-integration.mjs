@@ -71,8 +71,10 @@ const request = (url, body) => new Request("https://upstatus.test" + url, {
   assert.equal(db.uploads.at(-1).options.upsert, false);
 }
 {
-  const rejected = await routes.mediaRoute(request("/api/media/document", { dataUrl: "data:text/html;base64," + Buffer.from("<script>").toString("base64") }), "Ricardo");
-  assert.equal(rejected.status, 500); // upload helper rejects unsupported MIME; dispatcher owns global error mapping.
+  await assert.rejects(
+    routes.mediaRoute(request("/api/media/document", { dataUrl: "data:text/html;base64," + Buffer.from("<script>").toString("base64") }), "Ricardo"),
+    /Tipo de arquivo não suportado/
+  ); // The global dispatcher owns the HTTP error mapping.
 }
 {
   const signed = await routes.signedUploadRoute(request("/api/media/signed", {
