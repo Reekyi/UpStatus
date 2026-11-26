@@ -51,6 +51,12 @@ const originalHttpBlock = replaceBlock(
   "const { response, readBody } = createHttpHelpers(CORS);",
   "HTTP helper block"
 );
+const originalChatDataBlock = replaceBlock(
+  "async function mentions(text:string){",
+  "async function stateValue(key:string, fallback:any) {",
+  "const { mentions, chatRows } = createChatDataStore({ db, members });",
+  "chat data block"
+);
 const originalStateBlock = replaceBlock(
   "async function stateValue(key:string, fallback:any) {",
   "function cookie(req:Request,name:string)",
@@ -68,12 +74,6 @@ const originalMembersBlock = replaceBlock(
   "async function healthRoute(req:Request,name:string){",
   "/* MEMBERS_MODULE */",
   "members block"
-);
-const originalChatDataBlock = replaceBlock(
-  "async function mentions(text:string){",
-  "async function stateValue(key:string, fallback:any) {",
-  "const { mentions, chatRows } = createChatDataStore({ db, members });",
-  "chat data block"
 );
 const originalStatusBlock = replaceBlock(
   "async function healthRoute(req:Request,name:string){",
