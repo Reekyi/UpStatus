@@ -202,3 +202,19 @@ O módulo mantém a fila e o resultado no mesmo registro `upstatus_state` / `rem
 O teste `scripts/test-normal-remote-status.mjs` passou localmente em Node v22.16.0 usando mocks. Cobre leitura de fila, autorização, resultado inexistente, conclusão de comando e criação de comando remoto.
 
 O builder agora extrai sete módulos reais e a reversão dos sete blocos e imports restaura exatamente o template original.
+
+
+## 16. CI confirmado
+
+O workflow dedicado `Verify Recovered Normal Runtime` executou com sucesso no GitHub Actions (run #29, commit `c68a199`). Todos os passos passaram:
+1. reconstrução exata do runtime;
+2. teste HTTP;
+3. teste do state store;
+4. teste de criptografia;
+5. teste de sessões de convidados;
+6. teste do roster/cache;
+7. teste de saúde/status/histórico;
+8. teste de status remoto;
+9. montagem do candidato modular isolado.
+
+O workflow legado `UpStatus Validate` continua falhando em `scripts/validate.mjs:26` com `production updateURL mismatch`. A falha está na validação/build já existente e ocorre antes de qualquer teste do novo módulo; nenhum dos arquivos `scripts/build.mjs`, `scripts/validate.mjs` ou `release.json` foi alterado nesta reorganização. Não corrigir isso dentro do mesmo escopo; tratar separadamente após reconciliar os URLs de distribuição.
