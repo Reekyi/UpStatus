@@ -215,6 +215,10 @@ source = source.replace(importAnchor, () => importedBlock);
 
 restore("authCrypto", "const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });");
 restore("authCore", "const { userFromToken, account, admin, createSession, login } = createAuthCore({ db, sessionCache, token, tokenHash, randomBytes, response, readBody, passwordHash, checkPassword });");
+restore("authRoutes", 'const { accountRoute, meRoute, logoutRoute } = createAuthRoutes({ response, account, db, token, tokenHash, sessionCache });\n    if(path==="/api/account"&&req.method==="GET")return await accountRoute(req);');
+restore("authMeRoute", 'if(path==="/api/me"&&req.method==="GET")return await meRoute(name);');
+restore("authLogoutRoute", 'if(path==="/api/logout"&&req.method==="POST")return await logoutRoute(req);');
+
 restore("mediaRoutes", "const { profileRoute, mediaRoute, signedUploadRoute } = createMediaRoutes({ response, readBody, profileMap, uploadFile, db, randomBytes, PROJECT_URL });");
 restore("guestRoutes", "const { luccaRoute, ycaroRoute } = createGuestRoutes({ response, readBody, expireLucca, luccaToken, expireYcaro, ycaroToken, setState, db, randomBytes, getPassword: (key) => Deno.env.get(key) || \"\", edgeRuntime: EdgeRuntime });");
 restore("remote", "const { remoteRoute } = createRemoteStatusHandler({ stateValue, setState, admin, response, readBody, members, randomBytes });");
