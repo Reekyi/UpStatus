@@ -477,3 +477,11 @@ Também comparamos o mapa de perfis, upload de avatar, upload direto de imagem/d
 **Validação:** `Verify Recovered Normal Runtime` passou no run #268, commit `43eb054fe7d82fd1e872e3664e680e6617c94a4a`. Passaram recuperação exata, 17 testes unitários, quatro integrações, geração da referência monolítica, comparação HTTP pública/autenticada/convidados/mídia, matriz Deno e parse/bundle.
 
 A comparação diferencial agora atravessa os principais fluxos de cada domínio. Ainda falta a revisão final de todos os contratos e uma validação operacional no Supabase/Edge Runtime gerenciado, que depende de ambiente e autorização externos. Nenhum deploy, Supabase write ou runtime ativo foi tocado.
+
+## Matriz diferencial negativa e revisão final dos contratos HTTP
+
+A matriz diferencial foi estendida para comparar, nos dois servidores, as respostas negativas de autorização e validação: usuário padrão em health/histórico/remote-status, administrador diferente de Ricardo em limpeza do chat, status inválido/sem motivo, mensagem vazia, reação inválida, tentativa de editar/excluir mensagem alheia, MIME de upload não permitido, arquivo acima do limite e heartbeat/login inválidos de Lucca/Ycaro. Também cobre conta inexistente, setup repetido (409), credenciais normais inválidas (401), health autenticado e fallback 404 com sessão válida.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #278, commit `a3aa766b00e30d6282bf26b85a9c9b5b8a242207`. Todos os 27 passos passaram: reconstrução exata, 17 testes de módulo, quatro integrações, geração do candidato e referência, matriz Deno completa (positiva/negativa e diferencial) e esbuild.
+
+A auditoria offline da refatoração está concluída. Os gates restantes não são alterações de código desta PR: validação operacional no Supabase real/Edge Runtime gerenciado e decisão/aprovação de cutover. Esses gates não podem ser simulados como se fossem produção, nem executados sem autorização específica. Nenhum deploy, Supabase write, migration, alteração de schema/RLS/secrets ou runtime ativo foi realizado.
