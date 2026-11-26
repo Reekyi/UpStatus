@@ -23,12 +23,12 @@ export function createAuthCore({ db, sessionCache, token, tokenHash, randomBytes
     if(error)throw error;
     return data;
   }
-  async function admin(name|null){
+  async function admin(name){
     if(!name)return false;
     const a=await account(name);
     return a?.role==="implementation_admin";
   }
-  async function createSession(name,knownAccount?){
+  async function createSession(name,knownAccount){
     const raw=randomBytes(32).toString("hex");
     await db.from("upstatus_sessions").delete().lt("expires_at",new Date().toISOString());
     const {error}=await db.from("upstatus_sessions").insert({
