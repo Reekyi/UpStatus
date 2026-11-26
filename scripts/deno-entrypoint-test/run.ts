@@ -681,6 +681,7 @@ try {
   console.log("PASS: isolated Deno dispatcher authorization matrix, auth/session, status/history/health, remote status, chat concurrency, image/document/audio/video, media/storage, guest cookies, DB/Storage failures and global error boundary");
 } catch (error) {
   console.error(error);
-  Deno.exit(1);
+  throw error;
+} finally {
+  try { referenceServer.kill("SIGTERM"); } catch { /* already exited */ }
 }
-Deno.exit(0);
