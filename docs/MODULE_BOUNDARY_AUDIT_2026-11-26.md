@@ -161,3 +161,16 @@ Estado, cliente DB e gerador aleatório são injetados. Os dois fluxos continuam
 O teste `scripts/test-normal-guest-sessions.mjs` usa Request nativo, state store falso e DB falso; cobre cookies codificados, Bearer, expiração e não expiração. Executado localmente em Node v22.16.0: passou.
 
 O builder agora extrai quatro blocos (HTTP, state, auth crypto e guest sessions). A reversão dos quatro blocos e imports reconstrói exatamente o template recuperado. A verificação direta foi executada e passou.
+
+
+## 13. Quinto módulo real — roster oficial e cache
+
+Foi extraído `modules/members.js` por meio de `createMembersStore(db)`. O módulo mantém:
+- consulta à tabela `users`, coluna `name`, ordenação `name`;
+- allow-list exata `Ricardo`, `Guilherme`, `Lohan`;
+- formato de resposta `[{ name }]`;
+- cache em memória com TTL de 10.000 ms.
+
+O cache, antes global no entrypoint, agora pertence à instância do módulo, criada uma vez por runtime. Isso mantém o mesmo ciclo de vida e evita cache duplicado.
+
+O teste `scripts/test-normal-members.mjs` passou localmente em Node v22.16.0. Cobre filtro, ordem, cache/TTL e erro do DB usando mock. O builder foi atualizado e a reversão dos cinco blocos extraídos restaura exatamente o template original.
