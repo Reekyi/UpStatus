@@ -15,7 +15,7 @@ const userscriptPath = process.env.UPSTATUS_USERSCRIPT_PATH
   ? path.resolve(ROOT, process.env.UPSTATUS_USERSCRIPT_PATH)
   : path.join(ROOT, "src/userscript/normal-3.4.7.user.template.js");
 const candidateVersion = String(process.env.UPSTATUS_VERSION || "3.4.7").trim();
-if (!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(candidateVersion)) {
+if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(candidateVersion)) {
   throw new Error("UPSTATUS_VERSION must be a valid numeric release or prerelease version.");
 }
 const ycaroPath = path.join(ROOT, "ycaro.html");
