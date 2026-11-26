@@ -89,7 +89,7 @@ const req = (method = "POST", body = {}) => new Request("https://example.test", 
 {
   const db = makeDb([{ data: { id: "m1", user_name: "Lohan" } }]);
   const { deleteRoute } = createChatInteractionRoutes({ db, response, readBody, admin: async () => false });
-  const res = await deleteRoute("Ricardo", "m1");
+  const res = await deleteRoute("Matheus", "m1");
   assert.equal(res.status, 403);
   assert.equal(db.calls.length, 1);
 }
