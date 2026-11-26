@@ -269,6 +269,29 @@ for (const file of moduleFiles) {
   if (!candidate.includes("./modules/" + file)) throw new Error("Missing modular import for " + file);
 }
 
+const factoryMarkers = [
+  "createHttpHelpers(CORS)",
+  "createStateStore(db)",
+  "createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual })",
+  "createGuestSessionStore({ stateValue, setState, db, randomBytes })",
+  "createMembersStore(db)",
+  "createStatusHandlers({ db, response, readBody, account, admin, version: VERSION })",
+  "createRemoteStatusHandler({ stateValue, setState, admin, response, readBody, members, randomBytes })",
+  "createChatDataStore({ db, members })",
+  "createMediaStore({ db, randomBytes })",
+  "createAuthContext({ userFromToken, expireLucca, luccaToken, expireYcaro, ycaroToken })",
+  "createChatRouteHandler({ db, response, readBody, chatRows, mentions, expireLucca, randomBytes })",
+  "createMediaRoutes({ response, readBody, profileMap, uploadFile, db, randomBytes, PROJECT_URL })",
+  "createGuestRoutes({ response, readBody, expireLucca, luccaToken, expireYcaro, ycaroToken, setState, db, randomBytes",
+  "createChatInteractionRoutes({ db, response, readBody, admin })",
+  "createAuthCore({ db, sessionCache, token, tokenHash, randomBytes, response, readBody, passwordHash, checkPassword })",
+  "createAuthRoutes({ response, account, db, token, tokenHash, sessionCache })",
+  "createChatMaintenanceRoutes({ db, PROJECT_URL, randomBytes, response, logError: console.error })"
+];
+for (const marker of factoryMarkers) {
+  if (!candidate.includes(marker)) throw new Error("Missing dependency-injected factory call: " + marker);
+}
+
 fs.mkdirSync(path.join(outputRoot, "modules"), { recursive: true });
 fs.writeFileSync(outputPath, candidate, "utf8");
 for (const file of moduleFiles) {
@@ -282,6 +305,6 @@ fs.writeFileSync(
 
 console.log("Built isolated modular Normal candidate.");
 console.log("Output: " + path.relative(ROOT, outputPath));
-console.log("Extracted modules: HTTP, shared state, auth crypto, auth core, guest sessions, members, status, remote status, chat data, media, auth context, chat route, media routes, guest routes, chat interaction routes");
+console.log("Extracted modules: 17 dependency-injected modules (HTTP, state, auth, guests, members, status, chat, media, routes)");
 console.log("Outside extracted blocks: unchanged");
 console.log("Supabase/deploy actions: none");
