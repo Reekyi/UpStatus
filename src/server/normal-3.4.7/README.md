@@ -53,3 +53,14 @@ The dedicated GitHub Actions workflow:
 The Deno entrypoint, global error boundary, route dispatch order, embedded HTML/userscript delivery and runtime configuration remain in the entrypoint. This is intentional: preserve the existing execution boundary until integrated behavior is characterized.
 
 The candidate is for offline review only. It is not deployed, not copied to `supabase/functions`, and not wired into the production build. Do not change Supabase schema, RLS, grants, secrets, project settings, migrations, Edge Functions or deployment workflows as part of this cleanup.
+
+## Offline integration characterization
+
+The dedicated workflow also runs four cross-module integration tests with in-memory dependencies:
+
+- `scripts/test-normal-modular-integration.mjs`: HTTP, auth, shared state and guest-session composition.
+- `scripts/test-normal-chat-integration.mjs`: members, chat data, message flow, read receipts and interactions.
+- `scripts/test-normal-media-integration.mjs`: profile mapping, direct Storage uploads and signed upload flow.
+- `scripts/test-normal-status-integration.mjs`: status/history/health and remote command lifecycle.
+
+These tests characterize domain composition without connecting to the live Supabase project. They do not establish full Deno dispatcher execution or production compatibility. The next validation gate is cross-cutting HTTP contract characterization, followed by isolated Deno execution. The modular candidate remains offline and is not deployed.
