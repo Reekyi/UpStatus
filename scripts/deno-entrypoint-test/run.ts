@@ -15,12 +15,40 @@ function assertStringIncludes(actual: string, expected: string) {
 };
 Deno.env.set("SUPABASE_URL", "https://mock-project.supabase.co");
 Deno.env.set("SUPABASE_SECRET_KEYS", JSON.stringify({ default: "offline-test-key" }));
+Deno.env.set("LUCCA_PASSWORD", "lucca-deno-test");
+Deno.env.set("YCARO_PASSWORD", "ycaro-deno-test");
+
+const referenceServer = new Deno.Command(Deno.execPath(), {
+  args: [
+    "run",
+    "--config", "scripts/deno-entrypoint-test/deno.json",
+    "--allow-env=SUPABASE_URL,SUPABASE_SECRET_KEYS,LUCCA_PASSWORD,YCARO_PASSWORD",
+    "--allow-net=0.0.0.0:8001,127.0.0.1:8001",
+    "scripts/deno-entrypoint-test/reference-server.ts"
+  ],
+  stdout: "inherit",
+  stderr: "inherit"
+}).spawn();
 
 const base = "http://127.0.0.1:8000";
+const referenceBase = "http://127.0.0.1:8001";
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function request(path: string, init?: RequestInit) {
   return await fetch(base + path, init);
+}
+async function requestReference(path: string, init?: RequestInit) {
+  return await fetch(referenceBase + path, init);
+}
+async function compareWithRecovered(path: string, init?: RequestInit) {
+  const [modular, recovered] = await Promise.all([
+    request(path, init), requestReference(path, init)
+  ]);
+  assertEquals(modular.status, recovered.status);
+  for (const header of ["content-type", "access-control-allow-origin", "cache-control", "content-disposition"]) {
+    assertEquals(modular.headers.get(header), recovered.headers.get(header));
+  }
+  assertEquals(await modular.text(), await recovered.text());
 }
 
 try {
