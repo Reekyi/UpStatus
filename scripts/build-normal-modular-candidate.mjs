@@ -130,18 +130,18 @@ extract(
 );
 
 extract(
-  "guestRoutes",
-  "async function luccaRoute(req:Request) {",
-  "Deno.serve(async(req)=>{",
-  "const { luccaRoute, ycaroRoute } = createGuestRoutes({ response, readBody, expireLucca, luccaToken, expireYcaro, ycaroToken, setState, db, randomBytes, getPassword: (key) => Deno.env.get(key) || \"\", edgeRuntime: EdgeRuntime });",
-  "guest HTTP routes"
-);
-extract(
   "remote",
   "async function remoteRoute(req:Request,name:string) {",
   "async function luccaRoute(req:Request) {",
   "const { remoteRoute } = createRemoteStatusHandler({ stateValue, setState, admin, response, readBody, members, randomBytes });",
   "remote status block"
+);
+extract(
+  "guestRoutes",
+  "async function luccaRoute(req:Request) {",
+  "Deno.serve(async(req)=>{",
+  "const { luccaRoute, ycaroRoute } = createGuestRoutes({ response, readBody, expireLucca, luccaToken, expireYcaro, ycaroToken, setState, db, randomBytes, getPassword: (key) => Deno.env.get(key) || \"\", edgeRuntime: EdgeRuntime });",
+  "guest HTTP routes"
 );
 extract(
   "authCrypto",
