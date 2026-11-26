@@ -177,3 +177,10 @@ O teste `scripts/test-normal-auth-crypto.mjs` passou localmente em Node v22.16.0
 Foi criado `modules/guest-sessions.js` com cookies, tokens Bearer, leitura/expiração de estado e mensagens de saída. DB, state store e randomBytes são injetados. Os mesmos cookies, chaves de estado, limite de 12 segundos, mensagens e system_type foram preservados.
 
 O teste offline `scripts/test-normal-guest-sessions.mjs` passou localmente em Node v22.16.0. O builder modular agora extrai quatro blocos: HTTP, state, auth crypto e guest sessions. A reversão dos quatro blocos e imports reconstrói exatamente o template recuperado. O candidato permanece isolado em `dist/`.
+
+
+## Quinto módulo real extraído: roster de membros
+
+Foi isolado `modules/members.js` com a consulta ao roster oficial e seu cache de 10 segundos. A allow-list e o formato de resposta permanecem iguais. O cache agora pertence à instância criada uma vez no runtime, preservando o ciclo de vida anterior.
+
+O teste `scripts/test-normal-members.mjs` passou localmente em Node v22.16.0 com DB falso. O builder modular agora extrai cinco blocos (HTTP, state, auth crypto, guest sessions e members); a reversão dos cinco blocos e imports reconstrói exatamente o template original.
