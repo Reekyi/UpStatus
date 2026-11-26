@@ -380,3 +380,13 @@ O comparador só normaliza valores voláteis (token, ID e timestamp); os restant
 **Validação:** run #261 do `Verify Recovered Normal Runtime` passou no commit `0692e9bd3fa854ecff5ae0a72c7f3ddcd534900d`, junto com recuperação exata, testes unitários, integrações, build, comparação pública e testes HTTP Deno.
 
 Próximo gate: comparar guest cookie flows e media uploads entre referência e candidato, depois registrar os limites externos de validação/rollout.
+
+## 31. Comparação diferencial de convidados e uploads
+
+O Deno harness compara agora Lucca/Ycaro login, cookies de sessão, `/me`, heartbeat e logout, além de mapear perfis, avatar, uploads diretos de imagem/documento/áudio/vídeo e URLs assinadas (avatar/chat) entre o monólito recuperado e o candidato modular.
+
+Tokens, timestamps e URLs/caminhos gerados são normalizados; status, headers de cookie, MIME, tipo, bucket, tamanho e demais payload fields devem coincidir.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #268, commit `43eb054fe7d82fd1e872e3664e680e6617c94a4a`, incluindo recuperação exata, testes de módulos, quatro integrações, build, diferencial e execução Deno.
+
+Falta apenas a revisão final de contratos e a validação externa do ambiente gerenciado/Supabase real, não disponível no harness mockado.
