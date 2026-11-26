@@ -113,5 +113,8 @@ export function createChatRouteHandler({ db, response, readBody, chatRows, menti
     });
   }
 
+    throw new Error("Método não permitido.");
+  }
+
   return { chatRoute };
 }
