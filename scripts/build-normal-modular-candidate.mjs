@@ -69,17 +69,17 @@ const originalMembersBlock = replaceBlock(
   "/* MEMBERS_MODULE */",
   "members block"
 );
-const originalStatusBlock = replaceBlock(
-  "async function healthRoute(req:Request,name:string){",
-  "async function mentions(text:string){",
-  "const { healthRoute, statusRoute, historyRoute } = createStatusHandlers({ db, response, readBody, account, admin, version: VERSION });",
-  "status handler block"
-);
 const originalChatDataBlock = replaceBlock(
   "async function mentions(text:string){",
   "async function stateValue(key:string, fallback:any) {",
   "const { mentions, chatRows } = createChatDataStore({ db, members });",
   "chat data block"
+);
+const originalStatusBlock = replaceBlock(
+  "async function healthRoute(req:Request,name:string){",
+  "const { mentions, chatRows } = createChatDataStore({ db, members });",
+  "const { healthRoute, statusRoute, historyRoute } = createStatusHandlers({ db, response, readBody, account, admin, version: VERSION });",
+  "status handler block"
 );
 const originalRemoteBlock = replaceBlock(
   "async function remoteRoute(req:Request,name:string) {",
