@@ -12,6 +12,33 @@ const snapshotPath = path.join(ROOT, "recovery/runtime-2026-11-26/original-proje
 const outputPath = path.join(ROOT, "dist/recovered-normal-3.4.7/index.ts");
 
 const template = fs.readFileSync(templatePath, "utf8");
+const fragmentNames = [
+  "00-runtime-config.part",
+  "01-http-auth-core.part",
+  "02-members-status-history.part",
+  "03-chat-data.part",
+  "04-shared-state.part",
+  "05-guest-session-core.part",
+  "06-media-core.part",
+  "07-auth-context.part",
+  "08-chat-routes.part",
+  "09-media-routes.part",
+  "10-remote-status.part",
+  "11-guest-routes.part",
+  "12-http-entrypoint.part"
+];
+const fragments = fragmentNames.map((name) =>
+  fs.readFileSync(path.join(ROOT, "src/server/normal-3.4.7/fragments", name), "utf8")
+);
+const assembled = fragments.join("\\n");
+if (assembled !== template) {
+  let offset = 0;
+  while (offset < assembled.length && offset < template.length && assembled[offset] === template[offset]) offset++;
+  throw new Error(
+    "Source fragments do not exactly reconstruct the recovered template. " +
+    "First difference at character " + offset
+  );
+}
 const userscript = fs.readFileSync(userscriptPath, "utf8");
 const ycaro = fs.readFileSync(ycaroPath, "utf8");
 const snapshot = fs.readFileSync(snapshotPath, "utf8");
@@ -22,7 +49,7 @@ const replacements = {
   "__UPSTATUS_YCARO_HTML_EXPR__": JSON.stringify(ycaro)
 };
 
-let generated = template;
+let generated = assembled;
 for (const [placeholder, value] of Object.entries(replacements)) {
   if (!generated.includes(placeholder)) throw new Error("Missing placeholder: " + placeholder);
   generated = generated.replaceAll(placeholder, () => value);
