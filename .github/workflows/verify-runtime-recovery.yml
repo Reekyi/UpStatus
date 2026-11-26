@@ -35,6 +35,10 @@ on:
       - "release.json"
       - "src/userscript/normal-staging.user.js"
       - "release-beta.json"
+      - "src/server/screen-share-staging/**"
+      - "scripts/test-staging-runtime.mjs"
+      - ".github/workflows/deploy-staging.yml"
+      - "supabase/config.toml"
       - "scripts/build-normal-modular-candidate.mjs"
       - "src/server/normal-3.4.7/modules/**"
       - "ycaro.html"
@@ -52,6 +56,10 @@ on:
       - "release.json"
       - "src/userscript/normal-staging.user.js"
       - "release-beta.json"
+      - "src/server/screen-share-staging/**"
+      - "scripts/test-staging-runtime.mjs"
+      - ".github/workflows/deploy-staging.yml"
+      - "supabase/config.toml"
       - ".github/workflows/verify-runtime-recovery.yml"
 
 permissions:
@@ -69,6 +77,15 @@ jobs:
         run: node scripts/verify-normal-runtime-recovery.mjs
       - name: Test updater transport and Stable channel
         run: node scripts/test-normal-updater-transport.mjs
+      - name: Test Staging runtime isolation
+        run: node scripts/test-staging-runtime.mjs
+      - name: Build modular Beta candidate
+        env:
+          UPSTATUS_USERSCRIPT_PATH: src/userscript/normal-staging.user.js
+          UPSTATUS_VERSION: 3.4.8-beta.1
+        run: node scripts/build-normal-modular-candidate.mjs
+      - name: Parse and bundle Staging screen-share backend
+        run: npx --yes esbuild@0.25.12 src/server/screen-share-staging/index.ts --bundle --format=esm --platform=neutral --external:npm:* --external:node:* --outfile=/tmp/upstatus-screen-staging-syntax.js
       - name: Test extracted HTTP helpers
         run: node scripts/test-normal-http-helpers.mjs
       - name: Test shared state module
