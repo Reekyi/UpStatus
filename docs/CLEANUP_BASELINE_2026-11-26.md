@@ -170,3 +170,10 @@ O workflow dedicado foi ampliado para executar os testes e gerar o candidato. Ai
 Foi isolado `modules/auth-crypto.js` com `tokenHash`, `passwordHash` e `checkPassword`, recebendo por injeção as mesmas primitivas de `node:crypto` e `Buffer`. O algoritmo scrypt, salt, formato `salt:hash` e comparação timing-safe foram preservados.
 
 O teste `scripts/test-normal-auth-crypto.mjs` passou localmente em Node v22.16.0. O builder modular agora extrai HTTP, state e auth crypto; uma reversão dos três blocos e imports reconstrói exatamente o template recuperado. O candidato segue isolado em `dist/`, não publicado.
+
+
+## Quarto módulo real extraído: sessões Lucca/Ycaro
+
+Foi criado `modules/guest-sessions.js` com cookies, tokens Bearer, leitura/expiração de estado e mensagens de saída. DB, state store e randomBytes são injetados. Os mesmos cookies, chaves de estado, limite de 12 segundos, mensagens e system_type foram preservados.
+
+O teste offline `scripts/test-normal-guest-sessions.mjs` passou localmente em Node v22.16.0. O builder modular agora extrai quatro blocos: HTTP, state, auth crypto e guest sessions. A reversão dos quatro blocos e imports reconstrói exatamente o template recuperado. O candidato permanece isolado em `dist/`.
