@@ -228,3 +228,10 @@ O teste offline `scripts/test-normal-media.mjs` passou localmente em Node v22.16
 Foi criado `modules/auth-context.js` para resolução de usuário normal, Lucca, Ycaro ou ausência de sessão. A ordem, expiração prévia de convidados, short-circuit e formato `{ name, guest, joinedAt }` foram preservados.
 
 O teste offline `scripts/test-normal-auth-context.mjs` passou localmente em Node v22.16.0. O builder modular agora extrai dez módulos reais e a reversão dos dez blocos e imports reconstrói exatamente o template original.
+
+
+## CI atualizado: 10 módulos verdes
+
+O workflow dedicado passou no GitHub Actions (run #60). Foram aprovados a reconstrução exata do Normal 3.4.7, os dez testes de módulos e o build isolado do candidato modular.
+
+O workflow legado continua com a falha conhecida de `production updateURL mismatch` em `scripts/validate.mjs:26`; nenhum arquivo de build/release foi alterado para mascarar essa divergência.
