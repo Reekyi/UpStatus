@@ -23,6 +23,7 @@ on:
       - "scripts/test-normal-guest-routes.mjs"
       - "scripts/test-normal-chat-interaction-routes.mjs"
       - "scripts/test-normal-auth-core.mjs"
+      - "scripts/test-normal-auth-routes.mjs"
       - "scripts/build-normal-modular-candidate.mjs"
       - "src/server/normal-3.4.7/modules/**"
       - "ycaro.html"
@@ -78,5 +79,7 @@ jobs:
         run: node scripts/test-normal-chat-interaction-routes.mjs
       - name: Test authentication core module
         run: node scripts/test-normal-auth-core.mjs
+      - name: Test authentication endpoint routes module
+        run: node scripts/test-normal-auth-routes.mjs
       - name: Build isolated modular candidate
         run: node scripts/build-normal-modular-candidate.mjs
