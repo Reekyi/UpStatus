@@ -50,6 +50,20 @@ async function compareWithRecovered(path: string, init?: RequestInit) {
   }
   assertEquals(await modular.text(), await recovered.text());
 }
+async function compareJsonPair(
+  path: string,
+  modularInit: RequestInit,
+  referenceInit: RequestInit,
+  normalize: (value: any) => unknown = value => value
+) {
+  const [modular, recovered] = await Promise.all([
+    request(path, modularInit), requestReference(path, referenceInit)
+  ]);
+  assertEquals(modular.status, recovered.status);
+  const [modularBody, recoveredBody] = await Promise.all([modular.json(), recovered.json()]);
+  assertEquals(normalize(modularBody), normalize(recoveredBody));
+  return { modularBody, recoveredBody, modularStatus: modular.status };
+}
 
 try {
   await import("../../dist/modular-normal-candidate/index.ts");
