@@ -269,3 +269,27 @@ O workflow dedicado `Verify Recovered Normal Runtime` passou novamente no GitHub
 - montagem do candidato modular isolado.
 
 O workflow legado `UpStatus Validate` segue falhando exclusivamente na verificação de `production updateURL mismatch` em `scripts/validate.mjs:26`. Essa divergência preexistente permanece fora do escopo da reorganização e não foi alterada.
+
+
+## 21. Estado atual da modularização (2026-11-26)
+
+A auditoria inicial continua válida como fotografia do runtime original, mas a extração estrutural avançou. Hoje existem 17 factories em `src/server/normal-3.4.7/modules/`, com dependências explícitas. O entrypoint Deno, o dispatcher HTTP, a ordem de roteamento, o boundary global de erros, a configuração e a entrega do userscript/HTML continuam deliberadamente no entrypoint.
+
+O builder `scripts/build-normal-modular-candidate.mjs` agora:
+1. extrai os 17 blocos e injeta os imports/factories;
+2. reverte as extrações temporariamente e exige igualdade exata com o template recuperado;
+3. emite a fonte modular integrada, não a fonte restaurada;
+4. verifica os 17 imports e as 17 chamadas de factory;
+5. copia os módulos para o diretório isolado `dist/modular-normal-candidate/`.
+
+O workflow dedicado passou no run #161, commit `cc44f6378f49ca2f950bffee144ce6449218557a`:
+- recuperação exata do runtime;
+- 17 testes offline de módulos;
+- build do candidato modular;
+- parse e bundle do entrypoint e do grafo local com esbuild.
+
+**Limite da evidência:** parse/bundle prova sintaxe e resolução do grafo local, não execução integrada no Deno nem compatibilidade em produção. O próximo gate é uma caracterização integrada do entrypoint com dependências simuladas, sem conexão ao Supabase real, seguida de comparação dos contratos HTTP. Não extrair o dispatcher só para aumentar a contagem de módulos: ele é a fronteira de execução preservada intencionalmente.
+
+O workflow legado `UpStatus Validate` continua com a divergência conhecida `production updateURL mismatch`, separada deste trabalho. Não alterar essa validação dentro da reorganização.
+
+Nenhum deploy, Supabase write, migration, schema/RLS/grant/secret/config change ou Edge Function update foi realizado.
