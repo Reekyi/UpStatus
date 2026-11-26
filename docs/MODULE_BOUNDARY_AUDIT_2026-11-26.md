@@ -370,3 +370,13 @@ Os mesmos requests públicos/sem autenticação são enviados aos dois e os stat
 **Validação:** `Verify Recovered Normal Runtime` passou no run #252, commit `72dbbd0868700a944a5113c703cd0749feea8de8`, incluindo recuperação exata, testes unitários, quatro integrações, build, execução Deno, comparação diferencial e esbuild.
 
 A comparação exata ainda é restrita a rotas públicas/sem autenticação; os fluxos protegidos são testados no candidato modular contra asserts contratuais e mocks em memória. Próximo gate: comparar também fluxos autenticados selecionados com normalização de tokens, IDs e timestamps.
+
+## 30. Comparação diferencial de fluxos autenticados
+
+A comparação entre a referência monolítica e o candidato modular agora inclui setup/login com token normalizado, `/api/me`, status/presença e leitura específica do histórico com timestamps normalizados, criação de chat, read receipts, reações, edição e exclusão com IDs distintos por servidor, além do ciclo remote status (comando, pendência, confirmação e resultado).
+
+O comparador só normaliza valores voláteis (token, ID e timestamp); os restantes campos dos payloads JSON são comparados. As duas instâncias usam DB/Storage em memória independentes.
+
+**Validação:** run #261 do `Verify Recovered Normal Runtime` passou no commit `0692e9bd3fa854ecff5ae0a72c7f3ddcd534900d`, junto com recuperação exata, testes unitários, integrações, build, comparação pública e testes HTTP Deno.
+
+Próximo gate: comparar guest cookie flows e media uploads entre referência e candidato, depois registrar os limites externos de validação/rollout.
