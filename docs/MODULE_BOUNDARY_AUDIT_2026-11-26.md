@@ -244,3 +244,18 @@ Foi extraído `modules/media.js` com `createMediaStore({ db, randomBytes })`, re
 Foram preservados os nomes de tabela/colunas, assinaturas de arquivo aceitas, mensagens de erro, limite recebido pelo chamador, geração do caminho, cacheControl `31536000` e `upsert:false`.
 
 O teste `scripts/test-normal-media.mjs` passou localmente em Node v22.16.0. Cobre perfil, Data URL inválida, assinaturas JPEG/PNG/GIF/Ogg/MP3, extensão e upload com Storage falso. O builder agora extrai nove módulos; a reversão dos nove blocos e imports restaura exatamente o template.
+
+
+## 19. Décimo módulo real — resolução do contexto autenticado
+
+Foi extraído `modules/auth-context.js` com `createAuthContext({ userFromToken, expireLucca, luccaToken, expireYcaro, ycaroToken })`.
+
+A ordem de resolução permanece:
+1. usuário normal autenticado;
+2. sessão Lucca válida;
+3. sessão Ycaro válida;
+4. nenhum contexto.
+
+A expiração é executada antes de validar cada token de convidado, e Ycaro só é consultado quando Lucca não autenticou. O shape `{ name, guest, joinedAt }` foi preservado.
+
+O teste `scripts/test-normal-auth-context.mjs` passou localmente em Node v22.16.0 e cobre precedência, short-circuit e sessão de convidado. O builder foi atualizado; a reversão dos dez blocos e imports restaura exatamente o template original.
