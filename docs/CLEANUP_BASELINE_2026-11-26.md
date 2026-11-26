@@ -244,6 +244,8 @@ Antes de aceitar a extração, o bloco completo foi comparado diretamente com `s
 
 Foi adicionado `scripts/test-normal-chat-route.mjs`, com mocks do DB e verificações dos modos fast/normal, recibos de leitura, não lidas, resposta e envio. O workflow offline agora executa esse teste antes de gerar o candidato isolado.
 
+A comparação estática também confirmou os contratos do bloco original: GET normal/fast, overlap de 2s, TTL typing de 4,5s, janela de 48h, recibos, não lidas, limites, tipos de anexo, replies e escrita em `messages`. O handler retorna HTTP 405 para métodos diferentes de GET/POST, alinhado ao dispatch original.
+
 **Validação pendente:** o CI mais recente ainda é do commit anterior à extração de chat. O workflow dedicado passou no run #68; o teste de chat precisa de execução no novo HEAD. O `UpStatus Validate` legado continua falhando pela divergência conhecida `production updateURL mismatch` em `scripts/validate.mjs:26`, sem relação com esta refatoração.
 
 Nenhum deploy, Supabase write, migration, alteração de schema, RLS, secrets, workflow de deploy ou runtime ativo foi realizado.
