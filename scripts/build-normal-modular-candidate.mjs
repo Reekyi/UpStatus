@@ -8,7 +8,7 @@ const templatePath = path.join(ROOT, "src/server/normal-3.4.7.recovered.template
 const modulesDir = path.join(ROOT, "src/server/normal-3.4.7/modules");
 const moduleFiles = [
   "http.js", "state.js", "auth-crypto.js", "guest-sessions.js", "members.js",
-  "status.js", "remote-status.js", "chat-data.js", "media.js", "auth-context.js", "chat-route.js", "media-routes.js", "guest-routes.js"
+  "status.js", "remote-status.js", "chat-data.js", "media.js", "auth-context.js", "chat-route.js", "media-routes.js", "guest-routes.js", "chat-interaction-routes.js"
 ];
 const modulePaths = Object.fromEntries(moduleFiles.map((file) => [file, path.join(modulesDir, file)]));
 const userscriptPath = path.join(ROOT, "recovery/runtime-2026-11-26/userscripts/original-project-normal-3.4.7.user.js");
@@ -32,7 +32,8 @@ const expectedExports = {
   "auth-context.js": "export function createAuthContext",
   "chat-route.js": "export function createChatRouteHandler",
   "media-routes.js": "export function createMediaRoutes",
-  "guest-routes.js": "export function createGuestRoutes"
+  "guest-routes.js": "export function createGuestRoutes",
+  "chat-interaction-routes.js": "export function createChatInteractionRoutes"
 };
 for (const [file, marker] of Object.entries(expectedExports)) {
   if (!moduleContents[file].includes(marker)) throw new Error("Expected export missing from " + file);
@@ -107,6 +108,14 @@ extract(
   "const { chatRoute } = createChatRouteHandler({ db, response, readBody, chatRows, mentions, expireLucca, randomBytes });",
   "chat route block"
 );
+
+extract(
+  "chatInteractionRoutes",
+  "async function readRoute(req:Request,name:string){",
+  "async function profileRoute(req:Request,name:string) {",
+  "const { readRoute, typingRoute, reactionRoute, editRoute, deleteRoute } = createChatInteractionRoutes({ db, response, readBody, admin });",
+  "chat interaction routes"
+);
 extract(
   "members",
   "async function members(){",
@@ -166,7 +175,8 @@ const importedBlock = importAnchor +
   '\nimport { createAuthContext } from "./modules/auth-context.js";' +
   '\nimport { createChatRouteHandler } from "./modules/chat-route.js";' +
   '\nimport { createMediaRoutes } from "./modules/media-routes.js";' +
-  '\nimport { createGuestRoutes } from "./modules/guest-routes.js";';
+  '\nimport { createGuestRoutes } from "./modules/guest-routes.js";' +
+  '\nimport { createChatInteractionRoutes } from "./modules/chat-interaction-routes.js";';
 source = source.replace(importAnchor, () => importedBlock);
 
 restore("authCrypto", "const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });");
@@ -176,6 +186,7 @@ restore("remote", "const { remoteRoute } = createRemoteStatusHandler({ stateValu
 restore("status", "const { healthRoute, statusRoute, historyRoute } = createStatusHandlers({ db, response, readBody, account, admin, version: VERSION });");
 restore("members", "/* MEMBERS_MODULE */");
 restore("chatRoute", "const { chatRoute } = createChatRouteHandler({ db, response, readBody, chatRows, mentions, expireLucca, randomBytes });");
+restore("chatInteractionRoutes", "const { readRoute, typingRoute, reactionRoute, editRoute, deleteRoute } = createChatInteractionRoutes({ db, response, readBody, admin });");
 restore("authContext", "const { contextName } = createAuthContext({ userFromToken, expireLucca, luccaToken, expireYcaro, ycaroToken });");
 restore("media", "const { profileMap, decodeDataUrl, sniffMime, ext, uploadFile } = createMediaStore({ db, randomBytes });");
 restore("guest", "const { cookie, luccaToken, luccaState, expireLucca, ycaroToken, ycaroState, expireYcaro } = createGuestSessionStore({ stateValue, setState, db, randomBytes });");
@@ -212,6 +223,6 @@ fs.writeFileSync(
 
 console.log("Built isolated modular Normal candidate.");
 console.log("Output: " + path.relative(ROOT, outputPath));
-console.log("Extracted modules: HTTP, shared state, auth crypto, guest sessions, members, status, remote status, chat data, media, auth context, chat route, media routes, guest routes");
+console.log("Extracted modules: HTTP, shared state, auth crypto, guest sessions, members, status, remote status, chat data, media, auth context, chat route, media routes, guest routes, chat interaction routes");
 console.log("Outside extracted blocks: unchanged");
 console.log("Supabase/deploy actions: none");
