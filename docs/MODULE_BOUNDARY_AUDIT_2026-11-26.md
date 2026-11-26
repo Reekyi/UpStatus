@@ -133,3 +133,15 @@ Ambos foram executados localmente com Node v22.16.0 e passaram. O state store us
 O builder `scripts/build-normal-modular-candidate.mjs` cria um candidato isolado em `dist/modular-normal-candidate/`, copia os módulos e prova que, ao reverter apenas os dois blocos extraídos e os imports, o restante do template recuperado permanece exatamente igual. A verificação dessa reversão foi executada diretamente e passou.
 
 O candidato não foi publicado nem colocado em `supabase/functions`. O workflow dedicado inclui os dois testes e a montagem isolada, mas o resultado do GitHub Actions ainda não foi confirmado.
+
+
+## 11. Terceiro módulo real — criptografia de autenticação
+
+Foi extraído `modules/auth-crypto.js`, criado por `createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual })`. Ele fornece:
+- `tokenHash`;
+- `passwordHash`;
+- `checkPassword`.
+
+As primitivas criptográficas são injetadas, sem trocar algoritmos, parâmetros, encoding ou formato persistido `salt:hash`. O teste `scripts/test-normal-auth-crypto.mjs` cobre hash SHA-256, senha correta/incorreta, hash com salt fixo e aleatório e entradas inválidas. Executado localmente em Node v22.16.0: passou.
+
+O builder foi atualizado para extrair os três blocos (HTTP, state e auth crypto) e agora reconstrói o template original exatamente quando os três blocos e os imports são revertidos. A verificação dessa reversão foi executada diretamente e passou. O candidato continua isolado em `dist/`, sem deploy.
