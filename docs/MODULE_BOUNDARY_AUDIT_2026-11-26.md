@@ -93,3 +93,18 @@ Também foi adicionado o workflow `.github/workflows/verify-runtime-recovery.yml
 ## 8. Próximo passo técnico
 
 A primeira extração deve partir do template recuperado, não de `master/src/server/index.template.ts`. O módulo inicial recomendado continua sendo o conjunto de helpers HTTP puros, mas somente depois de executar o script Node no CI e registrar o resultado verde.
+
+
+## 9. Primeira divisão estrutural concluída
+
+O template recuperado foi dividido em 13 fragmentos ordenados em `src/server/normal-3.4.7/fragments/`. A divisão mantém exatamente o texto e a ordem originais; os arquivos usam extensão `.part` porque ainda compartilham o mesmo escopo lexical e não são módulos TypeScript independentes.
+
+A montagem foi verificada diretamente:
+- 13 fragmentos;
+- 105.120 caracteres montados;
+- igualdade exata com `src/server/normal-3.4.7.recovered.template.ts`;
+- após renderizar versão, userscript Base64 e HTML Ycaro, o runtime gerado tem 894.196 caracteres e é exatamente igual ao snapshot original do Supabase.
+
+O verificador Node foi atualizado para montar os 13 fragmentos, comparar com o template e comparar o runtime final com o snapshot. O workflow dedicado agora observa também `src/server/normal-3.4.7/**`.
+
+Esta é uma reorganização estrutural de fonte, sem mudança de lógica. Ainda não foram criados imports, exports ou novos limites de estado; isso fica para a etapa seguinte, com injeção de dependências e testes específicos.
