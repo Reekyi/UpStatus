@@ -38,8 +38,8 @@ assert.ok(screenUser.includes("var UP_REALTIME_URL='" + stageBase + "'"));
 assert.ok(screenUser.includes("var UP_REALTIME_KEY='" + publishableKey + "'"));
 assert.ok(screenUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-staging-live-v1';"));
 assert.ok(screenUser.includes("var SCREEN_ROOM_EVENT='upstatus_screen_signal_staging_v1';"));
-assert.ok(screenUser.includes("var key='upstatus_staging_';"));
-assert.ok(screenUser.includes("upstatus_staging_ringtone_stop_bus"));
+assert.ok(screenUser.includes("var key='upstatus_screen_share_staging_';"));
+assert.ok(screenUser.includes("upstatus_screen_share_staging_ringtone_stop_bus"));
 assert.ok(!screenUser.includes("mvjqunhjxkbfcrxkjtgf"));
 assert.ok(!screenUser.includes("dlfvkawaiqduhlazsszm"));
 
