@@ -2,7 +2,7 @@ name: Verify Recovered Normal Runtime
 
 on:
   push:
-    branches: [chore/cleanup-structure-347]
+    branches: [chore/cleanup-structure-347, feat/release-pipeline-foundation]
     paths:
       - "src/server/normal-3.4.7.recovered.template.ts"
       - "src/server/normal-3.4.7/**"
@@ -30,12 +30,15 @@ on:
       - "scripts/test-normal-media-integration.mjs"
       - "scripts/test-normal-status-integration.mjs"
       - "scripts/deno-entrypoint-test/**"
+      - "src/userscript/normal-3.4.7.user.template.js"
+      - "scripts/test-normal-updater-transport.mjs"
+      - "release.json"
       - "scripts/build-normal-modular-candidate.mjs"
       - "src/server/normal-3.4.7/modules/**"
       - "ycaro.html"
       - ".github/workflows/verify-runtime-recovery.yml"
   pull_request:
-    branches: [master, develop]
+    branches: [master, develop, chore/cleanup-structure-347]
     paths:
       - "src/server/normal-3.4.7.recovered.template.ts"
       - "recovery/runtime-2026-11-26/**"
@@ -55,6 +58,8 @@ jobs:
           persist-credentials: false
       - name: Verify exact recovered runtime
         run: node scripts/verify-normal-runtime-recovery.mjs
+      - name: Test updater transport and Stable channel
+        run: node scripts/test-normal-updater-transport.mjs
       - name: Test extracted HTTP helpers
         run: node scripts/test-normal-http-helpers.mjs
       - name: Test shared state module
