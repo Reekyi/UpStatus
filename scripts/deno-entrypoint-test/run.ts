@@ -177,6 +177,50 @@ try {
     const history = await request("/api/history?limit=10", { headers: authHeaders });
     assertEquals(history.status, 200);
     assertEquals((await history.json()).history.length, 1);
+
+    const health = await request("/api/health", { headers: authHeaders });
+    assertEquals(health.status, 200);
+    const healthBody = await health.json();
+    assertEquals(healthBody.ok, true);
+    assertEquals(healthBody.service, "UpStatus");
+    assertEquals(healthBody.members.length, 3);
+  }
+  let guilhermeToken = "";
+  {
+    const setup = await request("/api/setup", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Guilherme", password: "guilherme-test-password" })
+    });
+    assertEquals(setup.status, 200);
+    guilhermeToken = (await setup.json()).token;
+    assert(typeof guilhermeToken === "string" && guilhermeToken.length > 20);
+  }
+  {
+    const command = await request("/api/remote-status", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ target: "Guilherme", status: "away", reason: "Teste remoto" })
+    });
+    assertEquals(command.status, 200);
+    const commandBody = await command.json();
+    assertEquals(commandBody.command.target, "Guilherme");
+
+    const pending = await request("/api/remote-status", {
+      headers: { "x-upstatus-token": guilhermeToken }
+    });
+    assertEquals((await pending.json()).pending, true);
+
+    const ack = await request("/api/remote-status/result", {
+      method: "POST", headers: { "x-upstatus-token": guilhermeToken, "content-type": "application/json" },
+      body: JSON.stringify({ commandId: commandBody.commandId, ok: true })
+    });
+    assertEquals(ack.status, 200);
+    assertEquals(await ack.json(), { ok: true });
+
+    const result = await request("/api/remote-status/result?id=" + commandBody.commandId, {
+      headers: authHeaders
+    });
+    assertEquals(result.status, 200);
+    assertEquals((await result.json()).result.ok, true);
   }
   let messageId = "";
   {
@@ -241,6 +285,23 @@ try {
     assertEquals(await deleted.json(), { ok: true, id: messageId, deletedByAdmin: false });
   }
   {
+    const pngBytes = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3];
+    const pngDataUrl = "data:image/png;base64," + btoa(String.fromCharCode(...pngBytes));
+    const avatar = await request("/api/profile/avatar", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ dataUrl: pngDataUrl })
+    });
+    assertEquals(avatar.status, 200);
+    assertEquals((await avatar.json()).ok, true);
+
+    const image = await request("/api/chat/image", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ dataUrl: pngDataUrl })
+    });
+    assertEquals(image.status, 200);
+    assertEquals((await image.json()).type, "image");
+  }
+  {
     const signed = await request("/api/chat/upload-url", {
       method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
       body: JSON.stringify({ mime: "application/pdf", size: 2048, name: "test.pdf" })
@@ -288,6 +349,31 @@ try {
     assertEquals((await (await request("/api/lucca/me", { headers: { cookie } })).json()).authenticated, false);
   }
   {
+    Deno.env.set("YCARO_PASSWORD", "ycaro-deno-test");
+    const login = await request("/api/ycaro/login", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ password: "ycaro-deno-test" })
+    });
+    assertEquals(login.status, 200);
+    const session = await login.json();
+    const cookie = "ycaro_session=" + session.token;
+    assertStringIncludes(login.headers.get("set-cookie") || "", "Max-Age=86400");
+    const me = await request("/api/ycaro/me", { headers: { cookie } });
+    assertEquals((await me.json()).authenticated, true);
+    const logout = await request("/api/ycaro/logout", {
+      method: "POST", headers: { cookie, "content-type": "application/json" }, body: "{}"
+    });
+    assertEquals(logout.status, 200);
+    assertStringIncludes(logout.headers.get("set-cookie") || "", "Max-Age=0");
+  }
+  {
+    const clear = await request("/api/chat/clear", {
+      method: "POST", headers: authHeaders
+    });
+    assertEquals(clear.status, 200);
+    assertEquals((await clear.json()).ok, true);
+  }
+  {
     const logout = await request("/api/logout", {
       method: "POST", headers: authHeaders
     });
@@ -303,7 +389,7 @@ try {
     assertEquals(response.headers.get("access-control-allow-origin"), "*");
   }
 
-  console.log("PASS: isolated Deno dispatcher auth/session, protected status/chat/media, guest cookie, HTTP contracts and global error boundary");
+  console.log("PASS: isolated Deno dispatcher auth/session, status/history/health, remote status, chat, media/storage, guest cookies, HTTP contracts and global error boundary");
 } catch (error) {
   console.error(error);
   Deno.exit(1);
