@@ -18,6 +18,7 @@ on:
       - "scripts/test-normal-chat-data.mjs"
       - "scripts/test-normal-media.mjs"
       - "scripts/test-normal-auth-context.mjs"
+      - "scripts/test-normal-chat-route.mjs"
       - "scripts/build-normal-modular-candidate.mjs"
       - "src/server/normal-3.4.7/modules/**"
       - "ycaro.html"
@@ -63,5 +64,7 @@ jobs:
         run: node scripts/test-normal-media.mjs
       - name: Test auth context module
         run: node scripts/test-normal-auth-context.mjs
+      - name: Test chat route module
+        run: node scripts/test-normal-chat-route.mjs
       - name: Build isolated modular candidate
         run: node scripts/build-normal-modular-candidate.mjs
