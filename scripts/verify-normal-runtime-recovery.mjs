@@ -30,7 +30,7 @@ const fragmentNames = [
 const fragments = fragmentNames.map((name) =>
   fs.readFileSync(path.join(ROOT, "src/server/normal-3.4.7/fragments", name), "utf8")
 );
-const assembled = fragments.join("\\n");
+const assembled = fragments.join("\n");
 if (assembled !== template) {
   let offset = 0;
   while (offset < assembled.length && offset < template.length && assembled[offset] === template[offset]) offset++;
