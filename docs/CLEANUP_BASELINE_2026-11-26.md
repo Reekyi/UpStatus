@@ -198,3 +198,12 @@ O teste offline `scripts/test-normal-status.mjs` passou localmente em Node v22.1
 Foi isolado `modules/remote-status.js` com fila e resultados remotos. State store, autorização, HTTP, roster e randomBytes são injetados. O registro continua em `upstatus_state` / `remote-status`; regras de admin, target, status, motivo, IDs e respostas foram preservados.
 
 O teste offline `scripts/test-normal-remote-status.mjs` passou localmente em Node v22.16.0. O builder modular agora extrai sete módulos reais e a reversão dos sete blocos e imports reconstrói exatamente o template original.
+
+
+## CI confirmado
+
+O workflow dedicado `Verify Recovered Normal Runtime` passou integralmente no GitHub Actions (run #29, commit `c68a199`). Passaram: reconstrução exata do snapshot, seis testes de módulos e build do candidato modular isolado.
+
+O workflow legado `UpStatus Validate` continua falhando em `scripts/validate.mjs:26` por `production updateURL mismatch`. Nenhum arquivo de build/validação/release foi alterado nesta reorganização; essa falha é separada e não foi mascarada. Deve ser tratada em trabalho próprio depois de reconciliar as URLs de distribuição.
+
+**Marco:** baseline recuperada + sete módulos extraídos + testes offline e build isolado verdes. Nenhum deploy, alteração Supabase ou mudança de runtime.
