@@ -63,8 +63,6 @@ export function createChatRouteHandler({ db, response, readBody, chatRows, menti
         luccaOnline: luccaStateNow.online === true
       });
     }
-
-      }
     const p = await readBody(req);
     const message = String(p.message || "").trim();
     const imageUrl = String(p.imageUrl || "").trim();
@@ -112,8 +110,6 @@ export function createChatRouteHandler({ db, response, readBody, chatRows, menti
         readBy: []
       }
     });
-  }
-
     throw new Error("Método não permitido.");
   }
 
