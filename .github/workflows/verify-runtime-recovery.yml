@@ -2,7 +2,7 @@ name: Verify Recovered Normal Runtime
 
 on:
   push:
-    branches: [chore/cleanup-structure-347]
+    branches: [chore/cleanup-structure-347, feat/release-pipeline-foundation]
     paths:
       - "src/server/normal-3.4.7.recovered.template.ts"
       - "src/server/normal-3.4.7/**"
@@ -30,17 +30,37 @@ on:
       - "scripts/test-normal-media-integration.mjs"
       - "scripts/test-normal-status-integration.mjs"
       - "scripts/deno-entrypoint-test/**"
+      - "src/userscript/normal-3.4.7.user.template.js"
+      - "scripts/test-normal-updater-transport.mjs"
+      - "release.json"
+      - "src/userscript/normal-staging.user.js"
+      - "release-beta.json"
+      - "src/server/screen-share-staging/**"
+      - "scripts/test-staging-runtime.mjs"
+      - ".github/workflows/deploy-staging.yml"
+      - "supabase/config.toml"
       - "scripts/build-normal-modular-candidate.mjs"
       - "src/server/normal-3.4.7/modules/**"
       - "ycaro.html"
       - ".github/workflows/verify-runtime-recovery.yml"
   pull_request:
-    branches: [master, develop]
+    branches: [master, develop, chore/cleanup-structure-347]
     paths:
       - "src/server/normal-3.4.7.recovered.template.ts"
       - "recovery/runtime-2026-11-26/**"
       - "scripts/verify-normal-runtime-recovery.mjs"
       - "ycaro.html"
+      - "src/userscript/normal-3.4.7.user.template.js"
+      - "scripts/test-normal-updater-transport.mjs"
+      - "scripts/build-normal-modular-candidate.mjs"
+      - "release.json"
+      - "src/userscript/normal-staging.user.js"
+      - "release-beta.json"
+      - "src/server/screen-share-staging/**"
+      - "scripts/test-staging-runtime.mjs"
+      - ".github/workflows/deploy-staging.yml"
+      - "supabase/config.toml"
+      - ".github/workflows/verify-runtime-recovery.yml"
 
 permissions:
   contents: read
@@ -55,6 +75,17 @@ jobs:
           persist-credentials: false
       - name: Verify exact recovered runtime
         run: node scripts/verify-normal-runtime-recovery.mjs
+      - name: Test updater transport and Stable channel
+        run: node scripts/test-normal-updater-transport.mjs
+      - name: Test Staging runtime isolation
+        run: node scripts/test-staging-runtime.mjs
+      - name: Build modular Beta candidate
+        env:
+          UPSTATUS_USERSCRIPT_PATH: src/userscript/normal-staging.user.js
+          UPSTATUS_VERSION: 3.4.8-beta.1
+        run: node scripts/build-normal-modular-candidate.mjs
+      - name: Parse and bundle Staging screen-share backend
+        run: npx --yes esbuild@0.25.12 src/server/screen-share-staging/index.ts --bundle --format=esm --platform=neutral --external:npm:* --external:node:* --outfile=/tmp/upstatus-screen-staging-syntax.js
       - name: Test extracted HTTP helpers
         run: node scripts/test-normal-http-helpers.mjs
       - name: Test shared state module

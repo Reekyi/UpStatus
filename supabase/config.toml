@@ -13,3 +13,6 @@ allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "image/gif"]
 
 [functions.upstatus-test]
 verify_jwt = false
+
+[functions.upstatus-screen-share-3-1-1-beta10]
+verify_jwt = false
