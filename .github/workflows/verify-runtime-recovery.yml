@@ -25,6 +25,7 @@ on:
       - "scripts/test-normal-auth-core.mjs"
       - "scripts/test-normal-auth-routes.mjs"
       - "scripts/test-normal-chat-maintenance.mjs"
+      - "scripts/test-normal-modular-integration.mjs"
       - "scripts/build-normal-modular-candidate.mjs"
       - "src/server/normal-3.4.7/modules/**"
       - "ycaro.html"
@@ -84,6 +85,8 @@ jobs:
         run: node scripts/test-normal-auth-routes.mjs
       - name: Test chat maintenance module
         run: node scripts/test-normal-chat-maintenance.mjs
+      - name: Test integrated modular composition
+        run: node scripts/test-normal-modular-integration.mjs
       - name: Build isolated modular candidate
         run: node scripts/build-normal-modular-candidate.mjs
       - name: Parse and bundle integrated modular candidate
