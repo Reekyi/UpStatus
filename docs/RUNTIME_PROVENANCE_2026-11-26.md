@@ -92,3 +92,8 @@ O snapshot do backend e o artefato cliente foram preservados na branch:
 - `recovery/runtime-2026-11-26/userscripts/upstatus-screen-share-3.1.1-beta8.user.js`
 
 Os arquivos são snapshots de recuperação, não artefatos prontos para deploy. A matriz de diferenças e cobertura está em `docs/TEST_COVERAGE_BASELINE_2026-11-26.md`.
+
+
+## Nota de escopo adicionada em 2026-11-26
+
+Este documento descreve o projeto `upstatus-normal` da organização `UpStatus Revived`, não o inventário completo do projeto original `UpStatus`. O projeto original `dlfvkawaiqduhlazsszm` foi inspecionado depois e possui funções adicionais e versões de implantação superiores. A reconciliação dos dois ambientes, incluindo comparação de bundles e snapshots originais, está em `docs/SUPABASE_ENVIRONMENT_RECONCILIATION_2026-11-26.md`. Não interpretar este documento isoladamente como prova de que Revived é o único runtime de produção.
