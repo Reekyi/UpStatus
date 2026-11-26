@@ -264,6 +264,21 @@ for (const [placeholder, value] of Object.entries(replacements)) {
   candidate = candidate.replaceAll(placeholder, () => value);
 }
 if (/__UPSTATUS_[A-Z0-9_]+__/.test(candidate)) throw new Error("Unresolved runtime placeholder detected.");
+
+// Build the recovered monolith as an isolated Deno reference server. Only its
+// listener port is changed for side-by-side HTTP contract comparison.
+let referenceCandidate = template;
+for (const [placeholder, value] of Object.entries(replacements)) {
+  if (!referenceCandidate.includes(placeholder)) throw new Error("Missing reference placeholder: " + placeholder);
+  referenceCandidate = referenceCandidate.replaceAll(placeholder, () => value);
+}
+const referenceServeAnchor = "Deno.serve(async(req)=>{";
+if (!referenceCandidate.includes(referenceServeAnchor)) throw new Error("Reference Deno entrypoint not found.");
+referenceCandidate = referenceCandidate.replace(
+  referenceServeAnchor,
+  "Deno.serve({port:8001},async(req)=>{"
+);
+if (/__UPSTATUS_[A-Z0-9_]+__/.test(referenceCandidate)) throw new Error("Unresolved reference placeholder detected.");
 if (candidate === template) throw new Error("Modular candidate unexpectedly equals the recovered monolith.");
 for (const file of moduleFiles) {
   if (!candidate.includes("./modules/" + file)) throw new Error("Missing modular import for " + file);
@@ -388,6 +403,14 @@ for (const marker of orderedDispatchMarkers) {
 
 fs.mkdirSync(path.join(outputRoot, "modules"), { recursive: true });
 fs.writeFileSync(outputPath, candidate, "utf8");
+const referenceRoot = path.join(ROOT, "dist/recovered-normal-reference");
+fs.mkdirSync(referenceRoot, { recursive: true });
+fs.writeFileSync(path.join(referenceRoot, "index.ts"), referenceCandidate, "utf8");
+fs.writeFileSync(
+  path.join(referenceRoot, "README.txt"),
+  "NON-PRODUCTION REFERENCE SERVER. Recovered monolith, port adjusted to 8001 for offline differential HTTP tests only. Never deploy this output.\\n",
+  "utf8"
+);
 for (const file of moduleFiles) {
   fs.copyFileSync(modulePaths[file], path.join(outputRoot, "modules", file));
 }
@@ -399,6 +422,7 @@ fs.writeFileSync(
 
 console.log("Built isolated modular Normal candidate.");
 console.log("Output: " + path.relative(ROOT, outputPath));
+console.log("Reference: " + path.relative(ROOT, path.join(referenceRoot, "index.ts")));
 console.log("Extracted modules: 17 dependency-injected modules (HTTP, state, auth, guests, members, status, chat, media, routes)");
 console.log("Outside extracted blocks: unchanged");
 console.log("Supabase/deploy actions: none");
