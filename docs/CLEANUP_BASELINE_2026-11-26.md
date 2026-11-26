@@ -372,3 +372,14 @@ O builder passou a validar explicitamente as 17 chamadas de factory, além dos 1
 A documentação `src/server/normal-3.4.7/README.md` foi atualizada com a lista dos 17 módulos e os limites do entrypoint. `docs/MODULE_BOUNDARY_AUDIT_2026-11-26.md` agora registra o estado atual e distingue parse/bundle de execução integrada.
 
 Próximo gate: caracterização integrada do entrypoint com dependências simuladas e comparação de contratos HTTP. Não extrair o dispatcher apenas para aumentar a contagem de módulos. Nenhuma ação Supabase/deploy foi realizada.
+
+
+## Caracterização integrada de módulos e dispatcher
+
+Foi adicionado `scripts/test-normal-modular-integration.mjs`, que compõe os factories reais de HTTP, state store, auth crypto/core, guest sessions, auth context e auth routes com um DB em memória. O teste percorre setup/login, persistência de sessão, resolução de usuário autenticado, resposta de `/api/me`, logout/invalidação de cache e resolução de sessão Lucca via cookie. Nenhuma conexão Supabase é aberta.
+
+O builder também passou a exigir marcadores explícitos do dispatcher: entrypoint `Deno.serve`, rotas de convidado, setup/login, account/me/logout, autorização, status/histórico, chat/interações, mídia, remote status e limpeza do chat. Assim, a emissão modular falha se algum factory deixar de estar ligado ao fluxo HTTP existente.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no HEAD `556f60fcb642706bccb3e8a30ab576d96896b633` (run #173). A caracterização integrada, 17 testes unitários, prova de reconstrução exata, verificações de wiring do dispatcher e parse/bundle do grafo modular passaram.
+
+O teste integrado cobre composição de autenticação e convidados; não deve ser confundido com teste completo de todos os endpoints ou execução Deno em produção. O próximo passo é ampliar contratos integrados por domínio, mantendo o dispatcher no entrypoint. Nenhum deploy ou Supabase write foi realizado.
