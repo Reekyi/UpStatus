@@ -90,3 +90,7 @@ The Deno harness now includes a negative authorization matrix for a standard use
 ## Differential reference server
 
 The builder now emits `dist/recovered-normal-reference/index.ts`, a test-only copy of the exact recovered monolith with only its local `Deno.serve` port changed to 8001. The Deno harness runs that reference and the modular candidate in separate processes with isolated in-memory Supabase mocks, then compares status, selected headers and response bodies exactly for public/unauthenticated routes, OPTIONS, static userscript/guest pages and invalid guest credentials. Run #252 passed on `72dbbd0868700a944a5113c703cd0749feea8de8`. Differential coverage of authenticated flows remains a follow-on gate; neither artifact is deployable.
+
+
+
+Differential comparison now also covers normalized authenticated setup/login, `/api/me`, status/presence/history, chat creation/read/reaction/edit/delete, and the remote-status command/pending/ack/result lifecycle. Only tokens, IDs and timestamps are normalized; the remaining response fields are compared. Run #261 passed on `0692e9bd3fa854ecff5ae0a72c7f3ddcd534900d`. Guest cookie and media upload differential scenarios remain to be added; live Supabase and managed Edge Runtime validation remain external gates.
