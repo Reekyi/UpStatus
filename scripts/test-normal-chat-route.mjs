@@ -117,4 +117,46 @@ function makeDb(dataByTable = {}, unreadCount = 0) {
   assert.equal(result.status, 400);
 }
 
+
+
+{
+  const db = makeDb({ chat_reads: { single: { last_read_at: "2026-11-26T10:00:00.000Z" } } });
+  const handler = createChatRouteHandler({
+    db, response, readBody: async () => ({}), chatRows: async () => [], mentions: async () => [],
+    expireLucca: async () => ({ online: false }), randomBytes: () => Buffer.from("12345678")
+  });
+  const result = await handler.chatRoute(new Request("https://example.test/api/chat?fast=1&since=invalid", { method: "GET" }), "Ricardo");
+  assert.equal(result.status, 200);
+  const chatRead = db.calls.filter((x) => x[0] === "from" && x[1] === "messages").length;
+  assert.equal(chatRead, 2);
+  assert.ok(db.calls.some((x) => x[0] === "gte" && x[1] === "messages" && x[2] === "created_at"));
+}
+
+{
+  const db = makeDb();
+  const handler = createChatRouteHandler({
+    db, response,
+    readBody: async () => ({ message: "", imageUrl: "https://cdn.example.test/file.png", type: "document" }),
+    chatRows: async () => [], mentions: async () => [],
+    expireLucca: async () => ({ online: false }), randomBytes: () => Buffer.from("12345678")
+  });
+  const result = await handler.chatRoute(new Request("https://example.test/api/chat", { method: "POST" }), "Ricardo");
+  const body = await result.json();
+  assert.equal(result.status, 200);
+  assert.equal(body.message.type, "document");
+  assert.equal(body.message.imageUrl, "https://cdn.example.test/file.png");
+}
+
+{
+  const db = makeDb();
+  const handler = createChatRouteHandler({
+    db, response, readBody: async () => ({ message: "x".repeat(1001) }),
+    chatRows: async () => [], mentions: async () => [],
+    expireLucca: async () => ({ online: false }), randomBytes: () => Buffer.from("12345678")
+  });
+  const result = await handler.chatRoute(new Request("https://example.test/api/chat", { method: "POST" }), "Ricardo");
+  assert.equal(result.status, 400);
+  assert.deepEqual(await result.json(), { error: "A mensagem deve ter no máximo 1000 caracteres." });
+}
+
 console.log("PASS: chat route read, fast sync, and message creation");
