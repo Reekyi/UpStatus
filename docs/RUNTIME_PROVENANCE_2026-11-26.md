@@ -79,3 +79,16 @@ Antes de qualquer extração modular, é necessário recuperar uma fonte version
 - A leitura do código implantado prova o conteúdo retornado pela API de Management, não prova latência em produção.
 - A meta de desempenho continua sendo preservar os valores observados pelo Ricardo e Guilherme: mensagens em aproximadamente 2 segundos e troca de fila praticamente instantânea. Essas medições ainda precisam ser repetidas em um ambiente controlado antes e depois de cada mudança.
 - Nenhum teste real de navegador, chamada, compartilhamento de tela ou benchmark de produção foi executado nesta etapa.
+
+
+## Confirmação adicional: artefato Normal
+
+O userscript 3.4.7 extraído do runtime foi comparado integralmente com `master/UpStatus.user.js`. Após normalizar apenas o project ref e a publishable key do ambiente, os 544.057 caracteres coincidem integralmente. Isso confirma a proveniência do **cliente** Normal, embora não confirme a proveniência do backend implantado.
+
+O snapshot do backend e o artefato cliente foram preservados na branch:
+- `recovery/runtime-2026-11-26/upstatus/index.ts`
+- `recovery/runtime-2026-11-26/userscripts/upstatus-normal-3.4.7.user.js`
+- `recovery/runtime-2026-11-26/upstatus-screen-share-3-1-1-beta10/index.ts`
+- `recovery/runtime-2026-11-26/userscripts/upstatus-screen-share-3.1.1-beta8.user.js`
+
+Os arquivos são snapshots de recuperação, não artefatos prontos para deploy. A matriz de diferenças e cobertura está em `docs/TEST_COVERAGE_BASELINE_2026-11-26.md`.
