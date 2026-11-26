@@ -61,7 +61,7 @@ const request = (url, body) => new Request("https://upstatus.test" + url, {
   assert.deepEqual(await media.profileMap(), { Ricardo: body.avatarUrl });
 }
 {
-  const saved = await routes.mediaRoute(request("/api/media/image", { dataUrl }), "Ricardo");
+  const saved = await routes.mediaRoute(request("/api/media/image", { dataUrl }), "image");
   const body = await saved.json();
   assert.equal(saved.status, 200);
   assert.equal(body.type, "image");
