@@ -218,3 +218,15 @@ O workflow dedicado `Verify Recovered Normal Runtime` executou com sucesso no Gi
 9. montagem do candidato modular isolado.
 
 O workflow legado `UpStatus Validate` continua falhando em `scripts/validate.mjs:26` com `production updateURL mismatch`. A falha está na validação/build já existente e ocorre antes de qualquer teste do novo módulo; nenhum dos arquivos `scripts/build.mjs`, `scripts/validate.mjs` ou `release.json` foi alterado nesta reorganização. Não corrigir isso dentro do mesmo escopo; tratar separadamente após reconciliar os URLs de distribuição.
+
+
+## 17. Oitavo módulo real — dados do chat
+
+Foi extraído `modules/chat-data.js` com `createChatDataStore({ db, members })`, contendo:
+- resolução de menções `@nome` e `@todos`;
+- consulta incremental/normal de mensagens;
+- janela de 48 horas;
+- limite de 200 mensagens em consulta incremental e 1.000 na consulta completa;
+- normalização do payload de mensagens, incluindo `readBy: []`.
+
+O teste `scripts/test-normal-chat-data.mjs` passou localmente em Node v22.16.0. Cobre menções sem duplicidade, desconhecidos, expansão de `@todos`, normalização de campos e os limites de consulta. O builder foi reorganizado para respeitar a dependência de `members` e a ordem do runtime; a reversão dos oito blocos e imports restaura exatamente o template original.
