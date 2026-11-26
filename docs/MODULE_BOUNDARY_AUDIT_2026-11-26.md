@@ -230,3 +230,17 @@ Foi extraído `modules/chat-data.js` com `createChatDataStore({ db, members })`,
 - normalização do payload de mensagens, incluindo `readBy: []`.
 
 O teste `scripts/test-normal-chat-data.mjs` passou localmente em Node v22.16.0. Cobre menções sem duplicidade, desconhecidos, expansão de `@todos`, normalização de campos e os limites de consulta. O builder foi reorganizado para respeitar a dependência de `members` e a ordem do runtime; a reversão dos oito blocos e imports restaura exatamente o template original.
+
+
+## 18. Nono módulo real — mídia e perfis
+
+Foi extraído `modules/media.js` com `createMediaStore({ db, randomBytes })`, reunindo:
+- leitura do mapa de avatares;
+- validação e decodificação de Data URL Base64;
+- detecção de MIME por assinatura de bytes;
+- mapeamento MIME/extensão;
+- upload de objeto no bucket solicitado e geração da URL pública.
+
+Foram preservados os nomes de tabela/colunas, assinaturas de arquivo aceitas, mensagens de erro, limite recebido pelo chamador, geração do caminho, cacheControl `31536000` e `upsert:false`.
+
+O teste `scripts/test-normal-media.mjs` passou localmente em Node v22.16.0. Cobre perfil, Data URL inválida, assinaturas JPEG/PNG/GIF/Ogg/MP3, extensão e upload com Storage falso. O builder agora extrai nove módulos; a reversão dos nove blocos e imports restaura exatamente o template.
