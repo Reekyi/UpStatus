@@ -1010,17 +1010,33 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   }
 
   function versionParts(v){
-    return String(v||'0').replace(/^v/i,'').split('.').map(function(n){
-      var x=parseInt(n,10);
-      return isNaN(x)?0:x;
-    });
+    var m=String(v||'0').trim().replace(/^v/i,'').match(/^(\\d+(?:\\.\\d+){0,3})(?:-([0-9A-Za-z.-]+))?(?:\\+[0-9A-Za-z.-]+)?$/);
+    if(!m)return {core:[0],pre:null};
+    return {
+      core:m[1].split('.').map(function(n){var x=parseInt(n,10);return isNaN(x)?0:x;}),
+      pre:m[2]?m[2].split('.'):null
+    };
   }
   function compareVersions(a,b){
     var A=versionParts(a),B=versionParts(b),i;
-    for(i=0;i<Math.max(A.length,B.length);i++){
-      var av=A[i]||0,bv=B[i]||0;
+    for(i=0;i<Math.max(A.core.length,B.core.length);i++){
+      var av=A.core[i]||0,bv=B.core[i]||0;
       if(av>bv)return 1;
       if(av<bv)return -1;
+    }
+    if(!A.pre&&!B.pre)return 0;
+    if(!A.pre)return 1;
+    if(!B.pre)return -1;
+    for(i=0;i<Math.max(A.pre.length,B.pre.length);i++){
+      var ai=A.pre[i],bi=B.pre[i];
+      if(ai===undefined)return -1;
+      if(bi===undefined)return 1;
+      var an=/^\\d+$/.test(ai),bn=/^\\d+$/.test(bi);
+      if(an&&bn){var avn=parseInt(ai,10),bvn=parseInt(bi,10);if(avn>bvn)return 1;if(avn<bvn)return -1;continue;}
+      if(an&&!bn)return -1;
+      if(!an&&bn)return 1;
+      if(ai>bi)return 1;
+      if(ai<bi)return -1;
     }
     return 0;
   }
