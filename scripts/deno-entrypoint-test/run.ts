@@ -92,6 +92,210 @@ try {
     assertStringIncludes(response.headers.get("content-type") || "", "text/html");
   }
   {
+    const tooShort = await request("/api/setup", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Ricardo", password: "123" })
+    });
+    assertEquals(tooShort.status, 400);
+    assertEquals(await tooShort.json(), { error: "Use um usuário válido e uma senha de pelo menos 6 caracteres." });
+  }
+  let firstToken = "";
+  {
+    const setup = await request("/api/setup", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Ricardo", password: "deno-test-password" })
+    });
+    assertEquals(setup.status, 200);
+    const body = await setup.json();
+    assertEquals(body.name, "Ricardo");
+    assertEquals(body.role, "implementation_admin");
+    assertEquals(body.canViewHistory, true);
+    assert(typeof body.token === "string" && body.token.length > 20, "setup should issue a session token");
+    firstToken = body.token;
+  }
+  {
+    const badLogin = await request("/api/login", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Ricardo", password: "wrong-password" })
+    });
+    assertEquals(badLogin.status, 401);
+    assertEquals(await badLogin.json(), { error: "Nome ou senha incorretos." });
+  }
+  {
+    const me = await request("/api/me", { headers: { "x-upstatus-token": firstToken } });
+    assertEquals(me.status, 200);
+    assertEquals(await me.json(), {
+      authenticated: true, name: "Ricardo", role: "implementation_admin",
+      canViewHistory: true, needsSetup: false
+    });
+  }
+  {
+    const logout = await request("/api/logout", {
+      method: "POST", headers: { "x-upstatus-token": firstToken }
+    });
+    assertEquals(logout.status, 200);
+    assertEquals(await logout.json(), { ok: true });
+    const me = await request("/api/me", { headers: { "x-upstatus-token": firstToken } });
+    assertEquals(await me.json(), {
+      authenticated: false, name: null, role: null, canViewHistory: false, needsSetup: false
+    });
+  }
+  let authToken = "";
+  {
+    const login = await request("/api/login", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Ricardo", password: "deno-test-password" })
+    });
+    assertEquals(login.status, 200);
+    const body = await login.json();
+    assertEquals(body.name, "Ricardo");
+    assertEquals(body.role, "implementation_admin");
+    authToken = body.token;
+  }
+  const authHeaders = { "x-upstatus-token": authToken };
+  {
+    const status = await request("/api/status", { headers: { ...authHeaders, "x-upstatus-version": "3.4.7" } });
+    assertEquals(status.status, 200);
+    const body = await status.json();
+    assertEquals(body.members.Ricardo.status, "offline");
+    assertEquals(body.members.Ricardo.version, "3.4.7");
+  }
+  {
+    const invalid = await request("/api/status", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ status: "unknown" })
+    });
+    assertEquals(invalid.status, 400);
+    assertEquals(await invalid.json(), { error: "Status inválido." });
+
+    const changed = await request("/api/status", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ status: "busy", reason: "Deno harness" })
+    });
+    assertEquals(changed.status, 200);
+    assertEquals((await changed.json()).status, "busy");
+    const history = await request("/api/history?limit=10", { headers: authHeaders });
+    assertEquals(history.status, 200);
+    assertEquals((await history.json()).history.length, 1);
+  }
+  let messageId = "";
+  {
+    const empty = await request("/api/chat", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "   " })
+    });
+    assertEquals(empty.status, 400);
+    assertEquals(await empty.json(), { error: "Digite uma mensagem ou envie um arquivo." });
+
+    const sent = await request("/api/chat", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "Teste pelo dispatcher @Lohan" })
+    });
+    assertEquals(sent.status, 200);
+    const sentBody = await sent.json();
+    assertEquals(sentBody.message.user, "Ricardo");
+    assertEquals(sentBody.message.mentions, ["Lohan"]);
+    messageId = sentBody.message.id;
+  }
+  {
+    const history = await request("/api/chat", { headers: authHeaders });
+    assertEquals(history.status, 200);
+    const body = await history.json();
+    assertEquals(body.messages.length, 1);
+    assertEquals(body.messages[0].id, messageId);
+
+    const read = await request("/api/chat/read", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ messageIds: [messageId] })
+    });
+    assertEquals(read.status, 200);
+    assertEquals(await read.json(), { ok: true });
+
+    const typing = await request("/api/chat/typing", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ typing: true })
+    });
+    assertEquals(await typing.json(), { ok: true });
+    const typingList = await request("/api/chat/typing", { headers: authHeaders });
+    assertEquals((await typingList.json()).typing, []);
+  }
+  {
+    const reaction = await request("/api/chat/reaction", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ messageId, emoji: "👍" })
+    });
+    assertEquals(reaction.status, 200);
+    assertEquals((await reaction.json()).reactions, { "👍": ["Ricardo"] });
+
+    const edited = await request("/api/chat/" + messageId, {
+      method: "PATCH", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ message: "Mensagem editada no Deno" })
+    });
+    assertEquals(edited.status, 200);
+    assertEquals((await edited.json()).message.message, "Mensagem editada no Deno");
+
+    const deleted = await request("/api/chat/" + messageId, {
+      method: "DELETE", headers: authHeaders
+    });
+    assertEquals(deleted.status, 200);
+    assertEquals(await deleted.json(), { ok: true, id: messageId, deletedByAdmin: false });
+  }
+  {
+    const signed = await request("/api/chat/upload-url", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ mime: "application/pdf", size: 2048, name: "test.pdf" })
+    });
+    assertEquals(signed.status, 200);
+    const body = await signed.json();
+    assertEquals(body.bucket, "chat-images");
+    assertEquals(body.mime, "application/pdf");
+    assert(body.uploadUrl.includes("deno-test-upload-token"));
+  }
+  {
+    Deno.env.set("LUCCA_PASSWORD", "lucca-deno-test");
+    const denied = await request("/api/lucca/login", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ password: "incorrect" })
+    });
+    assertEquals(denied.status, 401);
+
+    const login = await request("/api/lucca/login", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ password: "lucca-deno-test" })
+    });
+    assertEquals(login.status, 200);
+    const session = await login.json();
+    const cookie = "lucca_session=" + session.token;
+    const setCookie = login.headers.get("set-cookie") || "";
+    assertStringIncludes(setCookie, "HttpOnly");
+    assertStringIncludes(setCookie, "SameSite=Lax");
+    assertStringIncludes(setCookie, "Max-Age=86400");
+
+    const me = await request("/api/lucca/me", { headers: { cookie } });
+    assertEquals((await me.json()).authenticated, true);
+    const heartbeat = await request("/api/lucca/heartbeat", {
+      method: "POST", headers: { cookie, "content-type": "application/json" },
+      body: "{}"
+    });
+    assertEquals(await heartbeat.json(), { ok: true, online: true });
+
+    const logout = await request("/api/lucca/logout", {
+      method: "POST", headers: { cookie, "content-type": "application/json" },
+      body: "{}"
+    });
+    assertEquals(logout.status, 200);
+    assertStringIncludes(logout.headers.get("set-cookie") || "", "Max-Age=0");
+    assertEquals((await (await request("/api/lucca/me", { headers: { cookie } })).json()).authenticated, false);
+  }
+  {
+    const logout = await request("/api/logout", {
+      method: "POST", headers: authHeaders
+    });
+    assertEquals(logout.status, 200);
+    const protectedAfterLogout = await request("/api/status", { headers: authHeaders });
+    assertEquals(protectedAfterLogout.status, 401);
+  }
+  {
     (globalThis as any).__upstatusMockDbError = true;
     const response = await request("/api/account?name=Ricardo");
     assertEquals(response.status, 500);
@@ -99,7 +303,7 @@ try {
     assertEquals(response.headers.get("access-control-allow-origin"), "*");
   }
 
-  console.log("PASS: isolated Deno entrypoint HTTP, CORS, auth gate, static assets and global error boundary");
+  console.log("PASS: isolated Deno dispatcher auth/session, protected status/chat/media, guest cookie, HTTP contracts and global error boundary");
 } catch (error) {
   console.error(error);
   Deno.exit(1);
