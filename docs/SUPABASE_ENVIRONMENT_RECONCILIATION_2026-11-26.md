@@ -73,3 +73,21 @@ Antes de qualquer alteração:
 5. Manter snapshots dos dois lados e não remover funções do projeto original.
 
 Nenhum deploy, escrita no banco, alteração de configuração, alteração de segredo ou migração foi executado.
+
+
+## 7. Funções adicionais e dependência beta8
+
+A inspeção do inventário original confirmou também:
+- `upstatus-test`: implantação v281, código declara 3.3.28.
+- `upstatus-team-lite`: implantação v15, código declara 3.4.30.
+- `upstatus-screen-share-3-1-1-beta8`: implantação v2, código declara 3.1.1-beta8.
+
+Esses três bundles foram preservados em `recovery/runtime-2026-11-26/original-project-test/`, `original-project-team-lite/` e `original-project-beta8/`.
+
+O userscript embutido na função `upstatus-screen-share-3-1-1-beta10` declara beta8 e aponta sua API para `/functions/v1/upstatus-screen-share-3-1-1-beta8`. Esse slug existe no projeto original, mas não existe no projeto Revived. Portanto, a cópia Revived não replica integralmente o grafo de dependências dos runtimes beta distribuídos. Antes de considerar o cutover completo, é necessário decidir se beta8 continua sendo um fluxo suportado e, em caso afirmativo, migrar seu backend de forma controlada.
+
+O projeto original também tem `upstatus-test` e `upstatus-team-lite`, que não aparecem no inventário Revived. A branch `team-lite/3.4.31-candidate` não é idêntica ao Team Lite 3.4.30 ativo; a comparação encontrou diferenças funcionais em autenticação, lista de usuários, permissões administrativas, chat e convidados. Não usar essa candidata como substituta automática.
+
+## 8. Inventário de runtimes centrais preservados
+
+Além dos dois runtimes Normal/beta10, foram preservados os bundles originais TEST 3.3.28, Team Lite 3.4.30 e beta8 3.1.1. Nenhum foi modificado ou redeployado.
