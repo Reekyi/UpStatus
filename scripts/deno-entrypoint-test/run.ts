@@ -178,18 +178,6 @@ try {
     assertEquals(history.status, 200);
     assertEquals((await history.json()).history.length, 1);
 
-    const outsiderChange = await request("/api/status", {
-      method: "POST", headers: { ...testerHeaders, "content-type": "application/json" },
-      body: JSON.stringify({ status: "away", reason: "Tester presence", actor: "Ricardo", target: "Tester" })
-    });
-    assertEquals(outsiderChange.status, 200);
-    assertEquals((await outsiderChange.json()).status, "away");
-    const afterOutsider = await request("/api/history?limit=10", { headers: authHeaders });
-    const entries = (await afterOutsider.json()).history;
-    const testerEntry = entries.find((entry: any) => entry.user === "Tester");
-    assertEquals(testerEntry.actor, "Tester");
-    assertEquals(testerEntry.target, "Tester");
-
     const health = await request("/api/health", { headers: authHeaders });
     assertEquals(health.status, 200);
     const healthBody = await health.json();
@@ -220,6 +208,19 @@ try {
     testerToken = body.token;
   }
   const testerHeaders = { "x-upstatus-token": testerToken };
+  {
+    const outsiderChange = await request("/api/status", {
+      method: "POST", headers: { ...testerHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ status: "away", reason: "Tester presence", actor: "Ricardo", target: "Tester" })
+    });
+    assertEquals(outsiderChange.status, 200);
+    assertEquals((await outsiderChange.json()).status, "away");
+    const afterOutsider = await request("/api/history?limit=10", { headers: authHeaders });
+    const entries = (await afterOutsider.json()).history;
+    const testerEntry = entries.find((entry: any) => entry.user === "Tester");
+    assertEquals(testerEntry.actor, "Tester");
+    assertEquals(testerEntry.target, "Tester");
+  }
   {
     const me = await request("/api/me", { headers: testerHeaders });
     assertEquals((await me.json()).role, "implementation_user");
