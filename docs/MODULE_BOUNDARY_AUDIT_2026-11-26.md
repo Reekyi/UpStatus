@@ -191,3 +191,14 @@ Os contratos foram preservados: permissões, allow-list de saúde, cabeçalho `x
 O teste `scripts/test-normal-status.mjs` passou localmente em Node v22.16.0 com DB falso. Cobre bloqueio de saúde, GET de presença, POST inválido, atualização com actor/target e clamp do histórico.
 
 O builder foi atualizado para seis módulos reais e a reversão dos seis blocos mais imports reconstrói exatamente o template original. Nenhuma chamada ao Supabase foi feita pelos testes.
+
+
+## 15. Sétimo módulo real — fila de status remoto
+
+Foi extraído `modules/remote-status.js` com `createRemoteStatusHandler({ stateValue, setState, admin, response, readBody, members, randomBytes })`.
+
+O módulo mantém a fila e o resultado no mesmo registro `upstatus_state` / `remote-status`, os mesmos nomes de campo, regras de administrador, validação de target/status/reason, geração de ID e mensagens de erro. Não cria tabelas nem executa operações adicionais.
+
+O teste `scripts/test-normal-remote-status.mjs` passou localmente em Node v22.16.0 usando mocks. Cobre leitura de fila, autorização, resultado inexistente, conclusão de comando e criação de comando remoto.
+
+O builder agora extrai sete módulos reais e a reversão dos sete blocos e imports restaura exatamente o template original.
