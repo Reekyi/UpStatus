@@ -5,8 +5,10 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const templatePath = path.join(ROOT, "src/server/normal-3.4.7.recovered.template.ts");
-const helperPath = path.join(ROOT, "src/server/normal-3.4.7/modules/http.js");
-const statePath = path.join(ROOT, "src/server/normal-3.4.7/modules/state.js");
+const modulesDir = path.join(ROOT, "src/server/normal-3.4.7/modules");
+const helperPath = path.join(modulesDir, "http.js");
+const statePath = path.join(modulesDir, "state.js");
+const authCryptoPath = path.join(modulesDir, "auth-crypto.js");
 const userscriptPath = path.join(ROOT, "recovery/runtime-2026-11-26/userscripts/original-project-normal-3.4.7.user.js");
 const ycaroPath = path.join(ROOT, "ycaro.html");
 const outputRoot = path.join(ROOT, "dist/modular-normal-candidate");
@@ -18,6 +20,8 @@ const helperModule = fs.readFileSync(helperPath, "utf8");
 if (!helperModule.includes("export function createHttpHelpers")) throw new Error("HTTP helper module export not found.");
 const stateModule = fs.readFileSync(statePath, "utf8");
 if (!stateModule.includes("export function createStateStore")) throw new Error("State store module export not found.");
+const authCryptoModule = fs.readFileSync(authCryptoPath, "utf8");
+if (!authCryptoModule.includes("export function createAuthCrypto")) throw new Error("Auth crypto module export not found.");
 const userscript = fs.readFileSync(userscriptPath, "utf8");
 const ycaro = fs.readFileSync(ycaroPath, "utf8");
 
@@ -37,19 +41,29 @@ source = source.slice(0, stateStart) +
   "const { stateValue, setState } = createStateStore(db);\n" +
   source.slice(stateEnd);
 
+const authCryptoStart = source.indexOf("function tokenHash(t:string)");
+const authCryptoEnd = source.indexOf("async function userFromToken(req:Request)", authCryptoStart);
+if (authCryptoStart < 0 || authCryptoEnd < 0) throw new Error("Could not isolate the original auth crypto block.");
+const originalAuthCryptoBlock = source.slice(authCryptoStart, authCryptoEnd);
+source = source.slice(0, authCryptoStart) +
+  "const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });\n" +
+  source.slice(authCryptoEnd);
+
 const importAnchor = 'import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";';
 if (!source.includes(importAnchor)) throw new Error("Crypto import anchor not found.");
 const importedBlock = importAnchor +
   '\nimport { createHttpHelpers } from "./modules/http.js";' +
-  '\nimport { createStateStore } from "./modules/state.js";';
+  '\nimport { createStateStore } from "./modules/state.js";' +
+  '\nimport { createAuthCrypto } from "./modules/auth-crypto.js";';
 source = source.replace(importAnchor, () => importedBlock);
 
 const restored = source
   .replace("const { response, readBody } = createHttpHelpers(CORS);\n", () => originalHttpBlock)
   .replace("const { stateValue, setState } = createStateStore(db);\n", () => originalStateBlock)
+  .replace("const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });\n", () => originalAuthCryptoBlock)
   .replace(importedBlock, () => importAnchor);
 if (restored !== template) {
-  throw new Error("Modular candidate changed code outside the two extracted helper blocks.");
+  throw new Error("Modular candidate changed code outside the three extracted helper blocks.");
 }
 
 const replacements = {
@@ -67,6 +81,7 @@ fs.mkdirSync(path.join(outputRoot, "modules"), { recursive: true });
 fs.writeFileSync(outputPath, source, "utf8");
 fs.copyFileSync(helperPath, path.join(outputRoot, "modules/http.js"));
 fs.copyFileSync(statePath, path.join(outputRoot, "modules/state.js"));
+fs.copyFileSync(authCryptoPath, path.join(outputRoot, "modules/auth-crypto.js"));
 fs.writeFileSync(
   path.join(outputRoot, "README.txt"),
   "NON-PRODUCTION CANDIDATE. Generated offline for review only. Never deploy this output automatically.\n",
@@ -75,7 +90,6 @@ fs.writeFileSync(
 
 console.log("Built isolated modular Normal candidate.");
 console.log("Output: " + path.relative(ROOT, outputPath));
-console.log("HTTP helpers: " + (source.includes('createHttpHelpers(CORS)') ? "extracted" : "missing"));
-console.log("State store: " + (source.includes('createStateStore(db)') ? "extracted" : "missing"));
+console.log("Extracted modules: HTTP, shared state, auth crypto");
 console.log("Outside extracted blocks: unchanged");
 console.log("Supabase/deploy actions: none");
