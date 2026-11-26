@@ -76,3 +76,7 @@ The modular candidate builder verifies both the presence and the order of the cr
 ## Isolated Deno entrypoint execution
 
 `scripts/deno-entrypoint-test/` provides a local Deno HTTP harness for the generated modular candidate. Its import map replaces the Supabase npm dependency with an in-memory mock, then exercises the real `Deno.serve` entrypoint over localhost. It checks health/CORS, OPTIONS, unauthenticated `/api/me`, protected-route authentication gating, public account/member endpoints, userscript and guest HTML delivery, and the global 500 boundary. Only fake Supabase environment values are used. This is not a live Supabase or managed Edge Runtime test.
+
+
+
+The isolated Deno harness now also exercises setup/login and session invalidation, authenticated `/api/me`, status/presence/history/health, remote-status command and acknowledgement across two accounts, chat create/read/typing/reaction/edit/delete, avatar and image uploads, signed uploads, Lucca/Ycaro login/heartbeat/logout cookies, chat cleanup, and the global error boundary. All data and Storage operations are handled by in-memory mocks; credentials are test-only. Run #219 passed on `cc97676d3d482f583cdc6ff5e3bfe658726161c1`. This is still not a live Supabase or managed Edge Runtime test.
