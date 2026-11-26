@@ -75,6 +75,11 @@ try {
     assertEquals(await response.json(), { members: [{ name: "Guilherme" }, { name: "Lohan" }, { name: "Ricardo" }] });
   }
   {
+    const updateInfo = await request("/api/update-info");
+    assertEquals(updateInfo.status, 200);
+    assertEquals(await updateInfo.json(), { version: "3.4.7", updateUrl: "/upstatus.user.js" });
+  }
+  {
     const response = await request("/upstatus.user.js");
     assertEquals(response.status, 200);
     assertStringIncludes(response.headers.get("content-type") || "", "text/javascript");
@@ -167,6 +172,13 @@ try {
     });
     assertEquals(invalid.status, 400);
     assertEquals(await invalid.json(), { error: "Status inválido." });
+
+    const missingReason = await request("/api/status", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ status: "busy" })
+    });
+    assertEquals(missingReason.status, 400);
+    assertEquals(await missingReason.json(), { error: "Informe um motivo." });
 
     const changed = await request("/api/status", {
       method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
@@ -374,7 +386,10 @@ try {
       body: JSON.stringify({ dataUrl: pngDataUrl })
     });
     assertEquals(avatar.status, 200);
-    assertEquals((await avatar.json()).ok, true);
+    const avatarBody = await avatar.json();
+    assertEquals(avatarBody.ok, true);
+    const profiles = await request("/api/profiles", { headers: authHeaders });
+    assertEquals((await profiles.json()).profiles.Ricardo, avatarBody.avatarUrl);
 
     const image = await request("/api/chat/image", {
       method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
@@ -389,6 +404,31 @@ try {
       body: JSON.stringify({ message: "", imageUrl: uploadedImageUrl })
     });
     assertEquals(imageMessage.status, 200);
+
+    const pdfDataUrl = "data:application/pdf;base64," + btoa("%PDF-1.4\n");
+    const documentUpload = await request("/api/chat/document", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ dataUrl: pdfDataUrl })
+    });
+    assertEquals(documentUpload.status, 200);
+    assertEquals((await documentUpload.json()).type, "document");
+
+    const oggDataUrl = "data:audio/ogg;base64," + btoa("OggS" + "deno-audio");
+    const audioUpload = await request("/api/chat/audio", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ dataUrl: oggDataUrl })
+    });
+    assertEquals(audioUpload.status, 200);
+    assertEquals((await audioUpload.json()).type, "audio");
+
+    const mp4Bytes = [0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0];
+    const mp4DataUrl = "data:video/mp4;base64," + btoa(String.fromCharCode(...mp4Bytes));
+    const videoUpload = await request("/api/chat/image", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ dataUrl: mp4DataUrl })
+    });
+    assertEquals(videoUpload.status, 200);
+    assertEquals((await videoUpload.json()).type, "video");
   }
   {
     const signed = await request("/api/chat/upload-url", {
@@ -400,9 +440,27 @@ try {
     assertEquals(body.bucket, "chat-images");
     assertEquals(body.mime, "application/pdf");
     assert(body.uploadUrl.includes("deno-test-upload-token"));
+
+    const unsupported = await request("/api/chat/upload-url", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ mime: "application/x-msdownload", size: 1024, name: "payload.exe" })
+    });
+    assertEquals(unsupported.status, 400);
+    assertEquals(await unsupported.json(), { error: "Tipo de arquivo não suportado." });
+
+    const tooLarge = await request("/api/chat/upload-url", {
+      method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ mime: "application/pdf", size: 20 * 1024 * 1024 + 1, name: "large.pdf" })
+    });
+    assertEquals(tooLarge.status, 400);
+    assertEquals(await tooLarge.json(), { error: "O arquivo deve ter no máximo 20 MB." });
   }
   {
     Deno.env.set("LUCCA_PASSWORD", "lucca-deno-test");
+    const noGuestHeartbeat = await request("/api/lucca/heartbeat", {
+      method: "POST", headers: { "content-type": "application/json" }, body: "{}"
+    });
+    assertEquals(noGuestHeartbeat.status, 401);
     const denied = await request("/api/lucca/login", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ password: "incorrect" })
@@ -439,6 +497,15 @@ try {
   }
   {
     Deno.env.set("YCARO_PASSWORD", "ycaro-deno-test");
+    const badLogin = await request("/api/ycaro/login", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ password: "wrong-ycaro-password" })
+    });
+    assertEquals(badLogin.status, 401);
+    const noGuestHeartbeat = await request("/api/ycaro/heartbeat", {
+      method: "POST", headers: { "content-type": "application/json" }, body: "{}"
+    });
+    assertEquals(noGuestHeartbeat.status, 401);
     const login = await request("/api/ycaro/login", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ password: "ycaro-deno-test" })
@@ -463,6 +530,18 @@ try {
     assertEquals(clear.status, 200);
     assertEquals(await clear.json(), { ok: true, removedFiles: 0 });
     (globalThis as any).__upstatusMockStorageFailure = undefined;
+  }
+  {
+    const concurrentMessages = await Promise.all(Array.from({ length: 12 }, (_, index) =>
+      request("/api/chat", {
+        method: "POST", headers: { ...authHeaders, "content-type": "application/json" },
+        body: JSON.stringify({ message: "Concorrência Deno " + index })
+      })
+    ));
+    assert(concurrentMessages.every(response => response.status === 200), "all concurrent chat requests should succeed");
+    const concurrentIds: string[] = [];
+    for (const response of concurrentMessages) concurrentIds.push((await response.json()).message.id);
+    assertEquals(new Set(concurrentIds).size, 12);
   }
   {
     const malformed = await request("/api/chat", {
@@ -546,7 +625,7 @@ try {
     assertEquals(response.headers.get("access-control-allow-origin"), "*");
   }
 
-  console.log("PASS: isolated Deno dispatcher authorization matrix, auth/session, status/history/health, remote status, chat, media/storage, guest cookies, DB/Storage failures and global error boundary");
+  console.log("PASS: isolated Deno dispatcher authorization matrix, auth/session, status/history/health, remote status, chat concurrency, image/document/audio/video, media/storage, guest cookies, DB/Storage failures and global error boundary");
 } catch (error) {
   console.error(error);
   Deno.exit(1);
