@@ -13,6 +13,7 @@ on:
       - "scripts/test-normal-auth-crypto.mjs"
       - "scripts/test-normal-guest-sessions.mjs"
       - "scripts/test-normal-members.mjs"
+      - "scripts/test-normal-status.mjs"
       - "scripts/build-normal-modular-candidate.mjs"
       - "src/server/normal-3.4.7/modules/**"
       - "ycaro.html"
@@ -48,5 +49,7 @@ jobs:
         run: node scripts/test-normal-guest-sessions.mjs
       - name: Test members cache module
         run: node scripts/test-normal-members.mjs
+      - name: Test status handlers module
+        run: node scripts/test-normal-status.mjs
       - name: Build isolated modular candidate
         run: node scripts/build-normal-modular-candidate.mjs
