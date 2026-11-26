@@ -44,6 +44,11 @@ on:
       - "recovery/runtime-2026-11-26/**"
       - "scripts/verify-normal-runtime-recovery.mjs"
       - "ycaro.html"
+      - "src/userscript/normal-3.4.7.user.template.js"
+      - "scripts/test-normal-updater-transport.mjs"
+      - "scripts/build-normal-modular-candidate.mjs"
+      - "release.json"
+      - ".github/workflows/verify-runtime-recovery.yml"
 
 permissions:
   contents: read
