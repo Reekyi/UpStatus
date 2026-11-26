@@ -191,3 +191,10 @@ O teste `scripts/test-normal-members.mjs` passou localmente em Node v22.16.0 com
 Foi criado `modules/status.js` com `healthRoute`, `statusRoute` e `historyRoute`, recebendo DB, helpers HTTP, account/admin e versão por injeção. Foram preservados os contratos de autorização, presença de 15s, cabeçalho de versão, validação de status, actor/target e limite de histórico.
 
 O teste offline `scripts/test-normal-status.mjs` passou localmente em Node v22.16.0 usando DB falso. O builder modular agora extrai seis módulos reais, e a reversão dos seis blocos e imports reconstrói exatamente o template original.
+
+
+## Sétimo módulo real extraído: status remoto
+
+Foi isolado `modules/remote-status.js` com fila e resultados remotos. State store, autorização, HTTP, roster e randomBytes são injetados. O registro continua em `upstatus_state` / `remote-status`; regras de admin, target, status, motivo, IDs e respostas foram preservados.
+
+O teste offline `scripts/test-normal-remote-status.mjs` passou localmente em Node v22.16.0. O builder modular agora extrai sete módulos reais e a reversão dos sete blocos e imports reconstrói exatamente o template original.
