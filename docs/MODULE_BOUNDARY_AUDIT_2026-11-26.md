@@ -318,3 +318,13 @@ Foram criados `scripts/test-normal-media-integration.mjs` e `scripts/test-normal
 **Validação:** `Verify Recovered Normal Runtime` passou no run #189, commit `17bfe9a788c6fd2ddcdf82962edd8e8ad2fcf64d`. Recuperação exata, 17 testes unitários, quatro composições integradas (auth/guest, chat, mídia e status), build modular e parse/bundle passaram.
 
 Esses testes não equivalem à execução integral do dispatcher Deno ou a um teste com o projeto Supabase real. Próximo gate: caracterização transversal de contratos HTTP e boundary de erros, seguida de execução isolada em Deno. Nenhum deploy ou Supabase write foi realizado.
+
+## 25. Precedência e contratos do dispatcher
+
+O builder passou a verificar a ordem dos pontos críticos de despacho HTTP dentro do `Deno.serve`, além da presença dos marcadores individuais. A ordem auditada inclui OPTIONS, assets públicos, normalização de path, páginas de convidados, endpoints públicos, autenticação e `/api/me`, gate de sessão, logout, rotas protegidas, fallback 404 e boundary global 500.
+
+A primeira execução encontrou um falso positivo da auditoria: scripts JavaScript embutidos nas páginas Lucca/Ycaro possuem seus próprios `catch` antes do boundary global. A verificação foi ajustada para avaliar o último `catch` no source do entrypoint. Nenhum código de runtime foi alterado.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #196, commit `bf458086b479cb9d54798e8ad192c61017f961ea`, incluindo recuperação exata, 17 testes individuais, quatro integrações de domínio, build modular e parse/bundle.
+
+A checagem confirma precedência textual/estrutural, não execução real do servidor Deno. Próximo gate: harness isolado de execução do entrypoint com dependências simuladas. Nenhum deploy ou Supabase write foi realizado.
