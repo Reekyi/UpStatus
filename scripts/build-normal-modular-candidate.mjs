@@ -164,7 +164,7 @@ extract(
 extract(
   "authCore",
   "async function userFromToken(req:Request){",
-  "async function members(){",
+  "/* MEMBERS_MODULE */",
   "const { userFromToken, account, admin, createSession, login } = createAuthCore({ db, sessionCache, token, tokenHash, randomBytes, response, readBody, passwordHash, checkPassword });",
   "authentication core block"
 );
