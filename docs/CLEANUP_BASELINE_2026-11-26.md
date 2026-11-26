@@ -467,3 +467,13 @@ Foram comparados exatamente `/api/me`, mudança e leitura de status/presença, e
 **Validação:** `Verify Recovered Normal Runtime` passou no run #261, commit `0692e9bd3fa854ecff5ae0a72c7f3ddcd534900d`. Passaram recuperação exata, 17 testes unitários, quatro integrações, build dos dois servidores, diferencial público e autenticado, matriz Deno completa e esbuild.
 
 A evidência de equivalência agora cobre os fluxos públicos e os principais fluxos autenticados de negócio. Ainda faltam comparação diferencial de sessão/cookies dos convidados e uploads de mídia, além de validação com Supabase/Edge Runtime gerenciado real. Nenhum deploy, Supabase write ou runtime ativo foi tocado.
+
+## Comparação diferencial de convidados e mídia
+
+Foi ampliada a comparação entre os dois servidores para incluir o ciclo completo de Lucca e Ycaro: login válido, cookie `HttpOnly/SameSite/Secure`, consulta de sessão com cookie, heartbeat e logout/expiração do cookie. Corpos e atributos de cookie são comparados após normalizar apenas o token e o horário aleatórios.
+
+Também comparamos o mapa de perfis, upload de avatar, upload direto de imagem/documento/áudio/vídeo, URL assinada para avatar e para chat. URLs e caminhos gerados são normalizados, enquanto tipo, MIME, bucket, tamanho, prazo e demais campos são comparados.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #268, commit `43eb054fe7d82fd1e872e3664e680e6617c94a4a`. Passaram recuperação exata, 17 testes unitários, quatro integrações, geração da referência monolítica, comparação HTTP pública/autenticada/convidados/mídia, matriz Deno e parse/bundle.
+
+A comparação diferencial agora atravessa os principais fluxos de cada domínio. Ainda falta a revisão final de todos os contratos e uma validação operacional no Supabase/Edge Runtime gerenciado, que depende de ambiente e autorização externos. Nenhum deploy, Supabase write ou runtime ativo foi tocado.
