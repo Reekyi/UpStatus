@@ -425,3 +425,13 @@ Cobertura exercitada no entrypoint real: `/health` e seus headers JSON/CORS, pre
 **Validação:** `Verify Recovered Normal Runtime` passou no run #207, commit `223a24564b35649130b8c1ad66a72ffeeab470e7`. Passaram recuperação exata, 17 testes individuais, quatro integrações de domínio, build do candidato, execução Deno isolada e parse/bundle esbuild. A primeira execução do harness encontrou diferença na ordenação do roster simulado; o mock foi ajustado para respeitar `.order("name")`, sem mudança no runtime.
 
 Este é o primeiro teste que executa o entrypoint Deno e o grafo modular em um servidor local real, mas com Supabase/Storage simulados. Não é teste contra o projeto Supabase real, nem deploy ou validação de Edge Runtime gerenciado. Próximo gate: ampliar o harness para setup/login e sessão autenticada no dispatcher, depois revisar contratos HTTP de rotas protegidas. Nenhum segredo real, Supabase write ou runtime ativo foi utilizado.
+
+## Dispatcher Deno: autenticação e rotas protegidas
+
+O harness de Deno foi ampliado para atravessar os endpoints reais do dispatcher com o cliente Supabase em memória. A cobertura agora inclui setup de conta e emissão de sessão, rejeição de senha incorreta, login, `/api/me` autenticado, logout e invalidação da sessão; status/presença, validação de status, histórico e health; comando remoto com leitura pendente, ACK por outro usuário e consulta do resultado; chat GET/POST, menções, leitura, typing, reação, edição e exclusão; upload direto de avatar/imagem e URL assinada; login/heartbeat/logout dos convidados Lucca e Ycaro, incluindo cookies; limpeza do chat e boundary global de erro.
+
+O mock Supabase suporta as operações necessárias em tabelas locais e Storage falso. Nenhuma chamada de rede para Supabase é feita. Os testes criam dados apenas no processo de teste e usam senhas/segredos fictícios.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #219, commit `cc97676d3d482f583cdc6ff5e3bfe658726161c1`. Passaram recuperação exata, 17 testes individuais, quatro integrações de domínio, build modular, execução Deno HTTP ampliada e parse/bundle.
+
+A execução cobre o entrypoint e os principais endpoints com DB/Storage simulados. Não cobre a integração de rede com Supabase real, concorrência/latência de produção, nem Edge Runtime gerenciado. Próximo gate: contratos HTTP negativos e autorização entre usuários/roles nos endpoints restantes, e revisar o comportamento do candidato sob cenários de falha do DB/Storage. Nenhum deploy, Supabase write ou runtime ativo foi tocado.
