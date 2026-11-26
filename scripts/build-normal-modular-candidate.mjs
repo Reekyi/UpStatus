@@ -8,7 +8,7 @@ const templatePath = path.join(ROOT, "src/server/normal-3.4.7.recovered.template
 const modulesDir = path.join(ROOT, "src/server/normal-3.4.7/modules");
 const moduleFiles = [
   "http.js", "state.js", "auth-crypto.js", "guest-sessions.js", "members.js",
-  "status.js", "remote-status.js", "chat-data.js", "media.js", "auth-context.js", "chat-route.js", "media-routes.js", "guest-routes.js", "chat-interaction-routes.js", "auth-core.js"
+  "status.js", "remote-status.js", "chat-data.js", "media.js", "auth-context.js", "chat-route.js", "media-routes.js", "guest-routes.js", "chat-interaction-routes.js", "auth-core.js", "auth-routes.js"
 ];
 const modulePaths = Object.fromEntries(moduleFiles.map((file) => [file, path.join(modulesDir, file)]));
 const userscriptPath = path.join(ROOT, "recovery/runtime-2026-11-26/userscripts/original-project-normal-3.4.7.user.js");
@@ -34,7 +34,8 @@ const expectedExports = {
   "media-routes.js": "export function createMediaRoutes",
   "guest-routes.js": "export function createGuestRoutes",
   "chat-interaction-routes.js": "export function createChatInteractionRoutes",
-  "auth-core.js": "export function createAuthCore"
+  "auth-core.js": "export function createAuthCore",
+  "auth-routes.js": "export function createAuthRoutes"
 };
 for (const [file, marker] of Object.entries(expectedExports)) {
   if (!moduleContents[file].includes(marker)) throw new Error("Expected export missing from " + file);
@@ -169,6 +170,28 @@ extract(
   "authentication core block"
 );
 
+extract(
+  "authRoutes",
+  'if(path==="/api/account"&&req.method==="GET"){',
+  'if(path==="/api/setup"&&req.method==="POST")',
+  'const { accountRoute, meRoute, logoutRoute } = createAuthRoutes({ response, account, db, token, tokenHash, sessionCache });\n    if(path==="/api/account"&&req.method==="GET")return await accountRoute(req);',
+  "authentication endpoint routes"
+);
+extract(
+  "authMeRoute",
+  'if(path==="/api/me"&&req.method==="GET"){',
+  'if(!ctx)return response({error:"Faça login para continuar."},401);',
+  'if(path==="/api/me"&&req.method==="GET")return await meRoute(name);',
+  "authentication me route"
+);
+extract(
+  "authLogoutRoute",
+  'if(path==="/api/logout"&&req.method==="POST"){',
+  'if(path==="/api/health"&&req.method==="GET")',
+  'if(path==="/api/logout"&&req.method==="POST")return await logoutRoute(req);',
+  "authentication logout route"
+);
+
 const importAnchor = 'import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";';
 if (!source.includes(importAnchor)) throw new Error("Crypto import anchor not found.");
 const importedBlock = importAnchor +
@@ -186,7 +209,8 @@ const importedBlock = importAnchor +
   '\nimport { createMediaRoutes } from "./modules/media-routes.js";' +
   '\nimport { createGuestRoutes } from "./modules/guest-routes.js";' +
   '\nimport { createChatInteractionRoutes } from "./modules/chat-interaction-routes.js";' +
-  '\nimport { createAuthCore } from "./modules/auth-core.js";';
+  '\nimport { createAuthCore } from "./modules/auth-core.js";' +
+  '\nimport { createAuthRoutes } from "./modules/auth-routes.js";';
 source = source.replace(importAnchor, () => importedBlock);
 
 restore("authCrypto", "const { tokenHash, passwordHash, checkPassword } = createAuthCrypto({ Buffer, createHash, randomBytes, scryptSync, timingSafeEqual });");
