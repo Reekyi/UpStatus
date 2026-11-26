@@ -94,3 +94,7 @@ The builder now emits `dist/recovered-normal-reference/index.ts`, a test-only co
 
 
 Differential comparison now also covers normalized authenticated setup/login, `/api/me`, status/presence/history, chat creation/read/reaction/edit/delete, and the remote-status command/pending/ack/result lifecycle. Only tokens, IDs and timestamps are normalized; the remaining response fields are compared. Run #261 passed on `0692e9bd3fa854ecff5ae0a72c7f3ddcd534900d`. Guest cookie and media upload differential scenarios remain to be added; live Supabase and managed Edge Runtime validation remain external gates.
+
+
+
+Differential HTTP coverage now includes Lucca/Ycaro valid login, cookie attributes, session lookup, heartbeat and logout, plus profile map, avatar upload, direct image/document/audio/video uploads and signed avatar/chat upload URLs. Tokens, timestamps and generated URLs/paths are normalized; the other response contracts are compared. Run #268 passed on `43eb054fe7d82fd1e872e3664e680e6617c94a4a`. Live Supabase and managed Edge Runtime validation remain external release gates.
