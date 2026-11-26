@@ -390,3 +390,11 @@ Tokens, timestamps e URLs/caminhos gerados são normalizados; status, headers de
 **Validação:** `Verify Recovered Normal Runtime` passou no run #268, commit `43eb054fe7d82fd1e872e3664e680e6617c94a4a`, incluindo recuperação exata, testes de módulos, quatro integrações, build, diferencial e execução Deno.
 
 Falta apenas a revisão final de contratos e a validação externa do ambiente gerenciado/Supabase real, não disponível no harness mockado.
+
+## 32. Matriz diferencial negativa e fechamento da auditoria offline
+
+A comparação entre o monólito recuperado e o candidato cobre agora também os contratos negativos: health/histórico/remote-status para usuário padrão, regra de limpeza exclusiva de Ricardo, status inválido/sem motivo, chat vazio, reação inválida, edição/exclusão de mensagem alheia, MIME rejeitado, arquivo acima do limite, login/heartbeat inválidos de convidados, conta inexistente, setup repetido, login normal inválido e fallback 404 autenticado. O harness também compara health autenticado e respostas de validação.
+
+**Validação final offline:** `Verify Recovered Normal Runtime` passou no run #278, commit `a3aa766b00e30d6282bf26b85a9c9b5b8a242207`, com todos os 27 passos verdes: recuperação byte a byte, 17 testes de módulos, quatro integrações, build do candidato + referência, execução Deno diferencial positiva/negativa, parse/bundle.
+
+O escopo de limpeza/refatoração offline está concluído. A validação no Supabase real e no Edge Runtime gerenciado, assim como a aprovação de cutover, permanecem gates operacionais externos e deliberadamente não executados nesta PR. Nenhum deploy ou Supabase write foi feito.
