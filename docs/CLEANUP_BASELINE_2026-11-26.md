@@ -415,3 +415,13 @@ A primeira execução da nova verificação identificou uma colisão de texto co
 **Validação:** `Verify Recovered Normal Runtime` passou no run #196, commit `bf458086b479cb9d54798e8ad192c61017f961ea`. Recuperação exata, 17 testes individuais, quatro integrações por domínio, build modular e parse/bundle passaram. O workflow legado `UpStatus Validate` permanece uma falha independente por `production updateURL mismatch`.
 
 A verificação da ordem é estática e complementa, mas não substitui, execução do dispatcher Deno. Próximo gate: exercitar o entrypoint em Deno isolado com Supabase/EdgeRuntime simulados, sem credenciais ou writes reais. Nenhum deploy, Supabase write ou alteração do runtime ativo foi realizado.
+
+## Execução real do entrypoint em Deno isolado
+
+Foi criado `scripts/deno-entrypoint-test/` com um import map que substitui `npm:@supabase/supabase-js@2` por um cliente falso em memória. O harness executa o candidato modular construído, inicia o `Deno.serve` real em `127.0.0.1:8000`/`0.0.0.0:8000` e faz requisições HTTP reais ao processo Deno. O escopo de rede é limitado ao servidor local e as únicas variáveis de ambiente são valores fictícios de teste.
+
+Cobertura exercitada no entrypoint real: `/health` e seus headers JSON/CORS, preflight OPTIONS, `/api/me` sem autenticação, bloqueio 401 em rotas protegidas, precedência do gate de autenticação sobre o 404 protegido, `/api/account`, roster público, entrega do userscript, páginas HTML de Lucca/Ycaro e boundary global de erro 500 quando o cliente Supabase simulado falha.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #207, commit `223a24564b35649130b8c1ad66a72ffeeab470e7`. Passaram recuperação exata, 17 testes individuais, quatro integrações de domínio, build do candidato, execução Deno isolada e parse/bundle esbuild. A primeira execução do harness encontrou diferença na ordenação do roster simulado; o mock foi ajustado para respeitar `.order("name")`, sem mudança no runtime.
+
+Este é o primeiro teste que executa o entrypoint Deno e o grafo modular em um servidor local real, mas com Supabase/Storage simulados. Não é teste contra o projeto Supabase real, nem deploy ou validação de Edge Runtime gerenciado. Próximo gate: ampliar o harness para setup/login e sessão autenticada no dispatcher, depois revisar contratos HTTP de rotas protegidas. Nenhum segredo real, Supabase write ou runtime ativo foi utilizado.
