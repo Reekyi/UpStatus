@@ -64,3 +64,9 @@ The dedicated workflow also runs four cross-module integration tests with in-mem
 - `scripts/test-normal-status-integration.mjs`: status/history/health and remote command lifecycle.
 
 These tests characterize domain composition without connecting to the live Supabase project. They do not establish full Deno dispatcher execution or production compatibility. The next validation gate is cross-cutting HTTP contract characterization, followed by isolated Deno execution. The modular candidate remains offline and is not deployed.
+
+
+
+## Dispatcher contract audit
+
+The modular candidate builder verifies both the presence and the order of the critical `Deno.serve` dispatch branches: OPTIONS, public assets, path normalization, guest pages and endpoints, setup/login, `/api/me` before the authenticated-route gate, logout, protected domain routes, 404 fallback and the global 500 error boundary. This is a static structural guard; it does not replace isolated Deno execution or live-environment validation.
