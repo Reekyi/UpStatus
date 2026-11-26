@@ -860,6 +860,128 @@ try {
   assertEquals(await modularLogout.json(), await referenceLogout.json());
   await compareJsonPair("/api/me", {}, {});
 
+  // Differential guest-session contracts, including cookie attributes.
+  for (const guest of ["lucca", "ycaro"] as const) {
+    const password = guest === "lucca" ? "lucca-deno-test" : "ycaro-deno-test";
+    const loginPath = "/api/" + guest + "/login";
+    const [modularLogin, referenceLogin] = await Promise.all([
+      request(loginPath, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password })
+      }),
+      requestReference(loginPath, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password })
+      })
+    ]);
+    assertEquals(modularLogin.status, referenceLogin.status);
+    const [modularBody, referenceBody] = await Promise.all([modularLogin.json(), referenceLogin.json()]);
+    const normalizeGuestLogin = (body: any) => ({
+      ...body, token: "<token>", joinedAt: "<timestamp>"
+    });
+    assertEquals(normalizeGuestLogin(modularBody), normalizeGuestLogin(referenceBody));
+    const cookieName = guest + "_session";
+    const modularSetCookie = modularLogin.headers.get("set-cookie") || "";
+    const referenceSetCookie = referenceLogin.headers.get("set-cookie") || "";
+    const normalizeSetCookie = (value: string) => value.replace(
+      new RegExp("^(" + cookieName + ")=[^;]*"), "$1=<token>"
+    );
+    assertEquals(normalizeSetCookie(modularSetCookie), normalizeSetCookie(referenceSetCookie));
+    const modularCookie = modularSetCookie.split(";")[0];
+    const referenceCookie = referenceSetCookie.split(";")[0];
+
+    await compareJsonPair("/api/" + guest + "/me",
+      { headers: { cookie: modularCookie } },
+      { headers: { cookie: referenceCookie } },
+      body => ({ ...body, joinedAt: body.joinedAt ? "<timestamp>" : body.joinedAt })
+    );
+    await compareJsonPair("/api/" + guest + "/heartbeat",
+      { method: "POST", headers: { cookie: modularCookie, "content-type": "application/json" }, body: "{}" },
+      { method: "POST", headers: { cookie: referenceCookie, "content-type": "application/json" }, body: "{}" }
+    );
+    const [modularLogout, referenceLogout] = await Promise.all([
+      request("/api/" + guest + "/logout", {
+        method: "POST", headers: { cookie: modularCookie, "content-type": "application/json" }, body: "{}"
+      }),
+      requestReference("/api/" + guest + "/logout", {
+        method: "POST", headers: { cookie: referenceCookie, "content-type": "application/json" }, body: "{}"
+      })
+    ]);
+    assertEquals(modularLogout.status, referenceLogout.status);
+    assertEquals(modularLogout.headers.get("set-cookie"), referenceLogout.headers.get("set-cookie"));
+    assertEquals(await modularLogout.json(), await referenceLogout.json());
+  }
+
+  // Differential direct and signed media uploads; normalize only generated URLs/paths.
+  const differentialPng = "data:image/png;base64," + btoa(String.fromCharCode(0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,1,2,3));
+  const differentialPdf = "data:application/pdf;base64," + btoa("%PDF-1.4\n");
+  const differentialOgg = "data:audio/ogg;base64," + btoa("OggS" + "diff-audio");
+  const differentialMp4 = "data:video/mp4;base64," + btoa(String.fromCharCode(0,0,0,24,0x66,0x74,0x79,0x70,0x69,0x73,0x6f,0x6d,0,0,0,0));
+  const normalizeUploadUrl = (body: any) => ({
+    ...body,
+    imageUrl: body.imageUrl ? "<public-url>" : body.imageUrl,
+    avatarUrl: body.avatarUrl ? "<public-url>" : body.avatarUrl,
+    uploadUrl: body.uploadUrl ? "<signed-upload-url>" : body.uploadUrl,
+    signedUrl: body.signedUrl ? "<signed-upload-url>" : body.signedUrl,
+    publicUrl: body.publicUrl ? "<public-url>" : body.publicUrl,
+    path: body.path ? "<storage-path>" : body.path
+  });
+  await compareJsonPair("/api/profile/avatar",
+    {
+      method: "POST", headers: { ...modularGuilhermeHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ dataUrl: differentialPng })
+    },
+    {
+      method: "POST", headers: { ...referenceGuilhermeHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ dataUrl: differentialPng })
+    },
+    normalizeUploadUrl
+  );
+  await compareJsonPair("/api/profiles",
+    { headers: modularGuilhermeHeaders },
+    { headers: referenceGuilhermeHeaders },
+    body => ({
+      profiles: Object.fromEntries(Object.keys(body.profiles).sort().map(name => [name, "<avatar-url>"]))
+    })
+  );
+  for (const [route, dataUrl, expectedType] of [
+    ["/api/chat/image", differentialPng, "image"],
+    ["/api/chat/document", differentialPdf, "document"],
+    ["/api/chat/audio", differentialOgg, "audio"],
+    ["/api/chat/image", differentialMp4, "video"]
+  ] as const) {
+    await compareJsonPair(route,
+      {
+        method: "POST", headers: { ...modularGuilhermeHeaders, "content-type": "application/json" },
+        body: JSON.stringify({ dataUrl })
+      },
+      {
+        method: "POST", headers: { ...referenceGuilhermeHeaders, "content-type": "application/json" },
+        body: JSON.stringify({ dataUrl })
+      },
+      body => {
+        assertEquals(body.type, expectedType);
+        return normalizeUploadUrl(body);
+      }
+    );
+  }
+  for (const [route, mime] of [
+    ["/api/profile/avatar-upload-url", "image/png"],
+    ["/api/chat/upload-url", "application/pdf"]
+  ] as const) {
+    await compareJsonPair(route,
+      {
+        method: "POST", headers: { ...modularGuilhermeHeaders, "content-type": "application/json" },
+        body: JSON.stringify({ mime, size: 1024, name: "differential-file" })
+      },
+      {
+        method: "POST", headers: { ...referenceGuilhermeHeaders, "content-type": "application/json" },
+        body: JSON.stringify({ mime, size: 1024, name: "differential-file" })
+      },
+      normalizeUploadUrl
+    );
+  }
+
   {
     (globalThis as any).__upstatusMockDbError = true;
     const response = await request("/api/account?name=Ricardo");
@@ -868,7 +990,7 @@ try {
     assertEquals(response.headers.get("access-control-allow-origin"), "*");
   }
 
-  console.log("PASS: Deno route matrix plus byte-exact public and normalized authenticated differential contracts against recovered monolith");
+  console.log("PASS: Deno route matrix plus public, authenticated, guest-cookie and media differential contracts against recovered monolith");
 } catch (error) {
   console.error(error);
   throw error;
