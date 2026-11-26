@@ -302,3 +302,11 @@ O builder agora valida os marcadores de wiring do dispatcher para as rotas de co
 Foi criado `scripts/test-normal-modular-integration.mjs`, que compõe os módulos reais de HTTP, estado, criptografia, auth core, sessões de convidados, contexto e endpoints de autenticação com DB em memória. Cobre setup, criação e validação de sessão, resolução de contexto, endpoint `/api/me`, logout e sessão Lucca por cookie.
 
 **Validação:** workflow #173 passou no commit `556f60fcb642706bccb3e8a30ab576d96896b633`. O resultado demonstra composição integrada desses domínios e wiring estático do dispatcher, mas não equivale a execução Deno integral ou cobertura de todos os endpoints. Próximo gate: ampliar testes integrados por domínio e contratos HTTP, sem migrar o dispatcher para fora do entrypoint.
+
+## 23. Composição integrada do chat
+
+Foi adicionado `scripts/test-normal-chat-integration.mjs`. Ele liga `createMembersStore`, `createChatDataStore`, `createChatRouteHandler` e `createChatInteractionRoutes` usando DB em memória, exercitando o fluxo de roster, menções, criação/leitura de mensagens, perfis, não lidas, read receipts, fast sync, reações, edição e exclusão. Não há conexão Supabase.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no run #179, commit `b82154a8e887062087c6cf9bd951c06a0343e73e`, incluindo recuperação exata, todos os testes unitários, integração auth/guest, integração chat, build modular e parse/bundle. Essa cobertura é uma composição simulada dos domínios de chat, não execução completa do dispatcher Deno ou teste de produção.
+
+Próximos gates: composição integrada de mídia/status e comparação de contratos HTTP. Nenhum deploy ou Supabase write foi realizado.
