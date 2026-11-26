@@ -25,7 +25,7 @@ const replacements = {
 let generated = template;
 for (const [placeholder, value] of Object.entries(replacements)) {
   if (!generated.includes(placeholder)) throw new Error("Missing placeholder: " + placeholder);
-  generated = generated.replaceAll(placeholder, value);
+  generated = generated.replaceAll(placeholder, () => value);
 }
 if (/__UPSTATUS_[A-Z0-9_]+__/.test(generated)) {
   throw new Error("Unresolved runtime placeholder detected.");
