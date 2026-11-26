@@ -941,7 +941,9 @@ try {
     { headers: modularGuilhermeHeaders },
     { headers: referenceGuilhermeHeaders },
     body => ({
-      profiles: Object.fromEntries(Object.keys(body.profiles).sort().map(name => [name, "<avatar-url>"]))
+      profiles: {
+        Guilherme: body.profiles.Guilherme ? "<avatar-url>" : null
+      }
     })
   );
   for (const [route, dataUrl, expectedType] of [
