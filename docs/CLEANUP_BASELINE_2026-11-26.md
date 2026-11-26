@@ -90,3 +90,21 @@ Descobertas:
 - A função beta implantada tem slug beta10, mas executa e embute beta8, e o userscript beta8 aponta internamente para o endpoint beta8. Preservar os nomes/URLs até rastrear o histórico e a utilização pelos clientes.
 
 Nenhuma refatoração de aplicação foi iniciada. O próximo passo é rastrear commits da linha beta8 e mapear contratos HTTP completos antes de escrever testes de caracterização.
+
+
+## Correção importante — dois projetos Supabase
+
+A investigação posterior identificou dois projetos Supabase:
+- Projeto original `UpStatus` (`dlfvkawaiqduhlazsszm`), com `upstatus` implantação v480, `upstatus-test` v281, `upstatus-team-lite` v15 e diversas funções beta/backup.
+- Projeto `upstatus-normal` da organização `UpStatus Revived` (`mvjqunhjxkbfcrxkjtgf`), criado em 2026-11-25, com apenas três funções centrais.
+
+Os runtimes Normal 3.4.7 dos dois projetos são idênticos após normalizar o project ref e o userscript embutido. Os userscripts também são idênticos após normalizar project ref e publishable key pública. Os backends beta10/beta8 têm uma diferença na ordem de precedência da chave administrativa. Os bundles originais foram preservados em `recovery/runtime-2026-11-26/original-project-*/`.
+
+A documentação detalhada está em `docs/SUPABASE_ENVIRONMENT_RECONCILIATION_2026-11-26.md`.
+
+**Consequência:** ainda não está provado que Revived substituiu completamente o projeto original. Não remover, desativar ou refatorar funções do projeto original; primeiro identificar uso real e status do cutover. A cópia Revived parece cobrir os runtimes Normal e beta centrais, mas não replica Team Lite, TEST e backups.
+
+## Evidência histórica relevante
+
+A PR #26 documenta um candidato TEST beta.8 separado, implantado somente em `upstatus-test` no projeto original. Seu corpo registra explicitamente que a produção `upstatus` permaneceu ativa e não foi alterada. Isso reforça que branches e candidatas beta/test não podem ser tratadas como fonte da produção Normal.
+
