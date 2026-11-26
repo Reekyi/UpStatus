@@ -348,3 +348,16 @@ Foi adicionado `scripts/test-normal-chat-maintenance.mjs`, cobrindo bloqueio de 
 **Validação:** `Verify Recovered Normal Runtime` passou no HEAD `f3a188cdb30b2323b06d0ca7d47835b6decb424e` (run #154). Reconstrução exata, dezessete testes de módulos e build isolado do candidato modular passaram. O workflow legado `UpStatus Validate` continua falhando separadamente na divergência conhecida de `production updateURL mismatch`.
 
 Nenhum deploy, Supabase write, migration, alteração de schema/RLS/secrets ou runtime ativo foi realizado. O PR continua Draft.
+
+
+## Marco de integração: candidato modular real emitido
+
+O builder agora preserva duas versões durante a validação:
+1. `modularSource`: fonte com imports ES modules e factories de dependências injetadas;
+2. `source`: versão temporariamente restaurada, usada para provar que reverter extrações/imports recompõe o template recuperado exatamente.
+
+Após a comparação exata, o artefato em `dist/modular-normal-candidate/index.ts` é gerado a partir de `modularSource`, não da versão restaurada. O build também verifica que o candidato difere do monolito, que todos os 17 imports de módulos estão presentes e que todos os módulos são copiados para o diretório isolado.
+
+**Validação:** `Verify Recovered Normal Runtime` passou no HEAD `79ed055a3d441ff3f481dc6fa5d98f44f9d6abd4` (run #157). Os testes de módulos, prova de reconstrução exata e geração do candidato modular integrado passaram.
+
+Este é um candidato offline para revisão, não um deploy nem prova de execução em produção. A próxima etapa é validação de sintaxe/tipos e caracterização integrada do entrypoint modular. O entrypoint Deno, dispatch global, HTML embutido e boundary de erros continuam preservados; não foram reescritos. Nenhum deploy ou alteração no Supabase/runtime ativo foi realizado.
