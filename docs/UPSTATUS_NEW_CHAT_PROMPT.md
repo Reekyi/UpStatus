@@ -8,7 +8,7 @@
 4. Consulte no Supabase a saúde, Edge Functions e estrutura relevante dos dois projetos:
    - Produção: `upstatus-normal`, ref `mvjqunhjxkbfcrxkjtgf`.
    - Staging: `UpStatus Staging`, ref `akbgmmpnnpwcwgcfrltw`.
-5. Determine a versão oficial lendo o manifesto e verificando o runtime. Determine a beta atual verificando branches/tags/manifestos e runtime de Staging. Determine a próxima beta sem reutilizar número.
+5. Determine a versão oficial lendo o manifesto e verificando o runtime. Determine a beta atual verificando branches/tags/manifestos e o runtime no projeto/slug definido para aquele ciclo (Staging ou integração de dados reais). Determine a próxima beta sem reutilizar número.
 6. Compare tudo com o protocolo. Informe divergências, não invente estado, não comece implementação antes de concluir a contextualização.
 
 ## Estado conhecido no checkpoint de 27/11/2026
@@ -79,3 +79,9 @@ Se o chat não tiver acesso real ao GitHub/Supabase, diga isso claramente e peç
 - Quatro slots diários começam vazios: 10h, 11h, 15h e 16h. Slot vazio não afeta nenhuma fila. Aulão tem responsável semanal, segunda a sexta, 15h–17h. Sem ativação de entrada automática; fim do expediente em dias úteis às 18h.
 - Ao voltar de suspensão, o sistema calcula o estado desejado atual, sem reproduzir tarefas passadas. A ação só ocorre com a sessão Sale Smartly do próprio usuário ativa.
 - Destino de runtime: função nova `upstatus-351-test`, projeto `mvjqunhjxkbfcrxkjtgf`. Ela compartilha DB/Storage/Realtime de produção para testar chat, fotos e chamadas reais. Não substituir stable `upstatus` nem a Beta 5 `upstatus-test`.
+
+### Beta 2 deployment verification
+- GitHub Actions validation run #2372 passed, including schedule regression tests.
+- Production project function `upstatus-351-test` is deployment v1 ACTIVE, `verify_jwt=false`, source hash `65f799972b086081304e1e0895b41f2ce385c61b46545bb43f231d42ff8ae2af`.
+- `/health`, `/api/update-info`, served userscript header and `/api/members` were verified. The served script reports `3.5.1-beta.2`, namespace `upseller-test`; member API lists only Guilherme, Lohan and Ricardo.
+- Stable production `upstatus` v6 and existing Beta 5 `upstatus-test` v4 remain unchanged. Manual testing by Ricardo is pending.
