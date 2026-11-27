@@ -61,8 +61,8 @@
   var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
   var CLOUD_SERVER='__UPSTATUS_CLOUD_SERVER__';
   var server=CLOUD_SERVER;
-  var UP_REALTIME_URL='https://dlfvkawaiqduhlazsszm.supabase.co';
-  var UP_REALTIME_KEY='sb_publishable_qoML52WUyBQRMB6DLP1yjw_J0Pbaae_';
+  var UP_REALTIME_URL='https://mvjqunhjxkbfcrxkjtgf.supabase.co';
+  var UP_REALTIME_KEY='sb_publishable_4_dLUWGGqyPP0prupYq8Jw_DTLJ2FlQ';
   var UP_REALTIME_TOPIC='__UPSTATUS_REALTIME_TOPIC__';
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
   // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
@@ -394,94 +394,54 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
         }
         document.dispatchEvent(new CustomEvent('UPSTATUS_SALE_DESELECT_CHAT_RESULT',{detail:result}));
       });
-      function applySaleSmartlyStatusVisual(statusCode,memberName){
-        var code=String(statusCode||''),name=String(memberName||'').trim().toLowerCase();
-        if(!/^(0|1|2)$/.test(code))return {updated:false,updatedFields:0};
-        var word=code==='1'?'online':code==='2'?'busy':'offline';
-        var aliases=['online_status','onlineStatus','work_status','workStatus','user_status','userStatus','availability_status','availabilityStatus'];
-        var nameKeys=['name','nickname','user_name','userName','username','display_name','displayName','account_name','accountName'];
-        var selfKeys=['is_self','isSelf','is_current_user','isCurrentUser','is_me','isMe'];
-        var changed=0,visited=new WeakSet();
-        function matchesName(obj){
-          if(!name||!obj||typeof obj!=='object')return false;
-          for(var i=0;i<nameKeys.length;i++){var v=obj[nameKeys[i]];if(v!=null&&String(v).trim().toLowerCase()===name)return true;}
-          return false;
-        }
-        function isSelf(obj){
-          if(!obj||typeof obj!=='object')return false;
-          return selfKeys.some(function(k){return obj[k]===true||obj[k]===1||obj[k]==='true';});
-        }
-        function hasUserIdentity(obj){
-          if(!obj||typeof obj!=='object')return false;
-          return nameKeys.some(function(k){return obj[k]!=null&&String(obj[k]).trim()!=='';})||
-            ['user_id','userId','account_id','accountId','uid'].some(function(k){return obj[k]!=null&&String(obj[k]).trim()!=='';});
-        }
-        function statusValue(old,key){
-          if(old===null||typeof old==='undefined'||typeof old==='object')return {ok:false};
-          if(typeof old==='number')return {ok:true,value:Number(code)};
-          if(typeof old==='boolean')return {ok:true,value:code!=='0'};
-          var raw=String(old).trim().toLowerCase();
-          if(/^[0-2]$/.test(raw))return {ok:true,value:code};
-          if(['online','busy','away','offline','available','unavailable'].indexOf(raw)>=0){
-            if(raw==='available'||raw==='unavailable')return {ok:true,value:code==='0'?'unavailable':'available'};
-            return {ok:true,value:word};
-          }
-          if(key!=='status'&&aliases.indexOf(key)>=0)return {ok:true,value:code};
-          return {ok:false};
-        }
-        function walk(obj,path,depth){
-          if(!obj||typeof obj!=='object'||depth>7||visited.has(obj))return;
-          visited.add(obj);
-          var arrayNode=Array.isArray(obj),ownName=matchesName(obj),self=isSelf(obj);
-          var userBranch=/(^|[.$_[\]])(user|userinfo|user_info|userprofile|user_profile|profile|account|currentuser|current_user|self|me)([.$_[\]]|$)/i.test(path);
-          Object.keys(obj).slice(0,180).forEach(function(k){
-            var value;try{value=obj[k];}catch(_){return;}
-            var isAlias=aliases.indexOf(k)>=0;
-            if((isAlias&&(ownName||self||userBranch))||(k==='status'&&(ownName||self||(userBranch&&hasUserIdentity(obj))))){
-              var next=statusValue(value,k);
-              if(next.ok&&next.value!==value){
-                try{obj[k]=next.value;if(obj[k]===next.value)changed++;}catch(_){}
-              }
-            }
-            if(value&&typeof value==='object'){
-              var relevant=/(user|profile|account|member|staff|employee|agent|team|current|self|me|list|info|data|state)/i.test(k);
-              if(arrayNode||Array.isArray(value)||relevant||ownName||self||userBranch)walk(value,path+'.'+k,depth+1);
-            }
-          });
-        }
+      function getSaleSmartlyCurrentUserStore(memberName){
+        var allowed=['Ricardo','Lohan','Guilherme'];
+        var name=String(memberName||'').trim();
+        if(allowed.indexOf(name)<0)return {store:null,error:'Membro UpStatus não reconhecido.'};
         try{
-          var appRoot=document.querySelector('#app'),vueApp=appRoot&&appRoot.__vue_app__;
+          var appRoot=document.querySelector('#app');
+          var vueApp=appRoot&&appRoot.__vue_app__;
           var pinia=vueApp&&vueApp.config&&vueApp.config.globalProperties&&vueApp.config.globalProperties.$pinia;
           var stores=pinia&&pinia._s;
-          if(stores&&typeof stores.forEach==='function'){
-            stores.forEach(function(store,id){
-              var storePath='store.'+String(id||'');
-              if(!/(user|profile|member|account|staff|employee|team|project)/i.test(storePath))return;
-              try{if(store.$state)walk(store.$state,storePath+'.$state',0);}catch(_){}
-              Object.keys(store).filter(function(k){return /(user|profile|member|account|current|self|me|team)/i.test(k);}).slice(0,40).forEach(function(k){try{walk(store[k],storePath+'.'+k,0);}catch(_){}});
-            });
+          var store=stores&&typeof stores.get==='function'?stores.get('user'):null;
+          var state=store&&store.$state;
+          var nickname=String(state&&state.nickname||'').trim().toLowerCase();
+          var expected=name.toLowerCase();
+          var matches=nickname===expected||nickname.indexOf(expected+' ')===0||nickname.indexOf(expected+'-')===0;
+          if(!store||!state||!matches)return {store:null,error:'A conta ativa do Sale Smartly não corresponde ao membro UpStatus selecionado.'};
+          return {store:store,error:''};
+        }catch(e){
+          return {store:null,error:'Não foi possível acessar a Store nativa de usuário do Sale Smartly.'};
+        }
+      }
+      function applySaleSmartlyStatusVisual(statusCode,memberName){
+        var code=String(statusCode||'');
+        if(!/^(0|1|2)$/.test(code))return {updated:false,updatedFields:0};
+        var resolved=getSaleSmartlyCurrentUserStore(memberName);
+        if(!resolved.store)return {updated:false,updatedFields:0,error:resolved.error};
+        var store=resolved.store,state=store.$state;
+        try{
+          if(String(state.onlineStatus)!==code){
+            if(typeof store.setOnlineStatus==='function')store.setOnlineStatus(code);
+            else if(typeof store.$patch==='function')store.$patch({onlineStatus:code});
           }
-          var rootInstance=vueApp&&vueApp._instance,seenComponents=new WeakSet(),visitedComponents=0;
-          function walkComponent(vnode,depth){
-            if(!vnode||depth>10||visitedComponents>700)return;
-            if(vnode.component){
-              var inst=vnode.component;
-              if(!seenComponents.has(inst)){
-                seenComponents.add(inst);visitedComponents++;
-                var componentName=String((inst.type&&(inst.type.name||inst.type.__name))||'');
-                if(/user|profile|avatar|member|team|account|header|staff|employee/i.test(componentName)){
-                  try{walk(inst.setupState,'component.'+componentName+'.setupState',0);}catch(_){}
-                  try{walk(inst.data,'component.'+componentName+'.data',0);}catch(_){}
-                }
-                walkComponent(inst.subTree,depth+1);
-              }
-            }
-            if(Array.isArray(vnode.children))vnode.children.slice(0,100).forEach(function(child){if(child&&typeof child==='object')walkComponent(child,depth+1);});
-          }
-          if(rootInstance)walkComponent(rootInstance.subTree,0);
-        }catch(_){}
-        try{window.dispatchEvent(new CustomEvent('upstatus:sale-smartly-status-updated',{detail:{status:word,member:String(memberName||''),updatedFields:changed}}));}catch(_){}
-        return {updated:changed>0,updatedFields:changed,status:word};
+          var verified=String(store.$state.onlineStatus)===code;
+          return {updated:verified,updatedFields:verified?1:0,status:code};
+        }catch(e){
+          return {updated:false,updatedFields:0,error:'A Store nativa não confirmou a atualização do status.'};
+        }
+      }
+      async function switchSaleSmartlyStatusNative(statusCode,memberName){
+        var code=String(statusCode||'');
+        if(!/^(0|1|2)$/.test(code))throw new Error('Status inválido para o Sale Smartly.');
+        var resolved=getSaleSmartlyCurrentUserStore(memberName);
+        if(!resolved.store)throw new Error(resolved.error);
+        var store=resolved.store;
+        if(typeof store.switchOnlineStatus!=='function')throw new Error('A ação nativa de status do Sale Smartly não está disponível.');
+        await store.switchOnlineStatus({online_status:code,event_type:'0'});
+        var visual=applySaleSmartlyStatusVisual(code,memberName);
+        if(!visual.updated)throw new Error(visual.error||'A Store nativa não confirmou a atualização visual.');
+        return visual;
       }
       document.addEventListener('UPSTATUS_APPLY_VISUAL',function(e){
         var detail=e.detail||{},name=String(detail.member||''),status=String(detail.status||'');
@@ -490,47 +450,11 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
       });
       document.addEventListener('UPSTATUS_SET',async function(e){
         var detail=e.detail||{};
-        if(!hya){
-          rescan();
-          var started=Date.now();
-          while(!hya && Date.now()-started<8000){
-            await new Promise(function(resolve){setTimeout(resolve,250)});
-            rescan();
-          }
-        }
-        if(!hya){
-          document.dispatchEvent(new CustomEvent('UPSTATUS_RESULT',{detail:{ok:false,error:'A sessão do Sale Smartly ainda não forneceu o identificador da API (_hya_). Aguarde a página carregar e tente novamente.'}}));
-          return;
-        }
         try{
-          var onlineStatus=String(detail.status);
-          var url='https://api.salesmartly.com/sys/project/user-list/online-switch'
-            +'?_xma_='+encodeURIComponent(projectId)
-            +'&project_id='+encodeURIComponent(projectId)
-            +'&_hya_='+encodeURIComponent(hya)
-            +'&_ta_='+Date.now();
-          var body=new URLSearchParams();
-          body.set('online_status',onlineStatus);
-          body.set('event_type','0');
-          body.set('project_id',projectId);
-          var requestHeaders={'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'};
-          if(clientType)requestHeaders['Client-Type']=clientType;
-          if(cpl)requestHeaders['Cpl']=cpl;
-          var r=await fetch(url,{
-            method:'POST',
-            credentials:'include',
-            headers:requestHeaders,
-            body:body.toString()
-          });
-          var x=await r.json().catch(function(){return null});
-          if(!r.ok || !x || x.code!==0){
-            document.dispatchEvent(new CustomEvent('UPSTATUS_RESULT',{detail:{ok:false,error:(x&&x.msg)||('Sale Smartly retornou HTTP '+r.status+'.')}}));
-            return;
-          }
-          var visual=applySaleSmartlyStatusVisual(onlineStatus,detail.member||'');
+          var visual=await switchSaleSmartlyStatusNative(detail.status,detail.member||'');
           document.dispatchEvent(new CustomEvent('UPSTATUS_RESULT',{detail:{ok:true,visualUpdated:!!visual.updated,visualFields:Number(visual.updatedFields)||0}}));
         }catch(err){
-          document.dispatchEvent(new CustomEvent('UPSTATUS_RESULT',{detail:{ok:false,error:err.message||'Falha ao sincronizar com Sale Smartly.'}}));
+          document.dispatchEvent(new CustomEvent('UPSTATUS_RESULT',{detail:{ok:false,error:err&&err.message?String(err.message):'Falha ao executar a ação nativa de status do Sale Smartly.'}}));
         }
       });
     })();`;
@@ -2970,7 +2894,7 @@ function chatAvatarPresence(name){
   }
   function fileToDataUrl(file){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Use imagens, vídeos ou documentos PDF, DOC/DOCX, XLS/XLSX, CSV, PPT/PPTX, TXT e RTF.'));return;}var max=20*1024*1024;if(file.size>max){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}var reader=new FileReader();reader.onload=function(){var data=reader.result;if(!(data instanceof ArrayBuffer)){resolve(String(data));return;}var bytes=new Uint8Array(data),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+info.mime+';base64,'+btoa(bin));};reader.onerror=function(){reject(new Error('Não foi possível ler o arquivo.'));};reader.readAsArrayBuffer(file);});}
   function fileToDataUrlForProfile(file,type,ext){var info=resolveFileMime(file,false),mime=info.ok?info.mime:fileMimeFromExt(ext);if(!/^image\//i.test(mime)){return Promise.reject(new Error('Use PNG, JPG, WEBP ou GIF.'));}return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){try{var bytes=new Uint8Array(reader.result),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+mime+';base64,'+btoa(bin));}catch(e){reject(new Error('Não foi possível preparar a foto.'));}};reader.onerror=function(){reject(new Error('Não foi possível ler a foto.'));};reader.readAsArrayBuffer(file);});}
-  function uploadFileDirect(file,route){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Tipo de arquivo não suportado.'));return;}if(file.size>20*1024*1024){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}api('POST',route,{mime:info.mime,size:file.size,name:String(file.name||'arquivo')}).then(function(ticket){if(!ticket||(!ticket.uploadUrl&&!ticket.signedUrl)||!ticket.token||!ticket.publicUrl||!ticket.path)throw new Error('Resposta de autorização incompleta: '+Object.keys(ticket||{}).join(', '));var url;try{url=new URL(ticket.uploadUrl||ticket.signedUrl);}catch(e){url=new URL('https://dlfvkawaiqduhlazsszm.supabase.co/storage/v1/object/upload/sign/'+ticket.bucket+'/'+ticket.path);}if(ticket.token&&!url.searchParams.has('token'))url.searchParams.set('token',ticket.token);if(!url.searchParams.has('token'))throw new Error('A URL assinada veio sem token.');return fetch(url.toString(),{method:'PUT',headers:{'Content-Type':info.mime,'x-upsert':'false','cache-control':'max-age=3600'},body:file}).then(function(resp){if(!resp.ok)return resp.text().then(function(t){throw new Error('Falha no Storage ('+resp.status+'): '+String(t||'').slice(0,180));});return ticket;});}).then(resolve).catch(reject);});}
+  function uploadFileDirect(file,route){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Tipo de arquivo não suportado.'));return;}if(file.size>20*1024*1024){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}api('POST',route,{mime:info.mime,size:file.size,name:String(file.name||'arquivo')}).then(function(ticket){if(!ticket||(!ticket.uploadUrl&&!ticket.signedUrl)||!ticket.token||!ticket.publicUrl||!ticket.path)throw new Error('Resposta de autorização incompleta: '+Object.keys(ticket||{}).join(', '));var url;try{url=new URL(ticket.uploadUrl||ticket.signedUrl);}catch(e){url=new URL('https://mvjqunhjxkbfcrxkjtgf.supabase.co/storage/v1/object/upload/sign/'+ticket.bucket+'/'+ticket.path);}if(ticket.token&&!url.searchParams.has('token'))url.searchParams.set('token',ticket.token);if(!url.searchParams.has('token'))throw new Error('A URL assinada veio sem token.');return fetch(url.toString(),{method:'PUT',headers:{'Content-Type':info.mime,'x-upsert':'false','cache-control':'max-age=3600'},body:file}).then(function(resp){if(!resp.ok)return resp.text().then(function(t){throw new Error('Falha no Storage ('+resp.status+'): '+String(t||'').slice(0,180));});return ticket;});}).then(resolve).catch(reject);});}
   function sendChatMedia(file){
     if(!file)return;
     var tempId='local-upload-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),reply=chatReplyTo,info=resolveFileMime(file,true),isVideo=String(info.mime||'').indexOf('video/')===0,isDocument=/^(application\/|text\/)/i.test(info.mime||''),label=isDocument?'Enviando documento…':isVideo?'Enviando vídeo…':'Enviando imagem…';
