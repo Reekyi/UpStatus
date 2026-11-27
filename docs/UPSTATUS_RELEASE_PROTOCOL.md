@@ -5,8 +5,8 @@ Last reviewed: 2026-11-27
 ## Current release state
 
 - Official production version: **3.4.9**
-- Current beta: **none**
-- Next planned beta, when new work is requested: **3.5.0-beta.1**
+- Current beta: **3.5.0-beta.1** (team access cleanup, in progress)
+- Next beta if this attempt is rejected: **3.5.0-beta.2**
 - Stable baseline: GitHub `master` at release commit `fb3c6e0bbce9652a48f6f36e8437154c45ec1aac` (release 3.4.9).
 - Never infer that a version is deployed merely because a commit or manifest exists. Verify the GitHub release ref/manifest and the live Supabase deployment before claiming deployment state.
 
@@ -113,6 +113,13 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 - Prefer doing the work and delivering a tested result over giving only instructions, when repository and connector access permit.
 - Keep a continuously updated status: official version, beta version/status, working branch, latest commit, staging deployment, production deployment, tests, quota snapshot, pending user tests/approval.
 - After each meaningful release-state change, update this document and changelog/version manifest as applicable. Use commit history as audit trail.
+
+## Active beta — 3.5.0-beta.1
+
+- Branch: `beta/3.5.0-beta.1-remove-lucca-ycaro`.
+- Scope: remove temporary guest identities, pages, API routes, sessions, presence, and special chat UI; restrict supported accounts to Ricardo, Lohan, and Guilherme.
+- Production remains unchanged. Staging cleanup and TEST Edge Function deployment target only `akbgmmpnnpwcwgcfrltw`.
+- Validation and user acceptance are pending.
 
 ## State at this checkpoint
 
