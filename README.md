@@ -1,87 +1,45 @@
 # UpStatus
 
+## AI agent / new-chat onboarding
+
+For every new AI-assisted task, first read [`AGENTS.md`](AGENTS.md), then [`docs/UPSTATUS_RELEASE_PROTOCOL.md`](docs/UPSTATUS_RELEASE_PROTOCOL.md). When starting a fresh ChatGPT conversation, paste [`docs/UPSTATUS_NEW_CHAT_PROMPT.md`](docs/UPSTATUS_NEW_CHAT_PROMPT.md) as the first message. The prompt requires live GitHub and Supabase inspection before work begins. Repository files cannot automatically force a blank ChatGPT conversation to load them.
+
+## Current release checkpoint
+
+- Official: **3.4.9**
+- Active beta: **none**
+- Next beta: **3.5.0-beta.1**
+- Verify live `release.json`, Git refs, and Supabase deployments before relying on this snapshot.
+
+## Supabase environments
+
+- Production: `upstatus-normal`, project ref `mvjqunhjxkbfcrxkjtgf`.
+- Staging: `UpStatus Staging`, project ref `akbgmmpnnpwcwgcfrltw`.
+- Do not create projects or database branches without explicit cost review and user authorization.
+
+## Free-plan quota guardrails
+
+The 2026-11-27 user screenshot showed Log Ingestion at **0.45/1 GB (45%)**. This is a snapshot, not live telemetry. Read the quota-protection section in the release protocol before changes. No verbose per-request logs, unnecessary polling, broad log dumps, or unbounded queries. At 70% freeze nonessential growth; at 80% stop beta deploys until mitigated; at 90% hard stop changes that can increase usage. Never knowingly exceed a Free-plan limit.
+
 ## Release model
 
-GitHub is the source of truth. Supabase is the runtime. Tampermonkey consumes the generated userscript.
+GitHub is the source of truth for code and release history. Supabase is the runtime. Tampermonkey consumes the generated userscript.
 
-- `master`: production/stable line.
-- `develop`: integration and TEST line.
-- Feature branches start from `develop`.
-- Production deployment is manual only.
-- TEST deployment can be automatic from `develop`.
+- `master`: stable/production line.
+- Confirm the current integration and TEST branch/workflow configuration before use; do not assume stale documentation is correct.
+- Production deployment is manual and requires explicit user approval.
+- All new work must first be released as a beta to the existing Staging Supabase project.
 
 ## Versioning
 
-Edit only `release.json`.
-
-```json
-{ "version": "3.0.27", "preRelease": "beta.1" }
-```
-
-Build result:
-- PROD artifact: `3.0.27`
-- TEST artifact: `3.0.27-beta.1`
-
-Current baseline synchronization uses:
-
-```json
-{ "version": "3.0.26", "preRelease": "test" }
-```
-
-This produces a `3.0.26-test` TEST client while preserving production-compatible code.
+Edit only `release.json` as the version source, following the build scripts' conventions. Stable versions use `MAJOR.MINOR.PATCH`; beta versions use `MAJOR.MINOR.PATCH-beta.N`. After official 3.4.9, the next new beta target is 3.5.0-beta.1 unless live repository history proves a later beta number is already in use. Never reuse a rejected beta number.
 
 ## Local verification
 
-```text
-node scripts/build.mjs
-node scripts/validate.mjs
-```
-
-The build creates the deployable Edge Function directories and userscript artifacts.
+Inspect `package.json` for actual scripts. The repository validation script is `node scripts/validate.mjs`; it builds artifacts and runs syntax and regression checks.
 
 ## Release flow
 
-```text
-feature branch
-   ↓
-PR → develop
-   ↓
-validate
-   ↓
-TEST deploy
-   ↓
-manual tests
-   ↓
-beta / RC
-   ↓
-explicit approval
-   ↓
-manual production workflow
-```
+Plan → isolated beta branch → build → validation/regression tests → quota review → deploy to Staging only → Ricardo's manual test → explicit approval → stable promotion → production validation.
 
-The TEST workflow deploys only `upstatus-test` and is manual until the required Supabase Actions secrets are configured. After adding the secrets, the push trigger to `develop` can be enabled. The production workflow deploys only `upstatus`.
-
-## Required GitHub Actions secrets
-
-- `SUPABASE_ACCESS_TOKEN`
-- `SUPABASE_PROJECT_ID` = `dlfvkawaiqduhlazsszm`
-
-## Guest portal configuration
-
-- Lucca guest access uses `/lucca` and the Supabase Edge Function secret `LUCCA_PASSWORD`.
-- Ycaro guest access uses `/ycaro` and the separate Supabase Edge Function secret `YCARO_PASSWORD`.
-- Never commit either password to GitHub or source files.
-
-The production workflow also targets the `production` GitHub Environment. Configure required reviewers there for an additional approval gate. The repository connector cannot create Actions secrets, so `SUPABASE_ACCESS_TOKEN` must be added in GitHub before CI deployment is enabled.
-
-## TEST isolation
-
-TEST uses separate:
-- Edge Function: `upstatus-test`
-- userscript namespace: `upseller-test`
-- storage prefix: `upstatus_test_`
-- Realtime topic: `upstatus-test-live-20261007-v1`
-- ringtone coordination channel/storage key
-
-This prevents TEST call signaling, client storage, and ringtone-stop coordination from using the production identifiers.
-\n
+Never deploy beta code to the production Supabase project or stable userscript URL.
