@@ -1,0 +1,20 @@
+{
+  "type": "edge-function-source-backup",
+  "project_id": "mvjqunhjxkbfcrxkjtgf",
+  "project_name": "upstatus-normal",
+  "function_slug": "upstatus",
+  "function_version": 2,
+  "verify_jwt": false,
+  "entrypoint": "index.ts",
+  "source_length_characters": 894196,
+  "source_sha256": "f1f6b4aaba1a48c5f9ea92fa75d326f7fccd73194400a8c87b87d6e47a8ab44a",
+  "backup_branch": "backup/upstatus-normal-3.4.7-pre-pr181-2026-11-27",
+  "parts": [
+    "docs/backups/upstatus-normal-3.4.7-2026-11-27/index.ts.part-01.txt",
+    "docs/backups/upstatus-normal-3.4.7-2026-11-27/index.ts.part-02.txt",
+    "docs/backups/upstatus-normal-3.4.7-2026-11-27/index.ts.part-03.txt",
+    "docs/backups/upstatus-normal-3.4.7-2026-11-27/index.ts.part-04.txt",
+    "docs/backups/upstatus-normal-3.4.7-2026-11-27/index.ts.part-05.txt"
+  ],
+  "note": "Reconstruct by concatenating the five parts in ascending numeric order with no separator. Captured from the live Supabase Edge Function before PR #181 deployment."
+}
