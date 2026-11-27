@@ -124,7 +124,7 @@ const mockRicardoStore={
 const mockOrders={ $state:{order:{status:"open"}} };
 const mockPinia={_s:new Map([["user",mockRicardoStore],["orders",mockOrders]])};
 const mockApp={__vue_app__:{config:{globalProperties:{$pinia:mockPinia}}}};
-const mockDocument={querySelector(selector){return selector==="#app"?mockApp:null;}};
+const mockDocument={querySelector(selector){return selector==="#app"?mockApp:null;},addEventListener(){}};
 const nativeStatus=new Function("document",visualHelper+";return {applySaleSmartlyStatusVisual,switchSaleSmartlyStatusNative};")(mockDocument);
 const ownResult=await nativeStatus.switchSaleSmartlyStatusNative("2","Ricardo");
 assert(ownResult.updated&&ownResult.updatedFields===1,"Native status action must confirm the local user's reactive status");
