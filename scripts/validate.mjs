@@ -138,7 +138,7 @@ assert(testFn.includes("if(!name||![\"Ricardo\",\"Lohan\",\"Guilherme\"].include
 assert(testFn.includes('.in("name",["Ricardo","Lohan","Guilherme"])'),"TEST status and health payloads must expose only the active team");
 assert(testFn.includes('filter((m:any)=>["Ricardo","Lohan","Guilherme","Sistema"].includes(String(m.user_name)))'),"TEST chat history must exclude removed identities");
 assert(testUser.includes("var CLOUD_SERVER='https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test';"),"TEST API must share the production database project");
-assert(testUser.includes("raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.0-beta.1-remove-lucca-ycaro/release.json"),"TEST updater must read the beta channel manifest");
+assert(testUser.includes("raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.0-beta.5-realtime-native-status/release.json"),"TEST updater must read the beta channel manifest");
 assert(testUser.includes('var remotePreRelease=String(manifest.preRelease||\'\').trim();'),"updater must compare full prerelease versions");
 
 for(const artifact of [prodUser,testUser]){
