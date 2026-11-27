@@ -118,7 +118,7 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 
 - Branch: `beta/3.5.0-beta.1-remove-lucca-ycaro`.
 - Scope: remove temporary guest identities, pages, API routes, sessions, presence, and special chat UI; restrict supported accounts to Ricardo, Lohan, and Guilherme.
-- Branch head: `d5e612972664774ba19c462ad3eee7e3f50fa80f` (source branch may advance with beta fixes).
+- Branch head: `ed08fcd2c2a4720d96311e4f8028c01bf14f44e8` (source branch may advance with beta fixes).
 - Staging `upstatus-test`: **ACTIVE, version 2**, deployed to `akbgmmpnnpwcwgcfrltw`; `/health` returned `ok=true`, version `3.5.0-beta.1`.
 - `/api/members` returns only Guilherme, Lohan, Ricardo. Direct account setup checks for both removed identities return `needsSetup=false`.
 - Staging database now contains only the three retained users; messages, history, sessions, profiles, typing, state, and storage objects are all empty.
