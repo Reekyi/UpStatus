@@ -1,66 +1,32 @@
-# UpStatus Release Checklist
+# UpStatus 3.5.2 Release Checklist
 
-## Antes de um beta
+## Stable promotion
+- [ ] Confirm `release.json` has version `3.5.2`, empty `preRelease`, and the official `upstatus` installer URL.
+- [ ] Confirm the production workflow guard accepts only stable `3.5.2`.
+- [ ] Run `node scripts/validate.mjs`; require GitHub Actions validation to pass.
+- [ ] Confirm the production artifact uses namespace `upseller` and the existing stable local storage prefix.
+- [ ] Confirm the pinned Beta 2 test artifact remains `3.5.1-beta.2` and uses only `upstatus-351-test`.
+- [ ] Confirm existing production Beta 5 `upstatus-test` remains untouched.
+- [ ] Deploy only the official `upstatus` function via the production workflow.
+- [ ] Verify production deployment metadata, `/health`, `/api/update-info`, served userscript header and official installer URL.
+- [ ] Verify no database migration, account cleanup or Storage migration occurred.
 
-- [ ] Confirmar a versão em `release.json`.
-- [ ] Rodar `node scripts/validate.mjs`.
-- [ ] Confirmar manifesto Beta 2 `3.5.1-beta.2` e rota `upstatus-351-test`.
-- [ ] Confirmar namespace `upseller-test` e local storage prefix `upstatus_351_beta2_`.
-- [ ] Confirmar Realtime/Storage/DB compartilhados intencionalmente com produção.
-- [ ] Confirmar produção `upstatus` e Beta 5 `upstatus-test` permanecem intocadas.
-- [ ] Rodar `node scripts/validate.mjs` e exigir GitHub Actions verde antes do deploy.
-- [ ] Deploy somente da função `upstatus-351-test` no projeto `mvjqunhjxkbfcrxkjtgf`.
+## Update compatibility
+- [ ] Confirm 3.5.2 compares newer than 3.4.7, 3.4.8 and 3.5.0.
+- [ ] Confirm a 3.5.2 installation does not offer an update to itself.
+- [ ] Keep the existing updater manifest/script consistency check.
 
-## Teste funcional obrigatório
+## Behavior accepted by Ricardo in Beta 2
+- [x] Sale Smartly native status changes mirror into UpStatus.
+- [x] UpStatus status changes are confirmed by the native Sale Smartly action first.
+- [x] Agenda visibility and lunch edit permissions for Ricardo, Guilherme and Lohan.
+- [x] Daily training and weekly Aulão assignments are editable only by Ricardo.
+- [x] Aulão selection persists through the current week; next week starts a new assignment window.
+- [x] Chat, profiles and images verified against live team data by Ricardo.
 
-- [ ] Login e identificação do usuário.
-- [ ] Status: Online, Ocupado e Ausente.
-- [ ] Sincronização com Sale Smartly.
-- [ ] Chat: enviar e receber.
-- [ ] Chat: emoji.
-- [ ] Chat: resposta.
-- [ ] Chat: clique direito.
-- [ ] Chat: reação.
-- [ ] Chat: exclusão da própria mensagem.
-- [ ] Chat: imagem/vídeo.
-- [ ] Chat: áudio gravado.
-- [ ] Notificações.
-- [ ] Ringtone.
-- [ ] Chamada 1:1: ligar.
-- [ ] Chamada 1:1: atender.
-- [ ] Chamada 1:1: recusar.
-- [ ] Chamada 1:1: mute.
-- [ ] Chamada 1:1: desligar.
-- [ ] Realtime após recarregar a página.
+## Known deferred work
+- [ ] General light-theme call-control visual refinements. These are not claimed as fixed in 3.5.2.
 
-## Para funcionalidades de chamada em grupo
-
-- [ ] Adicionar terceiro.
-- [ ] Terceiro recebe convite.
-- [ ] Terceiro aceita e entra.
-- [ ] Terceiro recusa sem derrubar a chamada existente.
-- [ ] Terceiro offline sem derrubar a chamada existente.
-- [ ] Áudio entre todos os participantes.
-- [ ] Mute individual.
-- [ ] Entrada e saída de participante.
-- [ ] Participante não aparece duas vezes.
-- [ ] Não permitir adicionar a si mesmo.
-- [ ] Dois convites simultâneos.
-- [ ] Realtime interrompido.
-- [ ] Conexão WebRTC interrompida.
-- [ ] Recarregamento de página.
-
-## Navegadores
-
-- [ ] Chrome → Chrome.
-- [ ] Firefox → Chrome.
-- [ ] Chrome → Firefox.
-- [ ] Firefox → Firefox.
-
-## Aprovação
-
-Somente após todos os testes necessários passarem:
-
-`beta → RC → aprovação explícita → produção`
-
-Produção não deve ser publicada pelo workflow de TEST.
+## Rollback
+- Keep the prior production function source/deployment metadata as the last-known-good target.
+- If the 3.5.2 runtime fails, stop further changes and deliberately redeploy the verified 3.5.0 source; do not change Beta 5 or Beta 2 test functions.
