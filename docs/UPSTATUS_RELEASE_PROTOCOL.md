@@ -160,3 +160,7 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 - The beta uses its own Staging Realtime topic, ringtone coordination channel, publishable key, storage prefix and updater manifest. Never reuse the production team topic for this isolated beta.
 - No SQL migration, user-row deletion, history deletion, or Supabase project/branch creation is authorized or required for these UI and identity-filter corrections.
 - Before handoff, validate the branch through GitHub Actions, deploy only Staging upstatus-test, and verify deployment metadata and served version. Manual tests by Ricardo remain required; do not promote to stable until his explicit approval.
+
+- Deployment result: Staging `upstatus-test` version **8**, ACTIVE, `verify_jwt=false`, source hash `66451104ef80f36919d19bc34e9628eb52d3b23446a354fa83a7a74924afc130`.
+- GitHub Actions validation run **#2367** passed. Runtime `/health` returned `ok:true` and `3.5.1-beta.1`; `/api/update-info` returned version `3.5.1-beta.1`; served userscript reports `@version 3.5.1-beta.1`, namespace `upseller-test`, and the Staging installer URL. `/api/members` returned only Guilherme, Lohan and Ricardo.
+- Production functions remain unchanged: official `upstatus` v6 and production `upstatus-test` v4. Staging distributor `upstatus` v1 was not changed.
