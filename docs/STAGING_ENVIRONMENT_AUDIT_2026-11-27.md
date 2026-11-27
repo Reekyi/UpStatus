@@ -58,6 +58,12 @@ Foi feito um teste GET anônimo, sem cookies ou token de aplicação, nas duas f
 
 Isso confirma que, apesar de `verify_jwt=false` no gateway, os dois endpoints protegidos testados aplicam o gate de autenticação da própria aplicação no runtime gerenciado. Não substitui teste autenticado, testes de papel/permissão ou a validação do candidato modular 3.4.7.
 
+### Cobertura anônima adicional
+
+Também foram testadas as rotas GET `/api/status`, `/api/history?limit=1`, `/api/health` e `/api/profiles` nas duas Edge Functions. Todas responderam HTTP 401 sem sessão. A rota pública `/api/members` respondeu HTTP 200 e retornou a estrutura de roster esperada em cada runtime.
+
+Resultado: os dois ambientes mantêm o gate de autenticação nas rotas de status, histórico, saúde e perfis, e preservam o endpoint público de membros. Isso continua sendo um teste anônimo, não uma validação de autorização por papel após login.
+
 ## 5. Storage em UpStatus Staging
 
 Buckets encontrados:
