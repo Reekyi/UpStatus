@@ -13,12 +13,13 @@
 
 ## Estado conhecido no checkpoint de 27/11/2026
 - Oficial: **3.4.9**
-- Beta ativa: **3.5.0-beta.4**
-- Próxima beta se esta tentativa for rejeitada: **3.5.0-beta.5**
+- Beta atualmente implantada para integração ao ambiente real: **3.5.0-beta.4**
+- Candidata em preparação, ainda não implantada: **3.5.0-beta.5**
+- Próxima beta se a candidata for rejeitada: **3.5.0-beta.6**
 - Isso é um checkpoint, não substitui a consulta ao estado atual do GitHub e Supabase.
 
 ## Beta atual com integração ao ambiente original
-- Branch: `beta/3.5.0-beta.1-remove-lucca-ycaro`.
+- Branch: `beta/3.5.0-beta.5-realtime-native-status`.
 - TEST function: `upstatus-test`, implantação dedicada no projeto original `mvjqunhjxkbfcrxkjtgf`.
 - Install/test URL: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`.
 - O beta compartilha banco, Storage, tópico Realtime e coordenação de ringtone com a instalação oficial, para que status, chat, anexos e chamadas cruzem versões.
