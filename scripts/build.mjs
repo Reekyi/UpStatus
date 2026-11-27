@@ -87,7 +87,7 @@ function writeFunction(fn,source){
 const prodUser=renderUser({version:PROD_VERSION,test:false});
 const testUser=renderUser({version:TEST_VERSION,test:true});
 writeFunction(PROD_FUNCTION,renderFunction({version:PROD_VERSION,test:false}));
-writeFunction(TEST_FUNCTION,renderFunction({version:fullVersion,test:true}));
+writeFunction(TEST_FUNCTION,renderFunction({version:TEST_VERSION,test:true}));
 const dist=path.join(ROOT,"dist");
 fs.rmSync(dist,{recursive:true,force:true});
 fs.mkdirSync(dist,{recursive:true});
