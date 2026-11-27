@@ -4,7 +4,7 @@
 // @version      __UPSTATUS_VERSION__
 // @match        *://*.salesmartly.com/*
 // @match        *://salesmartly.com/*
-// @run-at       document-start
+// @run-at       document-end
 // @require      https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
@@ -956,7 +956,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   }
   function openUpdate(url){
     var target=String(url||UPDATE_URL).trim();
-    if(!/^https:\/\/mvjqunhjxkbfcrxkjtgf\.supabase\.co\/functions\/v1\/(?:upstatus|upstatus-test)\/upstatus\.user\.js$/.test(target))target=UPDATE_URL;
+    if(!/^https:\/\/(?:mvjqunhjxkbfcrxkjtgf\.supabase\.co\/functions\/v1\/upstatus|akbgmmpnnpwcwgcfrltw\.supabase\.co\/functions\/v1\/upstatus-test)\/upstatus\.user\.js$/.test(target))target=UPDATE_URL;
     try{
       if(typeof GM_openInTab==='function'){
         var updateTab=GM_openInTab(target,{active:true,insert:true,setParent:true});
