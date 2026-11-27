@@ -394,6 +394,90 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
         }
         document.dispatchEvent(new CustomEvent('UPSTATUS_SALE_DESELECT_CHAT_RESULT',{detail:result}));
       });
+      function applySaleSmartlyStatusVisual(statusCode,memberName){
+        var code=String(statusCode||''),name=String(memberName||'').trim().toLowerCase();
+        if(!/^(0|1|2)$/.test(code))return {updated:false,updatedFields:0};
+        var word=code==='1'?'online':code==='2'?'busy':'offline';
+        var aliases=['online_status','onlineStatus','work_status','workStatus','user_status','userStatus','availability_status','availabilityStatus'];
+        var nameKeys=['name','nickname','user_name','userName','username','display_name','displayName','account_name','accountName'];
+        var selfKeys=['is_self','isSelf','is_current_user','isCurrentUser','is_me','isMe'];
+        var changed=0,visited=new WeakSet();
+        function matchesName(obj){
+          if(!name||!obj||typeof obj!=='object')return false;
+          for(var i=0;i<nameKeys.length;i++){var v=obj[nameKeys[i]];if(v!=null&&String(v).trim().toLowerCase()===name)return true;}
+          return false;
+        }
+        function isSelf(obj){
+          if(!obj||typeof obj!=='object')return false;
+          return selfKeys.some(function(k){return obj[k]===true||obj[k]===1||obj[k]==='true';});
+        }
+        function statusValue(old,key){
+          if(old===null||typeof old==='undefined'||typeof old==='object')return {ok:false};
+          if(typeof old==='number')return {ok:true,value:Number(code)};
+          if(typeof old==='boolean')return {ok:true,value:code!=='0'};
+          var raw=String(old).trim().toLowerCase();
+          if(/^[0-2]$/.test(raw))return {ok:true,value:code};
+          if(['online','busy','away','offline','available','unavailable'].indexOf(raw)>=0){
+            if(raw==='available'||raw==='unavailable')return {ok:true,value:code==='0'?'unavailable':'available'};
+            return {ok:true,value:word};
+          }
+          if(key!=='status'&&aliases.indexOf(key)>=0)return {ok:true,value:code};
+          return {ok:false};
+        }
+        function walk(obj,path,depth){
+          if(!obj||typeof obj!=='object'||depth>7||visited.has(obj))return;
+          visited.add(obj);
+          var ownName=matchesName(obj),self=isSelf(obj);
+          var userBranch=/(^|[.$_[\]])(user|userinfo|user_info|userprofile|user_profile|profile|account|currentuser|current_user|self|me)([.$_[\]]|$)/i.test(path);
+          Object.keys(obj).slice(0,180).forEach(function(k){
+            var value;try{value=obj[k];}catch(_){return;}
+            var isAlias=aliases.indexOf(k)>=0;
+            if((isAlias&&(ownName||self||userBranch))||(k==='status'&&(ownName||self))){
+              var next=statusValue(value,k);
+              if(next.ok&&next.value!==value){
+                try{obj[k]=next.value;if(obj[k]===next.value)changed++;}catch(_){}
+              }
+            }
+            if(value&&typeof value==='object'){
+              var relevant=/(user|profile|account|member|staff|employee|agent|team|current|self|me|list|info|data|state)/i.test(k);
+              if(relevant||ownName||self||userBranch)walk(value,path+'.'+k,depth+1);
+            }
+          });
+        }
+        try{
+          var appRoot=document.querySelector('#app'),vueApp=appRoot&&appRoot.__vue_app__;
+          var pinia=vueApp&&vueApp.config&&vueApp.config.globalProperties&&vueApp.config.globalProperties.$pinia;
+          var stores=pinia&&pinia._s;
+          if(stores&&typeof stores.forEach==='function'){
+            stores.forEach(function(store,id){
+              var storePath='store.'+String(id||'');
+              if(!/(user|profile|member|account|staff|employee|team|project)/i.test(storePath))return;
+              try{if(store.$state)walk(store.$state,storePath+'.$state',0);}catch(_){}
+              Object.keys(store).filter(function(k){return /(user|profile|member|account|current|self|me|team)/i.test(k);}).slice(0,40).forEach(function(k){try{walk(store[k],storePath+'.'+k,0);}catch(_){}});
+            });
+          }
+          var rootInstance=vueApp&&vueApp._instance,seenComponents=new WeakSet(),visitedComponents=0;
+          function walkComponent(vnode,depth){
+            if(!vnode||depth>10||visitedComponents>700)return;
+            if(vnode.component){
+              var inst=vnode.component;
+              if(!seenComponents.has(inst)){
+                seenComponents.add(inst);visitedComponents++;
+                var componentName=String((inst.type&&(inst.type.name||inst.type.__name))||'');
+                if(/user|profile|avatar|member|team|account|header|staff|employee/i.test(componentName)){
+                  try{walk(inst.setupState,'component.'+componentName+'.setupState',0);}catch(_){}
+                  try{walk(inst.data,'component.'+componentName+'.data',0);}catch(_){}
+                }
+                walkComponent(inst.subTree,depth+1);
+              }
+            }
+            if(Array.isArray(vnode.children))vnode.children.slice(0,100).forEach(function(child){if(child&&typeof child==='object')walkComponent(child,depth+1);});
+          }
+          if(rootInstance)walkComponent(rootInstance.subTree,0);
+        }catch(_){}
+        try{window.dispatchEvent(new CustomEvent('upstatus:sale-smartly-status-updated',{detail:{status:word,member:String(memberName||''),updatedFields:changed}}));}catch(_){}
+        return {updated:changed>0,updatedFields:changed,status:word};
+      }
       document.addEventListener('UPSTATUS_SET',async function(e){
         var detail=e.detail||{};
         if(!hya){
@@ -433,7 +517,8 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
             document.dispatchEvent(new CustomEvent('UPSTATUS_RESULT',{detail:{ok:false,error:(x&&x.msg)||('Sale Smartly retornou HTTP '+r.status+'.')}}));
             return;
           }
-          document.dispatchEvent(new CustomEvent('UPSTATUS_RESULT',{detail:{ok:true}}));
+          var visual=applySaleSmartlyStatusVisual(onlineStatus,detail.member||'');
+          document.dispatchEvent(new CustomEvent('UPSTATUS_RESULT',{detail:{ok:true,visualUpdated:!!visual.updated,visualFields:Number(visual.updatedFields)||0}}));
         }catch(err){
           document.dispatchEvent(new CustomEvent('UPSTATUS_RESULT',{detail:{ok:false,error:err.message||'Falha ao sincronizar com Sale Smartly.'}}));
         }
