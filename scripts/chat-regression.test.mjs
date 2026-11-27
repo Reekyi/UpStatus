@@ -121,5 +121,5 @@ assert(source.includes("data-sender-color"),"per-sender chat color rendering mis
 assert(source.includes("function requestPublicChatLinkTitle(url,callback)"),"stable Google Docs link-title hydration helper missing");
 assert(source.includes('class="up-chat-link-card"'),"stable chat link-card renderer missing");
 assert(source.includes("hydrateChatLinkTitles(list);"),"chat link-card hydration hook missing");
-assert(source.includes("upstatus-340-chat-link-card-compat"),"chat link-card compatibility styles missing");
+assert(source.includes(".up-chat-link-card{display:flex;align-items:center;gap:10px;max-width:100%;min-width:0;box-sizing:border-box;"),"chat link cards retain their responsive base styles");
 console.log("Chat regression tests passed: composer, validated attachments, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");
