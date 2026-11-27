@@ -237,6 +237,9 @@ assert(testUser.includes("data-agenda-lunch")&&testUser.includes("data-agenda-tr
 assert(testUser.includes("var own=n===member,editable=own")&&testUser.includes("(canEdit?'':'disabled')"),"Only each member's own lunch is editable; training/workshop controls are read-only for Lohan and Guilherme");
 assert(testUser.includes("var boundaries=[10*60,11*60,12*60,13*60,14*60,15*60,16*60,17*60,18*60]"),"Local scheduler must reconcile at schedule boundaries");
 assert(testUser.includes("function openAgenda()")&&testUser.includes("up-settings-agenda"),"Agenda must open from the settings menu");
+assert(testUser.includes("up-agenda-week-chip")&&testUser.includes("up-agenda-section-aulao")&&testUser.includes("A escolha permanece salva até o fim desta semana."),"Agenda must make the weekly Aulão persistence visible to team members");
+assert(testUser.includes("up-agenda-title-mark")&&testUser.includes("up-agenda-section-head")&&testUser.includes("up-agenda-section-tag"),"Agenda must use the polished title, section icon and cadence-badge layout");
+assert(testUser.includes("up-agenda-section-aulao")&&testUser.includes("up-agenda-weekly-note"),"Aulão must have a distinct weekly visual section");
 assert(testUser.includes("up-settings-history")&&!testUser.includes('class="up-history-btn hidden"'),"History must move into settings instead of the main header");
 assert(testUser.includes("agendaReconcileQueued")&&testUser.includes("setTimeout(function(){agendaReconcile();},0)"),"Concurrent agenda reconciliations must be serialized");
 
@@ -286,5 +289,10 @@ const endOfDay=agendaCurrentEventTest("Guilherme",agendaConfig,agendaAt(testDate
 assert(endOfDay&&endOfDay.status==="away"&&endOfDay.reason==="Fim do expediente","Weekday end-of-day must set Away at 18h");
 const weekend=agendaCurrentEventTest("Ricardo",agendaConfig,agendaAt("2026-12-05","Sat",13,30));
 assert(weekend===null,"Weekends must not trigger weekday agenda rules");
+const agendaWeekStartTest=new Function(weekStartCode+"\\nreturn agendaWeekStart;")();
+assert(agendaWeekStartTest("2026-11-28")==="2026-11-23"&&agendaWeekStartTest("2026-11-27")==="2026-11-23","The selected Aulão owner must remain on the same week key throughout Friday and Saturday");
+assert(agendaWeekStartTest("2026-11-29")==="2026-11-23","The weekly Aulão selection must remain associated with the same week through Sunday");
+assert(agendaWeekStartTest("2026-11-30")==="2026-11-30"&&agendaWeekStartTest("2026-11-30")!=="2026-11-23","A new Aulão assignment window must begin with the next Monday");
+
 
 console.log("Validation OK: PROD "+stableVersion+" / TEST "+testVersion+" (isolated live-data Beta 2)");
