@@ -13,7 +13,8 @@ const fullVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
 const userTemplate=fs.readFileSync(path.join(ROOT,"src/userscript/upstatus.user.template.js"),"utf8");
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
 
-const PROJECT="mvjqunhjxkbfcrxkjtgf";
+const PROD_PROJECT="mvjqunhjxkbfcrxkjtgf";
+const TEST_PROJECT="akbgmmpnnpwcwgcfrltw";
 const PROD_FUNCTION="upstatus";
 const TEST_FUNCTION="upstatus-test";
 const PROD_TOPIC="upstatus-screen-share-live-3-1-1-beta10";
@@ -38,10 +39,11 @@ function renderUser({version,test}){
   const topic=test?TEST_TOPIC:PROD_TOPIC;
   const ringtoneChannel=test?TEST_RINGTONE_CHANNEL:PROD_RINGTONE_CHANNEL;
   const ringtoneStorage=test?TEST_RINGTONE_STORAGE:PROD_RINGTONE_STORAGE;
-  const cloud=test?"https://"+PROJECT+".supabase.co/functions/v1/"+fn:"https://"+PROJECT+".supabase.co/functions/v1/upstatus-screen-share-3-1-1-beta10";
+  const project=test?TEST_PROJECT:PROD_PROJECT;
+  const cloud=test?"https://"+project+".supabase.co/functions/v1/"+fn:"https://"+PROD_PROJECT+".supabase.co/functions/v1/upstatus-screen-share-3-1-1-beta10";
   // Userscript updates are served by the distribution function. The production API
   // remains on the Beta10 backend, but the 3.4.7 userscript update URL is /upstatus.
-  const updateUrl="https://"+PROJECT+".supabase.co/functions/v1/"+fn+"/upstatus.user.js";
+  const updateUrl="https://"+project+".supabase.co/functions/v1/"+fn+"/upstatus.user.js";
   return render(userTemplate,{
     "__UPSTATUS_NAME__":name,
     "__UPSTATUS_NAMESPACE__":namespace,
