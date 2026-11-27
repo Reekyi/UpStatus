@@ -39,8 +39,8 @@ const context={
     storage:{
       from(bucket){
         return {
-          createSignedUploadUrl:async filePath=>{
-            uploads.push({bucket,filePath});
+          createSignedUploadUrl:async (filePath,options)=>{
+            uploads.push({bucket,filePath,options});
             return {data:{signedUrl:"/storage/v1/object/upload/sign/"+bucket+"/"+filePath+"?token=test-token",token:"test-token",path:filePath},error:null};
           },
           getPublicUrl:filePath=>({data:{publicUrl:"https://project-test.supabase.co/storage/v1/object/public/"+bucket+"/"+filePath}})
@@ -60,19 +60,20 @@ assert(image.body.bucket==="chat-images"&&image.body.path.endsWith(".jpg"),"imag
 assert(image.body.uploadUrl.startsWith("https://project-test.supabase.co/storage/v1/object/upload/sign/chat-images/"),"signed upload URL should be absolute and project-scoped");
 assert(image.body.publicUrl.endsWith(image.body.path),"public URL should reference the exact signed object path");
 assert(uploads.length===1,"one Storage token should be created for one valid request");
+assert(uploads[0].options===undefined,"signed tickets must not grant overwrite permission");
 
-const document=await call({mime:"application/pdf",size:10*1024*1024,name:"manual.pdf"});
-assert(document.status===200&&document.body.path.endsWith(".pdf"),"documents at the 10 MB limit should be accepted");
-assert(uploads.length===2,"valid document should create exactly one more signed token");
+const video=await call({mime:"video/mp4",size:20*1024*1024});
+assert(video.status===200&&video.body.path.endsWith(".mp4"),"video at the 20 MB limit should be accepted");
+assert(uploads.length===2,"valid video should create exactly one more signed token");
 
-const tooLargeDocument=await call({mime:"application/pdf",size:10*1024*1024+1});
-assert(tooLargeDocument.status===413,"documents above 10 MB should be rejected");
 const tooLargeMedia=await call({mime:"video/mp4",size:20*1024*1024+1});
 assert(tooLargeMedia.status===413,"media above 20 MB should be rejected");
 const unsupported=await call({mime:"application/zip",size:1024});
 assert(unsupported.status===400,"unsupported MIME types should be rejected");
+const document=await call({mime:"application/pdf",size:1024});
+assert(document.status===400,"documents must use the server-side byte-sniffing upload route");
 const invalidSize=await call({mime:"image/png",size:0});
 assert(invalidSize.status===400,"empty or invalid sizes should be rejected");
 assert(uploads.length===2,"rejected requests must not create Storage upload tokens");
 
-console.log("Signed chat upload URL tests passed: authenticated handler logic, MIME allow-list, size limits, scoped Storage paths, and response URLs.");
+console.log("Signed chat upload URL tests passed: image/video MIME allow-list, size limits, scoped paths, non-upsert tickets, and response URLs.");
