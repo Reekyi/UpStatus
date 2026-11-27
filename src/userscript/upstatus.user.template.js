@@ -411,6 +411,11 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
           if(!obj||typeof obj!=='object')return false;
           return selfKeys.some(function(k){return obj[k]===true||obj[k]===1||obj[k]==='true';});
         }
+        function hasUserIdentity(obj){
+          if(!obj||typeof obj!=='object')return false;
+          return nameKeys.some(function(k){return obj[k]!=null&&String(obj[k]).trim()!=='';})||
+            ['user_id','userId','account_id','accountId','uid'].some(function(k){return obj[k]!=null&&String(obj[k]).trim()!=='';});
+        }
         function statusValue(old,key){
           if(old===null||typeof old==='undefined'||typeof old==='object')return {ok:false};
           if(typeof old==='number')return {ok:true,value:Number(code)};
@@ -432,7 +437,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
           Object.keys(obj).slice(0,180).forEach(function(k){
             var value;try{value=obj[k];}catch(_){return;}
             var isAlias=aliases.indexOf(k)>=0;
-            if((isAlias&&(ownName||self||userBranch))||(k==='status'&&(ownName||self))){
+            if((isAlias&&(ownName||self||userBranch))||(k==='status'&&(ownName||self||(userBranch&&hasUserIdentity(obj))))){
               var next=statusValue(value,k);
               if(next.ok&&next.value!==value){
                 try{obj[k]=next.value;if(obj[k]===next.value)changed++;}catch(_){}
