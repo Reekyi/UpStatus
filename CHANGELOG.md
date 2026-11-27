@@ -1,3 +1,13 @@
+## 3.5.0-beta.4 (2026-11-27)
+
+### Atualização visual nativa do status, sem F5
+- Removido o reload automático do Sales Smartly depois da alteração de status local e da execução de comandos remotos.
+- Depois da resposta de sucesso da API `online-switch`, o userscript tenta atualizar o estado reativo da interface Vue/Pinia do Sales Smartly.
+- O sincronizador identifica campos de status em stores e componentes de usuário/perfil e em registros da equipe que correspondam ao membro alterado.
+- A atualização é limitada a campos de status reconhecidos e ao usuário correspondente; não altera status de pedidos ou outros objetos.
+- O resultado da atualização visual é sinalizado ao UpStatus para diferenciar status salvo no servidor de status também refletido na interface.
+- O fluxo de autenticação, a API de status, o banco compartilhado e os canais Realtime não foram alterados.
+
 ## 3.5.0-beta.3 (2026-11-27)
 
 ### Reconexão com a instância original
