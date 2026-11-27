@@ -3670,23 +3670,33 @@ function chatAvatarPresence(name){
   }
   function renderAgenda(){
     if(!agenda||!agendaData)return;
-    var a=agendaData,canEdit=!!a.canEditTeam,weekday=new Intl.DateTimeFormat('pt-BR',{weekday:'long',timeZone:'America/Sao_Paulo'}).format(new Date());
+    var a=agendaData,canEdit=!!a.canEditTeam;
+    var dateObject=new Date(a.date+'T12:00:00Z'),weekStartDate=new Date(a.weekStart+'T12:00:00Z');
+    var weekEndDate=new Date(weekStartDate.getTime());weekEndDate.setUTCDate(weekEndDate.getUTCDate()+6);
+    var dateLabel=new Intl.DateTimeFormat('pt-BR',{weekday:'long',day:'2-digit',month:'long',timeZone:'America/Sao_Paulo'}).format(dateObject);
+    var weekDateFormat=new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short',timeZone:'America/Sao_Paulo'});
+    var weekLabel=weekDateFormat.format(weekStartDate)+' - '+weekDateFormat.format(weekEndDate);
     var lunchRows=['Ricardo','Guilherme','Lohan'].map(function(n){
       var own=n===member,editable=own;
       var value=String((a.lunch||{})[n]||'');
-      return '<label class="up-agenda-row"><span class="up-agenda-person">'+n+(own?' <small>(você)</small>':'')+'</span><select data-agenda-lunch="'+n+'" '+(editable?'':'disabled')+'><option value="">Não definido</option><option value="12"'+(value==='12'?' selected':'')+'>12h às 13h</option><option value="13"'+(value==='13'?' selected':'')+'>13h às 14h</option></select></label>';
+      return '<label class="up-agenda-row"><span class="up-agenda-person">'+esc(n)+(own?' <small>Você</small>':'')+'</span><select data-agenda-lunch="'+n+'" '+(editable?'':'disabled')+'><option value="">Não definido</option><option value="12"'+(value==='12'?' selected':'')+'>12h às 13h</option><option value="13"'+(value==='13'?' selected':'')+'>13h às 14h</option></select></label>';
     }).join('');
     var slots=[['10','10h às 11h'],['11','11h às 12h'],['15','15h às 16h'],['16','16h às 17h']];
     var trainingRows=slots.map(function(slot){
       var value=String((a.training||{})[slot[0]]||'');
       return '<label class="up-agenda-row"><span class="up-agenda-time">'+slot[1]+'</span><select data-agenda-training="'+slot[0]+'" '+(canEdit?'':'disabled')+'>'+agendaMemberOptions(value)+'</select></label>';
     }).join('');
+    var aulaoOwner=String(a.aulaoOwner||'');
+    var aulaoDescription=aulaoOwner
+      ?'Responsável da semana: <b>'+esc(aulaoOwner)+'</b>. A escolha permanece salva até o fim desta semana.'
+      :'Defina quem ficará responsável pelo Aulão desta semana.';
     agenda.innerHTML=
-      '<div class="up-agenda-head"><div><b>Agenda da equipe</b><small>'+esc(a.date)+' • '+esc(weekday)+'</small></div><button type="button" class="up-agenda-close">Fechar</button></div>'+
-      '<div class="up-agenda-section"><div class="up-agenda-section-title">Almoço <span>Configuração individual e diária</span></div>'+lunchRows+'</div>'+
-      '<div class="up-agenda-section"><div class="up-agenda-section-title">Treinamentos do dia <span>Slots sem responsável não alteram nenhuma fila</span></div>'+trainingRows+'</div>'+
-      '<div class="up-agenda-section"><div class="up-agenda-section-title">Aulão da semana <span>Segunda a sexta • 15h às 17h</span></div><label class="up-agenda-row"><span class="up-agenda-time">Responsável</span><select data-agenda-aulao '+(canEdit?'':'disabled')+'>'+agendaMemberOptions(a.aulaoOwner||'')+'</select></label></div>'+
-      '<div class="up-agenda-permissions">'+(canEdit?'Você pode editar o almoço, os treinamentos e o responsável pelo aulão.':'Você pode editar somente o seu horário de almoço. Treinamentos e aulão são definidos pelo Ricardo.')+'</div>'+
+      '<div class="up-agenda-topline"><span class="up-agenda-eyebrow">UPSELLER <i></i> EQUIPE</span><span class="up-agenda-week-chip">'+iconSvg('calendar')+esc(weekLabel)+'</span></div>'+
+      '<div class="up-agenda-head"><div class="up-agenda-head-main"><span class="up-agenda-title-mark">'+iconSvg('calendar')+'</span><div><b>Agenda da equipe</b><small>'+esc(dateLabel)+'</small></div></div><button type="button" class="up-agenda-close" aria-label="Fechar agenda" title="Fechar">×</button></div>'+
+      '<div class="up-agenda-section up-agenda-section-lunch"><div class="up-agenda-section-head"><span class="up-agenda-section-icon">'+iconSvg('clock')+'</span><div class="up-agenda-section-title"><b>Almoço</b><small>Escolha individual para hoje</small></div><span class="up-agenda-section-tag">DIÁRIO</span></div>'+lunchRows+'</div>'+
+      '<div class="up-agenda-section up-agenda-section-training"><div class="up-agenda-section-head"><span class="up-agenda-section-icon">'+iconSvg('calendar')+'</span><div class="up-agenda-section-title"><b>Treinamentos do dia</b><small>Slots vazios não alteram nenhuma fila</small></div><span class="up-agenda-section-tag">DIÁRIO</span></div>'+trainingRows+'</div>'+
+      '<div class="up-agenda-section up-agenda-section-aulao"><div class="up-agenda-section-head"><span class="up-agenda-section-icon">'+iconSvg('calendar')+'</span><div class="up-agenda-section-title"><b>Aulão da semana</b><small>Segunda a sexta · 15h às 17h</small></div><span class="up-agenda-section-tag up-agenda-weekly-tag">SEMANAL</span></div><div class="up-agenda-weekly-note">'+aulaoDescription+'</div><label class="up-agenda-row"><span class="up-agenda-time">Responsável</span><select data-agenda-aulao '+(canEdit?'':'disabled')+'>'+agendaMemberOptions(aulaoOwner)+'</select></label></div>'+
+      '<div class="up-agenda-permissions">'+(canEdit?'Você pode editar o almoço, os treinamentos e o responsável pelo Aulão.':'Você pode editar somente o seu horário de almoço. Treinamentos e Aulão são definidos pelo Ricardo.')+'</div>'+
       '<div class="up-agenda-message" aria-live="polite"></div>';
     agenda.querySelector('.up-agenda-close').onclick=openUpStatusPanel;
     agenda.querySelectorAll('[data-agenda-lunch]').forEach(function(select){
@@ -3698,6 +3708,7 @@ function chatAvatarPresence(name){
     var aulao=agenda.querySelector('[data-agenda-aulao]');
     if(aulao)aulao.addEventListener('change',function(){if(!canEdit)return;saveAgendaSetting({type:'aulao',owner:aulao.value},aulao);});
   }
+
   async function saveAgendaSetting(payload,control){
     if(!token||!agendaData)return;
     if(control)control.disabled=true;
@@ -4757,7 +4768,73 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
     '#upstatus-root.up-theme-light .up-agenda-person,#upstatus-root.up-theme-light .up-agenda-time{color:#334155!important}'+
     '#upstatus-root.up-theme-light .up-agenda-row select{background:#f1f5f9!important;color:#1e293b!important;border-color:#cbd5e1!important}'+
     '#upstatus-root.up-theme-light .up-agenda-row select:disabled{background:#f8fafc!important;color:#94a3b8!important}'+
-    '@media(max-width:420px){#upstatus-agenda{width:calc(100vw - 20px)!important;right:-5px!important;padding:11px!important}.up-agenda-section{padding:8px!important}.up-agenda-row select{width:130px!important}}';
+    '@media(max-width:420px){#upstatus-agenda{width:calc(100vw - 20px)!important;right:-5px!important;padding:11px!important}.up-agenda-section{padding:8px!important}.up-agenda-row select{width:130px!important}}'+
+    '#upstatus-agenda{gap:10px!important;padding:15px!important;background:linear-gradient(155deg,#1d2b40 0%,#172131 48%,#121b29 100%)!important;border:1px solid #3a4d68!important;border-radius:18px!important;box-shadow:0 20px 48px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.035)!important}'+
+    '.up-agenda-topline{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;min-width:0!important}'+
+    '.up-agenda-eyebrow{display:flex!important;align-items:center!important;gap:6px!important;font-size:8px!important;font-weight:850!important;letter-spacing:1.25px!important;color:#8ea4c2!important}'+
+    '.up-agenda-eyebrow i{width:4px!important;height:4px!important;border-radius:50%!important;background:#6e9ff0!important;box-shadow:0 0 8px rgba(110,159,240,.55)!important}'+
+    '.up-agenda-week-chip{display:inline-flex!important;align-items:center!important;gap:5px!important;max-width:65%!important;padding:5px 8px!important;border:1px solid #394b64!important;border-radius:999px!important;background:#202e43!important;color:#c0cfe3!important;font-size:9px!important;font-weight:700!important;white-space:nowrap!important}'+
+    '.up-agenda-week-chip svg{width:12px!important;height:12px!important;color:#8bb5ff!important;flex:0 0 12px!important}'+
+    '.up-agenda-head{padding:1px 0 10px!important;border-bottom:1px solid rgba(124,149,181,.18)!important}'+
+    '.up-agenda-head-main{display:flex!important;align-items:center!important;gap:10px!important;min-width:0!important}'+
+    '.up-agenda-title-mark{display:flex!important;align-items:center!important;justify-content:center!important;width:36px!important;height:36px!important;flex:0 0 36px!important;border:1px solid rgba(143,181,242,.28)!important;border-radius:11px!important;background:linear-gradient(145deg,#2d4b75,#24364e)!important;color:#a8caff!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)!important}'+
+    '.up-agenda-title-mark svg{width:19px!important;height:19px!important}'+
+    '.up-agenda-head b{font-size:16px!important;letter-spacing:-.25px!important;color:#f0f5ff!important}'+
+    '.up-agenda-head small{font-size:10px!important;color:#9eafc7!important;text-transform:capitalize!important}'+
+    '.up-agenda-close{display:flex!important;align-items:center!important;justify-content:center!important;width:29px!important;height:29px!important;padding:0!important;border:1px solid #394a60!important;border-radius:9px!important;background:#253348!important;color:#aebed3!important;font-size:20px!important;line-height:1!important;transition:background .16s ease,border-color .16s ease,color .16s ease!important}'+
+    '.up-agenda-close:hover{background:#34465f!important;border-color:#58739a!important;color:#fff!important}'+
+    '.up-agenda-section{position:relative!important;gap:8px!important;padding:11px 12px!important;border:1px solid #33445b!important;border-radius:13px!important;background:linear-gradient(145deg,rgba(29,42,60,.98),rgba(22,32,46,.98))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;overflow:hidden!important}'+
+    '.up-agenda-section:before{content:""!important;position:absolute!important;left:0!important;top:12px!important;bottom:12px!important;width:3px!important;border-radius:0 4px 4px 0!important;background:#638fd0!important;opacity:.9!important}'+
+    '.up-agenda-section-training:before{background:#43a99a!important}'+
+    '.up-agenda-section-aulao{border-color:#475372!important;background:linear-gradient(145deg,rgba(39,47,70,.98),rgba(24,34,52,.98))!important}'+
+    '.up-agenda-section-aulao:before{background:#9a86e8!important}'+
+    '.up-agenda-section-head{display:flex!important;align-items:center!important;gap:8px!important;min-width:0!important;margin-bottom:2px!important}'+
+    '.up-agenda-section-icon{display:flex!important;align-items:center!important;justify-content:center!important;width:29px!important;height:29px!important;flex:0 0 29px!important;border:1px solid #3b506b!important;border-radius:9px!important;background:#25374e!important;color:#9dc1f7!important}'+
+    '.up-agenda-section-icon svg{width:15px!important;height:15px!important}'+
+    '.up-agenda-section-training .up-agenda-section-icon{background:#203d40!important;border-color:#31595a!important;color:#8dd2c5!important}'+
+    '.up-agenda-section-aulao .up-agenda-section-icon{background:#373451!important;border-color:#514c78!important;color:#c2b6ff!important}'+
+    '.up-agenda-section-title{display:flex!important;flex:1 1 auto!important;flex-direction:column!important;gap:2px!important;min-width:0!important;color:#e9f0fb!important}'+
+    '.up-agenda-section-title b{font-size:11px!important;font-weight:850!important;letter-spacing:.1px!important}'+
+    '.up-agenda-section-title small{font-size:9px!important;font-weight:450!important;line-height:1.35!important;color:#93a5bd!important}'+
+    '.up-agenda-section-tag{flex:0 0 auto!important;padding:4px 6px!important;border:1px solid #3b506a!important;border-radius:999px!important;background:#26384f!important;color:#a9c7f3!important;font-size:7px!important;font-weight:850!important;letter-spacing:.65px!important}'+
+    '.up-agenda-weekly-tag{border-color:#514b77!important;background:#332f50!important;color:#c4b9ff!important}'+
+    '.up-agenda-row{padding:7px 0!important;border-top:1px solid rgba(120,145,176,.12)!important}'+
+    '.up-agenda-row:first-of-type{border-top:0!important}'+
+    '.up-agenda-person,.up-agenda-time{font-size:10px!important;font-weight:750!important;color:#dce7f7!important}'+
+    '.up-agenda-person small{display:inline-flex!important;align-items:center!important;margin-left:4px!important;padding:2px 5px!important;border-radius:999px!important;background:#263f5e!important;color:#a8cbff!important;font-size:8px!important;font-weight:750!important;text-transform:uppercase!important;letter-spacing:.3px!important}'+
+    '.up-agenda-row select{width:148px!important;height:31px!important;padding:5px 9px!important;border:1px solid #40536d!important;border-radius:8px!important;background:#202f44!important;color:#edf4ff!important;font-size:10px!important;font-weight:650!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;transition:border-color .15s ease,background .15s ease!important}'+
+    '.up-agenda-row select:not(:disabled):hover{border-color:#7298ca!important;background:#263b55!important}'+
+    '.up-agenda-row select:focus-visible{outline:2px solid #76a8f0!important;outline-offset:2px!important;border-color:#8db7f7!important}'+
+    '.up-agenda-row select:disabled{opacity:.76!important;cursor:not-allowed!important;background:#1b293a!important;color:#aab8cb!important;border-style:dashed!important}'+
+    '.up-agenda-weekly-note{padding:8px 9px!important;border:1px solid rgba(147,132,220,.2)!important;border-radius:9px!important;background:rgba(107,91,168,.12)!important;color:#bbc5da!important;font-size:9px!important;line-height:1.45!important}'+
+    '.up-agenda-weekly-note b{color:#d7ccff!important;font-weight:800!important}'+
+    '.up-agenda-permissions{padding:8px 10px!important;border:1px solid rgba(116,144,179,.2)!important;border-radius:10px!important;background:rgba(41,59,82,.42)!important;color:#aebdd1!important;font-size:9px!important;line-height:1.45!important}'+
+    '.up-agenda-message{font-size:9px!important;min-height:12px!important;padding-left:2px!important}'+
+    '#upstatus-root.up-theme-light #upstatus-agenda{background:linear-gradient(155deg,#f8fbff,#edf3fb)!important;border-color:#c9d7e8!important;box-shadow:0 20px 48px rgba(26,46,76,.2)!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-eyebrow{color:#647b98!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-week-chip{background:#e8eff9!important;border-color:#d0dcec!important;color:#526b8b!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-head{border-bottom-color:#dce5f0!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-title-mark{background:linear-gradient(145deg,#e0edff,#cfdef3)!important;border-color:#c2d5f0!important;color:#416a9e!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-head b{color:#1e344f!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-close{background:#edf2f8!important;border-color:#d1dce9!important;color:#52657f!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-section{background:linear-gradient(145deg,#fff,#f7faff)!important;border-color:#d8e2ef!important;box-shadow:0 3px 10px rgba(39,64,99,.04)!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-section-aulao{background:linear-gradient(145deg,#fbfaff,#f5f2ff)!important;border-color:#ded8f5!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-section-title{color:#263c59!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-section-title small{color:#6b7c94!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-section-icon{background:#edf4fd!important;border-color:#d7e4f4!important;color:#4b78b3!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-section-training .up-agenda-section-icon{background:#e9f7f4!important;border-color:#cdeae4!important;color:#287e73!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-section-aulao .up-agenda-section-icon{background:#f0edff!important;border-color:#dfd9fb!important;color:#6b5aaa!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-section-tag{background:#edf3fb!important;border-color:#d8e3f0!important;color:#5a7292!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-weekly-tag{background:#f0edff!important;border-color:#ded7fa!important;color:#6d5aa8!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-row{border-top-color:#e8eef5!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-person,#upstatus-root.up-theme-light .up-agenda-time{color:#334a68!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-person small{background:#e5effb!important;color:#4771a6!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-row select{background:#f7faff!important;color:#2b4260!important;border-color:#d3dfed!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-row select:disabled{background:#f0f4f9!important;color:#8293aa!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-weekly-note{background:#f3f0ff!important;border-color:#e2dcfa!important;color:#655e86!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-weekly-note b{color:#51417f!important}'+
+    '#upstatus-root.up-theme-light .up-agenda-permissions{background:#f1f5fa!important;border-color:#dce5ef!important;color:#61738a!important}'+
+    '@media(max-width:420px){.up-agenda-week-chip{font-size:8px!important}.up-agenda-section{padding:9px 10px!important}.up-agenda-row select{width:130px!important}}';
   (document.head||document.documentElement).appendChild(s);
 })();
 
