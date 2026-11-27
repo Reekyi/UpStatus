@@ -17,6 +17,12 @@
 - Próxima beta: **3.5.0-beta.1**
 - Isso é um checkpoint, não substitui a consulta ao estado atual do GitHub e Supabase.
 
+## Beta atual em Staging
+- Branch: `beta/3.5.0-beta.1-remove-lucca-ycaro`.
+- TEST function: `upstatus-test`, deployment version 2, health verified.
+- Install/test URL: `https://akbgmmpnnpwcwgcfrltw.supabase.co/functions/v1/upstatus-test/upstatus.user.js`.
+- Staging contains only Ricardo, Lohan, and Guilherme. Production remains unchanged.
+
 ## Processo obrigatório
 Toda alteração começa em beta no Staging, nunca diretamente em produção. A versão oficial só muda após aprovação explícita do Ricardo. Beta rejeitada não reutiliza número. Execute build, validações, testes de regressão, revisão de diff e verificação do deploy antes de entregar a beta. Só depois do aceite explícito promova para oficial.
 
