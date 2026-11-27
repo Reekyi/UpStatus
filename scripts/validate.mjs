@@ -68,6 +68,35 @@ const bridgeEnd=testUser.indexOf("`;",bridgeBodyStart);
 assert(bridgeEnd>bridgeBodyStart,"Sale Smartly page bridge must close");
 const pageBridge=new Function("return `"+testUser.slice(bridgeBodyStart,bridgeEnd)+"`;")();
 checkSyntax(pageBridge,"inline Sale Smartly page bridge");
+assert(testUser.includes("statusMessageTimer=setTimeout(function(){")&&testUser.includes("},3000);"),"Inline messages must auto-dismiss after three seconds");
+assert(testUser.includes(".up-message.up-message-visible")&&testUser.includes(".up-message.up-message-leaving"),"Inline messages must use visible and exit animation states");
+assert(testUser.includes("chatErrorToastTimer=setTimeout(function(){")&&testUser.includes("},3000);"),"Chat error notices must auto-dismiss after three seconds");
+assert(testUser.includes("toast.style.opacity='0'")&&testUser.includes("toast.style.transform='translateY(-5px)'"),"Chat error notices must fade and slide away");
+assert(testUser.includes("setTimeout(function(){removeToast(m.id)},3000)"),"Chat notification toasts must use the same three-second lifetime");
+
+const messageStart=testUser.indexOf("var statusMessageTimer=null,statusMessageRemoveTimer=null;");
+const messageEnd=testUser.indexOf("var chatErrorToastTimer=null,chatErrorToastRemoveTimer=null;",messageStart);
+assert(messageStart>=0&&messageEnd>messageStart,"Auto-dismiss message helper must be extractable for unit testing");
+const messageUnitSource=testUser.slice(messageStart,messageEnd);
+const fakeTimers=[];
+let fakeTimerId=0;
+function fakeSetTimeout(fn,delay){const item={id:++fakeTimerId,fn,delay};fakeTimers.push(item);return item.id;}
+function fakeClearTimeout(id){const index=fakeTimers.findIndex(x=>x.id===id);if(index>=0)fakeTimers.splice(index,1);}
+const messageClasses=new Set();
+const messageNode={textContent:"",style:{},classList:{add(name){messageClasses.add(name);},remove(name){messageClasses.delete(name);},contains(name){return messageClasses.has(name);}}};
+const messageCard={querySelector(selector){return selector===".up-message"?messageNode:null;}};
+const messageFn=new Function("card","setTimeout","clearTimeout",messageUnitSource+";return message;")(messageCard,fakeSetTimeout,fakeClearTimeout);
+messageFn("Status atualizado no Sale Smartly, sem recarregar a página.",false);
+assert(messageNode.textContent==="Status atualizado no Sale Smartly, sem recarregar a página."&&messageClasses.has("up-message-visible"),"Inline success notice must appear immediately");
+const messageTimer=fakeTimers.find(x=>x.delay===3000);
+assert(!!messageTimer,"Inline notice timer must be exactly three seconds");
+messageTimer.fn();
+assert(messageClasses.has("up-message-leaving")&&!messageClasses.has("up-message-visible"),"Inline notice must enter its exit animation after three seconds");
+const removeTimer=fakeTimers.find(x=>x.delay===220);
+assert(!!removeTimer,"Inline notice should use a short exit animation");
+removeTimer.fn();
+assert(messageNode.textContent===""&&!messageClasses.has("up-message-leaving"),"Inline notice must clear after the exit animation");
+
 const visualStart=pageBridge.indexOf("function getSaleSmartlyCurrentUserStore(");
 const visualEnd=pageBridge.indexOf("\n      document.addEventListener('UPSTATUS_APPLY_VISUAL'",visualStart);
 assert(visualStart>=0&&visualEnd>visualStart,"Native Sale Smartly status integration helpers must be present");
