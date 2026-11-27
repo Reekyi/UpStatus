@@ -13,8 +13,8 @@
 
 ## Estado conhecido no checkpoint de 27/11/2026
 - Oficial: **3.4.9**
-- Beta ativa: **3.5.0-beta.3**
-- Próxima beta se esta tentativa for rejeitada: **3.5.0-beta.4**
+- Beta ativa: **3.5.0-beta.4**
+- Próxima beta se esta tentativa for rejeitada: **3.5.0-beta.5**
 - Isso é um checkpoint, não substitui a consulta ao estado atual do GitHub e Supabase.
 
 ## Beta atual com integração ao ambiente original
