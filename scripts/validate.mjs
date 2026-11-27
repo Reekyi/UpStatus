@@ -67,7 +67,7 @@ const visualEnd=pageBridge.indexOf("\\n      document.addEventListener('UPSTATUS
 assert(visualStart>=0&&visualEnd>visualStart,"Reactive Sale Smartly status updater must be present");
 const visualHelper=pageBridge.slice(visualStart,visualEnd);
 const mockUser={name:"Ricardo",online_status:"1",status:"online"};
-const mockTeam=[{name:"Ricardo",online_status:"1",status:"online"},{name:"Lohan",online_status:"2",status:"busy"},{name:"Guilherme",online_status:"0",status:"offline"}];
+const mockTeam=[{name:"Ricardo",online_status:"1",status:"online"},{name:"Lohan",online_status:"1",status:"online"},{name:"Guilherme",online_status:"0",status:"offline"}];
 const mockPinia={_s:new Map([["user",{$state:{userInfo:mockUser}}],["team",{$state:{members:mockTeam}}],["orders",{$state:{order:{status:"open"}}}]])};
 const mockApp={__vue_app__:{config:{globalProperties:{$pinia:mockPinia}},_instance:null}};
 const mockDocument={querySelector(selector){return selector==="#app"?mockApp:null;}};
@@ -78,7 +78,7 @@ const visualResult=applyStatus("2","Ricardo");
 assert(visualResult.updated&&visualResult.updatedFields>=2,"Status change must mutate the current user's reactive state and matching team row");
 assert(mockUser.online_status==="2"&&mockUser.status==="busy","Current user visual status must reflect busy");
 assert(mockTeam[0].online_status==="2"&&mockTeam[0].status==="busy","Matching team row must reflect the new status");
-assert(mockTeam[1].online_status==="2"&&mockTeam[1].status==="busy","Unrelated team rows must remain unchanged");
+assert(mockTeam[1].online_status==="1"&&mockTeam[1].status==="online","Unrelated team rows must remain unchanged");
 assert(mockTeam[2].online_status==="0"&&mockTeam[2].status==="offline","Other team members must keep their status");
 assert(mockPinia._s.get("orders").$state.order.status==="open","Non-user statuses must not be modified");
 assert(testUser.includes("applySaleSmartlyStatusVisual(onlineStatus,detail.member||'')"),"Native UI update must run after a successful Sale Smartly status API response");
