@@ -1,3 +1,9 @@
+## 2026-11-27
+
+### 3.4.9 (stable)
+- Fix the in-app update checker by using Tampermonkey's `GM_xmlhttpRequest` for the GitHub manifest and the hosted userscript, avoiding page-context fetch/CORS failures.
+- Open the exact script URL verified against the release manifest, including for older installations whose saved update URL is stale.
+
 ## 2026-10-22
 
 ### 3.1.0 (stable)
