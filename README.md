@@ -9,7 +9,7 @@ For every new AI-assisted task, first read [`AGENTS.md`](AGENTS.md), then [`docs
 - Official: **3.5.0** (master and production; unchanged).
 - Active candidate: **3.5.1-beta.2**, branch `beta/3.5.1-beta.2-agenda-status-mirror`.
 - Beta 2 target: new, dedicated production-project function `upstatus-351-test` in `mvjqunhjxkbfcrxkjtgf`, to share the live database, Storage, profiles, chat and Realtime while keeping its own function route, userscript namespace and local storage prefix.
-- Install URL after deployment: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-351-test/upstatus.user.js`.
+- Beta 2 installer: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-351-test/upstatus.user.js` (deployment v1, ACTIVE; health reports `3.5.1-beta.2`).
 - Production `upstatus` v6 and the existing production `upstatus-test` Beta 5 v4 must remain untouched. Staging Beta 1 `upstatus-test` v8 is also retained.
 - This integration beta writes to shared live team data; use the dedicated Beta 2 installer only for testing and do not use it for destructive experiments.
 - Verify live `release.json`, Git refs, and Supabase deployments before relying on this snapshot.
