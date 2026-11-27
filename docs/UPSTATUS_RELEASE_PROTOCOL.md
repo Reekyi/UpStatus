@@ -118,8 +118,13 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 
 - Branch: `beta/3.5.0-beta.1-remove-lucca-ycaro`.
 - Scope: remove temporary guest identities, pages, API routes, sessions, presence, and special chat UI; restrict supported accounts to Ricardo, Lohan, and Guilherme.
-- Production remains unchanged. Staging cleanup and TEST Edge Function deployment target only `akbgmmpnnpwcwgcfrltw`.
-- Validation and user acceptance are pending.
+- Branch head: `d5e612972664774ba19c462ad3eee7e3f50fa80f` (source branch may advance with beta fixes).
+- Staging `upstatus-test`: **ACTIVE, version 2**, deployed to `akbgmmpnnpwcwgcfrltw`; `/health` returned `ok=true`, version `3.5.0-beta.1`.
+- `/api/members` returns only Guilherme, Lohan, Ricardo. Direct account setup checks for both removed identities return `needsSetup=false`.
+- Staging database now contains only the three retained users; messages, history, sessions, profiles, typing, state, and storage objects are all empty.
+- Production users and Edge Functions were checked and remain unchanged. No production deployment or data deletion occurred.
+- Userscript syntax and generated artifact isolation checks passed. The full `npm run validate` suite was not executed in this connector-only environment; runtime health, member list, removed-account behavior, and served userscript were checked against staging.
+- Pending: Ricardo's manual test and explicit approval.
 
 ## State at this checkpoint
 
