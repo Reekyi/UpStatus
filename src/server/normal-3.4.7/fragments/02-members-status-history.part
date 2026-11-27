@@ -1,0 +1,104 @@
+async function members(){
+  const now=Date.now();
+  if(membersCache&&now-membersCache.at<10000)return membersCache.data;
+  const {data,error}=await db.from("users").select("name").order("name");
+  if(error)throw error;
+  const officialTeam=new Set(["Ricardo","Guilherme","Lohan"]);
+  const out=(data||[]).filter((x:any)=>officialTeam.has(String(x.name))).map((x:any)=>({name:String(x.name)}));
+  membersCache={at:now,data:out};
+  return out;
+}
+async function healthRoute(req:Request,name:string){
+  if(req.method!=="GET")return response({error:"Método não permitido."},405);
+  if(!["Ricardo","Lohan","Guilherme"].includes(name))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);
+  const started=Date.now();
+  const dbStarted=Date.now();
+  const usersQ=await db.from("users").select("name,status,reason,client_version,client_seen_at").order("name");
+  const dbOk=!usersQ.error;
+  const dbMs=Date.now()-dbStarted;
+
+  const chatStarted=Date.now();
+  const chatQ=await db.from("messages").select("id").limit(1);
+  const chatOk=!chatQ.error;
+  const chatMs=Date.now()-chatStarted;
+
+  const stateStarted=Date.now();
+  const stateQ=await db.from("upstatus_state").select("state_key").in("state_key",["remote-status"]);
+  const stateOk=!stateQ.error;
+  const stateMs=Date.now()-stateStarted;
+
+  const nowMs=Date.now();
+  const members=(usersQ.data||[]).map((x:any)=>({
+    name:String(x.name),
+    status:x.status||"offline",
+    version:x.client_version||"",
+    seenAt:x.client_seen_at||null,
+    connected:!!x.client_seen_at&&(nowMs-Date.parse(x.client_seen_at)<15000)
+  }));
+
+  return response({
+    ok:dbOk&&chatOk&&stateOk,
+    service:"UpStatus",
+    version:VERSION,
+    checkedAt:new Date().toISOString(),
+    elapsedMs:Date.now()-started,
+    db:{ok:dbOk,ms:dbMs,error:usersQ.error?.message||""},
+    chat:{ok:chatOk,ms:chatMs,error:chatQ.error?.message||""},
+    state:{ok:stateOk,ms:stateMs,error:stateQ.error?.message||""},
+    members
+  });
+}
+async function statusRoute(req:Request,name:string){
+  if(req.method==="GET"){
+    const now=new Date().toISOString();
+    const clientVersion=(req.headers.get("x-upstatus-version")||"").trim();
+    const presenceUpdate:Record<string,unknown>={client_seen_at:now};
+    if(clientVersion)presenceUpdate.client_version=clientVersion;
+    await db.from("users").update(presenceUpdate).eq("name",name);
+    const {data,error}=await db.from("users").select("name,status,reason,updated_at,sync,client_version,client_seen_at").order("name");
+    if(error)throw error;
+    const members:Record<string,unknown>={};
+    const nowMs=Date.now();
+    for(const x of data||[]){
+      const seen=x.client_seen_at?Date.parse(x.client_seen_at):0;
+      members[x.name]={
+        name:x.name,
+        status:x.status||"offline",
+        reason:x.reason||"",
+        updatedAt:x.updated_at||null,
+        sync:x.sync||"not_configured",
+        version:x.client_version||"",
+        seenAt:x.client_seen_at||null,
+        connected:!!seen&&nowMs-seen<15000
+      };
+    }
+    return response({members});
+  }
+  const p:any=await readBody(req);
+  const status=String(p.status||"");
+  const reason=status==="online"?"":String(p.reason||"").trim();
+  if(!["online","busy","away"].includes(status))return response({error:"Status inválido."},400);
+  if(status!=="online"&&!reason)return response({error:"Informe um motivo."},400);
+  const old=await account(name);
+  if(!old)return response({error:"Usuário não encontrado."},404);
+  const changed=(old.status||"offline")!==status||(old.reason||"")!==reason;
+  const now=new Date().toISOString();
+  if(changed){
+    const {error}=await db.from("users").update({status,reason,updated_at:now}).eq("name",name);
+    if(error)throw error;
+    const requestedActor=String(p.actor||name);
+    const requestedTarget=String(p.target||name);
+    const actor=requestedActor===name||((await admin(name))&&requestedTarget===name)?requestedActor:name;
+    await db.from("status_history").insert({user_name:name,actor,target:name,status,reason,created_at:now});
+  }
+  await db.from("users").update({client_seen_at:now,client_version:VERSION}).eq("name",name);
+  return response({name,status,reason,updatedAt:now,sync:old.sync||"not_configured",version:VERSION});
+}
+
+async function historyRoute(req:Request,name:string){
+  if(!(await admin(name)))return response({error:"Seu perfil não possui acesso ao histórico."},403);
+  const limit=Math.min(Math.max(Number(new URL(req.url).searchParams.get("limit")||100),1),500);
+  const {data,error}=await db.from("status_history").select("user_name,actor,target,status,reason,created_at").order("created_at",{ascending:false}).limit(limit);
+  if(error)throw error;
+  return response({history:(data||[]).map((x:any)=>({user:x.user_name,actor:x.actor,target:x.target,status:x.status,reason:x.reason||"",createdAt:x.created_at}))});
+}

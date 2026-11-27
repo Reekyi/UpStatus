@@ -1,0 +1,11 @@
+async function contextName(req:Request) {
+  const normal=await userFromToken(req);
+  if(normal)return {name:normal,guest:false,joinedAt:0};
+  const s:any=await expireLucca();
+  const c=luccaToken(req);
+  if(c&&s.online&&s.session===c)return {name:"Lucca",guest:true,joinedAt:Date.parse(String(s.joinedAt))||Date.now()};
+  const ys:any=await expireYcaro();
+  const yc=ycaroToken(req);
+  if(yc&&ys.online&&ys.session===yc)return {name:"Ycaro",guest:true,joinedAt:Date.parse(String(ys.joinedAt))||Date.now()};
+  return null;
+}

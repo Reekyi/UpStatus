@@ -1,0 +1,58 @@
+export function createRemoteStatusHandler({ stateValue, setState, admin, response, readBody, members, randomBytes }) {
+  async function remoteRoute(req, name) {
+    const state = await stateValue("remote-status", { commands: {}, results: {} });
+    state.commands = state.commands || {};
+    state.results = state.results || {};
+    const path = new URL(req.url).pathname;
+    if (req.method === "GET") {
+      if (path.endsWith("/result")) {
+        if (!(await admin(name))) return response({ error: "Somente administradores podem consultar resultados." }, 403);
+        const id = new URL(req.url).searchParams.get("id") || "";
+        const result = state.results[id];
+        if (!result) return response({ error: "Resultado ainda não disponível." }, 404);
+        return response({ ready: true, result });
+      }
+      return response({ pending: !!state.commands[name], command: state.commands[name] || null });
+    }
+    if (path.endsWith("/result")) {
+      const p = await readBody(req);
+      const cmd = state.commands[name];
+      const id = String(p.commandId || "");
+      if (!cmd || cmd.id !== id) return response({ error: "Comando não encontrado ou já processado." }, 404);
+      state.results[id] = {
+        commandId: id,
+        sender: cmd.sender,
+        target: name,
+        status: cmd.status,
+        reason: cmd.reason || "",
+        ok: p.ok === true,
+        error: p.ok === true ? "" : String(p.error || "Falha ao executar o comando."),
+        createdAt: new Date().toISOString()
+      };
+      delete state.commands[name];
+      await setState("remote-status", state);
+      return response({ ok: true });
+    }
+    if (!(await admin(name))) return response({ error: "Somente administradores podem controlar a fila de outro usuário." }, 403);
+    const p = await readBody(req);
+    const target = String(p.target || "");
+    const status = String(p.status || "");
+    const reason = String(p.reason || "");
+    if (!(await members()).some((x) => x.name === target) || target === name) return response({ error: "Usuário alvo inválido." }, 400);
+    if (!["online", "busy", "away"].includes(status)) return response({ error: "Status inválido." }, 400);
+    if (status !== "online" && !reason) return response({ error: "Informe um motivo." }, 400);
+    const id = randomBytes(10).toString("hex");
+    state.commands[target] = {
+      id,
+      sender: name,
+      target,
+      status,
+      reason: status === "online" ? "" : reason,
+      createdAt: new Date().toISOString()
+    };
+    await setState("remote-status", state);
+    return response({ ok: true, commandId: id, command: state.commands[target] });
+  }
+
+  return { remoteRoute };
+}

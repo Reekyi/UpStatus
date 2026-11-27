@@ -1,0 +1,81 @@
+function response(body:unknown,status=200,extra:Record<string,string>={}) {
+  return new Response(JSON.stringify(body),{status,headers:{"Content-Type":"application/json; charset=utf-8",...CORS,...extra}});
+}
+async function readBody(req:Request) {
+  const raw=await req.text();
+  if(!raw)return {};
+  try{return JSON.parse(raw)}catch{throw new Error("Pedido inválido.")}
+}
+function token(req:Request){return req.headers.get("x-upstatus-token")||""}
+function tokenHash(t:string){return createHash("sha256").update(t).digest("hex")}
+function passwordHash(password:string,salt=randomBytes(16).toString("hex")){
+  return salt+":"+Buffer.from(scryptSync(password,salt,64)).toString("hex");
+}
+function checkPassword(password:string,saved:string){
+  try{
+    const parts=String(saved||"").split(":");
+    if(parts.length!==2)return false;
+    const actual=scryptSync(password,parts[0],64);
+    const old=Buffer.from(parts[1],"hex");
+    return actual.length===old.length && timingSafeEqual(actual,old);
+  }catch{return false}
+}
+async function userFromToken(req:Request){
+  const t=token(req);
+  if(!t)return null;
+  const now=Date.now();
+  const cached=sessionCache.get(t);
+  if(cached){
+    if(cached.expiresAt<=now){sessionCache.delete(t);return null;}
+    if(now-cached.checkedAt<30000)return cached.name;
+  }
+  const {data}=await db.from("upstatus_sessions").select("user_name,expires_at").eq("token_hash",tokenHash(t)).maybeSingle();
+  if(!data)return null;
+  if(Date.parse(data.expires_at)<=Date.now()){
+    await db.from("upstatus_sessions").delete().eq("token_hash",tokenHash(t));
+    return null;
+  }
+  const name=String(data.user_name);
+  sessionCache.set(t,{name,expiresAt:Date.parse(data.expires_at),checkedAt:now});
+  return name;
+}
+async function account(name:string){
+  const {data,error}=await db.from("users").select("name,password_hash,role,status,reason,updated_at,sync").eq("name",name).maybeSingle();
+  if(error)throw error;
+  return data;
+}
+async function admin(name:string|null){
+  if(!name)return false;
+  const a=await account(name);
+  return a?.role==="implementation_admin";
+}
+async function createSession(name:string,knownAccount?:any){
+  const raw=randomBytes(32).toString("hex");
+  await db.from("upstatus_sessions").delete().lt("expires_at",new Date().toISOString());
+  const {error}=await db.from("upstatus_sessions").insert({
+    token_hash:tokenHash(raw),
+    user_name:name,
+    expires_at:new Date(Date.now()+30*86400000).toISOString()
+  });
+  if(error)throw error;
+  const a=knownAccount||await account(name);
+  sessionCache.set(raw,{name,expiresAt:Date.now()+30*86400000,checkedAt:Date.now()});
+  return response({name,role:a?.role||"implementation_user",canViewHistory:a?.role==="implementation_admin",token:raw});
+}
+async function login(req:Request,setup:boolean){
+  const p:any=await readBody(req);
+  const name=String(p.name||"");
+  const password=String(p.password||"");
+  if(!name||password.length<6)return response({error:"Use um usuário válido e uma senha de pelo menos 6 caracteres."},400);
+  const a=await account(name);
+  if(!a)return response({error:"Use um usuário válido e uma senha de pelo menos 6 caracteres."},400);
+  if(setup){
+    if(a.password_hash)return response({error:"Esta conta já foi configurada."},409);
+    const role=a.role||(["Ricardo","Lohan","Guilherme"].includes(name)?"implementation_admin":"implementation_user");
+    const {error}=await db.from("users").update({password_hash:passwordHash(password),role}).eq("name",name);
+    if(error)throw error;
+    return createSession(name,{...a,password_hash:undefined,role});
+  }
+  if(!a.password_hash||!checkPassword(password,String(a.password_hash)))return response({error:"Nome ou senha incorretos."},401);
+  return createSession(name,a);
+}
