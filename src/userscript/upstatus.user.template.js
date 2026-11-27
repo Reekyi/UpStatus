@@ -3583,14 +3583,15 @@ function chatAvatarPresence(name){
   }
   function agendaNextBoundaryDelay(){
     var now=agendaSaoPauloParts(new Date()),minute=now.hour*60+now.minute+now.second/60;
+    var dayIndex={Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6}[now.weekday];
+    var isWeekday=dayIndex>=1&&dayIndex<=5;
     var boundaries=[10*60,11*60,12*60,13*60,14*60,15*60,16*60,17*60,18*60];
-    var next=boundaries.find(function(value){return value>minute;});
-    var deltaMinutes=0;
-    if(next!==undefined)deltaMinutes=next-minute;
+    var next=isWeekday?boundaries.find(function(value){return value>minute;}):null;
+    var deltaMinutes;
+    if(next!==null&&next!==undefined)deltaMinutes=next-minute;
     else{
-      var days={Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6},dow=days[now.weekday],toMonday=(8-dow)%7;
-      if(toMonday===0)toMonday=7;
-      deltaMinutes=toMonday*1440+10*60-minute;
+      var daysAhead=dayIndex>=1&&dayIndex<=4?1:dayIndex===5?3:dayIndex===6?2:1;
+      deltaMinutes=daysAhead*1440+10*60-minute;
     }
     return Math.max(1000,Math.round(deltaMinutes*60000)+1200);
   }
