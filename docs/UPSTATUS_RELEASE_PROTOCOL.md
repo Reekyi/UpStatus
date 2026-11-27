@@ -131,6 +131,18 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 - No DB schema, new polling, new Realtime channel/subscription, or logging was added. The existing broadcast is reused. Quota impact expected: one small broadcast for each successful status change, with no material database/egress/storage/log-ingestion/log-query increase. Latest quota snapshot remains a user-provided 2026-11-27 screenshot: log ingestion 0.45/1 GB (45%); no live quota telemetry was available in this tool session.
 - Pending: live user test of self-status changes and remote status changes. Do not merge or promote stable without explicit approval.
 
+## Candidate beta — 3.5.0-beta.5 (not deployed)
+
+- Branch: `beta/3.5.0-beta.5-realtime-native-status`.
+- Candidate only: `release.json` in this branch identifies 3.5.0-beta.5. The currently deployed runtime remains 3.5.0-beta.4 until a separately authorized deployment.
+- The page bridge now invokes the Sale Smartly native Pinia action `user.switchOnlineStatus({ online_status, event_type: "0" })`, matching the action used by Sale Smartly's own status selector.
+- The bridge validates the active account using the confirmed `user.nickname` field and touches only `user.onlineStatus`. It no longer traverses unrelated Vue/Pinia objects or guesses generic `status` properties.
+- Native account matching is scoped to Ricardo, Lohan, or Guilherme and uses the active nickname prefix. The store's `canSelectOnlineStatuses` restriction is checked before invoking the native action.
+- Remote commands execute the same native action in the target member's own browser session. This preserves Sale Smartly's own API and internal event behavior; cross-user visual propagation still requires live manual verification after deployment.
+- Realtime URL/key are aligned to the active Supabase project `mvjqunhjxkbfcrxkjtgf`; the existing Realtime topic is retained. The obsolete `dlfvkawaiqduhlazsszm` host was removed from Realtime and the upload fallback URL.
+- No new Realtime topic, subscription, polling, database write, schema migration, or success logging was added. Restoring the existing Realtime connection may increase its normal low-volume traffic, so refresh quota usage before deployment; the last supplied screenshot is a historical 45% Log Ingestion snapshot, not live telemetry.
+- Pending: GitHub validation, reviewed diff, approved deployment destination, then live tests for self-change, remote change, and another colleague observing the updated status. No beta5 deployment or stable promotion has occurred.
+
 ## State at this checkpoint
 
 - 2026-11-27: GitHub default branch `master`; latest inspected release commit is `fb3c6e0bbce9652a48f6f36e8437154c45ec1aac`, message “Fix UpStatus updater network failures”, recording release 3.4.9. Continuity documents were subsequently committed on `master`; read the live latest commit rather than relying on this checkpoint SHA.
