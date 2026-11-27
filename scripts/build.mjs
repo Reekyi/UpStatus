@@ -25,7 +25,7 @@ const TEST_RINGTONE_CHANNEL=PROD_RINGTONE_CHANNEL;
 const PROD_RINGTONE_STORAGE="upstatus_screen_share_beta8_ringtone_stop_bus";
 const TEST_RINGTONE_STORAGE=PROD_RINGTONE_STORAGE;
 const PROD_UPDATE_MANIFEST_URL="https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json";
-const TEST_UPDATE_MANIFEST_URL="https://raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.0-beta.1-remove-lucca-ycaro/release.json";
+const TEST_UPDATE_MANIFEST_URL="https://raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.0-beta.5-realtime-native-status/release.json";
 
 function render(template,replacements){
   let out=template;
