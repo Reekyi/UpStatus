@@ -9,8 +9,9 @@ Last reviewed: 2026-11-27
 - `release.json`: `version=3.5.0`, empty `preRelease`, stable installer `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus/upstatus.user.js`.
 - Official Supabase function: `upstatus`, project `mvjqunhjxkbfcrxkjtgf`, deployment version **6**, status **ACTIVE**, `verify_jwt=false`, source hash `d4127ecf63de3e26901d4d4b306f03da38114605dfac1ef4ca2505b6e39240b9`.
 - Official `/health` returned `ok:true`, version `3.5.0`; `/api/update-info` returned the matching stable update route. Served userscript reports `@version 3.5.0`, namespace `upseller`.
-- No active candidate. Separate live-integration regression function `upstatus-test` remains ACTIVE at deployment version **4**, `3.5.0-beta.5`, hash `71c0446cfb0608b831088f8782f883198758561f809c496e82f0ed7c77f798b7`; it is not the official updater.
-- Staging project `akbgmmpnnpwcwgcfrltw` remains available; the live-team beta was intentionally hosted in a distinct function in the production project to share team data/Realtime after Ricardo's explicit authorization.
+- Active candidate: **3.5.1-beta.1**, branch `beta/3.5.1-beta.1-ui-fixes`, with its beta manifest isolated from master.
+- Production live-integration function `upstatus-test` remains ACTIVE at deployment version **4**, `3.5.0-beta.5`, hash `71c0446cfb0608b831088f8782f883198758561f809c496e82f0ed7c77f798b7`; it is not used or overwritten by this candidate.
+- The 3.5.1 beta target is the existing Staging project `akbgmmpnnpwcwgcfrltw`, function `upstatus-test`. It has a separate API endpoint, local storage prefix, Realtime topic and ringtone coordination. The Staging `upstatus` function is not overwritten.
 - Last user-provided quota screenshot before official deploy (2026-11-27): Egress 0.56/5 GB (11.2%); DB 38/500 MB (7.6%); MAU 0/50,000; Storage 0/1 GB; Log Ingestion 0.53/1 GB (53%); Log Query 1.37/100 GB (1.37%). This is a pre-deploy snapshot, not live post-deploy telemetry.
 - Recheck current quota usage before any future usage-intensive changes. Log Ingestion was above the 50% alert threshold but below the 60% investigation threshold in the last supplied screenshot.
 - Never infer runtime state from GitHub alone. Recheck the function metadata and public health/update endpoints before future release claims.
@@ -148,3 +149,14 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 - GitHub Actions UpStatus Validate: PR run #2362 passed; master post-merge run #2363 passed.
 - A separate retired Lucca Portal Pages workflow run failed because GitHub Pages is not enabled/configured for this repository. Its upload/deploy steps were skipped; it did not affect UpStatus validation or Supabase deployment.
 - Quota baseline remains the pre-deploy user-provided screenshot shown above. No live post-deploy quota total was available in the connector.
+
+
+## 3.5.1-beta.1 candidate isolation (2026-11-27)
+
+- Candidate branch: beta/3.5.1-beta.1-ui-fixes.
+- Beta manifest on this branch: 3.5.1-beta.1, pointing to the Staging upstatus-test installer.
+- Staging project: akbgmmpnnpwcwgcfrltw; candidate runtime function: upstatus-test.
+- Production project mvjqunhjxkbfcrxkjtgf is read-only for this cycle. Do not deploy or overwrite production upstatus or production upstatus-test.
+- The beta uses its own Staging Realtime topic, ringtone coordination channel, publishable key, storage prefix and updater manifest. Never reuse the production team topic for this isolated beta.
+- No SQL migration, user-row deletion, history deletion, or Supabase project/branch creation is authorized or required for these UI and identity-filter corrections.
+- Before handoff, validate the branch through GitHub Actions, deploy only Staging upstatus-test, and verify deployment metadata and served version. Manual tests by Ricardo remain required; do not promote to stable until his explicit approval.
