@@ -48,15 +48,15 @@ The user has explicitly required that the project must not exceed Supabase Free-
 
 ### Latest user-provided dashboard snapshot
 
-Billing cycle shown in the screenshot sent on 2026-11-27 (this is a snapshot, not a live API reading):
+Latest billing-cycle screenshot supplied immediately before the Beta 5 deployment on 2026-11-27 (this is a snapshot, not a live API reading; an earlier same-day screenshot showed 0.45 GB log ingestion):
 
 | Metric | Usage | Free-plan limit | Used |
 |---|---:|---:|---:|
-| Egress | 0.43 GB | 5 GB | 8.6% |
-| Database size | 37 MB | 500 MB | 7.4% |
+| Egress | 0.56 GB | 5 GB | 11.2% |
+| Database size | 38 MB | 500 MB | 7.6% |
 | Monthly active users | 0 | 50,000 | 0% |
 | File storage | 0 GB | 1 GB | 0% |
-| Log ingestion | 0.45 GB | 1 GB | **45%** |
+| Log ingestion | 0.53 GB | 1 GB | **53%** |
 | Log query | 1.37 GB | 100 GB | 1.37% |
 
 Log ingestion is the current pressure point: nearly half of its monthly allowance has already been consumed. Do not describe these values as current/live unless rechecked in the Supabase dashboard or a verified usage source.
@@ -128,7 +128,7 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 - Every successful local or remote status change emits the existing `user_status` Realtime broadcast with member name and status. Every connected beta/stable UpStatus instance listens to that existing event and asks its own Sale Smartly page bridge to update the matching user record locally, so the target member's indicator can change across open pages without F5.
 - The visual synchronizer reports whether it found and updated recognized fields. If no matching reactive state is found, the backend status remains successful but the client warns that the visual update was not confirmed; it does not fall back to F5.
 - Automated validation includes syntax parsing of the embedded page bridge plus a mocked Pinia test that asserts the selected member changes, a Realtime event changes the remote member row, and unrelated users/order statuses remain unchanged.
-- No DB schema, new polling, new Realtime channel/subscription, or logging was added. The existing broadcast is reused. Quota impact expected: one small broadcast for each successful status change, with no material database/egress/storage/log-ingestion/log-query increase. Latest quota snapshot remains a user-provided 2026-11-27 screenshot: log ingestion 0.45/1 GB (45%); no live quota telemetry was available in this tool session.
+- No DB schema, new polling, new Realtime channel/subscription, or logging was added. The existing broadcast is reused. Quota impact expected: one small broadcast for each successful status change, with no material database/egress/storage/log-ingestion/log-query increase. An earlier same-day quota snapshot showed log ingestion 0.45/1 GB (45%); the latest pre-deploy screenshot now shows 0.53/1 GB (53%). No live quota telemetry was available in this tool session.
 - Pending: live user test of self-status changes and remote status changes. Do not merge or promote stable without explicit approval.
 
 ## Deployed beta — 3.5.0-beta.5
@@ -152,7 +152,7 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 - 2026-11-27: GitHub default branch `master`; latest inspected release commit is `fb3c6e0bbce9652a48f6f36e8437154c45ec1aac`, message “Fix UpStatus updater network failures”, recording release 3.4.9. Continuity documents were subsequently committed on `master`; read the live latest commit rather than relying on this checkpoint SHA.
 - `release.json` on `master`: `version=3.4.9`, empty `preRelease`.
 - Production project `upstatus-normal` and Staging project `UpStatus Staging` both returned `ACTIVE_HEALTHY` on 2026-11-27.
-- No active 3.5.0 beta has been created or deployed at this checkpoint.
+- At the initial onboarding checkpoint, no 3.5.0 beta was active; this historical note is superseded by the deployed Beta 4 and Beta 5 state documented above.
 - Production workflow still contains a hard-coded stable version guard for 3.4.7 while `release.json` is 3.4.9. This stale configuration must be corrected and validated before a later official promotion. Do not bypass it or deploy production until resolved.
 - README and checked-in deployment workflows need reconciliation with actual Supabase project refs and TEST function naming before relying on automated deployment.
-- User-provided Free-plan dashboard snapshot (2026-11-27): egress 0.43/5 GB; database 37/500 MB; MAU 0/50,000; file storage 0/1 GB; log ingestion 0.45/1 GB (45%); log query 1.37/100 GB. Log ingestion is the immediate quota risk. Recheck in dashboard before a usage-intensive release.
+- Earlier user-provided Free-plan dashboard snapshot (2026-11-27): egress 0.43/5 GB; database 37/500 MB; MAU 0/50,000; file storage 0/1 GB; log ingestion 0.45/1 GB (45%); log query 1.37/100 GB. It was superseded by the latest pre-deploy screenshot recorded in the quota table above.
