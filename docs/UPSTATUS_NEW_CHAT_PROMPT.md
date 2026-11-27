@@ -26,18 +26,17 @@
 - O namespace e prefixo locais do beta são separados. A API beta filtra os usuários expostos para Ricardo, Lohan e Guilherme.
 - O projeto Staging `akbgmmpnnpwcwgcfrltw` existe, mas não é o destino runtime desta beta integrada.
 
-## Beta 5 implantada (validação manual pendente)
-- Branch: `beta/3.5.0-beta.5-realtime-native-status`; PR #184 continua Draft e não foi mesclada.
-- Edge Function `upstatus-test` implantada no projeto integrado `mvjqunhjxkbfcrxkjtgf`, versão de deployment 4, status ACTIVE, `verify_jwt=false`.
-- `/health` e `/api/update-info` confirmaram `3.5.0-beta.5`; `/api/members` retornou somente Guilherme, Lohan e Ricardo.
-- A função oficial `upstatus` continua em 3.4.9 e foi verificada sem alteração após o deploy.
-- A Beta 5 usa a ação nativa Pinia `user.switchOnlineStatus({ online_status, event_type: "0" })`; valida `user.nickname`, atualiza apenas `user.onlineStatus` e respeita `canSelectOnlineStatuses`.
-- Realtime foi apontado para o projeto ativo e reutiliza o tópico existente. Nenhuma migration, alteração de dados, canal novo, polling adicional ou log de sucesso foi criado.
-- Validação automatizada #2359 passou. Falta o teste manual em três sessões para confirmar mudança própria, mudança remota e propagação visual para observadores sem F5.
-- Snapshot de quotas fornecido em 27/11/2026 antes do deploy: Egress 0.56/5 GB; DB 38/500 MB; MAU 0/50.000; Storage 0/1 GB; Log Ingestion 0.53/1 GB (53%, alerta); Log Query 1.37/100 GB. Não há leitura pós-deploy; verificar antes de nova alteração.
+## Registro de integração Beta 5 (manual acceptance concluída)
+- Branch: `beta/3.5.0-beta.5-realtime-native-status`; PR #184 foi mesclada em `master` como commit oficial `a9019ada2ab4dae05540520eda04211b38a301c7`.
+- A Beta 5 foi validada por Ricardo: alteração do próprio status e alteração remota no Sale Smartly do Guilherme funcionaram sem F5.
+- A função beta `upstatus-test` permanece separada e ACTIVE no projeto `mvjqunhjxkbfcrxkjtgf`, deployment version 4, `3.5.0-beta.5`, hash `71c0446cfb0608b831088f8782f883198758561f809c496e82f0ed7c77f798b7`.
+- A função oficial `upstatus` foi promovida a deployment version 6, ACTIVE, e serve oficialmente `3.5.0`; health e update-info confirmaram a versão. Usuárioscript estável tem namespace `upseller`; beta mantém `upseller-test`.
+- A oficial inclui avisos temporários com timeout de 3 segundos e animação fade/slide; indicador persistente de conexão do Sale Smartly permanece visível.
+- Validação GitHub Actions: PR run #2362 aprovada e master post-merge run #2363 aprovada.
+- Snapshot de quotas antes do deploy oficial: Egress 0.56/5 GB; DB 38/500 MB; MAU 0/50.000; Storage 0/1 GB; Log Ingestion 0.53/1 GB (53%); Log Query 1.37/100 GB. Não há leitura pós-deploy.
 
 ## Processo obrigatório
-Toda alteração começa em beta no Staging, nunca diretamente em produção. A versão oficial só muda após aprovação explícita do Ricardo. Beta rejeitada não reutiliza número. Execute build, validações, testes de regressão, revisão de diff e verificação do deploy antes de entregar a beta. Só depois do aceite explícito promova para oficial.
+Por padrão, toda alteração começa em beta no Staging. Quando Ricardo solicita integração com a equipe real, pode ser usada a função separada `upstatus-test` dentro do projeto de produção, com autorização explícita e mantendo a função estável `upstatus` intocada. A versão oficial só muda após aprovação explícita de Ricardo. Beta rejeitada não reutiliza número. Execute build, validações, testes de regressão, revisão de diff e verificação do deploy antes de entregar a beta. Só depois do aceite explícito promova para oficial.
 
 ## Proteção do limite gratuito Supabase
 O plano é Free e o usuário exige não exceder os limites. Leia a seção “Supabase Free-plan quota protection” no protocolo. Último snapshot enviado em 27/11/2026 antes do deploy oficial: Egress 0.56/5 GB; Database 38/500 MB; MAU 0/50.000; File Storage 0/1 GB; Log Ingestion 0.53/1 GB (53%); Log Query 1.37/100 GB. Um snapshot anterior no mesmo dia mostrava Log Ingestion em 45%. Logs seguem como principal ponto de atenção.
