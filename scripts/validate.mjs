@@ -61,6 +61,9 @@ assert(!prodUser.match(/lucca|ycaro|icaro|luca/i),"production userscript contain
 assert(!testUser.match(/lucca|ycaro|icaro|luca/i),"TEST userscript contains removed guest UI");
 assert(testFn.includes('if(!["Ricardo","Lohan","Guilherme"].includes(name))return null;'),"TEST account lookup must allow only the three current members");
 assert(testFn.includes("needsSetup:!!a&&!a.password_hash"),"Removed accounts must not be offered password setup");
+assert(prodFn.includes("async function contextName(req:Request)")&&prodFn.includes("const ctx=await contextName(req);"),"production backend must resolve authenticated session context");
+assert(testFn.includes("async function contextName(req:Request)")&&testFn.includes("const ctx=await contextName(req);"),"TEST backend must resolve authenticated session context");
+assert(testFn.includes("if(!name||![\"Ricardo\",\"Lohan\",\"Guilherme\"].includes(name))return null;"),"TEST session context must reject non-allowlisted accounts");
 
 for(const artifact of [prodUser,testUser]){
   assert(artifact.includes("function closePopupAnimated(el,finish)"),"Popup exit animation helper missing");
