@@ -12,16 +12,35 @@
 6. Compare tudo com o protocolo. Informe divergências, não invente estado, não comece implementação antes de concluir a contextualização.
 
 ## Estado conhecido no checkpoint de 27/11/2026
-- Oficial: **3.4.9**
-- Beta ativa: **nenhuma**
-- Próxima beta: **3.5.0-beta.1**
+- Oficial: **3.5.0**
+- Sem candidata ativa. A função dedicada `upstatus-test` permanece em **3.5.0-beta.5** para referência/testes de regressão.
+- Versão oficial anterior: **3.4.9**
 - Isso é um checkpoint, não substitui a consulta ao estado atual do GitHub e Supabase.
+
+## Função de teste Beta 5, mantida separada da versão oficial
+- Branch Beta 4: `beta/3.5.0-beta.1-remove-lucca-ycaro`.
+- TEST function: `upstatus-test`, implantação dedicada no projeto original `mvjqunhjxkbfcrxkjtgf`.
+- Install/test URL: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`.
+- O beta compartilha banco, Storage, tópico Realtime e coordenação de ringtone com a instalação oficial, para que status, chat, anexos e chamadas cruzem versões.
+- A função oficial `upstatus`, o userscript estável, o namespace `upseller` e o prefixo de armazenamento local estável permanecem intactos.
+- O namespace e prefixo locais do beta são separados. A API beta filtra os usuários expostos para Ricardo, Lohan e Guilherme.
+- O projeto Staging `akbgmmpnnpwcwgcfrltw` existe, mas não é o destino runtime desta beta integrada.
+
+## Beta 5 implantada (validação manual pendente)
+- Branch: `beta/3.5.0-beta.5-realtime-native-status`; PR #184 continua Draft e não foi mesclada.
+- Edge Function `upstatus-test` implantada no projeto integrado `mvjqunhjxkbfcrxkjtgf`, versão de deployment 4, status ACTIVE, `verify_jwt=false`.
+- `/health` e `/api/update-info` confirmaram `3.5.0-beta.5`; `/api/members` retornou somente Guilherme, Lohan e Ricardo.
+- A função oficial `upstatus` continua em 3.4.9 e foi verificada sem alteração após o deploy.
+- A Beta 5 usa a ação nativa Pinia `user.switchOnlineStatus({ online_status, event_type: "0" })`; valida `user.nickname`, atualiza apenas `user.onlineStatus` e respeita `canSelectOnlineStatuses`.
+- Realtime foi apontado para o projeto ativo e reutiliza o tópico existente. Nenhuma migration, alteração de dados, canal novo, polling adicional ou log de sucesso foi criado.
+- Validação automatizada #2359 passou. Falta o teste manual em três sessões para confirmar mudança própria, mudança remota e propagação visual para observadores sem F5.
+- Snapshot de quotas fornecido em 27/11/2026 antes do deploy: Egress 0.56/5 GB; DB 38/500 MB; MAU 0/50.000; Storage 0/1 GB; Log Ingestion 0.53/1 GB (53%, alerta); Log Query 1.37/100 GB. Não há leitura pós-deploy; verificar antes de nova alteração.
 
 ## Processo obrigatório
 Toda alteração começa em beta no Staging, nunca diretamente em produção. A versão oficial só muda após aprovação explícita do Ricardo. Beta rejeitada não reutiliza número. Execute build, validações, testes de regressão, revisão de diff e verificação do deploy antes de entregar a beta. Só depois do aceite explícito promova para oficial.
 
 ## Proteção do limite gratuito Supabase
-O plano é Free e o usuário exige não exceder os limites. Leia a seção “Supabase Free-plan quota protection” no protocolo. Snapshot enviado em 27/11/2026: Egress 0.43/5 GB; Database 37/500 MB; MAU 0/50.000; File Storage 0/1 GB; Log Ingestion 0.45/1 GB (45%); Log Query 1.37/100 GB. Logs são a maior preocupação.
+O plano é Free e o usuário exige não exceder os limites. Leia a seção “Supabase Free-plan quota protection” no protocolo. Último snapshot enviado em 27/11/2026 antes do deploy oficial: Egress 0.56/5 GB; Database 38/500 MB; MAU 0/50.000; File Storage 0/1 GB; Log Ingestion 0.53/1 GB (53%); Log Query 1.37/100 GB. Um snapshot anterior no mesmo dia mostrava Log Ingestion em 45%. Logs seguem como principal ponto de atenção.
 - Sem logs de sucesso por request/mensagem/heartbeat ou loops; sem dumps de log largos; sem polling desnecessário.
 - Nunca incluir conteúdo de chat, PII, tokens, credenciais ou payloads sensíveis nos logs.
 - Restringir consultas de log por serviço e janela de tempo.

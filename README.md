@@ -6,9 +6,11 @@ For every new AI-assisted task, first read [`AGENTS.md`](AGENTS.md), then [`docs
 
 ## Current release checkpoint
 
-- Official: **3.4.9**
-- Active beta: **none**
-- Next beta: **3.5.0-beta.1**
+- Official: **3.5.0**
+- No active release candidate. The dedicated `upstatus-test` function remains on **3.5.0-beta.5** for regression/reference testing.
+- Previous official: **3.4.9**
+- Beta TEST URL: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`
+- The beta uses its own Edge Function, namespace and local storage prefix; the stable `upstatus` function and stable userscript URL are unchanged.
 - Verify live `release.json`, Git refs, and Supabase deployments before relying on this snapshot.
 
 ## Supabase environments
@@ -19,7 +21,7 @@ For every new AI-assisted task, first read [`AGENTS.md`](AGENTS.md), then [`docs
 
 ## Free-plan quota guardrails
 
-The 2026-11-27 user screenshot showed Log Ingestion at **0.45/1 GB (45%)**. This is a snapshot, not live telemetry. Read the quota-protection section in the release protocol before changes. No verbose per-request logs, unnecessary polling, broad log dumps, or unbounded queries. At 70% freeze nonessential growth; at 80% stop beta deploys until mitigated; at 90% hard stop changes that can increase usage. Never knowingly exceed a Free-plan limit.
+The latest user-provided 2026-11-27 pre-deploy screenshot showed Log Ingestion at **0.53/1 GB (53%)** (previous same-day screenshot: 0.45/1 GB, 45%). This is a snapshot, not live telemetry. Read the quota-protection section in the release protocol before changes. No verbose per-request logs, unnecessary polling, broad log dumps, or unbounded queries. At 70% freeze nonessential growth; at 80% stop beta deploys until mitigated; at 90% hard stop changes that can increase usage. Never knowingly exceed a Free-plan limit.
 
 ## Release model
 

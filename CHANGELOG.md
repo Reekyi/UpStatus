@@ -1,3 +1,72 @@
+## 3.5.0 (2026-11-27)
+
+### Status synchronization without page reload
+- Updated the Sale Smartly status integration to use its native Vue/Pinia action, `user.switchOnlineStatus({ online_status, event_type: "0" })`, rather than a parallel request plus heuristic state mutation.
+- Validates the active Sale Smartly account through `user.nickname` and updates only its confirmed reactive `user.onlineStatus` field.
+- Remote commands invoke the same native action in the target member's own Sale Smartly session and respect `canSelectOnlineStatuses`.
+- Fixed the Realtime client URL and publishable key to use the active Supabase project while retaining the existing Realtime topic and shared live-team integration.
+- Confirmed status synchronization on Ricardo's and Guilherme's Sale Smartly sessions without manually refreshing the page.
+- Inline UpStatus messages and chat error notices now disappear after three seconds with a short fade/slide animation. The persistent Sale Smartly connection indicator remains visible because it represents connection state, not a transient notice.
+- Existing chat notification toasts retain the same three-second lifetime. No new database schema, channel, subscription, polling loop, or success logging was added.
+
+### Release and compatibility
+- Official userscript version: `3.5.0`.
+- Beta 5 test function remains separate at `upstatus-test`; official `upstatus` and stable updater URLs are independent.
+- Supabase production function `upstatus` remains deployed separately from the beta test function.
+ 
+## 3.5.0-beta.5 (2026-11-27, deployed for testing)
+
+### Corrigido o sincronismo nativo de status
+- Substituída a chamada manual ao endpoint `online-switch` pela ação oficial da Store Pinia do Sale Smartly: `user.switchOnlineStatus({ online_status, event_type: "0" })`.
+- A atualização visual valida a identidade da conta ativa pelo `nickname` e altera somente o campo reativo confirmado `user.onlineStatus`; a busca heurística ampla da Beta 4 foi removida.
+- Comandos remotos executados no navegador do membro-alvo usam a ação nativa na sessão daquele próprio membro, preservando as regras e os eventos internos do Sale Smartly.
+- Corrigidos o host e a chave publishable do Supabase Realtime para o projeto atualmente ativo `mvjqunhjxkbfcrxkjtgf`, mantendo o tópico Realtime existente.
+- Mantido o comportamento sem F5 e sem novo canal, polling ou logging de sucesso.
+- Implantada na função dedicada `upstatus-test` (deployment version 4, ACTIVE); `/health` confirmou `3.5.0-beta.5`. A função oficial `upstatus` permaneceu em 3.4.9.
+- Validação GitHub Actions #2359 aprovada. A confirmação manual de propagação visual entre sessões permanece pendente.
+
+## 3.5.0-beta.4 (2026-11-27)
+
+### Atualização visual nativa do status, sem F5
+- Removido o reload automático do Sales Smartly depois da alteração de status local e da execução de comandos remotos.
+- Depois da resposta de sucesso da API `online-switch`, o userscript tenta atualizar o estado reativo da interface Vue/Pinia do Sales Smartly.
+- O sincronizador identifica campos de status em stores e componentes de usuário/perfil e em registros da equipe que correspondam ao membro alterado.
+- A atualização é limitada a campos de status reconhecidos e ao usuário correspondente; não altera status de pedidos ou outros objetos.
+- Depois de cada alteração, o evento `user_status` é enviado pelo canal Realtime já existente. Cada instalação conectada tenta atualizar localmente o registro visual do membro correspondente na própria interface do Sale Smartly.
+- A resposta local informa se os campos visuais foram encontrados. Se não houver estado reconhecido, o UpStatus avisa que a atualização visual não foi confirmada, sem recarregar a página.
+- Não foi criado novo canal nem assinatura Realtime; o fluxo de autenticação, a API de status e o banco compartilhado permanecem iguais.
+
+## 3.5.0-beta.3 (2026-11-27)
+
+### Reconexão com a instância original
+- O beta agora é servido por uma Edge Function independente, `upstatus-test`, no projeto Supabase original. A função oficial `upstatus` permanece intacta.
+- A API beta usa o mesmo banco de dados e Storage da equipe, permitindo compartilhar status, chat, histórico, perfis e anexos com quem continua na versão estável.
+- O beta volta a usar o tópico Realtime e o canal de coordenação de ringtone oficiais, permitindo chat e sala de voz entre versões.
+- O namespace e o prefixo de armazenamento local do userscript beta continuam separados.
+- As respostas de equipe, status, saúde, chat, perfis e digitação do beta filtram os membros atuais, sem apagar dados históricos de produção.
+- Corrigido o canal de atualização beta: manifesto separado, URL correta da função beta e comparação de versão completa com `preRelease`.
+
+## 3.5.0-beta.2 hotfix (2026-11-27)
+
+### Corrigido erro de autenticação no backend
+- Restaurada a resolução de contexto de sessão para usuários permitidos, sem qualquer fluxo ou identidade de convidado.
+- O backend volta a resolver `/api/me` e as rotas autenticadas de chat/status usando somente sessões de Ricardo, Lohan e Guilherme.
+
+## 3.5.0-beta.2 (2026-11-27)
+
+### Corrigido carregamento inicial do userscript
+- Adiado o início do userscript para `document-end`, evitando a execução antes de o DOM da página estar disponível.
+- Corrigida a allowlist do atualizador para aceitar o artefato beta servido pelo projeto Supabase de TEST, sem aceitar URLs arbitrárias.
+- Mantida a separação completa entre TEST e produção; nenhuma função ou artefato de produção foi publicado.
+
+## 3.5.0-beta.1 (2026-11-27)
+
+### Removed legacy team access
+- Removed the two temporary guest identities, their login pages, session handling, API routes, presence handling, and dedicated chat styling.
+- Restricted account lookup and team-member discovery to Ricardo, Lohan, and Guilherme.
+- Staging database cleanup retains only those three team accounts. Production data and deployment remain unchanged.
+- Deployed to Staging as `upstatus-test` v2; health, member discovery, removed-account setup behavior, and served userscript verified.
+
 ## 2026-11-27
 
 ### 3.4.9 (stable)

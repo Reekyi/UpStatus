@@ -4,9 +4,13 @@ Last reviewed: 2026-11-27
 
 ## Current release state
 
-- Official production version: **3.4.9**
-- Current beta: **none**
-- Next planned beta, when new work is requested: **3.5.0-beta.1**
+- Official production version: **3.5.0**
+- No active release candidate. Dedicated `upstatus-test` remains at **3.5.0-beta.5** for regression/reference tests.
+- Previous official version: **3.4.9**
+- Official function: `upstatus` in project `mvjqunhjxkbfcrxkjtgf`.
+- Stable installer: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus/upstatus.user.js`.
+- Beta test function `upstatus-test` remains separately deployed on `3.5.0-beta.5`; its installer is `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`.
+- TEST project `akbgmmpnnpwcwgcfrltw` remains available but is not used for this live-integration beta.
 - Stable baseline: GitHub `master` at release commit `fb3c6e0bbce9652a48f6f36e8437154c45ec1aac` (release 3.4.9).
 - Never infer that a version is deployed merely because a commit or manifest exists. Verify the GitHub release ref/manifest and the live Supabase deployment before claiming deployment state.
 
@@ -44,15 +48,15 @@ The user has explicitly required that the project must not exceed Supabase Free-
 
 ### Latest user-provided dashboard snapshot
 
-Billing cycle shown in the screenshot sent on 2026-11-27 (this is a snapshot, not a live API reading):
+Latest billing-cycle screenshot supplied immediately before the Beta 5 deployment on 2026-11-27 (this is a snapshot, not a live API reading; an earlier same-day screenshot showed 0.45 GB log ingestion):
 
 | Metric | Usage | Free-plan limit | Used |
 |---|---:|---:|---:|
-| Egress | 0.43 GB | 5 GB | 8.6% |
-| Database size | 37 MB | 500 MB | 7.4% |
+| Egress | 0.56 GB | 5 GB | 11.2% |
+| Database size | 38 MB | 500 MB | 7.6% |
 | Monthly active users | 0 | 50,000 | 0% |
 | File storage | 0 GB | 1 GB | 0% |
-| Log ingestion | 0.45 GB | 1 GB | **45%** |
+| Log ingestion | 0.53 GB | 1 GB | **53%** |
 | Log query | 1.37 GB | 100 GB | 1.37% |
 
 Log ingestion is the current pressure point: nearly half of its monthly allowance has already been consumed. Do not describe these values as current/live unless rechecked in the Supabase dashboard or a verified usage source.
@@ -81,11 +85,11 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 ## Mandatory development and release workflow
 
 1. **Understand and plan:** identify requested behavior, affected client/server/database paths, regression risks, test plan, and quota impact. State what will and will not change.
-2. **Protect production:** never use production as the experimental environment. Never deploy beta code to the production Supabase project or stable userscript URL.
+2. **Protect production:** never overwrite the official `upstatus` Edge Function or stable userscript URL with beta code. A separate beta Edge Function may be deployed inside the production project only when live database/Realtime interoperability is explicitly requested and authorized; it must keep a distinct slug, userscript namespace, local storage prefix, and updater channel.
 3. **Isolate work:** make a dedicated GitHub branch from the verified stable baseline or current approved integration base. Keep `master` stable. Do not create Supabase database branches without explicit cost approval.
 4. **Build beta:** update the single version source `release.json` according to existing build conventions and generate artifacts via repository build scripts. Beta output must be unmistakably labeled `-beta.N`.
 5. **Validate before deploying:** run `npm run validate` (or the actual repository validation command if package scripts differ), including build, syntax checks, client/server artifact parity, and regression tests. Add focused regression tests. Inspect generated diffs and ensure no unrelated changes or production identifiers drift.
-6. **Deploy to staging only:** deploy beta to Supabase project `akbgmmpnnpwcwgcfrltw` and isolated TEST function/artifacts using the repository's validated test deployment mechanism. Confirm deployed function version/status and test URL. Verify storage prefixes, Realtime topics, ringtone channels, userscript namespace, updater URL, and all TEST identifiers are isolated from production.
+6. **Deploy beta according to its integration mode:** default to the isolated Staging project `akbgmmpnnpwcwgcfrltw`. When the user explicitly requires interoperability with the live team, a dedicated `upstatus-test` Edge Function may be deployed in the production project, but never replace `upstatus`. In this mode, database, Storage, and Realtime are intentionally shared; local userscript namespace/storage prefix and function route remain separate. Confirm the runtime target, function slug, live API responses, member allowlist, and stable function health before handoff.
 7. **Hand over for user testing:** provide exact beta version, installation/update URL, deployment status, changes, test checklist, known risks, quota-impact assessment, and rollback approach. Be explicit when something could not be verified.
 8. **Wait for explicit approval:** phrases such as “aprovado” or “pode lançar oficial” are required before stable promotion. “Testei” alone is not approval unless acceptance is clear.
 9. **Promote safely:** after explicit approval, review final diff, merge approved changes into `master`, update stable version and changelog, run full validation, deploy production only using the production workflow, verify live production endpoint, then update this protocol with the new official version and no active beta.
@@ -94,13 +98,13 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 ## Architecture and environment guardrails
 
 - GitHub is the source of truth for code, version manifests and release history.
-- Supabase projects are runtime environments; staging is for beta testing, production serves stable users.
+- Supabase projects are runtime environments. Staging is the default for isolated beta tests; an explicitly approved beta integration function may live inside the production project to share live team data without replacing stable runtime.
 - Production Supabase project: `mvjqunhjxkbfcrxkjtgf` (`upstatus-normal`).
 - Staging Supabase project: `akbgmmpnnpwcwgcfrltw` (`UpStatus Staging`).
 - Both projects were observed as `ACTIVE_HEALTHY` on 2026-11-27 in region `sa-east-1`. Recheck at the start of each new chat.
 - Production Edge Function is `upstatus`; staging/test Edge Function naming and deployment must follow actual repository and project state. Do not assume endpoint or source path; inspect it.
 - Existing README and workflows may be stale. Verify actual project refs, function names, and release guards before relying on them.
-- Existing build logic includes separate production and TEST artifacts and isolation identifiers. Preserve backward compatibility with production storage, Realtime and ringtone identifiers unless a specific migration is designed and tested.
+- Existing build logic includes separate production and TEST artifacts. For the live-integration beta, TEST intentionally shares the production database, Storage, Realtime topic, and ringtone coordination channel. Preserve separate local userscript storage prefixes and never alter the stable function or stable userscript URL.
 - Never put secrets, tokens, passwords, service-role keys or private user data into GitHub, source files, logs, handoff notes or this document.
 - Do not expose Supabase service-role/secret keys in userscripts or browser code.
 - For database schema changes, inspect tables, RLS and migrations first. Prefer additive, reversible migrations; avoid destructive changes without explaining consequences and receiving explicit authorization. Verify schema and security after changes.
@@ -114,12 +118,37 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 - Keep a continuously updated status: official version, beta version/status, working branch, latest commit, staging deployment, production deployment, tests, quota snapshot, pending user tests/approval.
 - After each meaningful release-state change, update this document and changelog/version manifest as applicable. Use commit history as audit trail.
 
+## Active beta — 3.5.0-beta.4
+
+- Branch: `beta/3.5.0-beta.1-remove-lucca-ycaro`.
+- Scope: keep only Ricardo, Lohan and Guilherme exposed in beta team/status/chat/profile/typing surfaces; remove the legacy guest access paths.
+- Dedicated beta function: `upstatus-test`, deployed in production project `mvjqunhjxkbfcrxkjtgf`. Official `upstatus` remains at 3.4.9 and unchanged.
+- Beta shares the original database, Storage, Realtime topic and ringtone channel. Local namespace and userscript storage remain isolated.
+- The beta4 change removes the two automatic page reloads after own and remote status updates. After the successful `online-switch` API response, the page bridge attempts a guarded update of the current user's reactive Vue/Pinia state and matching team-list record. It does not touch generic order/task status fields.
+- Every successful local or remote status change emits the existing `user_status` Realtime broadcast with member name and status. Every connected beta/stable UpStatus instance listens to that existing event and asks its own Sale Smartly page bridge to update the matching user record locally, so the target member's indicator can change across open pages without F5.
+- The visual synchronizer reports whether it found and updated recognized fields. If no matching reactive state is found, the backend status remains successful but the client warns that the visual update was not confirmed; it does not fall back to F5.
+- Automated validation includes syntax parsing of the embedded page bridge plus a mocked Pinia test that asserts the selected member changes, a Realtime event changes the remote member row, and unrelated users/order statuses remain unchanged.
+- No DB schema, new polling, new Realtime channel/subscription, or logging was added. The existing broadcast is reused. Quota impact expected: one small broadcast for each successful status change, with no material database/egress/storage/log-ingestion/log-query increase. An earlier same-day quota snapshot showed log ingestion 0.45/1 GB (45%); the latest pre-deploy screenshot now shows 0.53/1 GB (53%). No live quota telemetry was available in this tool session.
+- Pending: live user test of self-status changes and remote status changes. Do not merge or promote stable without explicit approval.
+
+## Previous integration beta — 3.5.0-beta.5 (tested and superseded by official 3.5.0)
+
+- Branch: `beta/3.5.0-beta.5-realtime-native-status`; PR #184 was merged into `master` as part of the official release.
+- Dedicated beta function: `upstatus-test`, project `mvjqunhjxkbfcrxkjtgf`, retained separately from the official `upstatus` function.
+- Beta userscript metadata: `@version 3.5.0-beta.5`, namespace `upseller-test`, update URL uses `/functions/v1/upstatus-test/upstatus.user.js`.
+- Beta and official runtime share the live team database, Storage and established Realtime topic by design. Local userscript namespace/storage prefix and function route remain separate.
+- The native Sale Smartly Pinia action and Realtime endpoint correction were manually exercised by Ricardo, including a remote status change in Guilherme's session. The user confirmed the observed behavior worked without F5.
+- The official 3.5.0 release retains that native integration and adds three-second animated dismissal for transient UpStatus messages and chat errors. The persistent connection-state indicator remains visible.
+- GitHub Actions validation passed after the final changes. Production function health and served userscript were verified at 3.5.0; beta function remains separately available at beta5.
+- Pre-deploy quota snapshot supplied by Ricardo on 2026-11-27: Egress 0.56/5 GB (11.2%); DB 38/500 MB (7.6%); MAU 0/50,000; Storage 0/1 GB; Log Ingestion 0.53/1 GB (53%); Log Query 1.37/100 GB (1.37%). This snapshot was before official deploy and is not live telemetry. Recheck the dashboard before any usage-intensive future changes.
+- No database migration, cleanup, new Realtime channel/subscription, extra polling or success logging was introduced.
+
 ## State at this checkpoint
 
 - 2026-11-27: GitHub default branch `master`; latest inspected release commit is `fb3c6e0bbce9652a48f6f36e8437154c45ec1aac`, message “Fix UpStatus updater network failures”, recording release 3.4.9. Continuity documents were subsequently committed on `master`; read the live latest commit rather than relying on this checkpoint SHA.
 - `release.json` on `master`: `version=3.4.9`, empty `preRelease`.
 - Production project `upstatus-normal` and Staging project `UpStatus Staging` both returned `ACTIVE_HEALTHY` on 2026-11-27.
-- No active 3.5.0 beta has been created or deployed at this checkpoint.
+- At the initial onboarding checkpoint, no 3.5.0 beta was active; this historical note is superseded by the official 3.5.0 release documented above.
 - Production workflow still contains a hard-coded stable version guard for 3.4.7 while `release.json` is 3.4.9. This stale configuration must be corrected and validated before a later official promotion. Do not bypass it or deploy production until resolved.
 - README and checked-in deployment workflows need reconciliation with actual Supabase project refs and TEST function naming before relying on automated deployment.
-- User-provided Free-plan dashboard snapshot (2026-11-27): egress 0.43/5 GB; database 37/500 MB; MAU 0/50,000; file storage 0/1 GB; log ingestion 0.45/1 GB (45%); log query 1.37/100 GB. Log ingestion is the immediate quota risk. Recheck in dashboard before a usage-intensive release.
+- Earlier user-provided Free-plan dashboard snapshot (2026-11-27): egress 0.43/5 GB; database 37/500 MB; MAU 0/50,000; file storage 0/1 GB; log ingestion 0.45/1 GB (45%); log query 1.37/100 GB. It was superseded by the latest pre-deploy screenshot recorded in the quota table above.
