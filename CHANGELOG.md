@@ -4,6 +4,7 @@
 - Removed the two temporary guest identities, their login pages, session handling, API routes, presence handling, and dedicated chat styling.
 - Restricted account lookup and team-member discovery to Ricardo, Lohan, and Guilherme.
 - Staging database cleanup retains only those three team accounts. Production data and deployment remain unchanged.
+- Deployed to Staging as `upstatus-test` v2; health, member discovery, removed-account setup behavior, and served userscript verified.
 
 ## 2026-11-27
 
