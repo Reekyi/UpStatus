@@ -21,7 +21,7 @@
 ### Live-data test isolation
 - Uses the new dedicated function `upstatus-351-test` in production project `mvjqunhjxkbfcrxkjtgf`, with namespace `upseller-test`, local prefix `upstatus_351_beta2_`, independent installer route, and shared live DB/Storage/Realtime.
 - Existing production `upstatus` and Beta 5 `upstatus-test` remain untouched. No SQL migration, account deletion or historical-data cleanup is included.
-- Automated validation and runtime deployment are pending; Ricardo's manual acceptance is still required.
+- GitHub Actions validation run **#2372** passed, including deterministic agenda schedule tests. Production-project function `upstatus-351-test` is deployed as version **1**, ACTIVE, source hash `65f799972b086081304e1e0895b41f2ce385c61b46545bb43f231d42ff8ae2af`. `/health`, `/api/update-info`, the served userscript header (`3.5.1-beta.2`, namespace `upseller-test`) and `/api/members` were verified. Ricardo's manual acceptance is still required.
 
 ## 3.5.1-beta.1 (2026-11-27, Staging candidate)
 
