@@ -1,3 +1,19 @@
+## 3.5.0 (2026-11-27)
+
+### Status synchronization without page reload
+- Updated the Sale Smartly status integration to use its native Vue/Pinia action, `user.switchOnlineStatus({ online_status, event_type: "0" })`, rather than a parallel request plus heuristic state mutation.
+- Validates the active Sale Smartly account through `user.nickname` and updates only its confirmed reactive `user.onlineStatus` field.
+- Remote commands invoke the same native action in the target member's own Sale Smartly session and respect `canSelectOnlineStatuses`.
+- Fixed the Realtime client URL and publishable key to use the active Supabase project while retaining the existing Realtime topic and shared live-team integration.
+- Confirmed status synchronization on Ricardo's and Guilherme's Sale Smartly sessions without manually refreshing the page.
+- Inline UpStatus messages and chat error notices now disappear after three seconds with a short fade/slide animation. The persistent Sale Smartly connection indicator remains visible because it represents connection state, not a transient notice.
+- Existing chat notification toasts retain the same three-second lifetime. No new database schema, channel, subscription, polling loop, or success logging was added.
+
+### Release and compatibility
+- Official userscript version: `3.5.0`.
+- Beta 5 test function remains separate at `upstatus-test`; official `upstatus` and stable updater URLs are independent.
+- Supabase production function `upstatus` remains deployed separately from the beta test function.
+ 
 ## 3.5.0-beta.5 (2026-11-27, deployed for testing)
 
 ### Corrigido o sincronismo nativo de status
