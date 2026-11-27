@@ -9,9 +9,11 @@ Last reviewed: 2026-11-27
 - `release.json`: `version=3.5.0`, empty `preRelease`, stable installer `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus/upstatus.user.js`.
 - Official Supabase function: `upstatus`, project `mvjqunhjxkbfcrxkjtgf`, deployment version **6**, status **ACTIVE**, `verify_jwt=false`, source hash `d4127ecf63de3e26901d4d4b306f03da38114605dfac1ef4ca2505b6e39240b9`.
 - Official `/health` returned `ok:true`, version `3.5.0`; `/api/update-info` returned the matching stable update route. Served userscript reports `@version 3.5.0`, namespace `upseller`.
-- Active candidate: **3.5.1-beta.1**, branch `beta/3.5.1-beta.1-ui-fixes`, with its beta manifest isolated from master.
-- Production live-integration function `upstatus-test` remains ACTIVE at deployment version **4**, `3.5.0-beta.5`, hash `71c0446cfb0608b831088f8782f883198758561f809c496e82f0ed7c77f798b7`; it is not used or overwritten by this candidate.
-- The 3.5.1 beta target is the existing Staging project `akbgmmpnnpwcwgcfrltw`, function `upstatus-test`. It has a separate API endpoint, local storage prefix, Realtime topic and ringtone coordination. The Staging `upstatus` function is not overwritten.
+- Active candidate: **3.5.1-beta.2**, branch `beta/3.5.1-beta.2-agenda-status-mirror`, separate from master.
+- Existing production live-integration function `upstatus-test` remains ACTIVE at deployment version **4**, `3.5.0-beta.5`, hash `71c0446cfb0608b831088f8782f883198758561f809c496e82f0ed7c77f798b7`; it is not used or overwritten.
+- Beta 2 uses a new dedicated production-project function `upstatus-351-test` in project `mvjqunhjxkbfcrxkjtgf`. It shares production DB, Storage, profiles, chat and established Realtime/ringtone coordination to expose the live team data, while keeping a separate Edge Function route, userscript namespace `upseller-test`, updater manifest and local storage prefix `upstatus_351_beta2_`.
+- The beta installer URL is `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-351-test/upstatus.user.js`.
+- Official function `upstatus` v6 and Beta 5 function `upstatus-test` v4 must not be modified. The Staging Beta 1 function `upstatus-test` v8 is also left intact.
 - Last user-provided quota screenshot before official deploy (2026-11-27): Egress 0.56/5 GB (11.2%); DB 38/500 MB (7.6%); MAU 0/50,000; Storage 0/1 GB; Log Ingestion 0.53/1 GB (53%); Log Query 1.37/100 GB (1.37%). This is a pre-deploy snapshot, not live post-deploy telemetry.
 - Recheck current quota usage before any future usage-intensive changes. Log Ingestion was above the 50% alert threshold but below the 60% investigation threshold in the last supplied screenshot.
 - Never infer runtime state from GitHub alone. Recheck the function metadata and public health/update endpoints before future release claims.
@@ -164,3 +166,20 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 - Deployment result: Staging `upstatus-test` version **8**, ACTIVE, `verify_jwt=false`, source hash `66451104ef80f36919d19bc34e9628eb52d3b23446a354fa83a7a74924afc130`.
 - GitHub Actions validation run **#2367** passed. Runtime `/health` returned `ok:true` and `3.5.1-beta.1`; `/api/update-info` returned version `3.5.1-beta.1`; served userscript reports `@version 3.5.1-beta.1`, namespace `upseller-test`, and the Staging installer URL. `/api/members` returned only Guilherme, Lohan and Ricardo.
 - Production functions remain unchanged: official `upstatus` v6 and production `upstatus-test` v4. Staging distributor `upstatus` v1 was not changed.
+
+
+## 3.5.1-beta.2 design and isolation (2026-11-27)
+
+- Candidate branch: `beta/3.5.1-beta.2-agenda-status-mirror`.
+- Runtime target: new dedicated function `upstatus-351-test` in the existing production project `mvjqunhjxkbfcrxkjtgf`, only because Ricardo explicitly requested the Beta 2 to use the live team's data. Do not reuse/overwrite production `upstatus-test` Beta 5.
+- Beta install URL: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-351-test/upstatus.user.js`.
+- The Beta 2 shares database, Storage, profiles, chat, live Realtime topic and ringtone coordination. Its namespace is `upseller-test`, local storage prefix is `upstatus_351_beta2_`, and updater points to the Beta 2 branch manifest.
+- Production stable function `upstatus` v6, production Beta 5 function `upstatus-test` v4, Staging `upstatus` v1, and Staging Beta 1 `upstatus-test` v8 must remain unchanged.
+- No database migrations, user/account deletions, history deletion, storage copy, or data cleanup are part of this beta.
+- Status source-of-truth rule: Sale Smartly Pinia `user.onlineStatus` is authoritative. An UpStatus status POST is accepted only with an explicit confirmation flag after the native Sale Smartly action has succeeded. Direct Sale Smartly state changes are observed and mirrored into UpStatus. Programmatic updates are marked to prevent observer feedback loops.
+- Agenda authorization: Ricardo, Guilherme and Lohan can view the full agenda. Each member may edit only their own lunch choice (12h–13h or 13h–14h) for the current day. Only Ricardo may assign or clear the four daily training slots and the weekly Aulão owner. Empty slots are intentionally no-ops.
+- Aulão persists Monday–Friday for the selected week and pauses the owner 15h–17h. Daily training slots are 10h, 11h, 15h and 16h. Lunch is individual. No automatic morning activation is added. Weekday end-of-day status is Away at 18h.
+- Scheduler reconciles the current desired state at local schedule boundaries and when the page resumes; it must not replay missed transitions in sequence. Status changes still require the employee's Sale Smartly browser session to be open.
+- Avoid schedule polling loops: one-shot local timers are aligned to relevant boundaries; state writes should occur only on actual runtime changes. Agenda configuration prunes old daily/week records.
+- This beta shares live data and therefore can update real team statuses and append status history during testing. No destructive operations are permitted.
+- Beta 2 automated validation and runtime deployment are pending until the branch CI passes; Ricardo's manual acceptance remains required.
