@@ -5,8 +5,8 @@ Last reviewed: 2026-11-27
 ## Current release state
 
 - Official production version: **3.4.9**
-- Current beta: **3.5.0-beta.3** (dedicated beta Edge Function sharing the live database and Realtime, deployed for manual testing)
-- Next beta if this attempt is rejected: **3.5.0-beta.4**
+- Current beta: **3.5.0-beta.4** (native Sales Smartly status UI synchronization without automatic reload, deployed for manual testing)
+- Next beta if this attempt is rejected: **3.5.0-beta.5**
 - Beta function: `upstatus-test` in the production project `mvjqunhjxkbfcrxkjtgf`; official `upstatus` remains unchanged.
 - Beta installer: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`
 - TEST project `akbgmmpnnpwcwgcfrltw` remains available but is not used for this live-integration beta.
@@ -117,18 +117,17 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 - Keep a continuously updated status: official version, beta version/status, working branch, latest commit, staging deployment, production deployment, tests, quota snapshot, pending user tests/approval.
 - After each meaningful release-state change, update this document and changelog/version manifest as applicable. Use commit history as audit trail.
 
-## Active beta — 3.5.0-beta.3
+## Active beta — 3.5.0-beta.4
 
 - Branch: `beta/3.5.0-beta.1-remove-lucca-ycaro`.
-- Scope: remove the temporary guest identities and access routes, retaining only Ricardo, Lohan, and Guilherme in the beta's exposed member/status/chat/profile/typing surfaces.
-- Dedicated beta function: `upstatus-test`, deployed in the production project `mvjqunhjxkbfcrxkjtgf`. The official `upstatus` function remains unchanged.
-- Beta now uses the original database, Storage and Realtime topic. This is intentional so users on beta and stable versions share status, messages, attachments, chat and voice signaling.
-- Beta namespace and local storage prefix remain distinct. Users on stable keep the original `upseller` namespace and production function.
-- The TEST project `akbgmmpnnpwcwgcfrltw` is not the runtime target for this live-integration beta.
-- The beta updater reads the beta branch manifest, compares `version + preRelease`, and targets the dedicated `upstatus-test` userscript URL.
-- Production DB data for legacy guest accounts was not deleted. The beta API filters those names from exposed team surfaces; no table or schema changes were made.
-- Verification required before handoff: live /health, /api/members, /api/status, /api/me, script metadata, stable /health, and database cross-visibility checks. The complete local `npm run validate` suite must still be run when a local checkout is available.
-- Pending: Ricardo's live cross-version test and explicit approval. Do not merge or promote to stable before that approval.
+- Scope: keep only Ricardo, Lohan and Guilherme exposed in beta team/status/chat/profile/typing surfaces; remove the legacy guest access paths.
+- Dedicated beta function: `upstatus-test`, deployed in production project `mvjqunhjxkbfcrxkjtgf`. Official `upstatus` remains at 3.4.9 and unchanged.
+- Beta shares the original database, Storage, Realtime topic and ringtone channel. Local namespace and userscript storage remain isolated.
+- The beta4 change removes the two automatic page reloads after own and remote status updates. After the successful `online-switch` API response, the page bridge attempts a guarded update of the current user's reactive Vue/Pinia state and matching team-list record. It does not touch generic order/task status fields.
+- The visual synchronizer reports whether it found and updated a recognized field. If no matching reactive state is found, the backend status remains successful but the client warns that the visual update was not confirmed; it does not fall back to F5.
+- Automated validation includes syntax parsing of the embedded page bridge plus a mocked Pinia test that asserts the selected member changes and unrelated team members/other object statuses remain unchanged.
+- No DB schema, new polling, Realtime subscriptions, or logging was added. Quota impact expected: no material database/egress/storage/log-ingestion/log-query increase beyond the existing status API request. Latest quota snapshot remains a user-provided 2026-11-27 screenshot: log ingestion 0.45/1 GB (45%); no live quota telemetry was available in this tool session.
+- Pending: live user test of self-status changes and remote status changes. Do not merge or promote stable without explicit approval.
 
 ## State at this checkpoint
 
