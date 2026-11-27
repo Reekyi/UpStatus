@@ -9,7 +9,7 @@ For every new AI-assisted task, first read [`AGENTS.md`](AGENTS.md), then [`docs
 - Official: **3.5.0** (master and production; unchanged).
 - Active candidate: **3.5.1-beta.1**, branch `beta/3.5.1-beta.1-ui-fixes`, isolated in the existing Staging project.
 - Production `upstatus-test` remains on **3.5.0-beta.5** for live-team regression/reference testing and is not used by this candidate.
-- Beta TEST URL: `https://akbgmmpnnpwcwgcfrltw.supabase.co/functions/v1/upstatus-test/upstatus.user.js`
+- Beta TEST URL: `https://akbgmmpnnpwcwgcfrltw.supabase.co/functions/v1/upstatus-test/upstatus.user.js` (Staging function deployment v8, ACTIVE; health endpoint reports `3.5.1-beta.1`).
 - The candidate has its own Edge Function, namespace, storage prefix, Realtime topic and ringtone coordination; stable production functions and URLs are unchanged.
 - Verify live `release.json`, Git refs, and Supabase deployments before relying on this snapshot.
 
