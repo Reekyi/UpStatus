@@ -417,6 +417,43 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
           return {store:null,error:'Não foi possível acessar a Store nativa de usuário do Sale Smartly.'};
         }
       }
+      var upStatusExpectedStatus='',upStatusExpectedUntil=0,upStatusLastStatus='',upStatusWatchedStore=null,upStatusWatchedMember='',upStatusStopStoreWatch=null;
+      function upStatusMarkExpected(code){upStatusExpectedStatus=String(code||'');upStatusExpectedUntil=Date.now()+8000;}
+      function upStatusDispatchObservedStatus(code,initial,name){
+        if(!/^(0|1|2)$/.test(String(code||'')))return;
+        document.dispatchEvent(new CustomEvent(initial?'UPSTATUS_SALE_STATUS_SNAPSHOT':'UPSTATUS_SALE_STATUS_CHANGED',{detail:{member:name||upStatusWatchedMember,status:String(code),initial:!!initial}}));
+      }
+      function upStatusBindStatusWatcher(name){
+        var resolved=getSaleSmartlyCurrentUserStore(name);
+        if(!resolved.store||typeof resolved.store.$subscribe!=='function')return false;
+        var store=resolved.store;
+        if(upStatusWatchedStore===store&&upStatusWatchedMember===name)return true;
+        try{if(typeof upStatusStopStoreWatch==='function')upStatusStopStoreWatch();}catch(e){}
+        upStatusWatchedStore=store;upStatusWatchedMember=name;upStatusLastStatus=String(store.$state.onlineStatus||'');
+        upStatusStopStoreWatch=store.$subscribe(function(mutation,state){
+          try{
+            var code=String(state&&state.onlineStatus||'');
+            if(!/^(0|1|2)$/.test(code)||code===upStatusLastStatus)return;
+            upStatusLastStatus=code;
+            if(code===upStatusExpectedStatus&&Date.now()<=upStatusExpectedUntil){upStatusExpectedStatus='';upStatusExpectedUntil=0;return;}
+            upStatusExpectedStatus='';upStatusExpectedUntil=0;
+            upStatusDispatchObservedStatus(code,false,name);
+          }catch(e){}
+        },{detached:true});
+        upStatusDispatchObservedStatus(upStatusLastStatus,true,name);
+        return true;
+      }
+      document.addEventListener('UPSTATUS_WATCH_STATUS',function(e){
+        var name=String(e&&e.detail&&e.detail.member||'').trim();
+        if(['Ricardo','Guilherme','Lohan'].indexOf(name)<0)return;
+        var attempts=0;
+        function tryBind(){
+          if(upStatusBindStatusWatcher(name))return;
+          if(++attempts<40){setTimeout(tryBind,250);return;}
+          document.dispatchEvent(new CustomEvent('UPSTATUS_SALE_STATUS_WATCH_ERROR',{detail:{member:name,error:'Não foi possível acompanhar a Store de status do Sale Smartly.'}}));
+        }
+        tryBind();
+      });
       function applySaleSmartlyStatusVisual(statusCode,memberName){
         var code=String(statusCode||'');
         if(!/^(0|1|2)$/.test(code))return {updated:false,updatedFields:0};
@@ -425,6 +462,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
         var store=resolved.store,state=store.$state;
         try{
           if(String(state.onlineStatus)!==code){
+            upStatusMarkExpected(code);
             if(typeof store.setOnlineStatus==='function')store.setOnlineStatus(code);
             else if(typeof store.$patch==='function')store.$patch({onlineStatus:code});
           }
@@ -443,6 +481,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
         if(typeof store.switchOnlineStatus!=='function')throw new Error('A ação nativa de status do Sale Smartly não está disponível.');
         var available=store.$state&&store.$state.canSelectOnlineStatuses;
         if(Array.isArray(available)&&available.indexOf(code)<0)throw new Error('O Sale Smartly não permite este status nas condições atuais da conta.');
+        upStatusMarkExpected(code);
         await store.switchOnlineStatus({online_status:code,event_type:'0'});
         var visual=applySaleSmartlyStatusVisual(code,memberName);
         if(!visual.updated)throw new Error(visual.error||'A Store nativa não confirmou a atualização visual.');
