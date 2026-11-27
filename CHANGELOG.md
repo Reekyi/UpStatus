@@ -1,3 +1,13 @@
+## 3.5.0-beta.3 (2026-11-27)
+
+### Reconexão com a instância original
+- O beta agora é servido por uma Edge Function independente, `upstatus-test`, no projeto Supabase original. A função oficial `upstatus` permanece intacta.
+- A API beta usa o mesmo banco de dados e Storage da equipe, permitindo compartilhar status, chat, histórico, perfis e anexos com quem continua na versão estável.
+- O beta volta a usar o tópico Realtime e o canal de coordenação de ringtone oficiais, permitindo chat e sala de voz entre versões.
+- O namespace e o prefixo de armazenamento local do userscript beta continuam separados.
+- As respostas de equipe, status, saúde, chat, perfis e digitação do beta filtram os membros atuais, sem apagar dados históricos de produção.
+- Corrigido o canal de atualização beta: manifesto separado, URL correta da função beta e comparação de versão completa com `preRelease`.
+
 ## 3.5.0-beta.2 hotfix (2026-11-27)
 
 ### Corrigido erro de autenticação no backend
