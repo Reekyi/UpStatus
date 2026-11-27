@@ -438,6 +438,8 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
         if(!resolved.store)throw new Error(resolved.error);
         var store=resolved.store;
         if(typeof store.switchOnlineStatus!=='function')throw new Error('A ação nativa de status do Sale Smartly não está disponível.');
+        var available=store.$state&&store.$state.canSelectOnlineStatuses;
+        if(Array.isArray(available)&&available.indexOf(code)<0)throw new Error('O Sale Smartly não permite este status nas condições atuais da conta.');
         await store.switchOnlineStatus({online_status:code,event_type:'0'});
         var visual=applySaleSmartlyStatusVisual(code,memberName);
         if(!visual.updated)throw new Error(visual.error||'A Store nativa não confirmou a atualização visual.');
@@ -3410,7 +3412,7 @@ function chatAvatarPresence(name){
         settled=true;
         document.removeEventListener('UPSTATUS_RESULT',done);
         reject(new Error('Tempo esgotado ao sincronizar com o Sale Smartly.'));
-      },timeoutMs||3500);
+      },timeoutMs||7000);
     });
   }
 
@@ -3420,7 +3422,7 @@ function chatAvatarPresence(name){
     for(var attempt=0;attempt<delays.length;attempt++){
       if(delays[attempt])await new Promise(function(resolve){setTimeout(resolve,delays[attempt])});
       try{
-        var result=await syncSaleSmartlyOnce(status,3500);
+        var result=await syncSaleSmartlyOnce(status,7000);
         return result;
       }catch(e){
         lastError=e;
