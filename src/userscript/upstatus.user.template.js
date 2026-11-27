@@ -483,6 +483,11 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
         try{window.dispatchEvent(new CustomEvent('upstatus:sale-smartly-status-updated',{detail:{status:word,member:String(memberName||''),updatedFields:changed}}));}catch(_){}
         return {updated:changed>0,updatedFields:changed,status:word};
       }
+      document.addEventListener('UPSTATUS_APPLY_VISUAL',function(e){
+        var detail=e.detail||{},name=String(detail.member||''),status=String(detail.status||'');
+        if(!name||['Ricardo','Lohan','Guilherme'].indexOf(name)<0||['1','2','0'].indexOf(status)<0)return;
+        applySaleSmartlyStatusVisual(status,name);
+      });
       document.addEventListener('UPSTATUS_SET',async function(e){
         var detail=e.detail||{};
         if(!hya){
@@ -1572,6 +1577,11 @@ function renderChatText(text){
     if(!realtimeActive||!realtimeChannel)return false;
     try{realtimeChannel.send({type:'broadcast',event:event,payload:payload||{}});return true;}catch(e){return false;}
   }
+  function applySaleSmartlyVisualOnPage(name,status){
+    var allowed=['Ricardo','Lohan','Guilherme'],map={online:'1',busy:'2',away:'0'};
+    if(allowed.indexOf(String(name||''))<0||!map[status])return false;
+    try{document.dispatchEvent(new CustomEvent('UPSTATUS_APPLY_VISUAL',{detail:{member:String(name),status:map[status]}}));return true;}catch(e){return false;}
+  }
   function callEnsureOverlay(){
     if(upCall.overlay&&upCall.overlay.isConnected)return upCall.overlay;
     var o=document.createElement('div');
@@ -2215,7 +2225,7 @@ function renderChatText(text){
         })
         .on('broadcast',{event:'chat_fast'},function(payload){handleRealtimeChatFast(payload&&payload.payload||{});})
         .on('broadcast',{event:'chat_read'},function(payload){handleRealtimeChatRead(payload&&payload.payload||{});})
-        .on('broadcast',{event:'user_status'},function(){refresh();})
+        .on('broadcast',{event:'user_status'},function(payload){var p=payload&&payload.payload||{};if(p.name&&p.status)applySaleSmartlyVisualOnPage(p.name,p.status);refresh();})
         .on('broadcast',{event:'chat_presence'},function(payload){var p=payload&&payload.payload||{};if(!p.name)return;chatPresence[p.name]=p.open?Date.now()+25000:0;updateChatHeaderPresence();})
         .on('broadcast',{event:'health_ping'},function(payload){handleHealthPing(payload&&payload.payload||{});})
         .on('broadcast',{event:'health_pong'},function(payload){handleHealthPong(payload&&payload.payload||{});})
@@ -3351,6 +3361,7 @@ function chatAvatarPresence(name){
         var syncResult=await syncSaleSmartly(c.status);
         visualUpdated=!!(syncResult&&syncResult.visualUpdated);
         await api('POST','/api/status',{status:c.status,reason:c.reason||'',actor:c.sender||'',target:member});
+        sendRealtimeEvent('user_status',{name:member,status:c.status});
         ok=true;
       }catch(e){error=e.message||'Falha ao sincronizar o Sale Smartly.';}
       var resultPayload={commandId:c.id,sender:c.sender||'',target:member,status:c.status,reason:c.reason||'',ok:ok,error:error,visualUpdated:visualUpdated,createdAt:new Date().toISOString()};
@@ -3501,6 +3512,7 @@ function chatAvatarPresence(name){
       message('Sincronizando com Sale Smartly…');
       var syncResult=await syncSaleSmartly(status);
       await api('POST','/api/status',{status:status,reason:why});
+      sendRealtimeEvent('user_status',{name:member,status:status});
       message(syncResult&&syncResult.visualUpdated?'Status atualizado no Sale Smartly, sem recarregar a página.':'Status alterado no servidor; a interface do Sale Smartly não confirmou a atualização visual.',!(syncResult&&syncResult.visualUpdated));
       card.querySelector('.up-reasons').classList.add('hidden');
       refresh();
