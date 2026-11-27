@@ -4,10 +4,11 @@
 
 - [ ] Confirmar a versão em `release.json`.
 - [ ] Rodar `node scripts/validate.mjs`.
-- [ ] Confirmar que TEST usa `upstatus-test`.
-- [ ] Confirmar que TEST não contém URLs de atualização de produção.
-- [ ] Confirmar storage, Realtime e ringtone isolados.
-- [ ] Deploy somente de `upstatus-test`.
+- [ ] Confirmar que TEST usa `upstatus-test` no projeto Staging akbgmmpnnpwcwgcfrltw.
+- [ ] Confirmar que API, updater, Realtime, ringtone e storage usam apenas recursos isolados do Staging.
+- [ ] Confirmar que o userscript beta não aponta para URLs de atualização de produção.
+- [ ] Confirmar que produção `upstatus` e produção `upstatus-test` continuam intocadas.
+- [ ] Deploy somente da função `upstatus-test` no projeto Staging.
 
 ## Teste funcional obrigatório
 
