@@ -11,8 +11,10 @@ const release=JSON.parse(fs.readFileSync(path.join(ROOT,"release.json"),"utf8"))
 const baseVersion=String(release.version).trim();
 const preRelease=String(release.preRelease||"").trim();
 const testVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
-assert(baseVersion==="3.5.0"&&preRelease==="","Stable release manifest must be official 3.5.0 with no prerelease tag");
-assert(release.scriptUrl==="https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus/upstatus.user.js","Stable release manifest must point to the official userscript URL");
+const stableVersion="3.5.0";
+const stagingProject="akbgmmpnnpwcwgcfrltw";
+assert(baseVersion==="3.5.1"&&preRelease==="beta.1"&&testVersion==="3.5.1-beta.1","TEST manifest must identify 3.5.1-beta.1");
+assert(release.scriptUrl==="https://"+stagingProject+".supabase.co/functions/v1/upstatus-test/upstatus.user.js","Beta manifest must point only to the Staging TEST userscript URL");
 const productionWorkflow=fs.readFileSync(path.join(ROOT,".github/workflows/deploy-production.yml"),"utf8");
 assert(productionWorkflow.includes("r.version !== '3.5.0'")&&!productionWorkflow.includes("r.version !== '3.4.7'"),"Production workflow guard must allow only the approved stable 3.5.0 release");
 
@@ -24,7 +26,7 @@ function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
 function checkSyntax(text,label){new vm.Script(text,{filename:label});}
-assert(headerValue(prodUser,"version")===baseVersion,"production userscript version mismatch");
+assert(headerValue(prodUser,"version")===stableVersion,"production userscript must remain on official 3.5.0");
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
 assert(headerValue(testUser,"namespace")==="upseller-test","test namespace mismatch");
@@ -44,20 +46,20 @@ for(const artifact of [prodUser,testUser]){
 
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
-assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
+assert(testUser.includes("var key='upstatus_staging_351_beta1_';"),"staging beta storage prefix mismatch");
 assert(prodUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';"),"production realtime topic compatibility check");
-assert(testUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';"),"TEST must share the live realtime topic with production");
+assert(testUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-staging-3-5-1-beta1';"),"TEST must use its isolated Staging Realtime topic");
 assert(prodUser.includes("var UP_REALTIME_URL='https://mvjqunhjxkbfcrxkjtgf.supabase.co';"),"Production Realtime must point to the active Supabase project");
-assert(testUser.includes("var UP_REALTIME_URL='https://mvjqunhjxkbfcrxkjtgf.supabase.co';"),"TEST Realtime must point to the active Supabase project");
+assert(testUser.includes("var UP_REALTIME_URL='https://akbgmmpnnpwcwgcfrltw.supabase.co';"),"TEST Realtime must point to the Staging project");
 assert(!prodUser.includes("dlfvkawaiqduhlazsszm.supabase.co")&&!testUser.includes("dlfvkawaiqduhlazsszm.supabase.co"),"Obsolete Supabase host must not remain in generated clients");
-assert(testUser.includes("var UP_REALTIME_KEY='sb_publishable_4_dLUWGGqyPP0prupYq8Jw_DTLJ2FlQ';"),"TEST Realtime must use the active project's enabled publishable key");
+assert(testUser.includes("var UP_REALTIME_KEY='sb_publishable_YZKmAyA19mkOfByJ5Y-Cmg_VbNnNkbA';"),"TEST Realtime must use the Staging project publishable key");
 assert(prodUser.includes("var UP_REALTIME_KEY='sb_publishable_4_dLUWGGqyPP0prupYq8Jw_DTLJ2FlQ';"),"Production build must retain the active project's enabled publishable key");
 
 assert(prodUser.includes("var UP_RINGTONE_CHANNEL='upstatus-screen-share-3-1-1-beta9-2-ringtone-stop-v1';"),"production ringtone channel mismatch");
-assert(testUser.includes("var UP_RINGTONE_CHANNEL='upstatus-screen-share-3-1-1-beta9-2-ringtone-stop-v1';"),"TEST must share the live ringtone channel");
+assert(testUser.includes("var UP_RINGTONE_CHANNEL='upstatus-3-5-1-beta1-ringtone-stop';"),"TEST must use an isolated beta ringtone channel");
 assert(prodUser.includes("var upRingtoneStorageKey='upstatus_screen_share_beta8_ringtone_stop_bus';"),"production ringtone storage mismatch");
-assert(testUser.includes("var upRingtoneStorageKey='upstatus_screen_share_beta8_ringtone_stop_bus';"),"TEST must share the live ringtone storage bus");
-assert(prodFn.includes('const VERSION = "'+baseVersion+'";'),"production backend version mismatch");
+assert(testUser.includes("var upRingtoneStorageKey='upstatus_staging_3_5_1_beta1_ringtone_stop';"),"TEST must use an isolated beta ringtone storage bus");
+assert(prodFn.includes('const VERSION = "'+stableVersion+'";'),"production backend must remain on official 3.5.0");
 assert(testFn.includes('const VERSION = "'+testVersion+'";'),"test backend version mismatch");
 assert(prodFn.includes('const marker="/upstatus";'),"production path marker mismatch");
 assert(testFn.includes('const marker="/upstatus-test";'),"test path marker mismatch");
@@ -164,7 +166,7 @@ assert((testUser.match(/location\.reload\(\)/g)||[]).length===1,"Only the explic
 assert(!prodFn.match(/lucca|ycaro/i),"production backend contains removed guest identities");
 assert(!testFn.match(/lucca|ycaro/i),"TEST backend contains removed guest identities");
 assert(!prodUser.match(/lucca|ycaro|icaro|luca/i),"production userscript contains removed guest UI");
-assert(!testUser.replace("https://raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.0-beta.5-realtime-native-status/release.json","").match(/lucca|ycaro|icaro|luca/i),"TEST userscript contains removed guest UI outside its beta manifest branch URL");
+assert(!testUser.replace("https://raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.1-beta.1-ui-fixes/release.json","").match(/lucca|ycaro|icaro|luca/i),"TEST userscript contains removed guest UI outside its beta manifest branch URL");
 assert(testFn.includes('if(!["Ricardo","Lohan","Guilherme"].includes(name))return null;'),"TEST account lookup must allow only the three current members");
 assert(testFn.includes("needsSetup:!!a&&!a.password_hash"),"Removed accounts must not be offered password setup");
 assert(prodFn.includes("async function contextName(req:Request)")&&prodFn.includes("const ctx=await contextName(req);"),"production backend must resolve authenticated session context");
@@ -172,8 +174,8 @@ assert(testFn.includes("async function contextName(req:Request)")&&testFn.includ
 assert(testFn.includes("if(!name||![\"Ricardo\",\"Lohan\",\"Guilherme\"].includes(name))return null;"),"TEST session context must reject non-allowlisted accounts");
 assert(testFn.includes('.in("name",["Ricardo","Lohan","Guilherme"])'),"TEST status and health payloads must expose only the active team");
 assert(testFn.includes('filter((m:any)=>["Ricardo","Lohan","Guilherme","Sistema"].includes(String(m.user_name)))'),"TEST chat history must exclude removed identities");
-assert(testUser.includes("var CLOUD_SERVER='https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test';"),"TEST API must share the production database project");
-assert(testUser.includes("raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.0-beta.5-realtime-native-status/release.json"),"TEST updater must read the beta channel manifest");
+assert(testUser.includes("var CLOUD_SERVER='https://akbgmmpnnpwcwgcfrltw.supabase.co/functions/v1/upstatus-test';"),"TEST API must use only the Staging project");
+assert(testUser.includes("raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.1-beta.1-ui-fixes/release.json"),"TEST updater must read the 3.5.1-beta.1 branch manifest");
 assert(testUser.includes('var remotePreRelease=String(manifest.preRelease||\'\').trim();'),"updater must compare full prerelease versions");
 
 for(const artifact of [prodUser,testUser]){
@@ -203,4 +205,15 @@ assert(prodUser.includes("button.style.margin='0 8px 0 0'"),"production back-arr
 assert(prodUser.includes("endButton.parentElement.insertBefore(button,endButton)"),"production back-arrow must sit immediately before native end-session control");
 execFileSync(process.execPath,[path.join(ROOT,"scripts/chat-regression.test.mjs")],{stdio:"inherit"});
 execFileSync(process.execPath,[path.join(ROOT,"scripts/chat-upload-url.test.mjs")],{stdio:"inherit"});
-console.log("Validation OK: PROD "+baseVersion+" / TEST "+testVersion);
+
+assert(testUser.includes("var UP_ALLOWED_MEMBERS=['Ricardo','Lohan','Guilherme'];"),"Client allowlist must contain only the three current team members");
+assert(testUser.includes("function upFilterMembers(items)"),"Client must filter user lists at the boundary");
+assert(testUser.includes("var names=upFilterMembers(window.__upstatusMembers)"),"Mention menu must filter stale API member names");
+assert(testUser.includes("var users=upFilterMembers(d&&d.members||[])"),"System health must filter stale API member names");
+assert(testUser.includes("!upIsAllowedMember(p.from)"),"Call signals from removed identities must be ignored");
+assert(testUser.includes("upstatus-351-empty-artwork")&&testUser.includes("pointer-events:none!important"),"Waiting-state illustration must not intercept clicks and must stay constrained");
+assert(testUser.includes(".up-login-update{display:flex!important;flex-wrap:nowrap!important"),"Login update footer must remain on one line");
+assert(testUser.includes("up-chat-record-cancel-icon")&&testUser.includes("width:34px!important;height:34px!important"),"Audio cancel control must use a larger centered SVG button");
+assert(testUser.includes("#upstatus-root.up-theme-light .up-voice-actions button")&&testUser.includes("#upstatus-root.up-theme-light .up-voice-control-bubble>button"),"Light-mode call control styles must cover both call surfaces");
+
+console.log("Validation OK: PROD "+stableVersion+" / TEST "+testVersion+" (Staging isolated)");
