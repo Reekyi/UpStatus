@@ -18,14 +18,21 @@
 - Próxima beta se a candidata for rejeitada: **3.5.0-beta.6**
 - Isso é um checkpoint, não substitui a consulta ao estado atual do GitHub e Supabase.
 
-## Beta atual com integração ao ambiente original
-- Branch: `beta/3.5.0-beta.5-realtime-native-status`.
+## Beta atualmente implantada com integração ao ambiente original
+- Branch Beta 4: `beta/3.5.0-beta.1-remove-lucca-ycaro`.
 - TEST function: `upstatus-test`, implantação dedicada no projeto original `mvjqunhjxkbfcrxkjtgf`.
 - Install/test URL: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`.
 - O beta compartilha banco, Storage, tópico Realtime e coordenação de ringtone com a instalação oficial, para que status, chat, anexos e chamadas cruzem versões.
 - A função oficial `upstatus`, o userscript estável, o namespace `upseller` e o prefixo de armazenamento local estável permanecem intactos.
 - O namespace e prefixo locais do beta são separados. A API beta filtra os usuários expostos para Ricardo, Lohan e Guilherme.
 - O projeto Staging `akbgmmpnnpwcwgcfrltw` existe, mas não é o destino runtime desta beta integrada.
+
+## Candidata Beta 5 (não implantada)
+- Branch: `beta/3.5.0-beta.5-realtime-native-status`.
+- O manifesto nesta branch identifica `3.5.0-beta.5`, mas o runtime servido continua na Beta 4. Não afirme que a Beta 5 foi publicada.
+- A candidata usa a ação nativa Pinia `user.switchOnlineStatus({ online_status, event_type: "0" })`, valida `user.nickname`, atualiza apenas `user.onlineStatus` e respeita `canSelectOnlineStatuses`.
+- Corrige URL e publishable key do Realtime para o projeto ativo `mvjqunhjxkbfcrxkjtgf`, preservando o tópico existente. Nenhuma alteração foi implantada no Supabase.
+- Antes de qualquer deploy, respeite a regra de ambiente do usuário, confira quotas atuais e obtenha autorização explícita para o destino. Testes de usuário ainda pendentes.
 
 ## Processo obrigatório
 Toda alteração começa em beta no Staging, nunca diretamente em produção. A versão oficial só muda após aprovação explícita do Ricardo. Beta rejeitada não reutiliza número. Execute build, validações, testes de regressão, revisão de diff e verificação do deploy antes de entregar a beta. Só depois do aceite explícito promova para oficial.
