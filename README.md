@@ -7,8 +7,8 @@ For every new AI-assisted task, first read [`AGENTS.md`](AGENTS.md), then [`docs
 ## Current release checkpoint
 
 - Official: **3.4.9**
-- Active beta: **3.5.0-beta.3** (dedicated beta Edge Function sharing the original team database and Realtime)
-- Next beta if rejected: **3.5.0-beta.4**
+- Active beta: **3.5.0-beta.4** (native Sales Smartly status UI synchronization without page reload)
+- Next beta if rejected: **3.5.0-beta.5**
 - Beta TEST URL: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`
 - The beta uses its own Edge Function, namespace and local storage prefix; the stable `upstatus` function and stable userscript URL are unchanged.
 - Verify live `release.json`, Git refs, and Supabase deployments before relying on this snapshot.
