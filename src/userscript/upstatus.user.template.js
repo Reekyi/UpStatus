@@ -440,7 +440,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
             }
             if(value&&typeof value==='object'){
               var relevant=/(user|profile|account|member|staff|employee|agent|team|current|self|me|list|info|data|state)/i.test(k);
-              if(relevant||ownName||self||userBranch)walk(value,path+'.'+k,depth+1);
+              if(Array.isArray(value)||relevant||ownName||self||userBranch)walk(value,path+'.'+k,depth+1);
             }
           });
         }
