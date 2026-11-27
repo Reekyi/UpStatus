@@ -12,7 +12,6 @@ const fullVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
 
 const userTemplate=fs.readFileSync(path.join(ROOT,"src/userscript/upstatus.user.template.js"),"utf8");
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
-const ycaroPage=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
 
 const PROJECT="mvjqunhjxkbfcrxkjtgf";
 const PROD_FUNCTION="upstatus";
@@ -62,8 +61,7 @@ function renderFunction({version,test}){
   return render(serverTemplate,{
     "__UPSTATUS_VERSION__":version,
     "__UPSTATUS_USERSCRIPT_HEX__":hexEncode(userscript),
-    "__UPSTATUS_PATH_MARKER__":"/"+fn,
-    "__UPSTATUS_YCARO_HTML_EXPR__":JSON.stringify(ycaroPage)
+    "__UPSTATUS_PATH_MARKER__":"/"+fn
   });
 }
 function writeFunction(fn,source){
