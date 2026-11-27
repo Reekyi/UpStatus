@@ -30,6 +30,7 @@ const mimeExtensions={
 };
 const context={
   PROJECT_URL:"https://project-test.supabase.co",
+  URL,
   readBody:async req=>req.body,
   ext:mime=>mimeExtensions[mime]||"",
   randomBytes:()=>({toString:()=>"a1b2c3d4e5f6"}),
