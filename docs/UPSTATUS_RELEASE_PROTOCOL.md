@@ -4,15 +4,16 @@ Last reviewed: 2026-11-27
 
 ## Current release state
 
-- Official production version: **3.5.0**
-- No active release candidate. Dedicated `upstatus-test` remains at **3.5.0-beta.5** for regression/reference tests.
-- Previous official version: **3.4.9**
-- Official function: `upstatus` in project `mvjqunhjxkbfcrxkjtgf`.
-- Stable installer: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus/upstatus.user.js`.
-- Beta test function `upstatus-test` remains separately deployed on `3.5.0-beta.5`; its installer is `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`.
-- TEST project `akbgmmpnnpwcwgcfrltw` remains available but is not used for this live-integration beta.
-- Stable baseline: GitHub `master` at release commit `fb3c6e0bbce9652a48f6f36e8437154c45ec1aac` (release 3.4.9).
-- Never infer that a version is deployed merely because a commit or manifest exists. Verify the GitHub release ref/manifest and the live Supabase deployment before claiming deployment state.
+- Official production version: **3.5.0**.
+- GitHub default branch: `master`; official release merge commit: `a9019ada2ab4dae05540520eda04211b38a301c7` (PR #184).
+- `release.json`: `version=3.5.0`, empty `preRelease`, stable installer `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus/upstatus.user.js`.
+- Official Supabase function: `upstatus`, project `mvjqunhjxkbfcrxkjtgf`, deployment version **6**, status **ACTIVE**, `verify_jwt=false`, source hash `d4127ecf63de3e26901d4d4b306f03da38114605dfac1ef4ca2505b6e39240b9`.
+- Official `/health` returned `ok:true`, version `3.5.0`; `/api/update-info` returned the matching stable update route. Served userscript reports `@version 3.5.0`, namespace `upseller`.
+- No active candidate. Separate live-integration regression function `upstatus-test` remains ACTIVE at deployment version **4**, `3.5.0-beta.5`, hash `71c0446cfb0608b831088f8782f883198758561f809c496e82f0ed7c77f798b7`; it is not the official updater.
+- Staging project `akbgmmpnnpwcwgcfrltw` remains available; the live-team beta was intentionally hosted in a distinct function in the production project to share team data/Realtime after Ricardo's explicit authorization.
+- Last user-provided quota screenshot before official deploy (2026-11-27): Egress 0.56/5 GB (11.2%); DB 38/500 MB (7.6%); MAU 0/50,000; Storage 0/1 GB; Log Ingestion 0.53/1 GB (53%); Log Query 1.37/100 GB (1.37%). This is a pre-deploy snapshot, not live post-deploy telemetry.
+- Recheck current quota usage before any future usage-intensive changes. Log Ingestion was above the 50% alert threshold but below the 60% investigation threshold in the last supplied screenshot.
+- Never infer runtime state from GitHub alone. Recheck the function metadata and public health/update endpoints before future release claims.
 
 ## Mandatory new-chat onboarding
 
@@ -48,7 +49,7 @@ The user has explicitly required that the project must not exceed Supabase Free-
 
 ### Latest user-provided dashboard snapshot
 
-Latest billing-cycle screenshot supplied immediately before the Beta 5 deployment on 2026-11-27 (this is a snapshot, not a live API reading; an earlier same-day screenshot showed 0.45 GB log ingestion):
+Latest user-provided billing-cycle screenshot on 2026-11-27 before the Beta 5 deployment (snapshot only, not live API telemetry; an earlier same-day screenshot showed 0.45 GB log ingestion):
 
 | Metric | Usage | Free-plan limit | Used |
 |---|---:|---:|---:|
@@ -118,37 +119,32 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 - Keep a continuously updated status: official version, beta version/status, working branch, latest commit, staging deployment, production deployment, tests, quota snapshot, pending user tests/approval.
 - After each meaningful release-state change, update this document and changelog/version manifest as applicable. Use commit history as audit trail.
 
-## Active beta — 3.5.0-beta.4
+## Beta 4 history (superseded)
 
-- Branch: `beta/3.5.0-beta.1-remove-lucca-ycaro`.
-- Scope: keep only Ricardo, Lohan and Guilherme exposed in beta team/status/chat/profile/typing surfaces; remove the legacy guest access paths.
-- Dedicated beta function: `upstatus-test`, deployed in production project `mvjqunhjxkbfcrxkjtgf`. Official `upstatus` remains at 3.4.9 and unchanged.
-- Beta shares the original database, Storage, Realtime topic and ringtone channel. Local namespace and userscript storage remain isolated.
-- The beta4 change removes the two automatic page reloads after own and remote status updates. After the successful `online-switch` API response, the page bridge attempts a guarded update of the current user's reactive Vue/Pinia state and matching team-list record. It does not touch generic order/task status fields.
-- Every successful local or remote status change emits the existing `user_status` Realtime broadcast with member name and status. Every connected beta/stable UpStatus instance listens to that existing event and asks its own Sale Smartly page bridge to update the matching user record locally, so the target member's indicator can change across open pages without F5.
-- The visual synchronizer reports whether it found and updated recognized fields. If no matching reactive state is found, the backend status remains successful but the client warns that the visual update was not confirmed; it does not fall back to F5.
-- Automated validation includes syntax parsing of the embedded page bridge plus a mocked Pinia test that asserts the selected member changes, a Realtime event changes the remote member row, and unrelated users/order statuses remain unchanged.
-- No DB schema, new polling, new Realtime channel/subscription, or logging was added. The existing broadcast is reused. Quota impact expected: one small broadcast for each successful status change, with no material database/egress/storage/log-ingestion/log-query increase. An earlier same-day quota snapshot showed log ingestion 0.45/1 GB (45%); the latest pre-deploy screenshot now shows 0.53/1 GB (53%). No live quota telemetry was available in this tool session.
-- Pending: live user test of self-status changes and remote status changes. Do not merge or promote stable without explicit approval.
+- The Beta 4 release was the first attempt to remove page reloads after status changes. It used heuristic Vue/Pinia traversal and a stale Realtime host, so it did not fully synchronize the live Sale Smartly UI.
+- Beta 4 is no longer active and must not be treated as the current test or production version. The corrected native integration was implemented and manually exercised in Beta 5, then promoted to official 3.5.0.
+
 
 ## Previous integration beta — 3.5.0-beta.5 (tested and superseded by official 3.5.0)
 
-- Branch: `beta/3.5.0-beta.5-realtime-native-status`; PR #184 was merged into `master` as part of the official release.
-- Dedicated beta function: `upstatus-test`, project `mvjqunhjxkbfcrxkjtgf`, retained separately from the official `upstatus` function.
+- Branch: `beta/3.5.0-beta.5-realtime-native-status`; PR #184 merged into `master` as commit `a9019ada2ab4dae05540520eda04211b38a301c7`.
+- Dedicated beta function: `upstatus-test`, project `mvjqunhjxkbfcrxkjtgf`, deployment version 4, ACTIVE, `verify_jwt=false`, source hash `71c0446cfb0608b831088f8782f883198758561f809c496e82f0ed7c77f798b7`.
 - Beta userscript metadata: `@version 3.5.0-beta.5`, namespace `upseller-test`, update URL uses `/functions/v1/upstatus-test/upstatus.user.js`.
-- Beta and official runtime share the live team database, Storage and established Realtime topic by design. Local userscript namespace/storage prefix and function route remain separate.
-- The native Sale Smartly Pinia action and Realtime endpoint correction were manually exercised by Ricardo, including a remote status change in Guilherme's session. The user confirmed the observed behavior worked without F5.
-- The official 3.5.0 release retains that native integration and adds three-second animated dismissal for transient UpStatus messages and chat errors. The persistent connection-state indicator remains visible.
-- GitHub Actions validation passed after the final changes. Production function health and served userscript were verified at 3.5.0; beta function remains separately available at beta5.
-- Pre-deploy quota snapshot supplied by Ricardo on 2026-11-27: Egress 0.56/5 GB (11.2%); DB 38/500 MB (7.6%); MAU 0/50,000; Storage 0/1 GB; Log Ingestion 0.53/1 GB (53%); Log Query 1.37/100 GB (1.37%). This snapshot was before official deploy and is not live telemetry. Recheck the dashboard before any usage-intensive future changes.
-- No database migration, cleanup, new Realtime channel/subscription, extra polling or success logging was introduced.
+- Beta and official runtime intentionally share the live team database, Storage and established Realtime topic. Local userscript namespace/storage prefix and function route remain separate.
+- The native Sale Smartly Pinia action `user.switchOnlineStatus({ online_status, event_type: "0" })` validates the active identity via `user.nickname`, changes only `user.onlineStatus`, and respects `canSelectOnlineStatuses`.
+- Ricardo confirmed own status changes and a remote status change in Guilherme's Sale Smartly session without F5.
+- Official 3.5.0 adds three-second animated dismissal for transient UpStatus messages and chat error notices. The persistent connection-state indicator intentionally remains visible.
+- GitHub Actions validation for the final stable candidate passed in run #2362; master post-merge validation passed in run #2363.
+- Official Supabase function `upstatus` is now deployment version 6, ACTIVE, hash `d4127ecf63de3e26901d4d4b306f03da38114605dfac1ef4ca2505b6e39240b9`. Official health returned `3.5.0`; the served userscript header is `@version 3.5.0`, namespace `upseller`.
+- Pre-deploy quota snapshot supplied by Ricardo on 2026-11-27: Egress 0.56/5 GB (11.2%); DB 38/500 MB (7.6%); MAU 0/50,000; Storage 0/1 GB; Log Ingestion 0.53/1 GB (53%); Log Query 1.37/100 GB (1.37%). This snapshot preceded the official deploy and is not post-deploy live telemetry.
+- No database migration/cleanup, new Realtime topic/subscription, extra polling, or success logging was introduced.
 
-## State at this checkpoint
+## Current continuity checkpoint (2026-11-27)
 
-- 2026-11-27: GitHub default branch `master`; latest inspected release commit is `fb3c6e0bbce9652a48f6f36e8437154c45ec1aac`, message “Fix UpStatus updater network failures”, recording release 3.4.9. Continuity documents were subsequently committed on `master`; read the live latest commit rather than relying on this checkpoint SHA.
-- `release.json` on `master`: `version=3.4.9`, empty `preRelease`.
-- Production project `upstatus-normal` and Staging project `UpStatus Staging` both returned `ACTIVE_HEALTHY` on 2026-11-27.
-- At the initial onboarding checkpoint, no 3.5.0 beta was active; this historical note is superseded by the official 3.5.0 release documented above.
-- Production workflow still contains a hard-coded stable version guard for 3.4.7 while `release.json` is 3.4.9. This stale configuration must be corrected and validated before a later official promotion. Do not bypass it or deploy production until resolved.
-- README and checked-in deployment workflows need reconciliation with actual Supabase project refs and TEST function naming before relying on automated deployment.
-- Earlier user-provided Free-plan dashboard snapshot (2026-11-27): egress 0.43/5 GB; database 37/500 MB; MAU 0/50,000; file storage 0/1 GB; log ingestion 0.45/1 GB (45%); log query 1.37/100 GB. It was superseded by the latest pre-deploy screenshot recorded in the quota table above.
+- `master` and `release.json` are on official stable **3.5.0**.
+- Official merge commit: `a9019ada2ab4dae05540520eda04211b38a301c7`.
+- Official Supabase runtime: `upstatus` v6 ACTIVE, stable health 3.5.0, source hash `d4127ecf63de3e26901d4d4b306f03da38114605dfac1ef4ca2505b6e39240b9`.
+- Separate regression runtime: `upstatus-test` v4 ACTIVE at 3.5.0-beta.5, unchanged hash `71c0446cfb0608b831088f8782f883198758561f809c496e82f0ed7c77f798b7`.
+- GitHub Actions UpStatus Validate: PR run #2362 passed; master post-merge run #2363 passed.
+- A separate retired Lucca Portal Pages workflow run failed because GitHub Pages is not enabled/configured for this repository. Its upload/deploy steps were skipped; it did not affect UpStatus validation or Supabase deployment.
+- Quota baseline remains the pre-deploy user-provided screenshot shown above. No live post-deploy quota total was available in the connector.
