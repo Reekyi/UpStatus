@@ -30,11 +30,11 @@ GitHub is the source of truth for code and release history. Supabase is the runt
 - `master`: stable/production line.
 - Confirm the current integration and TEST branch/workflow configuration before use; do not assume stale documentation is correct.
 - Production deployment is manual and requires explicit user approval.
-- All new work must first be released as a beta to the existing Staging Supabase project.
+- New work normally starts as a beta in the existing Staging Supabase project. When Ricardo explicitly requests live-team interoperability, a separate `upstatus-test` function may run inside the production project while the official `upstatus` function remains untouched.
 
 ## Versioning
 
-Edit only `release.json` as the version source, following the build scripts' conventions. Stable versions use `MAJOR.MINOR.PATCH`; beta versions use `MAJOR.MINOR.PATCH-beta.N`. After official 3.4.9, the next new beta target is 3.5.0-beta.1 unless live repository history proves a later beta number is already in use. Never reuse a rejected beta number.
+Edit only `release.json` as the version source, following the build scripts' conventions. Stable versions use `MAJOR.MINOR.PATCH`; beta versions use `MAJOR.MINOR.PATCH-beta.N`. For the next release target, derive the next beta number from the current stable version and live GitHub branches/tags/manifests. Never reuse a rejected beta number.
 
 ## Local verification
 
@@ -42,6 +42,15 @@ Inspect `package.json` for actual scripts. The repository validation script is `
 
 ## Release flow
 
-Plan → isolated beta branch → build → validation/regression tests → quota review → deploy to Staging only → Ricardo's manual test → explicit approval → stable promotion → production validation.
+Plan → isolated beta branch → build → validation/regression tests → quota review → beta deployment in the approved integration mode → Ricardo's manual test → explicit approval → stable promotion → production validation.
 
-Never deploy beta code to the production Supabase project or stable userscript URL.
+Never deploy beta code to the official `upstatus` function or stable userscript URL. A separate `upstatus-test` function in the production project is allowed only with Ricardo's explicit live-integration authorization.
+
+## 3.5.0 release record (2026-11-27)
+
+- Official GitHub merge commit: `a9019ada2ab4dae05540520eda04211b38a301c7` (PR #184).
+- Official Supabase function: `upstatus`, deployment version 6, ACTIVE, source hash `d4127ecf63de3e26901d4d4b306f03da38114605dfac1ef4ca2505b6e39240b9`.
+- Official health endpoint returned `3.5.0`; served userscript header reports `@version 3.5.0`, namespace `upseller`.
+- Separate test function `upstatus-test` remains ACTIVE at deployment version 4 / `3.5.0-beta.5`, source hash `71c0446cfb0608b831088f8782f883198758561f809c496e82f0ed7c77f798b7`.
+- Ricardo confirmed own status change and remote status change in Guilherme's Sale Smartly session without F5. Transient UpStatus and chat error notices now fade/slide away after 3 seconds. The persistent connection-state indicator intentionally remains visible.
+- The 2026-11-27 pre-deploy quota screenshot showed Log Ingestion at 0.53/1 GB (53%). This is historical snapshot data, not a post-deploy live reading.
