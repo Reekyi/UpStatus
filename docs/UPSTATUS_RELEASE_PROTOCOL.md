@@ -14,15 +14,19 @@ Last reviewed: 2026-11-27
 
 At the beginning of every new UpStatus conversation:
 
-1. Read this file on GitHub first.
-2. Inspect repository metadata, default branch, recent commits, branches, tags/releases and working tree-relevant files.
-3. Read `README.md`, `release.json`, `CHANGELOG.md`, `package.json`, build/validation scripts and deployment workflows. Inspect the actual feature source relevant to the requested change.
-4. Inspect both Supabase projects in organization **UpStatus Revived**:
+1. Read `AGENTS.md` at the repository root. It is the agent entry point and links to this protocol and the reusable new-chat prompt.
+2. Read this file on GitHub first.
+3. Inspect repository metadata, default branch, recent commits, branches, tags/releases and working-tree-relevant files.
+4. Read `README.md`, `release.json`, `CHANGELOG.md`, `package.json`, build/validation scripts and deployment workflows. Inspect the actual feature source relevant to the requested change.
+5. Inspect both Supabase projects in organization `UpStatus Revived`:
    - Production: `upstatus-normal`, ref `mvjqunhjxkbfcrxkjtgf`.
    - Staging: `UpStatus Staging`, ref `akbgmmpnnpwcwgcfrltw`.
    - Check project health, Edge Functions, migrations, tables, and relevant logs/advisors as appropriate.
-5. Reconcile observed facts with this protocol. If live GitHub/Supabase state disagrees with this file, report the discrepancy and treat live deployed state as authoritative for what's actually running. Update this file when release state changes.
-6. Do not begin implementation until you understand the existing architecture and the last changes. Reuse the existing project; do not rebuild or reorganize unrelated pieces.
+6. At every new chat, re-read the live `release.json` and changelog and inspect current beta branches/tags and both live Supabase environments. Derive the next beta from the latest official version and the highest beta number already used for that release target. Never rely solely on this document's snapshot.
+7. Reconcile observed facts with this protocol. If live GitHub/Supabase state disagrees with this file, report the discrepancy and treat live deployed state as authoritative for what's actually running. Update this file when release state changes.
+8. Do not begin implementation until you understand the existing architecture and last changes. Reuse the existing project; do not rebuild or reorganize unrelated pieces.
+
+**Important ChatGPT limitation:** repository files cannot force every brand-new ChatGPT conversation to read them automatically. Ricardo must start a new chat by pasting the prompt in `docs/UPSTATUS_NEW_CHAT_PROMPT.md` (or the equivalent text in the root `AGENTS.md`). That first prompt explicitly instructs the assistant to inspect GitHub and Supabase before doing work. If the prompt is not supplied, the assistant must not claim it has automatically loaded this repository context.
 
 ## Versioning rules
 
@@ -34,18 +38,58 @@ At the beginning of every new UpStatus conversation:
 - A new independent feature/fix after a stable release starts the next beta sequence at beta.1 unless continuing the same active beta cycle.
 - Do not silently reset or reuse beta numbers. If a beta is rejected, record it as rejected and move to the next beta number for further attempts.
 
+## Supabase Free-plan quota protection (mandatory)
+
+The user has explicitly required that the project must not exceed Supabase Free-plan limits. Treat quota headroom as a release-blocking safety requirement, not an afterthought.
+
+### Latest user-provided dashboard snapshot
+
+Billing cycle shown in the screenshot sent on 2026-11-27 (this is a snapshot, not a live API reading):
+
+| Metric | Usage | Free-plan limit | Used |
+|---|---:|---:|---:|
+| Egress | 0.43 GB | 5 GB | 8.6% |
+| Database size | 37 MB | 500 MB | 7.4% |
+| Monthly active users | 0 | 50,000 | 0% |
+| File storage | 0 GB | 1 GB | 0% |
+| Log ingestion | 0.45 GB | 1 GB | **45%** |
+| Log query | 1.37 GB | 100 GB | 1.37% |
+
+Log ingestion is the current pressure point: nearly half of its monthly allowance has already been consumed. Do not describe these values as current/live unless rechecked in the Supabase dashboard or a verified usage source.
+
+### Mandatory operating thresholds
+
+- **At 50% of any quota:** mention it in the status summary and identify the likely source of growth.
+- **At 60%:** warning state. Review usage trend before adding instrumentation, polling, background jobs, realtime fan-out, media transfer, or database writes.
+- **At 70%:** freeze nonessential usage growth. No verbose logging, repeated diagnostics, broad log dumps, unnecessary polling, or avoidable data duplication. Any feature likely to increase the metric requires a measured estimate and Ricardo's explicit approval.
+- **At 80%:** stop beta deployment and nonessential runtime changes until the cause is identified and a safe mitigation is tested. Do not risk consuming the remaining quota.
+- **At 90%:** hard stop for all changes that can increase that quota. Only user-approved mitigation/reduction work may proceed.
+- Never knowingly cross a Free-plan limit. If current usage cannot be verified and a change could materially increase usage, do not deploy it. Explain the uncertainty and request a fresh dashboard snapshot.
+
+### Engineering rules to conserve quotas
+
+1. **Logs:** avoid per-request/per-message/per-heartbeat success logs; never log in tight loops; do not log full request bodies, chat content, media, tokens, credentials, or PII. Keep production logs to actionable warnings/errors with concise structured context. Remove temporary debug logs before beta deployment. Sample or rate-limit repeated identical errors. Do not add chatty console logging to the userscript or Edge Functions.
+2. **Log queries:** query only a narrow service, time window, and fields. Do not repeatedly poll logs or dump large windows. Use one focused query, inspect its result, then refine only if necessary.
+3. **Egress/media:** avoid needless polling, duplicate payloads, unbounded history fetches, repeated downloads, and large media responses. Use pagination, caching, conditional requests, and compression only where compatible with the existing architecture.
+4. **Database:** avoid unbounded tables, duplicate records, excessive indexes, unnecessary writes/heartbeats, and full-table scans. Inspect query plans and table sizes before adding high-volume features. Never delete user data just to reduce usage without explicit approval and a backup/retention plan.
+5. **Realtime:** avoid broad broadcasts, high-frequency heartbeats, and sending the same payload to irrelevant clients. Preserve isolated TEST topics and avoid multiplying production subscriptions.
+6. **Storage:** do not upload test media or duplicate assets to production. Avoid retaining temporary test files; any cleanup must preserve user data and follow explicit retention rules.
+7. **Environment:** do not create Supabase projects or database branches for beta testing unless the user explicitly authorizes the quoted cost. Use the already-existing Staging project.
+8. Before and after any beta deployment, inspect quota usage if accessible, and record observed values and timestamp. If the Supabase tools cannot read plan usage directly, say so and use the user's current dashboard screenshot. Do not pretend that project health or logs reveal quota totals.
+9. For every proposed change, include a short quota-impact assessment: database, egress, storage, log ingestion, and log query. State “no expected material impact” only when supported by the code path and test evidence.
+
 ## Mandatory development and release workflow
 
-1. **Understand and plan:** identify requested behavior, affected client/server/database paths, regression risks, and test plan. State what will and will not change.
+1. **Understand and plan:** identify requested behavior, affected client/server/database paths, regression risks, test plan, and quota impact. State what will and will not change.
 2. **Protect production:** never use production as the experimental environment. Never deploy beta code to the production Supabase project or stable userscript URL.
-3. **Isolate work:** make a dedicated branch from the verified stable baseline or current approved integration base. Keep `master` stable. Use `develop` only for integration when appropriate; use focused feature/beta branches for implementation.
-4. **Build beta:** update the single version source `release.json` according to existing build conventions and generate artifacts via the repository build scripts. Beta output must be unmistakably labeled `-beta.N`.
-5. **Validate before deploying:** run `npm run validate` (which includes build, syntax checks, client/server artifact parity, and regression tests). Add focused regression tests for the requested change. Inspect the generated diff and ensure no unrelated changes or production identifiers drift.
-6. **Deploy to staging only:** deploy the beta to Supabase project `akbgmmpnnpwcwgcfrltw` and the isolated TEST function/artifacts using the repository's validated test deployment mechanism. Confirm the deployed function version/status and test URL. Verify that storage prefixes, Realtime topics, ringtone channels, userscript namespace, updater URL, and all other TEST identifiers are isolated from production.
-7. **Hand over for user testing:** provide the exact beta version, installation/update URL, deployment status, changes, test checklist, known risks and rollback approach. Be explicit when something could not be verified.
-8. **Wait for explicit approval:** user phrases such as “aprovado”, “pode lançar oficial”, or equivalent are required before stable promotion. A general “testei” is not approval unless it clearly says the beta is accepted.
-9. **Promote safely:** after explicit approval, review the final diff, merge the approved changes into `master`, update stable version and changelog, run full validation again, deploy production only using the production workflow, verify the live production endpoint, then update this protocol with the new official version and no active beta.
-10. **Rollback:** if staging testing fails, keep production unchanged, record the beta as rejected, fix on a new beta iteration and deploy only to staging. If a production issue occurs after promotion, stop further changes, inspect the last known-good release and prepare a deliberate rollback; do not force-push or destructively rewrite history.
+3. **Isolate work:** make a dedicated GitHub branch from the verified stable baseline or current approved integration base. Keep `master` stable. Do not create Supabase database branches without explicit cost approval.
+4. **Build beta:** update the single version source `release.json` according to existing build conventions and generate artifacts via repository build scripts. Beta output must be unmistakably labeled `-beta.N`.
+5. **Validate before deploying:** run `npm run validate` (or the actual repository validation command if package scripts differ), including build, syntax checks, client/server artifact parity, and regression tests. Add focused regression tests. Inspect generated diffs and ensure no unrelated changes or production identifiers drift.
+6. **Deploy to staging only:** deploy beta to Supabase project `akbgmmpnnpwcwgcfrltw` and isolated TEST function/artifacts using the repository's validated test deployment mechanism. Confirm deployed function version/status and test URL. Verify storage prefixes, Realtime topics, ringtone channels, userscript namespace, updater URL, and all TEST identifiers are isolated from production.
+7. **Hand over for user testing:** provide exact beta version, installation/update URL, deployment status, changes, test checklist, known risks, quota-impact assessment, and rollback approach. Be explicit when something could not be verified.
+8. **Wait for explicit approval:** phrases such as “aprovado” or “pode lançar oficial” are required before stable promotion. “Testei” alone is not approval unless acceptance is clear.
+9. **Promote safely:** after explicit approval, review final diff, merge approved changes into `master`, update stable version and changelog, run full validation, deploy production only using the production workflow, verify live production endpoint, then update this protocol with the new official version and no active beta.
+10. **Rollback:** if staging testing fails, keep production unchanged, record beta as rejected, fix on a new beta iteration and deploy only to staging. If a production issue occurs after promotion, stop further changes, inspect last known-good release and prepare deliberate rollback; do not force-push or destructively rewrite history.
 
 ## Architecture and environment guardrails
 
@@ -53,13 +97,13 @@ At the beginning of every new UpStatus conversation:
 - Supabase projects are runtime environments; staging is for beta testing, production serves stable users.
 - Production Supabase project: `mvjqunhjxkbfcrxkjtgf` (`upstatus-normal`).
 - Staging Supabase project: `akbgmmpnnpwcwgcfrltw` (`UpStatus Staging`).
-- Production Edge Function is `upstatus`; staging/test Edge Function naming and deployment must follow the existing repository build/test architecture. Do not assume a staging function's endpoint or source path; inspect it.
-- Existing README describes `master` as stable and `develop` as integration/TEST. Confirm current workflow behavior before relying on this, because workflow files and release guards can lag behind the current version.
-- Existing generated build logic includes separate production and TEST artifacts and isolation identifiers. Preserve backward compatibility with production storage, Realtime and ringtone identifiers unless a specific migration is designed and tested.
+- Both projects were observed as `ACTIVE_HEALTHY` on 2026-11-27 in region `sa-east-1`. Recheck at the start of each new chat.
+- Production Edge Function is `upstatus`; staging/test Edge Function naming and deployment must follow actual repository and project state. Do not assume endpoint or source path; inspect it.
+- Existing README and workflows may be stale. Verify actual project refs, function names, and release guards before relying on them.
+- Existing build logic includes separate production and TEST artifacts and isolation identifiers. Preserve backward compatibility with production storage, Realtime and ringtone identifiers unless a specific migration is designed and tested.
 - Never put secrets, tokens, passwords, service-role keys or private user data into GitHub, source files, logs, handoff notes or this document.
 - Do not expose Supabase service-role/secret keys in userscripts or browser code.
-- For database schema changes, inspect tables, RLS and migrations first. Prefer additive, reversible migrations; avoid destructive changes without explaining consequences and receiving explicit user authorization. Verify schema and security after changes.
-- Do not create new Supabase projects or branches that could incur cost without checking the actual cost and receiving explicit user consent.
+- For database schema changes, inspect tables, RLS and migrations first. Prefer additive, reversible migrations; avoid destructive changes without explaining consequences and receiving explicit authorization. Verify schema and security after changes.
 - Do not deploy an Edge Function simply because it was edited; confirm target project and exact function name first.
 
 ## Required communication style for UpStatus work
@@ -67,23 +111,15 @@ At the beginning of every new UpStatus conversation:
 - Be transparent and factual. Never claim a build, test, deployment, version, rollback or verification succeeded unless tool output or test evidence confirms it.
 - Before any production-impacting operation, explain exactly what will change and obtain Ricardo's explicit approval.
 - Prefer doing the work and delivering a tested result over giving only instructions, when repository and connector access permit.
-- Keep a continuously updated status:
-  - official version;
-  - beta version/status;
-  - working branch;
-  - latest commit;
-  - staging deployment status;
-  - production deployment status;
-  - tests run and results;
-  - pending user tests/approval.
-- After each meaningful release-state change, update this document and the changelog/version manifest as applicable. Use commit history as the audit trail.
+- Keep a continuously updated status: official version, beta version/status, working branch, latest commit, staging deployment, production deployment, tests, quota snapshot, pending user tests/approval.
+- After each meaningful release-state change, update this document and changelog/version manifest as applicable. Use commit history as audit trail.
 
 ## State at this checkpoint
 
-- 2026-11-27: GitHub default branch `master`; latest inspected commit is `fb3c6e0bbce9652a48f6f36e8437154c45ec1aac`, message “Fix UpStatus updater network failures”, which records release 3.4.9.
+- 2026-11-27: GitHub default branch `master`; latest inspected release commit is `fb3c6e0bbce9652a48f6f36e8437154c45ec1aac`, message “Fix UpStatus updater network failures”, recording release 3.4.9. Continuity documents were subsequently committed on `master`; read the live latest commit rather than relying on this checkpoint SHA.
 - `release.json` on `master`: `version=3.4.9`, empty `preRelease`.
-- Production project `upstatus-normal` is healthy; its `upstatus` Edge Function is active (deployed function version observed as 5).
-- Staging project `UpStatus Staging` is healthy; its own `upstatus` and validation functions are active. Staging tables currently show empty application history/message datasets, as expected for a separate test environment.
+- Production project `upstatus-normal` and Staging project `UpStatus Staging` both returned `ACTIVE_HEALTHY` on 2026-11-27.
 - No active 3.5.0 beta has been created or deployed at this checkpoint.
-- The repository's current production workflow still contains a hard-coded stable version guard for 3.4.7, while `release.json` is 3.4.9. This is a stale configuration that must be corrected and validated as part of release-pipeline hardening before a later official promotion. Do not bypass the guard or deploy production until it is resolved and verified.
-- The README workflow description and checked-in deployment workflow need reconciliation with actual Supabase project refs and TEST function naming before relying on automated deployment. Inspect exact files and workflow configuration during the first release-pipeline update.
+- Production workflow still contains a hard-coded stable version guard for 3.4.7 while `release.json` is 3.4.9. This stale configuration must be corrected and validated before a later official promotion. Do not bypass it or deploy production until resolved.
+- README and checked-in deployment workflows need reconciliation with actual Supabase project refs and TEST function naming before relying on automated deployment.
+- User-provided Free-plan dashboard snapshot (2026-11-27): egress 0.43/5 GB; database 37/500 MB; MAU 0/50,000; file storage 0/1 GB; log ingestion 0.45/1 GB (45%); log query 1.37/100 GB. Log ingestion is the immediate quota risk. Recheck in dashboard before a usage-intensive release.
