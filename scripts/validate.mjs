@@ -63,7 +63,7 @@ assert(bridgeEnd>bridgeBodyStart,"Sale Smartly page bridge must close");
 const pageBridge=new Function("return `"+testUser.slice(bridgeBodyStart,bridgeEnd)+"`;")();
 checkSyntax(pageBridge,"inline Sale Smartly page bridge");
 const visualStart=pageBridge.indexOf("function applySaleSmartlyStatusVisual(");
-const visualEnd=pageBridge.indexOf("\\n      document.addEventListener('UPSTATUS_SET'",visualStart);
+const visualEnd=pageBridge.indexOf("\n      document.addEventListener('UPSTATUS_SET'",visualStart);
 assert(visualStart>=0&&visualEnd>visualStart,"Reactive Sale Smartly status updater must be present");
 const visualHelper=pageBridge.slice(visualStart,visualEnd);
 const mockUser={name:"Ricardo",online_status:"1",status:"online"};
@@ -85,7 +85,7 @@ assert(testUser.includes("applySaleSmartlyStatusVisual(onlineStatus,detail.membe
 assert(testUser.includes("status:map[status],member:member"),"Current UpStatus member identity must be passed to the native UI updater");
 assert(testUser.includes("visualUpdated:!!visual.updated"),"UI synchronization result must be returned to UpStatus");
 assert(!testUser.includes("if(location.hostname==='app.salesmartly.com')setTimeout(function(){location.reload()},250)"),"Status updates must not reload the Sale Smartly page");
-assert((testUser.match(/location\\.reload\\(\\)/g)||[]).length===1,"Only the explicit userscript update flow may reload the page");
+assert((testUser.match(/location\.reload\(\)/g)||[]).length===1,"Only the explicit userscript update flow may reload the page");
 
 assert(!prodFn.match(/lucca|ycaro/i),"production backend contains removed guest identities");
 assert(!testFn.match(/lucca|ycaro/i),"TEST backend contains removed guest identities");
