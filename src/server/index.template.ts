@@ -194,6 +194,7 @@ async function statusRoute(req:Request,name:string){
   }
   await db.from("users").update({client_seen_at:now,client_version:VERSION}).eq("name",name);
   const runtime:any=await stateValue(AGENDA_RUNTIME_KEY,{});
+  const beforeRuntime=JSON.stringify(runtime);
   const current=runtime[name];
   if(source==="agenda"){
     if(current&&current.pending){
@@ -214,7 +215,7 @@ async function statusRoute(req:Request,name:string){
       });
     }
   }
-  await setState(AGENDA_RUNTIME_KEY,runtime);
+  if(JSON.stringify(runtime)!==beforeRuntime)await setState(AGENDA_RUNTIME_KEY,runtime);
   return response({name,status,reason,updatedAt:now,sync:old.sync||"not_configured",version:VERSION,source});
 }
 
@@ -308,6 +309,11 @@ async function agendaRoute(req:Request,name:string){
   const config:any=await stateValue(AGENDA_CONFIG_KEY,{days:{},weeks:{}});
   config.days=config.days||{};config.weeks=config.weeks||{};
   const parts=saoPauloParts(),weekStart=agendaWeekStart(parts.date);
+  const cutoffDate=new Date(parts.date+"T12:00:00Z");cutoffDate.setUTCDate(cutoffDate.getUTCDate()-30);
+  const minDate=cutoffDate.toISOString().slice(0,10);
+  Object.keys(config.days).forEach((date)=>{if(date<minDate)delete config.days[date];});
+  const cutoffWeek=agendaWeekStart(minDate);
+  Object.keys(config.weeks).forEach((week)=>{if(week<cutoffWeek)delete config.weeks[week];});
   if(type==="lunch"){
     const value=String(p.time||"");
     if(value!==""&&value!=="12"&&value!=="13")return response({error:"Horário de almoço inválido."},400);
@@ -336,8 +342,15 @@ async function agendaReconcileRoute(req:Request,name:string){
   const runtime:any=await stateValue(AGENDA_RUNTIME_KEY,{});
   const now=Date.now(),parts=saoPauloParts(),event=agendaCurrentEvent(name,config);
   let state:any=runtime[name]||null;
-  const persist=async()=>{if(state)runtime[name]=state;else delete runtime[name];await setState(AGENDA_RUNTIME_KEY,runtime);};
-  const noAction=async()=>{await persist();return response({action:null});};
+  const initialState=state?JSON.stringify(state):"";
+  const noAction=async()=>{
+    const nextState=state?JSON.stringify(state):"";
+    if(nextState!==initialState||(!state&&!!runtime[name])){
+      if(state)runtime[name]=state;else delete runtime[name];
+      await setState(AGENDA_RUNTIME_KEY,runtime);
+    }
+    return response({action:null});
+  };
   const issue=async(status:string,reason:string,eventKey:string,kind:string)=>{
     if(!state)state={date:parts.date,activeKey:eventKey,kind:kind,restoreStatus:actualStatus,restoreReason:actualReason,appliedStatus:"",appliedReason:"",overrideKey:"",pending:false};
     state.date=parts.date;state.activeKey=eventKey;state.kind=kind;state.pending=true;
