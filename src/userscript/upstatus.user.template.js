@@ -957,10 +957,12 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     dot.title=show?('Nova versão disponível: v'+version):'Sem atualização';
     dot.classList.toggle('show',!!show);
   }
-  function openUpdate(){
+  function openUpdate(url){
+    var target=String(url||UPDATE_URL).trim();
+    if(!/^https:\/\/mvjqunhjxkbfcrxkjtgf\.supabase\.co\/functions\/v1\/(?:upstatus|upstatus-test)\/upstatus\.user\.js$/.test(target))target=UPDATE_URL;
     try{
       if(typeof GM_openInTab==='function'){
-        var updateTab=GM_openInTab(UPDATE_URL,{active:true,insert:true,setParent:true});
+        var updateTab=GM_openInTab(target,{active:true,insert:true,setParent:true});
         if(updateTab){
           updateTab.onclose=function(){
             setTimeout(function(){try{location.reload()}catch(e){}},250);
@@ -969,7 +971,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
         return;
       }
     }catch(e){}
-    window.open(UPDATE_URL,'_blank','noopener');
+    window.open(target,'_blank','noopener');
   }
   function closePopupAnimated(el,finish){if(!el||el.classList.contains('up-popup-closing'))return;var reduced=false;try{reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}if(reduced){if(finish)finish();return;}var style=document.getElementById('up-popup-exit-style');if(!style){style=document.createElement('style');style.id='up-popup-exit-style';style.textContent='.up-popup-closing{animation:upPopupExit .18s cubic-bezier(.4,0,1,1) both!important;pointer-events:none!important}@keyframes upPopupExit{to{opacity:0;transform:translateY(7px) scale(.97);filter:blur(1px)}}';document.head.appendChild(style);
 }el.classList.add('up-popup-closing');var done=false;function finishOnce(){if(done)return;done=true;el.removeEventListener('animationend',onEnd);if(finish)finish();}function onEnd(e){if(e.target===el)finishOnce();}el.addEventListener('animationend',onEnd);setTimeout(finishOnce,240);}
@@ -1025,7 +1027,44 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     return 0;
   }
   var updatePromptShown=false;
-  function showUpdatePrompt(version){
+  function requestUpdateText(url){
+    return new Promise(function(resolve,reject){
+      if(typeof GM_xmlhttpRequest!=='function'){
+        reject(new Error('Tampermonkey não disponibilizou GM_xmlhttpRequest.'));
+        return;
+      }
+      var parsed;
+      try{parsed=new URL(String(url||''));}
+      catch(_){reject(new Error('Endereço de atualização inválido.'));return;}
+      var host=String(parsed.hostname||'').toLowerCase();
+      if(parsed.protocol!=='https:'||(host!=='raw.githubusercontent.com'&&host!=='mvjqunhjxkbfcrxkjtgf.supabase.co')){
+        reject(new Error('Origem não autorizada para atualização.'));
+        return;
+      }
+      parsed.searchParams.set('upstatus_cb',String(Date.now()));
+      try{
+        GM_xmlhttpRequest({
+          method:'GET',
+          url:parsed.href,
+          anonymous:true,
+          timeout:20000,
+          headers:{'Cache-Control':'no-cache','Pragma':'no-cache'},
+          onload:function(r){
+            var status=Number(r&&r.status||0);
+            if(status<200||status>=300){
+              reject(new Error('Consulta de atualização respondeu HTTP '+(status||'desconhecido')+'.'));
+              return;
+            }
+            resolve(String(r.responseText||''));
+          },
+          onerror:function(){reject(new Error('Falha de rede ao consultar '+host+'.'));},
+          ontimeout:function(){reject(new Error('Tempo limite ao consultar '+host+'.'));},
+          onabort:function(){reject(new Error('Consulta de atualização cancelada.'));}
+        });
+      }catch(error){reject(error);}
+    });
+  }
+  function showUpdatePrompt(version,url){
     if(updatePromptShown||!version)return;
     updatePromptShown=true;
     var existing=root.querySelector('.up-update-prompt');
@@ -1034,35 +1073,52 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     modal.innerHTML='<div class="up-update-prompt-box"><div class="up-update-prompt-title">Nova versão disponível</div><div class="up-update-prompt-text">O UpStatus <b>v'+esc(version)+'</b> já está disponível.</div><div class="up-update-prompt-actions"><button type="button" class="up-update-prompt-later">Depois</button><button type="button" class="up-update-prompt-now">Atualizar agora</button></div></div>';
     root.appendChild(modal);
     modal.querySelector('.up-update-prompt-later').onclick=function(){closePopupAnimated(modal,function(){modal.remove();});};
-    modal.querySelector('.up-update-prompt-now').onclick=function(){closePopupAnimated(modal,function(){modal.remove();openUpdate();});};
+    modal.querySelector('.up-update-prompt-now').onclick=function(){closePopupAnimated(modal,function(){modal.remove();openUpdate(url);});};
   }
   function checkUpdate(){
     var statuses=card.querySelectorAll('.up-update-status'),manuals=card.querySelectorAll('.up-update-now');
     var installed=String(CURRENT_VERSION||'').trim();
     statuses.forEach(function(s){s.textContent=' • Verificando versão oficial…';});
     manuals.forEach(function(x){x.disabled=true;x.title='Verificando versão oficial';x.onclick=function(){};});
-    fetch('https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
-      .then(function(r){if(!r.ok)throw new Error('Manifesto oficial: HTTP '+r.status);return r.json();})
-      .then(function(manifest){
+    requestUpdateText('https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json')
+      .then(function(rawManifest){
+        var manifest;
+        try{manifest=JSON.parse(rawManifest);}
+        catch(_){throw new Error('Manifesto oficial não é um JSON válido.');}
         if(!manifest||!Object.prototype.hasOwnProperty.call(manifest,'version'))throw new Error('Manifesto inválido para este canal.');
         var remote=String(manifest.version||'').trim();
         var url=String(manifest.scriptUrl||'__UPSTATUS_UPDATE_URL__').trim();
-        if(!remote||!/^\d+(?:\.\d+){1,3}(?:-[0-9A-Za-z.-]+)?$/.test(remote))throw new Error('Versão do manifesto inválida.');
+        if(!remote||!/^[0-9]+(?:\.[0-9]+){1,3}(?:-[0-9A-Za-z.-]+)?$/.test(remote))throw new Error('Versão do manifesto inválida.');
         if(url!=='__UPSTATUS_UPDATE_URL__')throw new Error('Link do script não corresponde ao canal oficial.');
-        return fetch(url+'?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
-          .then(function(sr){if(!sr.ok)throw new Error('Script oficial: HTTP '+sr.status);return sr.text();})
+        return requestUpdateText(url)
           .then(function(text){
             var mt=text.match(/^\/\/ @version\s+([^\r\n]+)$/m),served=mt?String(mt[1]).trim():'';
             if(!served)throw new Error('O script oficial não contém @version válido.');
             if(served!==remote)throw new Error('Versões divergentes: manifesto '+remote+'; script servido '+served+'. Atualização bloqueada.');
             var cmp=compareVersions(served,installed);
-            manuals.forEach(function(x){x.disabled=cmp<=0;x.title=cmp>0?'Atualizar para v'+served:'Você já está na versão mais recente';x.onclick=cmp>0?openUpdate:function(){};});
-            if(cmp>0){setUpdateAvailable(true,served);statuses.forEach(function(x){x.innerHTML=' • Nova versão: <b>v'+esc(served)+'</b> (instalada: v'+esc(installed)+')';});showUpdatePrompt(served);}
-            else if(cmp<0){setUpdateAvailable(false,'');statuses.forEach(function(x){x.textContent=' • Servidor em v'+served+'; instalada v'+installed+'. Atualização bloqueada para evitar downgrade.';});}
-            else{setUpdateAvailable(false,'');statuses.forEach(function(x){x.textContent=' • Atualizado: v'+served;});}
+            manuals.forEach(function(x){
+              x.disabled=cmp<=0;
+              x.title=cmp>0?'Atualizar para v'+served:'Você já está na versão mais recente';
+              x.onclick=cmp>0?function(){openUpdate(url)}:function(){};
+            });
+            if(cmp>0){
+              setUpdateAvailable(true,served);
+              statuses.forEach(function(x){x.innerHTML=' • Nova versão: <b>v'+esc(served)+'</b> (instalada: v'+esc(installed)+')';});
+              showUpdatePrompt(served,url);
+            }else if(cmp<0){
+              setUpdateAvailable(false,'');
+              statuses.forEach(function(x){x.textContent=' • Servidor em v'+served+'; instalada v'+installed+'. Atualização bloqueada para evitar downgrade.';});
+            }else{
+              setUpdateAvailable(false,'');
+              statuses.forEach(function(x){x.textContent=' • Atualizado: v'+served;});
+            }
           });
       })
-      .catch(function(e){setUpdateAvailable(false,'');statuses.forEach(function(x){x.textContent=' • Atualizador bloqueado: '+String(e&&e.message||'não foi possível verificar a versão oficial.');});manuals.forEach(function(x){x.disabled=true;x.title='Atualização bloqueada por inconsistência';x.onclick=function(){};});});
+      .catch(function(e){
+        setUpdateAvailable(false,'');
+        statuses.forEach(function(x){x.textContent=' • Atualizador bloqueado: '+String(e&&e.message||'não foi possível verificar a versão oficial.');});
+        manuals.forEach(function(x){x.disabled=true;x.title='Atualização bloqueada por inconsistência';x.onclick=function(){};});
+      });
   }
   function mentionNames(text){
     var found=[];
