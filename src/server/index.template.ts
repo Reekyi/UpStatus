@@ -496,21 +496,10 @@ async function chatUploadUrlRoute(req:Request) {
   const p:any=await readBody(req);
   const mime=String(p.mime||"").toLowerCase();
   const size=Number(p.size);
-  const allowed=new Set([
-    "image/png","image/jpeg","image/webp","image/gif",
-    "video/mp4","video/webm",
-    "application/pdf","application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "text/csv","application/vnd.ms-powerpoint",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "text/plain","text/rtf","application/rtf"
-  ]);
+  const allowed=new Set(["image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"]);
   if(!allowed.has(mime))return response({error:"Tipo de arquivo não suportado."},400);
   if(!Number.isSafeInteger(size)||size<=0)return response({error:"Tamanho de arquivo inválido."},400);
-  const isDocument=mime.startsWith("application/")||mime.startsWith("text/");
-  const max=isDocument?10*1024*1024:20*1024*1024;
-  if(size>max)return response({error:isDocument?"Documentos podem ter no máximo 10 MB.":"O arquivo deve ter no máximo 20 MB."},413);
+  if(size>20*1024*1024)return response({error:"O arquivo deve ter no máximo 20 MB."},413);
   const extension=ext(mime);
   if(!extension)return response({error:"Tipo de arquivo não suportado."},400);
   const bucket="chat-images";
