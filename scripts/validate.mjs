@@ -42,6 +42,12 @@ assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production 
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
 assert(prodUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';"),"production realtime topic compatibility check");
 assert(testUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';"),"TEST must share the live realtime topic with production");
+assert(prodUser.includes("var UP_REALTIME_URL='https://mvjqunhjxkbfcrxkjtgf.supabase.co';"),"Production Realtime must point to the active Supabase project");
+assert(testUser.includes("var UP_REALTIME_URL='https://mvjqunhjxkbfcrxkjtgf.supabase.co';"),"TEST Realtime must point to the active Supabase project");
+assert(!prodUser.includes("dlfvkawaiqduhlazsszm.supabase.co")&&!testUser.includes("dlfvkawaiqduhlazsszm.supabase.co"),"Obsolete Supabase host must not remain in generated clients");
+assert(testUser.includes("var UP_REALTIME_KEY='sb_publishable_4_dLUWGGqyPP0prupYq8Jw_DTLJ2FlQ';"),"TEST Realtime must use the active project's enabled publishable key");
+assert(prodUser.includes("var UP_REALTIME_KEY='sb_publishable_4_dLUWGGqyPP0prupYq8Jw_DTLJ2FlQ';"),"Production build must retain the active project's enabled publishable key");
+
 assert(prodUser.includes("var UP_RINGTONE_CHANNEL='upstatus-screen-share-3-1-1-beta9-2-ringtone-stop-v1';"),"production ringtone channel mismatch");
 assert(testUser.includes("var UP_RINGTONE_CHANNEL='upstatus-screen-share-3-1-1-beta9-2-ringtone-stop-v1';"),"TEST must share the live ringtone channel");
 assert(prodUser.includes("var upRingtoneStorageKey='upstatus_screen_share_beta8_ringtone_stop_bus';"),"production ringtone storage mismatch");
@@ -62,43 +68,68 @@ const bridgeEnd=testUser.indexOf("`;",bridgeBodyStart);
 assert(bridgeEnd>bridgeBodyStart,"Sale Smartly page bridge must close");
 const pageBridge=new Function("return `"+testUser.slice(bridgeBodyStart,bridgeEnd)+"`;")();
 checkSyntax(pageBridge,"inline Sale Smartly page bridge");
-const visualStart=pageBridge.indexOf("function applySaleSmartlyStatusVisual(");
-const visualEnd=pageBridge.indexOf("\n      document.addEventListener('UPSTATUS_SET'",visualStart);
-assert(visualStart>=0&&visualEnd>visualStart,"Reactive Sale Smartly status updater must be present");
+const visualStart=pageBridge.indexOf("function getSaleSmartlyCurrentUserStore(");
+const visualEnd=pageBridge.indexOf("\n      document.addEventListener('UPSTATUS_APPLY_VISUAL'",visualStart);
+assert(visualStart>=0&&visualEnd>visualStart,"Native Sale Smartly status integration helpers must be present");
 const visualHelper=pageBridge.slice(visualStart,visualEnd);
-const mockUser={name:"Ricardo",online_status:"1",status:"online"};
-const mockTeam=[{name:"Ricardo",online_status:"1",status:"online"},{name:"Lohan",online_status:"1",status:"online"},{name:"Guilherme",online_status:"0",status:"offline"}];
-const mockPinia={_s:new Map([["user",{$state:{userInfo:mockUser}}],["team",{$state:{members:mockTeam}}],["orders",{$state:{order:{status:"open"}}}]])};
-const mockApp={__vue_app__:{config:{globalProperties:{$pinia:mockPinia}},_instance:null}};
-const mockDocument={listeners:{},querySelector(selector){return selector==="#app"?mockApp:null;},addEventListener(type,handler){this.listeners[type]=handler;},dispatchEvent(event){var handler=this.listeners[event.type];if(handler)handler(event);}};
-const mockWindow={dispatchEvent(){}};
-function MockCustomEvent(type,options){this.type=type;this.detail=options&&options.detail;}
-const applyStatus=new Function("document","window","CustomEvent",visualHelper+";return applySaleSmartlyStatusVisual;")(mockDocument,mockWindow,MockCustomEvent);
-const visualResult=applyStatus("2","Ricardo");
-assert(visualResult.updated&&visualResult.updatedFields>=2,"Status change must mutate the current user's reactive state and matching team row");
-assert(mockUser.online_status==="2"&&mockUser.status==="busy","Current user visual status must reflect busy");
-assert(mockTeam[0].online_status==="2"&&mockTeam[0].status==="busy","Matching team row must reflect the new status");
-assert(mockTeam[1].online_status==="1"&&mockTeam[1].status==="online","Unrelated team rows must remain unchanged");
-assert(mockTeam[2].online_status==="0"&&mockTeam[2].status==="offline","Other team members must keep their status");
-assert(typeof mockDocument.listeners.UPSTATUS_APPLY_VISUAL==="function","Realtime visual status event listener must be registered in the page bridge");
-mockDocument.listeners.UPSTATUS_APPLY_VISUAL({detail:{member:"Lohan",status:"0"}});
-assert(mockTeam[1].online_status==="0"&&mockTeam[1].status==="offline","Realtime update from another browser must update the matching native team row");
-mockDocument.listeners.UPSTATUS_APPLY_VISUAL({detail:{member:"Guilherme",status:"2"}});
-assert(mockTeam[2].online_status==="2"&&mockTeam[2].status==="busy","Remote status updates must be applied to the correct colleague");
+const mockRicardoState={nickname:"Ricardo Implementação",onlineStatus:"1",canSelectOnlineStatuses:["0","1","2"]};
+const mockRicardoStore={
+  $state:mockRicardoState,
+  lastSwitch:null,
+  setOnlineStatus(code){this.$state.onlineStatus=String(code);},
+  async switchOnlineStatus(payload){
+    this.lastSwitch=payload;
+    this.setOnlineStatus(payload.online_status);
+    return {code:0};
+  }
+};
+const mockOrders={ $state:{order:{status:"open"}} };
+const mockPinia={_s:new Map([["user",mockRicardoStore],["orders",mockOrders]])};
+const mockApp={__vue_app__:{config:{globalProperties:{$pinia:mockPinia}}}};
+const mockDocument={querySelector(selector){return selector==="#app"?mockApp:null;}};
+const nativeStatus=new Function("document",visualHelper+";return {applySaleSmartlyStatusVisual,switchSaleSmartlyStatusNative};")(mockDocument);
+const ownResult=await nativeStatus.switchSaleSmartlyStatusNative("2","Ricardo");
+assert(ownResult.updated&&ownResult.updatedFields===1,"Native status action must confirm the local user's reactive status");
+assert(mockRicardoStore.lastSwitch.online_status==="2"&&mockRicardoStore.lastSwitch.event_type==="0","UpStatus must call the official Sale Smartly Pinia switchOnlineStatus action");
+assert(mockRicardoState.onlineStatus==="2","Ricardo's native onlineStatus state must reflect the selected status");
+const wrongMember=nativeStatus.applySaleSmartlyStatusVisual("0","Lohan");
+assert(!wrongMember.updated&&mockRicardoState.onlineStatus==="2","A remote colleague event must never overwrite the current user's own status");
+const mockLohanState={nickname:"Lohan",onlineStatus:"1",canSelectOnlineStatuses:["0","1","2"]};
+const mockLohanStore={
+  $state:mockLohanState,
+  lastSwitch:null,
+  setOnlineStatus(code){this.$state.onlineStatus=String(code);},
+  async switchOnlineStatus(payload){
+    this.lastSwitch=payload;
+    this.setOnlineStatus(payload.online_status);
+    return {code:0};
+  }
+};
+mockPinia._s.set("user",mockLohanStore);
+const remoteTargetResult=await nativeStatus.switchSaleSmartlyStatusNative("0","Lohan");
+assert(remoteTargetResult.updated&&mockLohanState.onlineStatus==="0","Remote command must update the target member's own Sale Smartly Pinia store");
+assert(mockRicardoState.onlineStatus==="2","Updating Lohan must not mutate Ricardo's store");
+assert(mockOrders.$state.order.status==="open","Sale Smartly order statuses must remain untouched");
+const blockedState={nickname:"Guilherme",onlineStatus:"1",canSelectOnlineStatuses:["1","2"]};
+const blockedStore={ $state:blockedState, async switchOnlineStatus(){throw new Error("must not execute a disabled status");} };
+mockPinia._s.set("user",blockedStore);
+let blockedStatus=false;
+try{await nativeStatus.switchSaleSmartlyStatusNative("0","Guilherme");}catch(e){blockedStatus=true;}
+assert(blockedStatus&&blockedState.onlineStatus==="1","Native allowed-status restrictions must be respected");
 assert(testUser.includes(".on('broadcast',{event:'user_status'},function(payload)"),"Realtime user_status broadcasts must update each connected native Sales Smartly page");
 assert(testUser.includes("sendRealtimeEvent('user_status',{name:member,status:status})"),"Own status changes must broadcast a native visual update");
 assert(testUser.includes("sendRealtimeEvent('user_status',{name:member,status:c.status})"),"Remote status commands must broadcast a native visual update");
 assert(mockPinia._s.get("orders").$state.order.status==="open","Non-user statuses must not be modified");
-assert(testUser.includes("applySaleSmartlyStatusVisual(onlineStatus,detail.member||'')"),"Native UI update must run after a successful Sale Smartly status API response");
-assert(testUser.includes("status:map[status],member:member"),"Current UpStatus member identity must be passed to the native UI updater");
-assert(testUser.includes("visualUpdated:!!visual.updated"),"UI synchronization result must be returned to UpStatus");
+assert(testUser.includes("switchSaleSmartlyStatusNative(detail.status,detail.member||'')"),"Status changes must use Sale Smartly native Pinia action");
+assert(testUser.includes("state&&state.nickname")&&testUser.includes("state.onlineStatus"),"Native update must validate the active account and update only its confirmed onlineStatus field");
+assert(testUser.includes("visualUpdated:!!visual.updated"),"Native Pinia synchronization result must be returned to UpStatus");
 assert(!testUser.includes("if(location.hostname==='app.salesmartly.com')setTimeout(function(){location.reload()},250)"),"Status updates must not reload the Sale Smartly page");
 assert((testUser.match(/location\.reload\(\)/g)||[]).length===1,"Only the explicit userscript update flow may reload the page");
 
 assert(!prodFn.match(/lucca|ycaro/i),"production backend contains removed guest identities");
 assert(!testFn.match(/lucca|ycaro/i),"TEST backend contains removed guest identities");
 assert(!prodUser.match(/lucca|ycaro|icaro|luca/i),"production userscript contains removed guest UI");
-assert(!testUser.replace("https://raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.0-beta.1-remove-lucca-ycaro/release.json","").match(/lucca|ycaro|icaro|luca/i),"TEST userscript contains removed guest UI outside its beta manifest branch URL");
+assert(!testUser.replace("https://raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.0-beta.5-realtime-native-status/release.json","").match(/lucca|ycaro|icaro|luca/i),"TEST userscript contains removed guest UI outside its beta manifest branch URL");
 assert(testFn.includes('if(!["Ricardo","Lohan","Guilherme"].includes(name))return null;'),"TEST account lookup must allow only the three current members");
 assert(testFn.includes("needsSetup:!!a&&!a.password_hash"),"Removed accounts must not be offered password setup");
 assert(prodFn.includes("async function contextName(req:Request)")&&prodFn.includes("const ctx=await contextName(req);"),"production backend must resolve authenticated session context");
