@@ -104,13 +104,16 @@ assert(serverTemplate.includes("const isAdmin=await admin(name);"),"server delet
 assert(!serverTemplate.includes('const isAdmin=name==="Ricardo"'),"no name-only administrator bypass");
 assert(source.includes("var canDelete=m.user===member||role==='implementation_admin';"),"admin UI uses stored role");
 assert(source.includes("function uploadFileDirect(file,route)"),"chat attachments use direct signed uploads rather than base64 payloads");
-assert(source.includes("uploadFileDirect(file,'/api/chat/upload-url')"),"chat attachments request a signed upload ticket");
+assert(source.includes("uploadFileDirect(file,'/api/chat/upload-url')"),"image/video attachments request a signed upload ticket");
+assert(source.includes("api('POST','/api/chat/document',{dataUrl:dataUrl})"),"documents use the server-side byte-sniffing upload route");
+assert(source.includes("'x-upsert':'false'"),"signed uploads must not permit overwriting existing objects");
 assert(source.includes("fileName:isDocument?String(file.name||'Documento')"),"document filename is sent independently from message text");
 assert(serverTemplate.includes("async function chatUploadUrlRoute(req:Request)"),"backend implements the signed chat upload-ticket route");
 assert(serverTemplate.includes("db.storage.from(bucket).createSignedUploadUrl(path)"),"backend creates a path-scoped Storage upload token");
 assert(serverTemplate.includes('path==="/api/chat/upload-url"&&req.method==="POST"'),"signed upload-ticket route is registered");
 assert(serverTemplate.includes("Number.isSafeInteger(size)||size<=0"),"signed upload rejects invalid file sizes");
-assert(serverTemplate.includes("const max=isDocument?10*1024*1024:20*1024*1024;"),"backend enforces document and media size limits");
+assert(serverTemplate.includes("if(size>20*1024*1024)return response({error:\"O arquivo deve ter no máximo 20 MB.\"},413);"),"signed image/video tickets enforce the 20 MB bucket limit");
+assert(serverTemplate.includes('async function mediaRoute(req:Request,kind:"image"|"audio"|"document")'),"document upload retains server-side byte-sniffing validation");
 assert(source.includes("fileName:String(record.file_name!=null?record.file_name:(record.fileName||''))"),"document filename is normalized separately from the message caption");
 assert(serverTemplate.includes('file_name:type==="document"&&fileName?fileName:null'),"file name is saved to separate database column");
 assert(source.includes("var incomingTime=!own?"),"received messages show per-message timestamps");
