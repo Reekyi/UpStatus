@@ -31,7 +31,7 @@ for(const artifact of [prodUser,testUser]){
   assert(artifact.includes("GM_xmlhttpRequest({"),"updater must use GM_xmlhttpRequest to avoid page fetch/CORS failures");
   assert(artifact.includes("timeout:20000"),"updater requests must have a bounded timeout");
   assert(artifact.includes("function openUpdate(url)"),"updater must open the URL verified from the release manifest");
-  assert(artifact.includes("mvjqunhjxkbfcrxkjtgf.supabase.co\\/functions\\/v1\\/upstatus-test"),"updater must allow the isolated TEST distribution endpoint");
+  assert(artifact.includes("mvjqunhjxkbfcrxkjtgf")&&artifact.includes("(?:upstatus|upstatus-test)"),"updater must allow the stable and beta routes on the live Supabase project");
   assert(artifact.includes("showUpdatePrompt(served,url)"),"update prompt must preserve the verified script URL");
   assert(artifact.includes("function(){openUpdate(url)}"),"manual update button must use the verified script URL");
   assert(!artifact.includes("fetch('https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),"updater must not use page-context fetch for its manifest");
