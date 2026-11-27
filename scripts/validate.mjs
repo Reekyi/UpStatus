@@ -289,7 +289,7 @@ const endOfDay=agendaCurrentEventTest("Guilherme",agendaConfig,agendaAt(testDate
 assert(endOfDay&&endOfDay.status==="away"&&endOfDay.reason==="Fim do expediente","Weekday end-of-day must set Away at 18h");
 const weekend=agendaCurrentEventTest("Ricardo",agendaConfig,agendaAt("2026-12-05","Sat",13,30));
 assert(weekend===null,"Weekends must not trigger weekday agenda rules");
-const agendaWeekStartTest=new Function(weekStartCode+"\\nreturn agendaWeekStart;")();
+const agendaWeekStartTest=new Function(weekStartCode+"\nreturn agendaWeekStart;")();
 assert(agendaWeekStartTest("2026-11-28")==="2026-11-23"&&agendaWeekStartTest("2026-11-27")==="2026-11-23","The selected Aulão owner must remain on the same week key throughout Friday and Saturday");
 assert(agendaWeekStartTest("2026-11-29")==="2026-11-23","The weekly Aulão selection must remain associated with the same week through Sunday");
 assert(agendaWeekStartTest("2026-11-30")==="2026-11-30"&&agendaWeekStartTest("2026-11-30")!=="2026-11-23","A new Aulão assignment window must begin with the next Monday");
