@@ -13,8 +13,10 @@
 
 ## Estado conhecido no checkpoint de 27/11/2026
 - Oficial: **3.5.0**
-- Sem candidata ativa. A função dedicada `upstatus-test` permanece em **3.5.0-beta.5** para referência/testes de regressão.
-- Versão oficial anterior: **3.4.9**
+- Candidata ativa: **3.5.1-beta.1**, branch `beta/3.5.1-beta.1-ui-fixes`, destinada ao Staging.
+- A função `upstatus-test` de produção continua em **3.5.0-beta.5** e deve permanecer intocada.
+- URL de teste da candidata: `https://akbgmmpnnpwcwgcfrltw.supabase.co/functions/v1/upstatus-test/upstatus.user.js`.
+- Versão oficial anterior: **3.4.9**.
 - Isso é um checkpoint, não substitui a consulta ao estado atual do GitHub e Supabase.
 
 ## Função de teste Beta 5, mantida separada da versão oficial
@@ -51,3 +53,13 @@ O plano é Free e o usuário exige não exceder os limites. Leia a seção “Su
 Apresente: versão oficial, beta ativa, próxima beta, branch/commit, status Staging, status Produção, consumo/risco de quotas, divergências e próximo passo seguro.
 
 Se o chat não tiver acesso real ao GitHub/Supabase, diga isso claramente e peça que o usuário conecte ou forneça acesso. Nunca finja que leu os dados.
+
+
+## Candidata 3.5.1-beta.1 (ciclo de correções de 27/11/2026)
+- Branch: beta/3.5.1-beta.1-ui-fixes.
+- Destino exclusivo: Staging akbgmmpnnpwcwgcfrltw, função upstatus-test.
+- Install URL: https://akbgmmpnnpwcwgcfrltw.supabase.co/functions/v1/upstatus-test/upstatus.user.js.
+- A Beta 5 no projeto de produção continua como referência de integração em tempo real e não deve ser substituída por esta beta isolada.
+- Não modificar a função upstatus de produção, a função upstatus-test de produção, nem a função upstatus do Staging.
+- O ciclo cobre allowlist da equipe, arte da tela vazia, rodapé de atualização, controles de chamada no tema claro e botão de cancelar gravação.
+- Sem migrações ou exclusões de dados; o histórico existente permanece preservado.
