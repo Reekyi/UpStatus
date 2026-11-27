@@ -25,6 +25,16 @@ assert(headerValue(prodUser,"namespace")==="upseller","production namespace mism
 assert(headerValue(testUser,"namespace")==="upseller-test","test namespace mismatch");
 assert(headerValue(prodUser,"updateURL").includes("/upstatus/upstatus.user.js"),"production updateURL mismatch");
 assert(headerValue(testUser,"updateURL").includes("/upstatus-test/upstatus.user.js"),"test updateURL mismatch");
+for(const artifact of [prodUser,testUser]){
+  assert(artifact.includes("function requestUpdateText(url){"),"updater must use the Tampermonkey request helper");
+  assert(artifact.includes("GM_xmlhttpRequest({"),"updater must use GM_xmlhttpRequest to avoid page fetch/CORS failures");
+  assert(artifact.includes("timeout:20000"),"updater requests must have a bounded timeout");
+  assert(artifact.includes("function openUpdate(url)"),"updater must open the URL verified from the release manifest");
+  assert(artifact.includes("showUpdatePrompt(served,url)"),"update prompt must preserve the verified script URL");
+  assert(artifact.includes("function(){openUpdate(url)}"),"manual update button must use the verified script URL");
+  assert(!artifact.includes("fetch('https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),"updater must not use page-context fetch for its manifest");
+}
+
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
 assert(testUser.includes("var key='upstatus_test_';"),"test storage prefix mismatch");
