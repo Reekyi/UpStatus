@@ -8,8 +8,8 @@ const release=JSON.parse(fs.readFileSync(path.join(ROOT,"release.json"),"utf8"))
 const baseVersion=String(release.version||"").trim();
 const preRelease=String(release.preRelease||"").trim();
 if(!/^\d+\.\d+\.\d+$/.test(baseVersion))throw new Error("release.json: version must use X.Y.Z");
-const fullVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
-const PROD_VERSION="3.5.0";
+const PROD_VERSION=preRelease?"3.5.0":baseVersion;
+const TEST_VERSION="3.5.1-beta.2";
 
 const userTemplate=fs.readFileSync(path.join(ROOT,"src/userscript/upstatus.user.template.js"),"utf8");
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
@@ -85,7 +85,7 @@ function writeFunction(fn,source){
   fs.writeFileSync(path.join(dir,"index.ts"),source,"utf8");
 }
 const prodUser=renderUser({version:PROD_VERSION,test:false});
-const testUser=renderUser({version:fullVersion,test:true});
+const testUser=renderUser({version:TEST_VERSION,test:true});
 writeFunction(PROD_FUNCTION,renderFunction({version:PROD_VERSION,test:false}));
 writeFunction(TEST_FUNCTION,renderFunction({version:fullVersion,test:true}));
 const dist=path.join(ROOT,"dist");
@@ -94,7 +94,7 @@ fs.mkdirSync(dist,{recursive:true});
 fs.writeFileSync(path.join(dist,"upstatus.user.js"),prodUser,"utf8");
 fs.writeFileSync(path.join(dist,TEST_FUNCTION+".user.js"),testUser,"utf8");
 fs.writeFileSync(path.join(dist,"build-manifest.json"),JSON.stringify({
-  baseVersion:PROD_VERSION,testVersion:fullVersion,channel:preRelease?"pre-release":"stable",
+  baseVersion:PROD_VERSION,testVersion:TEST_VERSION,channel:preRelease?"pre-release":"stable",
   productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION
 },null,2)+"\n","utf8");
-console.log("Built UpStatus "+baseVersion+" / TEST "+fullVersion);
+console.log("Built UpStatus "+PROD_VERSION+" / TEST "+TEST_VERSION);
