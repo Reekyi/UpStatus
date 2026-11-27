@@ -70,7 +70,7 @@ const mockUser={name:"Ricardo",online_status:"1",status:"online"};
 const mockTeam=[{name:"Ricardo",online_status:"1",status:"online"},{name:"Lohan",online_status:"1",status:"online"},{name:"Guilherme",online_status:"0",status:"offline"}];
 const mockPinia={_s:new Map([["user",{$state:{userInfo:mockUser}}],["team",{$state:{members:mockTeam}}],["orders",{$state:{order:{status:"open"}}}]])};
 const mockApp={__vue_app__:{config:{globalProperties:{$pinia:mockPinia}},_instance:null}};
-const mockDocument={querySelector(selector){return selector==="#app"?mockApp:null;}};
+const mockDocument={listeners:{},querySelector(selector){return selector==="#app"?mockApp:null;},addEventListener(type,handler){this.listeners[type]=handler;},dispatchEvent(event){var handler=this.listeners[event.type];if(handler)handler(event);}};
 const mockWindow={dispatchEvent(){}};
 function MockCustomEvent(type,options){this.type=type;this.detail=options&&options.detail;}
 const applyStatus=new Function("document","window","CustomEvent",visualHelper+";return applySaleSmartlyStatusVisual;")(mockDocument,mockWindow,MockCustomEvent);
@@ -80,6 +80,14 @@ assert(mockUser.online_status==="2"&&mockUser.status==="busy","Current user visu
 assert(mockTeam[0].online_status==="2"&&mockTeam[0].status==="busy","Matching team row must reflect the new status");
 assert(mockTeam[1].online_status==="1"&&mockTeam[1].status==="online","Unrelated team rows must remain unchanged");
 assert(mockTeam[2].online_status==="0"&&mockTeam[2].status==="offline","Other team members must keep their status");
+assert(typeof mockDocument.listeners.UPSTATUS_APPLY_VISUAL==="function","Realtime visual status event listener must be registered in the page bridge");
+mockDocument.listeners.UPSTATUS_APPLY_VISUAL({detail:{member:"Lohan",status:"0"}});
+assert(mockTeam[1].online_status==="0"&&mockTeam[1].status==="offline","Realtime update from another browser must update the matching native team row");
+mockDocument.listeners.UPSTATUS_APPLY_VISUAL({detail:{member:"Guilherme",status:"2"}});
+assert(mockTeam[2].online_status==="2"&&mockTeam[2].status==="busy","Remote status updates must be applied to the correct colleague");
+assert(testUser.includes(".on('broadcast',{event:'user_status'},function(payload)"),"Realtime user_status broadcasts must update each connected native Sales Smartly page");
+assert(testUser.includes("sendRealtimeEvent('user_status',{name:member,status:status})"),"Own status changes must broadcast a native visual update");
+assert(testUser.includes("sendRealtimeEvent('user_status',{name:member,status:c.status})"),"Remote status commands must broadcast a native visual update");
 assert(mockPinia._s.get("orders").$state.order.status==="open","Non-user statuses must not be modified");
 assert(testUser.includes("applySaleSmartlyStatusVisual(onlineStatus,detail.member||'')"),"Native UI update must run after a successful Sale Smartly status API response");
 assert(testUser.includes("status:map[status],member:member"),"Current UpStatus member identity must be passed to the native UI updater");
