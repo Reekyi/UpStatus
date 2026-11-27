@@ -1,3 +1,9 @@
+## 3.5.0-beta.2 hotfix (2026-11-27)
+
+### Corrigido erro de autenticação no backend
+- Restaurada a resolução de contexto de sessão para usuários permitidos, sem qualquer fluxo ou identidade de convidado.
+- O backend volta a resolver `/api/me` e as rotas autenticadas de chat/status usando somente sessões de Ricardo, Lohan e Guilherme.
+
 ## 3.5.0-beta.2 (2026-11-27)
 
 ### Corrigido carregamento inicial do userscript
