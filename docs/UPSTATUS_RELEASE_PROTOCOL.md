@@ -5,8 +5,8 @@ Last reviewed: 2026-11-27
 ## Current release state
 
 - Official production version: **3.4.9**
-- Current beta: **3.5.0-beta.1** (team access cleanup, in progress)
-- Next beta if this attempt is rejected: **3.5.0-beta.2**
+- Current beta: **3.5.0-beta.2** (startup timing and TEST updater correction, in progress)
+- Next beta if this attempt is rejected: **3.5.0-beta.3**
 - Stable baseline: GitHub `master` at release commit `fb3c6e0bbce9652a48f6f36e8437154c45ec1aac` (release 3.4.9).
 - Never infer that a version is deployed merely because a commit or manifest exists. Verify the GitHub release ref/manifest and the live Supabase deployment before claiming deployment state.
 
