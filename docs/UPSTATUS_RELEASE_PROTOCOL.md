@@ -5,9 +5,9 @@ Last reviewed: 2026-11-27
 ## Current release state
 
 - Official production version: **3.4.9**
-- Deployed beta: **3.5.0-beta.4** (live-integration test function; official `upstatus` remains 3.4.9)
-- Candidate beta: **3.5.0-beta.5** (native Pinia status action and active-project Realtime endpoint; not yet deployed)
-- Next beta if the candidate is rejected: **3.5.0-beta.6**
+- Deployed beta: **3.5.0-beta.5** (dedicated `upstatus-test` function; live cross-user visual validation pending)
+- Previous beta: **3.5.0-beta.4**
+- Next beta if Beta 5 is rejected: **3.5.0-beta.6**
 - Beta function: `upstatus-test` in the production project `mvjqunhjxkbfcrxkjtgf`; official `upstatus` remains unchanged.
 - Beta installer: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`
 - TEST project `akbgmmpnnpwcwgcfrltw` remains available but is not used for this live-integration beta.
@@ -131,17 +131,21 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 - No DB schema, new polling, new Realtime channel/subscription, or logging was added. The existing broadcast is reused. Quota impact expected: one small broadcast for each successful status change, with no material database/egress/storage/log-ingestion/log-query increase. Latest quota snapshot remains a user-provided 2026-11-27 screenshot: log ingestion 0.45/1 GB (45%); no live quota telemetry was available in this tool session.
 - Pending: live user test of self-status changes and remote status changes. Do not merge or promote stable without explicit approval.
 
-## Candidate beta — 3.5.0-beta.5 (not deployed)
+## Deployed beta — 3.5.0-beta.5
 
-- Branch: `beta/3.5.0-beta.5-realtime-native-status`.
-- Candidate only: `release.json` in this branch identifies 3.5.0-beta.5. The currently deployed runtime remains 3.5.0-beta.4 until a separately authorized deployment.
-- The page bridge now invokes the Sale Smartly native Pinia action `user.switchOnlineStatus({ online_status, event_type: "0" })`, matching the action used by Sale Smartly's own status selector.
-- The bridge validates the active account using the confirmed `user.nickname` field and touches only `user.onlineStatus`. It no longer traverses unrelated Vue/Pinia objects or guesses generic `status` properties.
-- Native account matching is scoped to Ricardo, Lohan, or Guilherme and uses the active nickname prefix. The store's `canSelectOnlineStatuses` restriction is checked before invoking the native action.
-- Remote commands execute the same native action in the target member's own browser session. This preserves Sale Smartly's own API and internal event behavior; cross-user visual propagation still requires live manual verification after deployment.
-- Realtime URL/key are aligned to the active Supabase project `mvjqunhjxkbfcrxkjtgf`; the existing Realtime topic is retained. The obsolete `dlfvkawaiqduhlazsszm` host was removed from Realtime and the upload fallback URL.
-- No new Realtime topic, subscription, polling, database write, schema migration, or success logging was added. Restoring the existing Realtime connection may increase its normal low-volume traffic, so refresh quota usage before deployment; the last supplied screenshot is a historical 45% Log Ingestion snapshot, not live telemetry.
-- Pending: GitHub validation, reviewed diff, approved deployment destination, then live tests for self-change, remote change, and another colleague observing the updated status. No beta5 deployment or stable promotion has occurred.
+- Branch: `beta/3.5.0-beta.5-realtime-native-status`; draft PR #184 targets the Beta 4 integration branch and remains unmerged.
+- Dedicated function: `upstatus-test`, deployed to project `mvjqunhjxkbfcrxkjtgf` (the dedicated beta function shares the live team database/Storage/Realtime by design; stable function `upstatus` is separate and untouched).
+- Supabase Edge Function deployment metadata: version **4**, status **ACTIVE**, `verify_jwt=false`, deployed source hash `71c0446cfb0608b831088f8782f883198758561f809c496e82f0ed7c77f798b7`.
+- Runtime verification: `/health` returned `ok:true`, `version:3.5.0-beta.5`; `/api/update-info` returned the same version; `/api/members` returned only Guilherme, Lohan, and Ricardo.
+- Served userscript metadata: `@version 3.5.0-beta.5`, namespace `upseller-test`, update URL targets `/functions/v1/upstatus-test/upstatus.user.js`.
+- Official verification after deployment: `/functions/v1/upstatus/health` still returns **3.4.9**; the official `upstatus` Edge Function remained ACTIVE at the same pre-deploy deployment hash. No stable userscript or stable function was overwritten.
+- The page bridge invokes the Sale Smartly native Pinia action `user.switchOnlineStatus({ online_status, event_type: "0" })`, validates the active account using `user.nickname`, updates only `user.onlineStatus`, and respects `canSelectOnlineStatuses`.
+- Remote commands execute that native action inside the target member's own Sale Smartly session. Cross-user status propagation through Sale Smartly's own socket still requires manual confirmation by testing Ricardo, Lohan, and Guilherme in separate sessions.
+- Realtime uses the active project URL and its enabled publishable key, retaining the existing topic. The obsolete `dlfvkawaiqduhlazsszm` host was removed from the Realtime and upload fallback URLs.
+- No database/schema migration, database cleanup, new Realtime channel/subscription, extra polling, or success logging was introduced.
+- GitHub Actions `UpStatus Validate` run #2359 passed: `Built UpStatus 3.5.0 / TEST 3.5.0-beta.5` and `Validation OK: PROD 3.5.0 / TEST 3.5.0-beta.5`.
+- Quota screenshot supplied immediately before deployment: Egress **0.56/5 GB (11.2%)**, Database **38/500 MB (7.6%)**, MAU **0/50,000**, File Storage **0/1 GB**, Log Ingestion **0.53/1 GB (53%)**, Log Query **1.37/100 GB (1.37%)**. Log Ingestion is above the 50% alert threshold but below the 60% investigation threshold. This is a pre-deploy snapshot; no live post-deploy quota read was available. Monitor the next snapshot, because correcting Realtime connectivity may restore existing traffic.
+- Pending: manual checks for own status change, remote status change, and another team member observing each changed indicator without F5. Keep PR #184 in Draft and do not promote stable without explicit approval.
 
 ## State at this checkpoint
 
