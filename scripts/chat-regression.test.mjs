@@ -103,10 +103,12 @@ assert(source.includes("if(p.type==='presence'){callReceivePresence(p);return;}"
 assert(serverTemplate.includes("const isAdmin=await admin(name);"),"server delete is authorized by the authenticated admin role");
 assert(!serverTemplate.includes('const isAdmin=name==="Ricardo"'),"no name-only administrator bypass");
 assert(source.includes("var canDelete=m.user===member||role==='implementation_admin';"),"admin UI uses stored role");
-assert(source.includes("function setPendingAttachment(file)"),"files are staged instead of uploaded immediately");
-assert(source.includes("function updateLinkPreview(text)"),"links get a removable preview");
-assert(source.includes("e.preventDefault();setPendingAttachment(file)"),"pasted images stay pending");
-assert(source.includes("fileName:String(record.file_name"),"filename is separate from caption");
+assert(source.includes("function fileToDataUrl(file)"),"chat attachments are validated and encoded before upload");
+assert(source.includes("fileToDataUrl(file).then(function(dataUrl){"),"chat attachments use the backend media-upload flow");
+assert(source.includes("api('POST',isDocument?'/api/chat/document':'/api/chat/image',{dataUrl:dataUrl})"),"chat attachments use supported media routes");
+assert(!source.includes("'/api/chat/upload-url'"),"chat must not call an upload-ticket route absent from the backend");
+assert(source.includes("if(isDocument&&file.size>10*1024*1024)"),"document uploads respect the backend 10 MB limit");
+assert(source.includes("fileName:String(record.file_name!=null?record.file_name:(record.fileName||''))"),"document filename is normalized separately from the message caption");
 assert(serverTemplate.includes('file_name:type==="document"&&fileName?fileName:null'),"file name is saved to separate database column");
 assert(source.includes("var incomingTime=!own?"),"received messages show per-message timestamps");
 assert(source.includes("var ownMeta=own?'<span class=\"up-chat-own-meta\"><span class=\"up-chat-own-time\">"),"sent time appears with ticks");
@@ -120,4 +122,4 @@ assert(source.includes("function requestPublicChatLinkTitle(url,callback)"),"sta
 assert(source.includes('class="up-chat-link-card"'),"stable chat link-card renderer missing");
 assert(source.includes("hydrateChatLinkTitles(list);"),"chat link-card hydration hook missing");
 assert(source.includes("upstatus-340-chat-link-card-compat"),"chat link-card compatibility styles missing");
-console.log("Chat regression tests passed: composer, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");
+console.log("Chat regression tests passed: composer, validated attachments, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");
