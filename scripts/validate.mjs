@@ -240,4 +240,51 @@ assert(testUser.includes("function openAgenda()")&&testUser.includes("up-setting
 assert(testUser.includes("up-settings-history")&&!testUser.includes('class="up-history-btn hidden"'),"History must move into settings instead of the main header");
 assert(testUser.includes("agendaReconcileQueued")&&testUser.includes("setTimeout(function(){agendaReconcile();},0)"),"Concurrent agenda reconciliations must be serialized");
 
+
+function extractFunction(source,startSignature,endSignature,replacements=[]){
+  const start=source.indexOf(startSignature);
+  const end=endSignature?source.indexOf(endSignature,start):-1;
+  assert(start>=0&&(!endSignature||end>start),"Could not extract "+startSignature+" for agenda regression tests");
+  let code=source.slice(start,end>=0?end:source.length);
+  for(const [from,to] of replacements)code=code.replace(from,to);
+  return code;
+}
+const weekStartCode=extractFunction(testFn,"function agendaWeekStart(","function agendaCurrentEvent(",[
+  ["function agendaWeekStart(dateKey:string)","function agendaWeekStart(dateKey)"]
+]);
+const agendaEventCode=extractFunction(testFn,"function agendaCurrentEvent(","async function agendaView(",[
+  ["function agendaCurrentEvent(name:string,config:any,now=new Date())","function agendaCurrentEvent(name,config,now=new Date())"]
+]);
+const agendaCurrentEventTest=new Function(
+  "AGENDA_DAYS","AGENDA_TRAINING_SLOTS","saoPauloParts",
+  weekStartCode+"\n"+agendaEventCode+"\nreturn agendaCurrentEvent;"
+)(["Mon","Tue","Wed","Thu","Fri"],["10","11","15","16"],function(date){return date.parts;});
+function agendaAt(date,weekday,hour,minute){
+  return {parts:{date:date,weekday:weekday,hour:hour,minute:minute}};
+}
+const testDate="2026-11-30";
+const agendaConfig={
+  days:{[testDate]:{lunch:{Ricardo:"12",Guilherme:"13"},training:{"10":"Ricardo","11":"Guilherme","15":"Lohan","16":""}}},
+  weeks:{[testDate]:"Lohan"}
+};
+const lunchNoon=agendaCurrentEventTest("Ricardo",agendaConfig,agendaAt(testDate,"Mon",12,30));
+assert(lunchNoon&&lunchNoon.kind==="pause"&&lunchNoon.status==="busy"&&lunchNoon.reason==="Almoçando","Ricardo's 12h lunch must pause only within 12h-13h");
+const lunchOne=agendaCurrentEventTest("Guilherme",agendaConfig,agendaAt(testDate,"Mon",13,30));
+assert(lunchOne&&lunchOne.reason==="Almoçando"&&lunchOne.status==="busy","Guilherme's 13h lunch must pause within 13h-14h");
+const trainingTen=agendaCurrentEventTest("Ricardo",agendaConfig,agendaAt(testDate,"Mon",10,30));
+assert(trainingTen&&trainingTen.reason==="Em treinamento"&&trainingTen.status==="busy","10h training assignment must pause its selected owner");
+const trainingEleven=agendaCurrentEventTest("Guilherme",agendaConfig,agendaAt(testDate,"Mon",11,30));
+assert(trainingEleven&&trainingEleven.reason==="Em treinamento","11h training assignment must pause its selected owner");
+const aulaoThree=agendaCurrentEventTest("Lohan",agendaConfig,agendaAt(testDate,"Mon",15,30));
+const aulaoFour=agendaCurrentEventTest("Lohan",agendaConfig,agendaAt(testDate,"Mon",16,30));
+assert(aulaoThree&&aulaoFour&&aulaoThree.reason==="Em treinamento"&&aulaoFour.reason==="Em treinamento","Weekly Aulão must keep its owner paused continuously from 15h to 17h");
+const emptySlot=agendaCurrentEventTest("Guilherme",agendaConfig,agendaAt(testDate,"Mon",16,30));
+assert(emptySlot===null,"An empty 16h training slot must not change anyone's status");
+const noAutoStart=agendaCurrentEventTest("Ricardo",agendaConfig,agendaAt(testDate,"Mon",9,30));
+assert(noAutoStart===null,"Agenda must not automatically activate a member at the start of the day");
+const endOfDay=agendaCurrentEventTest("Guilherme",agendaConfig,agendaAt(testDate,"Mon",18,0));
+assert(endOfDay&&endOfDay.status==="away"&&endOfDay.reason==="Fim do expediente","Weekday end-of-day must set Away at 18h");
+const weekend=agendaCurrentEventTest("Ricardo",agendaConfig,agendaAt("2026-12-05","Sat",13,30));
+assert(weekend===null,"Weekends must not trigger weekday agenda rules");
+
 console.log("Validation OK: PROD "+stableVersion+" / TEST "+testVersion+" (isolated live-data Beta 2)");
