@@ -358,7 +358,7 @@ async function agendaReconcileRoute(req:Request,name:string){
     runtime[name]=state;await setState(AGENDA_RUNTIME_KEY,runtime);
     return response({action:{status,reason,eventKey}});
   };
-  if(state&&state.date!==parts.date){delete runtime[name];state=null;}
+  if(state&&state.date!==parts.date){delete runtime[name];state=null;await setState(AGENDA_RUNTIME_KEY,runtime);}
   if(event&&event.kind==="end"){
     if(state&&state.overrideKey===event.key)return noAction();
     if(state&&state.pending&&now-Number(state.pendingAt||0)<20000)return response({action:null});
