@@ -63,3 +63,9 @@ Se o chat não tiver acesso real ao GitHub/Supabase, diga isso claramente e peç
 - Não modificar a função upstatus de produção, a função upstatus-test de produção, nem a função upstatus do Staging.
 - O ciclo cobre allowlist da equipe, arte da tela vazia, rodapé de atualização, controles de chamada no tema claro e botão de cancelar gravação.
 - Sem migrações ou exclusões de dados; o histórico existente permanece preservado.
+
+### Deployment checkpoint 3.5.1-beta.1
+- GitHub Actions validation run #2367 passed.
+- Staging `upstatus-test` deployment version 8 is ACTIVE; source hash `66451104ef80f36919d19bc34e9628eb52d3b23446a354fa83a7a74924afc130`.
+- Runtime health/update-info and served userscript header were checked; `/api/members` returns only Guilherme, Lohan and Ricardo.
+- Production stable `upstatus` v6 and production `upstatus-test` v4 remain unchanged. Ricardo's manual acceptance is still pending.
