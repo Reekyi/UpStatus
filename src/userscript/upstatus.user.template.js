@@ -956,7 +956,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   }
   function openUpdate(url){
     var target=String(url||UPDATE_URL).trim();
-    if(!/^https:\/\/(?:mvjqunhjxkbfcrxkjtgf\.supabase\.co\/functions\/v1\/upstatus|akbgmmpnnpwcwgcfrltw\.supabase\.co\/functions\/v1\/upstatus-test)\/upstatus\.user\.js$/.test(target))target=UPDATE_URL;
+    if(!/^https:\/\/mvjqunhjxkbfcrxkjtgf\.supabase\.co\/functions\/v1\/(?:upstatus|upstatus-test)\/upstatus\.user\.js$/.test(target))target=UPDATE_URL;
     try{
       if(typeof GM_openInTab==='function'){
         var updateTab=GM_openInTab(target,{active:true,insert:true,setParent:true});
@@ -1077,13 +1077,15 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     var installed=String(CURRENT_VERSION||'').trim();
     statuses.forEach(function(s){s.textContent=' • Verificando versão oficial…';});
     manuals.forEach(function(x){x.disabled=true;x.title='Verificando versão oficial';x.onclick=function(){};});
-    requestUpdateText('https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json')
+    requestUpdateText('__UPSTATUS_UPDATE_MANIFEST_URL__')
       .then(function(rawManifest){
         var manifest;
         try{manifest=JSON.parse(rawManifest);}
         catch(_){throw new Error('Manifesto oficial não é um JSON válido.');}
         if(!manifest||!Object.prototype.hasOwnProperty.call(manifest,'version'))throw new Error('Manifesto inválido para este canal.');
-        var remote=String(manifest.version||'').trim();
+        var remoteBase=String(manifest.version||'').trim();
+        var remotePreRelease=String(manifest.preRelease||'').trim();
+        var remote=remotePreRelease?remoteBase+"-"+remotePreRelease:remoteBase;
         var url=String(manifest.scriptUrl||'__UPSTATUS_UPDATE_URL__').trim();
         if(!remote||!/^[0-9]+(?:\.[0-9]+){1,3}(?:-[0-9A-Za-z.-]+)?$/.test(remote))throw new Error('Versão do manifesto inválida.');
         if(url!=='__UPSTATUS_UPDATE_URL__')throw new Error('Link do script não corresponde ao canal oficial.');
