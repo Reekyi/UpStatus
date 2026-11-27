@@ -53,24 +53,11 @@ assert(decodeHex(testFn)===testUser,"test embedded userscript does not match bui
 checkSyntax(prodUser,"dist/upstatus.user.js");
 checkSyntax(testUser,"dist/upstatus-test.user.js");
 
-const luccaHtml=fs.readFileSync(path.join(ROOT,"lucca-site/index.html"),"utf8");
-const ycaroHtml=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
-const luccaInline=[...luccaHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].find(m=>!/\bsrc\s*=/.test(m[1])&&m[2].trim());
-assert(!!luccaInline,"Lucca inline script missing");
-checkSyntax(luccaInline[2],"lucca-site/index.html inline script");
-assert(luccaHtml.includes("sendMedia(file)"),"Lucca media upload flow missing");
-assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Lucca");'),"Lucca guest login/logout/expiry must preserve shared chat history");
-assert(!prodFn.includes('db.from("messages").delete().eq("user_name","Ycaro")'),"Ycaro guest login/logout/expiry must preserve shared chat history");
-assert(prodFn.includes("const html="+JSON.stringify(ycaroHtml)+";"),"Ycaro page embedding mismatch");
-assert(prodFn.includes('if(path==="/ycaro"||path==="/ycaro.html")'),"Ycaro page route missing");
-assert(prodFn.includes('Deno.env.get("YCARO_PASSWORD")'),"Ycaro password setting missing");
-assert(prodFn.includes('cookie(req,"ycaro_session")'),"Ycaro session cookie missing");
-assert(prodFn.includes('if(path.startsWith("/api/ycaro/"))return await ycaroRoute(req);'),"Ycaro API route missing");
-assert(ycaroHtml.includes("localStorage.getItem('upstatus_ycaro_token')"),"Ycaro session token is not sent");
-assert(ycaroHtml.includes("localStorage.setItem('upstatus_ycaro_token',d.token)"),"Ycaro login token is not persisted");
-assert(ycaroHtml.includes("localStorage.removeItem('upstatus_ycaro_token')"),"Ycaro logout token is not cleared");
-assert(ycaroHtml.includes("#d66b1f"),"Ycaro theme marker missing");
-assert(!ycaroHtml.includes("api('/api/lucca/"),"Ycaro page must use separate API endpoints");
+assert(!prodFn.match(/lucca|ycaro/i),"production backend contains removed guest identities");
+assert(!testFn.match(/lucca|ycaro/i),"TEST backend contains removed guest identities");
+assert(!prodUser.match(/lucca|ycaro|icaro|luca/i),"production userscript contains removed guest UI");
+assert(!testUser.match(/lucca|ycaro|icaro|luca/i),"TEST userscript contains removed guest UI");
+
 for(const artifact of [prodUser,testUser]){
   assert(artifact.includes("function closePopupAnimated(el,finish)"),"Popup exit animation helper missing");
   assert(artifact.includes("@keyframes upPopupExit"),"Popup exit keyframes missing");
