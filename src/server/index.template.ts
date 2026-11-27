@@ -121,7 +121,7 @@ async function healthRoute(req:Request,name:string){
   if(!["Ricardo","Lohan","Guilherme"].includes(name))return response({error:"Seu perfil não possui acesso à saúde do sistema."},403);
   const started=Date.now();
   const dbStarted=Date.now();
-  const usersQ=await db.from("users").select("name,status,reason,client_version,client_seen_at").order("name");
+  const usersQ=await db.from("users").select("name,status,reason,client_version,client_seen_at").in("name",["Ricardo","Lohan","Guilherme"]).order("name");
   const dbOk=!usersQ.error;
   const dbMs=Date.now()-dbStarted;
 
@@ -163,7 +163,7 @@ async function statusRoute(req:Request,name:string){
     const presenceUpdate:Record<string,unknown>={client_seen_at:now};
     if(clientVersion)presenceUpdate.client_version=clientVersion;
     await db.from("users").update(presenceUpdate).eq("name",name);
-    const {data,error}=await db.from("users").select("name,status,reason,updated_at,sync,client_version,client_seen_at").order("name");
+    const {data,error}=await db.from("users").select("name,status,reason,updated_at,sync,client_version,client_seen_at").in("name",["Ricardo","Lohan","Guilherme"]).order("name");
     if(error)throw error;
     const members:Record<string,unknown>={};
     const nowMs=Date.now();
@@ -206,7 +206,7 @@ async function statusRoute(req:Request,name:string){
 async function historyRoute(req:Request,name:string){
   if(!(await admin(name)))return response({error:"Seu perfil não possui acesso ao histórico."},403);
   const limit=Math.min(Math.max(Number(new URL(req.url).searchParams.get("limit")||100),1),500);
-  const {data,error}=await db.from("status_history").select("user_name,actor,target,status,reason,created_at").order("created_at",{ascending:false}).limit(limit);
+  const {data,error}=await db.from("status_history").select("user_name,actor,target,status,reason,created_at").in("user_name",["Ricardo","Lohan","Guilherme"]).in("actor",["Ricardo","Lohan","Guilherme"]).order("created_at",{ascending:false}).limit(limit);
   if(error)throw error;
   return response({history:(data||[]).map((x:any)=>({user:x.user_name,actor:x.actor,target:x.target,status:x.status,reason:x.reason||"",createdAt:x.created_at}))});
 }
@@ -228,7 +228,7 @@ async function chatRows(name:string,since?:string,sessionStartedAt?:number){
   if(since)query=query.gt("created_at",since);
   const {data,error}=await query.order("created_at",{ascending:true}).limit(since?200:1000);
   if(error)throw error;
-  return (data||[]).map((m:any)=>({
+  return (data||[]).filter((m:any)=>["Ricardo","Lohan","Guilherme","Sistema"].includes(String(m.user_name))).map((m:any)=>({
     id:String(m.id),user:m.user_name,message:m.message||"",type:m.type||"text",systemType:m.system_type||"",
     createdAt:m.created_at,imageUrl:m.image_url||"",fileName:m.file_name||"",mentions:Array.isArray(m.mentions)?m.mentions:[],
     replyTo:m.reply_to||null,reactions:m.reactions||{},readBy:[]
@@ -245,10 +245,10 @@ async function setState(key:string,value:any) {
 }
 
 async function profileMap() {
-  const {data,error}=await db.from("upstatus_profiles").select("user_name,avatar_url");
+  const {data,error}=await db.from("upstatus_profiles").select("user_name,avatar_url").in("user_name",["Ricardo","Lohan","Guilherme"]);
   if(error)throw error;
   const out:Record<string,string>={};
-  for(const x of data||[])if(x.avatar_url)out[x.user_name]=x.avatar_url;
+  for(const x of data||[])if(x.avatar_url&&["Ricardo","Lohan","Guilherme"].includes(String(x.user_name)))out[x.user_name]=x.avatar_url;
   return out;
 }
 function decodeDataUrl(raw:string) {
@@ -304,15 +304,15 @@ async function chatRoute(req:Request,name:string,sessionStartedAt=0){
       const cutoff=new Date(Date.now()-48*60*60*1000).toISOString();
       const [messages,profileRes,typingRes,readRes]=await Promise.all([
         chatRows(name,effectiveSince,sessionStartedAt),
-        db.from("upstatus_profiles").select("user_name,avatar_url"),
-        db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name),
+        db.from("upstatus_profiles").select("user_name,avatar_url").in("user_name",["Ricardo","Lohan","Guilherme"]),
+        db.from("upstatus_typing").select("user_name").in("user_name",["Ricardo","Lohan","Guilherme"]).gt("last_seen_at",cutoffTyping).neq("user_name",name),
 
         db.from("chat_reads").select("last_read_at").eq("user_name",name).maybeSingle()
       ]);
       const lastReadAt=(readRes.data as any)?.last_read_at||cutoff;
       const unreadQuery=db.from("messages").select("id",{count:"exact",head:true})
         .gte("created_at",cutoff).gt("created_at",lastReadAt)
-        .neq("user_name",name).neq("type","system");
+        .in("user_name",["Ricardo","Lohan","Guilherme"]).neq("user_name",name).neq("type","system");
       const {count:unreadCount,error:unreadError}=await unreadQuery;
       if(unreadError)throw unreadError;
       const profileMap:Record<string,string>={};
@@ -322,9 +322,9 @@ async function chatRoute(req:Request,name:string,sessionStartedAt=0){
     const cutoffTyping=new Date(Date.now()-4500).toISOString();
     const [messages,readRes,profileRes,typingRes]=await Promise.all([
       chatRows(name,undefined,sessionStartedAt),
-      db.from("chat_reads").select("user_name,last_read_at,messages"),
-      db.from("upstatus_profiles").select("user_name,avatar_url"),
-      db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoffTyping).neq("user_name",name),
+      db.from("chat_reads").select("user_name,last_read_at,messages").in("user_name",["Ricardo","Lohan","Guilherme"]),
+      db.from("upstatus_profiles").select("user_name,avatar_url").in("user_name",["Ricardo","Lohan","Guilherme"]),
+      db.from("upstatus_typing").select("user_name").in("user_name",["Ricardo","Lohan","Guilherme"]).gt("last_seen_at",cutoffTyping).neq("user_name",name),
 
     ]);
     const read=readRes.data;
@@ -388,7 +388,7 @@ async function readRoute(req:Request,name:string){
 async function typingRoute(req:Request,name:string){
   if(req.method==="GET"){
     const cutoff=new Date(Date.now()-4500).toISOString();
-    const {data}=await db.from("upstatus_typing").select("user_name").gt("last_seen_at",cutoff).neq("user_name",name);
+    const {data}=await db.from("upstatus_typing").select("user_name").in("user_name",["Ricardo","Lohan","Guilherme"]).gt("last_seen_at",cutoff).neq("user_name",name);
     return response({typing:(data||[]).map((x:any)=>x.user_name)});
   }
   const p:any=await readBody(req);
