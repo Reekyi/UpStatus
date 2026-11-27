@@ -41,7 +41,7 @@
 Toda alteração começa em beta no Staging, nunca diretamente em produção. A versão oficial só muda após aprovação explícita do Ricardo. Beta rejeitada não reutiliza número. Execute build, validações, testes de regressão, revisão de diff e verificação do deploy antes de entregar a beta. Só depois do aceite explícito promova para oficial.
 
 ## Proteção do limite gratuito Supabase
-O plano é Free e o usuário exige não exceder os limites. Leia a seção “Supabase Free-plan quota protection” no protocolo. Snapshot enviado em 27/11/2026: Egress 0.43/5 GB; Database 37/500 MB; MAU 0/50.000; File Storage 0/1 GB; Log Ingestion 0.45/1 GB (45%); Log Query 1.37/100 GB. Logs são a maior preocupação.
+O plano é Free e o usuário exige não exceder os limites. Leia a seção “Supabase Free-plan quota protection” no protocolo. Último snapshot enviado em 27/11/2026 antes do deploy: Egress 0.56/5 GB; Database 38/500 MB; MAU 0/50.000; File Storage 0/1 GB; Log Ingestion 0.53/1 GB (53%); Log Query 1.37/100 GB. Um snapshot anterior no mesmo dia mostrava Log Ingestion em 45%. Logs seguem como principal ponto de atenção.
 - Sem logs de sucesso por request/mensagem/heartbeat ou loops; sem dumps de log largos; sem polling desnecessário.
 - Nunca incluir conteúdo de chat, PII, tokens, credenciais ou payloads sensíveis nos logs.
 - Restringir consultas de log por serviço e janela de tempo.
