@@ -6,11 +6,11 @@ For every new AI-assisted task, first read [`AGENTS.md`](AGENTS.md), then [`docs
 
 ## Current release checkpoint
 
-- Official: **3.5.0**
-- No active release candidate. The dedicated `upstatus-test` function remains on **3.5.0-beta.5** for regression/reference testing.
-- Previous official: **3.4.9**
-- Beta TEST URL: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`
-- The beta uses its own Edge Function, namespace and local storage prefix; the stable `upstatus` function and stable userscript URL are unchanged.
+- Official: **3.5.0** (master and production; unchanged).
+- Active candidate: **3.5.1-beta.1**, branch `beta/3.5.1-beta.1-ui-fixes`, isolated in the existing Staging project.
+- Production `upstatus-test` remains on **3.5.0-beta.5** for live-team regression/reference testing and is not used by this candidate.
+- Beta TEST URL: `https://akbgmmpnnpwcwgcfrltw.supabase.co/functions/v1/upstatus-test/upstatus.user.js`
+- The candidate has its own Edge Function, namespace, storage prefix, Realtime topic and ringtone coordination; stable production functions and URLs are unchanged.
 - Verify live `release.json`, Git refs, and Supabase deployments before relying on this snapshot.
 
 ## Supabase environments
