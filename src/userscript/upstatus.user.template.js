@@ -531,7 +531,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   
   var originalTitle=document.title;
   var currentStatus='offline',currentStatusReason='',saleStatusCode='',saleMirrorInFlight=false,saleMirrorQueuedStatus='',saleMirrorBootstrapDone=false;
-  var agendaData=null,agendaTimer=null,agendaReconcileBusy=false,agendaRenderBusy=false,agendaViewWasOpen=false;
+  var agendaData=null,agendaTimer=null,agendaReconcileBusy=false,agendaReconcileQueued=false,agendaRenderBusy=false,agendaViewWasOpen=false;
   var CURRENT_VERSION='__UPSTATUS_VERSION__'
   var UPDATE_URL='__UPSTATUS_UPDATE_URL__';
   var externalNotifPermission='default';
@@ -541,6 +541,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     busy:'<circle cx="12" cy="12" r="8" fill="currentColor"/>',
     away:'<circle cx="12" cy="12" r="8" fill="currentColor"/>',
     clock:'<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    calendar:'<rect x="3.5" y="5" width="17" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7.5 3v4M16.5 3v4M4 9.5h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 13h2M14 13h2M8 17h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
     download:'<path d="M12 4v10m0 0 4-4m-4 4-4-4M5 19h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
     sound:'<path d="M5 10v4h3l4 3V7l-4 3H5Z" fill="currentColor"/><path d="M15 9.5a4 4 0 0 1 0 5M17.5 7a7.5 7.5 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
     'volume-2':'<path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
@@ -3617,7 +3618,8 @@ function chatAvatarPresence(name){
     refresh();
   }
   async function agendaReconcile(){
-    if(!token||!member||!saleStatusCode||agendaReconcileBusy)return;
+    if(!token||!member||!saleStatusCode)return;
+    if(agendaReconcileBusy){agendaReconcileQueued=true;return;}
     var actual=saleCodeToStatus(saleStatusCode);if(!actual)return;
     agendaReconcileBusy=true;
     try{
@@ -3631,7 +3633,10 @@ function chatAvatarPresence(name){
       }
     }catch(e){
       if(card&&!card.classList.contains('hidden'))message('Não foi possível consultar a agenda: '+(e.message||e),true);
-    }finally{agendaReconcileBusy=false;}
+    }finally{
+      agendaReconcileBusy=false;
+      if(agendaReconcileQueued){agendaReconcileQueued=false;setTimeout(function(){agendaReconcile();},0);}
+    }
   }
   function startAgendaScheduler(){
     if(agendaTimer){clearTimeout(agendaTimer);agendaTimer=null;}
