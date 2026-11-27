@@ -5,8 +5,9 @@
 - Depois da resposta de sucesso da API `online-switch`, o userscript tenta atualizar o estado reativo da interface Vue/Pinia do Sales Smartly.
 - O sincronizador identifica campos de status em stores e componentes de usuário/perfil e em registros da equipe que correspondam ao membro alterado.
 - A atualização é limitada a campos de status reconhecidos e ao usuário correspondente; não altera status de pedidos ou outros objetos.
-- O resultado da atualização visual é sinalizado ao UpStatus para diferenciar status salvo no servidor de status também refletido na interface.
-- O fluxo de autenticação, a API de status, o banco compartilhado e os canais Realtime não foram alterados.
+- Depois de cada alteração, o evento `user_status` é enviado pelo canal Realtime já existente. Cada instalação conectada tenta atualizar localmente o registro visual do membro correspondente na própria interface do Sale Smartly.
+- A resposta local informa se os campos visuais foram encontrados. Se não houver estado reconhecido, o UpStatus avisa que a atualização visual não foi confirmada, sem recarregar a página.
+- Não foi criado novo canal nem assinatura Realtime; o fluxo de autenticação, a API de status e o banco compartilhado permanecem iguais.
 
 ## 3.5.0-beta.3 (2026-11-27)
 
