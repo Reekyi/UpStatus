@@ -1,3 +1,10 @@
+## 3.5.0-beta.1 (2026-11-27)
+
+### Removed legacy team access
+- Removed the two temporary guest identities, their login pages, session handling, API routes, presence handling, and dedicated chat styling.
+- Restricted account lookup and team-member discovery to Ricardo, Lohan, and Guilherme.
+- Staging database cleanup retains only those three team accounts. Production data and deployment remain unchanged.
+
 ## 2026-11-27
 
 ### 3.4.9 (stable)
