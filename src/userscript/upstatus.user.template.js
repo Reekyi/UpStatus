@@ -61,9 +61,12 @@
   var faviconState={link:null,originalHref:'',originalData:'',blinkTimer:null,on:false};
   var CLOUD_SERVER='__UPSTATUS_CLOUD_SERVER__';
   var server=CLOUD_SERVER;
-  var UP_REALTIME_URL='https://mvjqunhjxkbfcrxkjtgf.supabase.co';
-  var UP_REALTIME_KEY='sb_publishable_4_dLUWGGqyPP0prupYq8Jw_DTLJ2FlQ';
+  var UP_REALTIME_URL='__UPSTATUS_REALTIME_URL__';
+  var UP_REALTIME_KEY='__UPSTATUS_REALTIME_KEY__';
   var UP_REALTIME_TOPIC='__UPSTATUS_REALTIME_TOPIC__';
+  var UP_ALLOWED_MEMBERS=['Ricardo','Lohan','Guilherme'];
+  function upIsAllowedMember(name){var value=String(name||'').trim().toLowerCase();return !!value&&UP_ALLOWED_MEMBERS.some(function(allowed){return allowed.toLowerCase()===value;});}
+  function upFilterMembers(items){var out=[];(Array.isArray(items)?items:[]).forEach(function(item){var name=typeof item==='string'?item:(item&&item.name);if(!upIsAllowedMember(name))return;var normalized=String(name).trim().toLowerCase();if(out.some(function(existing){var existingName=typeof existing==='string'?existing:(existing&&existing.name);return String(existingName||'').trim().toLowerCase()===normalized;}))return;out.push(item);});return out;}
   var realtimeClient=null,realtimeChannel=null,realtimeActive=false,realtimeRetryTimer=null;
   // Novo motor de chamadas: WebRTC para áudio + Supabase Realtime somente para sinalização.
   // Mantido isolado do chat, status e demais recursos do UpStatus.
@@ -95,7 +98,7 @@ function voiceControlSyncVisibility(){if(!voiceControlBubble)return;var panelOpe
 function voiceRoomRender(){
   var p=card&&card.querySelector('.up-voice-room');
   if(!p){voiceControlSyncVisibility();return;}
-  var names=Object.keys(voiceRoom.participants).filter(function(n){return n===member&&voiceRoom.active||Date.now()-voiceRoom.participants[n].at<30000;}).sort();
+  var names=Object.keys(voiceRoom.participants).filter(function(n){return upIsAllowedMember(n)&&(n===member&&voiceRoom.active||Date.now()-voiceRoom.participants[n].at<30000);}).sort();
   if(names.length&&!voiceRoom.sessionStartedAt){var sessionCandidates=names.map(function(n){return Number((voiceRoom.participants[n]||{}).sessionStartedAt)||0;}).filter(function(t){return t>0;});voiceRoom.sessionStartedAt=sessionCandidates.length?Math.min.apply(Math,sessionCandidates):Date.now();}
   if(!names.length&&!voiceRoom.active){voiceRoom.sessionStartedAt=0;if(voiceRoom.sessionTimer){clearInterval(voiceRoom.sessionTimer);voiceRoom.sessionTimer=null;}}else if(voiceRoom.sessionStartedAt&&!voiceRoom.sessionTimer){voiceRoom.sessionTimer=setInterval(function(){voiceRoomRender();},1000);}
   p.classList.toggle('is-empty',!names.length&&!voiceRoom.active);p.classList.toggle('is-joining',!!voiceRoom.joining);p.classList.toggle('is-joined',!!voiceRoom.active);
@@ -1012,7 +1015,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   }
   function openUpdate(url){
     var target=String(url||UPDATE_URL).trim();
-    if(!/^https:\/\/mvjqunhjxkbfcrxkjtgf\.supabase\.co\/functions\/v1\/(?:upstatus|upstatus-test)\/upstatus\.user\.js$/.test(target))target=UPDATE_URL;
+    if(!/^https:\/\/(?:mvjqunhjxkbfcrxkjtgf|akbgmmpnnpwcwgcfrltw)\.supabase\.co\/functions\/v1\/(?:upstatus|upstatus-test)\/upstatus\.user\.js$/.test(target))target=UPDATE_URL;
     try{
       if(typeof GM_openInTab==='function'){
         var updateTab=GM_openInTab(target,{active:true,insert:true,setParent:true});
@@ -1399,8 +1402,7 @@ function renderChatText(text){
   }
   function isTeamChatMessage(data){
     if(!data||!data.user||data.type==='system')return false;
-    var names=window.__upstatusMembers||[];
-    if(!names.length)names=['Ricardo','Lohan','Guilherme'];
+    var names=upFilterMembers(window.__upstatusMembers||UP_ALLOWED_MEMBERS).map(function(item){return typeof item==='string'?item:item.name;});
     
     var sender=String(data.user).trim().toLowerCase();
     return names.some(function(name){return String(name).trim().toLowerCase()===sender;});
@@ -1750,8 +1752,8 @@ function renderChatText(text){
     return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(paths[type]||paths.close)+'</svg>';
   }
   function callNames(separator){
-    var list=Array.isArray(upCall.participants)?upCall.participants.filter(function(n){return n;}).slice():[];
-    if(!list.length&&upCall.peer)list=[member,upCall.peer].filter(function(n){return n;});
+    var list=Array.isArray(upCall.participants)?upCall.participants.filter(function(n){return upIsAllowedMember(n);}).slice():[];
+    if(!list.length&&upCall.peer)list=[member,upCall.peer].filter(function(n){return upIsAllowedMember(n);});
     return list.join(separator||' + ');
   }
   function callConnectedLabel(){
@@ -1768,7 +1770,7 @@ function renderChatText(text){
     var names=[],team=window.__upstatusTeam||{};
     Object.keys(team).forEach(function(n){if(n)names.push(n);});
     if(!names.length&&Array.isArray(window.__upstatusMembers))names=window.__upstatusMembers.slice();
-    names=names.filter(function(n){return n&&n!==member&&upCall.participants.indexOf(n)<0&&!upCall.pendingInvites[n];});
+    names=upFilterMembers(names).map(function(item){return typeof item==='string'?item:item.name;}).filter(function(n){return n!==member&&upCall.participants.indexOf(n)<0&&!upCall.pendingInvites[n];});
     names.sort(function(a,b){return String(a).localeCompare(String(b),'pt-BR');});
     return names;
   }
@@ -1981,7 +1983,7 @@ function renderChatText(text){
   }
   function callMergeParticipants(list){
     var next=Array.isArray(list)?list.slice():[];if(member)next.push(member);
-    next=next.filter(function(n){return n;});
+    next=next.filter(function(n){return upIsAllowedMember(n);});
     var out=[];next.forEach(function(n){if(out.indexOf(n)<0)out.push(n);});
     if(member&&out.indexOf(member)<0)out.push(member);upCall.participants=out;
   }
@@ -2057,7 +2059,7 @@ function renderChatText(text){
     else message('Não foi possível enviar o pedido de entrada.',true);
   }
   async function receiveCallSignal(p){
-    if(!p||!p.type||!p.callId||!p.from||p.from===member)return;
+    if(!p||!p.type||!p.callId||!p.from||p.from===member||!upIsAllowedMember(p.from))return;
     if(p.to&&p.to!==member)return;
     if(p.type==='presence'){callReceivePresence(p);return;}
     if(p.type==='ended'){delete upCallDirectory[p.callId];return;}
@@ -2103,7 +2105,7 @@ function renderChatText(text){
       upCall.pendingInvite={callId:p.callId,from:p.from,participants:upCall.participants.slice()};
       upCall.pendingOffers={};upCall.peers={};upCall.active=true;upCall.connected=false;upCall.startedAt=0;
       callStartRingtone();
-      var inviteNames=Array.isArray(p.participants)?p.participants.filter(function(n){return n&&n!==member;}).join(', '):p.from;
+      var inviteNames=Array.isArray(p.participants)?p.participants.filter(function(n){return upIsAllowedMember(n)&&n!==member;}).join(', '):p.from;
       callRender('Convite para chamada em grupo','Participantes: '+inviteNames,[
         {label:'Atender',icon:'phone',onClick:function(){callAcceptIncomingCall();}},
         {label:'Recusar',icon:'hangup',danger:true,onClick:function(){callSendTo(p.from,'reject',{reason:'Recusado'});callCleanup(false);}}
@@ -2566,7 +2568,7 @@ function chatAvatarPresence(name){
     var match=before.match(/(?:^|\s)@([\p{L}\p{N}_-]*)$/u);
     if(!match)return null;
     var query=(match[1]||'').toLowerCase();
-    var names=Array.isArray(window.__upstatusMembers)&&window.__upstatusMembers.length?window.__upstatusMembers.slice():['Ricardo','Lohan','Guilherme'];
+    var names=upFilterMembers(window.__upstatusMembers).map(function(item){return typeof item==='string'?item:item.name;});if(!names.length)names=UP_ALLOWED_MEMBERS.slice();
     var filtered=names.filter(function(name){return String(name).toLowerCase()!==String(member||'').toLowerCase()&&String(name).toLowerCase().indexOf(query)===0;});
     if('todos'.indexOf(query)===0)filtered.unshift('__ALL__');
     return {query:query,names:filtered};
@@ -2768,7 +2770,7 @@ function chatAvatarPresence(name){
     btn.addEventListener('click',btn.__upstatusEmojiClickHandler);
     if(!chatEmojiDocumentClickBound){chatEmojiDocumentClickBound=true;document.addEventListener('click',function(ev){document.querySelectorAll('.up-chat-emoji-menu').forEach(function(m){var b=m.__upstatusEmojiButton;if(!m.contains(ev.target)&&(!b||!b.contains(ev.target))){m.classList.add('hidden');m.style.setProperty('display','none','important');var ow=m.__upstatusEmojiOwner;if(m.parentNode===root&&ow&&ow.isConnected)ow.appendChild(m);}});});}
   }
-  function updateRecordingUi(btn,active){var label=chat.querySelector('.up-chat-recording-label');var time=chat.querySelector('.up-chat-recording-time');if(btn){btn.classList.toggle('recording',active);btn.innerHTML=active?'×':iconSvg('mic');btn.title=active?'Cancelar gravação':'Gravar áudio (até 30 segundos)';btn.setAttribute('aria-label',btn.title);}if(label)label.classList.toggle('show',active);var input=chat.querySelector('.up-chat-input');if(input){input.placeholder=active?'':'Digite uma mensagem';input.disabled=!!active;}var send=chat.querySelector('.up-chat-send');if(send){send.title=active?'Enviar áudio':'Enviar mensagem';send.setAttribute('aria-label',send.title);send.innerHTML=active?'<svg class="up-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>':iconSvg('send');}if(!active&&time)time.textContent='0:00';}
+  function updateRecordingUi(btn,active){var label=chat.querySelector('.up-chat-recording-label');var time=chat.querySelector('.up-chat-recording-time');if(btn){btn.classList.toggle('recording',active);btn.innerHTML=active?'<svg class="up-chat-record-cancel-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>':iconSvg('mic');btn.title=active?'Cancelar gravação':'Gravar áudio (até 30 segundos)';btn.setAttribute('aria-label',btn.title);}if(label)label.classList.toggle('show',active);var input=chat.querySelector('.up-chat-input');if(input){input.placeholder=active?'':'Digite uma mensagem';input.disabled=!!active;}var send=chat.querySelector('.up-chat-send');if(send){send.title=active?'Enviar áudio':'Enviar mensagem';send.setAttribute('aria-label',send.title);send.innerHTML=active?'<svg class="up-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>':iconSvg('send');}if(!active&&time)time.textContent='0:00';}
   function stopAudioRecording(send){var rec=mediaRecorder;if(!rec)return;rec.__sendOnStop=!!send;if(!send)recordingChunks=[];try{if(rec.state==='recording'){if(send){try{rec.requestData();}catch(e){}}rec.stop();}else{if(!send)recordingChunks=[];finishAudioRecording(rec);}}catch(e){if(!send)recordingChunks=[];finishAudioRecording(rec);}}
   function finishAudioRecording(rec){try{if(rec&&rec.stream)rec.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}clearInterval(recordingTimer);recordingTimer=null;updateRecordingUi(chat.querySelector('.up-chat-record'),false);mediaRecorder=null;}
   function toggleAudioRecording(btn){
@@ -3115,7 +3117,7 @@ function chatAvatarPresence(name){
     if(initial||!list.querySelector('.up-health-row'))list.innerHTML='<div class="up-health-row"><div class="up-health-left">'+healthLed(true)+'<span class="up-health-name">Consultando diagnóstico</span></div><span class="up-health-detail">Aguarde…</span></div>';
     var started=Date.now();
     api('GET','/api/health').then(function(d){
-      var apiMs=Date.now()-started,db=d&&d.db||{},chatCheck=d&&d.chat||{},state=d&&d.state||{},users=d&&d.members||[],rt=realtimeActive;
+      var apiMs=Date.now()-started,db=d&&d.db||{},chatCheck=d&&d.chat||{},state=d&&d.state||{},users=upFilterMembers(d&&d.members||[]),rt=realtimeActive;
       var rows=[
         {name:'Sistema UpStatus',ok:!!(d&&d.ok),detail:(d&&d.version?'Funcionando • '+apiMs+' ms':'Indisponível')},
         {name:'Banco de dados',ok:!!db.ok,detail:db.ok?('Respondendo • '+db.ms+' ms'):'Sem resposta'},
@@ -3142,18 +3144,18 @@ function chatAvatarPresence(name){
     var loginMember=GM_getValue(key+'last_member','Ricardo')||'Ricardo';lastMember=loginMember;card.innerHTML='<div class="up-title">UpStatus</div><div class="up-you">Entre para controlar o seu status.</div><div class="up-login"><label>Seu nome</label><select class="up-select" id="up-name"></select><label>Senha</label><input class="up-input" id="up-password" type="password" placeholder="Sua senha"><button id="up-enter">Entrar</button></div><div class="up-update up-login-update"><div><span>Versão v'+CURRENT_VERSION+'</span><a href="#" class="up-patch-link">O que há de novo?</a></div><div><button type="button" class="up-update-check">Verificar atualização</button><button type="button" class="up-update-now">Atualizar</button></div><span class="up-update-status"></span></div><div class="up-message"></div>';
     var nameSelect=card.querySelector('#up-name');
     function setLoginMembers(names){
-      var list=(names||[]).filter(Boolean);
-      if(!list.length)list=['Ricardo','Lohan','Guilherme'];
+      var list=upFilterMembers(names).map(function(item){return typeof item==='string'?item:item.name;});
+      if(!list.length)list=UP_ALLOWED_MEMBERS.slice();
       nameSelect.innerHTML=list.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
       if(list.indexOf(loginMember)<0)loginMember=list[0];
       nameSelect.value=loginMember;
     }
     function passwordKey(name){return key+'password_'+String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'_');}
     function loadSavedPassword(){var saved=GM_getValue(passwordKey(loginMember),'');var input=card.querySelector('#up-password');if(input)input.value=saved||'';}
-    setLoginMembers(['Ricardo','Lohan','Guilherme']);
+    setLoginMembers(UP_ALLOWED_MEMBERS);
     nameSelect.onchange=function(){loginMember=nameSelect.value;lastMember=loginMember;GM_setValue(key+'last_member',loginMember);loadSavedPassword();};
     loadSavedPassword();
-    api('GET','/api/members').then(function(r){setLoginMembers((r.members||[]).map(function(x){return x.name;}));}).catch(function(){});
+    api('GET','/api/members').then(function(r){setLoginMembers(upFilterMembers((r.members||[]).map(function(x){return x.name;})));}).catch(function(){});
     card.querySelector('#up-enter').onclick=async function(){
       try{
         server=CLOUD_SERVER;
@@ -3197,7 +3199,7 @@ function chatAvatarPresence(name){
   async function audioDiagRun(){audioDiagSetStatus('Verificando dispositivos, permissões e estado da conexão…');await audioDiagLoadDevices();var r=audioDiagReport(),lines=[];lines.push('Contexto seguro: '+(r.secureContext?'sim':'não'));lines.push('API de mídia: '+(r.mediaDevices?'disponível':'indisponível'));lines.push('Permissão/captura de microfone: '+(r.microfoneTeste.ativo?'ativa':'ainda não testada'));lines.push('Realtime: '+(r.realtime.ativo?'conectado':'não conectado'));lines.push('Sala de voz: '+(r.salaVoz.ativa?'ativa':'não está em chamada'));if(r.salaVoz.ativa){if(!r.salaVoz.peers.length)lines.push('Áudio remoto: nenhum peer de áudio registrado.');r.salaVoz.peers.forEach(function(p){lines.push(p.participante+': conexão '+p.connectionState+', ICE '+p.iceConnectionState+', faixas enviadas '+p.localAudioTracks+', faixas remotas ativas '+p.remoteAudioTracks);});}audioDiagSetStatus(lines.join(' • '));}
   function openTestPanel(){closeTestPanel();var o=document.createElement('div');o.className='up-test-overlay';o.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(4,8,14,.72);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;color:#edf2fb;font-family:Segoe UI,Arial,sans-serif';o.innerHTML='<div style="width:min(520px,calc(100vw - 28px));max-height:calc(100vh - 36px);overflow:auto;background:linear-gradient(145deg,#182334,#101722);border:1px solid #3d5272;border-radius:16px;box-shadow:0 22px 70px #000b;padding:18px;box-sizing:border-box"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-size:18px;font-weight:800">Diagnóstico de Áudio</div><div style="font-size:11px;color:#91a2ba;margin-top:3px">Ferramentas de microfone, reprodução e conexão • build '+esc(CURRENT_VERSION)+'</div></div><button class="up-test-close" aria-label="Fechar" style="border:0;background:#273247;color:#dbe5f5;border-radius:8px;width:32px;height:32px;cursor:pointer">×</button></div><section style="margin-top:15px;padding:12px;border:1px solid #34445c;border-radius:12px;background:#121c2a"><div style="font-size:13px;font-weight:750;margin-bottom:8px">1. Teste de microfone</div><label style="display:block;font-size:11px;color:#aab6c9;margin-bottom:5px" for="up-test-device">Dispositivo de entrada</label><select class="up-test-device" id="up-test-device" style="width:100%;padding:8px;background:#202d40;color:#edf2fb;border:1px solid #3d5272;border-radius:7px;margin-bottom:9px"><option value="">Microfone padrão</option></select><div style="height:8px;background:#273247;border-radius:8px;overflow:hidden"><div class="up-test-meter-fill" style="width:0;height:100%;background:linear-gradient(90deg,#16a36b,#74e7a6);transition:width .08s linear"></div></div><div class="up-test-meter-label" style="font-size:11px;color:#aab6c9;margin:6px 0 9px">Aguardando teste</div><div style="display:flex;gap:7px"><button class="up-test-mic-start" style="flex:1;padding:8px;background:#087f5b;color:white;border:0;border-radius:7px;cursor:pointer">Testar microfone</button><button class="up-test-mic-stop" disabled style="padding:8px 12px;background:#273247;color:#dbe5f5;border:1px solid #3d5272;border-radius:7px;cursor:pointer">Parar</button></div></section><section style="margin-top:10px;padding:12px;border:1px solid #34445c;border-radius:12px;background:#121c2a"><div style="font-size:13px;font-weight:750;margin-bottom:8px">2. Teste de saída</div><div style="display:flex;align-items:center;gap:9px"><label for="up-test-tone-volume" style="font-size:11px;color:#aab6c9">Volume do som</label><input class="up-test-tone-volume" id="up-test-tone-volume" type="range" min="0.02" max="0.3" step="0.01" value="0.12" style="flex:1;accent-color:#12b981"><span class="up-test-tone-label" style="font-size:11px">40%</span></div><div style="display:flex;gap:7px;margin-top:9px"><button class="up-test-tone-start" style="flex:1;padding:8px;background:#087f5b;color:white;border:0;border-radius:7px;cursor:pointer">Reproduzir som de teste</button><button class="up-test-tone-stop" disabled style="padding:8px 12px;background:#273247;color:#dbe5f5;border:1px solid #3d5272;border-radius:7px;cursor:pointer">Parar som</button></div><div style="font-size:10px;color:#91a2ba;margin-top:6px">O navegador pode não permitir selecionar a saída de áudio diretamente.</div></section><section style="margin-top:10px;padding:12px;border:1px solid #34445c;border-radius:12px;background:#121c2a"><div style="font-size:13px;font-weight:750;margin-bottom:8px">3. Diagnóstico da conexão</div><div style="font-size:11px;color:#aab6c9;margin-bottom:9px">Verifica Realtime, estado WebRTC/ICE e faixas de áudio sem gravar nem transmitir sua voz para o relatório.</div><div style="display:flex;gap:7px"><button class="up-test-diagnose" style="flex:1;padding:8px;background:#273247;color:#edf2fb;border:1px solid #3d5272;border-radius:7px;cursor:pointer">Executar diagnóstico</button><button class="up-test-copy" style="padding:8px 12px;background:#273247;color:#edf2fb;border:1px solid #3d5272;border-radius:7px;cursor:pointer">Copiar relatório</button></div></section><div class="up-test-status" role="status" aria-live="polite" style="margin-top:10px;padding:10px;border:1px solid #2f4058;border-radius:9px;background:#111a27;color:#a9bad0;font-size:11px">Pronto para testar. Os testes de microfone e som são locais.</div><div style="font-size:10px;color:#74869f;margin-top:10px">O teste usa recursos independentes e pode ser encerrado a qualquer momento. Ao fechar o painel, a captura e os sons de teste são encerrados.</div></div>';document.body.appendChild(o);o.querySelector('.up-test-close').onclick=closeTestPanel;o.querySelector('.up-test-mic-start').onclick=audioDiagStartMic;o.querySelector('.up-test-mic-stop').onclick=function(){audioDiagStopMic();audioDiagSetStatus('Teste de microfone encerrado.');};o.querySelector('.up-test-device').onchange=function(){if(audioDiag.stream)audioDiagStartMic();};o.querySelector('.up-test-tone-start').onclick=audioDiagStartTone;o.querySelector('.up-test-tone-stop').onclick=function(){audioDiagStopTone();audioDiagSetStatus('Som de teste encerrado.');};o.querySelector('.up-test-tone-volume').oninput=function(){var label=o.querySelector('.up-test-tone-label');if(label)label.textContent=Math.round(Number(this.value)/.3*100)+'%';if(audioDiag.toneGain)audioDiag.toneGain.gain.value=Number(this.value);};o.querySelector('.up-test-diagnose').onclick=audioDiagRun;o.querySelector('.up-test-copy').onclick=audioDiagCopyReport;o.addEventListener('click',function(e){if(e.target===o)closeTestPanel();});audioDiagLoadDevices();}
   function app(){
-    api('GET','/api/members').then(function(r){window.__upstatusMembers=(r.members||[]).map(function(x){return x.name});}).catch(function(){});
+    api('GET','/api/members').then(function(r){window.__upstatusMembers=upFilterMembers((r.members||[]).map(function(x){return x.name;}));}).catch(function(){});
     card.innerHTML='<div class="up-head"><div class="up-head-identity"><button type="button" class="up-head-avatar up-head-avatar-btn" title="Alterar foto de perfil" aria-label="Alterar foto de perfil"><img class="up-head-avatar-img" alt=""></button><div><div class="up-title">UpStatus</div><div class="up-you">Conectado como '+esc(member)+'</div></div></div><div class="up-actions"><button class="up-chat-btn" title="Chat da equipe" aria-label="Chat da equipe"><svg class="up-quick-chat-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="up-chat-icon-bubble" d="M12 2.5C6.35 2.5 1.8 6.45 1.8 11.35c0 2.28.98 4.35 2.63 5.92-.4 1.72-1.38 3.15-2.55 4.3 3.1.14 5.68-.63 7.63-1.77.8.2 1.65.3 2.49.3 5.65 0 10.2-3.95 10.2-8.75S17.65 2.5 12 2.5Z" fill="currentColor"/><circle cx="7.7" cy="11.4" r="1.45" fill="var(--up-chat-icon-cutout,#273247)"/><circle cx="12" cy="11.4" r="1.45" fill="var(--up-chat-icon-cutout,#273247)"/><circle cx="16.3" cy="11.4" r="1.45" fill="var(--up-chat-icon-cutout,#273247)"/></svg></button><button class="up-history-btn hidden" title="Ver histórico" aria-label="Ver histórico">'+iconSvg('clock')+'</button><button class="up-settings-btn" title="Configurações" aria-label="Configurações">'+iconSvg('gear')+'</button><div class="up-settings-menu hidden"><button type="button" class="up-settings-theme"></button>'+'<button type="button" class="up-settings-health">'+iconSvg('pulse')+'<span>Saúde do sistema</span></button>'+'<button type="button" class="up-settings-test">'+iconSvg('audio-lines')+'<span>Diagnóstico de Áudio</span></button>'+'</div><button class="up-logout">Sair</button></div></div><div class="up-statuses"><button class="up-status online">'+iconSvg('online')+' Online</button><button class="up-status busy">'+iconSvg('busy')+' Ocupado</button><button class="up-status away">'+iconSvg('away')+' Ausente</button></div><div class="up-reasons hidden"><label class="up-label">Motivo de ocupado</label><div class="up-reason-picker"><button type="button" class="up-reason-trigger"><span class="up-reason-trigger-icon">'+iconSvg('edit')+'</span><span class="up-reason-trigger-text">Selecione um motivo</span></button><div class="up-reason-menu hidden">'+reasons.map(function(x){return '<button type="button" class="up-reason-option" data-value="'+esc(x.value)+'">'+iconSvg(x.icon)+'<span class="up-reason-text">'+esc(x.label)+'</span></button>'}).join('')+'</div></div><select class="up-select hidden"></select><input class="up-input hidden" placeholder="Escreva o motivo"><button class="up-confirm hidden">Confirmar ocupado</button></div><div class="up-notice">'+iconSvg('pulse')+'<span>Sincronização com o Sale Smartly ativa.</span><span class="up-notice-ok">✓</span></div><div class="up-message"></div><section class="up-voice-room is-empty" aria-label="Chat de Voz"><div class="up-voice-head"><div class="up-voice-title">'+iconSvg('sound')+' Chat de Voz</div><div class="up-voice-state">Disponivel</div></div><div class="up-voice-participants"><span class="up-voice-empty"><b>Ninguem na chamada agora</b><small>Entre e chame a equipe para conversar.</small></span></div><div class="up-voice-actions"><button type="button" class="up-voice-join">Entrar no Chat</button><button type="button" class="up-voice-mute hidden" aria-label="Mutar microfone"></button><button type="button" class="up-voice-speakers hidden" aria-label="Silenciar áudio recebido" title="Silenciar áudio recebido"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></button><button type="button" class="up-screen-share-toggle hidden" aria-label="Compartilhar tela" title="Compartilhar tela"><svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 21h8M12 17v4M9 9h6M12 7v4"></path></svg></button><button type="button" class="up-voice-leave hidden" aria-label="Sair da sala">'+iconSvg('phone-off')+'</button></div><div class="up-voice-message" role="status" aria-live="polite"></div><div class="up-screen-share-panel" aria-hidden="true"><div class="up-screen-share-toolbar"><div class="up-screen-share-heading">Compartilhamento de tela</div></div><div class="up-screen-share-status">Compartilhamento de tela e janela</div><div class="up-screen-share-message" role="status" aria-live="polite"></div><div class="up-screen-share-grid"></div></div></section><div class="up-team-title-row"><div class="up-team-title">Equipe</div><span class="up-team-count"></span></div><div class="up-team">Carregando…</div>';
     history.innerHTML='<div class="up-history-head"><div class="up-history-title">Histórico</div><div class="up-actions"><button class="up-export" title="Exportar histórico">'+iconSvg('download')+' TXT</button><button class="up-close">Fechar</button></div></div><div class="up-history-list">Carregando…</div>';
 
@@ -3347,7 +3349,7 @@ function chatAvatarPresence(name){
     refreshing=true;
     api('GET','/api/status').then(function(d){
       var team=card.querySelector('.up-team');if(!team)return;
-      var allowedTeamNames=['Ricardo','Guilherme','Lohan'];
+      var allowedTeamNames=UP_ALLOWED_MEMBERS.slice();
       var sourceMembers=d.members||{},filteredMembers={};
       Object.keys(sourceMembers).forEach(function(n){if(allowedTeamNames.some(function(allowed){return String(allowed).toLowerCase()===String(n).toLowerCase();}))filteredMembers[n]=sourceMembers[n];});
       window.__upstatusTeam=filteredMembers;
@@ -4461,4 +4463,61 @@ document.addEventListener('click',function(ev){if(ev.target&&ev.target.closest&&
     '#upstatus-root .up-chat-item:not(.own) .up-chat-bubble.has-text:has(>.up-chat-text)>.up-chat-reactions,#upstatus-root .up-chat-item.own .up-chat-bubble.has-text:has(>.up-chat-text)>.up-chat-reactions{flex:0 0 auto!important;width:100%!important;order:100!important}';
   (document.head||document.documentElement).appendChild(st);
 
+})();
+
+
+/* UpStatus 3.5.1-beta.1: visual and layout regression fixes. */
+(function upStatus351VisualCorrections(){
+  if(document.getElementById('upstatus-351-visual-corrections'))return;
+  var style=document.createElement('style');style.id='upstatus-351-visual-corrections';
+  style.textContent=
+    '#upstatus-root .up-login-update{display:flex!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:space-between!important;gap:4px!important;width:100%!important;min-width:0!important;overflow:hidden!important;white-space:nowrap!important;box-sizing:border-box!important}'+
+    '#upstatus-root .up-login-update>div:first-child{display:flex!important;align-items:center!important;flex:1 1 auto!important;min-width:0!important;gap:4px!important;flex-wrap:nowrap!important;overflow:hidden!important;white-space:nowrap!important}'+
+    '#upstatus-root .up-login-update>div:first-child>span,#upstatus-root .up-login-update>div:first-child>a{flex:0 0 auto!important;white-space:nowrap!important;font-size:8px!important}'+
+    '#upstatus-root .up-login-update>div:nth-child(2){display:flex!important;align-items:center!important;gap:2px!important;flex:0 0 auto!important;white-space:nowrap!important}'+
+    '#upstatus-root .up-login-update .up-update-status{display:block!important;flex:0 1 auto!important;min-width:0!important;max-width:54px!important;margin:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:7px!important}'+
+    '#upstatus-root .up-login-update button{flex:0 0 auto!important;margin:0!important;padding:2px 3px!important;font-size:7.5px!important;line-height:1.15!important;white-space:nowrap!important}'+
+    '#upstatus-root .up-chat-input-wrap>.up-chat-record.recording{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 34px!important;width:34px!important;height:34px!important;min-width:34px!important;box-sizing:border-box!important;padding:0!important;font-size:0!important;line-height:1!important}'+
+    '#upstatus-root .up-chat-input-wrap>.up-chat-record.recording .up-chat-record-cancel-icon{display:block!important;flex:0 0 18px!important;width:18px!important;height:18px!important;max-width:18px!important;max-height:18px!important;margin:0!important}'+
+    '#upstatus-root.up-theme-light .up-voice-actions button,#upstatus-root.up-theme-light .up-voice-control-bubble>button:not(.up-voice-control-screen){background:#e7edf6!important;border:1px solid #c6d3e3!important;color:#26364d!important;opacity:1!important;box-shadow:0 1px 3px rgba(24,39,60,.08)!important}'+
+    '#upstatus-root.up-theme-light .up-voice-actions .up-voice-join{background:#18794e!important;border-color:#18794e!important;color:#fff!important}'+
+    '#upstatus-root.up-theme-light .up-voice-actions .up-voice-mute.is-muted,#upstatus-root.up-theme-light .up-voice-actions .up-voice-speakers.is-muted,#upstatus-root.up-theme-light .up-voice-control-bubble .up-voice-control-mute.is-muted,#upstatus-root.up-theme-light .up-voice-control-bubble .up-voice-control-speakers.is-muted{background:#b4233d!important;border-color:#e34b62!important;color:#fff!important}'+
+    '#upstatus-root.up-theme-light .up-voice-actions .up-screen-share-toggle.is-sharing,#upstatus-root.up-theme-light .up-voice-control-bubble .up-voice-control-screen.is-sharing{background:#18794e!important;border-color:#18794e!important;color:#fff!important}'+
+    '#upstatus-root.up-theme-light .up-voice-actions .up-voice-leave,#upstatus-root.up-theme-light .up-voice-control-bubble .up-voice-control-leave{background:#b4233d!important;border-color:#e34b62!important;color:#fff!important}'+
+    '#upstatus-root.up-theme-light .up-voice-actions button svg,#upstatus-root.up-theme-light .up-voice-control-bubble button svg{display:block!important;visibility:visible!important;opacity:1!important;color:currentColor!important;flex:0 0 18px!important;width:18px!important;height:18px!important;max-width:100%!important;max-height:100%!important;pointer-events:none!important}'+
+    '#upstatus-root.up-theme-light .up-voice-control-bubble .up-voice-control-screen{background:#e7edf6!important;border-color:#c6d3e3!important;color:#26364d!important}';
+  (document.head||document.documentElement).appendChild(style);
+})();
+
+
+(function upStatus351EmptyArtworkGuard(){
+  var K='upstatus-351-empty-state-guard';
+  function protectArtwork(e){
+    var container=null,node=e.parentElement;
+    for(var depth=0;node&&depth<5;depth++,node=node.parentElement){
+      if(/empty/i.test(String(node.className||''))){container=node;break;}
+    }
+    if(!container)container=e.parentElement;
+    if(!container)return;
+    container.classList.add('upstatus-351-empty-state');
+    Array.prototype.forEach.call(container.children,function(child){
+      if(child===e||child.contains(e))return;
+      if(child.querySelector&&child.querySelector('button,a,input,textarea,select,[contenteditable="true"]'))return;
+      var media=child.matches&&child.matches('img,svg,canvas,[role="img"]');
+      if(!media&&child.querySelector)media=!!child.querySelector('img,svg,canvas,[role="img"]');
+      try{if(getComputedStyle(child).backgroundImage!=='none')media=true}catch(_){}
+      if(!media)return;
+      child.classList.add('upstatus-351-empty-artwork');
+      if(child.querySelectorAll)child.querySelectorAll('img,svg,canvas,[role="img"]').forEach(function(el){el.classList.add('upstatus-351-empty-artwork-media');});
+    });
+  }
+  function bind(){var e=document.querySelector('.session-detail__empty-text');if(!e)return;protectArtwork(e);}
+  var style=document.createElement('style');style.id=K;
+  style.textContent=
+    '.upstatus-351-empty-state{position:relative!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;overflow:hidden!important;isolation:isolate!important}'+
+    '.upstatus-351-empty-state .session-detail__empty-text{position:relative!important;z-index:1!important;display:block!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;box-sizing:border-box!important}'+
+    '.upstatus-351-empty-artwork{position:relative!important;inset:auto!important;top:auto!important;right:auto!important;bottom:auto!important;left:auto!important;transform:none!important;display:block!important;width:auto!important;height:auto!important;max-width:min(72vw,340px)!important;max-height:min(38vh,260px)!important;margin:0 auto!important;box-sizing:border-box!important;overflow:hidden!important;pointer-events:none!important;z-index:0!important;object-fit:contain!important;flex:0 1 auto!important}'+
+    '.upstatus-351-empty-artwork-media{display:block!important;width:auto!important;height:auto!important;max-width:100%!important;max-height:100%!important;margin:0 auto!important;object-fit:contain!important;pointer-events:none!important}';
+  (document.head||document.documentElement).appendChild(style);
+  bind();setInterval(bind,500);
 })();
