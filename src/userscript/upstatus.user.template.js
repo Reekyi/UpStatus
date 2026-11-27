@@ -427,7 +427,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
         function walk(obj,path,depth){
           if(!obj||typeof obj!=='object'||depth>7||visited.has(obj))return;
           visited.add(obj);
-          var ownName=matchesName(obj),self=isSelf(obj);
+          var arrayNode=Array.isArray(obj),ownName=matchesName(obj),self=isSelf(obj);
           var userBranch=/(^|[.$_[\]])(user|userinfo|user_info|userprofile|user_profile|profile|account|currentuser|current_user|self|me)([.$_[\]]|$)/i.test(path);
           Object.keys(obj).slice(0,180).forEach(function(k){
             var value;try{value=obj[k];}catch(_){return;}
@@ -440,7 +440,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
             }
             if(value&&typeof value==='object'){
               var relevant=/(user|profile|account|member|staff|employee|agent|team|current|self|me|list|info|data|state)/i.test(k);
-              if(Array.isArray(value)||relevant||ownName||self||userBranch)walk(value,path+'.'+k,depth+1);
+              if(arrayNode||Array.isArray(value)||relevant||ownName||self||userBranch)walk(value,path+'.'+k,depth+1);
             }
           });
         }
