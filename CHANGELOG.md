@@ -1,3 +1,28 @@
+## 3.5.1-beta.2 (2026-11-27, isolated live-data candidate)
+
+### Sale Smartly is the source of truth
+- Added a Pinia store watcher for the current user's native `onlineStatus`; direct Sale Smartly changes are mirrored back into UpStatus and broadcast through the existing team Realtime topic.
+- UpStatus-originated manual, remote and scheduled changes must first execute the native Sale Smartly action and confirm the resulting status before writing the UpStatus status record/history.
+- Programmatic Pinia changes are tagged so the observer does not echo the same change back as a second user action.
+- Direct status changes made inside Sale Smartly receive the generic reason `Alterado no Sale Smartly` where the source does not expose a reason.
+
+### Team agenda
+- Added `Agenda da equipe` inside the settings gear and moved the History button into that same menu.
+- The agenda is visible to Ricardo, Guilherme and Lohan. Each member can edit only their own lunch choice (12h–13h or 13h–14h); all members can see the team's selected schedule.
+- Only Ricardo can edit the four daily training slots (10h, 11h, 15h and 16h) and the weekly Aulão owner. Empty training slots do not change anyone's status.
+- Aulão owner persists for the Monday–Friday week, 15h–17h. Lunch and training entries are daily.
+- No automatic morning activation is added. Weekday shift end is scheduled at 18h.
+- Browser-side reconciliation checks the current desired state on schedule boundaries and on focus/resume; it does not replay missed transitions in sequence. Native status changes still require the user's Sale Smartly session to be open.
+
+### Visual corrections
+- Replaced the unsuccessful Beta 1 waiting-artwork override with a targeted normal-flow layout correction for the Sale Smartly empty-state GIF.
+- Revised light-mode room and mini-player call controls individually (microphone, speaker, screen sharing and leave); dark-mode rules are not intentionally changed.
+
+### Live-data test isolation
+- Uses the new dedicated function `upstatus-351-test` in production project `mvjqunhjxkbfcrxkjtgf`, with namespace `upseller-test`, local prefix `upstatus_351_beta2_`, independent installer route, and shared live DB/Storage/Realtime.
+- Existing production `upstatus` and Beta 5 `upstatus-test` remain untouched. No SQL migration, account deletion or historical-data cleanup is included.
+- Automated validation and runtime deployment are pending; Ricardo's manual acceptance is still required.
+
 ## 3.5.1-beta.1 (2026-11-27, Staging candidate)
 
 ### Team member allowlist
