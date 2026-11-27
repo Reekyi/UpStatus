@@ -48,6 +48,16 @@ O schema público contém dez tabelas. Todas têm RLS habilitado. Não foram enc
 
 Isso é coerente com a arquitetura atual, na qual o cliente fala com as Edge Functions e elas usam o cliente Supabase privilegiado. Como `verify_jwt=false`, a proteção de rotas depende da autenticação e autorização implementadas pela própria aplicação. Os testes offline cobrem diversos casos positivos e negativos, mas a autorização completa ainda não foi exercitada contra o banco real.
 
+### Smoke test de autorização no Managed Edge Runtime
+
+Foi feito um teste GET anônimo, sem cookies ou token de aplicação, nas duas funções de Staging:
+
+- `GET /api/me`: ambas responderam HTTP 200 com `authenticated:false`, `name:null`, `role:null` e `canViewHistory:false`.
+- `GET /api/chat`: ambas responderam HTTP 401.
+- `GET /api/remote-status`: ambas responderam HTTP 401.
+
+Isso confirma que, apesar de `verify_jwt=false` no gateway, os dois endpoints protegidos testados aplicam o gate de autenticação da própria aplicação no runtime gerenciado. Não substitui teste autenticado, testes de papel/permissão ou a validação do candidato modular 3.4.7.
+
 ## 5. Storage em UpStatus Staging
 
 Buckets encontrados:
