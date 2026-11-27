@@ -51,8 +51,7 @@ function renderUser({version,test}){
   const cloud="https://"+project+".supabase.co/functions/v1/"+(test?fn:"upstatus-screen-share-3-1-1-beta10");
   const realtimeUrl=test?TEST_REALTIME_URL:PROD_REALTIME_URL;
   const realtimeKey=test?TEST_REALTIME_KEY:PROD_REALTIME_KEY;
-  // Userscript updates are served by the distribution function. The production API
-  // remains on the Beta10 backend, but the 3.4.7 userscript update URL is /upstatus.
+  // The userscript updater URL points to the versioned distribution function; the beta API is isolated in Staging.
   const updateUrl="https://"+project+".supabase.co/functions/v1/"+fn+"/upstatus.user.js";
   return render(userTemplate,{
     "__UPSTATUS_NAME__":name,
