@@ -58,7 +58,7 @@ checkSyntax(testUser,"dist/upstatus-test.user.js");
 assert(!prodFn.match(/lucca|ycaro/i),"production backend contains removed guest identities");
 assert(!testFn.match(/lucca|ycaro/i),"TEST backend contains removed guest identities");
 assert(!prodUser.match(/lucca|ycaro|icaro|luca/i),"production userscript contains removed guest UI");
-assert(!testUser.match(/lucca|ycaro|icaro|luca/i),"TEST userscript contains removed guest UI");
+assert(!testUser.replace("https://raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.0-beta.1-remove-lucca-ycaro/release.json","").match(/lucca|ycaro|icaro|luca/i),"TEST userscript contains removed guest UI outside its beta manifest branch URL");
 assert(testFn.includes('if(!["Ricardo","Lohan","Guilherme"].includes(name))return null;'),"TEST account lookup must allow only the three current members");
 assert(testFn.includes("needsSetup:!!a&&!a.password_hash"),"Removed accounts must not be offered password setup");
 assert(prodFn.includes("async function contextName(req:Request)")&&prodFn.includes("const ctx=await contextName(req);"),"production backend must resolve authenticated session context");
