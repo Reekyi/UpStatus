@@ -275,20 +275,19 @@ function agendaWeekStart(dateKey:string){
   return d.toISOString().slice(0,10);
 }
 function agendaCurrentEvent(name:string,config:any,now=new Date()){
-  const p=saoPauloParts(now),day=Number(p.hour)*60+Number(p.minute);
+  const p=saoPauloParts(now),minute=Number(p.hour)*60+Number(p.minute);
   if(!AGENDA_DAYS.includes(p.weekday))return null;
-  if(day>=18*60)return {key:p.date+":end",date:p.date,kind:"end",status:"away",reason:"Fim do expediente"};
+  if(minute>=18*60)return {key:p.date+":end",date:p.date,kind:"end",status:"away",reason:"Fim do expediente"};
   const daily=(config&&config.days&&config.days[p.date])||{};
-  const lunch=daily.lunch||{},training=daily.training||{};
-  const lunchTime=String(lunch[name]||"");
-  if((lunchTime==="12"&&day>=12*60&&day<13*60)||(lunchTime==="13"&&day>=13*60&&day<14*60))
+  const lunchTime=String(((daily.lunch||{})[name])||"");
+  if((lunchTime==="12"&&minute>=12*60&&minute<13*60)||(lunchTime==="13"&&minute>=13*60&&minute<14*60))
     return {key:p.date+":lunch",date:p.date,kind:"pause",status:"busy",reason:"Almoçando"};
-  const week=agendaWeekStart(p.date);
-  const weeklyOwner=String((config&&config.weeks&&config.weeks[week])||"");
-  const aulao=weeklyOwner===name&&day>=15*60&&day<17*60;
+  const training=daily.training||{},week=agendaWeekStart(p.date);
+  const aulaoOwner=String((config&&config.weeks&&config.weeks[week])||"");
+  const aulao=aulaoOwner===name&&minute>=15*60&&minute<17*60;
   const fixed=AGENDA_TRAINING_SLOTS.some((slot)=>{
     const start=Number(slot)*60;
-    return String(training[slot]||"")===name&&day>=start&&day<start+60;
+    return String(training[slot]||"")===name&&minute>=start&&minute<start+60;
   });
   if(aulao||fixed)return {key:p.date+":training",date:p.date,kind:"pause",status:"busy",reason:"Em treinamento"};
   return null;
@@ -300,7 +299,7 @@ async function agendaView(name:string){
   for(const slot of AGENDA_TRAINING_SLOTS)training[slot]=String(savedTraining[slot]||"");
   const normalizedLunch:any={};
   for(const who of AGENDA_MEMBERS)normalizedLunch[who]=["12","13"].includes(String(lunch[who]||""))?String(lunch[who]):"";
-  return {date:p.date,weekStart,lunch:normalizedLunch,training,aulaoOwner:AGENDA_MEMBERS.includes(String((config.weeks||{})[weekStart]||""))?String(config.weeks[weekStart]):"",canEditTeam:await admin(name)};
+  return {date:p.date,weekStart,lunch:normalizedLunch,training,aulaoOwner:AGENDA_MEMBERS.includes(String((config.weeks||{})[weekStart]||""))?String(config.weeks[weekStart]):"",canEditTeam:name==="Ricardo"};
 }
 async function agendaRoute(req:Request,name:string){
   if(req.method==="GET")return response(await agendaView(name));
@@ -315,14 +314,14 @@ async function agendaRoute(req:Request,name:string){
     const day=config.days[parts.date]||{};
     day.lunch=day.lunch||{};day.lunch[name]=value;config.days[parts.date]=day;
   }else if(type==="training"){
-    if(!(await admin(name)))return response({error:"Somente Ricardo pode definir os treinamentos."},403);
+    if(name!=="Ricardo")return response({error:"Somente Ricardo pode definir os treinamentos."},403);
     const slot=String(p.slot||""),owner=String(p.owner||"");
     if(!AGENDA_TRAINING_SLOTS.includes(slot))return response({error:"Horário de treinamento inválido."},400);
     if(owner!==""&&!AGENDA_MEMBERS.includes(owner))return response({error:"Responsável inválido."},400);
     const day=config.days[parts.date]||{};
     day.training=day.training||{};day.training[slot]=owner;config.days[parts.date]=day;
   }else if(type==="aulao"){
-    if(!(await admin(name)))return response({error:"Somente Ricardo pode definir o responsável pelo aulão."},403);
+    if(name!=="Ricardo")return response({error:"Somente Ricardo pode definir o responsável pelo aulão."},403);
     const owner=String(p.owner||"");
     if(owner!==""&&!AGENDA_MEMBERS.includes(owner))return response({error:"Responsável inválido."},400);
     config.weeks[weekStart]=owner;
@@ -330,64 +329,58 @@ async function agendaRoute(req:Request,name:string){
   await setState(AGENDA_CONFIG_KEY,config);
   return response({ok:true,agenda:await agendaView(name)});
 }
-async function agendaMarkManualOverride(name:string){
-  const config:any=await stateValue(AGENDA_CONFIG_KEY,{days:{},weeks:{}});
-  const runtime:any=await stateValue(AGENDA_RUNTIME_KEY,{});
-  const event=agendaCurrentEvent(name,config);
-  const current=runtime[name]||{};
-  if(event||current.activeKey){
-    current.date=current.date||event?.date||saoPauloParts().date;
-    current.activeKey=current.activeKey||event?.key||"";
-    current.overrideKey=current.activeKey;
-    current.pending=false;
-    current.pendingAction="";
-    runtime[name]=current;
-    await setState(AGENDA_RUNTIME_KEY,runtime);
-  }
-}
 async function agendaReconcileRoute(req:Request,name:string){
   const p:any=await readBody(req),actualStatus=String(p.status||""),actualReason=String(p.reason||"");
   if(!["online","busy","away"].includes(actualStatus))return response({error:"Status atual inválido."},400);
   const config:any=await stateValue(AGENDA_CONFIG_KEY,{days:{},weeks:{}});
   const runtime:any=await stateValue(AGENDA_RUNTIME_KEY,{});
-  let state:any=runtime[name]||null;
   const now=Date.now(),parts=saoPauloParts(),event=agendaCurrentEvent(name,config);
-  const noAction=async()=>{if(state)runtime[name]=state;else delete runtime[name];await setState(AGENDA_RUNTIME_KEY,runtime);return response({action:null});};
+  let state:any=runtime[name]||null;
+  const persist=async()=>{if(state)runtime[name]=state;else delete runtime[name];await setState(AGENDA_RUNTIME_KEY,runtime);};
+  const noAction=async()=>{await persist();return response({action:null});};
   const issue=async(status:string,reason:string,eventKey:string,kind:string)=>{
-    state=state||{date:parts.date,activeKey:eventKey,kind:kind,restoreStatus:actualStatus,restoreReason:actualReason,overrideKey:""};
-    state.date=parts.date;state.activeKey=eventKey;state.kind=kind;state.pending=true;state.pendingAction=status==="online"?"restore":kind;state.pendingStatus=status;state.pendingReason=reason;state.pendingAt=now;
+    if(!state)state={date:parts.date,activeKey:eventKey,kind:kind,restoreStatus:actualStatus,restoreReason:actualReason,appliedStatus:"",appliedReason:"",overrideKey:"",pending:false};
+    state.date=parts.date;state.activeKey=eventKey;state.kind=kind;state.pending=true;
+    state.pendingAction=status==="online"?"restore":kind;state.pendingStatus=status;state.pendingReason=reason;state.pendingAt=now;
     runtime[name]=state;await setState(AGENDA_RUNTIME_KEY,runtime);
     return response({action:{status,reason,eventKey}});
   };
-  if(event){
-    if(state&&state.date!==parts.date){delete runtime[name];state=null;}
+  if(state&&state.date!==parts.date){delete runtime[name];state=null;}
+  if(event&&event.kind==="end"){
     if(state&&state.overrideKey===event.key)return noAction();
-    if(event.kind==="end"){
-      if(!state||state.kind!=="end"||state.activeKey!==event.key)state={date:parts.date,activeKey:event.key,kind:"end",restoreStatus:"",restoreReason:"",overrideKey:"",pending:false};
-      if(state.pending&&now-Number(state.pendingAt||0)<20000)return response({action:null});
-      if(actualStatus==="away"&&actualReason===event.reason){state.pending=false;state.pendingAction="";state.pendingStatus="away";state.pendingReason=event.reason;runtime[name]=state;return noAction();}
-      return issue("away",event.reason,event.key,"end");
+    if(state&&state.pending&&now-Number(state.pendingAt||0)<20000)return response({action:null});
+    if(actualStatus==="away"&&actualReason===event.reason){
+      state={date:parts.date,activeKey:event.key,kind:"end",restoreStatus:"",restoreReason:"",appliedStatus:"away",appliedReason:event.reason,overrideKey:"",pending:false};
+      return noAction();
     }
+    if(!state||state.kind!=="end")state={date:parts.date,activeKey:event.key,kind:"end",restoreStatus:"",restoreReason:"",appliedStatus:"away",appliedReason:event.reason,overrideKey:"",pending:false};
+    return issue("away",event.reason,event.key,"end");
+  }
+  if(event&&event.kind==="pause"){
     if(state&&state.kind==="end"){delete runtime[name];state=null;}
     if(state&&state.overrideKey===event.key)return noAction();
+    if(state&&state.pending&&now-Number(state.pendingAt||0)<20000)return response({action:null});
     if(!state||state.kind!=="pause"){
       if(actualStatus!=="online"){
-        state={date:parts.date,activeKey:event.key,kind:"pause",restoreStatus:"online",restoreReason:"",overrideKey:event.key,pending:false};
+        state={date:parts.date,activeKey:event.key,kind:"pause",restoreStatus:"online",restoreReason:"",appliedStatus:"busy",appliedReason:event.reason,overrideKey:event.key,pending:false};
         return noAction();
       }
       state={date:parts.date,activeKey:event.key,kind:"pause",restoreStatus:"online",restoreReason:"",appliedStatus:"busy",appliedReason:event.reason,overrideKey:"",pending:false};
-    }else state.activeKey=event.key;
-    if(state.pending&&now-Number(state.pendingAt||0)<20000)return response({action:null});
-    if(actualStatus==="busy"&&actualReason===event.reason){
-      state.pending=false;state.pendingAction="";state.appliedStatus="busy";state.appliedReason=event.reason;runtime[name]=state;return noAction();
+    }else{
+      state.activeKey=event.key;
     }
-    if(actualStatus!==String(state.appliedStatus||"busy")&&actualStatus!=="online"){
-      state.overrideKey=event.key;state.pending=false;state.pendingAction="";return noAction();
+    if(actualStatus==="busy"&&actualReason===event.reason){
+      state.pending=false;state.pendingAction="";state.appliedStatus="busy";state.appliedReason=event.reason;
+      return noAction();
+    }
+    if(actualStatus!=="online"&&actualStatus!==String(state.appliedStatus||"busy")){
+      state.overrideKey=event.key;state.pending=false;state.pendingAction="";
+      return noAction();
     }
     return issue("busy",event.reason,event.key,"pause");
   }
   if(!state)return response({action:null});
-  if(state.date!==parts.date||state.kind==="end"){
+  if(state.kind==="end"||state.date!==parts.date){
     delete runtime[name];await setState(AGENDA_RUNTIME_KEY,runtime);return response({action:null});
   }
   if(state.overrideKey===state.activeKey){
@@ -397,7 +390,8 @@ async function agendaReconcileRoute(req:Request,name:string){
   if(actualStatus===String(state.appliedStatus||"busy")&&actualReason===String(state.appliedReason||"")){
     return issue(String(state.restoreStatus||"online"),String(state.restoreReason||""),state.activeKey,"restore");
   }
-  delete runtime[name];await setState(AGENDA_RUNTIME_KEY,runtime);return response({action:null});
+  delete runtime[name];await setState(AGENDA_RUNTIME_KEY,runtime);
+  return response({action:null});
 }
 async function agendaReconcileFailRoute(req:Request,name:string){
   const p:any=await readBody(req),runtime:any=await stateValue(AGENDA_RUNTIME_KEY,{});
