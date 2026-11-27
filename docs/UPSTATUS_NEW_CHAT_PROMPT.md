@@ -13,9 +13,9 @@
 
 ## Estado conhecido no checkpoint de 27/11/2026
 - Oficial: **3.4.9**
-- Beta atualmente implantada para integração ao ambiente real: **3.5.0-beta.4**
-- Candidata em preparação, ainda não implantada: **3.5.0-beta.5**
-- Próxima beta se a candidata for rejeitada: **3.5.0-beta.6**
+- Beta atualmente implantada para integração ao ambiente real: **3.5.0-beta.5**
+- Beta anterior: **3.5.0-beta.4**
+- Próxima beta se a Beta 5 for rejeitada: **3.5.0-beta.6**
 - Isso é um checkpoint, não substitui a consulta ao estado atual do GitHub e Supabase.
 
 ## Beta atualmente implantada com integração ao ambiente original
@@ -27,12 +27,15 @@
 - O namespace e prefixo locais do beta são separados. A API beta filtra os usuários expostos para Ricardo, Lohan e Guilherme.
 - O projeto Staging `akbgmmpnnpwcwgcfrltw` existe, mas não é o destino runtime desta beta integrada.
 
-## Candidata Beta 5 (não implantada)
-- Branch: `beta/3.5.0-beta.5-realtime-native-status`.
-- O manifesto nesta branch identifica `3.5.0-beta.5`, mas o runtime servido continua na Beta 4. Não afirme que a Beta 5 foi publicada.
-- A candidata usa a ação nativa Pinia `user.switchOnlineStatus({ online_status, event_type: "0" })`, valida `user.nickname`, atualiza apenas `user.onlineStatus` e respeita `canSelectOnlineStatuses`.
-- Corrige URL e publishable key do Realtime para o projeto ativo `mvjqunhjxkbfcrxkjtgf`, preservando o tópico existente. Nenhuma alteração foi implantada no Supabase.
-- Antes de qualquer deploy, respeite a regra de ambiente do usuário, confira quotas atuais e obtenha autorização explícita para o destino. Testes de usuário ainda pendentes.
+## Beta 5 implantada (validação manual pendente)
+- Branch: `beta/3.5.0-beta.5-realtime-native-status`; PR #184 continua Draft e não foi mesclada.
+- Edge Function `upstatus-test` implantada no projeto integrado `mvjqunhjxkbfcrxkjtgf`, versão de deployment 4, status ACTIVE, `verify_jwt=false`.
+- `/health` e `/api/update-info` confirmaram `3.5.0-beta.5`; `/api/members` retornou somente Guilherme, Lohan e Ricardo.
+- A função oficial `upstatus` continua em 3.4.9 e foi verificada sem alteração após o deploy.
+- A Beta 5 usa a ação nativa Pinia `user.switchOnlineStatus({ online_status, event_type: "0" })`; valida `user.nickname`, atualiza apenas `user.onlineStatus` e respeita `canSelectOnlineStatuses`.
+- Realtime foi apontado para o projeto ativo e reutiliza o tópico existente. Nenhuma migration, alteração de dados, canal novo, polling adicional ou log de sucesso foi criado.
+- Validação automatizada #2359 passou. Falta o teste manual em três sessões para confirmar mudança própria, mudança remota e propagação visual para observadores sem F5.
+- Snapshot de quotas fornecido em 27/11/2026 antes do deploy: Egress 0.56/5 GB; DB 38/500 MB; MAU 0/50.000; Storage 0/1 GB; Log Ingestion 0.53/1 GB (53%, alerta); Log Query 1.37/100 GB. Não há leitura pós-deploy; verificar antes de nova alteração.
 
 ## Processo obrigatório
 Toda alteração começa em beta no Staging, nunca diretamente em produção. A versão oficial só muda após aprovação explícita do Ricardo. Beta rejeitada não reutiliza número. Execute build, validações, testes de regressão, revisão de diff e verificação do deploy antes de entregar a beta. Só depois do aceite explícito promova para oficial.
