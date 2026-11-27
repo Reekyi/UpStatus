@@ -5,8 +5,9 @@ Last reviewed: 2026-11-27
 ## Current release state
 
 - Official production version: **3.4.9**
-- Current beta: **3.5.0-beta.4** (native Sales Smartly status UI synchronization without automatic reload, deployed for manual testing)
-- Next beta if this attempt is rejected: **3.5.0-beta.5**
+- Deployed beta: **3.5.0-beta.4** (live-integration test function; official `upstatus` remains 3.4.9)
+- Candidate beta: **3.5.0-beta.5** (native Pinia status action and active-project Realtime endpoint; not yet deployed)
+- Next beta if the candidate is rejected: **3.5.0-beta.6**
 - Beta function: `upstatus-test` in the production project `mvjqunhjxkbfcrxkjtgf`; official `upstatus` remains unchanged.
 - Beta installer: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`
 - TEST project `akbgmmpnnpwcwgcfrltw` remains available but is not used for this live-integration beta.
