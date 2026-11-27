@@ -13,15 +13,18 @@
 
 ## Estado conhecido no checkpoint de 27/11/2026
 - Oficial: **3.4.9**
-- Beta ativa: **nenhuma**
-- Próxima beta: **3.5.0-beta.1**
+- Beta ativa: **3.5.0-beta.3**
+- Próxima beta se esta tentativa for rejeitada: **3.5.0-beta.4**
 - Isso é um checkpoint, não substitui a consulta ao estado atual do GitHub e Supabase.
 
-## Beta atual em Staging
+## Beta atual com integração ao ambiente original
 - Branch: `beta/3.5.0-beta.1-remove-lucca-ycaro`.
-- TEST function: `upstatus-test`, deployment version 2, health verified.
-- Install/test URL: `https://akbgmmpnnpwcwgcfrltw.supabase.co/functions/v1/upstatus-test/upstatus.user.js`.
-- Staging contains only Ricardo, Lohan, and Guilherme. Production remains unchanged.
+- TEST function: `upstatus-test`, implantação dedicada no projeto original `mvjqunhjxkbfcrxkjtgf`.
+- Install/test URL: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`.
+- O beta compartilha banco, Storage, tópico Realtime e coordenação de ringtone com a instalação oficial, para que status, chat, anexos e chamadas cruzem versões.
+- A função oficial `upstatus`, o userscript estável, o namespace `upseller` e o prefixo de armazenamento local estável permanecem intactos.
+- O namespace e prefixo locais do beta são separados. A API beta filtra os usuários expostos para Ricardo, Lohan e Guilherme.
+- O projeto Staging `akbgmmpnnpwcwgcfrltw` existe, mas não é o destino runtime desta beta integrada.
 
 ## Processo obrigatório
 Toda alteração começa em beta no Staging, nunca diretamente em produção. A versão oficial só muda após aprovação explícita do Ricardo. Beta rejeitada não reutiliza número. Execute build, validações, testes de regressão, revisão de diff e verificação do deploy antes de entregar a beta. Só depois do aceite explícito promova para oficial.
