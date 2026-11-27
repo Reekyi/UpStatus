@@ -5,8 +5,11 @@ Last reviewed: 2026-11-27
 ## Current release state
 
 - Official production version: **3.4.9**
-- Current beta: **3.5.0-beta.2** (startup timing and TEST updater correction, in progress)
-- Next beta if this attempt is rejected: **3.5.0-beta.3**
+- Current beta: **3.5.0-beta.3** (dedicated beta Edge Function sharing the live database and Realtime, deployed for manual testing)
+- Next beta if this attempt is rejected: **3.5.0-beta.4**
+- Beta function: `upstatus-test` in the production project `mvjqunhjxkbfcrxkjtgf`; official `upstatus` remains unchanged.
+- Beta installer: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`
+- TEST project `akbgmmpnnpwcwgcfrltw` remains available but is not used for this live-integration beta.
 - Stable baseline: GitHub `master` at release commit `fb3c6e0bbce9652a48f6f36e8437154c45ec1aac` (release 3.4.9).
 - Never infer that a version is deployed merely because a commit or manifest exists. Verify the GitHub release ref/manifest and the live Supabase deployment before claiming deployment state.
 
@@ -81,11 +84,11 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 ## Mandatory development and release workflow
 
 1. **Understand and plan:** identify requested behavior, affected client/server/database paths, regression risks, test plan, and quota impact. State what will and will not change.
-2. **Protect production:** never use production as the experimental environment. Never deploy beta code to the production Supabase project or stable userscript URL.
+2. **Protect production:** never overwrite the official `upstatus` Edge Function or stable userscript URL with beta code. A separate beta Edge Function may be deployed inside the production project only when live database/Realtime interoperability is explicitly requested and authorized; it must keep a distinct slug, userscript namespace, local storage prefix, and updater channel.
 3. **Isolate work:** make a dedicated GitHub branch from the verified stable baseline or current approved integration base. Keep `master` stable. Do not create Supabase database branches without explicit cost approval.
 4. **Build beta:** update the single version source `release.json` according to existing build conventions and generate artifacts via repository build scripts. Beta output must be unmistakably labeled `-beta.N`.
 5. **Validate before deploying:** run `npm run validate` (or the actual repository validation command if package scripts differ), including build, syntax checks, client/server artifact parity, and regression tests. Add focused regression tests. Inspect generated diffs and ensure no unrelated changes or production identifiers drift.
-6. **Deploy to staging only:** deploy beta to Supabase project `akbgmmpnnpwcwgcfrltw` and isolated TEST function/artifacts using the repository's validated test deployment mechanism. Confirm deployed function version/status and test URL. Verify storage prefixes, Realtime topics, ringtone channels, userscript namespace, updater URL, and all TEST identifiers are isolated from production.
+6. **Deploy beta according to its integration mode:** default to the isolated Staging project `akbgmmpnnpwcwgcfrltw`. When the user explicitly requires interoperability with the live team, a dedicated `upstatus-test` Edge Function may be deployed in the production project, but never replace `upstatus`. In this mode, database, Storage, and Realtime are intentionally shared; local userscript namespace/storage prefix and function route remain separate. Confirm the runtime target, function slug, live API responses, member allowlist, and stable function health before handoff.
 7. **Hand over for user testing:** provide exact beta version, installation/update URL, deployment status, changes, test checklist, known risks, quota-impact assessment, and rollback approach. Be explicit when something could not be verified.
 8. **Wait for explicit approval:** phrases such as “aprovado” or “pode lançar oficial” are required before stable promotion. “Testei” alone is not approval unless acceptance is clear.
 9. **Promote safely:** after explicit approval, review final diff, merge approved changes into `master`, update stable version and changelog, run full validation, deploy production only using the production workflow, verify live production endpoint, then update this protocol with the new official version and no active beta.
@@ -94,13 +97,13 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 ## Architecture and environment guardrails
 
 - GitHub is the source of truth for code, version manifests and release history.
-- Supabase projects are runtime environments; staging is for beta testing, production serves stable users.
+- Supabase projects are runtime environments. Staging is the default for isolated beta tests; an explicitly approved beta integration function may live inside the production project to share live team data without replacing stable runtime.
 - Production Supabase project: `mvjqunhjxkbfcrxkjtgf` (`upstatus-normal`).
 - Staging Supabase project: `akbgmmpnnpwcwgcfrltw` (`UpStatus Staging`).
 - Both projects were observed as `ACTIVE_HEALTHY` on 2026-11-27 in region `sa-east-1`. Recheck at the start of each new chat.
 - Production Edge Function is `upstatus`; staging/test Edge Function naming and deployment must follow actual repository and project state. Do not assume endpoint or source path; inspect it.
 - Existing README and workflows may be stale. Verify actual project refs, function names, and release guards before relying on them.
-- Existing build logic includes separate production and TEST artifacts and isolation identifiers. Preserve backward compatibility with production storage, Realtime and ringtone identifiers unless a specific migration is designed and tested.
+- Existing build logic includes separate production and TEST artifacts. For the live-integration beta, TEST intentionally shares the production database, Storage, Realtime topic, and ringtone coordination channel. Preserve separate local userscript storage prefixes and never alter the stable function or stable userscript URL.
 - Never put secrets, tokens, passwords, service-role keys or private user data into GitHub, source files, logs, handoff notes or this document.
 - Do not expose Supabase service-role/secret keys in userscripts or browser code.
 - For database schema changes, inspect tables, RLS and migrations first. Prefer additive, reversible migrations; avoid destructive changes without explaining consequences and receiving explicit authorization. Verify schema and security after changes.
@@ -114,16 +117,18 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 - Keep a continuously updated status: official version, beta version/status, working branch, latest commit, staging deployment, production deployment, tests, quota snapshot, pending user tests/approval.
 - After each meaningful release-state change, update this document and changelog/version manifest as applicable. Use commit history as audit trail.
 
-## Active beta — 3.5.0-beta.1
+## Active beta — 3.5.0-beta.3
 
 - Branch: `beta/3.5.0-beta.1-remove-lucca-ycaro`.
-- Scope: remove temporary guest identities, pages, API routes, sessions, presence, and special chat UI; restrict supported accounts to Ricardo, Lohan, and Guilherme.
-- Staging `upstatus-test`: **ACTIVE, version 2**, deployed to `akbgmmpnnpwcwgcfrltw`; `/health` returned `ok=true`, version `3.5.0-beta.1`.
-- `/api/members` returns only Guilherme, Lohan, Ricardo. Direct account setup checks for both removed identities return `needsSetup=false`.
-- Staging database now contains only the three retained users; messages, history, sessions, profiles, typing, state, and storage objects are all empty.
-- Production users and Edge Functions were checked and remain unchanged. No production deployment or data deletion occurred.
-- Userscript syntax and generated artifact isolation checks passed. The full `npm run validate` suite was not executed in this connector-only environment; runtime health, member list, removed-account behavior, and served userscript were checked against staging.
-- Pending: Ricardo's manual test and explicit approval.
+- Scope: remove the temporary guest identities and access routes, retaining only Ricardo, Lohan, and Guilherme in the beta's exposed member/status/chat/profile/typing surfaces.
+- Dedicated beta function: `upstatus-test`, deployed in the production project `mvjqunhjxkbfcrxkjtgf`. The official `upstatus` function remains unchanged.
+- Beta now uses the original database, Storage and Realtime topic. This is intentional so users on beta and stable versions share status, messages, attachments, chat and voice signaling.
+- Beta namespace and local storage prefix remain distinct. Users on stable keep the original `upseller` namespace and production function.
+- The TEST project `akbgmmpnnpwcwgcfrltw` is not the runtime target for this live-integration beta.
+- The beta updater reads the beta branch manifest, compares `version + preRelease`, and targets the dedicated `upstatus-test` userscript URL.
+- Production DB data for legacy guest accounts was not deleted. The beta API filters those names from exposed team surfaces; no table or schema changes were made.
+- Verification required before handoff: live /health, /api/members, /api/status, /api/me, script metadata, stable /health, and database cross-visibility checks. The complete local `npm run validate` suite must still be run when a local checkout is available.
+- Pending: Ricardo's live cross-version test and explicit approval. Do not merge or promote to stable before that approval.
 
 ## State at this checkpoint
 
