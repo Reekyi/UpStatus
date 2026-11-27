@@ -1370,7 +1370,7 @@ function renderChatText(text){
   function profileFallback(){return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="32" fill="#273247"/><circle cx="32" cy="24" r="11" fill="#9aa8bc"/><path d="M12 56c3-13 11-19 20-19s17 6 20 19" fill="#9aa8bc"/></svg>');}
   function hydrateAvatar(img,name){var cacheKey='profile:'+name;var route=profileCache[name]||GM_getValue(key+cacheKey,'');if(!route){img.src=profileFallback();return;}var cachedRoute=GM_getValue(key+cacheKey,'');if(cachedRoute!==route){if(mediaBlobCache[cacheKey]){try{URL.revokeObjectURL(mediaBlobCache[cacheKey]);}catch(e){}delete mediaBlobCache[cacheKey];}GM_setValue(key+cacheKey,route);}loadBlobUrl(route,cacheKey).then(function(url){img.src=url;}).catch(function(){img.src=profileFallback();});}
 
-  function chatDataKey(messages){return (messages||[]).map(function(m){return [m.id,m.user||'',m.createdAt,m.message,m.type,m.systemType||'',m.imageUrl,JSON.stringify(m.replyTo||null),JSON.stringify(m.reactions||{}),JSON.stringify(m.readBy||[])].join('~');}).join('|');}
+  function chatDataKey(messages){return (messages||[]).map(function(m){return [m.id,m.user||'',m.createdAt,m.message,m.type,m.systemType||'',m.imageUrl,m.fileName||'',JSON.stringify(m.replyTo||null),JSON.stringify(m.reactions||{}),JSON.stringify(m.readBy||[])].join('~');}).join('|');}
   function normalizeChatMessage(record){
     if(!record||!record.id)return null;
     var rawUser=record.user_name!=null?record.user_name:record.user;
@@ -2832,19 +2832,17 @@ function chatAvatarPresence(name){
   }
   function fileToDataUrl(file){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Use imagens, vídeos ou documentos PDF, DOC/DOCX, XLS/XLSX, CSV, PPT/PPTX, TXT e RTF.'));return;}var max=20*1024*1024;if(file.size>max){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}var reader=new FileReader();reader.onload=function(){var data=reader.result;if(!(data instanceof ArrayBuffer)){resolve(String(data));return;}var bytes=new Uint8Array(data),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+info.mime+';base64,'+btoa(bin));};reader.onerror=function(){reject(new Error('Não foi possível ler o arquivo.'));};reader.readAsArrayBuffer(file);});}
   function fileToDataUrlForProfile(file,type,ext){var info=resolveFileMime(file,false),mime=info.ok?info.mime:fileMimeFromExt(ext);if(!/^image\//i.test(mime)){return Promise.reject(new Error('Use PNG, JPG, WEBP ou GIF.'));}return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){try{var bytes=new Uint8Array(reader.result),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+mime+';base64,'+btoa(bin));}catch(e){reject(new Error('Não foi possível preparar a foto.'));}};reader.onerror=function(){reject(new Error('Não foi possível ler a foto.'));};reader.readAsArrayBuffer(file);});}
+  function uploadFileDirect(file,route){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Tipo de arquivo não suportado.'));return;}if(file.size>20*1024*1024){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}api('POST',route,{mime:info.mime,size:file.size,name:String(file.name||'arquivo')}).then(function(ticket){if(!ticket||(!ticket.uploadUrl&&!ticket.signedUrl)||!ticket.token||!ticket.publicUrl||!ticket.path)throw new Error('Resposta de autorização incompleta: '+Object.keys(ticket||{}).join(', '));var url;try{url=new URL(ticket.uploadUrl||ticket.signedUrl);}catch(e){url=new URL('https://dlfvkawaiqduhlazsszm.supabase.co/storage/v1/object/upload/sign/'+ticket.bucket+'/'+ticket.path);}if(ticket.token&&!url.searchParams.has('token'))url.searchParams.set('token',ticket.token);if(!url.searchParams.has('token'))throw new Error('A URL assinada veio sem token.');return fetch(url.toString(),{method:'PUT',headers:{'Content-Type':info.mime,'x-upsert':'true','cache-control':'max-age=3600'},body:file}).then(function(resp){if(!resp.ok)return resp.text().then(function(t){throw new Error('Falha no Storage ('+resp.status+'): '+String(t||'').slice(0,180));});return ticket;});}).then(resolve).catch(reject);});}
   function sendChatMedia(file){
     if(!file)return;
     var tempId='local-upload-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),reply=chatReplyTo,info=resolveFileMime(file,true),isVideo=String(info.mime||'').indexOf('video/')===0,isDocument=/^(application\/|text\/)/i.test(info.mime||''),label=isDocument?'Enviando documento…':isVideo?'Enviando vídeo…':'Enviando imagem…';
     if(!info.ok){showChatError('Use imagens, vídeos ou documentos nos formatos aceitos.');return;}
-    if(file.size>20*1024*1024){showChatError('O arquivo deve ter no máximo 20 MB.');return;}
     if(isDocument&&file.size>10*1024*1024){showChatError('Documentos podem ter no máximo 10 MB.');return;}
     var optimistic={id:tempId,user:member,message:'',type:isDocument?'document':isVideo?'video':'image',systemType:'',createdAt:new Date().toISOString(),imageUrl:'',mentions:[],replyTo:reply,reactions:{},readBy:[],optimistic:true,pendingUpload:true,uploadLabel:label};
     chatCache.push(optimistic);chatForceScrollBottom=true;chatOpenScrollUntil=Date.now()+1200;
     try{renderChat();scrollChatToBottom(true);}catch(e){}
-    fileToDataUrl(file).then(function(dataUrl){
-      return api('POST',isDocument?'/api/chat/document':'/api/chat/image',{dataUrl:dataUrl});
-    }).then(function(upload){
-      return api('POST','/api/chat',{message:'',imageUrl:upload.imageUrl,type:isDocument?'document':upload.type,fileName:isDocument?String(file.name||'Documento'):'',replyTo:reply});
+    uploadFileDirect(file,'/api/chat/upload-url').then(function(upload){
+      return api('POST','/api/chat',{message:'',imageUrl:upload.publicUrl,type:isDocument?'document':isVideo?'video':'image',fileName:isDocument?String(file.name||'Documento'):'',replyTo:reply});
     }).then(function(r){
       var created=normalizeChatMessage(r&&r.message);
       if(!created)throw new Error('O anexo foi enviado, mas não recebemos a confirmação da mensagem.');
@@ -2855,6 +2853,7 @@ function chatAvatarPresence(name){
       try{sendRealtimeEvent('chat_fast',{message:r.message});}catch(e){}
     }).catch(function(e){chatCache=chatCache.filter(function(m){return String(m.id)!==String(tempId);});try{renderChat();}catch(_){}showChatError(e&&e.message||'Não foi possível enviar o anexo.');});
   }
+
   function closeChatLibrary(){var modal=document.querySelector('.up-chat-library-modal');if(modal)modal.remove();}
   function formatLibraryBytes(bytes){
     bytes=Number(bytes);if(!isFinite(bytes)||bytes<0)return 'Tamanho indisponível';if(bytes===0)return '0 B';
