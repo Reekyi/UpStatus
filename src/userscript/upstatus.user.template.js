@@ -1103,7 +1103,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   }
   function openUpdate(url){
     var target=String(url||UPDATE_URL).trim();
-    if(!/^https:\/\/(?:mvjqunhjxkbfcrxkjtgf|akbgmmpnnpwcwgcfrltw)\.supabase\.co\/functions\/v1\/(?:upstatus|upstatus-test)\/upstatus\.user\.js$/.test(target))target=UPDATE_URL;
+    if(!/^https:\/\/(?:mvjqunhjxkbfcrxkjtgf|akbgmmpnnpwcwgcfrltw)\.supabase\.co\/functions\/v1\/(?:upstatus|upstatus-test|upstatus-351-test)\/upstatus\.user\.js$/.test(target))target=UPDATE_URL;
     try{
       if(typeof GM_openInTab==='function'){
         var updateTab=GM_openInTab(target,{active:true,insert:true,setParent:true});
