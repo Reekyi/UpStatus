@@ -4,7 +4,7 @@ Last reviewed: 2026-11-27
 
 ## Current release state
 
-- Official production version: **3.5.0**.
+- Official production version: **3.5.0**; the approved 3.5.2 release is in the promotion PR and awaits the production workflow.
 - GitHub default branch: `master`; official release merge commit: `a9019ada2ab4dae05540520eda04211b38a301c7` (PR #184).
 - `release.json`: `version=3.5.0`, empty `preRelease`, stable installer `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus/upstatus.user.js`.
 - Official Supabase function: `upstatus`, project `mvjqunhjxkbfcrxkjtgf`, deployment version **6**, status **ACTIVE**, `verify_jwt=false`, source hash `d4127ecf63de3e26901d4d4b306f03da38114605dfac1ef4ca2505b6e39240b9`.
@@ -185,3 +185,17 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 - GitHub Actions validation run **#2372** passed, including schedule regression tests. New production-project `upstatus-351-test` function is deployment version **1**, ACTIVE, `verify_jwt=false`, source hash `65f799972b086081304e1e0895b41f2ce385c61b46545bb43f231d42ff8ae2af`.
 - Runtime verification: `/health` returned `ok:true`, version `3.5.1-beta.2`; `/api/update-info` returned the matching version and route; served userscript reports `@version 3.5.1-beta.2`, namespace `upseller-test`, and the dedicated installer URL. `/api/members` returned only Guilherme, Lohan and Ricardo.
 - Production official `upstatus` v6 and existing production Beta 5 `upstatus-test` v4 remain unchanged. Ricardo's visual/functional acceptance is pending.
+
+
+## Approved stable release 3.5.2 (2026-11-27; production workflow pending)
+- Release branch: `release/3.5.2-agenda-status-mirror`, based on the user-accepted Beta 2 implementation.
+- Requested stable version: `3.5.2`, with an empty `preRelease` field.
+- Official installer: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus/upstatus.user.js`.
+- The official production workflow guard is updated to accept only stable `3.5.2`; it refuses beta versions and other stable versions.
+- Beta regression artifact remains pinned to `3.5.1-beta.2` and the separate `upstatus-351-test` function; the stable build must not overwrite that function.
+- The weekly Aulão owner is keyed by the Monday date. The same selection is used through Friday, Saturday and Sunday; a new week begins on Monday. Empty daily training slots remain no-ops.
+- Agenda UI polish adds the week range, daily/weekly badges, clearer sections, a distinct Aulão card, and explanatory persistence text. This does not modify the broader Sale Smartly light-theme call-control work.
+- The user explicitly approved the stable 3.5.2 promotion after testing the Beta 2 functionality. Remaining light-mode call-control visual work is deferred and must not be falsely recorded as fixed.
+- Stable validation includes regression checks that 3.5.2 is newer than the 3.4.7, 3.4.8 and 3.5.0 updater baselines.
+- No schema migration, account deletion, historical-data cleanup, or Storage migration is part of this release.
+- The previous quota snapshot remains historical only: Log Ingestion 0.53/1 GB (53%). No live quota telemetry is exposed by the connected Supabase project tools in this session.
