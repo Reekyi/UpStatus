@@ -1,5 +1,5 @@
 {
   "version": "3.4.9",
-  "preRelease": "",
+  "preRelease": "beta.1",
   "scriptUrl": "https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus/upstatus.user.js"
 }
