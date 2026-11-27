@@ -515,7 +515,7 @@ Deno.serve(async(req)=>{
     if(path==="/api/account"&&req.method==="GET"){
       const name=new URL(req.url).searchParams.get("name")||"";
       const a=await account(name);
-      return response({needsSetup:!a||!a.password_hash});
+      return response({needsSetup:!!a&&!a.password_hash});
     }
     if(path==="/api/setup"&&req.method==="POST")return await login(req,true);
     if(path==="/api/login"&&req.method==="POST")return await login(req,false);
