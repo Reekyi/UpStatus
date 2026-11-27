@@ -6,13 +6,13 @@ For every new AI-assisted task, first read [`AGENTS.md`](AGENTS.md), then [`docs
 
 ## Current release checkpoint
 
-- Official: **3.5.0** (master and production; unchanged).
-- Active candidate: **3.5.1-beta.2**, branch `beta/3.5.1-beta.2-agenda-status-mirror`.
-- Beta 2 target: new, dedicated production-project function `upstatus-351-test` in `mvjqunhjxkbfcrxkjtgf`, to share the live database, Storage, profiles, chat and Realtime while keeping its own function route, userscript namespace and local storage prefix.
-- Beta 2 installer: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-351-test/upstatus.user.js` (deployment v1, ACTIVE; health reports `3.5.1-beta.2`).
-- Production `upstatus` v6 and the existing production `upstatus-test` Beta 5 v4 must remain untouched. Staging Beta 1 `upstatus-test` v8 is also retained.
-- This integration beta writes to shared live team data; use the dedicated Beta 2 installer only for testing and do not use it for destructive experiments.
-- Verify live `release.json`, Git refs, and Supabase deployments before relying on this snapshot.
+- Current official production version: **3.5.0**. The approved stable release **3.5.2** is being promoted from branch `release/3.5.2-agenda-status-mirror`.
+- The accepted Beta 2 implementation is merged into `master`; the official runtime remains 3.5.0 until the production workflow completes.
+- Dedicated Beta 2 regression function `upstatus-351-test` remains ACTIVE in project `mvjqunhjxkbfcrxkjtgf`, deployment v1, version `3.5.1-beta.2`. It shares live team data but uses namespace `upseller-test` and local prefix `upstatus_351_beta2_`.
+- Existing production Beta 5 `upstatus-test` remains ACTIVE at deployment v4, `3.5.0-beta.5`. It is not overwritten.
+- The intended 3.5.2 official installer is `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus/upstatus.user.js`. Installations from 3.4.7 onward are covered by updater version-comparison regression tests.
+- The remaining non-agenda light-theme call-control adjustments are intentionally deferred; they are not represented as fixed in 3.5.2.
+- Reconcile this pending-release snapshot with live GitHub/Supabase state after deployment.
 
 ## Supabase environments
 
@@ -30,7 +30,7 @@ GitHub is the source of truth for code and release history. Supabase is the runt
 
 - `master`: stable/production line.
 - Confirm the current integration and TEST branch/workflow configuration before use; do not assume stale documentation is correct.
-- Production deployment is manual and requires explicit user approval.
+- Production deployment is manual and requires explicit user approval. Ricardo approved 3.5.2; keep the workflow guard pinned to that exact stable version.
 - New work normally starts as a beta in the existing Staging Supabase project. When Ricardo explicitly requests live-team interoperability, use a new dedicated function slug (Beta 2: `upstatus-351-test`) inside the production project while leaving official `upstatus` and the existing Beta 5 `upstatus-test` untouched.
 
 ## Versioning

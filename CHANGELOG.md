@@ -1,3 +1,29 @@
+## 3.5.2 (2026-11-27, approved stable release)
+
+### Sale Smartly status synchronization
+- Promotes the user-tested Beta 2 implementation: Sale Smartly's native Pinia `user.onlineStatus` is the source of truth.
+- Direct changes made inside Sale Smartly are mirrored into UpStatus and shared with the team through the existing Realtime channel.
+- UpStatus manual, remote and agenda-triggered changes execute the native Sale Smartly action first. The server accepts the status write only after the client confirms success.
+- Programmatic status changes are tagged to avoid observer feedback loops.
+
+### Team agenda
+- Adds the polished `Agenda da equipe` screen inside the settings menu. History remains in the same menu.
+- Ricardo, Guilherme and Lohan can see the full agenda. Each member edits only their own daily lunch choice: 12h–13h or 13h–14h.
+- Only Ricardo can assign the four daily training slots (10h, 11h, 15h and 16h) and the weekly Aulão owner. Unassigned training slots do not change any status.
+- The Aulão owner is saved by week, using Monday as the week key. The selected owner remains visible through Saturday and Sunday; the next assignment window starts on the following Monday. The Aulão takes place Monday–Friday, 15h–17h.
+- The agenda explicitly labels daily and weekly items and shows the week range and the saved Aulão owner.
+- No automatic morning activation is added. Weekday end-of-day Away remains scheduled for 18h. Schedule reconciliation still requires the member's Sale Smartly session to be open.
+
+### Update compatibility
+- The official updater continues to compare semantic version components and verifies the manifest version against the served userscript before offering an update.
+- Regression validation confirms that 3.5.2 is newer than 3.4.7, 3.4.8 and 3.5.0. No separate minimum-version block is introduced.
+
+### Scope
+- The general light-theme call-control appearance still has visual adjustments pending and is intentionally not claimed as fixed by this release; Ricardo will address those one by one in a later update.
+- No database migration, account deletion, history cleanup, or Storage migration is included.
+- Official installer: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus/upstatus.user.js`.
+- Production promotion is approved. Runtime verification details will be recorded after the production workflow completes.
+
 ## 3.5.1-beta.2 (2026-11-27, isolated live-data candidate)
 
 ### Sale Smartly is the source of truth

@@ -12,7 +12,7 @@
 6. Compare tudo com o protocolo. Informe divergências, não invente estado, não comece implementação antes de concluir a contextualização.
 
 ## Estado conhecido no checkpoint de 27/11/2026
-- Oficial: **3.5.0**
+- Oficial até a última verificação: **3.5.0**; a promoção estável aprovada para **3.5.2** aguarda a execução/verificação do workflow de produção.
 - Candidata ativa em desenvolvimento: **3.5.1-beta.2**, branch `beta/3.5.1-beta.2-agenda-status-mirror`.
 - A candidata foi projetada para uma nova função dedicada `upstatus-351-test` no projeto de produção, compartilhando dados reais, mas mantendo namespace, storage e rota próprios.
 - Install URL prevista: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-351-test/upstatus.user.js`.
@@ -85,3 +85,13 @@ Se o chat não tiver acesso real ao GitHub/Supabase, diga isso claramente e peç
 - Production project function `upstatus-351-test` is deployment v1 ACTIVE, `verify_jwt=false`, source hash `65f799972b086081304e1e0895b41f2ce385c61b46545bb43f231d42ff8ae2af`.
 - `/health`, `/api/update-info`, served userscript header and `/api/members` were verified. The served script reports `3.5.1-beta.2`, namespace `upseller-test`; member API lists only Guilherme, Lohan and Ricardo.
 - Stable production `upstatus` v6 and existing Beta 5 `upstatus-test` v4 remain unchanged. Manual testing by Ricardo is pending.
+
+## Promoção aprovada 3.5.2
+- Branch: `release/3.5.2-agenda-status-mirror`.
+- Versão estável aprovada por Ricardo: `3.5.2`, sem sufixo beta.
+- Installer oficial: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus/upstatus.user.js`.
+- Manter o artefato de regressão Beta 2 em `3.5.1-beta.2` e a função dedicada `upstatus-351-test`; o build estável não deve sobrescrevê-la.
+- O Aulão permanece atribuído durante toda a semana, inclusive sábado e domingo, pois usa a segunda-feira como chave semanal. Uma nova atribuição começa na segunda-feira seguinte.
+- A validação inclui a compatibilidade da comparação de versão com instalações 3.4.7, 3.4.8 e 3.5.0.
+- O ajuste geral dos controles de chamada no Modo Claro continua pendente e não deve ser descrito como corrigido nesta versão.
+- Após a execução do workflow, atualizar este checkpoint com versão/hash do runtime, health, updater e status dos projetos.

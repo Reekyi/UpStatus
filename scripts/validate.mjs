@@ -10,14 +10,14 @@ execFileSync(process.execPath,[path.join(ROOT,"scripts/build.mjs")],{stdio:"inhe
 const release=JSON.parse(fs.readFileSync(path.join(ROOT,"release.json"),"utf8"));
 const baseVersion=String(release.version).trim();
 const preRelease=String(release.preRelease||"").trim();
-const testVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
-const stableVersion="3.5.0";
+const testVersion="3.5.1-beta.2";
+const stableVersion=preRelease?"3.5.0":baseVersion;
 const liveProject="mvjqunhjxkbfcrxkjtgf";
 const betaFunction="upstatus-351-test";
-assert(baseVersion==="3.5.1"&&preRelease==="beta.2"&&testVersion==="3.5.1-beta.2","TEST manifest must identify 3.5.1-beta.2");
-assert(release.scriptUrl==="https://"+liveProject+".supabase.co/functions/v1/"+betaFunction+"/upstatus.user.js","Beta manifest must point only to the isolated live-integration TEST installer");
+assert(baseVersion==="3.5.2"&&preRelease===""&&stableVersion==="3.5.2","Stable release manifest must identify 3.5.2 without a prerelease suffix");
+assert(release.scriptUrl==="https://"+liveProject+".supabase.co/functions/v1/upstatus/upstatus.user.js","Stable manifest must point to the official production installer");
 const productionWorkflow=fs.readFileSync(path.join(ROOT,".github/workflows/deploy-production.yml"),"utf8");
-assert(productionWorkflow.includes("r.version !== '3.5.0'")&&!productionWorkflow.includes("r.version !== '3.4.7'"),"Production workflow guard must allow only the approved stable 3.5.0 release");
+assert(productionWorkflow.includes("r.version !== '3.5.2'")&&!productionWorkflow.includes("r.version !== '3.5.0'"),"Production workflow guard must allow only the approved stable 3.5.2 release");
 
 const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.ts"),"utf8");
 const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-351-test/index.ts"),"utf8");
@@ -27,7 +27,15 @@ function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
 function checkSyntax(text,label){new vm.Script(text,{filename:label});}
-assert(headerValue(prodUser,"version")===stableVersion,"production userscript must remain on official 3.5.0");
+assert(headerValue(prodUser,"version")===stableVersion,"production userscript must match the approved 3.5.2 stable release");
+const updaterStart=prodUser.indexOf("function versionParts(v){");
+const updaterEnd=prodUser.indexOf("var updatePromptShown",updaterStart);
+assert(updaterStart>=0&&updaterEnd>updaterStart,"Updater version comparison helper must exist in the stable artifact");
+const updaterHelpers=prodUser.slice(updaterStart,updaterEnd);
+const stableVersionCompare=new Function(updaterHelpers+";return compareVersions;")();
+assert(stableVersionCompare("3.5.2","3.4.7")>0,"UpStatus 3.5.2 must be offered to installations starting at 3.4.7");
+assert(stableVersionCompare("3.5.2","3.4.8")>0&&stableVersionCompare("3.5.2","3.5.0")>0,"UpStatus 3.5.2 must remain newer than every supported 3.4.7+ baseline before 3.5.2");
+assert(stableVersionCompare("3.5.2","3.5.2")===0,"The updater must not prompt an already updated 3.5.2 installation");
 assert(headerValue(testUser,"version")===testVersion,"test userscript version mismatch");
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
 assert(headerValue(testUser,"namespace")==="upseller-test","test namespace mismatch");
@@ -295,4 +303,4 @@ assert(agendaWeekStartTest("2026-11-29")==="2026-11-23","The weekly Aulão selec
 assert(agendaWeekStartTest("2026-11-30")==="2026-11-30"&&agendaWeekStartTest("2026-11-30")!=="2026-11-23","A new Aulão assignment window must begin with the next Monday");
 
 
-console.log("Validation OK: PROD "+stableVersion+" / TEST "+testVersion+" (isolated live-data Beta 2)");
+console.log("Validation OK: PROD "+stableVersion+" / TEST "+testVersion+" (3.5.2 stable; Beta 2 compatibility artifact)");
