@@ -60,6 +60,11 @@ async function userFromToken(req:Request){
   sessionCache.set(t,{name,expiresAt:Date.parse(data.expires_at),checkedAt:now});
   return name;
 }
+async function contextName(req:Request) {
+  const name=await userFromToken(req);
+  if(!name||!["Ricardo","Lohan","Guilherme"].includes(name))return null;
+  return {name,guest:false,joinedAt:0};
+}
 async function account(name:string){
   if(!["Ricardo","Lohan","Guilherme"].includes(name))return null;
   const {data,error}=await db.from("users").select("name,password_hash,role,status,reason,updated_at,sync").eq("name",name).maybeSingle();
