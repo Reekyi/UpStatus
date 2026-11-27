@@ -13,9 +13,10 @@
 
 ## Estado conhecido no checkpoint de 27/11/2026
 - Oficial: **3.5.0**
-- Candidata ativa: **3.5.1-beta.1**, branch `beta/3.5.1-beta.1-ui-fixes`, destinada ao Staging.
-- A função `upstatus-test` de produção continua em **3.5.0-beta.5** e deve permanecer intocada.
-- URL de teste da candidata: `https://akbgmmpnnpwcwgcfrltw.supabase.co/functions/v1/upstatus-test/upstatus.user.js`.
+- Candidata ativa em desenvolvimento: **3.5.1-beta.2**, branch `beta/3.5.1-beta.2-agenda-status-mirror`.
+- A candidata foi projetada para uma nova função dedicada `upstatus-351-test` no projeto de produção, compartilhando dados reais, mas mantendo namespace, storage e rota próprios.
+- Install URL prevista: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-351-test/upstatus.user.js`.
+- A oficial `upstatus` v6 e a Beta 5 de produção `upstatus-test` v4 devem permanecer intocadas.
 - Versão oficial anterior: **3.4.9**.
 - Isso é um checkpoint, não substitui a consulta ao estado atual do GitHub e Supabase.
 
@@ -69,3 +70,12 @@ Se o chat não tiver acesso real ao GitHub/Supabase, diga isso claramente e peç
 - Staging `upstatus-test` deployment version 8 is ACTIVE; source hash `66451104ef80f36919d19bc34e9628eb52d3b23446a354fa83a7a74924afc130`.
 - Runtime health/update-info and served userscript header were checked; `/api/members` returns only Guilherme, Lohan and Ricardo.
 - Production stable `upstatus` v6 and production `upstatus-test` v4 remain unchanged. Ricardo's manual acceptance is still pending.
+
+
+## Beta 2 — regras de negócio e destino
+- Sale Smartly é a fonte da verdade para Online/Ocupado/Ausente. O backend deve rejeitar status POST sem confirmação explícita após a ação nativa ter sido aceita.
+- O observador de Pinia deve espelhar alterações diretas do Sale Smartly; ações disparadas pelo UpStatus precisam ser marcadas para não gerar eco.
+- A agenda é visível para Ricardo, Guilherme e Lohan. Cada um só edita seu próprio almoço (12h ou 13h). Todos veem treinamentos e Aulão, mas somente Ricardo pode editar essas atribuições.
+- Quatro slots diários começam vazios: 10h, 11h, 15h e 16h. Slot vazio não afeta nenhuma fila. Aulão tem responsável semanal, segunda a sexta, 15h–17h. Sem ativação de entrada automática; fim do expediente em dias úteis às 18h.
+- Ao voltar de suspensão, o sistema calcula o estado desejado atual, sem reproduzir tarefas passadas. A ação só ocorre com a sessão Sale Smartly do próprio usuário ativa.
+- Destino de runtime: função nova `upstatus-351-test`, projeto `mvjqunhjxkbfcrxkjtgf`. Ela compartilha DB/Storage/Realtime de produção para testar chat, fotos e chamadas reais. Não substituir stable `upstatus` nem a Beta 5 `upstatus-test`.
