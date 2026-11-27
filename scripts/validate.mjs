@@ -209,7 +209,7 @@ execFileSync(process.execPath,[path.join(ROOT,"scripts/chat-upload-url.test.mjs"
 assert(testUser.includes("var UP_ALLOWED_MEMBERS=['Ricardo','Lohan','Guilherme'];"),"Client allowlist must contain only the three current team members");
 assert(testUser.includes("function upFilterMembers(items)"),"Client must filter user lists at the boundary");
 assert(testUser.includes("var names=upFilterMembers(window.__upstatusMembers)"),"Mention menu must filter stale API member names");
-assert(testUser.includes("var users=upFilterMembers(d&&d.members||[])"),"System health must filter stale API member names");
+assert(testUser.includes("users=upFilterMembers(d&&d.members||[])"),"System health must filter stale API member names");
 assert(testUser.includes("!upIsAllowedMember(p.from)"),"Call signals from removed identities must be ignored");
 assert(testUser.includes("upstatus-351-empty-artwork")&&testUser.includes("pointer-events:none!important"),"Waiting-state illustration must not intercept clicks and must stay constrained");
 assert(testUser.includes(".up-login-update{display:flex!important;flex-wrap:nowrap!important"),"Login update footer must remain on one line");
