@@ -530,7 +530,8 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var chatContextMessageId=null;
   
   var originalTitle=document.title;
-  var currentStatus='offline';
+  var currentStatus='offline',currentStatusReason='',saleStatusCode='',saleMirrorInFlight=false,saleMirrorQueuedStatus='',saleMirrorBootstrapDone=false;
+  var agendaData=null,agendaTimer=null,agendaReconcileBusy=false,agendaRenderBusy=false,agendaViewWasOpen=false;
   var CURRENT_VERSION='__UPSTATUS_VERSION__'
   var UPDATE_URL='__UPSTATUS_UPDATE_URL__';
   var externalNotifPermission='default';
@@ -600,6 +601,53 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
     });
   }
 
+  function saleCodeToStatus(code){return code==='1'?'online':code==='2'?'busy':code==='0'?'away':'';}
+  function saleStatusToCode(status){return status==='online'?'1':status==='busy'?'2':status==='away'?'0':'';}
+  async function persistSaleStatusMirror(status,initial){
+    if(!token||!member||!status)return;
+    if(saleMirrorInFlight){saleMirrorQueuedStatus=status;return;}
+    saleMirrorInFlight=true;
+    try{
+      if(initial){
+        var current=await api('GET','/api/status'),self=current&&current.members&&current.members[member];
+        if(self){currentStatus=self.status||'offline';currentStatusReason=self.reason||'';}
+      }
+      if(currentStatus!==status){
+        var reason=status==='online'?'':'Alterado no Sale Smartly';
+        await api('POST','/api/status',{status:status,reason:reason,source:'salesmartly',confirmedBySaleSmartly:true});
+        currentStatus=status;currentStatusReason=reason;
+        sendRealtimeEvent('user_status',{name:member,status:status});
+        refresh();
+      }
+      agendaReconcile();
+    }catch(e){
+      if(card&&!card.classList.contains('hidden'))message('Não foi possível espelhar o status do Sale Smartly: '+(e.message||e),true);
+    }finally{
+      saleMirrorInFlight=false;
+      if(saleMirrorQueuedStatus){
+        var queued=saleMirrorQueuedStatus;saleMirrorQueuedStatus='';
+        if(queued!==currentStatus)persistSaleStatusMirror(queued,false);
+      }
+    }
+  }
+  document.addEventListener('UPSTATUS_SALE_STATUS_SNAPSHOT',function(e){
+    var d=e&&e.detail||{};
+    if(!token||d.member!==member)return;
+    saleStatusCode=String(d.status||'');
+    if(!saleMirrorBootstrapDone){saleMirrorBootstrapDone=true;persistSaleStatusMirror(saleCodeToStatus(saleStatusCode),true);}
+  });
+  document.addEventListener('UPSTATUS_SALE_STATUS_CHANGED',function(e){
+    var d=e&&e.detail||{};
+    if(!token||d.member!==member)return;
+    var code=String(d.status||''),status=saleCodeToStatus(code);
+    if(!status)return;
+    saleStatusCode=code;
+    persistSaleStatusMirror(status,false);
+  });
+  document.addEventListener('UPSTATUS_SALE_STATUS_WATCH_ERROR',function(e){
+    var d=e&&e.detail||{};
+    if(d.member===member&&card&&!card.classList.contains('hidden'))message(d.error||'Não foi possível acompanhar o status nativo do Sale Smartly.',true);
+  });
   function node(tag,props){var x=document.createElement(tag);Object.assign(x,props||{});return x}
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]})}
   function fmtTime(x){return x?new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(new Date(x)):''}
@@ -3521,6 +3569,149 @@ function chatAvatarPresence(name){
     }catch(e){message(e.message,true);refresh();}
   }
 
+  function agendaSaoPauloParts(date){
+    var parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(date||new Date());
+    var get=function(type){var item=parts.find(function(x){return x.type===type;});return item?item.value:'';};
+    return {date:get('year')+'-'+get('month')+'-'+get('day'),weekday:get('weekday'),hour:Number(get('hour')),minute:Number(get('minute')),second:Number(get('second'))};
+  }
+  function agendaNextBoundaryDelay(){
+    var now=agendaSaoPauloParts(new Date()),minute=now.hour*60+now.minute+now.second/60;
+    var boundaries=[10*60,11*60,12*60,13*60,14*60,15*60,16*60,17*60,18*60];
+    var next=boundaries.find(function(value){return value>minute;});
+    var deltaMinutes=0;
+    if(next!==undefined)deltaMinutes=next-minute;
+    else{
+      var days={Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6},dow=days[now.weekday],toMonday=(8-dow)%7;
+      if(toMonday===0)toMonday=7;
+      deltaMinutes=toMonday*1440+10*60-minute;
+    }
+    return Math.max(1000,Math.round(deltaMinutes*60000)+1200);
+  }
+  function agendaScheduleNext(){
+    if(agendaTimer){clearTimeout(agendaTimer);agendaTimer=null;}
+    if(!token||!member)return;
+    agendaTimer=setTimeout(async function(){
+      agendaTimer=null;
+      await agendaReconcile();
+      if(agendaViewWasOpen)loadAgenda();
+      agendaScheduleNext();
+    },agendaNextBoundaryDelay());
+  }
+  async function agendaRunAction(action){
+    if(!action||!action.status)return;
+    var desiredCode=saleStatusToCode(action.status);
+    if(!desiredCode)throw new Error('A agenda retornou um status inválido.');
+    if(saleStatusCode!==desiredCode){
+      await syncSaleSmartly(action.status);
+      saleStatusCode=desiredCode;
+    }
+    await api('POST','/api/status',{status:action.status,reason:action.reason||'',source:'agenda',confirmedBySaleSmartly:true,agendaEventKey:action.eventKey||''});
+    currentStatus=action.status;currentStatusReason=action.reason||'';
+    sendRealtimeEvent('user_status',{name:member,status:action.status});
+    refresh();
+  }
+  async function agendaReconcile(){
+    if(!token||!member||!saleStatusCode||agendaReconcileBusy)return;
+    var actual=saleCodeToStatus(saleStatusCode);if(!actual)return;
+    agendaReconcileBusy=true;
+    try{
+      var result=await api('POST','/api/agenda/reconcile',{status:actual,reason:currentStatusReason||''});
+      if(result&&result.action){
+        try{await agendaRunAction(result.action);}
+        catch(e){
+          try{await api('POST','/api/agenda/reconcile/fail',{eventKey:result.action.eventKey||''});}catch(_){}
+          if(card&&!card.classList.contains('hidden'))message('Agenda: não foi possível confirmar a alteração no Sale Smartly: '+(e.message||e),true);
+        }
+      }
+    }catch(e){
+      if(card&&!card.classList.contains('hidden'))message('Não foi possível consultar a agenda: '+(e.message||e),true);
+    }finally{agendaReconcileBusy=false;}
+  }
+  function startAgendaScheduler(){
+    if(agendaTimer){clearTimeout(agendaTimer);agendaTimer=null;}
+    if(!token||!member)return;
+    agendaReconcile();
+    agendaScheduleNext();
+  }
+  function stopAgendaScheduler(){if(agendaTimer){clearTimeout(agendaTimer);agendaTimer=null;}}
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'){agendaReconcile();agendaScheduleNext();}});
+  window.addEventListener('focus',function(){agendaReconcile();agendaScheduleNext();});
+  window.addEventListener('pageshow',function(){agendaReconcile();agendaScheduleNext();});
+  async function loadAgenda(){
+    if(!token||!member)return;
+    try{
+      agendaData=await api('GET','/api/agenda');
+      if(agendaViewWasOpen)renderAgenda();
+      agendaScheduleNext();
+    }catch(e){
+      if(agendaViewWasOpen)renderAgendaError(e);
+    }
+  }
+  function renderAgendaError(error){
+    if(!agenda)return;
+    agenda.innerHTML='<div class="up-agenda-head"><div><b>Agenda da equipe</b><small>Não foi possível carregar a programação.</small></div><button type="button" class="up-agenda-close">Fechar</button></div><div class="up-agenda-message error">'+esc(error&&error.message||'Erro ao carregar agenda.')+'</div>';
+    var close=agenda.querySelector('.up-agenda-close');if(close)close.onclick=openUpStatusPanel;
+  }
+  function agendaMemberOptions(selected){
+    var names=['Ricardo','Guilherme','Lohan'];
+    return '<option value="">Não definido</option>'+names.map(function(n){return '<option value="'+n+'"'+(selected===n?' selected':'')+'>'+n+'</option>';}).join('');
+  }
+  function renderAgenda(){
+    if(!agenda||!agendaData)return;
+    var a=agendaData,canEdit=!!a.canEditTeam,weekday=new Intl.DateTimeFormat('pt-BR',{weekday:'long',timeZone:'America/Sao_Paulo'}).format(new Date());
+    var lunchRows=['Ricardo','Guilherme','Lohan'].map(function(n){
+      var own=n===member,editable=own;
+      var value=String((a.lunch||{})[n]||'');
+      return '<label class="up-agenda-row"><span class="up-agenda-person">'+n+(own?' <small>(você)</small>':'')+'</span><select data-agenda-lunch="'+n+'" '+(editable?'':'disabled')+'><option value="">Não definido</option><option value="12"'+(value==='12'?' selected':'')+'>12h às 13h</option><option value="13"'+(value==='13'?' selected':'')+'>13h às 14h</option></select></label>';
+    }).join('');
+    var slots=[['10','10h às 11h'],['11','11h às 12h'],['15','15h às 16h'],['16','16h às 17h']];
+    var trainingRows=slots.map(function(slot){
+      var value=String((a.training||{})[slot[0]]||'');
+      return '<label class="up-agenda-row"><span class="up-agenda-time">'+slot[1]+'</span><select data-agenda-training="'+slot[0]+'" '+(canEdit?'':'disabled')+'>'+agendaMemberOptions(value)+'</select></label>';
+    }).join('');
+    agenda.innerHTML=
+      '<div class="up-agenda-head"><div><b>Agenda da equipe</b><small>'+esc(a.date)+' • '+esc(weekday)+'</small></div><button type="button" class="up-agenda-close">Fechar</button></div>'+
+      '<div class="up-agenda-section"><div class="up-agenda-section-title">Almoço <span>Configuração individual e diária</span></div>'+lunchRows+'</div>'+
+      '<div class="up-agenda-section"><div class="up-agenda-section-title">Treinamentos do dia <span>Slots sem responsável não alteram nenhuma fila</span></div>'+trainingRows+'</div>'+
+      '<div class="up-agenda-section"><div class="up-agenda-section-title">Aulão da semana <span>Segunda a sexta • 15h às 17h</span></div><label class="up-agenda-row"><span class="up-agenda-time">Responsável</span><select data-agenda-aulao '+(canEdit?'':'disabled')+'>'+agendaMemberOptions(a.aulaoOwner||'')+'</select></label></div>'+
+      '<div class="up-agenda-permissions">'+(canEdit?'Você pode editar o almoço, os treinamentos e o responsável pelo aulão.':'Você pode editar somente o seu horário de almoço. Treinamentos e aulão são definidos pelo Ricardo.')+'</div>'+
+      '<div class="up-agenda-message" aria-live="polite"></div>';
+    agenda.querySelector('.up-agenda-close').onclick=openUpStatusPanel;
+    agenda.querySelectorAll('[data-agenda-lunch]').forEach(function(select){
+      select.addEventListener('change',function(){if(select.getAttribute('data-agenda-lunch')!==member)return;saveAgendaSetting({type:'lunch',time:select.value},select);});
+    });
+    agenda.querySelectorAll('[data-agenda-training]').forEach(function(select){
+      select.addEventListener('change',function(){if(!canEdit)return;saveAgendaSetting({type:'training',slot:select.getAttribute('data-agenda-training'),owner:select.value},select);});
+    });
+    var aulao=agenda.querySelector('[data-agenda-aulao]');
+    if(aulao)aulao.addEventListener('change',function(){if(!canEdit)return;saveAgendaSetting({type:'aulao',owner:aulao.value},aulao);});
+  }
+  async function saveAgendaSetting(payload,control){
+    if(!token||!agendaData)return;
+    if(control)control.disabled=true;
+    var messageNode=agenda&&agenda.querySelector('.up-agenda-message');
+    try{
+      var result=await api('POST','/api/agenda',payload);
+      agendaData=result.agenda||agendaData;
+      sendRealtimeEvent('agenda_changed',{date:agendaData.date,weekStart:agendaData.weekStart});
+      renderAgenda();
+      await agendaReconcile();
+      agendaScheduleNext();
+      var info=agenda&&agenda.querySelector('.up-agenda-message');if(info)info.textContent='Programação salva.';
+    }catch(e){
+      if(messageNode){messageNode.classList.add('error');messageNode.textContent=e.message||'Não foi possível salvar a programação.';}
+      if(control)control.disabled=false;
+    }
+  }
+  function openAgenda(){
+    if(!token)return;
+    agendaViewWasOpen=true;
+    card.classList.add('hidden');history.classList.add('hidden');chat.classList.add('hidden');health.classList.add('hidden');remoteOverlay.classList.add('hidden');
+    agenda.classList.remove('hidden');
+    if(agendaData)renderAgenda();else agenda.innerHTML='<div class="up-agenda-head"><b>Agenda da equipe</b><span>Carregando…</span></div>';
+    loadAgenda();
+  }
+  function closeAgendaView(){agendaViewWasOpen=false;agenda.classList.add('hidden');}
   var drag=null;
   function closeUpStatusPanel(){
     if(!chat.classList.contains('hidden')){saveChatDraft();stopTypingHeartbeat();}
