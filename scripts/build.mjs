@@ -15,22 +15,22 @@ const userTemplate=fs.readFileSync(path.join(ROOT,"src/userscript/upstatus.user.
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
 
 const PROD_PROJECT="mvjqunhjxkbfcrxkjtgf";
-// This beta cycle is isolated in the existing Staging project; production TEST remains untouched.
-const TEST_PROJECT="akbgmmpnnpwcwgcfrltw";
+// Beta 2 intentionally shares live database, Storage and Realtime through a new, isolated function slug.
+const TEST_PROJECT=PROD_PROJECT;
 const PROD_REALTIME_URL="https://mvjqunhjxkbfcrxkjtgf.supabase.co";
 const PROD_REALTIME_KEY="sb_publishable_4_dLUWGGqyPP0prupYq8Jw_DTLJ2FlQ";
-const TEST_REALTIME_URL="https://akbgmmpnnpwcwgcfrltw.supabase.co";
-const TEST_REALTIME_KEY="sb_publishable_YZKmAyA19mkOfByJ5Y-Cmg_VbNnNkbA";
+const TEST_REALTIME_URL=PROD_REALTIME_URL;
+const TEST_REALTIME_KEY=PROD_REALTIME_KEY;
 const PROD_FUNCTION="upstatus";
-const TEST_FUNCTION="upstatus-test";
+const TEST_FUNCTION="upstatus-351-test";
 const PROD_TOPIC="upstatus-screen-share-live-3-1-1-beta10";
-const TEST_TOPIC="upstatus-screen-share-staging-3-5-1-beta1";
+const TEST_TOPIC=PROD_TOPIC;
 const PROD_RINGTONE_CHANNEL="upstatus-screen-share-3-1-1-beta9-2-ringtone-stop-v1";
-const TEST_RINGTONE_CHANNEL="upstatus-3-5-1-beta1-ringtone-stop";
+const TEST_RINGTONE_CHANNEL=PROD_RINGTONE_CHANNEL;
 const PROD_RINGTONE_STORAGE="upstatus_screen_share_beta8_ringtone_stop_bus";
-const TEST_RINGTONE_STORAGE="upstatus_staging_3_5_1_beta1_ringtone_stop";
+const TEST_RINGTONE_STORAGE=PROD_RINGTONE_STORAGE;
 const PROD_UPDATE_MANIFEST_URL="https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json";
-const TEST_UPDATE_MANIFEST_URL="https://raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.1-beta.1-ui-fixes/release.json";
+const TEST_UPDATE_MANIFEST_URL="https://raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.1-beta.2-agenda-status-mirror/release.json";
 
 function render(template,replacements){
   let out=template;
@@ -43,7 +43,7 @@ function renderUser({version,test}){
   const fn=test?TEST_FUNCTION:PROD_FUNCTION;
   const name=test?"UpStatus TEST - Sale Smartly":"UpStatus - Sale Smartly";
   const namespace=test?"upseller-test":"upseller";
-  const prefix=test?"upstatus_staging_351_beta1_":"upstatus_screen_share_beta8_";
+  const prefix=test?"upstatus_351_beta2_":"upstatus_screen_share_beta8_";
   const topic=test?TEST_TOPIC:PROD_TOPIC;
   const ringtoneChannel=test?TEST_RINGTONE_CHANNEL:PROD_RINGTONE_CHANNEL;
   const ringtoneStorage=test?TEST_RINGTONE_STORAGE:PROD_RINGTONE_STORAGE;
@@ -51,7 +51,7 @@ function renderUser({version,test}){
   const cloud="https://"+project+".supabase.co/functions/v1/"+(test?fn:"upstatus-screen-share-3-1-1-beta10");
   const realtimeUrl=test?TEST_REALTIME_URL:PROD_REALTIME_URL;
   const realtimeKey=test?TEST_REALTIME_KEY:PROD_REALTIME_KEY;
-  // The userscript updater URL points to the versioned distribution function; the beta API is isolated in Staging.
+  // The beta API and updater use a dedicated function slug while sharing approved live data services.
   const updateUrl="https://"+project+".supabase.co/functions/v1/"+fn+"/upstatus.user.js";
   return render(userTemplate,{
     "__UPSTATUS_NAME__":name,
@@ -92,7 +92,7 @@ const dist=path.join(ROOT,"dist");
 fs.rmSync(dist,{recursive:true,force:true});
 fs.mkdirSync(dist,{recursive:true});
 fs.writeFileSync(path.join(dist,"upstatus.user.js"),prodUser,"utf8");
-fs.writeFileSync(path.join(dist,"upstatus-test.user.js"),testUser,"utf8");
+fs.writeFileSync(path.join(dist,TEST_FUNCTION+".user.js"),testUser,"utf8");
 fs.writeFileSync(path.join(dist,"build-manifest.json"),JSON.stringify({
   baseVersion:PROD_VERSION,testVersion:fullVersion,channel:preRelease?"pre-release":"stable",
   productionFunction:PROD_FUNCTION,testFunction:TEST_FUNCTION
