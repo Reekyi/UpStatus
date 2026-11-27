@@ -1,54 +1,35 @@
 # UpStatus — Prompt de continuidade para novos chats
 
-Antes de executar qualquer alteração, leia integralmente `docs/UPSTATUS_RELEASE_PROTOCOL.md` no repositório GitHub e cumpra o protocolo.
+**Antes de responder à demanda ou alterar qualquer coisa, faça o onboarding técnico abaixo. Não pule esta etapa.**
 
-Você está continuando o desenvolvimento do UpStatus. Não comece do zero e não confie apenas no contexto do chat anterior. Faça onboarding técnico real:
+1. Leia `AGENTS.md` na raiz do repositório `Reekyi/UpStatus`.
+2. Leia integralmente `docs/UPSTATUS_RELEASE_PROTOCOL.md`.
+3. Consulte no GitHub o estado atual de `master`, commits recentes, branches, tags/releases, `release.json`, `CHANGELOG.md`, README, scripts, workflows e o código relacionado à demanda.
+4. Consulte no Supabase a saúde, Edge Functions e estrutura relevante dos dois projetos:
+   - Produção: `upstatus-normal`, ref `mvjqunhjxkbfcrxkjtgf`.
+   - Staging: `UpStatus Staging`, ref `akbgmmpnnpwcwgcfrltw`.
+5. Determine a versão oficial lendo o manifesto e verificando o runtime. Determine a beta atual verificando branches/tags/manifestos e runtime de Staging. Determine a próxima beta sem reutilizar número.
+6. Compare tudo com o protocolo. Informe divergências, não invente estado, não comece implementação antes de concluir a contextualização.
 
-1. Consulte o GitHub: repositório `Reekyi/UpStatus`, branch padrão `master`, commits recentes, branches, release manifest, changelog, README, scripts de build/validação, workflows de deploy e o código-fonte relevante à tarefa.
-2. Consulte o Supabase na organização `UpStatus Revived`:
-   - Produção: projeto `upstatus-normal`, ref `mvjqunhjxkbfcrxkjtgf`.
-   - Staging: projeto `UpStatus Staging`, ref `akbgmmpnnpwcwgcfrltw`.
-   Confirme saúde, Edge Functions, migrations e estrutura relevante. Use logs/advisors quando apropriado.
-3. Compare as evidências atuais com o protocolo de continuidade. Se houver divergência, informe-a claramente e prefira o estado efetivamente observado no ambiente para dizer o que está rodando. Atualize o protocolo e o changelog quando o estado de release mudar.
-4. Só então resuma o estado do projeto e proponha o próximo passo, preservando arquitetura, dados e funcionalidades existentes.
-
-## Regra de versões obrigatória
-
-No checkpoint de 27/11/2026:
+## Estado conhecido no checkpoint de 27/11/2026
 - Oficial: **3.4.9**
 - Beta ativa: **nenhuma**
 - Próxima beta: **3.5.0-beta.1**
+- Isso é um checkpoint, não substitui a consulta ao estado atual do GitHub e Supabase.
 
-Toda mudança solicitada deve primeiro virar uma versão beta isolada e testável, nunca uma atualização direta em produção. O ciclo é:
+## Processo obrigatório
+Toda alteração começa em beta no Staging, nunca diretamente em produção. A versão oficial só muda após aprovação explícita do Ricardo. Beta rejeitada não reutiliza número. Execute build, validações, testes de regressão, revisão de diff e verificação do deploy antes de entregar a beta. Só depois do aceite explícito promova para oficial.
 
-`3.4.9 (oficial) → 3.5.0-beta.1 → 3.5.0-beta.2 ... → aprovação explícita do Ricardo → 3.5.0 oficial`
+## Proteção do limite gratuito Supabase
+O plano é Free e o usuário exige não exceder os limites. Leia a seção “Supabase Free-plan quota protection” no protocolo. Snapshot enviado em 27/11/2026: Egress 0.43/5 GB; Database 37/500 MB; MAU 0/50.000; File Storage 0/1 GB; Log Ingestion 0.45/1 GB (45%); Log Query 1.37/100 GB. Logs são a maior preocupação.
+- Sem logs de sucesso por request/mensagem/heartbeat ou loops; sem dumps de log largos; sem polling desnecessário.
+- Nunca incluir conteúdo de chat, PII, tokens, credenciais ou payloads sensíveis nos logs.
+- Restringir consultas de log por serviço e janela de tempo.
+- Avaliar impacto de cada alteração em banco, egress, storage, log ingestion e log query.
+- Aplicar os limites de alerta/parada definidos no protocolo. Se não for possível confirmar o consumo e a mudança puder aumentá-lo materialmente, não faça deploy sem um snapshot recente.
+- Não criar projeto ou branch Supabase com custo sem autorização explícita.
 
-Nunca promova automaticamente. Só publique uma versão oficial quando Ricardo disser claramente que testou e aprovou ou autorizar explicitamente o lançamento. Se uma beta falhar, registre o resultado e incremente o número beta, sem reutilizá-lo.
+## Resumo obrigatório antes de trabalhar
+Apresente: versão oficial, beta ativa, próxima beta, branch/commit, status Staging, status Produção, consumo/risco de quotas, divergências e próximo passo seguro.
 
-## Segurança e qualidade
-
-- Nunca teste alterações diretamente na produção.
-- Nunca faça deploy beta no projeto Supabase de produção ou na URL oficial do userscript.
-- Use o projeto Staging para betas e confirme que dados, storage, Realtime, canais, namespace e URLs de atualização estão isolados.
-- Antes de alterar código, examine a implementação atual e o impacto em outras funcionalidades.
-- Execute build, validações e testes de regressão. Inspecione os diffs e artefatos gerados.
-- Preserve dados e compatibilidade. Mudanças destrutivas exigem explicação e autorização explícita.
-- Não faça alterações em banco sem inspecionar tabelas, RLS e migrations.
-- Não crie projetos/branches do Supabase que possam gerar custos sem consultar o custo real e obter autorização.
-- Nunca grave secrets, tokens, senhas ou chaves privadas no código ou no GitHub.
-- Não diga que algo foi testado, publicado, corrigido ou implantado sem evidência verificável.
-- Antes de qualquer ação com impacto em produção, explique precisamente o que mudará e peça aprovação explícita.
-
-## Ao final do onboarding
-
-Apresente um quadro curto com:
-- versão oficial;
-- versão beta (ou “nenhuma”);
-- branch e último commit;
-- estado do Staging;
-- estado da Produção;
-- validações observadas;
-- alertas ou divergências;
-- próximo passo seguro.
-
-Depois, aguarde/execute a demanda do Ricardo sem recomeçar a arquitetura do projeto.
+Se o chat não tiver acesso real ao GitHub/Supabase, diga isso claramente e peça que o usuário conecte ou forneça acesso. Nunca finja que leu os dados.
