@@ -1,3 +1,22 @@
+## 3.5.1-beta.1 (2026-11-27, Staging candidate)
+
+### Team member allowlist
+- Applied the Ricardo / Guilherme / Lohan allowlist at client entry points for login, text mentions, health, team presence and call participants.
+- Fixed the beta backend route: its API now uses the Staging upstatus-test function instead of the old production legacy API route that returned every database user.
+- Kept historical database records intact; no user rows or message history are deleted.
+
+### Interface corrections
+- Constrained the Sale Smartly empty-state artwork to its own layout area, removed it from hit testing, and limited its dimensions on smaller viewports.
+- Kept the login update footer on a single line, with the transient update status ellipsized instead of wrapping.
+- Reworked light-theme call controls for both the in-panel controls and minimized call bubble, with explicit semantic colors and visible SVGs. Dark-theme rules are unchanged.
+- Replaced the tiny recording-cancel glyph with a larger centered SVG X and fixed-size control.
+
+### Isolation and verification
+- Beta uses the existing Staging Supabase project, function upstatus-test, an independent Realtime topic, ringtone channel and local storage prefix.
+- Production upstatus, production upstatus-test, the stable userscript and master branch are not modified.
+- No database migration or data deletion is part of this candidate.
+- Automated validation and deployment checks are pending; manual acceptance remains with Ricardo.
+
 ## 3.5.0 (2026-11-27)
 
 ### Status synchronization without page reload
