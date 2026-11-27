@@ -3341,18 +3341,19 @@ function chatAvatarPresence(name){
     if(!c||!c.id||c.target!==member||remotePending[c.id])return;
     remotePending[c.id]=true;
     (async function(){
-      var ok=false,error='';
+      var ok=false,error='',visualUpdated=false;
       try{
-        await syncSaleSmartly(c.status);
+        var syncResult=await syncSaleSmartly(c.status);
+        visualUpdated=!!(syncResult&&syncResult.visualUpdated);
         await api('POST','/api/status',{status:c.status,reason:c.reason||'',actor:c.sender||'',target:member});
         ok=true;
-        if(location.hostname==='app.salesmartly.com')setTimeout(function(){location.reload()},250);
       }catch(e){error=e.message||'Falha ao sincronizar o Sale Smartly.';}
-      var resultPayload={commandId:c.id,sender:c.sender||'',target:member,status:c.status,reason:c.reason||'',ok:ok,error:error,createdAt:new Date().toISOString()};
+      var resultPayload={commandId:c.id,sender:c.sender||'',target:member,status:c.status,reason:c.reason||'',ok:ok,error:error,visualUpdated:visualUpdated,createdAt:new Date().toISOString()};
       try{await api('POST','/api/remote-status/result',{commandId:c.id,ok:ok,error:error});}catch(_){ }
       sendRealtimeEvent('remote_result',{result:resultPayload});
       delete remotePending[c.id];
-      if(!ok)message('Comando remoto de '+c.sender+' falhou: '+error,true);else refresh();
+      if(!ok)message('Comando remoto de '+c.sender+' falhou: '+error,true);
+      else{refresh();if(!visualUpdated)message('Status alterado no servidor, mas a interface do Sale Smartly não confirmou a atualização visual.',true);}
     })();
   }
 
@@ -3460,10 +3461,10 @@ function chatAvatarPresence(name){
         document.removeEventListener('UPSTATUS_RESULT',done);
         clearTimeout(timer);
         var d=e.detail||{};
-        if(d.ok)resolve();else reject(new Error(d.error||'Não foi possível sincronizar o Sale Smartly.'));
+        if(d.ok)resolve({visualUpdated:!!d.visualUpdated,visualFields:Number(d.visualFields)||0});else reject(new Error(d.error||'Não foi possível sincronizar o Sale Smartly.'));
       }
       document.addEventListener('UPSTATUS_RESULT',done);
-      document.dispatchEvent(new CustomEvent('UPSTATUS_SET',{detail:{status:map[status]}}));
+      document.dispatchEvent(new CustomEvent('UPSTATUS_SET',{detail:{status:map[status],member:member}}));
       var timer=setTimeout(function(){
         if(settled)return;
         settled=true;
@@ -3479,8 +3480,8 @@ function chatAvatarPresence(name){
     for(var attempt=0;attempt<delays.length;attempt++){
       if(delays[attempt])await new Promise(function(resolve){setTimeout(resolve,delays[attempt])});
       try{
-        await syncSaleSmartlyOnce(status,3500);
-        return;
+        var result=await syncSaleSmartlyOnce(status,3500);
+        return result;
       }catch(e){
         lastError=e;
         if(!isTransientSaleStatusError(e) || attempt===delays.length-1)throw e;
@@ -3493,12 +3494,11 @@ function chatAvatarPresence(name){
     try{
       if(status==='busy'&&!why.trim())throw new Error('Escreva o motivo.');
       message('Sincronizando com Sale Smartly…');
-      await syncSaleSmartly(status);
+      var syncResult=await syncSaleSmartly(status);
       await api('POST','/api/status',{status:status,reason:why});
-      message('Status atualizado.');
+      message(syncResult&&syncResult.visualUpdated?'Status atualizado no Sale Smartly, sem recarregar a página.':'Status alterado no servidor; a interface do Sale Smartly não confirmou a atualização visual.',!(syncResult&&syncResult.visualUpdated));
       card.querySelector('.up-reasons').classList.add('hidden');
       refresh();
-      if(location.hostname==='app.salesmartly.com')setTimeout(function(){location.reload()},250);
     }catch(e){message(e.message,true);refresh();}
   }
 
