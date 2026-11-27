@@ -14,7 +14,7 @@ const userTemplate=fs.readFileSync(path.join(ROOT,"src/userscript/upstatus.user.
 const serverTemplate=fs.readFileSync(path.join(ROOT,"src/server/index.template.ts"),"utf8");
 const ycaroPage=fs.readFileSync(path.join(ROOT,"ycaro.html"),"utf8");
 
-const PROJECT="dlfvkawaiqduhlazsszm";
+const PROJECT="mvjqunhjxkbfcrxkjtgf";
 const PROD_FUNCTION="upstatus";
 const TEST_FUNCTION="upstatus-test";
 const PROD_TOPIC="upstatus-screen-share-live-3-1-1-beta10";
