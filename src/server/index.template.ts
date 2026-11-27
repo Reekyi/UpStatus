@@ -492,6 +492,25 @@ async function mediaRoute(req:Request,kind:"image"|"audio"|"document") {
   return response({ok:true,imageUrl:saved.url,type:saved.mime.startsWith("video/")?"video":kind});
 }
 
+async function chatUploadUrlRoute(req:Request) {
+  const p:any=await readBody(req);
+  const mime=String(p.mime||"").toLowerCase();
+  const size=Number(p.size);
+  const allowed=new Set(["image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"]);
+  if(!allowed.has(mime))return response({error:"Tipo de arquivo não suportado."},400);
+  if(!Number.isSafeInteger(size)||size<=0)return response({error:"Tamanho de arquivo inválido."},400);
+  if(size>20*1024*1024)return response({error:"O arquivo deve ter no máximo 20 MB."},413);
+  const extension=ext(mime);
+  if(!extension)return response({error:"Tipo de arquivo não suportado."},400);
+  const bucket="chat-images";
+  const path=Date.now()+"-"+randomBytes(6).toString("hex")+"."+extension;
+  const {data,error}=await db.storage.from(bucket).createSignedUploadUrl(path);
+  if(error)throw error;
+  const uploadUrl=new URL(data.signedUrl,PROJECT_URL).toString();
+  const publicUrl=db.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  return response({ok:true,uploadUrl,signedUrl:uploadUrl,token:data.token,publicUrl,path,bucket,mime});
+}
+
 async function remoteRoute(req:Request,name:string) {
   const state:any=await stateValue("remote-status",{commands:{},results:{}});
   state.commands=state.commands||{};state.results=state.results||{};
@@ -674,6 +693,7 @@ Deno.serve(async(req)=>{
     if(path.startsWith("/api/chat/")&&req.method==="DELETE")return await deleteRoute(name,path.slice("/api/chat/".length));
     if(path==="/api/profiles")return await profileRoute(req,name);
     if(path==="/api/profile/avatar"&&req.method==="POST")return await profileRoute(req,name);
+    if(path==="/api/chat/upload-url"&&req.method==="POST")return await chatUploadUrlRoute(req);
     if(path==="/api/chat/image"&&req.method==="POST")return await mediaRoute(req,"image");
     if(path==="/api/chat/document"&&req.method==="POST")return await mediaRoute(req,"document");
     if(path==="/api/chat/audio"&&req.method==="POST")return await mediaRoute(req,"audio");

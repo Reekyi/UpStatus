@@ -66,7 +66,8 @@ assert(source.includes("function setChatNewMessageIndicator(show)"),"chat must e
 assert(source.includes("btn.appendChild(dot)"),"new-message indicator must create a visible dot element on the latest-message arrow");
 assert(source.includes("hasNewExternalMessage=nextMessages.some"),"polling must detect incoming messages when realtime events are missed");
 assert(source.includes("chatPendingInitialScroll=true;chatOpenScrollUntil=Date.now()+2400;chatForceScrollBottom=true;"),"reopening chat must request scrolling to the latest message");
-assert(source.includes("var currentMenu=document.querySelector('.up-chat-emoji-menu'),currentBtn=document.querySelector('.up-chat-emoji-btn')"),"emoji picker outside-click handler must use the current menu and button");
+assert(source.includes("var b=m.__upstatusEmojiButton;"),"emoji picker outside-click handler must use the button associated with each current menu");
+assert(source.includes("if(!m.contains(ev.target)&&(!b||!b.contains(ev.target)))"),"emoji picker must close only when the click is outside both its menu and its button");
 assert(source.includes("document.body.appendChild(box)"),"image lightbox must be mounted at page level");
 assert(serverTemplate.includes('.in("state_key",["remote-status"])'),"health state query must use the correct Supabase in-filter arguments");
 
@@ -102,13 +103,21 @@ assert(source.includes("if(p.type==='presence'){callReceivePresence(p);return;}"
 assert(serverTemplate.includes("const isAdmin=await admin(name);"),"server delete is authorized by the authenticated admin role");
 assert(!serverTemplate.includes('const isAdmin=name==="Ricardo"'),"no name-only administrator bypass");
 assert(source.includes("var canDelete=m.user===member||role==='implementation_admin';"),"admin UI uses stored role");
-assert(source.includes("function setPendingAttachment(file)"),"files are staged instead of uploaded immediately");
-assert(source.includes("function updateLinkPreview(text)"),"links get a removable preview");
-assert(source.includes("e.preventDefault();setPendingAttachment(file)"),"pasted images stay pending");
-assert(source.includes("fileName:String(record.file_name"),"filename is separate from caption");
+assert(source.includes("function uploadFileDirect(file,route)"),"chat attachments use direct signed uploads rather than base64 payloads");
+assert(source.includes("uploadFileDirect(file,'/api/chat/upload-url')"),"image/video attachments request a signed upload ticket");
+assert(source.includes("api('POST','/api/chat/document',{dataUrl:dataUrl})"),"documents use the server-side byte-sniffing upload route");
+assert(source.includes("'x-upsert':'false'"),"signed uploads must not permit overwriting existing objects");
+assert(source.includes("fileName:isDocument?String(file.name||'Documento')"),"document filename is sent independently from message text");
+assert(serverTemplate.includes("async function chatUploadUrlRoute(req:Request)"),"backend implements the signed chat upload-ticket route");
+assert(serverTemplate.includes("db.storage.from(bucket).createSignedUploadUrl(path)"),"backend creates a path-scoped Storage upload token");
+assert(serverTemplate.includes('path==="/api/chat/upload-url"&&req.method==="POST"'),"signed upload-ticket route is registered");
+assert(serverTemplate.includes("Number.isSafeInteger(size)||size<=0"),"signed upload rejects invalid file sizes");
+assert(serverTemplate.includes("if(size>20*1024*1024)return response({error:\"O arquivo deve ter no máximo 20 MB.\"},413);"),"signed image/video tickets enforce the 20 MB bucket limit");
+assert(serverTemplate.includes('async function mediaRoute(req:Request,kind:"image"|"audio"|"document")'),"document upload retains server-side byte-sniffing validation");
+assert(source.includes("fileName:String(record.file_name!=null?record.file_name:(record.fileName||''))"),"document filename is normalized separately from the message caption");
 assert(serverTemplate.includes('file_name:type==="document"&&fileName?fileName:null'),"file name is saved to separate database column");
 assert(source.includes("var incomingTime=!own?"),"received messages show per-message timestamps");
-assert(source.includes("var ownMeta=own?'<span class=\"up-chat-own-meta\"><span class=\"up-chat-own-time\">"),"sent time appears with ticks");
+assert(source.includes("var ownMeta=own?'<div class=\"up-chat-own-meta\"><span class=\"up-chat-own-time\">"),"sent time appears with ticks");
 assert(source.includes("function screenShareStart()"),"screen-sharing start handler missing");
 assert(source.includes("function screenShareReceive(p)"),"screen-sharing signal handler missing");
 assert(source.includes("SCREEN_ROOM_EVENT"),"screen-sharing realtime event missing");
@@ -118,5 +127,5 @@ assert(source.includes("data-sender-color"),"per-sender chat color rendering mis
 assert(source.includes("function requestPublicChatLinkTitle(url,callback)"),"stable Google Docs link-title hydration helper missing");
 assert(source.includes('class="up-chat-link-card"'),"stable chat link-card renderer missing");
 assert(source.includes("hydrateChatLinkTitles(list);"),"chat link-card hydration hook missing");
-assert(source.includes("upstatus-340-chat-link-card-compat"),"chat link-card compatibility styles missing");
-console.log("Chat regression tests passed: composer, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");
+assert(source.includes(".up-chat-link-card{display:flex;align-items:center;gap:10px;max-width:100%;min-width:0;box-sizing:border-box;"),"chat link cards retain their responsive base styles");
+console.log("Chat regression tests passed: composer, validated attachments, link cards, screen sharing, speaker mute, sender colors, notifications, and unread indicators.");

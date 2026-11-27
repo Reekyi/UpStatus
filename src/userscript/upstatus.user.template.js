@@ -470,7 +470,7 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
   var originalTitle=document.title;
   var currentStatus='offline';
   var CURRENT_VERSION='__UPSTATUS_VERSION__'
-  var UPDATE_URL='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js';
+  var UPDATE_URL='__UPSTATUS_UPDATE_URL__';
   var externalNotifPermission='default';
   var externalNotifSeen={};
   function iconSvg(name,cls){var p={
@@ -1046,9 +1046,9 @@ window.addEventListener('pagehide',function(){try{voiceRoomLeave();}catch(e){}})
       .then(function(manifest){
         if(!manifest||!Object.prototype.hasOwnProperty.call(manifest,'version'))throw new Error('Manifesto inválido para este canal.');
         var remote=String(manifest.version||'').trim();
-        var url=String(manifest.scriptUrl||'https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js').trim();
+        var url=String(manifest.scriptUrl||'__UPSTATUS_UPDATE_URL__').trim();
         if(!remote||!/^\d+(?:\.\d+){1,3}(?:-[0-9A-Za-z.-]+)?$/.test(remote))throw new Error('Versão do manifesto inválida.');
-        if(url!=='https://dlfvkawaiqduhlazsszm.supabase.co/functions/v1/upstatus/upstatus.user.js')throw new Error('Link do script não corresponde ao canal oficial.');
+        if(url!=='__UPSTATUS_UPDATE_URL__')throw new Error('Link do script não corresponde ao canal oficial.');
         return fetch(url+'?cb='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
           .then(function(sr){if(!sr.ok)throw new Error('Script oficial: HTTP '+sr.status);return sr.text();})
           .then(function(text){
@@ -1370,14 +1370,14 @@ function renderChatText(text){
   function profileFallback(){return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="32" fill="#273247"/><circle cx="32" cy="24" r="11" fill="#9aa8bc"/><path d="M12 56c3-13 11-19 20-19s17 6 20 19" fill="#9aa8bc"/></svg>');}
   function hydrateAvatar(img,name){var cacheKey='profile:'+name;var route=profileCache[name]||GM_getValue(key+cacheKey,'');if(!route){img.src=profileFallback();return;}var cachedRoute=GM_getValue(key+cacheKey,'');if(cachedRoute!==route){if(mediaBlobCache[cacheKey]){try{URL.revokeObjectURL(mediaBlobCache[cacheKey]);}catch(e){}delete mediaBlobCache[cacheKey];}GM_setValue(key+cacheKey,route);}loadBlobUrl(route,cacheKey).then(function(url){img.src=url;}).catch(function(){img.src=profileFallback();});}
 
-  function chatDataKey(messages){return (messages||[]).map(function(m){return [m.id,m.user||'',m.createdAt,m.message,m.type,m.systemType||'',m.imageUrl,JSON.stringify(m.replyTo||null),JSON.stringify(m.reactions||{}),JSON.stringify(m.readBy||[])].join('~');}).join('|');}
+  function chatDataKey(messages){return (messages||[]).map(function(m){return [m.id,m.user||'',m.createdAt,m.message,m.type,m.systemType||'',m.imageUrl,m.fileName||'',JSON.stringify(m.replyTo||null),JSON.stringify(m.reactions||{}),JSON.stringify(m.readBy||[])].join('~');}).join('|');}
   function normalizeChatMessage(record){
     if(!record||!record.id)return null;
     var rawUser=record.user_name!=null?record.user_name:record.user;
     return {
       id:String(record.id),user:String(rawUser||''),message:String(record.message||''),type:String(record.type||'text'),
       systemType:String(record.system_type!=null?record.system_type:(record.systemType||'')),createdAt:record.created_at||record.createdAt||new Date().toISOString(),
-      imageUrl:String(record.image_url!=null?record.image_url:(record.imageUrl||'')),mentions:Array.isArray(record.mentions)?record.mentions:[],
+      imageUrl:String(record.image_url!=null?record.image_url:(record.imageUrl||'')),fileName:String(record.file_name!=null?record.file_name:(record.fileName||'')),mentions:Array.isArray(record.mentions)?record.mentions:[],
       replyTo:record.reply_to!=null?record.reply_to:(record.replyTo||null),reactions:record.reactions||{},readBy:Array.isArray(record.readBy)?record.readBy:[]
     };
   }
@@ -2349,7 +2349,7 @@ function chatAvatarPresence(name){
       var groupStart=!samePrev,groupEnd=!sameNext;
       var avatar=own?'':'<img class="up-chat-avatar '+chatAvatarPresence(m.user)+(groupStart?'':' avatar-hidden')+'" data-avatar-name="'+esc(m.user)+'" alt="'+esc(m.user)+'">',body='';
       if(m.pendingUpload)body='<div class="up-chat-uploading"><span class="up-chat-upload-spinner"></span><span>'+esc(m.uploadLabel||'Enviando anexo…')+'</span></div>';
-      else if(m.imageUrl){if(m.type==='document'){var docName=String(m.message||'Documento'),docExt=(docName.split('.').pop()||'').toLowerCase(),docKind=/^(doc|docx|txt|rtf|odt)$/.test(docExt)?'blue':/^(xls|xlsx|csv|ods)$/.test(docExt)?'green':/^(pdf|html?|ppt|pptx|odp)$/.test(docExt)?'red':'blue',docIcon=/^(pdf)$/.test(docExt)?'PDF':/^(doc|docx|odt)$/.test(docExt)?'W':/^(xls|xlsx|ods)$/.test(docExt)?'XLS':/^csv$/.test(docExt)?'CSV':/^(ppt|pptx|odp)$/.test(docExt)?'PPT':/^(html?)$/.test(docExt)?'WEB':/^(txt|rtf)$/.test(docExt)?'TXT':'FILE';body='<a class="up-chat-document up-chat-document-'+docKind+'" data-document-route="'+esc(m.imageUrl)+'" data-file-name="'+esc(docName)+'" href="#"><span class="up-chat-document-icon">'+docIcon+'</span><span class="up-chat-document-name">'+esc(docName)+'</span><span class="up-chat-document-download">Baixar</span></a>';}else if(m.type==='video')body='<video class="up-chat-media up-chat-media-video" data-media-route="'+esc(m.imageUrl)+'" controls preload="metadata"></video>';else if(m.type==='audio')body='<div class="up-chat-audio-player" data-media-route="'+esc(m.imageUrl)+'"><button type="button" class="up-chat-audio-play" aria-label="Reproduzir áudio">▶</button><div class="up-chat-audio-wave"></div><span class="up-chat-audio-time">0:00</span></div>';else body='<img class="up-chat-photo loading" data-media-route="'+esc(m.imageUrl)+'" alt="" loading="lazy">';}
+      else if(m.imageUrl){if(m.type==='document'){var docName=String(m.fileName||m.message||'Documento'),docExt=(docName.split('.').pop()||'').toLowerCase(),docKind=/^(doc|docx|txt|rtf|odt)$/.test(docExt)?'blue':/^(xls|xlsx|csv|ods)$/.test(docExt)?'green':/^(pdf|html?|ppt|pptx|odp)$/.test(docExt)?'red':'blue',docIcon=/^(pdf)$/.test(docExt)?'PDF':/^(doc|docx|odt)$/.test(docExt)?'W':/^(xls|xlsx|ods)$/.test(docExt)?'XLS':/^csv$/.test(docExt)?'CSV':/^(ppt|pptx|odp)$/.test(docExt)?'PPT':/^(html?)$/.test(docExt)?'WEB':/^(txt|rtf)$/.test(docExt)?'TXT':'FILE';body='<a class="up-chat-document up-chat-document-'+docKind+'" data-document-route="'+esc(m.imageUrl)+'" data-file-name="'+esc(docName)+'" href="#"><span class="up-chat-document-icon">'+docIcon+'</span><span class="up-chat-document-name">'+esc(docName)+'</span><span class="up-chat-document-download">Baixar</span></a>';}else if(m.type==='video')body='<video class="up-chat-media up-chat-media-video" data-media-route="'+esc(m.imageUrl)+'" controls preload="metadata"></video>';else if(m.type==='audio')body='<div class="up-chat-audio-player" data-media-route="'+esc(m.imageUrl)+'"><button type="button" class="up-chat-audio-play" aria-label="Reproduzir áudio">▶</button><div class="up-chat-audio-wave"></div><span class="up-chat-audio-time">0:00</span></div>';else body='<img class="up-chat-photo loading" data-media-route="'+esc(m.imageUrl)+'" alt="" loading="lazy">';}
       else if(m.message)body='<div class="up-chat-text">'+renderChatText(m.message)+'</div>';
       var readers=Array.isArray(m.readBy)?m.readBy.filter(function(n){return n!==member;}):[],title=readers.length?'Lido por: '+readers.join(', '):'N㯠lido ainda';
       var tick=own?'<span class="up-chat-read '+(readers.length?'read':'')+(readers.length>=2?' read-all':'')+'" data-readers="'+esc(title)+'" aria-label="'+esc(readers.length?'Mensagem visualizada':'Mensagem ainda não visualizada')+'">'+(readers.length>=2?'&#10003;&#10003;':'&#10003;')+'</span>':'';
@@ -2449,7 +2449,7 @@ function chatAvatarPresence(name){
     chatContextMessageId=m.id;
     var canReply=m.user!==member;
     var quick=['😂','❤️','👍','😡','😮','👏'];
-    var canDelete=m.user===member||member==='Ricardo'||role==='implementation_admin';
+    var canDelete=m.user===member||role==='implementation_admin';
     menu.innerHTML=(canReply?'<button type="button" class="up-chat-context-action" data-action="reply">↩ Responder</button>':'')+(canDelete?'<button type="button" class="up-chat-context-action up-chat-context-delete" data-action="delete">🗑 Excluir mensagem</button>':'')+'<div class="up-chat-context-reaction-row">'+quick.map(function(em){return '<button type="button" class="up-chat-reaction" data-context-reaction="'+esc(em)+'">'+em+'</button>';}).join('')+'</div>';
     menu.classList.add('show');
     var x=Math.min(window.innerWidth-menu.offsetWidth-8,Math.max(8,e.clientX||8)),y=Math.min(window.innerHeight-menu.offsetHeight-8,Math.max(8,e.clientY||8));menu.style.left=x+'px';menu.style.top=y+'px';
@@ -2832,15 +2832,20 @@ function chatAvatarPresence(name){
   }
   function fileToDataUrl(file){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Use imagens, vídeos ou documentos PDF, DOC/DOCX, XLS/XLSX, CSV, PPT/PPTX, TXT e RTF.'));return;}var max=20*1024*1024;if(file.size>max){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}var reader=new FileReader();reader.onload=function(){var data=reader.result;if(!(data instanceof ArrayBuffer)){resolve(String(data));return;}var bytes=new Uint8Array(data),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+info.mime+';base64,'+btoa(bin));};reader.onerror=function(){reject(new Error('Não foi possível ler o arquivo.'));};reader.readAsArrayBuffer(file);});}
   function fileToDataUrlForProfile(file,type,ext){var info=resolveFileMime(file,false),mime=info.ok?info.mime:fileMimeFromExt(ext);if(!/^image\//i.test(mime)){return Promise.reject(new Error('Use PNG, JPG, WEBP ou GIF.'));}return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){try{var bytes=new Uint8Array(reader.result),bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));resolve('data:'+mime+';base64,'+btoa(bin));}catch(e){reject(new Error('Não foi possível preparar a foto.'));}};reader.onerror=function(){reject(new Error('Não foi possível ler a foto.'));};reader.readAsArrayBuffer(file);});}
-  function uploadFileDirect(file,route){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Tipo de arquivo não suportado.'));return;}if(file.size>20*1024*1024){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}api('POST',route,{mime:info.mime,size:file.size,name:String(file.name||'arquivo')}).then(function(ticket){if(!ticket||(!ticket.uploadUrl&&!ticket.signedUrl)||!ticket.token||!ticket.publicUrl||!ticket.path)throw new Error('Resposta de autorização incompleta: '+Object.keys(ticket||{}).join(', '));var url;try{url=new URL(ticket.uploadUrl||ticket.signedUrl);}catch(e){url=new URL('https://dlfvkawaiqduhlazsszm.supabase.co/storage/v1/object/upload/sign/'+ticket.bucket+'/'+ticket.path);}if(ticket.token&&!url.searchParams.has('token'))url.searchParams.set('token',ticket.token);if(!url.searchParams.has('token'))throw new Error('A URL assinada veio sem token.');return fetch(url.toString(),{method:'PUT',headers:{'Content-Type':info.mime,'x-upsert':'true','cache-control':'max-age=3600'},body:file}).then(function(resp){if(!resp.ok)return resp.text().then(function(t){throw new Error('Falha no Storage ('+resp.status+'): '+String(t||'').slice(0,180));});return ticket;});}).then(resolve).catch(reject);});}
+  function uploadFileDirect(file,route){return new Promise(function(resolve,reject){if(!file){reject(new Error('Nenhum arquivo selecionado.'));return;}var info=resolveFileMime(file,true);if(!info.ok){reject(new Error('Tipo de arquivo não suportado.'));return;}if(file.size>20*1024*1024){reject(new Error('O arquivo deve ter no máximo 20 MB.'));return;}api('POST',route,{mime:info.mime,size:file.size,name:String(file.name||'arquivo')}).then(function(ticket){if(!ticket||(!ticket.uploadUrl&&!ticket.signedUrl)||!ticket.token||!ticket.publicUrl||!ticket.path)throw new Error('Resposta de autorização incompleta: '+Object.keys(ticket||{}).join(', '));var url;try{url=new URL(ticket.uploadUrl||ticket.signedUrl);}catch(e){url=new URL('https://dlfvkawaiqduhlazsszm.supabase.co/storage/v1/object/upload/sign/'+ticket.bucket+'/'+ticket.path);}if(ticket.token&&!url.searchParams.has('token'))url.searchParams.set('token',ticket.token);if(!url.searchParams.has('token'))throw new Error('A URL assinada veio sem token.');return fetch(url.toString(),{method:'PUT',headers:{'Content-Type':info.mime,'x-upsert':'false','cache-control':'max-age=3600'},body:file}).then(function(resp){if(!resp.ok)return resp.text().then(function(t){throw new Error('Falha no Storage ('+resp.status+'): '+String(t||'').slice(0,180));});return ticket;});}).then(resolve).catch(reject);});}
   function sendChatMedia(file){
     if(!file)return;
     var tempId='local-upload-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),reply=chatReplyTo,info=resolveFileMime(file,true),isVideo=String(info.mime||'').indexOf('video/')===0,isDocument=/^(application\/|text\/)/i.test(info.mime||''),label=isDocument?'Enviando documento…':isVideo?'Enviando vídeo…':'Enviando imagem…';
+    if(!info.ok){showChatError('Use imagens, vídeos ou documentos nos formatos aceitos.');return;}
+    if(file.size>(isDocument?10:20)*1024*1024){showChatError(isDocument?'Documentos podem ter no máximo 10 MB.':'O arquivo deve ter no máximo 20 MB.');return;}
     var optimistic={id:tempId,user:member,message:'',type:isDocument?'document':isVideo?'video':'image',systemType:'',createdAt:new Date().toISOString(),imageUrl:'',mentions:[],replyTo:reply,reactions:{},readBy:[],optimistic:true,pendingUpload:true,uploadLabel:label};
     chatCache.push(optimistic);chatForceScrollBottom=true;chatOpenScrollUntil=Date.now()+1200;
     try{renderChat();scrollChatToBottom(true);}catch(e){}
-    uploadFileDirect(file,'/api/chat/upload-url').then(function(upload){
-      return api('POST','/api/chat',{message:isDocument?String(file.name||'Documento'):'',imageUrl:upload.publicUrl,type:isDocument?'document':isVideo?'video':'image',replyTo:reply});
+    var uploadPromise=isDocument
+      ?fileToDataUrl(file).then(function(dataUrl){return api('POST','/api/chat/document',{dataUrl:dataUrl});}).then(function(upload){return {publicUrl:upload.imageUrl};})
+      :uploadFileDirect(file,'/api/chat/upload-url');
+    uploadPromise.then(function(upload){
+      return api('POST','/api/chat',{message:'',imageUrl:upload.publicUrl,type:isDocument?'document':(isVideo?'video':'image'),fileName:isDocument?String(file.name||'Documento'):'',replyTo:reply});
     }).then(function(r){
       var created=normalizeChatMessage(r&&r.message);
       if(!created)throw new Error('O anexo foi enviado, mas não recebemos a confirmação da mensagem.');
@@ -2880,10 +2885,10 @@ function chatAvatarPresence(name){
     function docMeta(item){return (item.user||'Usuário')+' • '+fmtDay(item.createdAt);}
     function renderDocs(){
       docsList.innerHTML='';
-      var filtered=documents.filter(function(item){var name=String(item.message||'Documento'),q=String(docsSearch.value||'').toLowerCase();return name.toLowerCase().indexOf(q)>=0||String(item.user||'').toLowerCase().indexOf(q)>=0;});
+      var filtered=documents.filter(function(item){var name=String(item.fileName||item.message||'Documento'),q=String(docsSearch.value||'').toLowerCase();return name.toLowerCase().indexOf(q)>=0||String(item.user||'').toLowerCase().indexOf(q)>=0;});
       if(!filtered.length){docsList.appendChild(node('div',{className:'up-chat-library-empty',textContent:documents.length?'Nenhum documento corresponde à busca.':'Os documentos enviados no chat aparecerão aqui.'}));return;}
       filtered.forEach(function(item){
-        var name=String(item.message||'Documento'),ext=(name.split('.').pop()||'').toLowerCase(),kind=/^(doc|docx|txt|rtf|odt)$/.test(ext)?'blue':/^(xls|xlsx|csv|ods)$/.test(ext)?'green':/^(pdf|html?|ppt|pptx|odp)$/.test(ext)?'red':'blue';
+        var name=String(item.fileName||item.message||'Documento'),ext=(name.split('.').pop()||'').toLowerCase(),kind=/^(doc|docx|txt|rtf|odt)$/.test(ext)?'blue':/^(xls|xlsx|csv|ods)$/.test(ext)?'green':/^(pdf|html?|ppt|pptx|odp)$/.test(ext)?'red':'blue';
         var iconName=/^pdf$/.test(ext)?'PDF':/^(doc|docx|odt)$/.test(ext)?'W':/^(xls|xlsx|ods)$/.test(ext)?'XLS':/^csv$/.test(ext)?'CSV':/^(ppt|pptx|odp)$/.test(ext)?'PPT':/^(txt|rtf)$/.test(ext)?'TXT':/^(html?)$/.test(ext)?'WEB':'FILE';
         var card=node('div',{className:'up-chat-library-document-card '+ 'up-chat-library-doc-'+kind}),iconBox=node('div',{className:'up-chat-library-doc-icon'}),iconLabel=node('span',{textContent:iconName}),info=node('div',{className:'up-chat-library-doc-info'}),fileName=node('div',{className:'up-chat-library-doc-name',textContent:name}),meta=node('div',{className:'up-chat-library-doc-meta',textContent:docMeta(item)}),download=node('button',{className:'up-chat-library-download',type:'button',textContent:'Baixar'});
         iconBox.appendChild(iconLabel);info.appendChild(fileName);info.appendChild(meta);download.onclick=function(){loadBlobUrl(item.imageUrl,'chat:'+item.imageUrl).then(function(url){var a=document.createElement('a');a.href=url;a.download=name.replace(/^.*[\\/]/,'');document.body.appendChild(a);a.click();a.remove();}).catch(function(){showToast('Não foi possível baixar o documento.','error');});};
