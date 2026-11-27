@@ -1,3 +1,10 @@
+## 3.5.0-beta.2 (2026-11-27)
+
+### Corrigido carregamento inicial do userscript
+- Adiado o início do userscript para `document-end`, evitando a execução antes de o DOM da página estar disponível.
+- Corrigida a allowlist do atualizador para aceitar o artefato beta servido pelo projeto Supabase de TEST, sem aceitar URLs arbitrárias.
+- Mantida a separação completa entre TEST e produção; nenhuma função ou artefato de produção foi publicado.
+
 ## 3.5.0-beta.1 (2026-11-27)
 
 ### Removed legacy team access
