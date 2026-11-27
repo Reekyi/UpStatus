@@ -1,4 +1,4 @@
-## 3.5.0-beta.5 (2026-11-27, candidate)
+## 3.5.0-beta.5 (2026-11-27, deployed for testing)
 
 ### Corrigido o sincronismo nativo de status
 - Substituída a chamada manual ao endpoint `online-switch` pela ação oficial da Store Pinia do Sale Smartly: `user.switchOnlineStatus({ online_status, event_type: "0" })`.
@@ -6,6 +6,8 @@
 - Comandos remotos executados no navegador do membro-alvo usam a ação nativa na sessão daquele próprio membro, preservando as regras e os eventos internos do Sale Smartly.
 - Corrigidos o host e a chave publishable do Supabase Realtime para o projeto atualmente ativo `mvjqunhjxkbfcrxkjtgf`, mantendo o tópico Realtime existente.
 - Mantido o comportamento sem F5 e sem novo canal, polling ou logging de sucesso.
+- Implantada na função dedicada `upstatus-test` (deployment version 4, ACTIVE); `/health` confirmou `3.5.0-beta.5`. A função oficial `upstatus` permaneceu em 3.4.9.
+- Validação GitHub Actions #2359 aprovada. A confirmação manual de propagação visual entre sessões permanece pendente.
 
 ## 3.5.0-beta.4 (2026-11-27)
 
