@@ -57,6 +57,8 @@ assert(!prodFn.match(/lucca|ycaro/i),"production backend contains removed guest 
 assert(!testFn.match(/lucca|ycaro/i),"TEST backend contains removed guest identities");
 assert(!prodUser.match(/lucca|ycaro|icaro|luca/i),"production userscript contains removed guest UI");
 assert(!testUser.match(/lucca|ycaro|icaro|luca/i),"TEST userscript contains removed guest UI");
+assert(testFn.includes('if(!["Ricardo","Lohan","Guilherme"].includes(name))return null;'),"TEST account lookup must allow only the three current members");
+assert(testFn.includes("needsSetup:!!a&&!a.password_hash"),"Removed accounts must not be offered password setup");
 
 for(const artifact of [prodUser,testUser]){
   assert(artifact.includes("function closePopupAnimated(el,finish)"),"Popup exit animation helper missing");
