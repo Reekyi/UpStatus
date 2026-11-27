@@ -97,7 +97,7 @@ A falha não foi escondida nem alterada nesta branch. Corrigi-la exige decidir q
 4. **Storage e autorização:** executar testes controlados de upload assinado, leitura pública, falhas de permissão e rotas administrativas, sem usar dados ou credenciais de produção.
 5. **Desempenho:** obter uma caracterização de carga/latência antes de qualquer troca de runtime.
 
-## 10. Nova confirmação sobre o projeto original
+## 9. Nova confirmação sobre o projeto original
 
 A conexão Supabase **Primary** permitiu consultar o projeto original `UpStatus` (`dlfvkawaiqduhlazsszm`), que não estava acessível pela conexão Supabase usada anteriormente.
 
@@ -110,7 +110,7 @@ Estado observado em 2026-11-27:
 
 **Interpretação:** o projeto antigo está pausado/inativo neste momento, enquanto `upstatus-normal` e `UpStatus Staging` estão ACTIVE_HEALTHY. Isso reduz a incerteza sobre o estado atual dos ambientes, mas ainda não prova o cutover funcional completo: os metadados não mostram tráfego, clientes conectados, DNS/URLs distribuídas ou dependências externas. Não restaurar o projeto original nem desativar funções adicionais sem uma decisão explícita.
 
-## 9. Alterações realizadas nesta auditoria
+## 10. Alterações realizadas nesta auditoria
 
 Somente leituras de GitHub/Supabase e GETs públicos de `/api/update-info`. Não foram realizadas alterações em banco, migrations, RLS, policies, grants, buckets, secrets, configurações, Edge Functions ou deployments. Nenhum merge, cutover ou desativação de runtime foi executado.
 
