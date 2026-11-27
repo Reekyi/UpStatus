@@ -82,8 +82,8 @@ assert(testUser.includes("setTimeout(function(){removeToast(m.id)},3000)"),"Chat
 const messageStart=testUser.indexOf("var statusMessageTimer=null,statusMessageRemoveTimer=null;");
 const messageEnd=testUser.indexOf("var chatErrorToastTimer=null,chatErrorToastRemoveTimer=null;",messageStart);
 assert(messageStart>=0&&messageEnd>messageStart,"Auto-dismiss message helper must be extractable for unit testing");
-assert(!messageUnitSource.includes("up-notice"),"Persistent Sale Smartly connection indicator must not be auto-dismissed with transient messages");
 const messageUnitSource=testUser.slice(messageStart,messageEnd);
+assert(!messageUnitSource.includes("up-notice"),"Persistent Sale Smartly connection indicator must not be auto-dismissed with transient messages");
 const fakeTimers=[];
 let fakeTimerId=0;
 function fakeSetTimeout(fn,delay){const item={id:++fakeTimerId,fn,delay};fakeTimers.push(item);return item.id;}
