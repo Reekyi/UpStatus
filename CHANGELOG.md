@@ -15,7 +15,7 @@
 - Beta uses the existing Staging Supabase project, function upstatus-test, an independent Realtime topic, ringtone channel and local storage prefix.
 - Production upstatus, production upstatus-test, the stable userscript and master branch are not modified.
 - No database migration or data deletion is part of this candidate.
-- Automated validation and deployment checks are pending; manual acceptance remains with Ricardo.
+- GitHub Actions validation run #2367 passed. Staging `upstatus-test` is deployed as version 8 (ACTIVE), source hash `66451104ef80f36919d19bc34e9628eb52d3b23446a354fa83a7a74924afc130`; `/health`, `/api/update-info`, served userscript header and `/api/members` were verified. Manual acceptance remains with Ricardo.
 
 ## 3.5.0 (2026-11-27)
 
