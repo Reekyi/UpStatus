@@ -12,16 +12,17 @@ const baseVersion=String(release.version).trim();
 const preRelease=String(release.preRelease||"").trim();
 const testVersion=preRelease?baseVersion+"-"+preRelease:baseVersion;
 const stableVersion="3.5.0";
-const stagingProject="akbgmmpnnpwcwgcfrltw";
-assert(baseVersion==="3.5.1"&&preRelease==="beta.1"&&testVersion==="3.5.1-beta.1","TEST manifest must identify 3.5.1-beta.1");
-assert(release.scriptUrl==="https://"+stagingProject+".supabase.co/functions/v1/upstatus-test/upstatus.user.js","Beta manifest must point only to the Staging TEST userscript URL");
+const liveProject="mvjqunhjxkbfcrxkjtgf";
+const betaFunction="upstatus-351-test";
+assert(baseVersion==="3.5.1"&&preRelease==="beta.2"&&testVersion==="3.5.1-beta.2","TEST manifest must identify 3.5.1-beta.2");
+assert(release.scriptUrl==="https://"+liveProject+".supabase.co/functions/v1/"+betaFunction+"/upstatus.user.js","Beta manifest must point only to the isolated live-integration TEST installer");
 const productionWorkflow=fs.readFileSync(path.join(ROOT,".github/workflows/deploy-production.yml"),"utf8");
 assert(productionWorkflow.includes("r.version !== '3.5.0'")&&!productionWorkflow.includes("r.version !== '3.4.7'"),"Production workflow guard must allow only the approved stable 3.5.0 release");
 
 const prodFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus/index.ts"),"utf8");
-const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-test/index.ts"),"utf8");
+const testFn=fs.readFileSync(path.join(ROOT,"supabase/functions/upstatus-351-test/index.ts"),"utf8");
 const prodUser=fs.readFileSync(path.join(ROOT,"dist/upstatus.user.js"),"utf8");
-const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-test.user.js"),"utf8");
+const testUser=fs.readFileSync(path.join(ROOT,"dist/upstatus-351-test.user.js"),"utf8");
 function assert(ok,msg){if(!ok)throw new Error("VALIDATION FAILED: "+msg);}
 function headerValue(text,name){const m=text.match(new RegExp("^// @"+name+"\\s+(.+)$","m"));return m?m[1].trim():"";}
 function decodeHex(code){const m=code.match(/const USERSCRIPT_HEX = "([0-9a-f]+)";/i);assert(m,"USERSCRIPT_HEX missing");return Buffer.from(m[1],"hex").toString("utf8");}
@@ -31,14 +32,14 @@ assert(headerValue(testUser,"version")===testVersion,"test userscript version mi
 assert(headerValue(prodUser,"namespace")==="upseller","production namespace mismatch");
 assert(headerValue(testUser,"namespace")==="upseller-test","test namespace mismatch");
 assert(headerValue(prodUser,"updateURL").includes("/upstatus/upstatus.user.js"),"production updateURL mismatch");
-assert(headerValue(testUser,"updateURL").includes("/upstatus-test/upstatus.user.js"),"test updateURL mismatch");
+assert(headerValue(testUser,"updateURL").includes("/upstatus-351-test/upstatus.user.js"),"test updateURL mismatch");
 assert(headerValue(prodUser,"run-at")==="document-end"&&headerValue(testUser,"run-at")==="document-end","userscript must wait until the page DOM is ready");
 for(const artifact of [prodUser,testUser]){
   assert(artifact.includes("function requestUpdateText(url){"),"updater must use the Tampermonkey request helper");
   assert(artifact.includes("GM_xmlhttpRequest({"),"updater must use GM_xmlhttpRequest to avoid page fetch/CORS failures");
   assert(artifact.includes("timeout:20000"),"updater requests must have a bounded timeout");
   assert(artifact.includes("function openUpdate(url)"),"updater must open the URL verified from the release manifest");
-  assert(artifact.includes("mvjqunhjxkbfcrxkjtgf")&&artifact.includes("(?:upstatus|upstatus-test)"),"updater must allow the stable and beta routes on the live Supabase project");
+  assert(artifact.includes("mvjqunhjxkbfcrxkjtgf")&&artifact.includes("(?:upstatus|upstatus-test|upstatus-351-test)"),"updater must allow stable, Beta 5 and isolated Beta 2 routes on the live Supabase project");
   assert(artifact.includes("showUpdatePrompt(served,url)"),"update prompt must preserve the verified script URL");
   assert(artifact.includes("function(){openUpdate(url)}"),"manual update button must use the verified script URL");
   assert(!artifact.includes("fetch('https://raw.githubusercontent.com/Reekyi/UpStatus/master/release.json"),"updater must not use page-context fetch for its manifest");
@@ -46,23 +47,23 @@ for(const artifact of [prodUser,testUser]){
 
 assert(!testUser.includes("/functions/v1/upstatus/upstatus.user.js"),"test userscript contains production updateURL");
 assert(prodUser.includes("var key='upstatus_screen_share_beta8_';"),"production storage prefix mismatch");
-assert(testUser.includes("var key='upstatus_staging_351_beta1_';"),"staging beta storage prefix mismatch");
+assert(testUser.includes("var key='upstatus_351_beta2_';"),"Beta 2 local storage prefix mismatch");
 assert(prodUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';"),"production realtime topic compatibility check");
-assert(testUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-staging-3-5-1-beta1';"),"TEST must use its isolated Staging Realtime topic");
+assert(testUser.includes("var UP_REALTIME_TOPIC='upstatus-screen-share-live-3-1-1-beta10';"),"Beta 2 must share the live-team Realtime topic");
 assert(prodUser.includes("var UP_REALTIME_URL='https://mvjqunhjxkbfcrxkjtgf.supabase.co';"),"Production Realtime must point to the active Supabase project");
-assert(testUser.includes("var UP_REALTIME_URL='https://akbgmmpnnpwcwgcfrltw.supabase.co';"),"TEST Realtime must point to the Staging project");
+assert(testUser.includes("var UP_REALTIME_URL='https://mvjqunhjxkbfcrxkjtgf.supabase.co';"),"Beta 2 Realtime must point to the live project");
 assert(!prodUser.includes("dlfvkawaiqduhlazsszm.supabase.co")&&!testUser.includes("dlfvkawaiqduhlazsszm.supabase.co"),"Obsolete Supabase host must not remain in generated clients");
-assert(testUser.includes("var UP_REALTIME_KEY='sb_publishable_YZKmAyA19mkOfByJ5Y-Cmg_VbNnNkbA';"),"TEST Realtime must use the Staging project publishable key");
+assert(testUser.includes("var UP_REALTIME_KEY='sb_publishable_4_dLUWGGqyPP0prupYq8Jw_DTLJ2FlQ';"),"Beta 2 Realtime must use the live project's publishable key");
 assert(prodUser.includes("var UP_REALTIME_KEY='sb_publishable_4_dLUWGGqyPP0prupYq8Jw_DTLJ2FlQ';"),"Production build must retain the active project's enabled publishable key");
 
 assert(prodUser.includes("var UP_RINGTONE_CHANNEL='upstatus-screen-share-3-1-1-beta9-2-ringtone-stop-v1';"),"production ringtone channel mismatch");
-assert(testUser.includes("var UP_RINGTONE_CHANNEL='upstatus-3-5-1-beta1-ringtone-stop';"),"TEST must use an isolated beta ringtone channel");
+assert(testUser.includes("var UP_RINGTONE_CHANNEL='upstatus-screen-share-3-1-1-beta9-2-ringtone-stop-v1';"),"Beta 2 must share live-team ringtone coordination");
 assert(prodUser.includes("var upRingtoneStorageKey='upstatus_screen_share_beta8_ringtone_stop_bus';"),"production ringtone storage mismatch");
-assert(testUser.includes("var upRingtoneStorageKey='upstatus_staging_3_5_1_beta1_ringtone_stop';"),"TEST must use an isolated beta ringtone storage bus");
+assert(testUser.includes("var upRingtoneStorageKey='upstatus_screen_share_beta8_ringtone_stop_bus';"),"Beta 2 must share live-team ringtone storage coordination");
 assert(prodFn.includes('const VERSION = "'+stableVersion+'";'),"production backend must remain on official 3.5.0");
 assert(testFn.includes('const VERSION = "'+testVersion+'";'),"test backend version mismatch");
 assert(prodFn.includes('const marker="/upstatus";'),"production path marker mismatch");
-assert(testFn.includes('const marker="/upstatus-test";'),"test path marker mismatch");
+assert(testFn.includes('const marker="/upstatus-351-test";'),"Beta 2 backend path marker mismatch");
 assert(decodeHex(prodFn)===prodUser,"production embedded userscript does not match build output");
 assert(decodeHex(testFn)===testUser,"test embedded userscript does not match build output");
 checkSyntax(prodUser,"dist/upstatus.user.js");
@@ -166,7 +167,7 @@ assert((testUser.match(/location\.reload\(\)/g)||[]).length===1,"Only the explic
 assert(!prodFn.match(/lucca|ycaro/i),"production backend contains removed guest identities");
 assert(!testFn.match(/lucca|ycaro/i),"TEST backend contains removed guest identities");
 assert(!prodUser.match(/lucca|ycaro|icaro|luca/i),"production userscript contains removed guest UI");
-assert(!testUser.replace("https://raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.1-beta.1-ui-fixes/release.json","").match(/lucca|ycaro|icaro|luca/i),"TEST userscript contains removed guest UI outside its beta manifest branch URL");
+assert(!testUser.replace("https://raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.1-beta.2-agenda-status-mirror/release.json","").match(/lucca|ycaro|icaro|luca/i),"Beta 2 userscript contains removed guest UI outside its beta manifest branch URL");
 assert(testFn.includes('if(!["Ricardo","Lohan","Guilherme"].includes(name))return null;'),"TEST account lookup must allow only the three current members");
 assert(testFn.includes("needsSetup:!!a&&!a.password_hash"),"Removed accounts must not be offered password setup");
 assert(prodFn.includes("async function contextName(req:Request)")&&prodFn.includes("const ctx=await contextName(req);"),"production backend must resolve authenticated session context");
@@ -174,8 +175,8 @@ assert(testFn.includes("async function contextName(req:Request)")&&testFn.includ
 assert(testFn.includes("if(!name||![\"Ricardo\",\"Lohan\",\"Guilherme\"].includes(name))return null;"),"TEST session context must reject non-allowlisted accounts");
 assert(testFn.includes('.in("name",["Ricardo","Lohan","Guilherme"])'),"TEST status and health payloads must expose only the active team");
 assert(testFn.includes('filter((m:any)=>["Ricardo","Lohan","Guilherme","Sistema"].includes(String(m.user_name)))'),"TEST chat history must exclude removed identities");
-assert(testUser.includes("var CLOUD_SERVER='https://akbgmmpnnpwcwgcfrltw.supabase.co/functions/v1/upstatus-test';"),"TEST API must use only the Staging project");
-assert(testUser.includes("raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.1-beta.1-ui-fixes/release.json"),"TEST updater must read the 3.5.1-beta.1 branch manifest");
+assert(testUser.includes("var CLOUD_SERVER='https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-351-test';"),"Beta 2 API must use the dedicated live integration function");
+assert(testUser.includes("raw.githubusercontent.com/Reekyi/UpStatus/beta/3.5.1-beta.2-agenda-status-mirror/release.json"),"Beta 2 updater must read the Beta 2 branch manifest");
 assert(testUser.includes('var remotePreRelease=String(manifest.preRelease||\'\').trim();'),"updater must compare full prerelease versions");
 
 for(const artifact of [prodUser,testUser]){
@@ -211,9 +212,32 @@ assert(testUser.includes("function upFilterMembers(items)"),"Client must filter 
 assert(testUser.includes("var names=upFilterMembers(window.__upstatusMembers)"),"Mention menu must filter stale API member names");
 assert(testUser.includes("users=upFilterMembers(d&&d.members||[])"),"System health must filter stale API member names");
 assert(testUser.includes("!upIsAllowedMember(p.from)"),"Call signals from removed identities must be ignored");
-assert(testUser.includes("upstatus-351-empty-artwork")&&testUser.includes("pointer-events:none!important"),"Waiting-state illustration must not intercept clicks and must stay constrained");
+assert(testUser.includes("upStatusBeta2EmptyArtworkLayout")&&testUser.includes("upstatus-351-empty-art-wrap")&&testUser.includes("position:relative!important")&&testUser.includes("pointer-events:none!important"),"Waiting artwork must stay constrained in normal flow and not intercept clicks");
 assert(testUser.includes(".up-login-update{display:flex!important;flex-wrap:nowrap!important"),"Login update footer must remain on one line");
 assert(testUser.includes("up-chat-record-cancel-icon")&&testUser.includes("width:34px!important;height:34px!important"),"Audio cancel control must use a larger centered SVG button");
-assert(testUser.includes("#upstatus-root.up-theme-light .up-voice-actions button")&&testUser.includes("#upstatus-root.up-theme-light .up-voice-control-bubble>button"),"Light-mode call control styles must cover both call surfaces");
+assert(testUser.includes("#upstatus-root.up-theme-light .up-voice-actions .up-voice-mute")&&testUser.includes("#upstatus-root.up-theme-light .up-voice-actions .up-voice-speakers")&&testUser.includes("#upstatus-root.up-theme-light .up-voice-actions .up-screen-share-toggle"),"Light-mode room controls must style mic, speaker and screen share individually");
+assert(testUser.includes("#upstatus-root.up-theme-light .up-voice-control-bubble .up-voice-control-mute")&&testUser.includes("#upstatus-root.up-theme-light .up-voice-control-bubble .up-voice-control-speakers")&&testUser.includes("#upstatus-root.up-theme-light .up-voice-control-bubble .up-voice-control-screen"),"Light-mode mini controls must style mic, speaker and screen share individually");
+assert(testUser.includes(".up-voice-actions .up-voice-leave")&&testUser.includes(".up-voice-control-bubble .up-voice-control-leave"),"Leave control must be explicitly styled on both surfaces");
 
-console.log("Validation OK: PROD "+stableVersion+" / TEST "+testVersion+" (Staging isolated)");
+
+assert(testUser.includes("function upStatusBindStatusWatcher(name)")&&testUser.includes("store.$subscribe("),"Sale Smartly Pinia watcher must be installed");
+assert(testUser.includes("UPSTATUS_SALE_STATUS_SNAPSHOT")&&testUser.includes("UPSTATUS_SALE_STATUS_CHANGED"),"Initial Sale Smartly status and direct changes must be mirrored separately");
+assert(testUser.includes("upStatusMarkExpected(code)"),"Programmatic writes must be suppressed in the native watcher");
+const statusPosts=[...testUser.matchAll(/api\('POST','\/api\/status',\{([^}]*)\}\)/g)];
+assert(statusPosts.length>=4&&statusPosts.every(m=>m[1].includes("confirmedBySaleSmartly:true")),"Every status write must require Sale Smartly confirmation");
+assert(testFn.includes('if(p.confirmedBySaleSmartly!==true)'),"Server must reject status writes without Sale Smartly confirmation");
+assert(testFn.includes('if(path==="/api/agenda")')&&testFn.includes('if(path==="/api/agenda/reconcile"')&&testFn.includes('if(path==="/api/agenda/reconcile/fail"'),"Agenda endpoints must exist");
+assert(testFn.includes('name!=="Ricardo"')&&testFn.includes("AGENDA_TRAINING_SLOTS"),"Only Ricardo may define daily training slots");
+assert(testFn.includes('config.weeks[weekStart]=owner')&&testFn.includes('name!=="Ricardo"'),"Only Ricardo may define the weekly workshop owner");
+assert(testFn.includes('canEditTeam:name==="Ricardo"'),"Agenda edit permission must be restricted to Ricardo");
+assert(testFn.includes('timeZone:"America/Sao_Paulo"')&&testFn.includes('minute>=18*60'),"Schedule must use Sao Paulo time and the 18:00 end-of-day rule");
+assert(testFn.includes('minute>=12*60&&minute<13*60')&&testFn.includes('minute>=13*60&&minute<14*60'),"Lunch schedule must support noon and 13:00 options");
+assert(testFn.includes('minute>=15*60&&minute<17*60'),"Weekly workshop must pause 15:00-17:00");
+assert(testUser.includes("data-agenda-lunch")&&testUser.includes("data-agenda-training")&&testUser.includes("data-agenda-aulao"),"Agenda UI must render lunch, daily training and weekly workshop controls");
+assert(testUser.includes("var own=n===member,editable=own")&&testUser.includes("(canEdit?'':'disabled')"),"Only each member's own lunch is editable; training/workshop controls are read-only for Lohan and Guilherme");
+assert(testUser.includes("var boundaries=[10*60,11*60,12*60,13*60,14*60,15*60,16*60,17*60,18*60]"),"Local scheduler must reconcile at schedule boundaries");
+assert(testUser.includes("function openAgenda()")&&testUser.includes("up-settings-agenda"),"Agenda must open from the settings menu");
+assert(testUser.includes("up-settings-history")&&!testUser.includes('class="up-history-btn hidden"'),"History must move into settings instead of the main header");
+assert(testUser.includes("agendaReconcileQueued")&&testUser.includes("setTimeout(function(){agendaReconcile();},0)"),"Concurrent agenda reconciliations must be serialized");
+
+console.log("Validation OK: PROD "+stableVersion+" / TEST "+testVersion+" (isolated live-data Beta 2)");
