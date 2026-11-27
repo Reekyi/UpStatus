@@ -1,5 +1,5 @@
 {
   "version": "3.5.0",
-  "preRelease": "beta.2",
-  "scriptUrl": "https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus/upstatus.user.js"
+  "preRelease": "beta.3",
+  "scriptUrl": "https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js"
 }
