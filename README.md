@@ -6,11 +6,12 @@ For every new AI-assisted task, first read [`AGENTS.md`](AGENTS.md), then [`docs
 
 ## Current release checkpoint
 
-- Official: **3.5.0**
-- No active release candidate. The dedicated `upstatus-test` function remains on **3.5.0-beta.5** for regression/reference testing.
-- Previous official: **3.4.9**
-- Beta TEST URL: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`
-- The beta uses its own Edge Function, namespace and local storage prefix; the stable `upstatus` function and stable userscript URL are unchanged.
+- Official: **3.5.0** (master and production; unchanged).
+- Active candidate: **3.5.1-beta.2**, branch `beta/3.5.1-beta.2-agenda-status-mirror`.
+- Beta 2 target: new, dedicated production-project function `upstatus-351-test` in `mvjqunhjxkbfcrxkjtgf`, to share the live database, Storage, profiles, chat and Realtime while keeping its own function route, userscript namespace and local storage prefix.
+- Beta 2 installer: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-351-test/upstatus.user.js` (deployment v1, ACTIVE; health reports `3.5.1-beta.2`).
+- Production `upstatus` v6 and the existing production `upstatus-test` Beta 5 v4 must remain untouched. Staging Beta 1 `upstatus-test` v8 is also retained.
+- This integration beta writes to shared live team data; use the dedicated Beta 2 installer only for testing and do not use it for destructive experiments.
 - Verify live `release.json`, Git refs, and Supabase deployments before relying on this snapshot.
 
 ## Supabase environments
@@ -30,7 +31,7 @@ GitHub is the source of truth for code and release history. Supabase is the runt
 - `master`: stable/production line.
 - Confirm the current integration and TEST branch/workflow configuration before use; do not assume stale documentation is correct.
 - Production deployment is manual and requires explicit user approval.
-- New work normally starts as a beta in the existing Staging Supabase project. When Ricardo explicitly requests live-team interoperability, a separate `upstatus-test` function may run inside the production project while the official `upstatus` function remains untouched.
+- New work normally starts as a beta in the existing Staging Supabase project. When Ricardo explicitly requests live-team interoperability, use a new dedicated function slug (Beta 2: `upstatus-351-test`) inside the production project while leaving official `upstatus` and the existing Beta 5 `upstatus-test` untouched.
 
 ## Versioning
 

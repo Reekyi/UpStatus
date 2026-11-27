@@ -1,3 +1,47 @@
+## 3.5.1-beta.2 (2026-11-27, isolated live-data candidate)
+
+### Sale Smartly is the source of truth
+- Added a Pinia store watcher for the current user's native `onlineStatus`; direct Sale Smartly changes are mirrored back into UpStatus and broadcast through the existing team Realtime topic.
+- UpStatus-originated manual, remote and scheduled changes must first execute the native Sale Smartly action and confirm the resulting status before writing the UpStatus status record/history.
+- Programmatic Pinia changes are tagged so the observer does not echo the same change back as a second user action.
+- Direct status changes made inside Sale Smartly receive the generic reason `Alterado no Sale Smartly` where the source does not expose a reason.
+
+### Team agenda
+- Added `Agenda da equipe` inside the settings gear and moved the History button into that same menu.
+- The agenda is visible to Ricardo, Guilherme and Lohan. Each member can edit only their own lunch choice (12h–13h or 13h–14h); all members can see the team's selected schedule.
+- Only Ricardo can edit the four daily training slots (10h, 11h, 15h and 16h) and the weekly Aulão owner. Empty training slots do not change anyone's status.
+- Aulão owner persists for the Monday–Friday week, 15h–17h. Lunch and training entries are daily.
+- No automatic morning activation is added. Weekday shift end is scheduled at 18h.
+- Browser-side reconciliation checks the current desired state on schedule boundaries and on focus/resume; it does not replay missed transitions in sequence. Native status changes still require the user's Sale Smartly session to be open.
+
+### Visual corrections
+- Replaced the unsuccessful Beta 1 waiting-artwork override with a targeted normal-flow layout correction for the Sale Smartly empty-state GIF.
+- Revised light-mode room and mini-player call controls individually (microphone, speaker, screen sharing and leave); dark-mode rules are not intentionally changed.
+
+### Live-data test isolation
+- Uses the new dedicated function `upstatus-351-test` in production project `mvjqunhjxkbfcrxkjtgf`, with namespace `upseller-test`, local prefix `upstatus_351_beta2_`, independent installer route, and shared live DB/Storage/Realtime.
+- Existing production `upstatus` and Beta 5 `upstatus-test` remain untouched. No SQL migration, account deletion or historical-data cleanup is included.
+- GitHub Actions validation run **#2372** passed, including deterministic agenda schedule tests. Production-project function `upstatus-351-test` is deployed as version **1**, ACTIVE, source hash `65f799972b086081304e1e0895b41f2ce385c61b46545bb43f231d42ff8ae2af`. `/health`, `/api/update-info`, the served userscript header (`3.5.1-beta.2`, namespace `upseller-test`) and `/api/members` were verified. Ricardo's manual acceptance is still required.
+
+## 3.5.1-beta.1 (2026-11-27, Staging candidate)
+
+### Team member allowlist
+- Applied the Ricardo / Guilherme / Lohan allowlist at client entry points for login, text mentions, health, team presence and call participants.
+- Fixed the beta backend route: its API now uses the Staging upstatus-test function instead of the old production legacy API route that returned every database user.
+- Kept historical database records intact; no user rows or message history are deleted.
+
+### Interface corrections
+- Constrained the Sale Smartly empty-state artwork to its own layout area, removed it from hit testing, and limited its dimensions on smaller viewports.
+- Kept the login update footer on a single line, with the transient update status ellipsized instead of wrapping.
+- Reworked light-theme call controls for both the in-panel controls and minimized call bubble, with explicit semantic colors and visible SVGs. Dark-theme rules are unchanged.
+- Replaced the tiny recording-cancel glyph with a larger centered SVG X and fixed-size control.
+
+### Isolation and verification
+- Beta uses the existing Staging Supabase project, function upstatus-test, an independent Realtime topic, ringtone channel and local storage prefix.
+- Production upstatus, production upstatus-test, the stable userscript and master branch are not modified.
+- No database migration or data deletion is part of this candidate.
+- GitHub Actions validation run #2367 passed. Staging `upstatus-test` is deployed as version 8 (ACTIVE), source hash `66451104ef80f36919d19bc34e9628eb52d3b23446a354fa83a7a74924afc130`; `/health`, `/api/update-info`, served userscript header and `/api/members` were verified. Manual acceptance remains with Ricardo.
+
 ## 3.5.0 (2026-11-27)
 
 ### Status synchronization without page reload

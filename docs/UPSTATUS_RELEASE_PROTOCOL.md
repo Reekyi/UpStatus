@@ -9,8 +9,11 @@ Last reviewed: 2026-11-27
 - `release.json`: `version=3.5.0`, empty `preRelease`, stable installer `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus/upstatus.user.js`.
 - Official Supabase function: `upstatus`, project `mvjqunhjxkbfcrxkjtgf`, deployment version **6**, status **ACTIVE**, `verify_jwt=false`, source hash `d4127ecf63de3e26901d4d4b306f03da38114605dfac1ef4ca2505b6e39240b9`.
 - Official `/health` returned `ok:true`, version `3.5.0`; `/api/update-info` returned the matching stable update route. Served userscript reports `@version 3.5.0`, namespace `upseller`.
-- No active candidate. Separate live-integration regression function `upstatus-test` remains ACTIVE at deployment version **4**, `3.5.0-beta.5`, hash `71c0446cfb0608b831088f8782f883198758561f809c496e82f0ed7c77f798b7`; it is not the official updater.
-- Staging project `akbgmmpnnpwcwgcfrltw` remains available; the live-team beta was intentionally hosted in a distinct function in the production project to share team data/Realtime after Ricardo's explicit authorization.
+- Active candidate: **3.5.1-beta.2**, branch `beta/3.5.1-beta.2-agenda-status-mirror`, separate from master.
+- Existing production live-integration function `upstatus-test` remains ACTIVE at deployment version **4**, `3.5.0-beta.5`, hash `71c0446cfb0608b831088f8782f883198758561f809c496e82f0ed7c77f798b7`; it is not used or overwritten.
+- Beta 2 uses a new dedicated production-project function `upstatus-351-test` in project `mvjqunhjxkbfcrxkjtgf`. It shares production DB, Storage, profiles, chat and established Realtime/ringtone coordination to expose the live team data, while keeping a separate Edge Function route, userscript namespace `upseller-test`, updater manifest and local storage prefix `upstatus_351_beta2_`.
+- The beta installer URL is `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-351-test/upstatus.user.js`.
+- Official function `upstatus` v6 and Beta 5 function `upstatus-test` v4 must not be modified. The Staging Beta 1 function `upstatus-test` v8 is also left intact.
 - Last user-provided quota screenshot before official deploy (2026-11-27): Egress 0.56/5 GB (11.2%); DB 38/500 MB (7.6%); MAU 0/50,000; Storage 0/1 GB; Log Ingestion 0.53/1 GB (53%); Log Query 1.37/100 GB (1.37%). This is a pre-deploy snapshot, not live post-deploy telemetry.
 - Recheck current quota usage before any future usage-intensive changes. Log Ingestion was above the 50% alert threshold but below the 60% investigation threshold in the last supplied screenshot.
 - Never infer runtime state from GitHub alone. Recheck the function metadata and public health/update endpoints before future release claims.
@@ -90,7 +93,7 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 3. **Isolate work:** make a dedicated GitHub branch from the verified stable baseline or current approved integration base. Keep `master` stable. Do not create Supabase database branches without explicit cost approval.
 4. **Build beta:** update the single version source `release.json` according to existing build conventions and generate artifacts via repository build scripts. Beta output must be unmistakably labeled `-beta.N`.
 5. **Validate before deploying:** run `npm run validate` (or the actual repository validation command if package scripts differ), including build, syntax checks, client/server artifact parity, and regression tests. Add focused regression tests. Inspect generated diffs and ensure no unrelated changes or production identifiers drift.
-6. **Deploy beta according to its integration mode:** default to the isolated Staging project `akbgmmpnnpwcwgcfrltw`. When the user explicitly requires interoperability with the live team, a dedicated `upstatus-test` Edge Function may be deployed in the production project, but never replace `upstatus`. In this mode, database, Storage, and Realtime are intentionally shared; local userscript namespace/storage prefix and function route remain separate. Confirm the runtime target, function slug, live API responses, member allowlist, and stable function health before handoff.
+6. **Deploy beta according to its integration mode:** default to the isolated Staging project `akbgmmpnnpwcwgcfrltw`. When Ricardo explicitly requires interoperability with the live team, deploy a new dedicated function slug in the production project (Beta 2: `upstatus-351-test`). Never overwrite stable `upstatus` or an existing beta function such as Beta 5 `upstatus-test`. In this mode, DB, Storage and Realtime are intentionally shared; function route, userscript namespace, update manifest and local storage prefix remain separate. Confirm runtime target, function slug, live API responses, member allowlist and stable function health before handoff.
 7. **Hand over for user testing:** provide exact beta version, installation/update URL, deployment status, changes, test checklist, known risks, quota-impact assessment, and rollback approach. Be explicit when something could not be verified.
 8. **Wait for explicit approval:** phrases such as “aprovado” or “pode lançar oficial” are required before stable promotion. “Testei” alone is not approval unless acceptance is clear.
 9. **Promote safely:** after explicit approval, review final diff, merge approved changes into `master`, update stable version and changelog, run full validation, deploy production only using the production workflow, verify live production endpoint, then update this protocol with the new official version and no active beta.
@@ -148,3 +151,37 @@ Log ingestion is the current pressure point: nearly half of its monthly allowanc
 - GitHub Actions UpStatus Validate: PR run #2362 passed; master post-merge run #2363 passed.
 - A separate retired Lucca Portal Pages workflow run failed because GitHub Pages is not enabled/configured for this repository. Its upload/deploy steps were skipped; it did not affect UpStatus validation or Supabase deployment.
 - Quota baseline remains the pre-deploy user-provided screenshot shown above. No live post-deploy quota total was available in the connector.
+
+
+## 3.5.1-beta.1 candidate isolation (2026-11-27)
+
+- Candidate branch: beta/3.5.1-beta.1-ui-fixes.
+- Beta manifest on this branch: 3.5.1-beta.1, pointing to the Staging upstatus-test installer.
+- Staging project: akbgmmpnnpwcwgcfrltw; candidate runtime function: upstatus-test.
+- Production project mvjqunhjxkbfcrxkjtgf is read-only for this cycle. Do not deploy or overwrite production upstatus or production upstatus-test.
+- The beta uses its own Staging Realtime topic, ringtone coordination channel, publishable key, storage prefix and updater manifest. Never reuse the production team topic for this isolated beta.
+- No SQL migration, user-row deletion, history deletion, or Supabase project/branch creation is authorized or required for these UI and identity-filter corrections.
+- Before handoff, validate the branch through GitHub Actions, deploy only Staging upstatus-test, and verify deployment metadata and served version. Manual tests by Ricardo remain required; do not promote to stable until his explicit approval.
+
+- Deployment result: Staging `upstatus-test` version **8**, ACTIVE, `verify_jwt=false`, source hash `66451104ef80f36919d19bc34e9628eb52d3b23446a354fa83a7a74924afc130`.
+- GitHub Actions validation run **#2367** passed. Runtime `/health` returned `ok:true` and `3.5.1-beta.1`; `/api/update-info` returned version `3.5.1-beta.1`; served userscript reports `@version 3.5.1-beta.1`, namespace `upseller-test`, and the Staging installer URL. `/api/members` returned only Guilherme, Lohan and Ricardo.
+- Production functions remain unchanged: official `upstatus` v6 and production `upstatus-test` v4. Staging distributor `upstatus` v1 was not changed.
+
+
+## 3.5.1-beta.2 design and isolation (2026-11-27)
+
+- Candidate branch: `beta/3.5.1-beta.2-agenda-status-mirror`.
+- Runtime target: new dedicated function `upstatus-351-test` in the existing production project `mvjqunhjxkbfcrxkjtgf`, only because Ricardo explicitly requested the Beta 2 to use the live team's data. Do not reuse/overwrite production `upstatus-test` Beta 5.
+- Beta install URL: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-351-test/upstatus.user.js`.
+- The Beta 2 shares database, Storage, profiles, chat, live Realtime topic and ringtone coordination. Its namespace is `upseller-test`, local storage prefix is `upstatus_351_beta2_`, and updater points to the Beta 2 branch manifest.
+- Production stable function `upstatus` v6, production Beta 5 function `upstatus-test` v4, Staging `upstatus` v1, and Staging Beta 1 `upstatus-test` v8 must remain unchanged.
+- No database migrations, user/account deletions, history deletion, storage copy, or data cleanup are part of this beta.
+- Status source-of-truth rule: Sale Smartly Pinia `user.onlineStatus` is authoritative. An UpStatus status POST is accepted only with an explicit confirmation flag after the native Sale Smartly action has succeeded. Direct Sale Smartly state changes are observed and mirrored into UpStatus. Programmatic updates are marked to prevent observer feedback loops.
+- Agenda authorization: Ricardo, Guilherme and Lohan can view the full agenda. Each member may edit only their own lunch choice (12h–13h or 13h–14h) for the current day. Only Ricardo may assign or clear the four daily training slots and the weekly Aulão owner. Empty slots are intentionally no-ops.
+- Aulão persists Monday–Friday for the selected week and pauses the owner 15h–17h. Daily training slots are 10h, 11h, 15h and 16h. Lunch is individual. No automatic morning activation is added. Weekday end-of-day status is Away at 18h.
+- Scheduler reconciles the current desired state at local schedule boundaries and when the page resumes; it must not replay missed transitions in sequence. Status changes still require the employee's Sale Smartly browser session to be open.
+- Avoid schedule polling loops: one-shot local timers are aligned to relevant boundaries; state writes should occur only on actual runtime changes. Agenda configuration prunes old daily/week records.
+- This beta shares live data and therefore can update real team statuses and append status history during testing. No destructive operations are permitted.
+- GitHub Actions validation run **#2372** passed, including schedule regression tests. New production-project `upstatus-351-test` function is deployment version **1**, ACTIVE, `verify_jwt=false`, source hash `65f799972b086081304e1e0895b41f2ce385c61b46545bb43f231d42ff8ae2af`.
+- Runtime verification: `/health` returned `ok:true`, version `3.5.1-beta.2`; `/api/update-info` returned the matching version and route; served userscript reports `@version 3.5.1-beta.2`, namespace `upseller-test`, and the dedicated installer URL. `/api/members` returned only Guilherme, Lohan and Ricardo.
+- Production official `upstatus` v6 and existing production Beta 5 `upstatus-test` v4 remain unchanged. Ricardo's visual/functional acceptance is pending.

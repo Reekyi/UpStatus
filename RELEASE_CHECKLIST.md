@@ -4,10 +4,12 @@
 
 - [ ] Confirmar a versão em `release.json`.
 - [ ] Rodar `node scripts/validate.mjs`.
-- [ ] Confirmar que TEST usa `upstatus-test`.
-- [ ] Confirmar que TEST não contém URLs de atualização de produção.
-- [ ] Confirmar storage, Realtime e ringtone isolados.
-- [ ] Deploy somente de `upstatus-test`.
+- [ ] Confirmar manifesto Beta 2 `3.5.1-beta.2` e rota `upstatus-351-test`.
+- [ ] Confirmar namespace `upseller-test` e local storage prefix `upstatus_351_beta2_`.
+- [ ] Confirmar Realtime/Storage/DB compartilhados intencionalmente com produção.
+- [ ] Confirmar produção `upstatus` e Beta 5 `upstatus-test` permanecem intocadas.
+- [ ] Rodar `node scripts/validate.mjs` e exigir GitHub Actions verde antes do deploy.
+- [ ] Deploy somente da função `upstatus-351-test` no projeto `mvjqunhjxkbfcrxkjtgf`.
 
 ## Teste funcional obrigatório
 
