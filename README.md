@@ -6,10 +6,9 @@ For every new AI-assisted task, first read [`AGENTS.md`](AGENTS.md), then [`docs
 
 ## Current release checkpoint
 
-- Official: **3.4.9**
-- Deployed beta: **3.5.0-beta.5** (dedicated `upstatus-test` function; manual cross-user visual validation pending)
-- Previous beta: **3.5.0-beta.4**
-- Next beta if Beta 5 is rejected: **3.5.0-beta.6**
+- Official: **3.5.0**
+- No active release candidate. The dedicated `upstatus-test` function remains on **3.5.0-beta.5** for regression/reference testing.
+- Previous official: **3.4.9**
 - Beta TEST URL: `https://mvjqunhjxkbfcrxkjtgf.supabase.co/functions/v1/upstatus-test/upstatus.user.js`
 - The beta uses its own Edge Function, namespace and local storage prefix; the stable `upstatus` function and stable userscript URL are unchanged.
 - Verify live `release.json`, Git refs, and Supabase deployments before relying on this snapshot.
